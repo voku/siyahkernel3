@@ -13,7 +13,6 @@
 #include <linux/capability.h>
 #include <linux/mnt_namespace.h>
 #include <linux/user_namespace.h>
-#include <linux/proc_fs.h>
 #include <linux/namei.h>
 #include <linux/security.h>
 #include <linux/idr.h>
@@ -22,6 +21,7 @@
 #include <linux/fs_struct.h>	/* get_fs_root et.al. */
 #include <linux/fsnotify.h>	/* fsnotify_vfsmount_delete */
 #include <linux/uaccess.h>
+#include <linux/proc_fs.h>
 #include <linux/magic.h>
 #include "pnode.h"
 #include "internal.h"
@@ -1312,6 +1312,26 @@ static int mount_is_safe(struct path *path)
 #endif
 }
 
+static bool mnt_ns_loop(struct path *path)
+{
+	/* Could bind mounting the mount namespace inode cause a
+	 * mount namespace loop?
+	 */
+	struct inode *inode = path->dentry->d_inode;
+	struct proc_inode *ei;
+	struct mnt_namespace *mnt_ns;
+
+	if (!proc_ns_inode(inode))
+		return false;
+
+	ei = PROC_I(inode);
+	if (ei->ns_ops != &mntns_operations)
+		return false;
+
+	mnt_ns = ei->ns;
+	return current->nsproxy->mnt_ns->seq >= mnt_ns->seq;
+}
+
 struct mount *copy_tree(struct mount *mnt, struct dentry *dentry,
 					int flag)
 {
@@ -1658,6 +1678,10 @@ static int do_loopback(struct path *path, const char *old_name,
 	err = kern_path(old_name, LOOKUP_FOLLOW|LOOKUP_AUTOMOUNT, &old_path);
 	if (err)
 		return err;
+
+	err = -EINVAL;
+	if (mnt_ns_loop(&old_path))
+		goto out; 
 
 	err = lock_mount(path);
 	if (err)
@@ -2305,6 +2329,7 @@ static struct mnt_namespace *alloc_mnt_ns(struct user_namespace *user_ns)
 		kfree(new_ns);
 		return ERR_PTR(ret);
 	}
+	new_ns->seq = atomic64_add_return(1, &mnt_ns_seq);
 	atomic_set(&new_ns->count, 1);
 	new_ns->root = NULL;
 	INIT_LIST_HEAD(&new_ns->list);

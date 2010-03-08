@@ -31,6 +31,7 @@ static const struct proc_ns_operations *ns_entries[] = {
 #ifdef CONFIG_USER_NS
 	&userns_operations,
 #endif
+	&mntns_operations,
 };
 
 static const struct file_operations ns_file_operations = {
@@ -336,3 +337,7 @@ out_invalid:
 	return ERR_PTR(-EINVAL);
 }
 
+bool proc_ns_inode(struct inode *inode)
+{
+	return inode->i_fop == &ns_file_operations;
+}
