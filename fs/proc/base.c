@@ -2994,19 +2994,13 @@ static int fake_filldir(void *buf, const char *name, int namelen,
 /* for the /proc/ directory itself, after non-process stuff has been done */
 int proc_pid_readdir(struct file * filp, void * dirent, filldir_t filldir)
 {
-	unsigned int nr;
-	struct task_struct *reaper;
 	struct tgid_iter iter;
 	struct pid_namespace *ns;
 	filldir_t __filldir;
 	loff_t pos = filp->f_pos;
 
 	if (pos >= PID_MAX_LIMIT + TGID_OFFSET)
-		goto out_no_task;
-
-	reaper = get_proc_task(filp->f_path.dentry->d_inode);
-	if (!reaper)
-		goto out_no_task;
+		goto out;
 
 	if (pos == TGID_OFFSET - 1) {
 		if (proc_fill_cache(filp, dirent, filldir, "self", 4,
@@ -3034,8 +3028,6 @@ int proc_pid_readdir(struct file * filp, void * dirent, filldir_t filldir)
 	}
 	filp->f_pos = PID_MAX_LIMIT + TGID_OFFSET;
 out:
-	put_task_struct(reaper);
-out_no_task:
 	return 0;
 }
 
