@@ -168,6 +168,7 @@ void __init proc_root_init(void)
 	if (err)
 		return;
 
+	proc_self_init();
 	proc_symlink("mounts", NULL, "self/mounts");
 
 	proc_net_init();
