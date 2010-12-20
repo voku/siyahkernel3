@@ -49,8 +49,7 @@ struct machine_desc {
 	enum reboot_mode	reboot_mode;	/* default restart mode */
 	struct			smp_operations  *smp; /* SMP operations  */
 	bool			(*smp_init)(void);
-	void			(*fixup)(struct machine_desc *,
-					 struct tag *, char **,
+	void			(*fixup)(struct tag *, char **,
 					 struct meminfo *);
 	void			(*reserve)(void);/* reserve mem blocks	*/
 	void			(*map_io)(void);/* IO mapping function	*/

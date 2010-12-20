@@ -324,6 +324,13 @@ static void __init realview_pbx_timer_init(void)
 	realview_pbx_twd_init();
 }
 
+<<<<<<< HEAD
+=======
+static struct sys_timer realview_pbx_timer = {
+	.init		= realview_pbx_timer_init,
+};
+
+>>>>>>> 0744a3e... ARM: platform fixups: remove mdesc argument to fixup function
 static void realview_pbx_fixup(struct tag *tags, char **from,
 			       struct meminfo *meminfo)
 {

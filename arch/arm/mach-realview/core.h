@@ -53,8 +53,12 @@ extern int realview_usb_register(struct resource *res);
 extern void realview_init_early(void);
 extern void realview_fixup(struct tag *tags, char **from,
 			   struct meminfo *meminfo);
+<<<<<<< HEAD
 
 extern struct smp_operations realview_smp_ops;
 extern void realview_cpu_die(unsigned int cpu);
+=======
+extern void (*realview_reset)(char);
+>>>>>>> 0744a3e... ARM: platform fixups: remove mdesc argument to fixup function
 
 #endif
