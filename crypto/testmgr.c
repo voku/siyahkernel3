@@ -2108,6 +2108,7 @@ static const struct alg_test_desc alg_test_descs[] = {
 	}, {
 		.alg = "ghash",
 		.test = alg_test_hash,
+		.fips_allowed = 1,
 		.suite = {
 			.hash = {
 				.vecs = ghash_tv_template,
