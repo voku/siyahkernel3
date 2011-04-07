@@ -382,6 +382,7 @@ static void hci_uart_tty_wakeup(struct tty_struct *tty)
  */
 static void hci_uart_tty_receive(struct tty_struct *tty, const u8 *data, char *flags, int count)
 {
+	int ret;
 	struct hci_uart *hu = (void *)tty->disc_data;
 
 #if defined(CONFIG_BT_CSR8811)
@@ -401,8 +402,9 @@ static void hci_uart_tty_receive(struct tty_struct *tty, const u8 *data, char *f
 /* CSR8811 Project(Dayton.Kim) end */
 
 	spin_lock(&hu->rx_lock);
-	hu->proto->recv(hu, (void *) data, count);
-	hu->hdev->stat.byte_rx += count;
+	ret = hu->proto->recv(hu, (void *) data, count);
+	if (ret > 0)
+		hu->hdev->stat.byte_rx += count;
 	spin_unlock(&hu->rx_lock);
 
 	tty_unthrottle(tty);
