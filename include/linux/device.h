@@ -20,7 +20,7 @@
 #include <linux/lockdep.h>
 #include <linux/compiler.h>
 #include <linux/types.h>
-#include <linux/module.h>
+#include <linux/mutex.h>
 #include <linux/pm.h>
 #include <linux/atomic.h>
 #include <linux/ratelimit.h>
@@ -31,6 +31,7 @@ struct device;
 struct device_private;
 struct device_driver;
 struct driver_private;
+struct module;
 struct class;
 struct subsys_private;
 struct bus_type;
