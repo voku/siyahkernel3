@@ -1945,6 +1945,8 @@ static inline void memalloc_noio_restore(unsigned int flags)
 
 #define JOBCTL_PENDING_MASK	JOBCTL_STOP_PENDING
 
+extern bool task_set_jobctl_pending(struct task_struct *task,
+				    unsigned int mask);
 extern void task_clear_jobctl_pending(struct task_struct *task,
 				      unsigned int mask);
 
