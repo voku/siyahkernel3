@@ -25,6 +25,7 @@
 #include <linux/slab.h>
 #include "tulip.h"
 #include <linux/init.h>
+#include <linux/interrupt.h>
 #include <linux/etherdevice.h>
 #include <linux/delay.h>
 #include <linux/mii.h>

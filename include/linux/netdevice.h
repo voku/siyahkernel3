@@ -1556,7 +1556,6 @@ struct packet_type {
 	struct list_head	list;
 };
 
-#include <linux/interrupt.h>
 #include <linux/notifier.h>
 
 /* netdevice notifier chain. Please remember to update the rtnetlink
