@@ -8406,7 +8406,6 @@ early_initcall(__might_sleep_init);
 
 void __might_sleep(const char *file, int line, int preempt_offset)
 {
-#ifdef in_atomic
 	static unsigned long prev_jiffy;	/* ratelimiting */
 
 	if ((preempt_count_equals(preempt_offset) && !irqs_disabled()) ||
@@ -8431,7 +8430,6 @@ void __might_sleep(const char *file, int line, int preempt_offset)
 	if (irqs_disabled())
 		print_irqtrace_events(current);
 	dump_stack();
-#endif
 }
 EXPORT_SYMBOL(__might_sleep);
 #endif
