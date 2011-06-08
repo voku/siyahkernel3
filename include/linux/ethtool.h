@@ -43,18 +43,6 @@ struct compat_ethtool_rxnfc {
 /* needed by dev_disable_lro() */
 extern int __ethtool_set_flags(struct net_device *dev, u32 flags);
 
-struct ethtool_rx_ntuple_flow_spec_container {
-	struct ethtool_rx_ntuple_flow_spec fs;
-	struct list_head list;
-};
-
-struct ethtool_rx_ntuple_list {
-#define ETHTOOL_MAX_NTUPLE_LIST_ENTRY 1024
-#define ETHTOOL_MAX_NTUPLE_STRING_PER_ENTRY 14
-	struct list_head	list;
-	unsigned int		count;
-};
-
 /**
  * enum ethtool_phys_id_state - indicator state for physical identification
  * @ETHTOOL_ID_INACTIVE: Physical ID indicator should be deactivated
@@ -87,7 +75,6 @@ u32 ethtool_op_get_ufo(struct net_device *dev);
 int ethtool_op_set_ufo(struct net_device *dev, u32 data);
 u32 ethtool_op_get_flags(struct net_device *dev);
 int ethtool_op_set_flags(struct net_device *dev, u32 data, u32 supported);
-void ethtool_ntuple_flush(struct net_device *dev);
 bool ethtool_invalid_flags(struct net_device *dev, u32 data, u32 supported);
 
 /**
@@ -194,7 +181,6 @@ bool ethtool_invalid_flags(struct net_device *dev, u32 data, u32 supported);
  *	error code or zero.
  * @set_rx_ntuple: Set an RX n-tuple rule.  Returns a negative error code
  *	or zero.
- * @get_rx_ntuple: Deprecated.
  * @get_rxfh_indir: Get the contents of the RX flow hash indirection table.
  *	Returns a negative error code or zero.
  * @set_rxfh_indir: Set the contents of the RX flow hash indirection table.
@@ -273,7 +259,6 @@ struct ethtool_ops {
 	int	(*reset)(struct net_device *, u32 *);
 	int	(*set_rx_ntuple)(struct net_device *,
 				 struct ethtool_rx_ntuple *);
-	int	(*get_rx_ntuple)(struct net_device *, u32 stringset, void *);
 	int	(*get_rxfh_indir)(struct net_device *,
 				  struct ethtool_rxfh_indir *);
 	int	(*set_rxfh_indir)(struct net_device *,
