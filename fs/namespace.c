@@ -2275,6 +2275,7 @@ dput_out:
 
 static void free_mnt_ns(struct mnt_namespace *ns)
 {
+	proc_free_inum(ns->proc_inum);
 	put_user_ns(ns->user_ns);
 	kfree(ns);
 }
@@ -2291,10 +2292,16 @@ static atomic64_t mnt_ns_seq = ATOMIC64_INIT(1);
 static struct mnt_namespace *alloc_mnt_ns(struct user_namespace *user_ns)
 {
 	struct mnt_namespace *new_ns;
+	int ret;
 
 	new_ns = kmalloc(sizeof(struct mnt_namespace), GFP_KERNEL);
 	if (!new_ns)
 		return ERR_PTR(-ENOMEM);
+	ret = proc_alloc_inum(&new_ns->proc_inum);
+	if (ret) {
+		kfree(new_ns);
+		return ERR_PTR(ret);
+	}
 	atomic_set(&new_ns->count, 1);
 	new_ns->root = NULL;
 	INIT_LIST_HEAD(&new_ns->list);
