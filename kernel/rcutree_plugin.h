@@ -1518,7 +1518,7 @@ static int __cpuinit rcu_spawn_one_cpu_kthread(int cpu)
 	t = kthread_create_on_node(rcu_cpu_kthread,
 				   (void *)(long)cpu,
 				   cpu_to_node(cpu),
-				   "rcuc/%d", cpu);
+				   "rcuc%d", cpu);
 	if (IS_ERR(t))
 		return PTR_ERR(t);
 	if (cpu_online(cpu))
