@@ -1249,7 +1249,12 @@ static int check_unsafe_exec(struct linux_binprm *bprm)
 	unsigned n_fs;
 	int res = 0;
 
-	bprm->unsafe = tracehook_unsafe_exec(p);
+	if (p->ptrace) {
+		if (p->ptrace & PT_PTRACE_CAP)
+			bprm->unsafe |= LSM_UNSAFE_PTRACE_CAP;
+		else
+			bprm->unsafe |= LSM_UNSAFE_PTRACE;
+	}
 
 	/*
 	 * This isn't strictly necessary, but it makes it harder for LSMs to
