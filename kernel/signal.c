@@ -1641,7 +1641,7 @@ int do_notify_parent(struct task_struct *tsk, int sig)
  	/* do_notify_parent_cldstop should have been called instead.  */
  	BUG_ON(task_is_stopped_or_traced(tsk));
 
-	BUG_ON(!task_ptrace(tsk) &&
+	BUG_ON(!tsk->ptrace &&
 	       (tsk->group_leader != tsk || !thread_group_empty(tsk)));
 
 	info.si_signo = sig;
@@ -1680,7 +1680,7 @@ int do_notify_parent(struct task_struct *tsk, int sig)
 
 	psig = tsk->parent->sighand;
 	spin_lock_irqsave(&psig->siglock, flags);
-	if (!task_ptrace(tsk) && sig == SIGCHLD &&
+	if (!tsk->ptrace && sig == SIGCHLD &&
 	    (psig->action[SIGCHLD-1].sa.sa_handler == SIG_IGN ||
 	     (psig->action[SIGCHLD-1].sa.sa_flags & SA_NOCLDWAIT))) {
 		/*
@@ -1783,7 +1783,7 @@ static void do_notify_parent_cldstop(struct task_struct *tsk,
 
 static inline int may_ptrace_stop(void)
 {
-	if (!likely(task_ptrace(current)))
+	if (!likely(current->ptrace))
 		return 0;
 	/*
 	 * Are we in the middle of do_coredump?
@@ -2062,7 +2062,7 @@ static bool do_signal_stop(int signr)
 		}
 	}
 
-	if (likely(!task_ptrace(current))) {
+	if (likely(!current->ptrace)) {
 		int notify = 0;
 
 		/*
@@ -2142,7 +2142,7 @@ static void do_jobctl_trap(void)
 static int ptrace_signal(int signr, siginfo_t *info,
 			 struct pt_regs *regs, void *cookie)
 {
-	if (!task_ptrace(current))
+	if (!current->ptrace)
 		return signr;
 
 	ptrace_signal_deliver(regs, cookie);
@@ -2230,7 +2230,7 @@ relock:
 		do_notify_parent_cldstop(current, false, why);
 
 		leader = current->group_leader;
-		if (task_ptrace(leader) && !real_parent_is_ptracer(leader))
+		if (leader->ptrace && !real_parent_is_ptracer(leader))
 			do_notify_parent_cldstop(leader, true, why);
 
 		read_unlock(&tasklist_lock);
