@@ -1,8 +1,7 @@
 #ifndef _LINUX_FS_H
 #define _LINUX_FS_H
 
-#include <linux/blk_types.h>
-#include <linux/percpu-rwsem.h>
+
 #include <linux/linkage.h>
 #include <linux/wait.h>
 #include <linux/kdev_t.h>
@@ -22,9 +21,12 @@
 #include <linux/fiemap.h>
 #include <linux/rculist_bl.h>
 #include <linux/atomic.h>
-#include <linux/migrate_mode.h>
-#include <linux/lockdep.h>
 #include <linux/shrinker.h>
+#include <linux/migrate_mode.h>
+#include <linux/uidgid.h>
+#include <linux/lockdep.h>
+#include <linux/percpu-rwsem.h>
+#include <linux/blk_types.h>
 
 #include <asm/byteorder.h>
 #include <uapi/linux/fs.h>
@@ -42,6 +44,7 @@ struct vm_area_struct;
 struct vfsmount;
 struct cred;
 struct swap_info_struct;
+struct seq_file;
 
 extern void __init inode_init(void);
 extern void __init inode_init_early(void);
@@ -661,9 +664,11 @@ static inline loff_t i_size_read(const struct inode *inode)
 static inline void i_size_write(struct inode *inode, loff_t i_size)
 {
 #if BITS_PER_LONG==32 && defined(CONFIG_SMP)
+	preempt_disable();
 	write_seqcount_begin(&inode->i_size_seqcount);
 	inode->i_size = i_size;
 	write_seqcount_end(&inode->i_size_seqcount);
+	preempt_enable();
 #elif BITS_PER_LONG==32 && defined(CONFIG_PREEMPT)
 	preempt_disable();
 	inode->i_size = i_size;
@@ -2178,9 +2183,6 @@ static inline bool execute_ok(struct inode *inode)
 	return (inode->i_mode & S_IXUGO) || S_ISDIR(inode->i_mode);
 }
 
-extern int get_write_access(struct inode *);
-extern int deny_write_access(struct file *);
-
 static inline struct inode *file_inode(struct file *f)
 {
 	return f->f_path.dentry->d_inode;
@@ -2200,6 +2202,31 @@ static inline void file_end_write(struct file *file)
 	__sb_end_write(file_inode(file)->i_sb, SB_FREEZE_WRITE);
 }
 
+/*
+ * get_write_access() gets write permission for a file.
+ * put_write_access() releases this write permission.
+ * This is used for regular files.
+ * We cannot support write (and maybe mmap read-write shared) accesses and
+ * MAP_DENYWRITE mmappings simultaneously. The i_writecount field of an inode
+ * can have the following values:
+ * 0: no writers, no VM_DENYWRITE mappings
+ * < 0: (-i_writecount) vm_area_structs with VM_DENYWRITE set exist
+ * > 0: (i_writecount) users are writing to the file.
+ *
+ * Normally we operate on that counter with atomic_{inc,dec} and it's safe
+ * except for the cases where we don't hold i_writecount yet. Then we need to
+ * use {get,deny}_write_access() - these functions check the sign and refuse
+ * to do the change if sign is wrong.
+ */
+static inline int get_write_access(struct inode *inode)
+{
+	return atomic_inc_unless_negative(&inode->i_writecount) ? 0 : -ETXTBSY;
+}
+static inline int deny_write_access(struct file *file)
+{
+	struct inode *inode = file_inode(file);
+	return atomic_dec_unless_positive(&inode->i_writecount) ? 0 : -ETXTBSY;
+}
 static inline void put_write_access(struct inode * inode)
 {
 	atomic_dec(&inode->i_writecount);
@@ -2382,8 +2409,6 @@ enum {
 };
 
 void dio_end_io(struct bio *bio, int error);
-void inode_dio_wait(struct inode *inode);
-void inode_dio_done(struct inode *inode);
 
 ssize_t __blockdev_direct_IO(int rw, struct kiocb *iocb, struct inode *inode,
 	struct block_device *bdev, const struct iovec *iov, loff_t offset,
@@ -2398,11 +2423,10 @@ static inline ssize_t blockdev_direct_IO(int rw, struct kiocb *iocb,
 				    offset, nr_segs, get_block, NULL, NULL,
 				    DIO_LOCKING | DIO_SKIP_HOLES);
 }
-#else
-static inline void inode_dio_wait(struct inode *inode)
-{
-}
 #endif
+
+void inode_dio_wait(struct inode *inode);
+void inode_dio_done(struct inode *inode);
 
 extern const struct file_operations generic_ro_fops;
 
