@@ -234,8 +234,8 @@ int generic_permission(struct inode *inode, int mask)
 	}
 	/*
 	 * Read/write DACs are always overridable.
-	 * Executable DACs are overridable for all directories and
-	 * for non-directories that have least one exec bit set.
+	 * Executable DACs are overridable when there is
+	 * at least one exec bit set.
 	 */
 	if (!(mask & MAY_EXEC) || (inode->i_mode & S_IXUGO))
 		if (inode_capable(inode, CAP_DAC_OVERRIDE))
