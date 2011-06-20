@@ -173,6 +173,8 @@ static int acl_permission_check(struct inode *inode, int mask, unsigned int flag
 	int (*check_acl)(struct inode *inode, int mask, unsigned int flags);
 	unsigned int mode = inode->i_mode;
 
+	mask &= MAY_READ | MAY_WRITE | MAY_EXEC | MAY_NOT_BLOCK;
+
 	if (likely(uid_eq(current_fsuid(), inode->i_uid)))
 		mode >>= 6;
 	else {
