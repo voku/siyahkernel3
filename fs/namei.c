@@ -323,13 +323,16 @@ int inode_permission(struct inode *inode, int mask)
 static inline int exec_permission(struct inode *inode, unsigned int flags)
 {
 	int ret;
+	int mask = MAY_EXEC;
+	if (flags & IPERM_FLAG_RCU)
+		mask |= MAY_NOT_BLOCK;
 
 	if (inode->i_op->permission) {
-		ret = inode->i_op->permission(inode, MAY_EXEC, flags);
+		ret = inode->i_op->permission(inode, mask, flags);
 		if (likely(!ret))
 			goto ok;
 	} else {
-		ret = acl_permission_check(inode, MAY_EXEC, flags);
+		ret = acl_permission_check(inode, mask, flags);
 		if (likely(!ret))
 			goto ok;
 		if (ret != -EACCES)
