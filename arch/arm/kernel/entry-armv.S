@@ -180,16 +180,15 @@ ENDPROC(__und_invalid)
 	@  r6 - orig_r0 (see pt_regs definition in ptrace.h)
 	@
 	stmia	r7, {r2 - r6}
+
+#ifdef CONFIG_TRACE_IRQFLAGS
+	bl	trace_hardirqs_off
+#endif
 	.endm
 
 	.align	5
 __dabt_svc:
 	svc_entry
-
-#ifdef CONFIG_TRACE_IRQFLAGS
-	bl	trace_hardirqs_off
-#endif
-
 	dabt_helper
 
 	@
@@ -220,11 +219,6 @@ ENDPROC(__dabt_svc)
 	.align	5
 __irq_svc:
 	svc_entry
-
-#ifdef CONFIG_TRACE_IRQFLAGS
-	bl	trace_hardirqs_off
-#endif
-
 	irq_handler
 
 #ifdef CONFIG_PREEMPT
@@ -268,11 +262,6 @@ __und_svc:
 #else
 	svc_entry
 #endif
-
-#ifdef CONFIG_TRACE_IRQFLAGS
-	bl	trace_hardirqs_off
-#endif
-
 	@
 	@ call emulation code, which returns using r9 if it has emulated
 	@ the instruction, or the more conventional lr if we are to treat
@@ -318,11 +307,6 @@ ENDPROC(__und_svc)
 	.align	5
 __pabt_svc:
 	svc_entry
-
-#ifdef CONFIG_TRACE_IRQFLAGS
-	bl	trace_hardirqs_off
-#endif
-
 	pabt_helper
 	mov	r2, sp				@ regs
 	bl	do_PrefetchAbort		@ call abort handler
@@ -402,6 +386,10 @@ ENDPROC(__pabt_svc)
 	@ Clear FP to mark the first stack frame
 	@
 	zero_fp
+
+#ifdef CONFIG_IRQSOFF_TRACER
+	bl	trace_hardirqs_off
+#endif
 	.endm
 
 	.macro	kuser_cmpxchg_check
@@ -422,11 +410,6 @@ ENDPROC(__pabt_svc)
 	.align	5
 __dabt_usr:
 	usr_entry
-
-#ifdef CONFIG_IRQSOFF_TRACER
-	bl	trace_hardirqs_off
-#endif
-
 	kuser_cmpxchg_check
 	dabt_helper
 
@@ -439,11 +422,6 @@ ENDPROC(__dabt_usr)
 	.align	5
 __irq_usr:
 	usr_entry
-
-#ifdef CONFIG_IRQSOFF_TRACER
-	bl	trace_hardirqs_off
-#endif
-
 	kuser_cmpxchg_check
 	irq_handler
 	get_thread_info tsk
@@ -457,10 +435,6 @@ ENDPROC(__irq_usr)
 	.align	5
 __und_usr:
 	usr_entry
-
-#ifdef CONFIG_IRQSOFF_TRACER
-	bl	trace_hardirqs_off
-#endif
 
 	mov	r2, r4
 	mov	r3, r5
@@ -676,11 +650,6 @@ ENDPROC(__und_usr_unknown)
 	.align	5
 __pabt_usr:
 	usr_entry
-
-#ifdef CONFIG_IRQSOFF_TRACER
-	bl	trace_hardirqs_off
-#endif
-
 	pabt_helper
 	mov	r2, sp				@ regs
 	bl	do_PrefetchAbort		@ call abort handler
