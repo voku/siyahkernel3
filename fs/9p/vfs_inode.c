@@ -713,7 +713,7 @@ v9fs_vfs_create(struct inode *dir, struct dentry *dentry, umode_t mode,
 	fid = NULL;
 	v9ses = v9fs_inode2v9ses(dir);
 	perm = unixmode2p9mode(v9ses, mode);
-	if (nd && nd->flags & LOOKUP_OPEN)
+	if (nd)
 		flags = nd->intent.open.flags;
 	else
 		flags = O_RDWR;

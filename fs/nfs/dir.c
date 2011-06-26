@@ -1588,7 +1588,7 @@ static int nfs_open_create(struct inode *dir, struct dentry *dentry,
 	attr.ia_mode = mode;
 	attr.ia_valid = ATTR_MODE;
 
-	if ((nd->flags & LOOKUP_CREATE) != 0) {
+	if (nd)
 		open_flags = nd->intent.open.flags;
 
 		ctx = nameidata_to_nfs_open_context(dentry, nd);
@@ -1600,7 +1600,7 @@ static int nfs_open_create(struct inode *dir, struct dentry *dentry,
 	error = NFS_PROTO(dir)->create(dir, dentry, &attr, open_flags, ctx);
 	if (error != 0)
 		goto out_put_ctx;
-	if (ctx != NULL) {
+	if (nd) {
 		error = nfs_intent_set_file(nd, ctx);
 		if (error < 0)
 			goto out_err;
@@ -1678,7 +1678,7 @@ static int nfs_create(struct inode *dir, struct dentry *dentry,
 	attr.ia_mode = mode;
 	attr.ia_valid = ATTR_MODE;
 
-	if ((nd->flags & LOOKUP_CREATE) != 0)
+	if (nd)
 		open_flags = nd->intent.open.flags;
 
 	error = NFS_PROTO(dir)->create(dir, dentry, &attr, open_flags, NULL);

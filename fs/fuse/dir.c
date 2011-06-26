@@ -579,7 +579,7 @@ static int fuse_mknod(struct inode *dir, struct dentry *entry, umode_t mode,
 static int fuse_create(struct inode *dir, struct dentry *entry, umode_t mode,
 		       struct nameidata *nd)
 {
-	if (nd && (nd->flags & LOOKUP_OPEN)) {
+	if (nd) {
 		int err = fuse_create_open(dir, entry, mode, nd);
 		if (err != -ENOSYS)
 			return err;
