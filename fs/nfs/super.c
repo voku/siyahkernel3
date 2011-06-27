@@ -2788,15 +2788,11 @@ static void nfs_referral_loop_unprotect(void)
 static struct dentry *nfs_follow_remote_path(struct vfsmount *root_mnt,
 		const char *export_path)
 {
-	struct nameidata *nd = NULL;
 	struct mnt_namespace *ns_private;
 	struct super_block *s;
 	struct dentry *dentry;
+	struct path path;
 	int ret;
-
-	nd = kmalloc(sizeof(*nd), GFP_KERNEL);
-	if (nd == NULL)
-		return ERR_PTR(-ENOMEM);
 
 	ns_private = create_mnt_ns(root_mnt);
 	if (IS_ERR(ns_private))
@@ -2806,22 +2802,20 @@ static struct dentry *nfs_follow_remote_path(struct vfsmount *root_mnt,
 	if (ret == 0) {
 		ret = vfs_path_lookup(root_mnt->mnt_root, root_mnt,
 				export_path, LOOKUP_FOLLOW|LOOKUP_AUTOMOUNT,
-				&nd);
+				&path);
 		nfs_referral_loop_unprotect();
 	}
 
 	put_mnt_ns(ns_private);
 
-	if (ret != 0) (
-		kfree(nd);
+	if (ret != 0)
 		return ERR_PTR(ret);
-	}
-	s = nd->path.mnt->mnt_sb;
-	atomic_inc(&s->s_active);
-	dentry = dget(nd->path.dentry);
 
-	path_put(&nd->path);
-	kfree(nd);
+	s = path.mnt->mnt_sb;
+	atomic_inc(&s->s_active);
+	dentry = dget(path.dentry);
+
+	path_put(&path);
 	down_write(&s->s_umount);
 	return dentry;
 }
