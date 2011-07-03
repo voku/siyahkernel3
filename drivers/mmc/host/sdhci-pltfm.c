@@ -26,6 +26,16 @@
 #include <linux/highmem.h>
 #include <linux/mod_devicetable.h>
 #include <linux/platform_device.h>
+#include <linux/err.h>
+#include <linux/module.h>
+#include <linux/of.h>
+#ifdef CONFIG_PPC
+#include <asm/machdep.h>
+#endif
+#include "sdhci-pltfm.h"
+
+static struct sdhci_ops sdhci_pltfm_ops = {
+};
 
 #include <linux/mmc/host.h>
 
