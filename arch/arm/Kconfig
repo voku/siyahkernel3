@@ -234,6 +234,18 @@ config GENERIC_TIME_VSYSCALL
 	  Enables updating the kernel user helper area with the xtime struct
 	  data for gettimeofday via kernel user helpers.
 
+config NO_MACH_MEMORY_H
+	bool
+	help
+	  Select this when mach/memory.h is removed.
+
+config PHYS_OFFSET
+	hex "Physical address of main memory"
+	depends on !ARM_PATCH_PHYS_VIRT && NO_MACH_MEMORY_H
+	help
+	  Please provide the physical address corresponding to the
+	  location of main memory in your system.
+
 source "init/Kconfig"
 
 source "kernel/Kconfig.freezer"
