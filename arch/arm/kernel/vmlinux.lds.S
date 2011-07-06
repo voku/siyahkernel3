@@ -53,6 +53,11 @@ jiffies = jiffies_64 + 4;
 SECTIONS
 {
 	/*
+	 * XXX: The linker does not define how output sections are
+	 * assigned to input sections when there are multiple statements
+	 * matching the same input section name.  There is no documented
+	 * order of matching.
+	 *
 	 * unwind exit sections must be discarded before the rest of the
 	 * unwind sections get included.
 	 */
@@ -61,6 +66,9 @@ SECTIONS
 		*(.ARM.extab.exit.text)
 		ARM_CPU_DISCARD(*(.ARM.exidx.cpuexit.text))
 		ARM_CPU_DISCARD(*(.ARM.extab.cpuexit.text))
+		ARM_EXIT_DISCARD(EXIT_TEXT)
+		ARM_EXIT_DISCARD(EXIT_DATA)
+		EXIT_CALL
 #ifndef CONFIG_HOTPLUG
 		*(.ARM.exidx.devexit.text)
 		*(.ARM.extab.devexit.text)
@@ -72,6 +80,8 @@ SECTIONS
 #ifndef CONFIG_SMP_ON_UP
 		*(.alt.smp.init)
 #endif
+		*(.discard)
+		*(.discard.*)
 	}
 
 #ifdef CONFIG_XIP_KERNEL
@@ -83,6 +93,56 @@ SECTIONS
 		_stext = .;
 		HEAD_TEXT
 	}
+	.text : {			/* Real text segment		*/
+		_text = .;		/* Text and read-only data	*/
+			__exception_text_start = .;
+			*(.exception.text)
+			__exception_text_end = .;
+			IRQENTRY_TEXT
+			TEXT_TEXT
+			SCHED_TEXT
+			LOCK_TEXT
+			KPROBES_TEXT
+			IDMAP_TEXT
+#ifdef CONFIG_MMU
+			*(.fixup)
+#endif
+			*(.gnu.warning)
+			*(.glue_7)
+			*(.glue_7t)
+		. = ALIGN(4);
+		*(.got)			/* Global offset table		*/
+			ARM_CPU_KEEP(PROC_INFO)
+	}
+
+	RO_DATA(PAGE_SIZE)
+
+#ifdef CONFIG_ARM_UNWIND
+	/*
+	 * Stack unwinding tables
+	 */
+	. = ALIGN(8);
+	.ARM.unwind_idx : {
+		__start_unwind_idx = .;
+		*(.ARM.exidx*)
+		__stop_unwind_idx = .;
+	}
+	.ARM.unwind_tab : {
+		__start_unwind_tab = .;
+		*(.ARM.extab*)
+		__stop_unwind_tab = .;
+	}
+#endif
+
+	NOTES
+
+	_etext = .;			/* End of text and rodata section */
+
+#ifndef CONFIG_XIP_KERNEL
+	. = ALIGN(PAGE_SIZE);
+	__init_begin = .;
+#endif
+
 	INIT_TEXT_SECTION(8)
 	.exit.text : {
 		ARM_EXIT_KEEP(EXIT_TEXT)
@@ -128,61 +188,15 @@ SECTIONS
 	}
 #endif
 
+#ifdef CONFIG_SMP
 	PERCPU_SECTION(L1_CACHE_BYTES)
-
-#ifndef CONFIG_XIP_KERNEL
-	__init_begin = _stext;
-	. = ALIGN(PAGE_SIZE);
-	__init_end = .;
 #endif
-
-	.text : {			/* Real text segment		*/
-		_text = .;		/* Text and read-only data	*/
-			__exception_text_start = .;
-			*(.exception.text)
-			__exception_text_end = .;
-			IRQENTRY_TEXT
-			TEXT_TEXT
-			SCHED_TEXT
-			LOCK_TEXT
-			KPROBES_TEXT
-			IDMAP_TEXT
-#ifdef CONFIG_MMU
-			*(.fixup)
-#endif
-			*(.gnu.warning)
-			*(.glue_7)
-			*(.glue_7t)
-		. = ALIGN(4);
-		*(.got)			/* Global offset table		*/
-			ARM_CPU_KEEP(PROC_INFO)
-	}
-
-	RO_DATA(PAGE_SIZE)
-
-#ifdef CONFIG_ARM_UNWIND
-	/*
-	 * Stack unwinding tables
-	 */
-	. = ALIGN(8);
-	.ARM.unwind_idx : {
-		__start_unwind_idx = .;
-		*(.ARM.exidx*)
-		__stop_unwind_idx = .;
-	}
-	.ARM.unwind_tab : {
-		__start_unwind_tab = .;
-		*(.ARM.extab*)
-		__stop_unwind_tab = .;
-	}
-#endif
-
-	_etext = .;			/* End of text and rodata section */
 
 #ifdef CONFIG_XIP_KERNEL
 	__data_loc = ALIGN(4);		/* location in binary */
 	. = PAGE_OFFSET + TEXT_OFFSET;
 #else
+	__init_end = .;
 	. = ALIGN(THREAD_SIZE);
 	__data_loc = .;
 #endif
@@ -286,8 +300,6 @@ SECTIONS
 		__tcm_end = .;
 	}
 #endif
-
-	NOTES
 
 	BSS_SECTION(0, 0, 0)
 	_end = .;
