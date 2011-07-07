@@ -1453,10 +1453,6 @@ static inline void sb_start_intwrite(struct super_block *sb)
 
 extern bool inode_owner_or_capable(const struct inode *inode);
 
-/* not quite ready to be deprecated, but... */
-extern void lock_super(struct super_block *);
-extern void unlock_super(struct super_block *);
-
 /*
  * VFS helper functions..
  */
@@ -1866,6 +1862,8 @@ void kill_litter_super(struct super_block *sb);
 void deactivate_super(struct super_block *sb);
 void deactivate_locked_super(struct super_block *sb);
 int set_anon_super(struct super_block *s, void *data);
+int get_anon_bdev(dev_t *);
+void free_anon_bdev(dev_t);
 struct super_block *sget(struct file_system_type *type,
 			int (*test)(struct super_block *,void *),
 			int (*set)(struct super_block *,void *),
@@ -2243,6 +2241,13 @@ static inline void file_start_write(struct file *file)
 	__sb_start_write(file_inode(file)->i_sb, SB_FREEZE_WRITE, true);
 }
 
+static inline bool file_start_write_trylock(struct file *file)
+{
+	if (!S_ISREG(file_inode(file)->i_mode))
+		return true;
+	return __sb_start_write(file_inode(file)->i_sb, SB_FREEZE_WRITE, false);
+}
+
 static inline void file_end_write(struct file *file)
 {
 	if (!S_ISREG(file_inode(file)->i_mode))
@@ -2527,6 +2532,8 @@ extern struct super_block *get_super_thawed(struct block_device *);
 extern struct super_block *get_active_super(struct block_device *bdev);
 extern void drop_super(struct super_block *sb);
 extern void iterate_supers(void (*)(struct super_block *, void *), void *);
+extern void iterate_supers_type(struct file_system_type *,
+			        void (*)(struct super_block *, void *), void *);
 
 extern int dcache_dir_open(struct inode *, struct file *);
 extern int dcache_dir_close(struct inode *, struct file *);
