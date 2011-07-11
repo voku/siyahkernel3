@@ -76,6 +76,9 @@
 #include <asm/tlb.h>
 #include <asm/irq_regs.h>
 #include <asm/mutex.h>
+#ifdef CONFIG_PARAVIRT
+#include <asm/paravirt.h>
+#endif
 
 #include <mach/sec_debug.h>
 
@@ -528,6 +531,9 @@ struct rq {
 
 #ifdef CONFIG_IRQ_TIME_ACCOUNTING
 	u64 prev_irq_time;
+#endif
+#ifdef CONFIG_PARAVIRT
+	u64 prev_steal_time;
 #endif
 
 	/* calc_load related fields */
@@ -1944,6 +1950,18 @@ void account_system_vtime(struct task_struct *curr)
 	local_irq_restore(flags);
 }
 EXPORT_SYMBOL_GPL(account_system_vtime);
+
+#endif /* CONFIG_IRQ_TIME_ACCOUNTING */
+
+#ifdef CONFIG_PARAVIRT
+static inline u64 steal_ticks(u64 steal)
+{
+	if (unlikely(steal > NSEC_PER_SEC))
+		return div_u64(steal, TICK_NSEC);
+
+	return __iter_div_u64_rem(steal, TICK_NSEC, &steal);
+}
+#endif
 
 static void update_rq_clock_task(struct rq *rq, s64 delta)
 {
@@ -4071,6 +4089,25 @@ void account_idle_time(cputime_t cputime)
 		cpustat->idle = cputime64_add(cpustat->idle, cputime64);
 }
 
+static __always_inline bool steal_account_process_tick(void)
+{
+#ifdef CONFIG_PARAVIRT
+	if (static_branch(&paravirt_steal_enabled)) {
+		u64 steal, st = 0;
+
+		steal = paravirt_steal_clock(smp_processor_id());
+		steal -= this_rq()->prev_steal_time;
+
+		st = steal_ticks(steal);
+		this_rq()->prev_steal_time += st * TICK_NSEC;
+
+		account_steal_time(st);
+		return st;
+	}
+#endif
+	return false;
+}
+
 #ifndef CONFIG_VIRT_CPU_ACCOUNTING
 
 #ifdef CONFIG_IRQ_TIME_ACCOUNTING
@@ -4101,6 +4138,9 @@ static void irqtime_account_process_tick(struct task_struct *p, int user_tick,
 	cputime_t one_jiffy_scaled = cputime_to_scaled(cputime_one_jiffy);
 	cputime64_t tmp = cputime_to_cputime64(cputime_one_jiffy);
 	struct cpu_usage_stat *cpustat = &kstat_this_cpu.cpustat;
+
+	if (steal_account_process_tick())
+		return;
 
 	if (irqtime_account_hi_update()) {
 		cpustat->irq = cputime64_add(cpustat->irq, tmp);
@@ -4154,6 +4194,9 @@ void account_process_tick(struct task_struct *p, int user_tick)
 		irqtime_account_process_tick(p, user_tick, rq);
 		return;
 	}
+
+	if (steal_account_process_tick())
+		return;
 
 	if (user_tick)
 		account_user_time(p, cputime_one_jiffy, one_jiffy_scaled);
