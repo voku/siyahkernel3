@@ -208,10 +208,9 @@ dma_addr_t iovmm_map(void *in_vmm, struct scatterlist *sg, off_t offset,
 	order = __fls(min(size, (size_t)SZ_1M));
 #ifdef CONFIG_S5P_SYSTEM_MMU_WA5250ERR
 	iova_size = ALIGN(size, SZ_64K);
-	start = (dma_addr_t)gen_pool_alloc_aligned(vmm->vmm_pool, iova_size,
-									order);
+	start = (dma_addr_t)gen_pool_alloc(vmm->vmm_pool, iova_size);
 #else
-	start = (dma_addr_t)gen_pool_alloc_aligned(vmm->vmm_pool, size, order);
+	start = (dma_addr_t)gen_pool_alloc(vmm->vmm_pool, size);
 #endif
 	if (!start)
 		goto err_map_nomem_lock;
@@ -497,10 +496,9 @@ dma_addr_t iovmm_map(struct device *dev, struct scatterlist *sg, off_t offset,
 	order = __fls(min(size, (size_t)SZ_1M));
 #ifdef CONFIG_S5P_SYSTEM_MMU_WA5250ERR
 	iova_size = ALIGN(size, SZ_64K);
-	start = (dma_addr_t)gen_pool_alloc_aligned(vmm->vmm_pool, iova_size,
-									order);
+	start = (dma_addr_t)gen_pool_alloc(vmm->vmm_pool, iova_size);
 #else
-	start = (dma_addr_t)gen_pool_alloc_aligned(vmm->vmm_pool, size, order);
+	start = (dma_addr_t)gen_pool_alloc(vmm->vmm_pool, size);
 #endif
 	if (!start)
 		goto err_map_nomem_lock;
