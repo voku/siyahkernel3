@@ -62,12 +62,6 @@ enum cgroup_subsys_id {
 	CGROUP_SUBSYS_COUNT,
 };
 #undef SUBSYS
-/*
- * This define indicates the maximum number of subsystems that can be loaded
- * at once. We limit to this many since cgroupfs_root has subsys_bits to keep
- * track of all of them.
- */
-#define CGROUP_SUBSYS_COUNT (BITS_PER_BYTE*sizeof(unsigned long))
 
 /* Per-subsystem/per-cgroup state maintained by the system. */
 struct cgroup_subsys_state {
@@ -274,6 +268,9 @@ enum {
 	 *   match.
 	 *
 	 * - Remount is disallowed.
+	 *
+	 * - memcg: use_hierarchy is on by default and the cgroup file for
+	 *   the flag is not created.
 	 *
 	 * The followings are planned changes.
 	 *
@@ -580,8 +577,8 @@ struct cgroup_subsys {
 	int (*css_online)(struct cgroup *cgrp);
 	void (*css_offline)(struct cgroup *cgrp);
 	void (*css_free)(struct cgroup *cgrp);
-	int (*allow_attach)(struct cgroup *cgrp, struct cgroup_taskset *tset);
 
+	int (*allow_attach)(struct cgroup *cgrp, struct cgroup_taskset *tset);
 	int (*can_attach)(struct cgroup *cgrp, struct cgroup_taskset *tset);
 	void (*cancel_attach)(struct cgroup *cgrp, struct cgroup_taskset *tset);
 	void (*attach)(struct cgroup *cgrp, struct cgroup_taskset *tset);
