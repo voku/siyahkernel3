@@ -45,6 +45,7 @@
 #include <linux/jhash.h>
 #include <linux/skbuff.h>
 #include <linux/slab.h>
+#include <linux/export.h>
 
 #include <net/sock.h>
 #include <net/snmp.h>
