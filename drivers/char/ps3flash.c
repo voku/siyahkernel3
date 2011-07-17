@@ -312,7 +312,11 @@ static int ps3flash_flush(struct file *file, fl_owner_t id)
 
 static int ps3flash_fsync(struct file *file, loff_t start, loff_t end, int datasync)
 {
+<<<<<<< HEAD
 	struct inode *inode = file_inode(file);
+=======
+	struct inode *inode = file->f_path.dentry->d_inode;
+>>>>>>> 02c24a8... fs: push i_mutex and filemap_write_and_wait down into ->fsync() handlers
 	int err;
 	mutex_lock(&inode->i_mutex);
 	err = ps3flash_writeback(ps3flash_dev);

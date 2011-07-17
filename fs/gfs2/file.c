@@ -637,13 +637,20 @@ static int gfs2_fsync(struct file *file, loff_t start, loff_t end,
 			return ret1;
 	}
 
+	ret = filemap_write_and_wait_range(inode->i_mapping, start, end);
+	if (ret)
+		return ret;
+	mutex_lock(&inode->i_mutex);
+
 	if (datasync)
 		sync_state &= ~I_DIRTY_SYNC;
 
 	if (sync_state) {
 		ret = sync_inode_metadata(inode, 1);
-		if (ret)
+		if (ret) {
+			mutex_unlock(&inode->i_mutex);
 			return ret;
+<<<<<<< HEAD
 		if (gfs2_is_jdata(ip))
 			filemap_write_and_wait(mapping);
 		gfs2_ail_flush(ip->i_gl, 1);
@@ -653,6 +660,14 @@ static int gfs2_fsync(struct file *file, loff_t start, loff_t end,
 		ret = filemap_fdatawait_range(mapping, start, end);
 
 	return ret ? ret : ret1;
+=======
+		}
+		gfs2_ail_flush(ip->i_gl);
+	}
+
+	mutex_unlock(&inode->i_mutex);
+	return 0;
+>>>>>>> 02c24a8... fs: push i_mutex and filemap_write_and_wait down into ->fsync() handlers
 }
 
 /**

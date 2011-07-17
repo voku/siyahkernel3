@@ -688,7 +688,11 @@ static int
 printer_fsync(struct file *fd, loff_t start, loff_t end, int datasync)
 {
 	struct printer_dev	*dev = fd->private_data;
+<<<<<<< HEAD
 	struct inode *inode = file_inode(fd);
+=======
+	struct inode *inode = fd->f_path.dentry->d_inode;
+>>>>>>> 02c24a8... fs: push i_mutex and filemap_write_and_wait down into ->fsync() handlers
 	unsigned long		flags;
 	int			tx_list_empty;
 

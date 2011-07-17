@@ -1674,6 +1674,7 @@ int btrfs_sync_file(struct file *file, loff_t start, loff_t end, int datasync)
 
 	trace_btrfs_sync_file(file, datasync);
 
+<<<<<<< HEAD
 	/*
 	 * We write the dirty pages in the range and wait until they complete
 	 * out of the ->i_mutex. If so, we can flush the dirty pages by
@@ -1701,6 +1702,17 @@ int btrfs_sync_file(struct file *file, loff_t start, loff_t end, int datasync)
 	if (full_sync)
 		btrfs_wait_ordered_range(inode, start, end - start + 1);
 	atomic_inc(&root->log_batch);
+=======
+	ret = filemap_write_and_wait_range(inode->i_mapping, start, end);
+	if (ret)
+		return ret;
+	mutex_lock(&inode->i_mutex);
+
+	/* we wait first, since the writeback may change the inode */
+	root->log_batch++;
+	btrfs_wait_ordered_range(inode, 0, (u64)-1);
+	root->log_batch++;
+>>>>>>> 02c24a8... fs: push i_mutex and filemap_write_and_wait down into ->fsync() handlers
 
 	/*
 	 * check the transaction that last modified this inode
@@ -1721,6 +1733,7 @@ int btrfs_sync_file(struct file *file, loff_t start, loff_t end, int datasync)
 	    BTRFS_I(inode)->last_trans <=
 	    root->fs_info->last_trans_committed) {
 		BTRFS_I(inode)->last_trans = 0;
+<<<<<<< HEAD
 
 		/*
 		 * We'v had everything committed since the last time we were
@@ -1729,6 +1742,8 @@ int btrfs_sync_file(struct file *file, loff_t start, loff_t end, int datasync)
 		 */
 		clear_bit(BTRFS_INODE_NEEDS_FULL_SYNC,
 			  &BTRFS_I(inode)->runtime_flags);
+=======
+>>>>>>> 02c24a8... fs: push i_mutex and filemap_write_and_wait down into ->fsync() handlers
 		mutex_unlock(&inode->i_mutex);
 		goto out;
 	}
