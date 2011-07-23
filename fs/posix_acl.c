@@ -30,7 +30,6 @@ EXPORT_SYMBOL(posix_acl_equiv_mode);
 EXPORT_SYMBOL(posix_acl_from_mode);
 EXPORT_SYMBOL(posix_acl_create_masq);
 EXPORT_SYMBOL(posix_acl_chmod_masq);
-EXPORT_SYMBOL(posix_acl_permission);
 
 /*
  * Init a fresh posix_acl
