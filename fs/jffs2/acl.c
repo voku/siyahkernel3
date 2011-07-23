@@ -275,7 +275,7 @@ int jffs2_check_acl(struct inode *inode, int mask)
 	return -EAGAIN;
 }
 
-int jffs2_init_acl_pre(struct inode *dir_i, struct inode *inode, mode_t *i_mode)
+int jffs2_init_acl_pre(struct inode *dir_i, struct inode *inode, umode_t *i_mode)
 {
 	struct posix_acl *acl;
 	int rc;
