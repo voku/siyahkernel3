@@ -702,7 +702,7 @@ out_unlock:
 
 struct lbs_debugfs_files {
 	const char *name;
-	int perm;
+	umode_t perm;
 	struct file_operations fops;
 };
 
