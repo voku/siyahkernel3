@@ -111,7 +111,7 @@ static struct attribute *target_attrs[] = {
 	NULL
 };
 
-static mode_t iscsi_boot_tgt_attr_is_visible(struct kobject *kobj,
+static umode_t iscsi_boot_tgt_attr_is_visible(struct kobject *kobj,
 					     struct attribute *attr, int i)
 {
 	struct iscsi_boot_kobj *boot_kobj =
@@ -192,7 +192,7 @@ static struct attribute *ethernet_attrs[] = {
 	NULL
 };
 
-static mode_t iscsi_boot_eth_attr_is_visible(struct kobject *kobj,
+static umode_t iscsi_boot_eth_attr_is_visible(struct kobject *kobj,
 					     struct attribute *attr, int i)
 {
 	struct iscsi_boot_kobj *boot_kobj =
@@ -264,7 +264,7 @@ static struct attribute *initiator_attrs[] = {
 	NULL
 };
 
-static mode_t iscsi_boot_ini_attr_is_visible(struct kobject *kobj,
+static umode_t iscsi_boot_ini_attr_is_visible(struct kobject *kobj,
 					     struct attribute *attr, int i)
 {
 	struct iscsi_boot_kobj *boot_kobj =
@@ -305,7 +305,12 @@ iscsi_boot_create_kobj(struct iscsi_boot_kset *boot_kset,
 		       struct attribute_group *attr_group,
 		       const char *name, int index, void *data,
 		       ssize_t (*show) (void *data, int type, char *buf),
+<<<<<<< HEAD
 		       mode_t (*is_visible) (void *data, int type))
+=======
+		       umode_t (*is_visible) (void *data, int type),
+		       void (*release) (void *data))
+>>>>>>> 587a1f1... switch ->is_visible() to returning umode_t
 {
 	struct iscsi_boot_kobj *boot_kobj;
 
@@ -365,7 +370,12 @@ struct iscsi_boot_kobj *
 iscsi_boot_create_target(struct iscsi_boot_kset *boot_kset, int index,
 			 void *data,
 			 ssize_t (*show) (void *data, int type, char *buf),
+<<<<<<< HEAD
 			 mode_t (*is_visible) (void *data, int type))
+=======
+			 umode_t (*is_visible) (void *data, int type),
+			 void (*release) (void *data))
+>>>>>>> 587a1f1... switch ->is_visible() to returning umode_t
 {
 	return iscsi_boot_create_kobj(boot_kset, &iscsi_boot_target_attr_group,
 				      "target%d", index, data, show, is_visible);
@@ -387,7 +397,12 @@ struct iscsi_boot_kobj *
 iscsi_boot_create_initiator(struct iscsi_boot_kset *boot_kset, int index,
 			    void *data,
 			    ssize_t (*show) (void *data, int type, char *buf),
+<<<<<<< HEAD
 			    mode_t (*is_visible) (void *data, int type))
+=======
+			    umode_t (*is_visible) (void *data, int type),
+			    void (*release) (void *data))
+>>>>>>> 587a1f1... switch ->is_visible() to returning umode_t
 {
 	return iscsi_boot_create_kobj(boot_kset,
 				      &iscsi_boot_initiator_attr_group,
@@ -411,7 +426,12 @@ struct iscsi_boot_kobj *
 iscsi_boot_create_ethernet(struct iscsi_boot_kset *boot_kset, int index,
 			   void *data,
 			   ssize_t (*show) (void *data, int type, char *buf),
+<<<<<<< HEAD
 			   mode_t (*is_visible) (void *data, int type))
+=======
+			   umode_t (*is_visible) (void *data, int type),
+			   void (*release) (void *data))
+>>>>>>> 587a1f1... switch ->is_visible() to returning umode_t
 {
 	return iscsi_boot_create_kobj(boot_kset,
 				      &iscsi_boot_ethernet_attr_group,

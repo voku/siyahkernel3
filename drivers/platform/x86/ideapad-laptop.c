@@ -186,6 +186,35 @@ static ssize_t store_ideapad_cam(struct device *dev,
 
 static DEVICE_ATTR(camera_power, 0644, show_ideapad_cam, store_ideapad_cam);
 
+<<<<<<< HEAD
+=======
+static struct attribute *ideapad_attributes[] = {
+	&dev_attr_camera_power.attr,
+	NULL
+};
+
+static umode_t ideapad_is_visible(struct kobject *kobj,
+				 struct attribute *attr,
+				 int idx)
+{
+	struct device *dev = container_of(kobj, struct device, kobj);
+	struct ideapad_private *priv = dev_get_drvdata(dev);
+	bool supported;
+
+	if (attr == &dev_attr_camera_power.attr)
+		supported = test_bit(CFG_CAMERA_BIT, &(priv->cfg));
+	else
+		supported = true;
+
+	return supported ? attr->mode : 0;
+}
+
+static struct attribute_group ideapad_attribute_group = {
+	.is_visible = ideapad_is_visible,
+	.attrs = ideapad_attributes
+};
+
+>>>>>>> 587a1f1... switch ->is_visible() to returning umode_t
 /*
  * Rfkill
  */

@@ -196,14 +196,14 @@ static struct attribute *ad5446_attributes[] = {
 	NULL,
 };
 
-static mode_t ad5446_attr_is_visible(struct kobject *kobj,
+static umode_t ad5446_attr_is_visible(struct kobject *kobj,
 				     struct attribute *attr, int n)
 {
 	struct device *dev = container_of(kobj, struct device, kobj);
 	struct iio_dev *dev_info = dev_get_drvdata(dev);
 	struct ad5446_state *st = iio_dev_get_devdata(dev_info);
 
-	mode_t mode = attr->mode;
+	umode_t mode = attr->mode;
 
 	if (!st->chip_info->store_pwr_down &&
 		(attr == &iio_dev_attr_out0_powerdown.dev_attr.attr ||
