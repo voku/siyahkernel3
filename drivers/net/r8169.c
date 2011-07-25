@@ -645,12 +645,12 @@ struct rtl8169_private {
 	struct mdio_ops {
 		void (*write)(void __iomem *, int, int);
 		int (*read)(void __iomem *, int);
-	} mdio_ops;
+	} __no_const mdio_ops;
 
 	struct pll_power_ops {
 		void (*down)(struct rtl8169_private *);
 		void (*up)(struct rtl8169_private *);
-	} pll_power_ops;
+	} __no_const pll_power_ops;
 
 	int (*set_speed)(struct net_device *, u8 aneg, u16 sp, u8 dpx, u32 adv);
 	int (*get_settings)(struct net_device *, struct ethtool_cmd *);
@@ -667,7 +667,18 @@ struct rtl8169_private {
 	struct rtl8169_counters counters;
 	u32 saved_wolopts;
 
-	const struct firmware *fw;
+	struct rtl_fw {
+		const struct firmware *fw;
+
+#define RTL_VER_SIZE		32
+
+		char version[RTL_VER_SIZE];
+
+		struct rtl_fw_phy_action {
+			__le32 *code;
+			size_t size;
+		} phy_action;
+	} *rtl_fw;
 #define RTL_FIRMWARE_UNKNOWN	ERR_PTR(-EAGAIN)
 };
 
