@@ -249,9 +249,7 @@ static void shmem_free_blocks(struct inode *inode, long pages)
 	struct shmem_sb_info *sbinfo = SHMEM_SB(inode->i_sb);
 	if (sbinfo->max_blocks) {
 		percpu_counter_add(&sbinfo->used_blocks, -pages);
-		spin_lock(&inode->i_lock);
 		inode->i_blocks -= pages*BLOCKS_PER_PAGE;
-		spin_unlock(&inode->i_lock);
 	}
 }
 
@@ -442,9 +440,7 @@ static swp_entry_t *shmem_swp_alloc(struct shmem_inode_info *info,
 						sbinfo->max_blocks - 1) >= 0)
 				return ERR_PTR(-ENOSPC);
 			percpu_counter_inc(&sbinfo->used_blocks);
-			spin_lock(&inode->i_lock);
 			inode->i_blocks += BLOCKS_PER_PAGE;
-			spin_unlock(&inode->i_lock);
 		}
 
 		spin_unlock(&info->lock);
@@ -1096,6 +1092,8 @@ static int shmem_writepage(struct page *page, struct writeback_control *wbc)
 		goto unlock;
 	}
 	entry = shmem_swp_entry(info, index, NULL);
+	if (!entry)
+		goto unlock;
 	if (entry->val) {
 		WARN_ON_ONCE(1);	/* Still happens? Tell us about it! */
 		free_swap_and_cache(*entry);
@@ -1241,7 +1239,6 @@ static int shmem_getpage_gfp(struct inode *inode, pgoff_t idx,
 
 	if (idx >= SHMEM_MAX_INDEX)
 		return -EFBIG;
-
 repeat:
 	page = find_lock_page(mapping, idx);
 	if (page) {
@@ -1803,7 +1800,6 @@ static ssize_t shmem_file_splice_read(struct file *in, loff_t *ppos,
 	spd.nr_pages = find_get_pages_contig(mapping, index,
 						nr_pages, spd.pages);
 	index += spd.nr_pages;
-
 	error = 0;
 
 	while (spd.nr_pages < nr_pages) {
@@ -1830,7 +1826,7 @@ static ssize_t shmem_file_splice_read(struct file *in, loff_t *ppos,
 
 		if (!PageUptodate(page) || page->mapping != mapping) {
 			error = shmem_getpage(inode, index, &page,
-					SGP_CACHE, NULL);
+							SGP_CACHE, NULL);
 			if (error)
 				break;
 			unlock_page(page);
@@ -2599,8 +2595,7 @@ int shmem_fill_super(struct super_block *sb, void *data, int silent)
 	int err = -ENOMEM;
 
 	/* Round up to L1_CACHE_BYTES to resist false sharing */
-	sbinfo = kzalloc(max((int)sizeof(struct shmem_sb_info),
-				L1_CACHE_BYTES), GFP_KERNEL);
+	sbinfo = kzalloc(max(sizeof(struct shmem_sb_info), L1_CACHE_BYTES), GFP_KERNEL);
 	if (!sbinfo)
 		return -ENOMEM;
 
