@@ -3343,7 +3343,10 @@ static int __do_fault(struct mm_struct *mm, struct vm_area_struct *vma,
 unwritable_page:
 	page_cache_release(page);
 	return ret;
+<<<<<<< HEAD
 
+=======
+>>>>>>> 1080589... mm: preallocate page before lock_page() at filemap COW
 uncharge_out:
 	/* fs's fault handler get error */
 	if (cow_page) {
