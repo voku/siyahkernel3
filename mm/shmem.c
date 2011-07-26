@@ -1392,8 +1392,49 @@ repeat:
 		} else if (shmem_acct_block(info->flags))
 			goto nospace;
 
+<<<<<<< HEAD
 		page = prealloc_page;
 		prealloc_page = NULL;
+=======
+		if (!filepage) {
+			int ret;
+
+			if (!prealloc_page) {
+				spin_unlock(&info->lock);
+				filepage = shmem_alloc_page(gfp, info, idx);
+				if (!filepage) {
+					spin_lock(&info->lock);
+					shmem_unacct_blocks(info->flags, 1);
+					shmem_free_blocks(inode, 1);
+					spin_unlock(&info->lock);
+					error = -ENOMEM;
+					goto failed;
+				}
+				SetPageSwapBacked(filepage);
+
+				/*
+				 * Precharge page while we can wait, compensate
+				 * after
+				 */
+				error = mem_cgroup_cache_charge(filepage,
+					current->mm, GFP_KERNEL);
+				if (error) {
+					page_cache_release(filepage);
+					spin_lock(&info->lock);
+					shmem_unacct_blocks(info->flags, 1);
+					shmem_free_blocks(inode, 1);
+					spin_unlock(&info->lock);
+					filepage = NULL;
+					goto failed;
+				}
+
+				spin_lock(&info->lock);
+			} else {
+				filepage = prealloc_page;
+				prealloc_page = NULL;
+				SetPageSwapBacked(filepage);
+			}
+>>>>>>> a2d154d... tmpfs: no need to use i_lock
 
 		entry = shmem_swp_alloc(info, idx, sgp, gfp);
 		if (IS_ERR(entry))
@@ -1408,6 +1449,7 @@ repeat:
 		else
 			ret = add_to_page_cache_lru(page, mapping,
 						idx, GFP_NOWAIT);
+<<<<<<< HEAD
 		/*
 		 * At add_to_page_cache_lru() failure,
 		 * uncharge will be done automatically.
@@ -1420,6 +1462,23 @@ repeat:
 			if (error)
 				goto out;
 			goto repeat;
+=======
+			/*
+			 * At add_to_page_cache_lru() failure, uncharge will
+			 * be done automatically.
+			 */
+			if (ret) {
+				shmem_unacct_blocks(info->flags, 1);
+				shmem_free_blocks(inode, 1);
+				spin_unlock(&info->lock);
+				page_cache_release(filepage);
+				filepage = NULL;
+				if (error)
+					goto failed;
+				goto repeat;
+			}
+			info->flags |= SHMEM_PAGEIN;
+>>>>>>> a2d154d... tmpfs: no need to use i_lock
 		}
 
 		info->flags |= SHMEM_PAGEIN;
