@@ -1129,7 +1129,7 @@ ctnetlink_change_helper(struct nf_conn *ct, const struct nlattr * const cda[])
 		if (help && help->helper) {
 			/* we had a helper before ... */
 			nf_ct_remove_expectations(ct);
-			rcu_assign_pointer(help->helper, NULL);
+			RCU_INIT_POINTER(help->helper, NULL);
 		}
 
 		return 0;
@@ -1167,7 +1167,7 @@ ctnetlink_change_helper(struct nf_conn *ct, const struct nlattr * const cda[])
 		return -EOPNOTSUPP;
 	}
 
-	rcu_assign_pointer(help->helper, helper);
+	RCU_INIT_POINTER(help->helper, helper);
 
 	return 0;
 }
@@ -1390,7 +1390,7 @@ ctnetlink_create_conntrack(struct net *net, u16 zone,
 			}
 
 			/* not in hash table yet so not strictly necessary */
-			rcu_assign_pointer(help->helper, helper);
+			RCU_INIT_POINTER(help->helper, helper);
 		}
 	} else {
 		/* try an implicit helper assignation */

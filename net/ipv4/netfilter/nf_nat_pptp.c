@@ -297,10 +297,10 @@ static int __init nf_nat_helper_pptp_init(void)
 
 static void __exit nf_nat_helper_pptp_fini(void)
 {
-	rcu_assign_pointer(nf_nat_pptp_hook_expectfn, NULL);
-	rcu_assign_pointer(nf_nat_pptp_hook_exp_gre, NULL);
-	rcu_assign_pointer(nf_nat_pptp_hook_inbound, NULL);
-	rcu_assign_pointer(nf_nat_pptp_hook_outbound, NULL);
+	RCU_INIT_POINTER(nf_nat_pptp_hook_expectfn, NULL);
+	RCU_INIT_POINTER(nf_nat_pptp_hook_exp_gre, NULL);
+	RCU_INIT_POINTER(nf_nat_pptp_hook_inbound, NULL);
+	RCU_INIT_POINTER(nf_nat_pptp_hook_outbound, NULL);
 	synchronize_rcu();
 }
 

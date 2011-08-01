@@ -794,7 +794,7 @@ init_conntrack(struct net *net, struct nf_conn *tmpl,
 		if (exp->helper) {
 			help = nf_ct_helper_ext_add(ct, GFP_ATOMIC);
 			if (help)
-				rcu_assign_pointer(help->helper, exp->helper);
+				RCU_INIT_POINTER(help->helper, exp->helper);
 		}
 
 #ifdef CONFIG_NF_CONNTRACK_MARK
@@ -1332,7 +1332,7 @@ static void nf_conntrack_cleanup_net(struct net *net)
 void nf_conntrack_cleanup(struct net *net)
 {
 	if (net_eq(net, &init_net))
-		rcu_assign_pointer(ip_ct_attach, NULL);
+		RCU_INIT_POINTER(ip_ct_attach, NULL);
 
 	/* This makes sure all current packets have passed through
 	   netfilter framework.  Roll on, two-stage module
@@ -1342,7 +1342,7 @@ void nf_conntrack_cleanup(struct net *net)
 	nf_conntrack_cleanup_net(net);
 
 	if (net_eq(net, &init_net)) {
-		rcu_assign_pointer(nf_ct_destroy, NULL);
+		RCU_INIT_POINTER(nf_ct_destroy, NULL);
 		nf_conntrack_cleanup_init_net();
 	}
 }
@@ -1595,7 +1595,7 @@ int nf_conntrack_init(struct net *net)
 		rcu_assign_pointer_nonull(nf_ct_destroy, destroy_conntrack);
 
 		/* Howto get NAT offsets */
-		rcu_assign_pointer(nf_ct_nat_offset, NULL);
+		RCU_INIT_POINTER(nf_ct_nat_offset, NULL);
 	}
 	return 0;
 

@@ -677,7 +677,7 @@ int pn_sock_bind_res(struct sock *sk, u8 res)
 	mutex_lock(&resource_mutex);
 	if (pnres.sk[res] == NULL) {
 		sock_hold(sk);
-		rcu_assign_pointer(pnres.sk[res], sk);
+		RCU_INIT_POINTER(pnres.sk[res], sk);
 		ret = 0;
 	}
 	mutex_unlock(&resource_mutex);
@@ -693,7 +693,7 @@ int pn_sock_unbind_res(struct sock *sk, u8 res)
 
 	mutex_lock(&resource_mutex);
 	if (pnres.sk[res] == sk) {
-		rcu_assign_pointer(pnres.sk[res], NULL);
+		RCU_INIT_POINTER(pnres.sk[res], NULL);
 		ret = 0;
 	}
 	mutex_unlock(&resource_mutex);
@@ -712,7 +712,7 @@ void pn_sock_unbind_all_res(struct sock *sk)
 	mutex_lock(&resource_mutex);
 	for (res = 0; res < 256; res++) {
 		if (pnres.sk[res] == sk) {
-			rcu_assign_pointer(pnres.sk[res], NULL);
+			RCU_INIT_POINTER(pnres.sk[res], NULL);
 			match++;
 		}
 	}
