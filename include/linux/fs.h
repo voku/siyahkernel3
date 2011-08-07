@@ -10,6 +10,7 @@
 #include <linux/stat.h>
 #include <linux/cache.h>
 #include <linux/list.h>
+#include <linux/llist.h>
 #include <linux/radix-tree.h>
 #include <linux/rbtree.h>
 #include <linux/init.h>
@@ -375,8 +376,8 @@ struct address_space_operations {
 	int (*get_xip_mem)(struct address_space *, pgoff_t, int,
 						void **, unsigned long *);
 	/*
-	 * migrate the contents of a page to the specified target. If sync
-	 * is false, it must not block.
+	 * migrate the contents of a page to the specified target. If
+	 * migrate_mode is MIGRATE_ASYNC, it must not block.
 	 */
 	int (*migratepage) (struct address_space *,
 			struct page *, struct page *, enum migrate_mode);
@@ -512,21 +513,37 @@ static inline int mapping_writably_mapped(struct address_space *mapping)
 struct posix_acl;
 #define ACL_NOT_CACHED ((void *)(-1))
 
+#define IOP_FASTPERM	0x0001
+#define IOP_LOOKUP	0x0002
+#define IOP_NOFOLLOW	0x0004
+
+/*
+ * Keep mostly read-only and often accessed (especially for
+ * the RCU path lookup and 'stat' data) fields at the beginning
+ * of the 'struct inode'
+ */
 struct inode {
-	/* RCU path lookup touches following: */
 	umode_t			i_mode;
+	unsigned short		i_opflags;
 	uid_t			i_uid;
 	gid_t			i_gid;
+	unsigned int		i_flags;
+
+#ifdef CONFIG_FS_POSIX_ACL
+	struct posix_acl	*i_acl;
+	struct posix_acl	*i_default_acl;
+#endif
+
 	const struct inode_operations	*i_op;
 	struct super_block	*i_sb;
+	struct address_space	*i_mapping;
 
-	spinlock_t		i_lock;	/* i_blocks, i_bytes, maybe i_size */
-	unsigned int		i_flags;
-	unsigned long		i_state;
 #ifdef CONFIG_SECURITY
 	void			*i_security;
 #endif
 
+	/* Stat data, not accessed from path walking */
+	unsigned long		i_ino;
 	/*
 	 * Filesystems may only read i_nlink directly.  They shall use the
 	 * following functions for modification:
@@ -538,7 +555,22 @@ struct inode {
 		const unsigned int i_nlink;
 		unsigned int __i_nlink;
 	};
+	dev_t			i_rdev;
+	loff_t			i_size;
+	struct timespec		i_atime;
+	struct timespec		i_mtime;
+	struct timespec		i_ctime;
+	spinlock_t		i_lock;	/* i_blocks, i_bytes, maybe i_size */
+	unsigned short          i_bytes;
+	unsigned int		i_blkbits;
+	blkcnt_t		i_blocks;
 
+#ifdef __NEED_I_SIZE_ORDERED
+	seqcount_t		i_size_seqcount;
+#endif
+
+	/* Misc */
+	unsigned long		i_state;
 	struct mutex		i_mutex;
 
 	unsigned long		dirtied_when;	/* jiffies of first dirtying */
@@ -551,24 +583,12 @@ struct inode {
 		struct list_head	i_dentry;
 		struct rcu_head		i_rcu;
 	};
-	unsigned long		i_ino;
-	atomic_t		i_count;
-	dev_t			i_rdev;
-	unsigned int		i_blkbits;
 	u64			i_version;
-	loff_t			i_size;
-#ifdef __NEED_I_SIZE_ORDERED
-	seqcount_t		i_size_seqcount;
-#endif
-	struct timespec		i_atime;
-	struct timespec		i_mtime;
-	struct timespec		i_ctime;
-	blkcnt_t		i_blocks;
-	unsigned short          i_bytes;
+	atomic_t		i_count;
 	atomic_t		i_dio_count;
+	atomic_t		i_writecount;
 	const struct file_operations	*i_fop;	/* former ->i_op->default_file_ops */
 	struct file_lock	*i_flock;
-	struct address_space	*i_mapping;
 	struct address_space	i_data;
 #ifdef CONFIG_QUOTA
 	struct dquot		*i_dquot[MAXQUOTAS];
@@ -589,11 +609,6 @@ struct inode {
 
 #ifdef CONFIG_IMA
 	atomic_t		i_readcount; /* struct files open RO */
-#endif
-	atomic_t		i_writecount;
-#ifdef CONFIG_FS_POSIX_ACL
-	struct posix_acl	*i_acl;
-	struct posix_acl	*i_default_acl;
 #endif
 	void			*i_private; /* fs or device private pointer */
 };
