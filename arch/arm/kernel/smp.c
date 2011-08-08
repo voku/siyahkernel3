@@ -314,6 +314,7 @@ static void __cpuinit smp_store_cpu_info(unsigned int cpuid)
 	cpu_info->loops_per_jiffy = loops_per_jiffy;
 	cpu_info->cpuid = read_cpuid_id();
 
+	store_cpu_topology(cpuid);
 }
 
 /*
@@ -414,6 +415,8 @@ void __init smp_prepare_boot_cpu(void)
 void __init smp_prepare_cpus(unsigned int max_cpus)
 {
 	unsigned int ncores = num_possible_cpus();
+
+	init_cpu_topology();
 
 	smp_store_cpu_info(smp_processor_id());
 
