@@ -746,7 +746,7 @@ __mod_timer(struct timer_list *timer, unsigned long expires,
 	if (likely(base->running_timer != timer)) {
 		cpu = smp_processor_id();
 
-#if defined(CONFIG_NO_HZ) && defined(CONFIG_SMP)
+#if defined(CONFIG_NO_HZ_COMMON) && defined(CONFIG_SMP)
 		if (!pinned && get_sysctl_timer_migration())
 			cpu = get_nohz_timer_target();
 #endif
@@ -1184,7 +1184,7 @@ static inline void __run_timers(struct tvec_base *base)
 	spin_unlock_irq(&base->lock);
 }
 
-#ifdef CONFIG_NO_HZ
+#ifdef CONFIG_NO_HZ_COMMON
 /*
  * Find out when the next timer event is due to happen. This
  * is used on S/390 to stop all activity when a CPU is idle.
