@@ -245,6 +245,10 @@ config PHYS_OFFSET
 	  Please provide the physical address corresponding to the
 	  location of main memory in your system.
 
+config GENERIC_BUG
+	def_bool y
+	depends on BUG
+
 source "init/Kconfig"
 
 source "kernel/Kconfig.freezer"
