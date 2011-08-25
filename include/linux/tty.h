@@ -609,6 +609,24 @@ extern struct task_struct *__big_tty_mutex_owner;
 #define tty_locked()		(current == __big_tty_mutex_owner)
 
 /*
+ * this shall be called only from where BTM is held (like close)
+ *
+ * We need this to ensure nobody waits for us to finish while we are waiting.
+ * Without this we were encountering system stalls.
+ *
+ * This should be indeed removed with BTM removal later.
+ *
+ * Locking: BTM required. Nobody is allowed to hold port->mutex.
+ */
+static inline void tty_wait_until_sent_from_close(struct tty_struct *tty,
+		long timeout)
+{
+	tty_unlock(); /* tty->ops->close holds the BTM, drop it while waiting */
+	tty_wait_until_sent(tty, timeout);
+	tty_lock();
+}
+
+/*
  * wait_event_interruptible_tty -- wait for a condition with the tty lock held
  *
  * The condition we are waiting for might take a long time to
