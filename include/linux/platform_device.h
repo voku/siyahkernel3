@@ -43,9 +43,12 @@ extern struct bus_type platform_bus_type;
 extern struct device platform_bus;
 
 extern void arch_setup_pdev_archdata(struct platform_device *);
-extern struct resource *platform_get_resource(struct platform_device *, unsigned int, unsigned int);
+extern struct resource *platform_get_resource(struct platform_device *,
+					      unsigned int, unsigned int);
 extern int platform_get_irq(struct platform_device *, unsigned int);
-extern struct resource *platform_get_resource_byname(struct platform_device *, unsigned int, const char *);
+extern struct resource *platform_get_resource_byname(struct platform_device *,
+						     unsigned int,
+						     const char *);
 extern int platform_get_irq_byname(struct platform_device *, const char *);
 extern int platform_add_devices(struct platform_device **, int);
 
@@ -79,10 +82,24 @@ extern struct platform_device *platform_device_register_full(
  *
  * Returns &struct platform_device pointer on success, or ERR_PTR() on error.
  */
-extern struct platform_device *platform_device_register_resndata(
+static inline struct platform_device *platform_device_register_resndata(
 		struct device *parent, const char *name, int id,
 		const struct resource *res, unsigned int num,
-		const void *data, size_t size);
+		const void *data, size_t size) {
+
+	struct platform_device_info pdevinfo = {
+		.parent = parent,
+		.name = name,
+		.id = id,
+		.res = res,
+		.num_res = num,
+		.data = data,
+		.size_data = size,
+		.dma_mask = 0,
+	};
+
+	return platform_device_register_full(&pdevinfo);
+}
 
 /**
  * platform_device_register_simple - add a platform-level device and its resources
@@ -142,7 +159,8 @@ extern struct platform_device *platform_device_alloc(const char *name, int id);
 extern int platform_device_add_resources(struct platform_device *pdev,
 					 const struct resource *res,
 					 unsigned int num);
-extern int platform_device_add_data(struct platform_device *pdev, const void *data, size_t size);
+extern int platform_device_add_data(struct platform_device *pdev,
+				    const void *data, size_t size);
 extern int platform_device_add(struct platform_device *pdev);
 extern void platform_device_del(struct platform_device *pdev);
 extern void platform_device_put(struct platform_device *pdev);
@@ -171,7 +189,8 @@ static inline void *platform_get_drvdata(const struct platform_device *pdev)
 	return dev_get_drvdata(&pdev->dev);
 }
 
-static inline void platform_set_drvdata(struct platform_device *pdev, void *data)
+static inline void platform_set_drvdata(struct platform_device *pdev,
+					void *data)
 {
 	dev_set_drvdata(&pdev->dev, data);
 }
@@ -185,10 +204,10 @@ static inline void platform_set_drvdata(struct platform_device *pdev, void *data
 	module_driver(__platform_driver, platform_driver_register, \
 			platform_driver_unregister)
 
-extern struct platform_device *platform_create_bundle(struct platform_driver *driver,
-					int (*probe)(struct platform_device *),
-					struct resource *res, unsigned int n_res,
-					const void *data, size_t size);
+extern struct platform_device *platform_create_bundle(
+	struct platform_driver *driver, int (*probe)(struct platform_device *),
+	struct resource *res, unsigned int n_res,
+	const void *data, size_t size);
 
 /* early platform driver interface */
 struct early_platform_driver {
