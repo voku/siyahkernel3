@@ -306,9 +306,6 @@ SECTIONS
 
 	STABS_DEBUG
 	.comment 0 : { *(.comment) }
-
-	/* Default discards */
-	DISCARDS
 }
 
 /*
