@@ -1842,10 +1842,25 @@ static bool rcu_preempt_cpu_has_nonlazy_callbacks(int cpu)
 
 #else /* #ifdef CONFIG_TREE_PREEMPT_RCU */
 
+<<<<<<< HEAD
 static bool rcu_preempt_cpu_has_nonlazy_callbacks(int cpu)
 {
 	return 0;
 }
+=======
+		/*
+		 * Refetching sync_sched_expedited_started allows later
+		 * callers to piggyback on our grace period.  We subtract
+		 * 1 to get the same token that the last incrementer got.
+		 * We retry after they started, so our grace period works
+		 * for them, and they started after our first try, so their
+		 * grace period works for us.
+		 */
+		get_online_cpus();
+		snap = atomic_read_unchecked(&sync_sched_expedited_started);
+		smp_mb(); /* ensure read is before try_stop_cpus(). */
+	}
+>>>>>>> 7e93156... rcu: Make synchronize_sched_expedited() better at work sharing
 
 #endif /* else #ifdef CONFIG_TREE_PREEMPT_RCU */
 
