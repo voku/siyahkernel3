@@ -825,6 +825,7 @@ extern const char *__stop___trace_bprintk_fmt[];
 
 int trace_keep_overwrite(struct tracer *tracer, u32 mask, int set);
 int set_tracer_flag(unsigned int mask, int enabled);
+void trace_printk_init_buffers(void);
 
 #undef FTRACE_ENTRY
 #define FTRACE_ENTRY(call, struct_name, id, tstruct, print)		\
