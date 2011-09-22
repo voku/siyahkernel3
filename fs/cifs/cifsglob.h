@@ -501,6 +501,7 @@ struct cifsLockInfo {
 	__u64 length;
 	__u32 pid;
 	__u8 type;
+	__u16 netfid;
 };
 
 /*
@@ -533,8 +534,6 @@ struct cifsFileInfo {
 	struct dentry *dentry;
 	unsigned int f_flags;
 	struct tcon_link *tlink;
-	struct mutex lock_mutex;
-	struct list_head llist; /* list of byte range locks we have. */
 	bool invalidHandle:1;	/* file closed via session abend */
 	bool oplock_break_cancelled:1;
 	int count;		/* refcount protected by cifs_file_list_lock */
@@ -567,7 +566,9 @@ void cifsFileInfo_put(struct cifsFileInfo *cifs_file);
  */
 
 struct cifsInodeInfo {
-	struct list_head lockList;
+	struct list_head llist;		/* brlocks for this inode */
+	bool can_cache_brlcks;
+	struct mutex lock_mutex;	/* protect two fields above */
 	/* BB add in lists for dirty pages i.e. write caching info for oplock */
 	struct list_head openFileList;
 	__u32 cifsAttrs; /* e.g. DOS archive bit, sparse, compressed, system */
