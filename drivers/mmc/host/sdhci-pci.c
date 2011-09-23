@@ -157,6 +157,65 @@ static int mrst_hc_probe(struct sdhci_pci_chip *chip)
 	return 0;
 }
 
+/* Medfield eMMC hardware reset GPIOs */
+static int mfd_emmc0_rst_gpio = -EINVAL;
+static int mfd_emmc1_rst_gpio = -EINVAL;
+
+static int mfd_emmc_gpio_parse(struct sfi_table_header *table)
+{
+	struct sfi_table_simple *sb = (struct sfi_table_simple *)table;
+	struct sfi_gpio_table_entry *entry;
+	int i, num;
+
+	num = SFI_GET_NUM_ENTRIES(sb, struct sfi_gpio_table_entry);
+	entry = (struct sfi_gpio_table_entry *)sb->pentry;
+
+	for (i = 0; i < num; i++, entry++) {
+		if (!strncmp(entry->pin_name, "emmc0_rst", SFI_NAME_LEN))
+			mfd_emmc0_rst_gpio = entry->pin_no;
+		else if (!strncmp(entry->pin_name, "emmc1_rst", SFI_NAME_LEN))
+			mfd_emmc1_rst_gpio = entry->pin_no;
+	}
+
+	return 0;
+}
+
+static int mfd_emmc_probe_slot(struct sdhci_pci_slot *slot)
+{
+	const char *name = NULL;
+	int gpio = -EINVAL;
+
+	sfi_table_parse(SFI_SIG_GPIO, NULL, NULL, mfd_emmc_gpio_parse);
+
+	switch (slot->chip->pdev->device) {
+	case PCI_DEVICE_ID_INTEL_MFD_EMMC0:
+		gpio = mfd_emmc0_rst_gpio;
+		name = "eMMC0_reset";
+		break;
+	case PCI_DEVICE_ID_INTEL_MFD_EMMC1:
+		gpio = mfd_emmc1_rst_gpio;
+		name = "eMMC1_reset";
+		break;
+	}
+
+	if (!gpio_request(gpio, name)) {
+		gpio_direction_output(gpio, 1);
+		slot->rst_n_gpio = gpio;
+		slot->host->mmc->caps |= MMC_CAP_HW_RESET;
+	}
+
+	slot->host->mmc->caps |= MMC_CAP_8_BIT_DATA;
+
+	slot->host->mmc->caps2 = MMC_CAP2_BOOTPART_NOACC;
+
+	return 0;
+}
+
+static void mfd_emmc_remove_slot(struct sdhci_pci_slot *slot, int dead)
+{
+	gpio_free(slot->rst_n_gpio);
+}
+
 static const struct sdhci_pci_fixes sdhci_intel_mrst_hc0 = {
 	.quirks		= SDHCI_QUIRK_BROKEN_ADMA | SDHCI_QUIRK_NO_HISPD_BIT,
 };
