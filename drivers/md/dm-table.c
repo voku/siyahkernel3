@@ -1294,7 +1294,7 @@ static int device_flush_capable(struct dm_target *ti, struct dm_dev *dev,
 	return q && (q->flush_flags & flush);
 }
 
-static bool dm_table_supports_flush(struct dm_table *t, unsigned flush)
+static bool dm_table_discard_zeroes_data(struct dm_table *t)
 {
 	struct dm_target *ti;
 	unsigned i = 0;
@@ -1340,6 +1340,9 @@ void dm_table_set_restrictions(struct dm_table *t, struct request_queue *q,
 			flush |= REQ_FUA;
 	}
 	blk_queue_flush(q, flush);
+
+	if (!dm_table_discard_zeroes_data(t))
+		q->limits.discard_zeroes_data = 0;
 
 	dm_table_set_integrity(t);
 
