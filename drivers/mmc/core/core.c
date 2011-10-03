@@ -142,12 +142,12 @@ void mmc_request_done(struct mmc_host *host, struct mmc_request *mrq)
 	}
 
 	if (err && cmd->retries && !mmc_card_removed(host->card)) {
-		pr_debug("%s: req failed (CMD%u): %d, retrying...\n",
-			mmc_hostname(host), cmd->opcode, err);
-
-		cmd->retries--;
-		cmd->error = 0;
-		host->ops->request(host, mrq);
+		/*
+		 * Request starter must handle retries - see
+		 * mmc_wait_for_req_done().
+		 */
+		if (mrq->done)
+			mrq->done(mrq);
 	} else {
 		mmc_should_fail_request(host, mrq);
 
@@ -302,14 +302,27 @@ static void mmc_wait_for_req_done(struct mmc_host *host,
 	struct mmc_command *cmd;
 #if (defined(CONFIG_MIDAS_COMMON) && !defined(CONFIG_EXYNOS4_DEV_DWMCI))
 #ifndef CONFIG_MMC_POLLING_WAIT_CMD23
-	if(mrq->sbc && mrq->sbc->error) {
+	if (mrq->sbc && mrq->sbc->error) {
 		/* if an sbc error exists, do not wait completion.
 		   completion is already called.
 		   nothing to do at this condition. */
 	} else
 #endif
 #endif
-		wait_for_completion(&mrq->completion);
+		while (1) {
+			wait_for_completion(&mrq->completion);
+
+			cmd = mrq->cmd;
+			if (!cmd->error || !cmd->retries)
+				break;
+
+			pr_debug("%s: req failed (CMD%u): %d, retrying...\n",
+				mmc_hostname(host), cmd->opcode, cmd->error);
+			cmd->retries--;
+			cmd->error = 0;
+			host->ops->request(host, mrq);
+		} 
+
 
 	cmd = mrq->cmd;
 
@@ -359,7 +372,6 @@ static void mmc_wait_for_req_done(struct mmc_host *host,
 			pr_info("%s: recovering eMMC has been done\n",
 				mmc_hostname(host));
 		}
-
 	}
 }
 
