@@ -353,8 +353,10 @@ static int mmc_get_ext_csd(struct mmc_card *card, u8 **new_ext_csd)
  */
 static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 {
-	int err = 0;
+	int err = 0, idx;
 	int movi_ver_check = 0;
+	unsigned int part_size;
+	u8 hc_erase_grp_sz = 0, hc_wp_grp_sz = 0;
 
 	BUG_ON(!card);
 
@@ -539,7 +541,14 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 		 * There are two boot regions of equal size, defined in
 		 * multiples of 128K.
 		 */
-		card->ext_csd.boot_size = ext_csd[EXT_CSD_BOOT_MULT] << 17;
+		if (ext_csd[EXT_CSD_BOOT_MULT] && mmc_boot_partition_access(card->host)) {
+			for (idx = 0; idx < MMC_NUM_BOOT_PARTITION; idx++) {
+				part_size = ext_csd[EXT_CSD_BOOT_MULT] << 17;
+				mmc_part_add(card, part_size,
+					EXT_CSD_PART_CONFIG_ACC_BOOT0 + idx,
+					"boot%d", idx, true);
+			}
+		}
 	}
 
 	card->ext_csd.raw_hc_erase_gap_size =
@@ -561,9 +570,9 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 		 */
 		if ((ext_csd[EXT_CSD_PARTITION_SUPPORT] & 0x2) &&
 		    (ext_csd[EXT_CSD_PARTITION_ATTRIBUTE] & 0x1)) {
-			u8 hc_erase_grp_sz =
+			hc_erase_grp_sz =
 				ext_csd[EXT_CSD_HC_ERASE_GRP_SIZE];
-			u8 hc_wp_grp_sz =
+			hc_wp_grp_sz =
 				ext_csd[EXT_CSD_HC_WP_GRP_SIZE];
 
 			card->ext_csd.enhanced_area_en = 1;
@@ -591,6 +600,41 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 			 */
 			card->ext_csd.enhanced_area_offset = -EINVAL;
 			card->ext_csd.enhanced_area_size = -EINVAL;
+		}
+
+		/*
+		 * General purpose partition feature support --
+		 * If ext_csd has the size of general purpose partitions,
+		 * set size, part_cfg, partition name in mmc_part.
+		 */
+		if (ext_csd[EXT_CSD_PARTITION_SUPPORT] &
+			EXT_CSD_PART_SUPPORT_PART_EN) {
+			if (card->ext_csd.enhanced_area_en != 1) {
+				hc_erase_grp_sz =
+					ext_csd[EXT_CSD_HC_ERASE_GRP_SIZE];
+				hc_wp_grp_sz =
+					ext_csd[EXT_CSD_HC_WP_GRP_SIZE];
+
+				card->ext_csd.enhanced_area_en = 1;
+			}
+
+			for (idx = 0; idx < MMC_NUM_GP_PARTITION; idx++) {
+				if (!ext_csd[EXT_CSD_GP_SIZE_MULT + idx * 3] &&
+				!ext_csd[EXT_CSD_GP_SIZE_MULT + idx * 3 + 1] &&
+				!ext_csd[EXT_CSD_GP_SIZE_MULT + idx * 3 + 2])
+					continue;
+				part_size =
+				(ext_csd[EXT_CSD_GP_SIZE_MULT + idx * 3 + 2]
+					<< 16) +
+				(ext_csd[EXT_CSD_GP_SIZE_MULT + idx * 3 + 1]
+					<< 8) +
+				ext_csd[EXT_CSD_GP_SIZE_MULT + idx * 3];
+				part_size *= (size_t)(hc_erase_grp_sz *
+					hc_wp_grp_sz);
+				mmc_part_add(card, part_size << 19,
+					EXT_CSD_PART_CONFIG_ACC_GP0 + idx,
+					"gp%d", idx, false);
+			}
 		}
 		card->ext_csd.sec_trim_mult =
 			ext_csd[EXT_CSD_SEC_TRIM_MULT];
