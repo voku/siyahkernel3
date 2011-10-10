@@ -793,6 +793,7 @@ static int do_test(int m)
 	case 8:
 		ret += tcrypt_test("ecb(twofish)");
 		ret += tcrypt_test("cbc(twofish)");
+		ret += tcrypt_test("ctr(twofish)");
 		break;
 #endif
 #ifdef CONFIG_CRYPTO_SERPENT
