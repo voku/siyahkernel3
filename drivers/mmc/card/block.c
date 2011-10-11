@@ -473,14 +473,14 @@ static int mmc_blk_ioctl(struct block_device *bdev, fmode_t mode,
 		ret = mmc_blk_ioctl_cmd(bdev, (struct mmc_ioc_cmd __user *)arg);
 
 #ifdef MMC_ENABLE_CPRM
-	printk(KERN_DEBUG " %s ], %x ", __func__, cmd);
+	pr_debug("[%s], %x ", __func__, cmd);
 
 	switch (cmd) {
 	case MMC_IOCTL_GET_SECTOR_COUNT: {
 		int size = 0;
 
 		size = (int)get_capacity(md->disk) << 9;
-		printk(KERN_DEBUG "[%s]:MMC_IOCTL_GET_SECTOR_COUNT size = %d\n",
+		pr_debug("[%s]:MMC_IOCTL_GET_SECTOR_COUNT size = %d\n",
 			__func__, size);
 
 		return copy_to_user((void *)arg, &size, sizeof(u64));
@@ -497,7 +497,7 @@ static int mmc_blk_ioctl(struct block_device *bdev, fmode_t mode,
 	case ACMD48: {
 		struct cprm_request *req = (struct cprm_request *)arg;
 
-		printk(KERN_DEBUG "[%s]: cmd [%x]\n", __func__, cmd);
+		pr_debug("[%s]: cmd [%x]\n", __func__, cmd);
 		return stub_sendcmd(card, req->cmd, req->arg, \
 				req->len, req->buff);
 		}
@@ -1068,7 +1068,7 @@ static int mmc_blk_err_check(struct mmc_card *card,
 		do {
 			int err = get_card_status(card, &status, 5);
 			if (err) {
-				printk(KERN_ERR "%s: error %d requesting status\n",
+				pr_err("%s: error %d requesting status\n",
 				       req->rq_disk->disk_name, err);
 				return MMC_BLK_CMD_ERR;
 			}
@@ -1707,12 +1707,12 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 		if (brq->cmd.error) {
 			if (card->type == MMC_TYPE_MMC) {
 				get_card_status(card, &status, 0);
-				printk(KERN_ERR "[MOVI_DEBUG] card status is 0x%x\n",
+				pr_err("[MOVI_DEBUG] card status is 0x%x\n",
 					status);
 				if (!status) {
 					int err, i, j;
 					for (i = 0; i < 5; i++) {
-						printk(KERN_ERR "[CMD LOG] CMD:%d, ARG:0x%x, CNT:%d, RSP:0x%x, STRSP:0x%x\n",
+						pr_err("[CMD LOG] CMD:%d, ARG:0x%x, CNT:%d, RSP:0x%x, STRSP:0x%x\n",
 						gaCmdLog[gnCmdLogIdx].cmd,
 						gaCmdLog[gnCmdLogIdx].arg,
 						gaCmdLog[gnCmdLogIdx].cnt,
@@ -1724,7 +1724,7 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 					}
 
 					get_card_status(card, &status, 0);
-					printk(KERN_ERR "COMMAND13 response = 0x%x\n",
+					pr_err("COMMAND13 response = 0x%x\n",
 					status);
 
 					cmd.opcode = 12;
@@ -1733,15 +1733,15 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 					err = mmc_wait_for_cmd
 						(card->host, &cmd, 0);
 					if (err) {
-						printk(KERN_ERR "KERN_ERR %s: error %d CMD12\n",
+						pr_err("KERN_ERR %s: error %d CMD12\n",
 					       req->rq_disk->disk_name, err);
 					}
-					printk(KERN_ERR "COMD12 RESP = 0x%x\n",
+					pr_err("COMD12 RESP = 0x%x\n",
 						cmd.resp[0]);
 					msleep(100);
 
 					get_card_status(card, &status, 0);
-					printk(KERN_ERR "COMMAND13 response = 0x%x\n",
+					pr_err("COMMAND13 response = 0x%x\n",
 						status);
 
 					mmc_set_clock(card->host, 400000);
@@ -1754,11 +1754,11 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 						err = mmc_wait_for_cmd
 							(card->host, &cmd, 0);
 						if (err) {
-							printk(KERN_ERR "%s: error %d CMD1\n",
+							pr_err("%s: error %d CMD1\n",
 							req->rq_disk->disk_name,
 							err);
 						}
-						printk(KERN_ERR "COMD1 RESP = 0x%x\n",
+						pr_err("COMD1 RESP = 0x%x\n",
 							cmd.resp[0]);
 						msleep(50);
 					}
@@ -1771,7 +1771,7 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 						err = mmc_wait_for_cmd
 							(card->host, &cmd, 0);
 						if (err) {
-							printk(KERN_ERR "%s: error %d CMD0\n",
+							pr_err("%s: error %d CMD0\n",
 							req->rq_disk->disk_name,
 							err);
 						}
@@ -1783,7 +1783,7 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 						err = mmc_wait_for_cmd
 						(card->host, &cmd, 0);
 						if (err) {
-							printk(KERN_ERR "%s: error %d CMD0\n",
+							pr_err("%s: error %d CMD0\n",
 							req->rq_disk->disk_name,
 							err);
 						}
@@ -1796,12 +1796,12 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 							err = mmc_wait_for_cmd
 							(card->host, &cmd, 0);
 							if (err) {
-								printk(KERN_ERR "%s: error %d CMD1\n",
+								pr_err("%s: error %d CMD1\n",
 							req->rq_disk->disk_name,
 							err);
 							}
 
-							printk(KERN_ERR "COMD1 RESP = 0x%x\n",
+							pr_err("COMD1 RESP = 0x%x\n",
 								cmd.resp[0]);
 						}
 					}
@@ -1857,7 +1857,7 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 			 * were returned by the host controller, it's a bug.
 			 */
 			if (status == MMC_BLK_SUCCESS && ret) {
-				printk(KERN_ERR "%s BUG rq_tot %d d_xfer %d\n",
+				pr_err("%s BUG rq_tot %d d_xfer %d\n",
 				       __func__, blk_rq_bytes(req),
 				       brq->data.bytes_xfered);
 				rqc = NULL;
@@ -2214,7 +2214,7 @@ static int mmc_blk_alloc_part(struct mmc_card *card,
 
 	string_get_size((u64)get_capacity(part_md->disk) << 9, STRING_UNITS_2,
 			cap_str, sizeof(cap_str));
-	printk(KERN_INFO "%s: %s %s partition %u %s\n",
+	pr_info("%s: %s %s partition %u %s\n",
 	       part_md->disk->disk_name, mmc_card_id(card),
 	       mmc_card_name(card), part_md->part_type, cap_str);
 	return 0;
@@ -2344,7 +2344,7 @@ static int mmc_blk_probe(struct mmc_card *card)
 
 	string_get_size((u64)get_capacity(md->disk) << 9, STRING_UNITS_2,
 			cap_str, sizeof(cap_str));
-	printk(KERN_INFO "%s: %s %s %s %s\n",
+	pr_info("%s: %s %s %s %s\n",
 		md->disk->disk_name, mmc_card_id(card), mmc_card_name(card),
 		cap_str, md->read_only ? "(ro)" : "");
 

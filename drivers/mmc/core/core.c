@@ -286,7 +286,7 @@ static void mmc_wait_for_req_done(struct mmc_host *host,
 		(mrq->sbc && mrq->sbc->error))))) {
 		int rt_err = -1,count = 3;
 
-		printk(KERN_ERR "%s: it occurs a critical error on eMMC "
+		pr_err("%s: it occurs a critical error on eMMC "
 				"it'll try to recover eMMC to normal state\n",
 				mmc_hostname(host));
 		do {
@@ -313,10 +313,10 @@ static void mmc_wait_for_req_done(struct mmc_host *host,
 		} while(count && rt_err);
 
 		if (rt_err) {
-			printk(KERN_ERR "%s: it has failed to recover eMMC\n",
+			pr_err("%s: it has failed to recover eMMC\n",
 				mmc_hostname(host));
 		} else {
-			printk(KERN_INFO "%s: recovering eMMC has been done\n",
+			pr_info("%s: recovering eMMC has been done\n",
 				mmc_hostname(host));
 		}
 
@@ -2442,7 +2442,7 @@ int mmc_resume_host(struct mmc_host *host)
 		BUG_ON(!host->bus_ops->resume);
 		err = host->bus_ops->resume(host);
 		if (err) {
-			printk(KERN_WARNING "%s: error %d during resume "
+			pr_warning("%s: error %d during resume "
 					    "(card was removed?)\n",
 					    mmc_hostname(host), err);
 			err = 0;
