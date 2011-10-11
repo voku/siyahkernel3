@@ -2419,7 +2419,7 @@ int mmc_resume_host(struct mmc_host *host)
 		BUG_ON(!host->bus_ops->resume);
 		err = host->bus_ops->resume(host);
 		if (err) {
-			printk(KERN_WARNING "%s: error %d during resume "
+			pr_warning("%s: error %d during resume "
 					    "(card was removed?)\n",
 					    mmc_hostname(host), err);
 			err = 0;
