@@ -310,7 +310,7 @@ __arm_ioremap_exec(unsigned long phys_addr, size_t size, bool cached)
 		mtype = MT_MEMORY_NONCACHED;
 
 	return __arm_ioremap_caller(phys_addr, size, mtype,
-		__builtin_return_address(0));
+			__builtin_return_address(0));
 }
 
 void __iounmap(volatile void __iomem *io_addr)
