@@ -147,6 +147,8 @@ struct fsnotify_group {
 					 * a group */
 	struct list_head marks_list;	/* all inode marks for this group */
 
+	struct fasync_struct    *fsn_fa;    /* async notification */
+
 	/* groups can define private fields here or use the void *private */
 	union {
 		void *private;
@@ -155,7 +157,6 @@ struct fsnotify_group {
 			spinlock_t	idr_lock;
 			struct idr      idr;
 			u32             last_wd;
-			struct fasync_struct    *fa;    /* async notification */
 			struct user_struct      *user;
 		} inotify_data;
 #endif
@@ -366,6 +367,8 @@ extern struct fsnotify_group *fsnotify_alloc_group(const struct fsnotify_ops *op
 extern void fsnotify_put_group(struct fsnotify_group *group);
 /* destroy group */
 extern void fsnotify_destroy_group(struct fsnotify_group *group);
+/* fasync handler function */
+extern int fsnotify_fasync(int fd, struct file *file, int on);
 /* take a reference to an event */
 extern void fsnotify_get_event(struct fsnotify_event *event);
 extern void fsnotify_put_event(struct fsnotify_event *event);
