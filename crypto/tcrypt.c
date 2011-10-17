@@ -799,6 +799,8 @@ static int do_test(int m)
 #ifdef CONFIG_CRYPTO_SERPENT
 	case 9:
 		ret += tcrypt_test("ecb(serpent)");
+		ret += tcrypt_test("cbc(serpent)");
+		ret += tcrypt_test("ctr(serpent)");
 		break;
 #endif
 	case 10:
