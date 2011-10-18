@@ -1814,8 +1814,8 @@ static int sgl_read_to_frags(struct scatterlist *sg, unsigned int sgoffset,
 		copy = min(datalen, sglen);
 		if (i && page == frags[i - 1].page &&
 		    sgoffset + sg->offset ==
-			frags[i - 1].page_offset + frags[i - 1].size) {
-			frags[i - 1].size += copy;
+			frags[i - 1].page_offset + skb_frag_size(&frags[i - 1])) {
+			skb_frag_size_add(&frags[i - 1], copy);
 		} else {
 			if (i >= frag_max) {
 				pr_warn("too many pages %u, dlen %u.\n",
@@ -1825,7 +1825,7 @@ static int sgl_read_to_frags(struct scatterlist *sg, unsigned int sgoffset,
 
 			frags[i].page = page;
 			frags[i].page_offset = sg->offset + sgoffset;
-			frags[i].size = copy;
+			skb_frag_size_set(&frags[i], copy);
 			i++;
 		}
 		datalen -= copy;
@@ -1950,8 +1950,8 @@ int cxgbi_conn_init_pdu(struct iscsi_task *task, unsigned int offset,
 			for (i = 0; i < tdata->nr_frags; i++, frag++) {
 				char *src = kmap_atomic(frag->page);
 
-				memcpy(dst, src+frag->page_offset, frag->size);
-				dst += frag->size;
+				memcpy(dst, src+frag->page_offset, skb_frag_size(frag));
+				dst += skb_frag_size(frag);
 				kunmap_atomic(src);
 			}
 			if (padlen) {
@@ -2565,65 +2565,6 @@ void cxgbi_iscsi_cleanup(struct iscsi_transport *itp,
 }
 EXPORT_SYMBOL_GPL(cxgbi_iscsi_cleanup);
 
-<<<<<<< HEAD
-=======
-umode_t cxgbi_attr_is_visible(int param_type, int param)
-{
-	switch (param_type) {
-	case ISCSI_HOST_PARAM:
-		switch (param) {
-		case ISCSI_HOST_PARAM_NETDEV_NAME:
-		case ISCSI_HOST_PARAM_HWADDRESS:
-		case ISCSI_HOST_PARAM_IPADDRESS:
-		case ISCSI_HOST_PARAM_INITIATOR_NAME:
-			return S_IRUGO;
-		default:
-			return 0;
-		}
-	case ISCSI_PARAM:
-		switch (param) {
-		case ISCSI_PARAM_MAX_RECV_DLENGTH:
-		case ISCSI_PARAM_MAX_XMIT_DLENGTH:
-		case ISCSI_PARAM_HDRDGST_EN:
-		case ISCSI_PARAM_DATADGST_EN:
-		case ISCSI_PARAM_CONN_ADDRESS:
-		case ISCSI_PARAM_CONN_PORT:
-		case ISCSI_PARAM_EXP_STATSN:
-		case ISCSI_PARAM_PERSISTENT_ADDRESS:
-		case ISCSI_PARAM_PERSISTENT_PORT:
-		case ISCSI_PARAM_PING_TMO:
-		case ISCSI_PARAM_RECV_TMO:
-		case ISCSI_PARAM_INITIAL_R2T_EN:
-		case ISCSI_PARAM_MAX_R2T:
-		case ISCSI_PARAM_IMM_DATA_EN:
-		case ISCSI_PARAM_FIRST_BURST:
-		case ISCSI_PARAM_MAX_BURST:
-		case ISCSI_PARAM_PDU_INORDER_EN:
-		case ISCSI_PARAM_DATASEQ_INORDER_EN:
-		case ISCSI_PARAM_ERL:
-		case ISCSI_PARAM_TARGET_NAME:
-		case ISCSI_PARAM_TPGT:
-		case ISCSI_PARAM_USERNAME:
-		case ISCSI_PARAM_PASSWORD:
-		case ISCSI_PARAM_USERNAME_IN:
-		case ISCSI_PARAM_PASSWORD_IN:
-		case ISCSI_PARAM_FAST_ABORT:
-		case ISCSI_PARAM_ABORT_TMO:
-		case ISCSI_PARAM_LU_RESET_TMO:
-		case ISCSI_PARAM_TGT_RESET_TMO:
-		case ISCSI_PARAM_IFACE_NAME:
-		case ISCSI_PARAM_INITIATOR_NAME:
-			return S_IRUGO;
-		default:
-			return 0;
-		}
-	}
-
-	return 0;
-}
-EXPORT_SYMBOL_GPL(cxgbi_attr_is_visible);
-
->>>>>>> 587a1f1... switch ->is_visible() to returning umode_t
 static int __init libcxgbi_init_module(void)
 {
 	sw_tag_idx_bits = (__ilog2_u32(ISCSI_ITT_MASK)) + 1;
