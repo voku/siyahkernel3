@@ -1004,6 +1004,7 @@ static int do_test(int m)
 		ret += tcrypt_test("cbc(serpent)");
 		ret += tcrypt_test("ctr(serpent)");
 		ret += tcrypt_test("lrw(serpent)");
+		ret += tcrypt_test("xts(serpent)");
 		break;
 #endif
 	case 10:
@@ -1381,6 +1382,10 @@ static int do_test(int m)
 				  speed_template_32_48);
 		test_cipher_speed("lrw(serpent)", DECRYPT, sec, NULL, 0,
 				  speed_template_32_48);
+		test_cipher_speed("xts(serpent)", ENCRYPT, sec, NULL, 0,
+				  speed_template_32_64);
+		test_cipher_speed("xts(serpent)", DECRYPT, sec, NULL, 0,
+				  speed_template_32_64);
 		break;
 
 	case 300:
@@ -1697,6 +1702,10 @@ static int do_test(int m)
 				   speed_template_32_48);
 		test_acipher_speed("lrw(serpent)", DECRYPT, sec, NULL, 0,
 				   speed_template_32_48);
+		test_acipher_speed("xts(serpent)", ENCRYPT, sec, NULL, 0,
+				   speed_template_32_64);
+		test_acipher_speed("xts(serpent)", DECRYPT, sec, NULL, 0,
+				   speed_template_32_64);
 		break;
 
 	case 1000:
