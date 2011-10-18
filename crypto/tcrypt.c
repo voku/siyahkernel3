@@ -995,6 +995,7 @@ static int do_test(int m)
 		ret += tcrypt_test("ecb(twofish)");
 		ret += tcrypt_test("cbc(twofish)");
 		ret += tcrypt_test("ctr(twofish)");
+		ret += tcrypt_test("lrw(twofish)");
 		break;
 #endif
 #ifdef CONFIG_CRYPTO_SERPENT
@@ -1303,6 +1304,10 @@ static int do_test(int m)
 				speed_template_16_24_32);
 		test_cipher_speed("ctr(twofish)", DECRYPT, sec, NULL, 0,
 				speed_template_16_24_32);
+		test_cipher_speed("lrw(twofish)", ENCRYPT, sec, NULL, 0,
+				speed_template_32_40_48);
+		test_cipher_speed("lrw(twofish)", DECRYPT, sec, NULL, 0,
+				speed_template_32_40_48);
 		break;
 
 	case 203:
