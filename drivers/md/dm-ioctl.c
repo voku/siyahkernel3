@@ -1193,6 +1193,7 @@ static int table_load(struct dm_ioctl *param, size_t param_size)
 	struct hash_cell *hc;
 	struct dm_table *t;
 	struct mapped_device *md;
+	struct target_type *immutable_target_type;
 
 	md = find_device(param);
 	if (!md)
@@ -1205,6 +1206,16 @@ static int table_load(struct dm_ioctl *param, size_t param_size)
 	r = populate_table(t, param, param_size);
 	if (r) {
 		dm_table_destroy(t);
+		goto out;
+	}
+
+	immutable_target_type = dm_get_immutable_target_type(md);
+	if (immutable_target_type &&
+	    (immutable_target_type != dm_table_get_immutable_target_type(t))) {
+		DMWARN("can't replace immutable target type %s",
+		       immutable_target_type->name);
+		dm_table_destroy(t);
+		r = -EINVAL;
 		goto out;
 	}
 
