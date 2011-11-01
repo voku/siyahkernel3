@@ -60,7 +60,7 @@ static int prune_super(struct shrinker *shrink, struct shrink_control *sc)
 		return -1;
 
 	if (!grab_super_passive(sb))
-		return -1;
+		return !sc->nr_to_scan ? 0 : -1;
 
 	if (sc->nr_to_scan) {
 		/* proportion the scan between the two caches */
