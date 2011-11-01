@@ -56,30 +56,18 @@ struct hwmon_property_head {
 struct device *hwmon_device_register(struct device *dev)
 {
 	struct device *hwdev;
-	int id, err;
+	int id
 	struct hwmon_property_head *data;
 
-again:
-	if (unlikely(idr_pre_get(&hwmon_idr, GFP_KERNEL) == 0))
-		return ERR_PTR(-ENOMEM);
+	id = ida_simple_get(&hwmon_ida, 0, 0, GFP_KERNEL);
+	if (id < 0)
+		return ERR_PTR(id);
 
-	spin_lock(&idr_lock);
-	err = idr_get_new(&hwmon_idr, NULL, &id);
-	spin_unlock(&idr_lock);
-
-	if (unlikely(err == -EAGAIN))
-		goto again;
-	else if (unlikely(err))
-		return ERR_PTR(err);
-
-	id = id & MAX_ID_MASK;
 	hwdev = device_create(hwmon_class, dev, MKDEV(0, 0), NULL,
 			      HWMON_ID_FORMAT, id);
 
 	if (IS_ERR(hwdev)) {
-		spin_lock(&idr_lock);
-		idr_remove(&hwmon_idr, id);
-		spin_unlock(&idr_lock);
+		ida_simple_remove(&hwmon_ida, id);
 		goto out;
 	}
 
@@ -88,7 +76,6 @@ again:
 		return ERR_PTR(-ENOMEM);
 
 	INIT_LIST_HEAD(&data->head);
-	mutex_init(&data->lock);
 	dev_set_drvdata(hwdev, data);
 out:
 	return hwdev;
@@ -135,9 +122,7 @@ void hwmon_device_unregister(struct device *dev)
 
 	if (likely(sscanf(dev_name(dev), HWMON_ID_FORMAT, &id) == 1)) {
 		device_unregister(dev);
-		spin_lock(&idr_lock);
-		idr_remove(&hwmon_idr, id);
-		spin_unlock(&idr_lock);
+		ida_simple_remove(&hwmon_ida, id);
 	} else
 		dev_dbg(dev->parent,
 			"hwmon_device_unregister() failed: bad class ID!\n");
