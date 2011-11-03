@@ -2391,6 +2391,12 @@ static const struct mmc_fixup blk_fixups[] =
 		  MMC_QUIRK_MOVINAND_SECURE),
 	MMC_FIXUP("VZL00M", CID_MANFID_SAMSUNG, CID_OEMID_ANY, add_quirk_mmc,
 		  MMC_QUIRK_MOVINAND_SECURE),
+	/*
+	 * Some Micron MMC cards needs longer data read timeout than
+	 * indicated in CSD.
+	 */
+	MMC_FIXUP(CID_NAME_ANY, 0x13, 0x200, add_quirk_mmc,
+		  MMC_QUIRK_LONG_READ_TIME),
 
 	END_FIXUP
 };
