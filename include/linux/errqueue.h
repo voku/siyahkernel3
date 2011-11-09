@@ -1,7 +1,6 @@
 #ifndef _LINUX_ERRQUEUE_H
 #define _LINUX_ERRQUEUE_H 1
 
-
 #include <net/ip.h>
 #if IS_ENABLED(CONFIG_IPV6)
 #include <linux/ipv6.h>
