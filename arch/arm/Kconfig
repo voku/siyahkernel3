@@ -483,8 +483,8 @@ config ARM_ERRATA_751472
 	  operation is received by a CPU before the ICIALLUIS has completed,
 	  potentially leading to corrupted entries in the cache or TLB.
 
-config ARM_ERRATA_753970
-	bool "ARM errata: cache sync operation may be faulty"
+config PL310_ERRATA_753970
+	bool "PL310 errata: cache sync operation may be faulty"
 	depends on CACHE_PL310
 	help
 	  This option enables the workaround for the 753970 PL310 (r3p0) erratum.
