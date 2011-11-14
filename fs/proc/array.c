@@ -81,6 +81,7 @@
 #include <linux/pid_namespace.h>
 #include <linux/ptrace.h>
 #include <linux/tracehook.h>
+#include <linux/user_namespace.h>
 
 #include <asm/pgtable.h>
 #include <asm/processor.h>
@@ -162,6 +163,7 @@ static inline const char *get_task_state(struct task_struct *tsk)
 static inline void task_state(struct seq_file *m, struct pid_namespace *ns,
 				struct pid *pid, struct task_struct *p)
 {
+	struct user_namespace *user_ns = current_user_ns();
 	struct group_info *group_info;
 	int g;
 	struct fdtable *fdt = NULL;
@@ -205,12 +207,9 @@ static inline void task_state(struct seq_file *m, struct pid_namespace *ns,
 	group_info = cred->group_info;
 	task_unlock(p);
 
-#ifdef CONFIG_SLP
-	for (g = 0; g < group_info->ngroups; g++)
-#else
 	for (g = 0; g < min(group_info->ngroups, NGROUPS_SMALL); g++)
-#endif
-		seq_printf(m, "%d ", GROUP_AT(group_info, g));
+		seq_printf(m, "%d ",
+			   from_kgid_munged(user_ns, GROUP_AT(group_info, g)));
 	put_cred(cred);
 
 	seq_putc(m, '\n');
