@@ -2799,23 +2799,23 @@ static struct dentry *nfs_follow_remote_path(struct vfsmount *root_mnt,
 		return ERR_PTR(-ENOMEM);
 
 	ns_private = create_mnt_ns(root_mnt);
-	ret = PTR_ERR(ns_private);
 	if (IS_ERR(ns_private))
-		goto out_mntput;
+		return ERR_CAST(ns_private);
 
 	ret = nfs_referral_loop_protect();
-	if (ret != 0)
-		goto out_put_mnt_ns;
+	if (ret == 0) {
+		ret = vfs_path_lookup(root_mnt->mnt_root, root_mnt,
+				export_path, LOOKUP_FOLLOW|LOOKUP_AUTOMOUNT,
+				&nd);
+		nfs_referral_loop_unprotect();
+	}
 
-	ret = vfs_path_lookup(root_mnt->mnt_root, root_mnt,
-			export_path, LOOKUP_FOLLOW|LOOKUP_AUTOMOUNT, nd);
-
-	nfs_referral_loop_unprotect();
 	put_mnt_ns(ns_private);
 
-	if (ret != 0)
-		goto out_err;
-
+	if (ret != 0) (
+		kfree(nd);
+		return ERR_PTR(ret);
+	}
 	s = nd->path.mnt->mnt_sb;
 	atomic_inc(&s->s_active);
 	dentry = dget(nd->path.dentry);
@@ -2824,13 +2824,6 @@ static struct dentry *nfs_follow_remote_path(struct vfsmount *root_mnt,
 	kfree(nd);
 	down_write(&s->s_umount);
 	return dentry;
-out_put_mnt_ns:
-	put_mnt_ns(ns_private);
-out_mntput:
-	mntput(root_mnt);
-out_err:
-	kfree(nd);
-	return ERR_PTR(ret);
 }
 
 static struct dentry *nfs4_try_mount(int flags, const char *dev_name,
