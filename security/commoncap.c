@@ -112,7 +112,7 @@ int cap_capable(struct task_struct *tsk, const struct cred *cred,
 		 *If you have a capability in a parent user ns, then you have
 		 * it over all children user namespaces as well.
 		 */
-		targ_ns = targ_ns->creator->user_ns;
+		targ_ns = targ_ns->parent;
 	}
 
 	/* We never get here */
