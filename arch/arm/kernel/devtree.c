@@ -19,8 +19,10 @@
 #include <linux/of_irq.h>
 #include <linux/of_platform.h>
 
+#include <asm/cputype.h>
 #include <asm/setup.h>
 #include <asm/page.h>
+#include <asm/smp_plat.h>
 #include <asm/mach/arch.h>
 #include <asm/mach-types.h>
 
@@ -150,9 +152,10 @@ void __init arm_dt_init_cpu_maps(void)
 		tmp_map[i] = hwid;
 	}
 
-	if (WARN(!bootcpu_valid, "DT missing boot CPU MPIDR[23:0], "
-				 "fall back to default cpu_logical_map\n"))
+	if (!bootcpu_valid) {
+		pr_warn("DT missing boot CPU MPIDR[23:0], fall back to default cpu_logical_map\n");
 		return;
+	}
 
 	/*
 	 * Since the boot CPU node contains proper data, and all nodes have
@@ -164,6 +167,11 @@ void __init arm_dt_init_cpu_maps(void)
 		cpu_logical_map(i) = tmp_map[i];
 		pr_debug("cpu logical map 0x%x\n", cpu_logical_map(i));
 	}
+}
+
+bool arch_match_cpu_phys_id(int cpu, u64 phys_id)
+{
+	return (phys_id & MPIDR_HWID_BITMASK) == cpu_logical_map(cpu);
 }
 
 /**
@@ -180,6 +188,13 @@ const struct machine_desc * __init setup_machine_fdt(unsigned int dt_phys)
 	unsigned int score, mdesc_score = ~1;
 	unsigned long dt_root;
 	const char *model;
+
+#ifdef CONFIG_ARCH_MULTIPLATFORM
+	DT_MACHINE_START(GENERIC_DT, "Generic DT based system")
+	MACHINE_END
+
+	mdesc_best = &__mach_desc_GENERIC_DT;
+#endif
 
 	if (!dt_phys)
 		return NULL;
