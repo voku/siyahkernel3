@@ -1528,6 +1528,9 @@ struct super_block {
 
 	struct shrinker s_shrink;	/* per-sb shrinker handle */
 
+	/* Number of inodes with nlink == 0 but still referenced */
+	atomic_long_t s_remove_count;
+
 	/* Being remounted read-only */
 	int s_readonly_remount;
 };
@@ -2354,8 +2357,6 @@ extern int is_bad_inode(struct inode *);
 extern const struct file_operations read_pipefifo_fops;
 extern const struct file_operations write_pipefifo_fops;
 extern const struct file_operations rdwr_pipefifo_fops;
-
-extern int fs_may_remount_ro(struct super_block *);
 
 #ifdef CONFIG_BLOCK
 /*
