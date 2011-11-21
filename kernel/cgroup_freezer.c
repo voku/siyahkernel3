@@ -224,7 +224,7 @@ static void update_if_frozen(struct cgroup *cgroup,
 	cgroup_iter_start(cgroup, &it);
 	while ((task = cgroup_iter_next(cgroup, &it))) {
 		ntotal++;
-		if (is_task_frozen_enough(task))
+		if (freezing(task) && is_task_frozen_enough(task))
 			nfrozen++;
 	}
 
