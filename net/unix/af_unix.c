@@ -1960,6 +1960,7 @@ static int unix_stream_recvmsg(struct kiocb *iocb, struct socket *sock,
 			if ((UNIXCB(skb).pid  != siocb->scm->pid) ||
 			    (UNIXCB(skb).cred != siocb->scm->cred)) {
 				skb_queue_head(&sk->sk_receive_queue, skb);
+				sk->sk_data_ready(sk, skb->len);
 				break;
 			}
 		} else {
@@ -1977,6 +1978,7 @@ static int unix_stream_recvmsg(struct kiocb *iocb, struct socket *sock,
 		chunk = min_t(unsigned int, skb->len, size);
 		if (memcpy_toiovec(msg->msg_iov, skb->data, chunk)) {
 			skb_queue_head(&sk->sk_receive_queue, skb);
+			sk->sk_data_ready(sk, skb->len);
 			if (copied == 0)
 				copied = -EFAULT;
 			break;
@@ -1994,6 +1996,7 @@ static int unix_stream_recvmsg(struct kiocb *iocb, struct socket *sock,
 			/* put the skb back if we didn't use it up.. */
 			if (skb->len) {
 				skb_queue_head(&sk->sk_receive_queue, skb);
+				sk->sk_data_ready(sk, skb->len);
 				break;
 			}
 
@@ -2009,6 +2012,7 @@ static int unix_stream_recvmsg(struct kiocb *iocb, struct socket *sock,
 
 			/* put message back and return */
 			skb_queue_head(&sk->sk_receive_queue, skb);
+			sk->sk_data_ready(sk, skb->len);
 			break;
 		}
 	} while (size);
