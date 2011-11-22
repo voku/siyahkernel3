@@ -82,13 +82,16 @@ static void unmap_area_sections(unsigned long virt, unsigned long size)
 {
 	unsigned long addr = virt, end = virt + (size & ~(SZ_1M - 1));
 	pgd_t *pgd;
+	pud_t *pud;
+	pmd_t *pmdp;
 
 	flush_cache_vunmap(addr, end);
 	pgd = pgd_offset_k(addr);
+	pud = pud_offset(pgd, addr);
+	pmdp = pmd_offset(pud, addr);
 	do {
-		pmd_t pmd, *pmdp = pmd_offset(pgd, addr);
+		pmd_t pmd = *pmdp;
 
-		pmd = *pmdp;
 		if (!pmd_none(pmd)) {
 			/*
 			 * Clear the PMD from the page table, and
@@ -107,8 +110,8 @@ static void unmap_area_sections(unsigned long virt, unsigned long size)
 				pte_free_kernel(&init_mm, pmd_page_vaddr(pmd));
 		}
 
-		addr += PGDIR_SIZE;
-		pgd++;
+		addr += PMD_SIZE;
+		pmdp += 2;
 	} while (addr < end);
 
 	/*
@@ -127,6 +130,8 @@ remap_area_sections(unsigned long virt, unsigned long pfn,
 {
 	unsigned long addr = virt, end = virt + size;
 	pgd_t *pgd;
+	pud_t *pud;
+	pmd_t *pmd;
 
 	/*
 	 * Remove and free any PTE-based mapping, and
@@ -135,17 +140,17 @@ remap_area_sections(unsigned long virt, unsigned long pfn,
 	unmap_area_sections(virt, size);
 
 	pgd = pgd_offset_k(addr);
+	pud = pud_offset(pgd, addr);
+	pmd = pmd_offset(pud, addr);
 	do {
-		pmd_t *pmd = pmd_offset(pgd, addr);
-
 		pmd[0] = __pmd(__pfn_to_phys(pfn) | type->prot_sect);
 		pfn += SZ_1M >> PAGE_SHIFT;
 		pmd[1] = __pmd(__pfn_to_phys(pfn) | type->prot_sect);
 		pfn += SZ_1M >> PAGE_SHIFT;
 		flush_pmd_entry(pmd);
 
-		addr += PGDIR_SIZE;
-		pgd++;
+		addr += PMD_SIZE;
+		pmd += 2;
 	} while (addr < end);
 
 	return 0;
@@ -157,6 +162,8 @@ remap_area_supersections(unsigned long virt, unsigned long pfn,
 {
 	unsigned long addr = virt, end = virt + size;
 	pgd_t *pgd;
+	pud_t *pud;
+	pmd_t *pmd;
 
 	/*
 	 * Remove and free any PTE-based mapping, and
@@ -165,6 +172,8 @@ remap_area_supersections(unsigned long virt, unsigned long pfn,
 	unmap_area_sections(virt, size);
 
 	pgd = pgd_offset_k(virt);
+	pud = pud_offset(pgd, addr);
+	pmd = pmd_offset(pud, addr);
 	do {
 		unsigned long super_pmd_val, i;
 
@@ -173,14 +182,12 @@ remap_area_supersections(unsigned long virt, unsigned long pfn,
 		super_pmd_val |= ((pfn >> (32 - PAGE_SHIFT)) & 0xf) << 20;
 
 		for (i = 0; i < 8; i++) {
-			pmd_t *pmd = pmd_offset(pgd, addr);
-
 			pmd[0] = __pmd(super_pmd_val);
 			pmd[1] = __pmd(super_pmd_val);
 			flush_pmd_entry(pmd);
 
-			addr += PGDIR_SIZE;
-			pgd++;
+			addr += PMD_SIZE;
+			pmd += 2;
 		}
 
 		pfn += SUPERSECTION_SIZE >> PAGE_SHIFT;
