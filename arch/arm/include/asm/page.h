@@ -144,7 +144,11 @@ extern void copy_page(void *to, const void *from);
 
 #define __HAVE_ARCH_GATE_AREA	1
 
+#ifdef CONFIG_ARM_LPAE
+#include <asm/pgtable-3level-types.h>
+#else
 #include <asm/pgtable-2level-types.h>
+#endif
 
 #endif /* CONFIG_MMU */
 
