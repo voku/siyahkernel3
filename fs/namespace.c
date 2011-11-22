@@ -494,7 +494,7 @@ struct vfsmount *lookup_mnt(struct path *path)
 	br_read_lock(&vfsmount_lock);
 	child_mnt = __lookup_mnt(path->mnt, path->dentry, 1);
 	if (child_mnt) {
-		mnt_add_count(child_mnt, 1);
+		/* mnt_add_count(child_mnt, 1);  NEED TO FIX*/
 		br_read_unlock(&vfsmount_lock);
 		return &child_mnt->mnt;
 	} else {
