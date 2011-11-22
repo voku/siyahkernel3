@@ -152,7 +152,6 @@
 #define pud_bad(pud)		(0)
 #define pud_present(pud)	(1)
 #define pud_clear(pudp)		do { } while (0)
-#define set_pgd(pgd,pgdp)	do { } while (0)
 #define set_pud(pud,pudp)	do { } while (0)
 
 /* Find an entry in the second-level page table.. */

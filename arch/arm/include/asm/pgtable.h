@@ -11,15 +11,16 @@
 #define _ASMARM_PGTABLE_H
 
 #include <linux/const.h>
-#include <asm-generic/4level-fixup.h>
 #include <asm/proc-fns.h>
 
 #ifndef CONFIG_MMU
 
+#include <asm-generic/4level-fixup.h>
 #include "pgtable-nommu.h"
 
 #else
 
+#include <asm-generic/pgtable-nopud.h>
 #include <asm/memory.h>
 #include <mach/vmalloc.h>
 #include <asm/pgtable-hwdef.h>
