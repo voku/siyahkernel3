@@ -247,13 +247,13 @@ int propagate_mnt(struct vfsmount *dest_mnt, struct dentry *dest_dentry,
 
 		if (is_subdir(dest_dentry, m->mnt_root)) {
 			mnt_set_mountpoint(m, dest_dentry, &child->mnt);
-			list_add_tail(&child->mnt.mnt_hash, tree_list);
+			list_add_tail(&child->mnt_hash, tree_list);
 		} else {
 			/*
 			 * This can happen if the parent mount was bind mounted
 			 * on some subdirectory of a shared/slave mount.
 			 */
-			list_add_tail(&child->mnt.mnt_hash, &tmp_list);
+			list_add_tail(&child->mnt_hash, &tmp_list);
 		}
 		prev_dest_mnt = m;
 		prev_src_mnt  = &child->mnt;
@@ -261,7 +261,7 @@ int propagate_mnt(struct vfsmount *dest_mnt, struct dentry *dest_dentry,
 out:
 	br_write_lock(&vfsmount_lock);
 	while (!list_empty(&tmp_list)) {
-		child = list_first_entry(&tmp_list, struct mount, mnt.mnt_hash);
+		child = list_first_entry(&tmp_list, struct mount, mnt_hash);
 		umount_tree(&child->mnt, 0, &umount_list);
 	}
 	br_write_unlock(&vfsmount_lock);
@@ -320,24 +320,24 @@ int propagate_mount_busy(struct vfsmount *mnt, int refcnt)
  * NOTE: unmounting 'mnt' naturally propagates to all other mounts its
  * parent propagates to.
  */
-static void __propagate_umount(struct vfsmount *mnt)
+static void __propagate_umount(struct mount *mnt)
 {
-	struct vfsmount *parent = mnt->mnt_parent;
+	struct vfsmount *parent = mnt->mnt.mnt_parent;
 	struct vfsmount *m;
 
-	BUG_ON(parent == mnt);
+	BUG_ON(parent == &mnt->mnt);
 
 	for (m = propagation_next(parent, parent); m;
 			m = propagation_next(m, parent)) {
 
 		struct mount *child = __lookup_mnt(m,
-					mnt->mnt_mountpoint, 0);
+					mnt->mnt.mnt_mountpoint, 0);
 		/*
 		 * umount the child only if the child has no
 		 * other children
 		 */
 		if (child && list_empty(&child->mnt.mnt_mounts))
-			list_move_tail(&child->mnt.mnt_hash, &mnt->mnt_hash);
+			list_move_tail(&child->mnt_hash, &mnt->mnt_hash);
 	}
 }
 
@@ -350,7 +350,7 @@ static void __propagate_umount(struct vfsmount *mnt)
  */
 int propagate_umount(struct list_head *list)
 {
-	struct vfsmount *mnt;
+	struct mount *mnt;
 
 	list_for_each_entry(mnt, list, mnt_hash)
 		__propagate_umount(mnt);
