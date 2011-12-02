@@ -194,6 +194,10 @@ struct mmc_part {
 	unsigned int	part_cfg;	/* partition type */
 	char	name[DISK_NAME_LEN];
 	bool	force_ro;	/* to make boot parts RO by default */
+	unsigned int	area_type;
+#define MMC_BLK_DATA_AREA_MAIN	(1<<0)
+#define MMC_BLK_DATA_AREA_BOOT	(1<<1)
+#define MMC_BLK_DATA_AREA_GP	(1<<2)
 };
 
 /*
@@ -280,12 +284,14 @@ struct mmc_card {
  * This function fill contents in mmc_part.
  */
 static inline void mmc_part_add(struct mmc_card *card, unsigned int size,
-			unsigned int part_cfg, char *name, int idx, bool ro)
+			unsigned int part_cfg, char *name, int idx, bool ro,
+			int area_type)
 {
 	card->part[card->nr_parts].size = size;
 	card->part[card->nr_parts].part_cfg = part_cfg;
 	sprintf(card->part[card->nr_parts].name, name, idx);
 	card->part[card->nr_parts].force_ro = ro;
+	card->part[card->nr_parts].area_type = area_type;
 	card->nr_parts++;
 }
 

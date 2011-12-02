@@ -290,6 +290,7 @@ struct _mmc_csd {
 #define EXT_CSD_RST_N_FUNCTION		162	/* R/W */
 #define EXT_CSD_SANITIZE_START		165     /* W */
 #define EXT_CSD_WR_REL_PARAM		166	/* RO */
+#define EXT_CSD_BOOT_WP			173	/* R/W */
 #define EXT_CSD_ERASE_GROUP_DEF		175	/* R/W */
 #define EXT_CSD_BOOT_CONFIG_PROT	178	/* R/W */
 #define EXT_CSD_PART_CONFIG		179	/* R/W */
@@ -335,6 +336,11 @@ struct _mmc_csd {
  */
 
 #define EXT_CSD_WR_REL_PARAM_EN		(1<<2)
+
+#define EXT_CSD_BOOT_WP_B_PWR_WP_DIS	(0x40)
+#define EXT_CSD_BOOT_WP_B_PERM_WP_DIS	(0x10)
+#define EXT_CSD_BOOT_WP_B_PERM_WP_EN	(0x04)
+#define EXT_CSD_BOOT_WP_B_PWR_WP_EN	(0x01)
 
 #define EXT_CSD_PART_CONFIG_ACC_MASK	(0x7)
 #define EXT_CSD_PART_CONFIG_ACC_BOOT0	(0x1)
