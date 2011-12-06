@@ -94,10 +94,9 @@ static int show_vfsmnt(struct seq_file *m, struct vfsmount *mnt)
 	struct mount *r = real_mount(mnt);
 	int err = 0;
 	struct path mnt_path = { .dentry = mnt->mnt_root, .mnt = mnt };
-	struct super_block *sb = mnt_path.dentry->d_sb;
 
-	if (sb->s_op->show_devname) {
-		err = sb->s_op->show_devname(m, mnt_path.dentry);
+	if (mnt->mnt_sb->s_op->show_devname) {
+		err = mnt->mnt_sb->s_op->show_devname(m, mnt_path.dentry);
 		if (err)
 			goto out;
 	} else {
@@ -106,14 +105,14 @@ static int show_vfsmnt(struct seq_file *m, struct vfsmount *mnt)
 	seq_putc(m, ' ');
 	seq_path(m, &mnt_path, " \t\n\\");
 	seq_putc(m, ' ');
-	show_type(m, sb);
+	show_type(m, mnt->mnt_sb);
 	seq_puts(m, __mnt_is_readonly(mnt) ? " ro" : " rw");
-	err = show_sb_opts(m, sb);
+	err = show_sb_opts(m, mnt->mnt_sb);
 	if (err)
 		goto out;
 	show_mnt_opts(m, mnt);
-	if (sb->s_op->show_options)
-		err = sb->s_op->show_options(m, mnt_path.dentry);
+	if (mnt->mnt_sb->s_op->show_options)
+		err = mnt->mnt_sb->s_op->show_options(m, mnt_path.dentry);
 	seq_puts(m, " 0 0\n");
 out:
 	return err;
@@ -131,7 +130,7 @@ static int show_mountinfo(struct seq_file *m, struct vfsmount *mnt)
 	seq_printf(m, "%i %i %u:%u ", r->mnt_id, r->mnt_parent->mnt_id,
 		   MAJOR(sb->s_dev), MINOR(sb->s_dev));
 	if (sb->s_op->show_path)
-		err = sb->s_op->show_path(m, mnt->mnt_root);
+		err = sb->s_op->show_path(m, mnt);
 	else
 		seq_dentry(m, mnt->mnt_root, " \t\n\\");
 	if (err)
@@ -164,7 +163,7 @@ static int show_mountinfo(struct seq_file *m, struct vfsmount *mnt)
 	show_type(m, sb);
 	seq_putc(m, ' ');
 	if (sb->s_op->show_devname)
-		err = sb->s_op->show_devname(m, mnt->mnt_root);
+		err = sb->s_op->show_devname(m, mnt_path.dentry);
 	else
 		mangle(m, r->mnt_devname ? r->mnt_devname : "none");
 	if (err)
@@ -174,7 +173,7 @@ static int show_mountinfo(struct seq_file *m, struct vfsmount *mnt)
 	if (err)
 		goto out;
 	if (sb->s_op->show_options)
-		err = sb->s_op->show_options(m, mnt->mnt_root);
+		err = sb->s_op->show_options(m, mnt_path.dentry);
 	seq_putc(m, '\n');
 out:
 	return err;
