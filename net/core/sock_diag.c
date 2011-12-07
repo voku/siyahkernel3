@@ -51,7 +51,7 @@ int sock_diag_register(const struct sock_diag_handler *hndl)
 {
 	int err = 0;
 
-	if (hndl->family > AF_MAX)
+	if (hndl->family >= AF_MAX)
 		return -EINVAL;
 
 	mutex_lock(&sock_diag_table_mutex);
@@ -69,7 +69,7 @@ void sock_diag_unregister(const struct sock_diag_handler *hnld)
 {
 	int family = hnld->family;
 
-	if (family > AF_MAX)
+	if (family >= AF_MAX)
 		return;
 
 	mutex_lock(&sock_diag_table_mutex);
