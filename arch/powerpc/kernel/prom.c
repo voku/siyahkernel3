@@ -753,20 +753,14 @@ void __init early_init_devtree(void *params)
 	early_reserve_mem();
 	phyp_dump_reserve_mem();
 
-	limit = memory_limit;
-	if (! limit) {
-		phys_addr_t memsize;
-
-		/* Ensure that total memory size is page-aligned, because
-		 * otherwise mark_bootmem() gets upset. */
-		memblock_analyze();
-		memsize = memblock_phys_mem_size();
-		if ((memsize & PAGE_MASK) != memsize)
-			limit = memsize & PAGE_MASK;
-	}
+	/*
+	 * Ensure that total memory size is page-aligned, because otherwise
+	 * mark_bootmem() gets upset.
+	 */
+	limit = ALIGN(memory_limit ?: memblock_phys_mem_size(), PAGE_SIZE);
 	memblock_enforce_memory_limit(limit);
 
-	memblock_analyze();
+	memblock_allow_resize();
 	memblock_dump_all();
 
 	DBG("Phys. mem: %llx\n", memblock_phys_mem_size());
