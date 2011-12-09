@@ -1002,7 +1002,7 @@ static int show_vfsmnt(struct seq_file *m, void *v)
 	struct path mnt_path = { .dentry = mnt->mnt_root, .mnt = mnt };
 
 	if (mnt->mnt_sb->s_op->show_devname) {
-		err = mnt->mnt_sb->s_op->show_devname(m, mnt);
+		err = mnt->mnt_sb->s_op->show_devname(m, mnt_path.dentry);
 		if (err)
 			goto out;
 	} else {
@@ -1076,7 +1076,7 @@ static int show_mountinfo(struct seq_file *m, void *v)
 	show_type(m, sb);
 	seq_putc(m, ' ');
 	if (sb->s_op->show_devname)
-		err = sb->s_op->show_devname(m, mnt);
+		err = sb->s_op->show_devname(m, mnt_path.dentry);
 	else
 		mangle(m, mnt->mnt_devname ? mnt->mnt_devname : "none");
 	if (err)
@@ -1109,7 +1109,7 @@ static int show_vfsstat(struct seq_file *m, void *v)
 	/* device */
 	if (sb->s_op->show_devname) {
 		seq_puts(m, "device ");
-		err = sb->s_op->show_devname(m, mnt);
+		err = sb->s_op->show_devname(m, mnt_path.dentry);
 	} else {
 		if (mnt->mnt_devname) {
 			seq_puts(m, "device ");

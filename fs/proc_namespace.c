@@ -113,7 +113,7 @@ static int show_vfsmnt(struct seq_file *m, struct vfsmount *mnt)
 		goto out;
 	show_mnt_opts(m, mnt);
 	if (sb->s_op->show_options)
-		err = sb->s_op->show_options(m, mnt_path.dentry);
+		err = sb->s_op->show_options(m, mnt);
 	seq_puts(m, " 0 0\n");
 out:
 	return err;
