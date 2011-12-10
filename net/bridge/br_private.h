@@ -51,7 +51,7 @@ struct br_ip
 {
 	union {
 		__be32	ip4;
-#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+#if IS_ENABLED(CONFIG_IPV6)
 		struct in6_addr ip6;
 #endif
 	} u;

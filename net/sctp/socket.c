@@ -6699,7 +6699,7 @@ struct proto sctp_prot = {
 	.sockets_allocated = &sctp_sockets_allocated,
 };
 
-#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+#if IS_ENABLED(CONFIG_IPV6)
 
 struct proto sctpv6_prot = {
 	.name		= "SCTPv6",
@@ -6730,4 +6730,4 @@ struct proto sctpv6_prot = {
 	.memory_allocated = &sctp_memory_allocated,
 	.sockets_allocated = &sctp_sockets_allocated,
 };
-#endif /* defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE) */
+#endif /* IS_ENABLED(CONFIG_IPV6) */
