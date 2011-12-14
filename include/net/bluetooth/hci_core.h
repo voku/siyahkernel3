@@ -363,6 +363,7 @@ static inline void hci_conn_hash_init(struct hci_dev *hdev)
 	spin_lock_init(&h->lock);
 	h->acl_num = 0;
 	h->sco_num = 0;
+	h->le_num = 0;
 }
 
 static inline void hci_conn_hash_add(struct hci_dev *hdev, struct hci_conn *c)
