@@ -1591,10 +1591,8 @@ int do_notify_parent(struct task_struct *tsk, int sig)
 			task_cred_xxx(tsk->parent, user_ns));
 	rcu_read_unlock();
 
-	info.si_utime = cputime_to_clock_t(cputime_add(tsk->utime,
-				tsk->signal->utime));
-	info.si_stime = cputime_to_clock_t(cputime_add(tsk->stime,
-				tsk->signal->stime));
+	info.si_utime = cputime_to_clock_t(tsk->utime + tsk->signal->utime);
+	info.si_stime = cputime_to_clock_t(tsk->stime + tsk->signal->stime);
 
 	info.si_status = tsk->exit_code & 0x7f;
 	if (tsk->exit_code & 0x80)
