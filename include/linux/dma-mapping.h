@@ -23,6 +23,9 @@ struct dma_map_ops {
 	void (*free)(struct device *dev, size_t size,
 			      void *vaddr, dma_addr_t dma_handle,
 			      struct dma_attrs *attrs);
+	int (*mmap)(struct device *, struct vm_area_struct *,
+			  void *, dma_addr_t, size_t, struct dma_attrs *attrs);
+
 	int (*get_sgtable)(struct device *dev, struct sg_table *sgt, void *,
 			   dma_addr_t, size_t, struct dma_attrs *attrs);
 
