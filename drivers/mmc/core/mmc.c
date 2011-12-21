@@ -628,6 +628,20 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 			ext_csd[EXT_CSD_MAX_PACKED_WRITES];
 		card->ext_csd.max_packed_reads =
 			ext_csd[EXT_CSD_MAX_PACKED_READS];
+
+		if (ext_csd[EXT_CSD_DATA_SECTOR_SIZE] == 1)
+			card->ext_csd.data_sector_size = 4096;
+		else
+			card->ext_csd.data_sector_size = 512;
+
+		if ((ext_csd[EXT_CSD_DATA_TAG_SUPPORT] & 1) &&
+		    (ext_csd[EXT_CSD_TAG_UNIT_SIZE] <= 8)) {
+			card->ext_csd.data_tag_unit_size =
+			((unsigned int) 1 << ext_csd[EXT_CSD_TAG_UNIT_SIZE]) *
+			(card->ext_csd.data_sector_size);
+		} else {
+			card->ext_csd.data_tag_unit_size = 0;
+		}
 	}
 
 out:
