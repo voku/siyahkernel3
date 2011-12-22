@@ -54,7 +54,6 @@ struct inquiry_entry {
 };
 
 struct inquiry_cache {
-	spinlock_t		lock;
 	__u32			timestamp;
 	struct inquiry_entry	*list;
 };
@@ -313,15 +312,9 @@ extern rwlock_t hci_cb_list_lock;
 #define INQUIRY_CACHE_AGE_MAX   (HZ*30)   /* 30 seconds */
 #define INQUIRY_ENTRY_AGE_MAX   (HZ*60)   /* 60 seconds */
 
-#define inquiry_cache_lock(c)		spin_lock(&c->lock)
-#define inquiry_cache_unlock(c)		spin_unlock(&c->lock)
-#define inquiry_cache_lock_bh(c)	spin_lock_bh(&c->lock)
-#define inquiry_cache_unlock_bh(c)	spin_unlock_bh(&c->lock)
-
 static inline void inquiry_cache_init(struct hci_dev *hdev)
 {
 	struct inquiry_cache *c = &hdev->inq_cache;
-	spin_lock_init(&c->lock);
 	c->list = NULL;
 }
 
