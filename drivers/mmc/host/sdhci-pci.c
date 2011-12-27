@@ -226,7 +226,6 @@ static int mfd_sd_probe_slot(struct sdhci_pci_slot *slot)
 
 	slot->cd_gpio = gpio;
 	slot->cd_irq = irq;
-	slot->host->quirks2 |= SDHCI_QUIRK2_OWN_CARD_DETECTION;
 
 	return 0;
 
