@@ -12,7 +12,7 @@ obj-y			:= filemap.o mempool.o oom_kill.o fadvise.o \
 			   readahead.o swap.o truncate.o vmscan.o shmem.o \
 			   prio_tree.o util.o mmzone.o vmstat.o backing-dev.o \
 			   mm_init.o mmu_context.o percpu.o \
-			   slab_common.o $(mmu-y)
+			   slab_common.o compaction.o $(mmu-y)
 
 ifdef CONFIG_SLP
 	obj-y		+= page_alloc-slp.o page_isolation-slp.o
@@ -44,15 +44,6 @@ obj-$(CONFIG_SPARSEMEM)	+= sparse.o
 obj-$(CONFIG_SPARSEMEM_VMEMMAP) += sparse-vmemmap.o
 obj-$(CONFIG_ASHMEM) += ashmem.o
 obj-$(CONFIG_SLOB) += slob.o
-ifdef CONFIG_SLP
-obj-$(CONFIG_COMPACTION) += compaction-slp.o
-else
-ifdef CONFIG_DMA_CMA
-obj-$(CONFIG_COMPACTION) += compaction-cma.o
-else
-obj-$(CONFIG_COMPACTION) += compaction.o
-endif
-endif
 obj-$(CONFIG_MMU_NOTIFIER) += mmu_notifier.o
 obj-$(CONFIG_KSM) += ksm.o
 obj-$(CONFIG_PAGE_POISONING) += debug-pagealloc.o
