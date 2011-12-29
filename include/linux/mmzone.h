@@ -36,23 +36,13 @@
  */
 #define PAGE_ALLOC_COSTLY_ORDER 3
 
-#ifndef CONFIG_DMA_CMA
-
-#define MIGRATE_UNMOVABLE     0
-#define MIGRATE_RECLAIMABLE   1
-#define MIGRATE_MOVABLE       2
-#define MIGRATE_PCPTYPES      3 /* the number of types on the pcp lists */
-#define MIGRATE_RESERVE       3
-#define MIGRATE_ISOLATE       4 /* can't allocate from here */
-#define MIGRATE_TYPES         5
-
-#else
 enum {
 	MIGRATE_UNMOVABLE,
 	MIGRATE_RECLAIMABLE,
 	MIGRATE_MOVABLE,
-	MIGRATE_PCPTYPES,   /* the number of types on the pcp lists */
+	MIGRATE_PCPTYPES,	/* the number of types on the pcp lists */
 	MIGRATE_RESERVE = MIGRATE_PCPTYPES,
+#ifdef CONFIG_DMA_CMA
 	/*
 	 * MIGRATE_CMA migration type is designed to mimic the way
 	 * ZONE_MOVABLE works.  Only movable pages can be allocated
@@ -67,14 +57,16 @@ enum {
 	 * a single pageblock.
 	 */
 	MIGRATE_CMA,
-	MIGRATE_ISOLATE,    /* can't allocate from here */
+#endif
+	MIGRATE_ISOLATE,	/* can't allocate from here */
 	MIGRATE_TYPES
 };
 
 bool is_cma_pageblock(struct page *page);
+#ifdef CONFIG_DMA_CMA
 #define is_migrate_cma(migratetype) unlikely((migratetype) == MIGRATE_CMA)
-#define cma_wmark_pages(zone) (zone->min_cma_pages)
-
+#else
+#define is_migrate_cma(migratetype) false
 #endif
 
 #define for_each_migratetype_order(order, type) \
