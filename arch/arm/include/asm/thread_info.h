@@ -136,6 +136,7 @@ extern int vfp_restore_user_hwstate(struct user_vfp __user *,
 /*
  * thread information flags:
  *  TIF_SYSCALL_TRACE	- syscall trace active
+ *  TIF_SYSCAL_AUDIT	- syscall auditing active
  *  TIF_SIGPENDING	- signal pending
  *  TIF_NEED_RESCHED	- rescheduling necessary
  *  TIF_NOTIFY_RESUME	- callback before returning to user
@@ -162,6 +163,9 @@ extern int vfp_restore_user_hwstate(struct user_vfp __user *,
 #define _TIF_FREEZE		(1 << TIF_FREEZE)
 #define _TIF_RESTORE_SIGMASK	(1 << TIF_RESTORE_SIGMASK)
 #define _TIF_SECCOMP		(1 << TIF_SECCOMP)
+
+/* Checks for any syscall work in entry-common.S */
+#define _TIF_SYSCALL_WORK (_TIF_SYSCALL_TRACE | _TIF_SYSCALL_AUDIT)
 
 /*
  * Change these and you break ASM code in entry-common.S
