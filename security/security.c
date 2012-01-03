@@ -167,28 +167,10 @@ int security_capable(const struct cred *cred, struct user_namespace *ns,
 				     SECURITY_CAP_AUDIT);
 }
 
-int security_real_capable(struct task_struct *tsk, struct user_namespace *ns,
-			  int cap)
+int security_capable_noaudit(const struct cred *cred, struct user_namespace *ns,
+			     int cap)
 {
-	const struct cred *cred;
-	int ret;
-
-	cred = get_task_cred(tsk);
-	ret = security_ops->capable(tsk, cred, ns, cap, SECURITY_CAP_AUDIT);
-	put_cred(cred);
-	return ret;
-}
-
-int security_real_capable_noaudit(struct task_struct *tsk,
-				  struct user_namespace *ns, int cap)
-{
-	const struct cred *cred;
-	int ret;
-
-	cred = get_task_cred(tsk);
-	ret = security_ops->capable(tsk, cred, ns, cap, SECURITY_CAP_NOAUDIT);
-	put_cred(cred);
-	return ret;
+	return security_ops->capable(cred, ns, cap, SECURITY_CAP_NOAUDIT);
 }
 
 int security_quotactl(int cmds, int type, int id, struct super_block *sb)
