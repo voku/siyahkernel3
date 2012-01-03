@@ -470,7 +470,10 @@ struct ethtool_rx_flow_spec {
  * on return.
  *
  * For %ETHTOOL_GRXCLSRLCNT, @rule_cnt is set to the number of defined
- * rules on return.
+ * rules on return.  If @data is non-zero on return then it is the
+ * size of the rule table, plus the flag %RX_CLS_LOC_SPECIAL if the
+ * driver supports any special location values.  If that flag is not
+ * set in @data then special location values should not be used.
  *
  * For %ETHTOOL_GRXCLSRULE, @fs.@location specifies the index of an
  * existing filter rule on entry and @fs contains the rule on return.
@@ -480,13 +483,24 @@ struct ethtool_rx_flow_spec {
  * of the filter table and @rule_locs contains the indices of the
  * defined rules.
  *
- * For %ETHTOOL_SRXCLSRLINS, @fs specifies the filter rule to add or
- * update.  @fs.@location specifies the index to use and must not be
- * ignored.
+ * For %ETHTOOL_SRXCLSRLINS, @fs specifies the filter rule to add or update.
+ * @fs.@location either specifies the location to use or is a special
+ * location value with %RX_CLS_LOC_SPECIAL flag set.  On return,
+ * @fs.@location is the actual rule location.
  *
  * For %ETHTOOL_SRXCLSRLDEL, @fs.@location specifies the index of an
  * existing filter rule on entry.
  *
+ * A driver supporting the special location values for
+ * %ETHTOOL_SRXCLSRLINS may add the rule at any suitable unused
+ * location, and may remove a rule at a later location (lower
+ * priority) that matches exactly the same set of flows.  The special
+ * values are: %RX_CLS_LOC_ANY, selecting any location;
+ * %RX_CLS_LOC_FIRST, selecting the first suitable location (maximum
+ * priority); and %RX_CLS_LOC_LAST, selecting the last suitable
+ * location (minimum priority).  Additional special values may be
+ * defined in future and drivers must return -%EINVAL for any
+ * unrecognised value.
  * Implementation of indexed classification rules generally requires a
  * TCAM.
  */
@@ -891,6 +905,12 @@ enum ethtool_sfeatures_retval_bits {
 #define	RXH_DISCARD	(1 << 31)
 
 #define	RX_CLS_FLOW_DISC	0xffffffffffffffffULL
+
+/* Special RX classification rule insert location values */
+#define RX_CLS_LOC_SPECIAL	0x80000000	/* flag */
+#define RX_CLS_LOC_ANY		0xffffffff
+#define RX_CLS_LOC_FIRST	0xfffffffe
+#define RX_CLS_LOC_LAST		0xfffffffd
 
 /* Reset flags */
 /* The reset() operation must clear the flags for the components which
