@@ -1558,8 +1558,6 @@ long do_fork(unsigned long clone_flags,
 			init_completion(&vfork);
 		}
 
-		audit_finish_fork(p);
-
 		/*
 		 * Child is ready but hasn't started running yet.  Queue
 		 * SIGSTOP if it's gonna be ptraced - it doesn't matter who
