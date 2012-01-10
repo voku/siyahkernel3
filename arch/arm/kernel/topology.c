@@ -45,6 +45,28 @@
 
 struct cputopo_arm cpu_topology[NR_CPUS];
 
+/*
+ * cpu power scale management
+ * a per cpu data structure should be better because each cpu is mainly
+ * using its own cpu_power even it's not always true because of
+ * nohz_idle_balance
+ */
+
+static DEFINE_PER_CPU(unsigned int, cpu_scale);
+
+/*
+ * Update the cpu power of the scheduler
+ */
+unsigned long arch_scale_freq_power(struct sched_domain *sd, int cpu)
+{
+	return per_cpu(cpu_scale, cpu);
+}
+
+void set_power_scale(unsigned int cpu, unsigned int power)
+{
+	per_cpu(cpu_scale, cpu) = power;
+}
+
 const struct cpumask *cpu_coregroup_mask(int cpu)
 {
 	return &cpu_topology[cpu].core_sibling;
@@ -149,6 +171,8 @@ void init_cpu_topology(void)
 		cpu_topo->socket_id = -1;
 		cpumask_clear(&cpu_topo->core_sibling);
 		cpumask_clear(&cpu_topo->thread_sibling);
+
+		per_cpu(cpu_scale, cpu) = SCHED_POWER_SCALE;
 	}
 	smp_wmb();
 }
