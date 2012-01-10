@@ -1074,6 +1074,11 @@ void setup_sysctl_set(struct ctl_table_set *p,
 	p->is_seen = is_seen;
 }
 
+void retire_sysctl_set(struct ctl_table_set *set)
+{
+	WARN_ON(!list_empty(&set->list));
+}
+
 int __init proc_sys_init(void)
 {
 	struct proc_dir_entry *proc_sys_root;
