@@ -95,7 +95,7 @@ int nf_conntrack_register_notifier(struct nf_ct_event_notifier *new)
 		ret = -EBUSY;
 		goto out_unlock;
 	}
-	RCU_INIT_POINTER(nf_conntrack_event_cb, new);
+	rcu_assign_pointer(nf_conntrack_event_cb, new);
 	mutex_unlock(&nf_ct_ecache_mutex);
 	return ret;
 
@@ -130,7 +130,7 @@ int nf_ct_expect_register_notifier(struct nf_exp_event_notifier *new)
 		ret = -EBUSY;
 		goto out_unlock;
 	}
-	RCU_INIT_POINTER(nf_expect_event_cb, new);
+	rcu_assign_pointer(nf_expect_event_cb, new);
 	mutex_unlock(&nf_ct_ecache_mutex);
 	return ret;
 
