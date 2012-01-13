@@ -1399,8 +1399,8 @@ int isolate_lru_page_compcache(struct page *page)
 			ret = 0;
 			get_page(page);
 			ClearPageLRU(page);
+			mem_cgroup_lru_del_list(page, lru);
 			list_del(&page->lru);
-			mem_cgroup_del_lru_list(page, lru);
 		}
 		spin_unlock_irq(&zone->lru_lock);
 	}
@@ -2566,7 +2566,7 @@ unsigned long mem_cgroup_shrink_node_zone(struct mem_cgroup *memcg,
 		.target_mem_cgroup = memcg,
 	};
 	struct mem_cgroup_zone mz = {
-		.mem_cgroup = mem,
+		.mem_cgroup = memcg,
 		.zone = zone,
 	};
 
