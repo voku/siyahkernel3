@@ -72,7 +72,7 @@ void __weak panic_smp_self_stop(void)
  *
  *	This function never returns.
  */
-NORET_TYPE void panic(const char * fmt, ...)
+void panic(const char *fmt, ...)
 {
 	static DEFINE_SPINLOCK(panic_lock);
 	static char buf[1024];
