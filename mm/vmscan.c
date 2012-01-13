@@ -1967,7 +1967,16 @@ static void get_scan_count(struct mem_cgroup_zone *mz, struct scan_control *sc,
 	bool force_scan = false;
 	unsigned long nr_force_scan[2];
 
-	/* kswapd does zone balancing and needs to scan this zone */
+	/*
+	 * If the zone or memcg is small, nr[l] can be 0.  This
+	 * results in no scanning on this priority and a potential
+	 * priority drop.  Global direct reclaim can go to the next
+	 * zone and tends to have no problems. Global kswapd is for
+	 * zone balancing and it needs to scan a minimum amount. When
+	 * reclaiming for a memcg, a priority drop can cause high
+	 * latencies, so it's better to scan a minimum amount there as
+	 * well.
+	 */
 	if (current_is_kswapd() && mz->zone->all_unreclaimable)
 		force_scan = true;
 	/* memcg may have small limit and need to avoid priority drop */
@@ -2276,16 +2285,6 @@ static void shrink_zone(int priority, struct zone *zone,
 	};
 	struct mem_cgroup *memcg;
 
-	if (global_reclaim(sc)) {
-		struct mem_cgroup_zone mz = {
-			.mem_cgroup = NULL,
-			.zone = zone,
-		};
-
-		shrink_mem_cgroup_zone(priority, &mz, sc);
-		return;
-	}
-
 	memcg = mem_cgroup_iter(root, NULL, &reclaim);
 	do {
 		struct mem_cgroup_zone mz = {
@@ -2299,6 +2298,10 @@ static void shrink_zone(int priority, struct zone *zone,
 		 * scanned it with decreasing priority levels until
 		 * nr_to_reclaim had been reclaimed.  This priority
 		 * cycle is thus over after a single memcg.
+		 *
+		 * Direct reclaim and kswapd, on the other hand, have
+		 * to scan all memory cgroups to fulfill the overall
+		 * scan target for the zone.
 		 */
 		if (!global_reclaim(sc)) {
 			mem_cgroup_iter_break(root, memcg);
@@ -2644,13 +2647,24 @@ unsigned long try_to_free_mem_cgroup_pages(struct mem_cgroup *memcg,
 static void age_active_anon(struct zone *zone, struct scan_control *sc,
 			    int priority)
 {
-	struct mem_cgroup_zone mz = {
-		.mem_cgroup = NULL,
-		.zone = zone,
-	};
+	struct mem_cgroup *memcg;
 
-	if (inactive_anon_is_low(&mz))
-		shrink_active_list(SWAP_CLUSTER_MAX, &mz, sc, priority, 0);
+	if (!total_swap_pages)
+		return;
+
+	memcg = mem_cgroup_iter(NULL, NULL, NULL);
+	do {
+		struct mem_cgroup_zone mz = {
+			.mem_cgroup = memcg,
+			.zone = zone,
+		};
+
+		if (inactive_anon_is_low(&mz))
+			shrink_active_list(SWAP_CLUSTER_MAX, &mz,
+					   sc, priority, 0);
+
+		memcg = mem_cgroup_iter(NULL, memcg, NULL);
+	} while (memcg);
 }
 
 /*
