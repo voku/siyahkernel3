@@ -18,6 +18,14 @@
 
 #include <asm/hardware/gic.h>
 #include <asm/hardware/cache-l2x0.h>
+<<<<<<< HEAD
+=======
+#include <asm/mach/map.h>
+#include <asm/memblock.h>
+
+#include <plat/irqs.h>
+#include <plat/sram.h>
+>>>>>>> 716a3dc... ARM: Add arm_memblock_steal() to allocate memory away from the kernel
 
 #include <mach/hardware.h>
 #include <mach/omap4-common.h>
@@ -26,7 +34,49 @@
 void __iomem *l2cache_base;
 #endif
 
+<<<<<<< HEAD
 void __iomem *gic_dist_base_addr;
+=======
+static void __iomem *sar_ram_base;
+
+#ifdef CONFIG_OMAP4_ERRATA_I688
+/* Used to implement memory barrier on DRAM path */
+#define OMAP4_DRAM_BARRIER_VA			0xfe600000
+
+void __iomem *dram_sync, *sram_sync;
+
+void omap_bus_sync(void)
+{
+	if (dram_sync && sram_sync) {
+		writel_relaxed(readl_relaxed(dram_sync), dram_sync);
+		writel_relaxed(readl_relaxed(sram_sync), sram_sync);
+		isb();
+	}
+}
+
+static int __init omap_barriers_init(void)
+{
+	struct map_desc dram_io_desc[1];
+	phys_addr_t paddr;
+	u32 size;
+
+	if (!cpu_is_omap44xx())
+		return -ENODEV;
+
+	size = ALIGN(PAGE_SIZE, SZ_1M);
+	paddr = arm_memblock_steal(size, SZ_1M);
+
+	dram_io_desc[0].virtual = OMAP4_DRAM_BARRIER_VA;
+	dram_io_desc[0].pfn = __phys_to_pfn(paddr);
+	dram_io_desc[0].length = size;
+	dram_io_desc[0].type = MT_MEMORY_SO;
+	iotable_init(dram_io_desc, ARRAY_SIZE(dram_io_desc));
+	dram_sync = (void __iomem *) dram_io_desc[0].virtual;
+	sram_sync = (void __iomem *) OMAP4_SRAM_VA;
+
+	pr_info("OMAP4: Map 0x%08llx to 0x%08lx for dram barrier\n",
+		(long long) paddr, dram_io_desc[0].virtual);
+>>>>>>> 716a3dc... ARM: Add arm_memblock_steal() to allocate memory away from the kernel
 
 
 void __init gic_init_irq(void)
