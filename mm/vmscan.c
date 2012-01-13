@@ -790,9 +790,7 @@ static enum page_references page_check_references(struct page *page,
 /*
  * shrink_page_list() returns the number of reclaimed pages
  */
-#ifndef CONFIG_ZRAM_FOR_ANDROID
 static
-#endif /* CONFIG_ZRAM_FOR_ANDROID */
 unsigned long shrink_page_list(struct list_head *page_list,
 				      struct mem_cgroup_zone *mz,
 				      struct scan_control *sc)
@@ -1294,35 +1292,6 @@ static unsigned long isolate_lru_pages(unsigned long nr_to_scan,
 	return nr_taken;
 }
 
-/*
- * clear_active_flags() is a helper for shrink_active_list(), clearing
- * any active bits from the pages in the list.
- */
-#ifndef CONFIG_ZRAM_FOR_ANDROID
-static
-#endif /* CONFIG_ZRAM_FOR_ANDROID */
-unsigned long clear_active_flags(struct list_head *page_list,
-					unsigned int *count)
-{
-	int nr_active = 0;
-	int lru;
-	struct page *page;
-
-	list_for_each_entry(page, page_list, lru) {
-		int numpages = hpage_nr_pages(page);
-		lru = page_lru_base_type(page);
-		if (PageActive(page)) {
-			lru += LRU_ACTIVE;
-			ClearPageActive(page);
-			nr_active += numpages;
-		}
-		if (count)
-			count[lru] += numpages;
-	}
-
-	return nr_active;
-}
-
 /**
  * isolate_lru_page - tries to isolate a page from its LRU list
  * @page: page to isolate from its LRU list
@@ -1430,26 +1399,21 @@ static int too_many_isolated(struct zone *zone, int file,
 	return isolated > inactive;
 }
 
-/*
- * TODO: Try merging with migrations version of putback_lru_pages
- */
 static noinline_for_stack void
-putback_lru_pages(struct mem_cgroup_zone *mz, struct scan_control *sc,
-		  unsigned long nr_anon, unsigned long nr_file,
-		  struct list_head *page_list)
+putback_inactive_pages(struct mem_cgroup_zone *mz,
+		       struct list_head *page_list)
 {
-	struct page *page;
-	LIST_HEAD(pages_to_free);
-	struct zone *zone = mz->zone;
 	struct zone_reclaim_stat *reclaim_stat = get_reclaim_stat(mz);
+	struct zone *zone = mz->zone;
+	LIST_HEAD(pages_to_free);
 
 	/*
 	 * Put back any unfreeable pages.
 	 */
-	spin_lock(&zone->lru_lock);
 	while (!list_empty(page_list)) {
+		struct page *page = lru_to_page(page_list);
 		int lru;
-		page = lru_to_page(page_list);
+
 		VM_BUG_ON(PageLRU(page));
 		list_del(&page->lru);
 		if (unlikely(!page_evictable(page, NULL))) {
@@ -1479,26 +1443,40 @@ putback_lru_pages(struct mem_cgroup_zone *mz, struct scan_control *sc,
 				list_add(&page->lru, &pages_to_free);
 		}
 	}
-	__mod_zone_page_state(zone, NR_ISOLATED_ANON, -nr_anon);
-	__mod_zone_page_state(zone, NR_ISOLATED_FILE, -nr_file);
 
-	spin_unlock_irq(&zone->lru_lock);
-	free_hot_cold_page_list(&pages_to_free, 1);
+	/*
+	 * To save our caller's stack, now use input list for pages to free.
+	 */
+	list_splice(&pages_to_free, page_list);
 }
 
 static noinline_for_stack void
 update_isolated_counts(struct mem_cgroup_zone *mz,
-		       struct scan_control *sc,
+		       struct list_head *page_list,
 		       unsigned long *nr_anon,
-		       unsigned long *nr_file,
-		       struct list_head *isolated_list)
+		       unsigned long *nr_file)
 {
-	unsigned long nr_active;
+	struct zone_reclaim_stat *reclaim_stat = get_reclaim_stat(mz);
 	struct zone *zone = mz->zone;
 	unsigned int count[NR_LRU_LISTS] = { 0, };
-	struct zone_reclaim_stat *reclaim_stat = get_reclaim_stat(mz);
+	unsigned long nr_active = 0;
+	struct page *page;
+	int lru;
 
-	nr_active = clear_active_flags(isolated_list, count);
+	/*
+	 * Count pages and clear active flags
+	 */
+	list_for_each_entry(page, page_list, lru) {
+		int numpages = hpage_nr_pages(page);
+		lru = page_lru_base_type(page);
+		if (PageActive(page)) {
+			lru += LRU_ACTIVE;
+			ClearPageActive(page);
+			nr_active += numpages;
+		}
+		count[lru] += numpages;
+	}
+
 	__count_vm_events(PGDEACTIVATE, nr_active);
 
 	__mod_zone_page_state(zone, NR_ACTIVE_FILE,
@@ -1512,8 +1490,6 @@ update_isolated_counts(struct mem_cgroup_zone *mz,
 
 	*nr_anon = count[LRU_ACTIVE_ANON] + count[LRU_INACTIVE_ANON];
 	*nr_file = count[LRU_ACTIVE_FILE] + count[LRU_INACTIVE_FILE];
-	__mod_zone_page_state(zone, NR_ISOLATED_ANON, *nr_anon);
-	__mod_zone_page_state(zone, NR_ISOLATED_FILE, *nr_file);
 
 	reclaim_stat->recent_scanned[0] += *nr_anon;
 	reclaim_stat->recent_scanned[1] += *nr_file;
@@ -1574,9 +1550,6 @@ shrink_inactive_list(unsigned long nr_to_scan, struct mem_cgroup_zone *mz,
 	unsigned long nr_taken;
 	unsigned long nr_anon;
 	unsigned long nr_file;
-#ifdef CONFIG_ZRAM_FOR_ANDROID
-	struct timeval start, end;
-#endif /* CONFIG_ZRAM_FOR_ANDROID */
 	isolate_mode_t isolate_mode = ISOLATE_INACTIVE;
 	struct zone *zone = mz->zone;
 
@@ -1618,7 +1591,10 @@ shrink_inactive_list(unsigned long nr_to_scan, struct mem_cgroup_zone *mz,
 		return 0;
 	}
 
-	update_isolated_counts(mz, sc, &nr_anon, &nr_file, &page_list);
+	update_isolated_counts(mz, &page_list, &nr_anon, &nr_file);
+
+	__mod_zone_page_state(zone, NR_ISOLATED_ANON, nr_anon);
+	__mod_zone_page_state(zone, NR_ISOLATED_FILE, nr_file);
 
 	spin_unlock_irq(&zone->lru_lock);
 
@@ -1630,12 +1606,20 @@ shrink_inactive_list(unsigned long nr_to_scan, struct mem_cgroup_zone *mz,
 		nr_reclaimed += shrink_page_list(&page_list, mz, sc);
 	}
 
-	local_irq_disable();
+	spin_lock_irq(&zone->lru_lock);
+
 	if (current_is_kswapd())
 		__count_vm_events(KSWAPD_STEAL, nr_reclaimed);
 	__count_zone_vm_events(PGSTEAL, zone, nr_reclaimed);
 
-	putback_lru_pages(mz, sc, nr_anon, nr_file, &page_list);
+	putback_inactive_pages(mz, &page_list);
+
+	__mod_zone_page_state(zone, NR_ISOLATED_ANON, -nr_anon);
+	__mod_zone_page_state(zone, NR_ISOLATED_FILE, -nr_file);
+
+	spin_unlock_irq(&zone->lru_lock);
+
+	free_hot_cold_page_list(&page_list, 1);
 
 	trace_mm_vmscan_lru_shrink_inactive(zone->zone_pgdat->node_id,
 		zone_idx(zone),
@@ -1644,44 +1628,6 @@ shrink_inactive_list(unsigned long nr_to_scan, struct mem_cgroup_zone *mz,
 		trace_shrink_flags(file, sc->reclaim_mode));
 	return nr_reclaimed;
 }
-
-#ifdef CONFIG_ZRAM_FOR_ANDROID
-unsigned long
-zone_id_shrink_pagelist(struct mem_cgroup_zone *mz, struct list_head *page_list)
-{
-	unsigned long nr_reclaimed = 0;
-	unsigned long nr_anon;
-	unsigned long nr_file;
-	struct zone *zone = mz->zone;
-
-	struct scan_control sc = {
-		.gfp_mask = GFP_USER,
-		.may_writepage = 1,
-		.nr_to_reclaim = SWAP_CLUSTER_MAX,
-		.may_unmap = 1,
-		.may_swap = 1,
-		.order = 0,
-		.target_mem_cgroup = NULL,
-		.nodemask = NULL,
-	};
-
-	spin_lock_irq(&zone->lru_lock);
-
-	update_isolated_counts(mz, &sc, &nr_anon, &nr_file, page_list);
-
-	spin_unlock_irq(&zone->lru_lock);
-
-	nr_reclaimed = shrink_page_list(page_list, mz, &sc);
-
-	__count_zone_vm_events(PGSTEAL, zone, nr_reclaimed);
-
-	putback_lru_pages(mz, &sc, nr_anon, nr_file, page_list);
-
-	return nr_reclaimed;
-}
-
-EXPORT_SYMBOL(zone_id_shrink_pagelist);
-#endif /* CONFIG_ZRAM_FOR_ANDROID */
 
 /*
  * This moves pages from the active list to the inactive list.
