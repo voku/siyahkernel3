@@ -79,7 +79,7 @@ int user_instantiate(struct key *key, const void *data, size_t datalen)
 	/* attach the data */
 	upayload->datalen = datalen;
 	memcpy(upayload->data, data, datalen);
-	rcu_assign_pointer(key->payload.data, upayload);
+	rcu_assign_keypointer(key, upayload);
 	ret = 0;
 
 error:
@@ -118,7 +118,7 @@ int user_update(struct key *key, const void *data, size_t datalen)
 	if (ret == 0) {
 		/* attach the new data, displacing the old */
 		zap = key->payload.data;
-		rcu_assign_pointer(key->payload.data, upayload);
+		rcu_assign_keypointer(key, upayload);
 		key->expiry = 0;
 	}
 
@@ -153,7 +153,7 @@ void user_revoke(struct key *key)
 	key_payload_reserve(key, 0);
 
 	if (upayload) {
-		rcu_assign_pointer(key->payload.data, NULL);
+		rcu_assign_keypointer(key, NULL);
 		kfree_rcu(upayload, rcu);
 	}
 }
