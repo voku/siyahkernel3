@@ -239,6 +239,7 @@ E_md4hash(const unsigned char *passwd, unsigned char *p16)
 	__u16 wpwd[129];
 
 	/* Password cannot be longer than 128 characters */
+<<<<<<< HEAD
 	if (passwd) {
 		len = strlen((char *) passwd);
 		if (len > 128)
@@ -247,6 +248,11 @@ E_md4hash(const unsigned char *passwd, unsigned char *p16)
 		/* Password must be converted to NT unicode */
 		_my_mbstowcs(wpwd, passwd, len);
 	} else
+=======
+	if (passwd) /* Password must be converted to NT unicode */
+		len = cifs_strtoUTF16(wpwd, passwd, 128, codepage);
+	else {
+>>>>>>> acbbb76... CIFS: Rename *UCS* functions to *UTF16*
 		len = 0;
 
 	wpwd[len] = 0;	/* Ensure string is null terminated */

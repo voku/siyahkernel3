@@ -667,12 +667,22 @@ static int cifs_get_name_from_search_buf(struct qstr *pqst,
 		return -EINVAL;
 	}
 
+<<<<<<< HEAD
 	if (unicode) {
 		pqst->len = cifs_from_ucs2((char *) pqst->name,
 					   (__le16 *) filename,
 					   UNICODE_NAME_MAX,
 					   min(len, max_len), nlt,
 					   cifs_sb->mnt_cifs_flags &
+=======
+		name.name = scratch_buf;
+		name.len =
+			cifs_from_utf16((char *)name.name, (__le16 *)de.name,
+					UNICODE_NAME_MAX,
+					min_t(size_t, de.namelen,
+					      (size_t)max_len), nlt,
+					cifs_sb->mnt_cifs_flags &
+>>>>>>> acbbb76... CIFS: Rename *UCS* functions to *UTF16*
 						CIFS_MOUNT_MAP_SPECIAL_CHR);
 		pqst->len -= nls_nullsize(nlt);
 	} else {
