@@ -55,6 +55,7 @@ static int sysctl_follow_link(struct ctl_table_header **phead,
 	struct ctl_table **pentry, struct nsproxy *namespaces);
 static int insert_links(struct ctl_table_header *head);
 static void put_links(struct ctl_table_header *header);
+static int sysctl_check_dups(struct ctl_dir *dir, struct ctl_table *table);
 
 static void sysctl_print_dir(struct ctl_dir *dir)
 {
@@ -125,6 +126,10 @@ static void erase_header(struct ctl_table_header *head)
 static int insert_header(struct ctl_dir *dir, struct ctl_table_header *header)
 {
 	int err;
+
+	err = sysctl_check_dups(dir, header->ctl_table);
+	if (err)
+		return err;
 
 	dir->header.nreg++;
 	header->parent = dir;
@@ -886,7 +891,7 @@ static int sysctl_follow_link(struct ctl_table_header **phead,
 	return ret;
 }
 
-static int sysctl_check_table_dups(const char *path, struct ctl_table *old,
+static int sysctl_check_table_dups(struct ctl_dir *dir, struct ctl_table *old,
 	struct ctl_table *table)
 {
 	struct ctl_table *entry, *test;
@@ -895,8 +900,9 @@ static int sysctl_check_table_dups(const char *path, struct ctl_table *old,
 	for (entry = old; entry->procname; entry++) {
 		for (test = table; test->procname; test++) {
 			if (strcmp(entry->procname, test->procname) == 0) {
-				printk(KERN_ERR "sysctl duplicate entry: %s/%s\n",
-					path, test->procname);
+				printk(KERN_ERR "sysctl duplicate entry: ");
+				sysctl_print_dir(dir);
+				printk(KERN_CONT "/%s\n", test->procname);
 				error = -EEXIST;
 			}
 		}
@@ -904,8 +910,7 @@ static int sysctl_check_table_dups(const char *path, struct ctl_table *old,
 	return error;
 }
 
-static int sysctl_check_dups(struct ctl_dir *dir,
-	const char *path, struct ctl_table *table)
+static int sysctl_check_dups(struct ctl_dir *dir, struct ctl_table *table)
 {
 	struct ctl_table_set *set;
 	struct ctl_table_header *head;
@@ -917,7 +922,7 @@ static int sysctl_check_dups(struct ctl_dir *dir,
 			continue;
 		if (head->parent != dir)
 			continue;
-		error = sysctl_check_table_dups(path, head->ctl_table, table);
+		error = sysctl_check_table_dups(dir, head->ctl_table, table);
 	}
 	return error;
 }
@@ -1161,9 +1166,6 @@ struct ctl_table_header *__register_sysctl_table(
 	}
 
 	spin_lock(&sysctl_lock);
-	if (sysctl_check_dups(dir, path, table))
-		goto fail_put_dir_locked;
-
 	if (insert_header(dir, header))
 		goto fail_put_dir_locked;
 
