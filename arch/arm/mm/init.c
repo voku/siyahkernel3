@@ -331,7 +331,7 @@ static int __init meminfo_cmp(const void *_a, const void *_b)
 
 static bool arm_memblock_steal_permitted = true;
 
-phys_addr_t arm_memblock_steal(phys_addr_t size, phys_addr_t align)
+phys_addr_t __init arm_memblock_steal(phys_addr_t size, phys_addr_t align)
 {
 	phys_addr_t phys;
 
