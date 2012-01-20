@@ -3823,7 +3823,6 @@ static void scan_zone_unevictable_pages(struct zone *zone)
 	}
 }
 
-
 /**
  * scan_all_zones_unevictable_pages - scan all unevictable lists for evictable pages
  *
