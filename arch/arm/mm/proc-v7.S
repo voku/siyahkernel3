@@ -412,16 +412,6 @@ __v7_ca5mp_proc_info:
 	.size	__v7_ca5mp_proc_info, . - __v7_ca5mp_proc_info
 
 	/*
-	 * ARM Ltd. Cortex A7 processor.
-	 */
-	.type	__v7_ca7mp_proc_info, #object
-__v7_ca7mp_proc_info:
-	.long	0x410fc070
-	.long	0xff0ffff0
-	__v7_proc __v7_ca7mp_setup, hwcaps = HWCAP_IDIV
-	.size	__v7_ca7mp_proc_info, . - __v7_ca7mp_proc_info
-
-	/*
 	 * ARM Ltd. Cortex A9 processor.
 	 */
 	.type   __v7_ca9mp_proc_info, #object
@@ -430,6 +420,16 @@ __v7_ca9mp_proc_info:
 	.long	0xff0ffff0
 	__v7_proc __v7_ca9mp_setup
 	.size	__v7_ca9mp_proc_info, . - __v7_ca9mp_proc_info
+
+	/*
+	 * ARM Ltd. Cortex A7 processor.
+	 */
+	.type	__v7_ca7mp_proc_info, #object
+__v7_ca7mp_proc_info:
+	.long	0x410fc070
+	.long	0xff0ffff0
+	__v7_proc __v7_ca7mp_setup, hwcaps = HWCAP_IDIV
+	.size	__v7_ca7mp_proc_info, . - __v7_ca7mp_proc_info
 
 	/*
 	 * ARM Ltd. Cortex A15 processor.
