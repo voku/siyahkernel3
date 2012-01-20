@@ -8,6 +8,8 @@
 
 #include <linux/export.h>
 #include <linux/list.h>
+#include <linux/bug.h>
+#include <linux/kernel.h>
 
 #ifdef CONFIG_SEC_DEBUG_LIST_CORRUPTION
 static int list_debug = 0x00000100UL;
