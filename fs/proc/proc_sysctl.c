@@ -1070,6 +1070,7 @@ struct ctl_table_header *__register_sysctl_paths(
 	struct nsproxy *namespaces,
 	const struct ctl_path *path, struct ctl_table *table)
 {
+	struct ctl_table *ctl_table_arg = table;
 	struct ctl_table_header *header = NULL;
 	const struct ctl_path *component;
 	char *new_path, *pos;
@@ -1084,7 +1085,15 @@ struct ctl_table_header *__register_sysctl_paths(
 		if (!pos)
 			goto out;
 	}
+	while (table->procname && table->child && !table[1].procname) {
+		pos = append_path(new_path, pos, table->procname);
+		if (!pos)
+			goto out;
+		table = table->child;
+	}
 	header = __register_sysctl_table(root, namespaces, new_path, table);
+	if (header)
+		header->ctl_table_arg = ctl_table_arg;
 out:
 	kfree(new_path);
 	return header;
