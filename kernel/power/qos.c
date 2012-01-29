@@ -525,35 +525,18 @@ static ssize_t pm_qos_power_write(struct file *filp, const char __user *buf,
 static int __init pm_qos_power_init(void)
 {
 	int ret = 0;
+	int i;
 
-	ret = register_pm_qos_misc(&cpu_dma_pm_qos);
-	if (ret < 0) {
-		printk(KERN_ERR "pm_qos_param: cpu_dma_latency setup failed\n");
-		return ret;
+	BUILD_BUG_ON(ARRAY_SIZE(pm_qos_array) != PM_QOS_NUM_CLASSES);
+
+	for (i = 1; i < PM_QOS_NUM_CLASSES; i++) {
+		ret = register_pm_qos_misc(pm_qos_array[i]);
+		if (ret < 0) {
+			printk(KERN_ERR "pm_qos_param: %s setup failed\n",
+			       pm_qos_array[i]->name);
+			return ret;
+		}
 	}
-	ret = register_pm_qos_misc(&network_lat_pm_qos);
-	if (ret < 0) {
-		printk(KERN_ERR "pm_qos_param: network_latency setup failed\n");
-		return ret;
-	}
-	ret = register_pm_qos_misc(&network_throughput_pm_qos);
-	if (ret < 0)
-		printk(KERN_ERR
-			"pm_qos_param: network_throughput setup failed\n");
-	ret = register_pm_qos_misc(&bus_dma_throughput_pm_qos);
-	if (ret < 0)
-		printk(KERN_ERR
-			"pm_qos_param: bus_dma_throughput setup failed\n");
-
-	ret = register_pm_qos_misc(&display_frequency_pm_qos);
-	if (ret < 0)
-		printk(KERN_ERR
-			"pm_qos_param: display_frequency setup failed\n");
-
-	ret = register_pm_qos_misc(&dvfs_res_lat_pm_qos);
-	if (ret < 0)
-		printk(KERN_ERR
-			"pm_qos_param: dvfs_response_frequency setup failed\n");
 
 	return ret;
 }
