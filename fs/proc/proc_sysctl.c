@@ -1123,7 +1123,6 @@ struct ctl_table_header *__register_sysctl_table(
 	const char *path, struct ctl_table *table)
 {
 	struct ctl_table_root *root = set->dir.header.root;
-	struct ctl_table_header *links = NULL;
 	struct ctl_table_header *header;
 	const char *name, *nextname;
 	struct ctl_dir *dir;
@@ -1172,7 +1171,6 @@ fail_put_dir_locked:
 	drop_sysctl_table(&dir->header);
 	spin_unlock(&sysctl_lock);
 fail:
-	kfree(links);
 	kfree(header);
 	dump_stack();
 	return NULL;
