@@ -362,7 +362,7 @@ MODFLAGS	= -DMODULE $(ARM_FLAGS)
 KERNEL_MODS	= $(ARM_FLAGS) $(LOOPS) $(MODULES)
 #DISABLED_KERNEL_MODS =	$(ARM_FLAGS) $(LOOPS) $(LOOPS_4_6)
 
-DISABLED_STORE	= -floop-strip-mine -floop-block -floop-interchange -fno-strict-aliasing 
+DISABLED_STORE	= -floop-strip-mine -floop-block -floop-interchange
 
 CFLAGS_MODULE   = $(MODFLAGS)
 AFLAGS_MODULE   = $(MODFLAGS)
@@ -381,7 +381,7 @@ LINUXINCLUDE    := -I$(srctree)/arch/$(hdr-arch)/include \
 KBUILD_CPPFLAGS := -D__KERNEL__
 
 KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
-		   -fno-common \
+		   -fno-strict-aliasing -fno-common \
 		   -Werror-implicit-function-declaration \
 		   -Wno-format-security \
 		   -fno-delete-null-pointer-checks \
