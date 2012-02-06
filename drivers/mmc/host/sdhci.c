@@ -2326,6 +2326,9 @@ int sdhci_suspend_host(struct sdhci_host *host, pm_message_t state)
 	int ret;
 	bool has_tuning_timer;
 
+	if (host->ops->platform_suspend)
+		host->ops->platform_suspend(host);
+
 	sdhci_disable_card_detection(host);
 
 	/* Disable tuning since we are suspending */
@@ -2426,6 +2429,9 @@ int sdhci_resume_host(struct sdhci_host *host)
 
 	ret = mmc_resume_host(host->mmc);
 	sdhci_enable_card_detection(host);
+
+	if (host->ops->platform_resume)
+		host->ops->platform_resume(host);
 
 	/* Set the re-tuning expiration flag */
 	if ((host->version >= SDHCI_SPEC_300) && host->tuning_count &&
