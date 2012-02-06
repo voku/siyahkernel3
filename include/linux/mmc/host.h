@@ -259,6 +259,7 @@ struct mmc_host {
 #define MMC_CAP2_ADAPT_PACKED	(1 << 9)	/* Disable packed write adaptively */
 #define MMC_CAP2_HC_ERASE_SZ	(1 << 10)	/* High-capacity erase size */
 #define MMC_CAP2_BROKEN_VOLTAGE	(1 << 11)	/* Use the broken voltage */
+#define MMC_CAP2_DETECT_ON_ERR	(1 << 12)	/* On I/O err check card removal */
 
 	mmc_pm_flag_t		pm_caps;	/* supported pm features */
 	unsigned int        power_notify_type;
