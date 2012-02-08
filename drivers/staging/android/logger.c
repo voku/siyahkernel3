@@ -423,6 +423,12 @@ static ssize_t do_write_log_from_user(struct logger_log *log,
 
 	if (count != len)
 		if (copy_from_user(log->buffer, buf + len, count - len))
+			/*
+			 * Note that by not updating w_off, this abandons the
+			 * portion of the new entry that *was* successfully
+			 * copied, just above.  This is intentional to avoid
+			 * message corruption from missing fragments.
+			 */
 			return -EFAULT;
 
 	/* print as kernel log if the log string starts with "!@" */
