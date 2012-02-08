@@ -97,8 +97,7 @@ int cap_capable(struct task_struct *tsk, const struct cred *cred,
 
 	for (;;) {
 		/* The owner of the user namespace has all caps. */
-		if (targ_ns != &init_user_ns && uid_eq(targ_ns->owner,
-						       make_kuid(cred->user_ns, cred->euid)))
+		if (targ_ns != &init_user_ns && uid_eq(targ_ns->owner, cred->euid))
 			return 0;
 
 		/* Do we have the necessary capabilities? */
