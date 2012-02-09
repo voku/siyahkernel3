@@ -59,7 +59,7 @@ static int vhci_open_dev(struct hci_dev *hdev)
 
 static int vhci_close_dev(struct hci_dev *hdev)
 {
-	struct vhci_data *data = hdev->driver_data;
+	struct vhci_data *data = hci_get_drvdata(hdev);
 
 	if (!test_and_clear_bit(HCI_RUNNING, &hdev->flags))
 		return 0;
@@ -71,7 +71,7 @@ static int vhci_close_dev(struct hci_dev *hdev)
 
 static int vhci_flush(struct hci_dev *hdev)
 {
-	struct vhci_data *data = hdev->driver_data;
+	struct vhci_data *data = hci_get_drvdata(hdev);
 
 	skb_queue_purge(&data->readq);
 
@@ -91,7 +91,7 @@ static int vhci_send_frame(struct sk_buff *skb)
 	if (!test_bit(HCI_RUNNING, &hdev->flags))
 		return -EBUSY;
 
-	data = hdev->driver_data;
+	data = hci_get_drvdata(hdev);
 
 	memcpy(skb_push(skb, 1), &bt_cb(skb)->pkt_type, 1);
 	skb_queue_tail(&data->readq, skb);
@@ -237,7 +237,7 @@ static int vhci_open(struct inode *inode, struct file *file)
 	data->hdev = hdev;
 
 	hdev->bus = HCI_VIRTUAL;
-	hdev->driver_data = data;
+	hci_set_drvdata(hdev, data);
 
 	hdev->open     = vhci_open_dev;
 	hdev->close    = vhci_close_dev;
