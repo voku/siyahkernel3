@@ -35,7 +35,7 @@ struct pid_namespace {
 #endif
 	struct user_namespace *user_ns;
 	struct work_struct proc_work;
-	gid_t pid_gid;
+	kgid_t pid_gid;
 	int hide_pid;
 	int reboot;	/* group exit code if this pidns was rebooted */
 };

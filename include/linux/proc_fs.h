@@ -52,8 +52,8 @@ struct proc_dir_entry {
 	unsigned int low_ino;
 	mode_t mode;
 	nlink_t nlink;
-	uid_t uid;
-	gid_t gid;
+	kuid_t uid;
+	kgid_t gid;
 	loff_t size;
 	const struct inode_operations *proc_iops;
 	/*
