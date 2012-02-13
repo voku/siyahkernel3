@@ -910,6 +910,7 @@ void scsi_io_completion(struct scsi_cmnd *cmd, unsigned int good_bytes)
 					break;
 				}
 				action = ACTION_FAIL;
+				error = -EREMOTEIO;
 			} else
 				action = ACTION_FAIL;
 			break;
