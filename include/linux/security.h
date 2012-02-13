@@ -22,22 +22,36 @@
 #ifndef __LINUX_SECURITY_H
 #define __LINUX_SECURITY_H
 
-#include <linux/fs.h>
-#include <linux/fsnotify.h>
-#include <linux/binfmts.h>
-#include <linux/dcache.h>
-#include <linux/signal.h>
-#include <linux/resource.h>
-#include <linux/sem.h>
-#include <linux/shm.h>
-#include <linux/mm.h> /* PAGE_ALIGN */
-#include <linux/msg.h>
-#include <linux/sched.h>
 #include <linux/key.h>
-#include <linux/xfrm.h>
+#include <linux/capability.h>
 #include <linux/slab.h>
-#include <linux/xattr.h>
-#include <net/flow.h>
+#include <linux/err.h>
+
+struct linux_binprm;
+struct cred;
+struct rlimit;
+struct siginfo;
+struct sem_array;
+struct sembuf;
+struct kern_ipc_perm;
+struct audit_context;
+struct super_block;
+struct inode;
+struct dentry;
+struct file;
+struct vfsmount;
+struct path;
+struct qstr;
+struct nameidata;
+struct iattr;
+struct fown_struct;
+struct file_operations;
+struct shmid_kernel;
+struct msg_msg;
+struct msg_queue;
+struct xattr;
+struct xfrm_sec_ctx;
+struct mm_struct;
 
 /* Maximum number of letters for an LSM name string */
 #define SECURITY_NAME_MAX	10
@@ -49,13 +63,14 @@
 struct ctl_table;
 struct audit_krule;
 struct user_namespace;
+struct timezone;
 
 /*
  * These functions are in security/capability.c and are used
  * as the default capabilities functions
  */
 extern int cap_capable(const struct cred *cred, struct user_namespace *ns,
-			int cap, int audit);
+		       int cap, int audit);
 extern int cap_settime(const struct timespec *ts, const struct timezone *tz);
 extern int cap_ptrace_access_check(struct task_struct *child, unsigned int mode);
 extern int cap_ptrace_traceme(struct task_struct *parent);
@@ -1661,10 +1676,6 @@ int security_capset(struct cred *new, const struct cred *old,
 		    const kernel_cap_t *permitted);
 int security_capable(const struct cred *cred, struct user_namespace *ns,
 			int cap);
-int security_real_capable(struct task_struct *tsk, struct user_namespace *ns,
-			int cap);
-int security_real_capable_noaudit(struct task_struct *tsk,
-			struct user_namespace *ns, int cap);
 int security_capable_noaudit(const struct cred *cred, struct user_namespace *ns,
 			     int cap);
 int security_quotactl(int cmds, int type, int id, struct super_block *sb);
@@ -1864,27 +1875,6 @@ static inline int security_capable(const struct cred *cred,
 				   struct user_namespace *ns, int cap)
 {
 	return cap_capable(cred, ns, cap, SECURITY_CAP_AUDIT);
-}
-
-static inline int security_real_capable(struct task_struct *tsk, struct user_namespace *ns, int cap)
-{
-	int ret;
-
-	rcu_read_lock();
-	ret = cap_capable(__task_cred(tsk), ns, cap, SECURITY_CAP_AUDIT);
-	rcu_read_unlock();
-	return ret;
-}
-
-static inline
-int security_real_capable_noaudit(struct task_struct *tsk, struct user_namespace *ns, int cap)
-{
-	int ret;
-
-	rcu_read_lock();
-	ret = cap_capable(__task_cred(tsk), ns, cap, SECURITY_CAP_NOAUDIT);
-	rcu_read_unlock();
-	return ret;
 }
 
 static inline int security_capable_noaudit(const struct cred *cred,
@@ -3034,6 +3024,37 @@ static inline char *alloc_secdata(void)
 static inline void free_secdata(void *secdata)
 { }
 #endif /* CONFIG_SECURITY */
+
+#ifdef CONFIG_SECURITY_YAMA
+extern int yama_ptrace_access_check(struct task_struct *child,
+				    unsigned int mode);
+extern int yama_ptrace_traceme(struct task_struct *parent);
+extern void yama_task_free(struct task_struct *task);
+extern int yama_task_prctl(int option, unsigned long arg2, unsigned long arg3,
+			   unsigned long arg4, unsigned long arg5);
+#else
+static inline int yama_ptrace_access_check(struct task_struct *child,
+					   unsigned int mode)
+{
+	return 0;
+}
+
+static inline int yama_ptrace_traceme(struct task_struct *parent)
+{
+	return 0;
+}
+
+static inline void yama_task_free(struct task_struct *task)
+{
+}
+
+static inline int yama_task_prctl(int option, unsigned long arg2,
+				  unsigned long arg3, unsigned long arg4,
+				  unsigned long arg5)
+{
+	return -ENOSYS;
+}
+#endif /* CONFIG_SECURITY_YAMA */
 
 #endif /* ! __LINUX_SECURITY_H */
 

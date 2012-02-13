@@ -55,6 +55,8 @@
 #include <linux/uaccess.h>
 #include <linux/memcontrol.h>
 #include <linux/static_key.h>
+#include <linux/aio.h>
+#include <linux/sched.h>
 
 #include <linux/filter.h>
 #include <linux/rculist_nulls.h>
