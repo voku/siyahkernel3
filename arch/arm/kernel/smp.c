@@ -44,6 +44,7 @@
 #include <asm/ptrace.h>
 #include <asm/localtimer.h>
 #include <asm/smp_plat.h>
+#include <asm/virt.h>
 #include <asm/mach/arch.h>
 
 #include <mach/sec_debug.h>
@@ -376,6 +377,8 @@ void __init smp_cpus_done(unsigned int max_cpus)
 	       num_online_cpus(),
 	       bogosum / (500000/HZ),
 	       (bogosum / (5000/HZ)) % 100);
+
+	hyp_mode_check();
 }
 
 void __init smp_prepare_boot_cpu(void)

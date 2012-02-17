@@ -53,6 +53,8 @@
 #ifdef CONFIG_MIDAS_COMMON
 #include <plat/cpu.h>
 #endif
+#include <asm/memblock.h>
+#include <asm/virt.h>
 
 #if defined(CONFIG_DEPRECATED_PARAM_STRUCT)
 #include "compat.h"
@@ -896,6 +898,21 @@ static struct machine_desc * __init setup_machine_tags(unsigned int nr)
 }
 
 
+void __init hyp_mode_check(void)
+{
+#ifdef CONFIG_ARM_VIRT_EXT
+	if (is_hyp_mode_available()) {
+		pr_info("CPU: All CPU(s) started in HYP mode.\n");
+		pr_info("CPU: Virtualization extensions available.\n");
+	} else if (is_hyp_mode_mismatched()) {
+		pr_warn("CPU: WARNING: CPU(s) started in wrong/inconsistent modes (primary CPU mode 0x%x)\n",
+			__boot_cpu_mode & MODE_MASK);
+		pr_warn("CPU: This may indicate a broken bootloader or firmware.\n");
+	} else
+		pr_info("CPU: All CPU(s) started in SVC mode.\n");
+#endif
+}
+
 void __init setup_arch(char **cmdline_p)
 {
 	struct machine_desc *mdesc;
@@ -940,6 +957,10 @@ void __init setup_arch(char **cmdline_p)
 		smp_init_cpus();
 	}
 #endif
+
+	if (!is_smp())
+		hyp_mode_check();
+
 	reserve_crashkernel();
 
 	cpu_init();
