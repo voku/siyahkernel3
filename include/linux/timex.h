@@ -232,24 +232,10 @@ struct timex {
  * estimated error = NTP dispersion.
  */
 extern unsigned long tick_usec;		/* USER_HZ period (usec) */
-extern unsigned long tick_nsec;		/* ACTHZ          period (nsec) */
-
-/*
- * phase-lock loop variables
- */
-extern int time_status;		/* clock synchronization status bits */
+extern unsigned long tick_nsec;		/* SHIFTED_H  period (nsec) */
 
 extern void ntp_init(void);
 extern void ntp_clear(void);
-
-/**
- * ntp_synced - Returns 1 if the NTP status is not UNSYNC
- *
- */
-static inline int ntp_synced(void)
-{
-	return !(time_status & STA_UNSYNC);
-}
 
 /* Required to safely shift negative values */
 #define shift_right(x, s) ({	\
@@ -267,7 +253,6 @@ static inline int ntp_synced(void)
 extern u64 ntp_tick_length(void);
 
 extern int second_overflow(unsigned long secs);
-extern void update_ntp_one_tick(void);
 extern int do_adjtimex(struct timex *);
 extern void hardpps(const struct timespec *, const struct timespec *);
 
