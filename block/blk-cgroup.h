@@ -164,6 +164,13 @@ struct blkg_policy_data {
 	/* the blkg this per-policy data belongs to */
 	struct blkio_group *blkg;
 
+	/* Configuration */
+	struct blkio_group_conf conf;
+
+	struct blkio_group_stats stats;
+	/* Per cpu stats pointer */
+	struct blkio_group_stats_cpu __percpu *stats_cpu;
+
 	/* pol->pdata_size bytes of private data used by policy impl */
 	char pdata[] __aligned(__alignof__(unsigned long long));
 };
@@ -179,16 +186,9 @@ struct blkio_group {
 	/* reference count */
 	int refcnt;
 
-	/* Configuration */
-	struct blkio_group_conf conf;
-
 	/* Need to serialize the stats in the case of reset/update */
 	spinlock_t stats_lock;
-	struct blkio_group_stats stats;
-	/* Per cpu stats pointer */
-	struct blkio_group_stats_cpu __percpu *stats_cpu;
-
-	struct blkg_policy_data *pd;
+	struct blkg_policy_data *pd[BLKIO_NR_POLICIES];
 
 	struct rcu_head rcu_head;
 };
@@ -242,7 +242,7 @@ extern void update_root_blkg_pd(struct request_queue *q,
 static inline void *blkg_to_pdata(struct blkio_group *blkg,
 			      struct blkio_policy_type *pol)
 {
-	return blkg ? blkg->pd->pdata : NULL;
+	return blkg ? blkg->pd[pol->plid]->pdata : NULL;
 }
 
 /**
@@ -379,8 +379,7 @@ static inline void blkiocg_set_start_empty_time(struct blkio_group *blkg,
 #ifdef CONFIG_BLK_CGROUP
 extern struct blkio_cgroup blkio_root_cgroup;
 extern struct blkio_cgroup *cgroup_to_blkio_cgroup(struct cgroup *cgroup);
-extern struct blkio_cgroup *task_blkio_cgroup(struct task_struct *tsk);
-extern int blkiocg_del_blkio_group(struct blkio_group *blkg);
+extern struct blkio_cgroup *bio_blkio_cgroup(struct bio *bio);
 extern struct blkio_group *blkg_lookup(struct blkio_cgroup *blkcg,
 				       struct request_queue *q);
 struct blkio_group *blkg_lookup_create(struct blkio_cgroup *blkcg,
@@ -414,10 +413,7 @@ struct cgroup;
 static inline struct blkio_cgroup *
 cgroup_to_blkio_cgroup(struct cgroup *cgroup) { return NULL; }
 static inline struct blkio_cgroup *
-task_blkio_cgroup(struct task_struct *tsk) { return NULL; }
-
-static inline int
-blkiocg_del_blkio_group(struct blkio_group *blkg) { return 0; }
+bio_blkio_cgroup(struct bio *bio) { return NULL; }
 
 static inline struct blkio_group *blkg_lookup(struct blkio_cgroup *blkcg,
 					      void *key) { return NULL; }
