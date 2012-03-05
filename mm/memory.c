@@ -1363,7 +1363,7 @@ unsigned long unmap_vmas(struct mmu_gather *tlb,
 		if (unlikely(is_pfn_mapping(vma)))
 			untrack_pfn_vma(vma, 0, 0);
 
-		while (start != end) {
+		if (start != end) {
 			if (unlikely(is_vm_hugetlb_page(vma))) {
 				/*
 				 * It is undesirable to test vma->vm_file as it
@@ -1380,8 +1380,8 @@ unsigned long unmap_vmas(struct mmu_gather *tlb,
 					unmap_hugepage_range(vma, start, end, NULL);
 			} else
 				unmap_page_range(tlb, vma, start, end, details);
-			start = end;
 		}
+		start = end;
 	}
 
 	mmu_notifier_invalidate_range_end(mm, start_addr, end_addr);
