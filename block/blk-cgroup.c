@@ -17,19 +17,11 @@
 #include <linux/err.h>
 #include <linux/blkdev.h>
 #include <linux/slab.h>
-#include <linux/mempool.h>
 #include <linux/genhd.h>
 #include <linux/delay.h>
 #include "blk-cgroup.h"
 
 #define MAX_KEY_LEN 100
-
-/*
- * blkg_stats_cpu_pool parameters.  These allocations aren't frequent, can
- * be opportunistic and percpu memory is expensive.
- */
-#define BLKG_STATS_CPU_POOL_SIZE	8
-#define BLKG_STATS_CPU_POOL_REFILL	4
 
 static DEFINE_SPINLOCK(blkio_list_lock);
 static LIST_HEAD(blkio_list);
@@ -37,20 +29,13 @@ static LIST_HEAD(blkio_list);
 struct blkio_cgroup blkio_root_cgroup = { .weight = 2*BLKIO_WEIGHT_DEFAULT };
 EXPORT_SYMBOL_GPL(blkio_root_cgroup);
 
-/*
- * Percpu mempool for blkgio_group_stats_cpu which are allocated on-demand
- * on IO path.  As percpu doesn't support NOIO allocations, we need to
- * buffer them through mempool.
- */
-struct percpu_mempool *blkg_stats_cpu_pool;
-EXPORT_SYMBOL_GPL(blkg_stats_cpu_pool);
-
-static struct blkio_policy_type *blkio_policy[BLKIO_NR_POLICIES];
-
-static struct cgroup_subsys_state *blkiocg_create(struct cgroup *);
-static int blkiocg_can_attach(struct cgroup *, struct cgroup_taskset *);
-static void blkiocg_attach(struct cgroup *, struct cgroup_taskset *);
-static void blkiocg_destroy(struct cgroup *);
+static struct cgroup_subsys_state *blkiocg_create(struct cgroup_subsys *,
+						  struct cgroup *);
+static int blkiocg_can_attach(struct cgroup_subsys *, struct cgroup *,
+			      struct cgroup_taskset *);
+static void blkiocg_attach(struct cgroup_subsys *, struct cgroup *,
+			   struct cgroup_taskset *);
+static void blkiocg_destroy(struct cgroup_subsys *, struct cgroup *);
 static int blkiocg_populate(struct cgroup_subsys *, struct cgroup *);
 
 /* for encoding cft->private value on file */
@@ -65,21 +50,10 @@ struct cgroup_subsys blkio_subsys = {
 	.can_attach = blkiocg_can_attach,
 	.attach = blkiocg_attach,
 	.destroy = blkiocg_destroy,
-#ifdef CONFIG_BLK_CGROUP
-	/* note: blkio_subsys_id is otherwise defined in blk-cgroup.h */
+	.populate = blkiocg_populate,
 	.subsys_id = blkio_subsys_id,
-#endif
-	.base_cftypes = blkio_files,
 	.use_id = 1,
 	.module = THIS_MODULE,
-
-	/*
-	 * blkio subsystem is utterly broken in terms of hierarchy support.
-	 * It treats all cgroups equally regardless of where they're
-	 * located in the hierarchy - all cgroups are treated as if they're
-	 * right below the root.  Fix it and remove the following.
-	 */
-	.broken_hierarchy = true,
 };
 EXPORT_SYMBOL_GPL(blkio_subsys);
 
@@ -155,7 +129,7 @@ blkio_update_group_weight(struct blkio_group *blkg, unsigned int weight)
 		if (blkiop->plid != blkg->plid)
 			continue;
 		if (blkiop->ops.blkio_update_group_weight_fn)
-			blkiop->ops.blkio_update_group_weight_fn(blkg->key,
+			blkiop->ops.blkio_update_group_weight_fn(blkg->q,
 							blkg, weight);
 	}
 }
@@ -173,12 +147,12 @@ static inline void blkio_update_group_bps(struct blkio_group *blkg, u64 bps,
 
 		if (fileid == BLKIO_THROTL_read_bps_device
 		    && blkiop->ops.blkio_update_group_read_bps_fn)
-			blkiop->ops.blkio_update_group_read_bps_fn(blkg->key,
+			blkiop->ops.blkio_update_group_read_bps_fn(blkg->q,
 								blkg, bps);
 
 		if (fileid == BLKIO_THROTL_write_bps_device
 		    && blkiop->ops.blkio_update_group_write_bps_fn)
-			blkiop->ops.blkio_update_group_write_bps_fn(blkg->key,
+			blkiop->ops.blkio_update_group_write_bps_fn(blkg->q,
 								blkg, bps);
 	}
 }
@@ -196,12 +170,12 @@ static inline void blkio_update_group_iops(struct blkio_group *blkg,
 
 		if (fileid == BLKIO_THROTL_read_iops_device
 		    && blkiop->ops.blkio_update_group_read_iops_fn)
-			blkiop->ops.blkio_update_group_read_iops_fn(blkg->key,
+			blkiop->ops.blkio_update_group_read_iops_fn(blkg->q,
 								blkg, iops);
 
 		if (fileid == BLKIO_THROTL_write_iops_device
 		    && blkiop->ops.blkio_update_group_write_iops_fn)
-			blkiop->ops.blkio_update_group_write_iops_fn(blkg->key,
+			blkiop->ops.blkio_update_group_write_iops_fn(blkg->q,
 								blkg,iops);
 	}
 }
@@ -495,13 +469,8 @@ EXPORT_SYMBOL_GPL(blkiocg_update_io_merged_stats);
  */
 int blkio_alloc_blkg_stats(struct blkio_group *blkg)
 {
-	/* Schedule refill if necessary */
-	if (percpu_mempool_nr_elems(blkg_stats_cpu_pool) <=
-	    BLKG_STATS_CPU_POOL_REFILL)
-		percpu_mempool_refill(blkg_stats_cpu_pool, GFP_NOWAIT);
-
 	/* Allocate memory for per cpu stats */
-	blkg->stats_cpu = percpu_mempool_alloc(blkg_stats_cpu_pool, GFP_NOWAIT);
+	blkg->stats_cpu = alloc_percpu(struct blkio_group_stats_cpu);
 	if (!blkg->stats_cpu)
 		return -ENOMEM;
 	return 0;
@@ -509,14 +478,14 @@ int blkio_alloc_blkg_stats(struct blkio_group *blkg)
 EXPORT_SYMBOL_GPL(blkio_alloc_blkg_stats);
 
 void blkiocg_add_blkio_group(struct blkio_cgroup *blkcg,
-		struct blkio_group *blkg, void *key, dev_t dev,
+		struct blkio_group *blkg, struct request_queue *q, dev_t dev,
 		enum blkio_policy_id plid)
 {
 	unsigned long flags;
 
 	spin_lock_irqsave(&blkcg->lock, flags);
 	spin_lock_init(&blkg->stats_lock);
-	rcu_assign_pointer(blkg->key, key);
+	rcu_assign_pointer(blkg->q, q);
 	blkg->blkcg_id = css_id(&blkcg->css);
 	hlist_add_head_rcu(&blkg->blkcg_node, &blkcg->blkg_list);
 	blkg->plid = plid;
@@ -562,17 +531,16 @@ int blkiocg_del_blkio_group(struct blkio_group *blkg)
 EXPORT_SYMBOL_GPL(blkiocg_del_blkio_group);
 
 /* called under rcu_read_lock(). */
-struct blkio_group *blkiocg_lookup_group(struct blkio_cgroup *blkcg, void *key)
+struct blkio_group *blkiocg_lookup_group(struct blkio_cgroup *blkcg,
+					 struct request_queue *q,
+					 enum blkio_policy_id plid)
 {
 	struct blkio_group *blkg;
-	void *__key;
+	struct hlist_node *n;
 
-	hlist_for_each_entry_rcu(blkg, &blkcg->blkg_list, blkcg_node) {
-		__key = blkg->key;
-		if (__key == key)
+	hlist_for_each_entry_rcu(blkg, n, &blkcg->blkg_list, blkcg_node)
+		if (blkg->q == q && blkg->plid == plid)
 			return blkg;
-	}
-
 	return NULL;
 }
 EXPORT_SYMBOL_GPL(blkiocg_lookup_group);
@@ -638,6 +606,7 @@ blkiocg_reset_stats(struct cgroup *cgroup, struct cftype *cftype, u64 val)
 	struct blkio_cgroup *blkcg;
 	struct blkio_group *blkg;
 	struct blkio_group_stats *stats;
+	struct hlist_node *n;
 	uint64_t queued[BLKIO_STAT_TOTAL];
 	int i;
 #ifdef CONFIG_DEBUG_BLK_CGROUP
@@ -647,7 +616,7 @@ blkiocg_reset_stats(struct cgroup *cgroup, struct cftype *cftype, u64 val)
 
 	blkcg = cgroup_to_blkio_cgroup(cgroup);
 	spin_lock_irq(&blkcg->lock);
-	hlist_for_each_entry(blkg, &blkcg->blkg_list, blkcg_node) {
+	hlist_for_each_entry(blkg, n, &blkcg->blkg_list, blkcg_node) {
 		spin_lock(&blkg->stats_lock);
 		stats = &blkg->stats;
 #ifdef CONFIG_DEBUG_BLK_CGROUP
@@ -1105,11 +1074,12 @@ static void blkio_update_policy_node_blkg(struct blkio_cgroup *blkcg,
 				struct blkio_policy_node *pn)
 {
 	struct blkio_group *blkg;
+	struct hlist_node *n;
 
 	spin_lock(&blkio_list_lock);
 	spin_lock_irq(&blkcg->lock);
 
-	hlist_for_each_entry(blkg, &blkcg->blkg_list, blkcg_node) {
+	hlist_for_each_entry(blkg, n, &blkcg->blkg_list, blkcg_node) {
 		if (pn->dev != blkg->dev || pn->plid != blkg->plid)
 			continue;
 		blkio_update_blkg_policy(blkcg, blkg, pn);
@@ -1267,10 +1237,11 @@ static int blkio_read_blkg_stats(struct blkio_cgroup *blkcg,
 		enum stat_type type, bool show_total, bool pcpu)
 {
 	struct blkio_group *blkg;
+	struct hlist_node *n;
 	uint64_t cgroup_total = 0;
 
 	rcu_read_lock();
-	hlist_for_each_entry_rcu(blkg, &blkcg->blkg_list, blkcg_node) {
+	hlist_for_each_entry_rcu(blkg, n, &blkcg->blkg_list, blkcg_node) {
 		if (blkg->dev) {
 			if (!cftype_blkg_same_policy(cft, blkg))
 				continue;
@@ -1374,6 +1345,7 @@ static int blkiocg_file_read_map(struct cgroup *cgrp, struct cftype *cft,
 static int blkio_weight_write(struct blkio_cgroup *blkcg, u64 val)
 {
 	struct blkio_group *blkg;
+	struct hlist_node *n;
 	struct blkio_policy_node *pn;
 
 	if (val < BLKIO_WEIGHT_MIN || val > BLKIO_WEIGHT_MAX)
@@ -1383,7 +1355,7 @@ static int blkio_weight_write(struct blkio_cgroup *blkcg, u64 val)
 	spin_lock_irq(&blkcg->lock);
 	blkcg->weight = (unsigned int)val;
 
-	hlist_for_each_entry(blkg, &blkcg->blkg_list, blkcg_node) {
+	hlist_for_each_entry(blkg, n, &blkcg->blkg_list, blkcg_node) {
 		pn = blkio_policy_search_node(blkcg, blkg->dev,
 				BLKIO_POLICY_PROP, BLKIO_PROP_weight_device);
 		if (pn)
@@ -1595,15 +1567,20 @@ struct cftype blkio_files[] = {
 		.read_map = blkiocg_file_read_map,
 	},
 #endif
-	{ }	/* terminate */
 };
 
-static void blkiocg_destroy(struct cgroup *cgroup)
+static int blkiocg_populate(struct cgroup_subsys *subsys, struct cgroup *cgroup)
+{
+	return cgroup_add_files(cgroup, subsys, blkio_files,
+				ARRAY_SIZE(blkio_files));
+}
+
+static void blkiocg_destroy(struct cgroup_subsys *subsys, struct cgroup *cgroup)
 {
 	struct blkio_cgroup *blkcg = cgroup_to_blkio_cgroup(cgroup);
 	unsigned long flags;
 	struct blkio_group *blkg;
-	void *key;
+	struct request_queue *q;
 	struct blkio_policy_type *blkiop;
 	struct blkio_policy_node *pn, *pntmp;
 
@@ -1618,7 +1595,7 @@ static void blkiocg_destroy(struct cgroup *cgroup)
 
 		blkg = hlist_entry(blkcg->blkg_list.first, struct blkio_group,
 					blkcg_node);
-		key = rcu_dereference(blkg->key);
+		q = rcu_dereference(blkg->q);
 		__blkiocg_del_blkio_group(blkg);
 
 		spin_unlock_irqrestore(&blkcg->lock, flags);
@@ -1632,7 +1609,7 @@ static void blkiocg_destroy(struct cgroup *cgroup)
 		list_for_each_entry(blkiop, &blkio_list, list) {
 			if (blkiop->plid != blkg->plid)
 				continue;
-			blkiop->ops.blkio_unlink_group_fn(key, blkg);
+			blkiop->ops.blkio_unlink_group_fn(q, blkg);
 		}
 		spin_unlock(&blkio_list_lock);
 	} while (1);
@@ -1648,7 +1625,8 @@ static void blkiocg_destroy(struct cgroup *cgroup)
 		kfree(blkcg);
 }
 
-static struct cgroup_subsys_state *blkiocg_create(struct cgroup *cgroup)
+static struct cgroup_subsys_state *
+blkiocg_create(struct cgroup_subsys *subsys, struct cgroup *cgroup)
 {
 	struct blkio_cgroup *blkcg;
 	struct cgroup *parent = cgroup->parent;
@@ -1677,7 +1655,8 @@ done:
  * of the main cic data structures.  For now we allow a task to change
  * its cgroup only if it's the only owner of its ioc.
  */
-static int blkiocg_can_attach(struct cgroup *cgrp, struct cgroup_taskset *tset)
+static int blkiocg_can_attach(struct cgroup_subsys *ss, struct cgroup *cgrp,
+			      struct cgroup_taskset *tset)
 {
 	struct task_struct *task;
 	struct io_context *ioc;
@@ -1696,27 +1675,26 @@ static int blkiocg_can_attach(struct cgroup *cgrp, struct cgroup_taskset *tset)
 	return ret;
 }
 
-static void blkiocg_attach(struct cgroup *cgrp, struct cgroup_taskset *tset)
+static void blkiocg_attach(struct cgroup_subsys *ss, struct cgroup *cgrp,
+			   struct cgroup_taskset *tset)
 {
 	struct task_struct *task;
 	struct io_context *ioc;
 
-	/* we don't lose anything even if ioc allocation fails */
-	ioc = get_task_io_context(tsk, GFP_ATOMIC, NUMA_NO_NODE);
-	if (ioc) {
-		ioc_cgroup_changed(ioc);
-		put_io_context(ioc);
+	cgroup_taskset_for_each(task, cgrp, tset) {
+		/* we don't lose anything even if ioc allocation fails */
+		ioc = get_task_io_context(task, GFP_ATOMIC, NUMA_NO_NODE);
+		if (ioc) {
+			ioc_cgroup_changed(ioc);
+			put_io_context(ioc);
+		}
 	}
 }
 
 void blkio_policy_register(struct blkio_policy_type *blkiop)
 {
 	spin_lock(&blkio_list_lock);
-
-	BUG_ON(blkio_policy[blkiop->plid]);
-	blkio_policy[blkiop->plid] = blkiop;
 	list_add_tail(&blkiop->list, &blkio_list);
-
 	spin_unlock(&blkio_list_lock);
 }
 EXPORT_SYMBOL_GPL(blkio_policy_register);
@@ -1724,37 +1702,7 @@ EXPORT_SYMBOL_GPL(blkio_policy_register);
 void blkio_policy_unregister(struct blkio_policy_type *blkiop)
 {
 	spin_lock(&blkio_list_lock);
-
-	BUG_ON(blkio_policy[blkiop->plid] != blkiop);
-	blkio_policy[blkiop->plid] = NULL;
 	list_del_init(&blkiop->list);
-
 	spin_unlock(&blkio_list_lock);
 }
 EXPORT_SYMBOL_GPL(blkio_policy_unregister);
-
-static int __init init_cgroup_blkio(void)
-{
-	int ret;
-
-	blkg_stats_cpu_pool = percpu_mempool_create(BLKG_STATS_CPU_POOL_SIZE,
-				sizeof(struct blkio_group_stats_cpu),
-				__alignof__(struct blkio_group_stats_cpu));
-	if (!blkg_stats_cpu_pool)
-		return -ENOMEM;
-
-	ret = cgroup_load_subsys(&blkio_subsys);
-	if (ret)
-		percpu_mempool_destroy(blkg_stats_cpu_pool);
-	return ret;
-}
-
-static void __exit exit_cgroup_blkio(void)
-{
-	cgroup_unload_subsys(&blkio_subsys);
-	percpu_mempool_destroy(blkg_stats_cpu_pool);
-}
-
-module_init(init_cgroup_blkio);
-module_exit(exit_cgroup_blkio);
-MODULE_LICENSE("GPL");
