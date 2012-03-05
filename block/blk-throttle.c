@@ -1,2949 +1,1243 @@
 /*
- * Copyright (C) 1991, 1992 Linus Torvalds
- * Copyright (C) 1994,      Karl Keyte: Added support for disk statistics
- * Elevator latency, (C) 2000  Andrea Arcangeli <andrea@suse.de> SuSE
- * Queue request tables / lock, selectable elevator, Jens Axboe <axboe@suse.de>
- * kernel-doc documentation started by NeilBrown <neilb@cse.unsw.edu.au>
- *	-  July2000
- * bio rewrite, highmem i/o, etc, Jens Axboe <axboe@suse.de> - may 2001
+ * Interface for controlling IO bandwidth on a request queue
+ *
+ * Copyright (C) 2010 Vivek Goyal <vgoyal@redhat.com>
  */
 
-/*
- * This handles all read/write requests to block devices
- */
-#include <linux/kernel.h>
 #include <linux/module.h>
-#include <linux/backing-dev.h>
-#include <linux/bio.h>
-#include <linux/blkdev.h>
-#include <linux/highmem.h>
-#include <linux/mm.h>
-#include <linux/kernel_stat.h>
-#include <linux/string.h>
-#include <linux/init.h>
-#include <linux/completion.h>
 #include <linux/slab.h>
-#include <linux/swap.h>
-#include <linux/writeback.h>
-#include <linux/task_io_accounting_ops.h>
-#include <linux/fault-inject.h>
-#include <linux/list_sort.h>
-#include <linux/delay.h>
-
-#define CREATE_TRACE_POINTS
-#include <trace/events/block.h>
-
+#include <linux/blkdev.h>
+#include <linux/bio.h>
+#include <linux/blktrace_api.h>
+#include "blk-cgroup.h"
 #include "blk.h"
 
-EXPORT_TRACEPOINT_SYMBOL_GPL(block_bio_remap);
-EXPORT_TRACEPOINT_SYMBOL_GPL(block_rq_remap);
-EXPORT_TRACEPOINT_SYMBOL_GPL(block_bio_complete);
+/* Max dispatch from a group in 1 round */
+static int throtl_grp_quantum = 8;
 
-DEFINE_IDA(blk_queue_ida);
+/* Total max dispatch from all groups in one round */
+static int throtl_quantum = 32;
 
-/*
- * For the allocated request tables
- */
-static struct kmem_cache *request_cachep;
+/* Throttling is performed over 100ms slice and after that slice is renewed */
+static unsigned long throtl_slice = HZ/10;	/* 100 ms */
 
-/*
- * For queue allocation
- */
-struct kmem_cache *blk_requestq_cachep;
+/* A workqueue to queue throttle related work */
+static struct workqueue_struct *kthrotld_workqueue;
+static void throtl_schedule_delayed_work(struct throtl_data *td,
+				unsigned long delay);
 
-/*
- * Controlling structure to kblockd
- */
-static struct workqueue_struct *kblockd_workqueue;
+struct throtl_rb_root {
+	struct rb_root rb;
+	struct rb_node *left;
+	unsigned int count;
+	unsigned long min_disptime;
+};
 
-static void drive_stat_acct(struct request *rq, int new_io)
+#define THROTL_RB_ROOT	(struct throtl_rb_root) { .rb = RB_ROOT, .left = NULL, \
+			.count = 0, .min_disptime = 0}
+
+#define rb_entry_tg(node)	rb_entry((node), struct throtl_grp, rb_node)
+
+struct throtl_grp {
+	/* List of throtl groups on the request queue*/
+	struct hlist_node tg_node;
+
+	/* active throtl group service_tree member */
+	struct rb_node rb_node;
+
+	/*
+	 * Dispatch time in jiffies. This is the estimated time when group
+	 * will unthrottle and is ready to dispatch more bio. It is used as
+	 * key to sort active groups in service tree.
+	 */
+	unsigned long disptime;
+
+	struct blkio_group blkg;
+	atomic_t ref;
+	unsigned int flags;
+
+	/* Two lists for READ and WRITE */
+	struct bio_list bio_lists[2];
+
+	/* Number of queued bios on READ and WRITE lists */
+	unsigned int nr_queued[2];
+
+	/* bytes per second rate limits */
+	uint64_t bps[2];
+
+	/* IOPS limits */
+	unsigned int iops[2];
+
+	/* Number of bytes disptached in current slice */
+	uint64_t bytes_disp[2];
+	/* Number of bio's dispatched in current slice */
+	unsigned int io_disp[2];
+
+	/* When did we start a new slice */
+	unsigned long slice_start[2];
+	unsigned long slice_end[2];
+
+	/* Some throttle limits got updated for the group */
+	int limits_changed;
+
+	struct rcu_head rcu_head;
+};
+
+struct throtl_data
 {
-	struct hd_struct *part;
-	int rw = rq_data_dir(rq);
-	int cpu;
+	/* List of throtl groups */
+	struct hlist_head tg_list;
 
-	if (!blk_do_io_stat(rq))
+	/* service tree for active throtl groups */
+	struct throtl_rb_root tg_service_tree;
+
+	struct throtl_grp *root_tg;
+	struct request_queue *queue;
+
+	/* Total Number of queued bios on READ and WRITE lists */
+	unsigned int nr_queued[2];
+
+	/*
+	 * number of total undestroyed groups
+	 */
+	unsigned int nr_undestroyed_grps;
+
+	/* Work for dispatching throttled bios */
+	struct delayed_work throtl_work;
+
+	int limits_changed;
+};
+
+enum tg_state_flags {
+	THROTL_TG_FLAG_on_rr = 0,	/* on round-robin busy list */
+};
+
+#define THROTL_TG_FNS(name)						\
+static inline void throtl_mark_tg_##name(struct throtl_grp *tg)		\
+{									\
+	(tg)->flags |= (1 << THROTL_TG_FLAG_##name);			\
+}									\
+static inline void throtl_clear_tg_##name(struct throtl_grp *tg)	\
+{									\
+	(tg)->flags &= ~(1 << THROTL_TG_FLAG_##name);			\
+}									\
+static inline int throtl_tg_##name(const struct throtl_grp *tg)		\
+{									\
+	return ((tg)->flags & (1 << THROTL_TG_FLAG_##name)) != 0;	\
+}
+
+THROTL_TG_FNS(on_rr);
+
+#define throtl_log_tg(td, tg, fmt, args...)				\
+	blk_add_trace_msg((td)->queue, "throtl %s " fmt,		\
+				blkg_path(&(tg)->blkg), ##args);      	\
+
+#define throtl_log(td, fmt, args...)	\
+	blk_add_trace_msg((td)->queue, "throtl " fmt, ##args)
+
+static inline struct throtl_grp *tg_of_blkg(struct blkio_group *blkg)
+{
+	if (blkg)
+		return container_of(blkg, struct throtl_grp, blkg);
+
+	return NULL;
+}
+
+static inline unsigned int total_nr_queued(struct throtl_data *td)
+{
+	return td->nr_queued[0] + td->nr_queued[1];
+}
+
+static inline struct throtl_grp *throtl_ref_get_tg(struct throtl_grp *tg)
+{
+	atomic_inc(&tg->ref);
+	return tg;
+}
+
+static void throtl_free_tg(struct rcu_head *head)
+{
+	struct throtl_grp *tg;
+
+	tg = container_of(head, struct throtl_grp, rcu_head);
+	free_percpu(tg->blkg.stats_cpu);
+	kfree(tg);
+}
+
+static void throtl_put_tg(struct throtl_grp *tg)
+{
+	BUG_ON(atomic_read(&tg->ref) <= 0);
+	if (!atomic_dec_and_test(&tg->ref))
 		return;
 
-	cpu = part_stat_lock();
+	/* release the extra blkcg reference this blkg has been holding */
+	css_put(&tg->blkg.blkcg->css);
 
-	if (!new_io) {
-		part = rq->part;
-		part_stat_inc(cpu, part, merges[rw]);
+	/*
+	 * A group is freed in rcu manner. But having an rcu lock does not
+	 * mean that one can access all the fields of blkg and assume these
+	 * are valid. For example, don't try to follow throtl_data and
+	 * request queue links.
+	 *
+	 * Having a reference to blkg under an rcu allows acess to only
+	 * values local to groups like group stats and group rate limits
+	 */
+	call_rcu(&tg->rcu_head, throtl_free_tg);
+}
+
+static struct blkio_group *throtl_alloc_blkio_group(struct request_queue *q,
+						    struct blkio_cgroup *blkcg)
+{
+	struct throtl_grp *tg;
+
+	tg = kzalloc_node(sizeof(*tg), GFP_ATOMIC, q->node);
+	if (!tg)
+		return NULL;
+
+	INIT_HLIST_NODE(&tg->tg_node);
+	RB_CLEAR_NODE(&tg->rb_node);
+	bio_list_init(&tg->bio_lists[0]);
+	bio_list_init(&tg->bio_lists[1]);
+	tg->limits_changed = false;
+
+	tg->bps[READ] = -1;
+	tg->bps[WRITE] = -1;
+	tg->iops[READ] = -1;
+	tg->iops[WRITE] = -1;
+
+	/*
+	 * Take the initial reference that will be released on destroy
+	 * This can be thought of a joint reference by cgroup and
+	 * request queue which will be dropped by either request queue
+	 * exit or cgroup deletion path depending on who is exiting first.
+	 */
+	atomic_set(&tg->ref, 1);
+
+	return &tg->blkg;
+}
+
+static void throtl_link_blkio_group(struct request_queue *q,
+				    struct blkio_group *blkg)
+{
+	struct throtl_data *td = q->td;
+	struct throtl_grp *tg = tg_of_blkg(blkg);
+
+	hlist_add_head(&tg->tg_node, &td->tg_list);
+	td->nr_undestroyed_grps++;
+}
+
+static struct
+throtl_grp *throtl_lookup_tg(struct throtl_data *td, struct blkio_cgroup *blkcg)
+{
+	/*
+	 * This is the common case when there are no blkio cgroups.
+	 * Avoid lookup in this case
+	 */
+	if (blkcg == &blkio_root_cgroup)
+		return td->root_tg;
+
+	return tg_of_blkg(blkg_lookup(blkcg, td->queue, BLKIO_POLICY_THROTL));
+}
+
+static struct throtl_grp *throtl_lookup_create_tg(struct throtl_data *td,
+						  struct blkio_cgroup *blkcg)
+{
+	struct request_queue *q = td->queue;
+	struct throtl_grp *tg = NULL;
+
+	/*
+	 * This is the common case when there are no blkio cgroups.
+	 * Avoid lookup in this case
+	 */
+	if (blkcg == &blkio_root_cgroup) {
+		tg = td->root_tg;
 	} else {
-		part = disk_map_sector_rcu(rq->rq_disk, blk_rq_pos(rq));
-		if (!hd_struct_try_get(part)) {
-			/*
-			 * The partition is already being removed,
-			 * the request will be accounted on the disk only
-			 *
-			 * We take a reference on disk->part0 although that
-			 * partition will never be deleted, so we can treat
-			 * it as any other partition.
-			 */
-			part = &rq->rq_disk->part0;
-			hd_struct_get(part);
-		}
-		part_round_stats(cpu, part);
-		part_inc_in_flight(part, rw);
-		rq->part = part;
+		struct blkio_group *blkg;
+
+		blkg = blkg_lookup_create(blkcg, q, BLKIO_POLICY_THROTL, false);
+
+		/* if %NULL and @q is alive, fall back to root_tg */
+		if (!IS_ERR(blkg))
+			tg = tg_of_blkg(blkg);
+		else if (!blk_queue_dead(q))
+			tg = td->root_tg;
 	}
 
-	part_stat_unlock();
+	return tg;
 }
 
-void blk_queue_congestion_threshold(struct request_queue *q)
+static struct throtl_grp *throtl_rb_first(struct throtl_rb_root *root)
 {
-	int nr;
+	/* Service tree is empty */
+	if (!root->count)
+		return NULL;
 
-	nr = q->nr_requests - (q->nr_requests / 8) + 1;
-	if (nr > q->nr_requests)
-		nr = q->nr_requests;
-	q->nr_congestion_on = nr;
+	if (!root->left)
+		root->left = rb_first(&root->rb);
 
-	nr = q->nr_requests - (q->nr_requests / 8) - (q->nr_requests / 16) - 1;
-	if (nr < 1)
-		nr = 1;
-	q->nr_congestion_off = nr;
+	if (root->left)
+		return rb_entry_tg(root->left);
+
+	return NULL;
 }
 
-/**
- * blk_get_backing_dev_info - get the address of a queue's backing_dev_info
- * @bdev:	device
- *
- * Locates the passed device's request queue and returns the address of its
- * backing_dev_info
- *
- * Will return NULL if the request queue cannot be located.
- */
-struct backing_dev_info *blk_get_backing_dev_info(struct block_device *bdev)
+static void rb_erase_init(struct rb_node *n, struct rb_root *root)
 {
-	struct backing_dev_info *ret = NULL;
-	struct request_queue *q = bdev_get_queue(bdev);
-
-	if (q)
-		ret = &q->backing_dev_info;
-	return ret;
-}
-EXPORT_SYMBOL(blk_get_backing_dev_info);
-
-void blk_rq_init(struct request_queue *q, struct request *rq)
-{
-	memset(rq, 0, sizeof(*rq));
-
-	INIT_LIST_HEAD(&rq->queuelist);
-	INIT_LIST_HEAD(&rq->timeout_list);
-	rq->cpu = -1;
-	rq->q = q;
-	rq->__sector = (sector_t) -1;
-	INIT_HLIST_NODE(&rq->hash);
-	RB_CLEAR_NODE(&rq->rb_node);
-	rq->cmd = rq->__cmd;
-	rq->cmd_len = BLK_MAX_CDB;
-	rq->tag = -1;
-	rq->ref_count = 1;
-	rq->start_time = jiffies;
-	set_start_time_ns(rq);
-	rq->part = NULL;
-}
-EXPORT_SYMBOL(blk_rq_init);
-
-static void req_bio_endio(struct request *rq, struct bio *bio,
-			  unsigned int nbytes, int error)
-{
-	if (error)
-		clear_bit(BIO_UPTODATE, &bio->bi_flags);
-	else if (!test_bit(BIO_UPTODATE, &bio->bi_flags))
-		error = -EIO;
-
-	if (unlikely(nbytes > bio->bi_size)) {
-		printk(KERN_ERR "%s: want %u bytes done, %u left\n",
-		       __func__, nbytes, bio->bi_size);
-		nbytes = bio->bi_size;
-	}
-
-	if (unlikely(rq->cmd_flags & REQ_QUIET))
-		set_bit(BIO_QUIET, &bio->bi_flags);
-
-	bio->bi_size -= nbytes;
-	bio->bi_sector += (nbytes >> 9);
-
-	if (bio_integrity(bio))
-		bio_integrity_advance(bio, nbytes);
-
-	/* don't actually finish bio if it's part of flush sequence */
-	if (bio->bi_size == 0 && !(rq->cmd_flags & REQ_FLUSH_SEQ))
-		bio_endio(bio, error);
+	rb_erase(n, root);
+	RB_CLEAR_NODE(n);
 }
 
-void blk_dump_rq_flags(struct request *rq, char *msg)
+static void throtl_rb_erase(struct rb_node *n, struct throtl_rb_root *root)
 {
-	int bit;
-
-	printk(KERN_INFO "%s: dev %s: type=%x, flags=%x\n", msg,
-		rq->rq_disk ? rq->rq_disk->disk_name : "?", rq->cmd_type,
-		rq->cmd_flags);
-
-	printk(KERN_INFO "  sector %llu, nr/cnr %u/%u\n",
-	       (unsigned long long)blk_rq_pos(rq),
-	       blk_rq_sectors(rq), blk_rq_cur_sectors(rq));
-	printk(KERN_INFO "  bio %p, biotail %p, buffer %p, len %u\n",
-	       rq->bio, rq->biotail, rq->buffer, blk_rq_bytes(rq));
-
-	if (rq->cmd_type == REQ_TYPE_BLOCK_PC) {
-		printk(KERN_INFO "  cdb: ");
-		for (bit = 0; bit < BLK_MAX_CDB; bit++)
-			printk("%02x ", rq->cmd[bit]);
-		printk("\n");
-	}
-}
-EXPORT_SYMBOL(blk_dump_rq_flags);
-
-static void blk_delay_work(struct work_struct *work)
-{
-	struct request_queue *q;
-
-	q = container_of(work, struct request_queue, delay_work.work);
-	spin_lock_irq(q->queue_lock);
-	__blk_run_queue(q);
-	spin_unlock_irq(q->queue_lock);
+	if (root->left == n)
+		root->left = NULL;
+	rb_erase_init(n, &root->rb);
+	--root->count;
 }
 
-/**
- * blk_delay_queue - restart queueing after defined interval
- * @q:		The &struct request_queue in question
- * @msecs:	Delay in msecs
- *
- * Description:
- *   Sometimes queueing needs to be postponed for a little while, to allow
- *   resources to come back. This function will make sure that queueing is
- *   restarted around the specified time.
- */
-void blk_delay_queue(struct request_queue *q, unsigned long msecs)
+static void update_min_dispatch_time(struct throtl_rb_root *st)
 {
-	queue_delayed_work(kblockd_workqueue, &q->delay_work,
-				msecs_to_jiffies(msecs));
-}
-EXPORT_SYMBOL(blk_delay_queue);
+	struct throtl_grp *tg;
 
-/**
- * blk_start_queue - restart a previously stopped queue
- * @q:    The &struct request_queue in question
- *
- * Description:
- *   blk_start_queue() will clear the stop flag on the queue, and call
- *   the request_fn for the queue if it was in a stopped state when
- *   entered. Also see blk_stop_queue(). Queue lock must be held.
- **/
-void blk_start_queue(struct request_queue *q)
-{
-	WARN_ON(!irqs_disabled());
-
-	queue_flag_clear(QUEUE_FLAG_STOPPED, q);
-	__blk_run_queue(q);
-}
-EXPORT_SYMBOL(blk_start_queue);
-
-/**
- * blk_stop_queue - stop a queue
- * @q:    The &struct request_queue in question
- *
- * Description:
- *   The Linux block layer assumes that a block driver will consume all
- *   entries on the request queue when the request_fn strategy is called.
- *   Often this will not happen, because of hardware limitations (queue
- *   depth settings). If a device driver gets a 'queue full' response,
- *   or if it simply chooses not to queue more I/O at one point, it can
- *   call this function to prevent the request_fn from being called until
- *   the driver has signalled it's ready to go again. This happens by calling
- *   blk_start_queue() to restart queue operations. Queue lock must be held.
- **/
-void blk_stop_queue(struct request_queue *q)
-{
-	__cancel_delayed_work(&q->delay_work);
-	queue_flag_set(QUEUE_FLAG_STOPPED, q);
-}
-EXPORT_SYMBOL(blk_stop_queue);
-
-/**
- * blk_sync_queue - cancel any pending callbacks on a queue
- * @q: the queue
- *
- * Description:
- *     The block layer may perform asynchronous callback activity
- *     on a queue, such as calling the unplug function after a timeout.
- *     A block device may call blk_sync_queue to ensure that any
- *     such activity is cancelled, thus allowing it to release resources
- *     that the callbacks might use. The caller must already have made sure
- *     that its ->make_request_fn will not re-add plugging prior to calling
- *     this function.
- *
- *     This function does not cancel any asynchronous activity arising
- *     out of elevator or throttling code. That would require elevaotor_exit()
- *     and blk_throtl_exit() to be called with queue lock initialized.
- *
- */
-void blk_sync_queue(struct request_queue *q)
-{
-	del_timer_sync(&q->timeout);
-	cancel_delayed_work_sync(&q->delay_work);
-}
-EXPORT_SYMBOL(blk_sync_queue);
-
-/**
- * __blk_run_queue - run a single device queue
- * @q:	The queue to run
- *
- * Description:
- *    See @blk_run_queue. This variant must be called with the queue lock
- *    held and interrupts disabled.
- */
-void __blk_run_queue(struct request_queue *q)
-{
-	if (unlikely(blk_queue_stopped(q)))
+	tg = throtl_rb_first(st);
+	if (!tg)
 		return;
 
-	q->request_fn(q);
+	st->min_disptime = tg->disptime;
 }
-EXPORT_SYMBOL(__blk_run_queue);
 
-/**
- * blk_run_queue_async - run a single device queue in workqueue context
- * @q:	The queue to run
- *
- * Description:
- *    Tells kblockd to perform the equivalent of @blk_run_queue on behalf
- *    of us.
- */
-void blk_run_queue_async(struct request_queue *q)
+static void
+tg_service_tree_add(struct throtl_rb_root *st, struct throtl_grp *tg)
 {
-	if (likely(!blk_queue_stopped(q))) {
-		__cancel_delayed_work(&q->delay_work);
-		queue_delayed_work(kblockd_workqueue, &q->delay_work, 0);
-	}
-}
-EXPORT_SYMBOL(blk_run_queue_async);
+	struct rb_node **node = &st->rb.rb_node;
+	struct rb_node *parent = NULL;
+	struct throtl_grp *__tg;
+	unsigned long key = tg->disptime;
+	int left = 1;
 
-/**
- * blk_run_queue - run a single device queue
- * @q: The queue to run
- *
- * Description:
- *    Invoke request handling on this queue, if it has pending work to do.
- *    May be used to restart queueing when a request has completed.
- */
-void blk_run_queue(struct request_queue *q)
-{
-	unsigned long flags;
+	while (*node != NULL) {
+		parent = *node;
+		__tg = rb_entry_tg(parent);
 
-	spin_lock_irqsave(q->queue_lock, flags);
-	__blk_run_queue(q);
-	spin_unlock_irqrestore(q->queue_lock, flags);
-}
-EXPORT_SYMBOL(blk_run_queue);
-
-void blk_put_queue(struct request_queue *q)
-{
-	kobject_put(&q->kobj);
-}
-EXPORT_SYMBOL(blk_put_queue);
-
-/**
- * blk_drain_queue - drain requests from request_queue
- * @q: queue to drain
- * @drain_all: whether to drain all requests or only the ones w/ ELVPRIV
- *
- * Drain requests from @q.  If @drain_all is set, all requests are drained.
- * If not, only ELVPRIV requests are drained.  The caller is responsible
- * for ensuring that no new requests which need to be drained are queued.
- */
-void blk_drain_queue(struct request_queue *q, bool drain_all)
-{
-	while (true) {
-		bool drain = false;
-		int i;
-
-		spin_lock_irq(q->queue_lock);
-
-		/*
-		 * The caller might be trying to drain @q before its
-		 * elevator is initialized.
-		 */
-		if (q->elevator)
-			elv_drain_elevator(q);
-
-		blk_throtl_drain(q);
-
-		/*
-		 * This function might be called on a queue which failed
-		 * driver init after queue creation or is not yet fully
-		 * active yet.  Some drivers (e.g. fd and loop) get unhappy
-		 * in such cases.  Kick queue iff dispatch queue has
-		 * something on it and @q has request_fn set.
-		 */
-		if (!list_empty(&q->queue_head) && q->request_fn)
-			__blk_run_queue(q);
-
-		drain |= q->rq.elvpriv;
-
-		/*
-		 * Unfortunately, requests are queued at and tracked from
-		 * multiple places and there's no single counter which can
-		 * be drained.  Check all the queues and counters.
-		 */
-		if (drain_all) {
-			drain |= !list_empty(&q->queue_head);
-			for (i = 0; i < 2; i++) {
-				drain |= q->rq.count[i];
-				drain |= q->in_flight[i];
-				drain |= !list_empty(&q->flush_queue[i]);
-			}
+		if (time_before(key, __tg->disptime))
+			node = &parent->rb_left;
+		else {
+			node = &parent->rb_right;
+			left = 0;
 		}
-
-		spin_unlock_irq(q->queue_lock);
-
-		if (!drain)
-			break;
-		msleep(10);
 	}
+
+	if (left)
+		st->left = &tg->rb_node;
+
+	rb_link_node(&tg->rb_node, parent, node);
+	rb_insert_color(&tg->rb_node, &st->rb);
 }
 
-/**
- * blk_queue_bypass_start - enter queue bypass mode
- * @q: queue of interest
- *
- * In bypass mode, only the dispatch FIFO queue of @q is used.  This
- * function makes @q enter bypass mode and drains all requests which were
- * throttled or issued before.  On return, it's guaranteed that no request
- * is being throttled or has ELVPRIV set.
- */
-void blk_queue_bypass_start(struct request_queue *q)
+static void __throtl_enqueue_tg(struct throtl_data *td, struct throtl_grp *tg)
 {
-	spin_lock_irq(q->queue_lock);
-	q->bypass_depth++;
-	queue_flag_set(QUEUE_FLAG_BYPASS, q);
-	spin_unlock_irq(q->queue_lock);
+	struct throtl_rb_root *st = &td->tg_service_tree;
 
-	blk_drain_queue(q, false);
+	tg_service_tree_add(st, tg);
+	throtl_mark_tg_on_rr(tg);
+	st->count++;
 }
-EXPORT_SYMBOL_GPL(blk_queue_bypass_start);
 
-/**
- * blk_queue_bypass_end - leave queue bypass mode
- * @q: queue of interest
- *
- * Leave bypass mode and restore the normal queueing behavior.
- */
-void blk_queue_bypass_end(struct request_queue *q)
+static void throtl_enqueue_tg(struct throtl_data *td, struct throtl_grp *tg)
 {
-	spin_lock_irq(q->queue_lock);
-	if (!--q->bypass_depth)
-		queue_flag_clear(QUEUE_FLAG_BYPASS, q);
-	WARN_ON_ONCE(q->bypass_depth < 0);
-	spin_unlock_irq(q->queue_lock);
+	if (!throtl_tg_on_rr(tg))
+		__throtl_enqueue_tg(td, tg);
 }
-EXPORT_SYMBOL_GPL(blk_queue_bypass_end);
 
-/**
- * blk_cleanup_queue - shutdown a request queue
- * @q: request queue to shutdown
- *
- * Mark @q DEAD, drain all pending requests, destroy and put it.  All
- * future requests will be failed immediately with -ENODEV.
- */
-void blk_cleanup_queue(struct request_queue *q)
+static void __throtl_dequeue_tg(struct throtl_data *td, struct throtl_grp *tg)
 {
-	spinlock_t *lock = q->queue_lock;
-
-	/* mark @q DEAD, no new request or merges will be allowed afterwards */
-	mutex_lock(&q->sysfs_lock);
-	queue_flag_set_unlocked(QUEUE_FLAG_DEAD, q);
-
-	spin_lock_irq(lock);
-
-	/* dead queue is permanently in bypass mode till released */
-	q->bypass_depth++;
-	queue_flag_set(QUEUE_FLAG_BYPASS, q);
-
-	queue_flag_set(QUEUE_FLAG_NOMERGES, q);
-	queue_flag_set(QUEUE_FLAG_NOXMERGES, q);
-	queue_flag_set(QUEUE_FLAG_DEAD, q);
-
-	if (q->queue_lock != &q->__queue_lock)
-		q->queue_lock = &q->__queue_lock;
-
-	spin_unlock_irq(lock);
-	mutex_unlock(&q->sysfs_lock);
-
-	/* drain all requests queued before DEAD marking */
-	blk_drain_queue(q, true);
-
-	/* @q won't process any more request, flush async actions */
-	del_timer_sync(&q->backing_dev_info.laptop_mode_wb_timer);
-	blk_sync_queue(q);
-
-	/* @q is and will stay empty, shutdown and put */
-	blk_put_queue(q);
+	throtl_rb_erase(&tg->rb_node, &td->tg_service_tree);
+	throtl_clear_tg_on_rr(tg);
 }
-EXPORT_SYMBOL(blk_cleanup_queue);
 
-static int blk_init_free_list(struct request_queue *q)
+static void throtl_dequeue_tg(struct throtl_data *td, struct throtl_grp *tg)
 {
-	struct request_list *rl = &q->rq;
+	if (throtl_tg_on_rr(tg))
+		__throtl_dequeue_tg(td, tg);
+}
 
-	if (unlikely(rl->rq_pool))
+static void throtl_schedule_next_dispatch(struct throtl_data *td)
+{
+	struct throtl_rb_root *st = &td->tg_service_tree;
+
+	/*
+	 * If there are more bios pending, schedule more work.
+	 */
+	if (!total_nr_queued(td))
+		return;
+
+	BUG_ON(!st->count);
+
+	update_min_dispatch_time(st);
+
+	if (time_before_eq(st->min_disptime, jiffies))
+		throtl_schedule_delayed_work(td, 0);
+	else
+		throtl_schedule_delayed_work(td, (st->min_disptime - jiffies));
+}
+
+static inline void
+throtl_start_new_slice(struct throtl_data *td, struct throtl_grp *tg, bool rw)
+{
+	tg->bytes_disp[rw] = 0;
+	tg->io_disp[rw] = 0;
+	tg->slice_start[rw] = jiffies;
+	tg->slice_end[rw] = jiffies + throtl_slice;
+	throtl_log_tg(td, tg, "[%c] new slice start=%lu end=%lu jiffies=%lu",
+			rw == READ ? 'R' : 'W', tg->slice_start[rw],
+			tg->slice_end[rw], jiffies);
+}
+
+static inline void throtl_set_slice_end(struct throtl_data *td,
+		struct throtl_grp *tg, bool rw, unsigned long jiffy_end)
+{
+	tg->slice_end[rw] = roundup(jiffy_end, throtl_slice);
+}
+
+static inline void throtl_extend_slice(struct throtl_data *td,
+		struct throtl_grp *tg, bool rw, unsigned long jiffy_end)
+{
+	tg->slice_end[rw] = roundup(jiffy_end, throtl_slice);
+	throtl_log_tg(td, tg, "[%c] extend slice start=%lu end=%lu jiffies=%lu",
+			rw == READ ? 'R' : 'W', tg->slice_start[rw],
+			tg->slice_end[rw], jiffies);
+}
+
+/* Determine if previously allocated or extended slice is complete or not */
+static bool
+throtl_slice_used(struct throtl_data *td, struct throtl_grp *tg, bool rw)
+{
+	if (time_in_range(jiffies, tg->slice_start[rw], tg->slice_end[rw]))
 		return 0;
 
-	rl->count[BLK_RW_SYNC] = rl->count[BLK_RW_ASYNC] = 0;
-	rl->starved[BLK_RW_SYNC] = rl->starved[BLK_RW_ASYNC] = 0;
-	rl->elvpriv = 0;
-	init_waitqueue_head(&rl->wait[BLK_RW_SYNC]);
-	init_waitqueue_head(&rl->wait[BLK_RW_ASYNC]);
+	return 1;
+}
 
-	rl->rq_pool = mempool_create_node(BLKDEV_MIN_RQ, mempool_alloc_slab,
-				mempool_free_slab, request_cachep, q->node);
+/* Trim the used slices and adjust slice start accordingly */
+static inline void
+throtl_trim_slice(struct throtl_data *td, struct throtl_grp *tg, bool rw)
+{
+	unsigned long nr_slices, time_elapsed, io_trim;
+	u64 bytes_trim, tmp;
 
-	if (!rl->rq_pool)
-		return -ENOMEM;
+	BUG_ON(time_before(tg->slice_end[rw], tg->slice_start[rw]));
+
+	/*
+	 * If bps are unlimited (-1), then time slice don't get
+	 * renewed. Don't try to trim the slice if slice is used. A new
+	 * slice will start when appropriate.
+	 */
+	if (throtl_slice_used(td, tg, rw))
+		return;
+
+	/*
+	 * A bio has been dispatched. Also adjust slice_end. It might happen
+	 * that initially cgroup limit was very low resulting in high
+	 * slice_end, but later limit was bumped up and bio was dispached
+	 * sooner, then we need to reduce slice_end. A high bogus slice_end
+	 * is bad because it does not allow new slice to start.
+	 */
+
+	throtl_set_slice_end(td, tg, rw, jiffies + throtl_slice);
+
+	time_elapsed = jiffies - tg->slice_start[rw];
+
+	nr_slices = time_elapsed / throtl_slice;
+
+	if (!nr_slices)
+		return;
+	tmp = tg->bps[rw] * throtl_slice * nr_slices;
+	do_div(tmp, HZ);
+	bytes_trim = tmp;
+
+	io_trim = (tg->iops[rw] * throtl_slice * nr_slices)/HZ;
+
+	if (!bytes_trim && !io_trim)
+		return;
+
+	if (tg->bytes_disp[rw] >= bytes_trim)
+		tg->bytes_disp[rw] -= bytes_trim;
+	else
+		tg->bytes_disp[rw] = 0;
+
+	if (tg->io_disp[rw] >= io_trim)
+		tg->io_disp[rw] -= io_trim;
+	else
+		tg->io_disp[rw] = 0;
+
+	tg->slice_start[rw] += nr_slices * throtl_slice;
+
+	throtl_log_tg(td, tg, "[%c] trim slice nr=%lu bytes=%llu io=%lu"
+			" start=%lu end=%lu jiffies=%lu",
+			rw == READ ? 'R' : 'W', nr_slices, bytes_trim, io_trim,
+			tg->slice_start[rw], tg->slice_end[rw], jiffies);
+}
+
+static bool tg_with_in_iops_limit(struct throtl_data *td, struct throtl_grp *tg,
+		struct bio *bio, unsigned long *wait)
+{
+	bool rw = bio_data_dir(bio);
+	unsigned int io_allowed;
+	unsigned long jiffy_elapsed, jiffy_wait, jiffy_elapsed_rnd;
+	u64 tmp;
+
+	jiffy_elapsed = jiffy_elapsed_rnd = jiffies - tg->slice_start[rw];
+
+	/* Slice has just started. Consider one slice interval */
+	if (!jiffy_elapsed)
+		jiffy_elapsed_rnd = throtl_slice;
+
+	jiffy_elapsed_rnd = roundup(jiffy_elapsed_rnd, throtl_slice);
+
+	/*
+	 * jiffy_elapsed_rnd should not be a big value as minimum iops can be
+	 * 1 then at max jiffy elapsed should be equivalent of 1 second as we
+	 * will allow dispatch after 1 second and after that slice should
+	 * have been trimmed.
+	 */
+
+	tmp = (u64)tg->iops[rw] * jiffy_elapsed_rnd;
+	do_div(tmp, HZ);
+
+	if (tmp > UINT_MAX)
+		io_allowed = UINT_MAX;
+	else
+		io_allowed = tmp;
+
+	if (tg->io_disp[rw] + 1 <= io_allowed) {
+		if (wait)
+			*wait = 0;
+		return 1;
+	}
+
+	/* Calc approx time to dispatch */
+	jiffy_wait = ((tg->io_disp[rw] + 1) * HZ)/tg->iops[rw] + 1;
+
+	if (jiffy_wait > jiffy_elapsed)
+		jiffy_wait = jiffy_wait - jiffy_elapsed;
+	else
+		jiffy_wait = 1;
+
+	if (wait)
+		*wait = jiffy_wait;
+	return 0;
+}
+
+static bool tg_with_in_bps_limit(struct throtl_data *td, struct throtl_grp *tg,
+		struct bio *bio, unsigned long *wait)
+{
+	bool rw = bio_data_dir(bio);
+	u64 bytes_allowed, extra_bytes, tmp;
+	unsigned long jiffy_elapsed, jiffy_wait, jiffy_elapsed_rnd;
+
+	jiffy_elapsed = jiffy_elapsed_rnd = jiffies - tg->slice_start[rw];
+
+	/* Slice has just started. Consider one slice interval */
+	if (!jiffy_elapsed)
+		jiffy_elapsed_rnd = throtl_slice;
+
+	jiffy_elapsed_rnd = roundup(jiffy_elapsed_rnd, throtl_slice);
+
+	tmp = tg->bps[rw] * jiffy_elapsed_rnd;
+	do_div(tmp, HZ);
+	bytes_allowed = tmp;
+
+	if (tg->bytes_disp[rw] + bio->bi_size <= bytes_allowed) {
+		if (wait)
+			*wait = 0;
+		return 1;
+	}
+
+	/* Calc approx time to dispatch */
+	extra_bytes = tg->bytes_disp[rw] + bio->bi_size - bytes_allowed;
+	jiffy_wait = div64_u64(extra_bytes * HZ, tg->bps[rw]);
+
+	if (!jiffy_wait)
+		jiffy_wait = 1;
+
+	/*
+	 * This wait time is without taking into consideration the rounding
+	 * up we did. Add that time also.
+	 */
+	jiffy_wait = jiffy_wait + (jiffy_elapsed_rnd - jiffy_elapsed);
+	if (wait)
+		*wait = jiffy_wait;
+	return 0;
+}
+
+static bool tg_no_rule_group(struct throtl_grp *tg, bool rw) {
+	if (tg->bps[rw] == -1 && tg->iops[rw] == -1)
+		return 1;
+	return 0;
+}
+
+/*
+ * Returns whether one can dispatch a bio or not. Also returns approx number
+ * of jiffies to wait before this bio is with-in IO rate and can be dispatched
+ */
+static bool tg_may_dispatch(struct throtl_data *td, struct throtl_grp *tg,
+				struct bio *bio, unsigned long *wait)
+{
+	bool rw = bio_data_dir(bio);
+	unsigned long bps_wait = 0, iops_wait = 0, max_wait = 0;
+
+	/*
+ 	 * Currently whole state machine of group depends on first bio
+	 * queued in the group bio list. So one should not be calling
+	 * this function with a different bio if there are other bios
+	 * queued.
+	 */
+	BUG_ON(tg->nr_queued[rw] && bio != bio_list_peek(&tg->bio_lists[rw]));
+
+	/* If tg->bps = -1, then BW is unlimited */
+	if (tg->bps[rw] == -1 && tg->iops[rw] == -1) {
+		if (wait)
+			*wait = 0;
+		return 1;
+	}
+
+	/*
+	 * If previous slice expired, start a new one otherwise renew/extend
+	 * existing slice to make sure it is at least throtl_slice interval
+	 * long since now.
+	 */
+	if (throtl_slice_used(td, tg, rw))
+		throtl_start_new_slice(td, tg, rw);
+	else {
+		if (time_before(tg->slice_end[rw], jiffies + throtl_slice))
+			throtl_extend_slice(td, tg, rw, jiffies + throtl_slice);
+	}
+
+	if (tg_with_in_bps_limit(td, tg, bio, &bps_wait)
+	    && tg_with_in_iops_limit(td, tg, bio, &iops_wait)) {
+		if (wait)
+			*wait = 0;
+		return 1;
+	}
+
+	max_wait = max(bps_wait, iops_wait);
+
+	if (wait)
+		*wait = max_wait;
+
+	if (time_before(tg->slice_end[rw], jiffies + max_wait))
+		throtl_extend_slice(td, tg, rw, jiffies + max_wait);
 
 	return 0;
 }
 
-struct request_queue *blk_alloc_queue(gfp_t gfp_mask)
+static void throtl_charge_bio(struct throtl_grp *tg, struct bio *bio)
 {
-	return blk_alloc_queue_node(gfp_mask, -1);
+	bool rw = bio_data_dir(bio);
+	bool sync = rw_is_sync(bio->bi_rw);
+
+	/* Charge the bio to the group */
+	tg->bytes_disp[rw] += bio->bi_size;
+	tg->io_disp[rw]++;
+
+	blkiocg_update_dispatch_stats(&tg->blkg, bio->bi_size, rw, sync);
 }
-EXPORT_SYMBOL(blk_alloc_queue);
 
-struct request_queue *blk_alloc_queue_node(gfp_t gfp_mask, int node_id)
+static void throtl_add_bio_tg(struct throtl_data *td, struct throtl_grp *tg,
+			struct bio *bio)
 {
-	struct request_queue *q;
-	int err;
+	bool rw = bio_data_dir(bio);
 
-	q = kmem_cache_alloc_node(blk_requestq_cachep,
-				gfp_mask | __GFP_ZERO, node_id);
-	if (!q)
-		return NULL;
-
-	q->id = ida_simple_get(&blk_queue_ida, 0, 0, GFP_KERNEL);
-	if (q->id < 0)
-		goto fail_q;
-
-	q->backing_dev_info.ra_pages =
-			(VM_MAX_READAHEAD * 1024) / PAGE_CACHE_SIZE;
-	q->backing_dev_info.state = 0;
-	q->backing_dev_info.capabilities = BDI_CAP_MAP_COPY;
-	q->backing_dev_info.name = "block";
-	q->node = node_id;
-
-	err = bdi_init(&q->backing_dev_info);
-	if (err)
-		goto fail_id;
-
-	if (blk_throtl_init(q))
-		goto fail_id;
-
-	setup_timer(&q->backing_dev_info.laptop_mode_wb_timer,
-		    laptop_mode_timer_fn, (unsigned long) q);
-	setup_timer(&q->timeout, blk_rq_timed_out_timer, (unsigned long) q);
-	INIT_LIST_HEAD(&q->queue_head);
-	INIT_LIST_HEAD(&q->timeout_list);
-	INIT_LIST_HEAD(&q->icq_list);
-	INIT_LIST_HEAD(&q->flush_queue[0]);
-	INIT_LIST_HEAD(&q->flush_queue[1]);
-	INIT_LIST_HEAD(&q->flush_data_in_flight);
-	INIT_DELAYED_WORK(&q->delay_work, blk_delay_work);
-
-	kobject_init(&q->kobj, &blk_queue_ktype);
-
-	mutex_init(&q->sysfs_lock);
-	spin_lock_init(&q->__queue_lock);
-
-	/*
-	 * By default initialize queue_lock to internal lock and driver can
-	 * override it later if need be.
-	 */
-	q->queue_lock = &q->__queue_lock;
-
-	return q;
-
-fail_id:
-	ida_simple_remove(&blk_queue_ida, q->id);
-fail_q:
-	kmem_cache_free(blk_requestq_cachep, q);
-	return NULL;
+	bio_list_add(&tg->bio_lists[rw], bio);
+	/* Take a bio reference on tg */
+	throtl_ref_get_tg(tg);
+	tg->nr_queued[rw]++;
+	td->nr_queued[rw]++;
+	throtl_enqueue_tg(td, tg);
 }
-EXPORT_SYMBOL(blk_alloc_queue_node);
 
-/**
- * blk_init_queue  - prepare a request queue for use with a block device
- * @rfn:  The function to be called to process requests that have been
- *        placed on the queue.
- * @lock: Request queue spin lock
- *
- * Description:
- *    If a block device wishes to use the standard request handling procedures,
- *    which sorts requests and coalesces adjacent requests, then it must
- *    call blk_init_queue().  The function @rfn will be called when there
- *    are requests on the queue that need to be processed.  If the device
- *    supports plugging, then @rfn may not be called immediately when requests
- *    are available on the queue, but may be called at some time later instead.
- *    Plugged queues are generally unplugged when a buffer belonging to one
- *    of the requests on the queue is needed, or due to memory pressure.
- *
- *    @rfn is not required, or even expected, to remove all requests off the
- *    queue, but only as many as it can handle at a time.  If it does leave
- *    requests on the queue, it is responsible for arranging that the requests
- *    get dealt with eventually.
- *
- *    The queue spin lock must be held while manipulating the requests on the
- *    request queue; this lock will be taken also from interrupt context, so irq
- *    disabling is needed for it.
- *
- *    Function returns a pointer to the initialized request queue, or %NULL if
- *    it didn't succeed.
- *
- * Note:
- *    blk_init_queue() must be paired with a blk_cleanup_queue() call
- *    when the block device is deactivated (such as at module unload).
- **/
-
-struct request_queue *blk_init_queue(request_fn_proc *rfn, spinlock_t *lock)
+static void tg_update_disptime(struct throtl_data *td, struct throtl_grp *tg)
 {
-	return blk_init_queue_node(rfn, lock, -1);
+	unsigned long read_wait = -1, write_wait = -1, min_wait = -1, disptime;
+	struct bio *bio;
+
+	if ((bio = bio_list_peek(&tg->bio_lists[READ])))
+		tg_may_dispatch(td, tg, bio, &read_wait);
+
+	if ((bio = bio_list_peek(&tg->bio_lists[WRITE])))
+		tg_may_dispatch(td, tg, bio, &write_wait);
+
+	min_wait = min(read_wait, write_wait);
+	disptime = jiffies + min_wait;
+
+	/* Update dispatch time */
+	throtl_dequeue_tg(td, tg);
+	tg->disptime = disptime;
+	throtl_enqueue_tg(td, tg);
 }
-EXPORT_SYMBOL(blk_init_queue);
 
-struct request_queue *
-blk_init_queue_node(request_fn_proc *rfn, spinlock_t *lock, int node_id)
+static void tg_dispatch_one_bio(struct throtl_data *td, struct throtl_grp *tg,
+				bool rw, struct bio_list *bl)
 {
-	struct request_queue *uninit_q, *q;
+	struct bio *bio;
 
-	uninit_q = blk_alloc_queue_node(GFP_KERNEL, node_id);
-	if (!uninit_q)
-		return NULL;
+	bio = bio_list_pop(&tg->bio_lists[rw]);
+	tg->nr_queued[rw]--;
+	/* Drop bio reference on tg */
+	throtl_put_tg(tg);
 
-	q = blk_init_allocated_queue(uninit_q, rfn, lock);
-	if (!q)
-		blk_cleanup_queue(uninit_q);
+	BUG_ON(td->nr_queued[rw] <= 0);
+	td->nr_queued[rw]--;
 
-	return q;
+	throtl_charge_bio(tg, bio);
+	bio_list_add(bl, bio);
+	bio->bi_rw |= REQ_THROTTLED;
+
+	throtl_trim_slice(td, tg, rw);
 }
-EXPORT_SYMBOL(blk_init_queue_node);
 
-struct request_queue *
-blk_init_allocated_queue(struct request_queue *q, request_fn_proc *rfn,
-			 spinlock_t *lock)
+static int throtl_dispatch_tg(struct throtl_data *td, struct throtl_grp *tg,
+				struct bio_list *bl)
 {
-	if (!q)
-		return NULL;
+	unsigned int nr_reads = 0, nr_writes = 0;
+	unsigned int max_nr_reads = throtl_grp_quantum*3/4;
+	unsigned int max_nr_writes = throtl_grp_quantum - max_nr_reads;
+	struct bio *bio;
 
-	if (blk_init_free_list(q))
-		return NULL;
+	/* Try to dispatch 75% READS and 25% WRITES */
 
-	q->request_fn		= rfn;
-	q->prep_rq_fn		= NULL;
-	q->unprep_rq_fn		= NULL;
-	q->queue_flags		= QUEUE_FLAG_DEFAULT;
+	while ((bio = bio_list_peek(&tg->bio_lists[READ]))
+		&& tg_may_dispatch(td, tg, bio, NULL)) {
 
-	/* Override internal queue lock with supplied lock pointer */
-	if (lock)
-		q->queue_lock		= lock;
+		tg_dispatch_one_bio(td, tg, bio_data_dir(bio), bl);
+		nr_reads++;
 
-	/*
-	 * This also sets hw/phys segments, boundary and size
-	 */
-	blk_queue_make_request(q, blk_queue_bio);
-
-	q->sg_reserved_size = INT_MAX;
-
-	/*
-	 * all done
-	 */
-	if (!elevator_init(q, NULL)) {
-		blk_queue_congestion_threshold(q);
-		return q;
+		if (nr_reads >= max_nr_reads)
+			break;
 	}
 
-	return NULL;
-}
-EXPORT_SYMBOL(blk_init_allocated_queue);
+	while ((bio = bio_list_peek(&tg->bio_lists[WRITE]))
+		&& tg_may_dispatch(td, tg, bio, NULL)) {
 
-bool blk_get_queue(struct request_queue *q)
-{
-	if (likely(!blk_queue_dead(q))) {
-		__blk_get_queue(q);
-		return true;
+		tg_dispatch_one_bio(td, tg, bio_data_dir(bio), bl);
+		nr_writes++;
+
+		if (nr_writes >= max_nr_writes)
+			break;
 	}
 
-	return false;
-}
-EXPORT_SYMBOL(blk_get_queue);
-
-static inline void blk_free_request(struct request_queue *q, struct request *rq)
-{
-	if (rq->cmd_flags & REQ_ELVPRIV) {
-		elv_put_request(q, rq);
-		if (rq->elv.icq)
-			put_io_context(rq->elv.icq->ioc);
-	}
-
-	mempool_free(rq, q->rq.rq_pool);
+	return nr_reads + nr_writes;
 }
 
-static struct request *
-blk_alloc_request(struct request_queue *q, struct io_cq *icq,
-		  unsigned int flags, gfp_t gfp_mask)
+static int throtl_select_dispatch(struct throtl_data *td, struct bio_list *bl)
 {
-	struct request *rq = mempool_alloc(q->rq.rq_pool, gfp_mask);
+	unsigned int nr_disp = 0;
+	struct throtl_grp *tg;
+	struct throtl_rb_root *st = &td->tg_service_tree;
 
-	if (!rq)
-		return NULL;
+	while (1) {
+		tg = throtl_rb_first(st);
 
-	blk_rq_init(q, rq);
+		if (!tg)
+			break;
 
-	rq->cmd_flags = flags | REQ_ALLOCED;
+		if (time_before(jiffies, tg->disptime))
+			break;
 
-	if (flags & REQ_ELVPRIV) {
-		rq->elv.icq = icq;
-		if (unlikely(elv_set_request(q, rq, gfp_mask))) {
-			mempool_free(rq, q->rq.rq_pool);
-			return NULL;
+		throtl_dequeue_tg(td, tg);
+
+		nr_disp += throtl_dispatch_tg(td, tg, bl);
+
+		if (tg->nr_queued[0] || tg->nr_queued[1]) {
+			tg_update_disptime(td, tg);
+			throtl_enqueue_tg(td, tg);
 		}
-		/* @rq->elv.icq holds on to io_context until @rq is freed */
-		if (icq)
-			get_io_context(icq->ioc);
+
+		if (nr_disp >= throtl_quantum)
+			break;
 	}
 
-	return rq;
+	return nr_disp;
 }
 
-/*
- * ioc_batching returns true if the ioc is a valid batching request and
- * should be given priority access to a request.
- */
-static inline int ioc_batching(struct request_queue *q, struct io_context *ioc)
+static void throtl_process_limit_change(struct throtl_data *td)
 {
-	if (!ioc)
-		return 0;
+	struct throtl_grp *tg;
+	struct hlist_node *pos, *n;
 
-	/*
-	 * Make sure the process is able to allocate at least 1 request
-	 * even if the batch times out, otherwise we could theoretically
-	 * lose wakeups.
-	 */
-	return ioc->nr_batch_requests == q->nr_batching ||
-		(ioc->nr_batch_requests > 0
-		&& time_before(jiffies, ioc->last_waited + BLK_BATCH_TIME));
-}
-
-/*
- * ioc_set_batching sets ioc to be a new "batcher" if it is not one. This
- * will cause the process to be a "batcher" on all queues in the system. This
- * is the behaviour we want though - once it gets a wakeup it should be given
- * a nice run.
- */
-static void ioc_set_batching(struct request_queue *q, struct io_context *ioc)
-{
-	if (!ioc || ioc_batching(q, ioc))
+	if (!td->limits_changed)
 		return;
 
-	ioc->nr_batch_requests = q->nr_batching;
-	ioc->last_waited = jiffies;
-}
+	xchg(&td->limits_changed, false);
 
-static void __freed_request(struct request_queue *q, int sync)
-{
-	struct request_list *rl = &q->rq;
+	throtl_log(td, "limits changed");
 
-	if (rl->count[sync] < queue_congestion_off_threshold(q))
-		blk_clear_queue_congested(q, sync);
-
-	if (rl->count[sync] + 1 <= q->nr_requests) {
-		if (waitqueue_active(&rl->wait[sync]))
-			wake_up(&rl->wait[sync]);
-
-		blk_clear_queue_full(q, sync);
-	}
-}
-
-/*
- * A request has just been released.  Account for it, update the full and
- * congestion status, wake up any waiters.   Called under q->queue_lock.
- */
-static void freed_request(struct request_queue *q, unsigned int flags)
-{
-	struct request_list *rl = &q->rq;
-	int sync = rw_is_sync(flags);
-
-	rl->count[sync]--;
-	if (flags & REQ_ELVPRIV)
-		rl->elvpriv--;
-
-	__freed_request(q, sync);
-
-	if (unlikely(rl->starved[sync ^ 1]))
-		__freed_request(q, sync ^ 1);
-}
-
-/*
- * Determine if elevator data should be initialized when allocating the
- * request associated with @bio.
- */
-static bool blk_rq_should_init_elevator(struct bio *bio)
-{
-	if (!bio)
-		return true;
-
-	/*
-	 * Flush requests do not use the elevator so skip initialization.
-	 * This allows a request to share the flush and elevator data.
-	 */
-	if (bio->bi_rw & (REQ_FLUSH | REQ_FUA))
-		return false;
-
-	return true;
-}
-
-/**
- * get_request - get a free request
- * @q: request_queue to allocate request from
- * @rw_flags: RW and SYNC flags
- * @bio: bio to allocate request for (can be %NULL)
- * @gfp_mask: allocation mask
- *
- * Get a free request from @q.  This function may fail under memory
- * pressure or if @q is dead.
- *
- * Must be callled with @q->queue_lock held and,
- * Returns %NULL on failure, with @q->queue_lock held.
- * Returns !%NULL on success, with @q->queue_lock *not held*.
- */
-static struct request *get_request(struct request_queue *q, int rw_flags,
-				   struct bio *bio, gfp_t gfp_mask)
-{
-	struct request *rq = NULL;
-	struct request_list *rl = &q->rq;
-	struct elevator_type *et;
-	struct io_context *ioc;
-	struct io_cq *icq = NULL;
-	const bool is_sync = rw_is_sync(rw_flags) != 0;
-	bool retried = false;
-	int may_queue;
-retry:
-	et = q->elevator->type;
-	ioc = current->io_context;
-
-	if (unlikely(blk_queue_dead(q)))
-		return NULL;
-
-	may_queue = elv_may_queue(q, rw_flags);
-	if (may_queue == ELV_MQUEUE_NO)
-		goto rq_starved;
-
-	if (rl->count[is_sync]+1 >= queue_congestion_on_threshold(q)) {
-		if (rl->count[is_sync]+1 >= q->nr_requests) {
-			/*
-			 * We want ioc to record batching state.  If it's
-			 * not already there, creating a new one requires
-			 * dropping queue_lock, which in turn requires
-			 * retesting conditions to avoid queue hang.
-			 */
-			if (!ioc && !retried) {
-				spin_unlock_irq(q->queue_lock);
-				create_io_context(current, gfp_mask, q->node);
-				spin_lock_irq(q->queue_lock);
-				retried = true;
-				goto retry;
-			}
-
-			/*
-			 * The queue will fill after this allocation, so set
-			 * it as full, and mark this process as "batching".
-			 * This process will be allowed to complete a batch of
-			 * requests, others will be blocked.
-			 */
-			if (!blk_queue_full(q, is_sync)) {
-				ioc_set_batching(q, ioc);
-				blk_set_queue_full(q, is_sync);
-			} else {
-				if (may_queue != ELV_MQUEUE_MUST
-						&& !ioc_batching(q, ioc)) {
-					/*
-					 * The queue is full and the allocating
-					 * process is not a "batcher", and not
-					 * exempted by the IO scheduler
-					 */
-					goto out;
-				}
-			}
-		}
-		blk_set_queue_congested(q, is_sync);
-	}
-
-	/*
-	 * Only allow batching queuers to allocate up to 50% over the defined
-	 * limit of requests, otherwise we could have thousands of requests
-	 * allocated with any setting of ->nr_requests
-	 */
-	if (rl->count[is_sync] >= (3 * q->nr_requests / 2))
-		goto out;
-
-	rl->count[is_sync]++;
-	rl->starved[is_sync] = 0;
-
-	/*
-	 * Decide whether the new request will be managed by elevator.  If
-	 * so, mark @rw_flags and increment elvpriv.  Non-zero elvpriv will
-	 * prevent the current elevator from being destroyed until the new
-	 * request is freed.  This guarantees icq's won't be destroyed and
-	 * makes creating new ones safe.
-	 *
-	 * Also, lookup icq while holding queue_lock.  If it doesn't exist,
-	 * it will be created after releasing queue_lock.
-	 */
-	if (blk_rq_should_init_elevator(bio) && !blk_queue_bypass(q)) {
-		rw_flags |= REQ_ELVPRIV;
-		rl->elvpriv++;
-		if (et->icq_cache && ioc)
-			icq = ioc_lookup_icq(ioc, q);
-	}
-
-	if (blk_queue_io_stat(q))
-		rw_flags |= REQ_IO_STAT;
-	spin_unlock_irq(q->queue_lock);
-
-	/* create icq if missing */
-	if ((rw_flags & REQ_ELVPRIV) && unlikely(et->icq_cache && !icq)) {
-		icq = ioc_create_icq(q, gfp_mask);
-		if (!icq)
-			goto fail_icq;
-	}
-
-	rq = blk_alloc_request(q, icq, rw_flags, gfp_mask);
-
-fail_icq:
-	if (unlikely(!rq)) {
-		/*
-		 * Allocation failed presumably due to memory. Undo anything
-		 * we might have messed up.
-		 *
-		 * Allocating task should really be put onto the front of the
-		 * wait queue, but this is pretty rare.
-		 */
-		spin_lock_irq(q->queue_lock);
-		freed_request(q, rw_flags);
-
-		/*
-		 * in the very unlikely event that allocation failed and no
-		 * requests for this direction was pending, mark us starved
-		 * so that freeing of a request in the other direction will
-		 * notice us. another possible fix would be to split the
-		 * rq mempool into READ and WRITE
-		 */
-rq_starved:
-		if (unlikely(rl->count[is_sync] == 0))
-			rl->starved[is_sync] = 1;
-
-		goto out;
-	}
-
-	/*
-	 * ioc may be NULL here, and ioc_batching will be false. That's
-	 * OK, if the queue is under the request limit then requests need
-	 * not count toward the nr_batch_requests limit. There will always
-	 * be some limit enforced by BLK_BATCH_TIME.
-	 */
-	if (ioc_batching(q, ioc))
-		ioc->nr_batch_requests--;
-
-	trace_block_getrq(q, bio, rw_flags & 1);
-out:
-	return rq;
-}
-
-/**
- * get_request_wait - get a free request with retry
- * @q: request_queue to allocate request from
- * @rw_flags: RW and SYNC flags
- * @bio: bio to allocate request for (can be %NULL)
- *
- * Get a free request from @q.  This function keeps retrying under memory
- * pressure and fails iff @q is dead.
- *
- * Must be callled with @q->queue_lock held and,
- * Returns %NULL on failure, with @q->queue_lock held.
- * Returns !%NULL on success, with @q->queue_lock *not held*.
- */
-static struct request *get_request_wait(struct request_queue *q, int rw_flags,
-					struct bio *bio)
-{
-	const bool is_sync = rw_is_sync(rw_flags) != 0;
-	struct request *rq;
-
-	rq = get_request(q, rw_flags, bio, GFP_NOIO);
-	while (!rq) {
-		DEFINE_WAIT(wait);
-		struct request_list *rl = &q->rq;
-
-		if (unlikely(blk_queue_dead(q)))
-			return NULL;
-
-		prepare_to_wait_exclusive(&rl->wait[is_sync], &wait,
-				TASK_UNINTERRUPTIBLE);
-
-		trace_block_sleeprq(q, bio, rw_flags & 1);
-
-		spin_unlock_irq(q->queue_lock);
-		io_schedule();
-
-		/*
-		 * After sleeping, we become a "batching" process and
-		 * will be able to allocate at least one request, and
-		 * up to a big batch of them for a small period time.
-		 * See ioc_batching, ioc_set_batching
-		 */
-		create_io_context(current, GFP_NOIO, q->node);
-		ioc_set_batching(q, current->io_context);
-
-		spin_lock_irq(q->queue_lock);
-		finish_wait(&rl->wait[is_sync], &wait);
-
-		rq = get_request(q, rw_flags, bio, GFP_NOIO);
-	};
-
-	return rq;
-}
-
-struct request *blk_get_request(struct request_queue *q, int rw, gfp_t gfp_mask)
-{
-	struct request *rq;
-
-	BUG_ON(rw != READ && rw != WRITE);
-
-	spin_lock_irq(q->queue_lock);
-	if (gfp_mask & __GFP_WAIT)
-		rq = get_request_wait(q, rw, NULL);
-	else
-		rq = get_request(q, rw, NULL, gfp_mask);
-	if (!rq)
-		spin_unlock_irq(q->queue_lock);
-	/* q->queue_lock is unlocked at this point */
-
-	return rq;
-}
-EXPORT_SYMBOL(blk_get_request);
-
-/**
- * blk_make_request - given a bio, allocate a corresponding struct request.
- * @q: target request queue
- * @bio:  The bio describing the memory mappings that will be submitted for IO.
- *        It may be a chained-bio properly constructed by block/bio layer.
- * @gfp_mask: gfp flags to be used for memory allocation
- *
- * blk_make_request is the parallel of generic_make_request for BLOCK_PC
- * type commands. Where the struct request needs to be farther initialized by
- * the caller. It is passed a &struct bio, which describes the memory info of
- * the I/O transfer.
- *
- * The caller of blk_make_request must make sure that bi_io_vec
- * are set to describe the memory buffers. That bio_data_dir() will return
- * the needed direction of the request. (And all bio's in the passed bio-chain
- * are properly set accordingly)
- *
- * If called under none-sleepable conditions, mapped bio buffers must not
- * need bouncing, by calling the appropriate masked or flagged allocator,
- * suitable for the target device. Otherwise the call to blk_queue_bounce will
- * BUG.
- *
- * WARNING: When allocating/cloning a bio-chain, careful consideration should be
- * given to how you allocate bios. In particular, you cannot use __GFP_WAIT for
- * anything but the first bio in the chain. Otherwise you risk waiting for IO
- * completion of a bio that hasn't been submitted yet, thus resulting in a
- * deadlock. Alternatively bios should be allocated using bio_kmalloc() instead
- * of bio_alloc(), as that avoids the mempool deadlock.
- * If possible a big IO should be split into smaller parts when allocation
- * fails. Partial allocation should not be an error, or you risk a live-lock.
- */
-struct request *blk_make_request(struct request_queue *q, struct bio *bio,
-				 gfp_t gfp_mask)
-{
-	struct request *rq = blk_get_request(q, bio_data_dir(bio), gfp_mask);
-
-	if (unlikely(!rq))
-		return ERR_PTR(-ENOMEM);
-
-	for_each_bio(bio) {
-		struct bio *bounce_bio = bio;
-		int ret;
-
-		blk_queue_bounce(q, &bounce_bio);
-		ret = blk_rq_append_bio(q, rq, bounce_bio);
-		if (unlikely(ret)) {
-			blk_put_request(rq);
-			return ERR_PTR(ret);
-		}
-	}
-
-	return rq;
-}
-EXPORT_SYMBOL(blk_make_request);
-
-/**
- * blk_requeue_request - put a request back on queue
- * @q:		request queue where request should be inserted
- * @rq:		request to be inserted
- *
- * Description:
- *    Drivers often keep queueing requests until the hardware cannot accept
- *    more, when that condition happens we need to put the request back
- *    on the queue. Must be called with queue lock held.
- */
-void blk_requeue_request(struct request_queue *q, struct request *rq)
-{
-	blk_delete_timer(rq);
-	blk_clear_rq_complete(rq);
-	trace_block_rq_requeue(q, rq);
-
-	if (blk_rq_tagged(rq))
-		blk_queue_end_tag(q, rq);
-
-	BUG_ON(blk_queued_rq(rq));
-
-	elv_requeue_request(q, rq);
-}
-EXPORT_SYMBOL(blk_requeue_request);
-
-static void add_acct_request(struct request_queue *q, struct request *rq,
-			     int where)
-{
-	drive_stat_acct(rq, 1);
-	__elv_add_request(q, rq, where);
-}
-
-static void part_round_stats_single(int cpu, struct hd_struct *part,
-				    unsigned long now)
-{
-	if (now == part->stamp)
-		return;
-
-	if (part_in_flight(part)) {
-		__part_stat_add(cpu, part, time_in_queue,
-				part_in_flight(part) * (now - part->stamp));
-		__part_stat_add(cpu, part, io_ticks, (now - part->stamp));
-	}
-	part->stamp = now;
-}
-
-/**
- * part_round_stats() - Round off the performance stats on a struct disk_stats.
- * @cpu: cpu number for stats access
- * @part: target partition
- *
- * The average IO queue length and utilisation statistics are maintained
- * by observing the current state of the queue length and the amount of
- * time it has been in this state for.
- *
- * Normally, that accounting is done on IO completion, but that can result
- * in more than a second's worth of IO being accounted for within any one
- * second, leading to >100% utilisation.  To deal with that, we call this
- * function to do a round-off before returning the results when reading
- * /proc/diskstats.  This accounts immediately for all queue usage up to
- * the current jiffies and restarts the counters again.
- */
-void part_round_stats(int cpu, struct hd_struct *part)
-{
-	unsigned long now = jiffies;
-
-	if (part->partno)
-		part_round_stats_single(cpu, &part_to_disk(part)->part0, now);
-	part_round_stats_single(cpu, part, now);
-}
-EXPORT_SYMBOL_GPL(part_round_stats);
-
-/*
- * queue lock must be held
- */
-void __blk_put_request(struct request_queue *q, struct request *req)
-{
-	if (unlikely(!q))
-		return;
-	if (unlikely(--req->ref_count))
-		return;
-
-	elv_completed_request(q, req);
-
-	/* this is a bio leak */
-	WARN_ON(req->bio != NULL);
-
-	/*
-	 * Request may not have originated from ll_rw_blk. if not,
-	 * it didn't come out of our reserved rq pools
-	 */
-	if (req->cmd_flags & REQ_ALLOCED) {
-		unsigned int flags = req->cmd_flags;
-
-		BUG_ON(!list_empty(&req->queuelist));
-		BUG_ON(!hlist_unhashed(&req->hash));
-
-		blk_free_request(q, req);
-		freed_request(q, flags);
-	}
-}
-EXPORT_SYMBOL_GPL(__blk_put_request);
-
-void blk_put_request(struct request *req)
-{
-	unsigned long flags;
-	struct request_queue *q = req->q;
-
-	spin_lock_irqsave(q->queue_lock, flags);
-	__blk_put_request(q, req);
-	spin_unlock_irqrestore(q->queue_lock, flags);
-}
-EXPORT_SYMBOL(blk_put_request);
-
-/**
- * blk_add_request_payload - add a payload to a request
- * @rq: request to update
- * @page: page backing the payload
- * @len: length of the payload.
- *
- * This allows to later add a payload to an already submitted request by
- * a block driver.  The driver needs to take care of freeing the payload
- * itself.
- *
- * Note that this is a quite horrible hack and nothing but handling of
- * discard requests should ever use it.
- */
-void blk_add_request_payload(struct request *rq, struct page *page,
-		unsigned int len)
-{
-	struct bio *bio = rq->bio;
-
-	bio->bi_io_vec->bv_page = page;
-	bio->bi_io_vec->bv_offset = 0;
-	bio->bi_io_vec->bv_len = len;
-
-	bio->bi_size = len;
-	bio->bi_vcnt = 1;
-	bio->bi_phys_segments = 1;
-
-	rq->__data_len = rq->resid_len = len;
-	rq->nr_phys_segments = 1;
-	rq->buffer = bio_data(bio);
-}
-EXPORT_SYMBOL_GPL(blk_add_request_payload);
-
-static bool bio_attempt_back_merge(struct request_queue *q, struct request *req,
-				   struct bio *bio)
-{
-	const int ff = bio->bi_rw & REQ_FAILFAST_MASK;
-
-	if (!ll_back_merge_fn(q, req, bio))
-		return false;
-
-	trace_block_bio_backmerge(q, bio);
-
-	if ((req->cmd_flags & REQ_FAILFAST_MASK) != ff)
-		blk_rq_set_mixed_merge(req);
-
-	req->biotail->bi_next = bio;
-	req->biotail = bio;
-	req->__data_len += bio->bi_size;
-	req->ioprio = ioprio_best(req->ioprio, bio_prio(bio));
-
-	drive_stat_acct(req, 0);
-	return true;
-}
-
-static bool bio_attempt_front_merge(struct request_queue *q,
-				    struct request *req, struct bio *bio)
-{
-	const int ff = bio->bi_rw & REQ_FAILFAST_MASK;
-
-	if (!ll_front_merge_fn(q, req, bio))
-		return false;
-
-	trace_block_bio_frontmerge(q, bio);
-
-	if ((req->cmd_flags & REQ_FAILFAST_MASK) != ff)
-		blk_rq_set_mixed_merge(req);
-
-	bio->bi_next = req->bio;
-	req->bio = bio;
-
-	/*
-	 * may not be valid. if the low level driver said
-	 * it didn't need a bounce buffer then it better
-	 * not touch req->buffer either...
-	 */
-	req->buffer = bio_data(bio);
-	req->__sector = bio->bi_sector;
-	req->__data_len += bio->bi_size;
-	req->ioprio = ioprio_best(req->ioprio, bio_prio(bio));
-
-	drive_stat_acct(req, 0);
-	return true;
-}
-
-/**
- * attempt_plug_merge - try to merge with %current's plugged list
- * @q: request_queue new bio is being queued at
- * @bio: new bio being queued
- * @request_count: out parameter for number of traversed plugged requests
- *
- * Determine whether @bio being queued on @q can be merged with a request
- * on %current's plugged list.  Returns %true if merge was successful,
- * otherwise %false.
- *
- * Plugging coalesces IOs from the same issuer for the same purpose without
- * going through @q->queue_lock.  As such it's more of an issuing mechanism
- * than scheduling, and the request, while may have elvpriv data, is not
- * added on the elevator at this point.  In addition, we don't have
- * reliable access to the elevator outside queue lock.  Only check basic
- * merging parameters without querying the elevator.
- */
-static bool attempt_plug_merge(struct request_queue *q, struct bio *bio,
-			       unsigned int *request_count)
-{
-	struct blk_plug *plug;
-	struct request *rq;
-	bool ret = false;
-
-	plug = current->plug;
-	if (!plug)
-		goto out;
-	*request_count = 0;
-
-	list_for_each_entry_reverse(rq, &plug->list, queuelist) {
-		int el_ret;
-
-		(*request_count)++;
-
-		if (rq->q != q || !blk_rq_merge_ok(rq, bio))
+	hlist_for_each_entry_safe(tg, pos, n, &td->tg_list, tg_node) {
+		if (!tg->limits_changed)
 			continue;
 
-		el_ret = blk_try_merge(rq, bio);
-		if (el_ret == ELEVATOR_BACK_MERGE) {
-			ret = bio_attempt_back_merge(q, rq, bio);
-			if (ret)
-				break;
-		} else if (el_ret == ELEVATOR_FRONT_MERGE) {
-			ret = bio_attempt_front_merge(q, rq, bio);
-			if (ret)
-				break;
-		}
+		if (!xchg(&tg->limits_changed, false))
+			continue;
+
+		throtl_log_tg(td, tg, "limit change rbps=%llu wbps=%llu"
+			" riops=%u wiops=%u", tg->bps[READ], tg->bps[WRITE],
+			tg->iops[READ], tg->iops[WRITE]);
+
+		/*
+		 * Restart the slices for both READ and WRITES. It
+		 * might happen that a group's limit are dropped
+		 * suddenly and we don't want to account recently
+		 * dispatched IO with new low rate
+		 */
+		throtl_start_new_slice(td, tg, 0);
+		throtl_start_new_slice(td, tg, 1);
+
+		if (throtl_tg_on_rr(tg))
+			tg_update_disptime(td, tg);
 	}
-out:
-	return ret;
 }
 
-void init_request_from_bio(struct request *req, struct bio *bio)
+/* Dispatch throttled bios. Should be called without queue lock held. */
+static int throtl_dispatch(struct request_queue *q)
 {
-	req->cmd_type = REQ_TYPE_FS;
-
-	req->cmd_flags |= bio->bi_rw & REQ_COMMON_MASK;
-	if (bio->bi_rw & REQ_RAHEAD)
-		req->cmd_flags |= REQ_FAILFAST_MASK;
-
-	req->errors = 0;
-	req->__sector = bio->bi_sector;
-	req->ioprio = bio_prio(bio);
-	blk_rq_bio_prep(req->q, req, bio);
-}
-
-void blk_queue_bio(struct request_queue *q, struct bio *bio)
-{
-	const bool sync = !!(bio->bi_rw & REQ_SYNC);
-	struct blk_plug *plug;
-	int el_ret, rw_flags, where = ELEVATOR_INSERT_SORT;
-	struct request *req;
-	unsigned int request_count = 0;
-
-	/*
-	 * low level driver can indicate that it wants pages above a
-	 * certain limit bounced to low memory (ie for highmem, or even
-	 * ISA dma in theory)
-	 */
-	blk_queue_bounce(q, &bio);
-
-	if (bio->bi_rw & (REQ_FLUSH | REQ_FUA)) {
-		spin_lock_irq(q->queue_lock);
-		where = ELEVATOR_INSERT_FLUSH;
-		goto get_rq;
-	}
-
-	/*
-	 * Check if we can merge with the plugged list before grabbing
-	 * any locks.
-	 */
-	if (attempt_plug_merge(q, bio, &request_count))
-		return;
+	struct throtl_data *td = q->td;
+	unsigned int nr_disp = 0;
+	struct bio_list bio_list_on_stack;
+	struct bio *bio;
+	struct blk_plug plug;
 
 	spin_lock_irq(q->queue_lock);
 
-	el_ret = elv_merge(q, &req, bio);
-	if (el_ret == ELEVATOR_BACK_MERGE) {
-		if (bio_attempt_back_merge(q, req, bio)) {
-			elv_bio_merged(q, req, bio);
-			if (!attempt_back_merge(q, req))
-				elv_merged_request(q, req, el_ret);
-			goto out_unlock;
-		}
-	} else if (el_ret == ELEVATOR_FRONT_MERGE) {
-		if (bio_attempt_front_merge(q, req, bio)) {
-			elv_bio_merged(q, req, bio);
-			if (!attempt_front_merge(q, req))
-				elv_merged_request(q, req, el_ret);
-			goto out_unlock;
+	throtl_process_limit_change(td);
+
+	if (!total_nr_queued(td))
+		goto out;
+
+	bio_list_init(&bio_list_on_stack);
+
+	throtl_log(td, "dispatch nr_queued=%u read=%u write=%u",
+			total_nr_queued(td), td->nr_queued[READ],
+			td->nr_queued[WRITE]);
+
+	nr_disp = throtl_select_dispatch(td, &bio_list_on_stack);
+
+	if (nr_disp)
+		throtl_log(td, "bios disp=%u", nr_disp);
+
+	throtl_schedule_next_dispatch(td);
+out:
+	spin_unlock_irq(q->queue_lock);
+
+	/*
+	 * If we dispatched some requests, unplug the queue to make sure
+	 * immediate dispatch
+	 */
+	if (nr_disp) {
+		blk_start_plug(&plug);
+		while((bio = bio_list_pop(&bio_list_on_stack)))
+			generic_make_request(bio);
+		blk_finish_plug(&plug);
+	}
+	return nr_disp;
+}
+
+void blk_throtl_work(struct work_struct *work)
+{
+	struct throtl_data *td = container_of(work, struct throtl_data,
+					throtl_work.work);
+	struct request_queue *q = td->queue;
+
+	throtl_dispatch(q);
+}
+
+/* Call with queue lock held */
+static void
+throtl_schedule_delayed_work(struct throtl_data *td, unsigned long delay)
+{
+
+	struct delayed_work *dwork = &td->throtl_work;
+
+	/* schedule work if limits changed even if no bio is queued */
+	if (total_nr_queued(td) || td->limits_changed) {
+		/*
+		 * We might have a work scheduled to be executed in future.
+		 * Cancel that and schedule a new one.
+		 */
+		__cancel_delayed_work(dwork);
+		queue_delayed_work(kthrotld_workqueue, dwork, delay);
+		throtl_log(td, "schedule work. delay=%lu jiffies=%lu",
+				delay, jiffies);
+	}
+}
+
+static void
+throtl_destroy_tg(struct throtl_data *td, struct throtl_grp *tg)
+{
+	/* Something wrong if we are trying to remove same group twice */
+	BUG_ON(hlist_unhashed(&tg->tg_node));
+
+	hlist_del_init(&tg->tg_node);
+
+	/*
+	 * Put the reference taken at the time of creation so that when all
+	 * queues are gone, group can be destroyed.
+	 */
+	throtl_put_tg(tg);
+	td->nr_undestroyed_grps--;
+}
+
+static bool throtl_release_tgs(struct throtl_data *td, bool release_root)
+{
+	struct hlist_node *pos, *n;
+	struct throtl_grp *tg;
+	bool empty = true;
+
+	hlist_for_each_entry_safe(tg, pos, n, &td->tg_list, tg_node) {
+		/* skip root? */
+		if (!release_root && tg == td->root_tg)
+			continue;
+
+		/*
+		 * If cgroup removal path got to blk_group first and removed
+		 * it from cgroup list, then it will take care of destroying
+		 * cfqg also.
+		 */
+		if (!blkiocg_del_blkio_group(&tg->blkg))
+			throtl_destroy_tg(td, tg);
+		else
+			empty = false;
+	}
+	return empty;
+}
+
+/*
+ * Blk cgroup controller notification saying that blkio_group object is being
+ * delinked as associated cgroup object is going away. That also means that
+ * no new IO will come in this group. So get rid of this group as soon as
+ * any pending IO in the group is finished.
+ *
+ * This function is called under rcu_read_lock(). @q is the rcu protected
+ * pointer. That means @q is a valid request_queue pointer as long as we
+ * are rcu read lock.
+ *
+ * @q was fetched from blkio_group under blkio_cgroup->lock. That means
+ * it should not be NULL as even if queue was going away, cgroup deltion
+ * path got to it first.
+ */
+void throtl_unlink_blkio_group(struct request_queue *q,
+			       struct blkio_group *blkg)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(q->queue_lock, flags);
+	throtl_destroy_tg(q->td, tg_of_blkg(blkg));
+	spin_unlock_irqrestore(q->queue_lock, flags);
+}
+
+static bool throtl_clear_queue(struct request_queue *q)
+{
+	lockdep_assert_held(q->queue_lock);
+
+	/*
+	 * Clear tgs but leave the root one alone.  This is necessary
+	 * because root_tg is expected to be persistent and safe because
+	 * blk-throtl can never be disabled while @q is alive.  This is a
+	 * kludge to prepare for unified blkg.  This whole function will be
+	 * removed soon.
+	 */
+	return throtl_release_tgs(q->td, false);
+}
+
+static void throtl_update_blkio_group_common(struct throtl_data *td,
+				struct throtl_grp *tg)
+{
+	xchg(&tg->limits_changed, true);
+	xchg(&td->limits_changed, true);
+	/* Schedule a work now to process the limit change */
+	throtl_schedule_delayed_work(td, 0);
+}
+
+/*
+ * For all update functions, @q should be a valid pointer because these
+ * update functions are called under blkcg_lock, that means, blkg is
+ * valid and in turn @q is valid. queue exit path can not race because
+ * of blkcg_lock
+ *
+ * Can not take queue lock in update functions as queue lock under blkcg_lock
+ * is not allowed. Under other paths we take blkcg_lock under queue_lock.
+ */
+static void throtl_update_blkio_group_read_bps(struct request_queue *q,
+				struct blkio_group *blkg, u64 read_bps)
+{
+	struct throtl_grp *tg = tg_of_blkg(blkg);
+
+	tg->bps[READ] = read_bps;
+	throtl_update_blkio_group_common(q->td, tg);
+}
+
+static void throtl_update_blkio_group_write_bps(struct request_queue *q,
+				struct blkio_group *blkg, u64 write_bps)
+{
+	struct throtl_grp *tg = tg_of_blkg(blkg);
+
+	tg->bps[WRITE] = write_bps;
+	throtl_update_blkio_group_common(q->td, tg);
+}
+
+static void throtl_update_blkio_group_read_iops(struct request_queue *q,
+			struct blkio_group *blkg, unsigned int read_iops)
+{
+	struct throtl_grp *tg = tg_of_blkg(blkg);
+
+	tg->iops[READ] = read_iops;
+	throtl_update_blkio_group_common(q->td, tg);
+}
+
+static void throtl_update_blkio_group_write_iops(struct request_queue *q,
+			struct blkio_group *blkg, unsigned int write_iops)
+{
+	struct throtl_grp *tg = tg_of_blkg(blkg);
+
+	tg->iops[WRITE] = write_iops;
+	throtl_update_blkio_group_common(q->td, tg);
+}
+
+static void throtl_shutdown_wq(struct request_queue *q)
+{
+	struct throtl_data *td = q->td;
+
+	cancel_delayed_work_sync(&td->throtl_work);
+}
+
+static struct blkio_policy_type blkio_policy_throtl = {
+	.ops = {
+		.blkio_alloc_group_fn = throtl_alloc_blkio_group,
+		.blkio_link_group_fn = throtl_link_blkio_group,
+		.blkio_unlink_group_fn = throtl_unlink_blkio_group,
+		.blkio_clear_queue_fn = throtl_clear_queue,
+		.blkio_update_group_read_bps_fn =
+					throtl_update_blkio_group_read_bps,
+		.blkio_update_group_write_bps_fn =
+					throtl_update_blkio_group_write_bps,
+		.blkio_update_group_read_iops_fn =
+					throtl_update_blkio_group_read_iops,
+		.blkio_update_group_write_iops_fn =
+					throtl_update_blkio_group_write_iops,
+	},
+	.plid = BLKIO_POLICY_THROTL,
+};
+
+bool blk_throtl_bio(struct request_queue *q, struct bio *bio)
+{
+	struct throtl_data *td = q->td;
+	struct throtl_grp *tg;
+	bool rw = bio_data_dir(bio), update_disptime = true;
+	struct blkio_cgroup *blkcg;
+	bool throttled = false;
+
+	if (bio->bi_rw & REQ_THROTTLED) {
+		bio->bi_rw &= ~REQ_THROTTLED;
+		goto out;
+	}
+
+	/*
+	 * A throtl_grp pointer retrieved under rcu can be used to access
+	 * basic fields like stats and io rates. If a group has no rules,
+	 * just update the dispatch stats in lockless manner and return.
+	 */
+	rcu_read_lock();
+	blkcg = task_blkio_cgroup(current);
+	tg = throtl_lookup_tg(td, blkcg);
+	if (tg) {
+		if (tg_no_rule_group(tg, rw)) {
+			blkiocg_update_dispatch_stats(&tg->blkg, bio->bi_size,
+					rw, rw_is_sync(bio->bi_rw));
+			goto out_unlock_rcu;
 		}
 	}
 
-get_rq:
 	/*
-	 * This sync check and mask will be re-done in init_request_from_bio(),
-	 * but we need to set it earlier to expose the sync flag to the
-	 * rq allocator and io schedulers.
+	 * Either group has not been allocated yet or it is not an unlimited
+	 * IO group
 	 */
-	rw_flags = bio_data_dir(bio);
-	if (sync)
-		rw_flags |= REQ_SYNC;
+	spin_lock_irq(q->queue_lock);
+	tg = throtl_lookup_create_tg(td, blkcg);
+	if (unlikely(!tg))
+		goto out_unlock;
 
-	/*
-	 * Grab a free request. This is might sleep but can not fail.
-	 * Returns with the queue unlocked.
-	 */
-	req = get_request_wait(q, rw_flags, bio);
-	if (unlikely(!req)) {
-		bio_endio(bio, -ENODEV);	/* @q is dead */
+	if (tg->nr_queued[rw]) {
+		/*
+		 * There is already another bio queued in same dir. No
+		 * need to update dispatch time.
+		 */
+		update_disptime = false;
+		goto queue_bio;
+
+	}
+
+	/* Bio is with-in rate limit of group */
+	if (tg_may_dispatch(td, tg, bio, NULL)) {
+		throtl_charge_bio(tg, bio);
+
+		/*
+		 * We need to trim slice even when bios are not being queued
+		 * otherwise it might happen that a bio is not queued for
+		 * a long time and slice keeps on extending and trim is not
+		 * called for a long time. Now if limits are reduced suddenly
+		 * we take into account all the IO dispatched so far at new
+		 * low rate and * newly queued IO gets a really long dispatch
+		 * time.
+		 *
+		 * So keep on trimming slice even if bio is not queued.
+		 */
+		throtl_trim_slice(td, tg, rw);
 		goto out_unlock;
 	}
 
-	/*
-	 * After dropping the lock and possibly sleeping here, our request
-	 * may now be mergeable after it had proven unmergeable (above).
-	 * We don't worry about that case for efficiency. It won't happen
-	 * often, and the elevators are able to handle it.
-	 */
-	init_request_from_bio(req, bio);
+queue_bio:
+	throtl_log_tg(td, tg, "[%c] bio. bdisp=%llu sz=%u bps=%llu"
+			" iodisp=%u iops=%u queued=%d/%d",
+			rw == READ ? 'R' : 'W',
+			tg->bytes_disp[rw], bio->bi_size, tg->bps[rw],
+			tg->io_disp[rw], tg->iops[rw],
+			tg->nr_queued[READ], tg->nr_queued[WRITE]);
 
-	if (test_bit(QUEUE_FLAG_SAME_COMP, &q->queue_flags))
-		req->cpu = raw_smp_processor_id();
+	throtl_add_bio_tg(q->td, tg, bio);
+	throttled = true;
 
-	plug = current->plug;
-	if (plug) {
-		/*
-		 * If this is the first request added after a plug, fire
-		 * of a plug trace. If others have been added before, check
-		 * if we have multiple devices in this plug. If so, make a
-		 * note to sort the list before dispatch.
-		 */
-		if (list_empty(&plug->list))
-			trace_block_plug(q);
-		else {
-			if (!plug->should_sort) {
-				struct request *__rq;
+	if (update_disptime) {
+		tg_update_disptime(td, tg);
+		throtl_schedule_next_dispatch(td);
+	}
 
-				__rq = list_entry_rq(plug->list.prev);
-				if (__rq->q != q)
-					plug->should_sort = 1;
-			}
-			if (request_count >= BLK_MAX_REQUEST_COUNT) {
-				blk_flush_plug_list(plug, false);
-				trace_block_plug(q);
-			}
-		}
-		list_add_tail(&req->queuelist, &plug->list);
-		drive_stat_acct(req, 1);
-	} else {
-		spin_lock_irq(q->queue_lock);
-		add_acct_request(q, req, where);
-		__blk_run_queue(q);
 out_unlock:
-		spin_unlock_irq(q->queue_lock);
-	}
-}
-EXPORT_SYMBOL_GPL(blk_queue_bio);	/* for device mapper only */
-
-/*
- * If bio->bi_dev is a partition, remap the location
- */
-static inline void blk_partition_remap(struct bio *bio)
-{
-	struct block_device *bdev = bio->bi_bdev;
-
-	if (bio_sectors(bio) && bdev != bdev->bd_contains) {
-		struct hd_struct *p = bdev->bd_part;
-
-		bio->bi_sector += p->start_sect;
-		bio->bi_bdev = bdev->bd_contains;
-
-		trace_block_bio_remap(bdev_get_queue(bio->bi_bdev), bio,
-				      bdev->bd_dev,
-				      bio->bi_sector - p->start_sect);
-	}
-}
-
-static void handle_bad_sector(struct bio *bio)
-{
-	char b[BDEVNAME_SIZE];
-
-	printk(KERN_INFO "attempt to access beyond end of device\n");
-	printk(KERN_INFO "%s: rw=%ld, want=%Lu, limit=%Lu\n",
-			bdevname(bio->bi_bdev, b),
-			bio->bi_rw,
-			(unsigned long long)bio->bi_sector + bio_sectors(bio),
-			(long long)(i_size_read(bio->bi_bdev->bd_inode) >> 9));
-
-	set_bit(BIO_EOF, &bio->bi_flags);
-}
-
-#ifdef CONFIG_FAIL_MAKE_REQUEST
-
-static DECLARE_FAULT_ATTR(fail_make_request);
-
-static int __init setup_fail_make_request(char *str)
-{
-	return setup_fault_attr(&fail_make_request, str);
-}
-__setup("fail_make_request=", setup_fail_make_request);
-
-static bool should_fail_request(struct hd_struct *part, unsigned int bytes)
-{
-	return part->make_it_fail && should_fail(&fail_make_request, bytes);
-}
-
-static int __init fail_make_request_debugfs(void)
-{
-	struct dentry *dir = fault_create_debugfs_attr("fail_make_request",
-						NULL, &fail_make_request);
-
-	return IS_ERR(dir) ? PTR_ERR(dir) : 0;
-}
-
-late_initcall(fail_make_request_debugfs);
-
-#else /* CONFIG_FAIL_MAKE_REQUEST */
-
-static inline bool should_fail_request(struct hd_struct *part,
-					unsigned int bytes)
-{
-	return false;
-}
-
-#endif /* CONFIG_FAIL_MAKE_REQUEST */
-
-/*
- * Check whether this bio extends beyond the end of the device.
- */
-static inline int bio_check_eod(struct bio *bio, unsigned int nr_sectors)
-{
-	sector_t maxsector;
-
-	if (!nr_sectors)
-		return 0;
-
-	/* Test device or partition size, when known. */
-	maxsector = i_size_read(bio->bi_bdev->bd_inode) >> 9;
-	if (maxsector) {
-		sector_t sector = bio->bi_sector;
-
-		if (maxsector < nr_sectors || maxsector - nr_sectors < sector) {
-			/*
-			 * This may well happen - the kernel calls bread()
-			 * without checking the size of the device, e.g., when
-			 * mounting a device.
-			 */
-			handle_bad_sector(bio);
-			return 1;
-		}
-	}
-
-	return 0;
-}
-
-static noinline_for_stack bool
-generic_make_request_checks(struct bio *bio)
-{
-	struct request_queue *q;
-	int nr_sectors = bio_sectors(bio);
-	int err = -EIO;
-	char b[BDEVNAME_SIZE];
-	struct hd_struct *part;
-
-	might_sleep();
-
-	if (bio_check_eod(bio, nr_sectors))
-		goto end_io;
-
-	q = bdev_get_queue(bio->bi_bdev);
-	if (unlikely(!q)) {
-		printk(KERN_ERR
-		       "generic_make_request: Trying to access "
-			"nonexistent block-device %s (%Lu)\n",
-			bdevname(bio->bi_bdev, b),
-			(long long) bio->bi_sector);
-		goto end_io;
-	}
-
-	if (unlikely(!(bio->bi_rw & REQ_DISCARD) &&
-		     nr_sectors > queue_max_hw_sectors(q))) {
-		printk(KERN_ERR "bio too big device %s (%u > %u)\n",
-		       bdevname(bio->bi_bdev, b),
-		       bio_sectors(bio),
-		       queue_max_hw_sectors(q));
-		goto end_io;
-	}
-
-	part = bio->bi_bdev->bd_part;
-	if (should_fail_request(part, bio->bi_size) ||
-	    should_fail_request(&part_to_disk(part)->part0,
-				bio->bi_size))
-		goto end_io;
-
-	/*
-	 * If this device has partitions, remap block n
-	 * of partition p to block n+start(p) of the disk.
-	 */
-	blk_partition_remap(bio);
-
-	if (bio_integrity_enabled(bio) && bio_integrity_prep(bio))
-		goto end_io;
-
-	if (bio_check_eod(bio, nr_sectors))
-		goto end_io;
-
-	/*
-	 * Filter flush bio's early so that make_request based
-	 * drivers without flush support don't have to worry
-	 * about them.
-	 */
-	if ((bio->bi_rw & (REQ_FLUSH | REQ_FUA)) && !q->flush_flags) {
-		bio->bi_rw &= ~(REQ_FLUSH | REQ_FUA);
-		if (!nr_sectors) {
-			err = 0;
-			goto end_io;
-		}
-	}
-
-	if ((bio->bi_rw & REQ_DISCARD) &&
-	    (!blk_queue_discard(q) ||
-	     ((bio->bi_rw & REQ_SECURE) &&
-	      !blk_queue_secdiscard(q)))) {
-		err = -EOPNOTSUPP;
-		goto end_io;
-	}
-
-	if (blk_throtl_bio(q, bio))
-		return false;	/* throttled, will be resubmitted later */
-
-	trace_block_bio_queue(q, bio);
-	return true;
-
-end_io:
-	bio_endio(bio, err);
-	return false;
+	spin_unlock_irq(q->queue_lock);
+out_unlock_rcu:
+	rcu_read_unlock();
+out:
+	return throttled;
 }
 
 /**
- * generic_make_request - hand a buffer to its device driver for I/O
- * @bio:  The bio describing the location in memory and on the device.
+ * blk_throtl_drain - drain throttled bios
+ * @q: request_queue to drain throttled bios for
  *
- * generic_make_request() is used to make I/O requests of block
- * devices. It is passed a &struct bio, which describes the I/O that needs
- * to be done.
- *
- * generic_make_request() does not return any status.  The
- * success/failure status of the request, along with notification of
- * completion, is delivered asynchronously through the bio->bi_end_io
- * function described (one day) else where.
- *
- * The caller of generic_make_request must make sure that bi_io_vec
- * are set to describe the memory buffer, and that bi_dev and bi_sector are
- * set to describe the device address, and the
- * bi_end_io and optionally bi_private are set to describe how
- * completion notification should be signaled.
- *
- * generic_make_request and the drivers it calls may use bi_next if this
- * bio happens to be merged with someone else, and may resubmit the bio to
- * a lower device by calling into generic_make_request recursively, which
- * means the bio should NOT be touched after the call to ->make_request_fn.
+ * Dispatch all currently throttled bios on @q through ->make_request_fn().
  */
-void generic_make_request(struct bio *bio)
+void blk_throtl_drain(struct request_queue *q)
+	__releases(q->queue_lock) __acquires(q->queue_lock)
 {
-	struct bio_list bio_list_on_stack;
-
-	if (!generic_make_request_checks(bio))
-		return;
-
-	/*
-	 * We only want one ->make_request_fn to be active at a time, else
-	 * stack usage with stacked devices could be a problem.  So use
-	 * current->bio_list to keep a list of requests submited by a
-	 * make_request_fn function.  current->bio_list is also used as a
-	 * flag to say if generic_make_request is currently active in this
-	 * task or not.  If it is NULL, then no make_request is active.  If
-	 * it is non-NULL, then a make_request is active, and new requests
-	 * should be added at the tail
-	 */
-	if (current->bio_list) {
-		bio_list_add(current->bio_list, bio);
-		return;
-	}
-
-	/* following loop may be a bit non-obvious, and so deserves some
-	 * explanation.
-	 * Before entering the loop, bio->bi_next is NULL (as all callers
-	 * ensure that) so we have a list with a single bio.
-	 * We pretend that we have just taken it off a longer list, so
-	 * we assign bio_list to a pointer to the bio_list_on_stack,
-	 * thus initialising the bio_list of new bios to be
-	 * added.  ->make_request() may indeed add some more bios
-	 * through a recursive call to generic_make_request.  If it
-	 * did, we find a non-NULL value in bio_list and re-enter the loop
-	 * from the top.  In this case we really did just take the bio
-	 * of the top of the list (no pretending) and so remove it from
-	 * bio_list, and call into ->make_request() again.
-	 */
-	BUG_ON(bio->bi_next);
-	bio_list_init(&bio_list_on_stack);
-	current->bio_list = &bio_list_on_stack;
-	do {
-		struct request_queue *q = bdev_get_queue(bio->bi_bdev);
-
-		q->make_request_fn(q, bio);
-
-		bio = bio_list_pop(current->bio_list);
-	} while (bio);
-	current->bio_list = NULL; /* deactivate */
-}
-EXPORT_SYMBOL(generic_make_request);
-
-/**
- * submit_bio - submit a bio to the block device layer for I/O
- * @rw: whether to %READ or %WRITE, or maybe to %READA (read ahead)
- * @bio: The &struct bio which describes the I/O
- *
- * submit_bio() is very similar in purpose to generic_make_request(), and
- * uses that function to do most of the work. Both are fairly rough
- * interfaces; @bio must be presetup and ready for I/O.
- *
- */
-void submit_bio(int rw, struct bio *bio)
-{
-	int count = bio_sectors(bio);
-
-	bio->bi_rw |= rw;
-
-	/*
-	 * If it's a regular read/write or a barrier with data attached,
-	 * go through the normal accounting stuff before submission.
-	 */
-	if (bio_has_data(bio) && !(rw & REQ_DISCARD)) {
-		if (rw & WRITE) {
-			count_vm_events(PGPGOUT, count);
-		} else {
-			task_io_account_read(bio->bi_size);
-			count_vm_events(PGPGIN, count);
-		}
-
-		if (unlikely(block_dump)) {
-			char b[BDEVNAME_SIZE];
-			printk(KERN_DEBUG "%s(%d): %s block %Lu on %s (%u sectors)\n",
-			current->comm, task_pid_nr(current),
-				(rw & WRITE) ? "WRITE" : "READ",
-				(unsigned long long)bio->bi_sector,
-				bdevname(bio->bi_bdev, b),
-				count);
-		}
-	}
-
-	generic_make_request(bio);
-}
-EXPORT_SYMBOL(submit_bio);
-
-/**
- * blk_rq_check_limits - Helper function to check a request for the queue limit
- * @q:  the queue
- * @rq: the request being checked
- *
- * Description:
- *    @rq may have been made based on weaker limitations of upper-level queues
- *    in request stacking drivers, and it may violate the limitation of @q.
- *    Since the block layer and the underlying device driver trust @rq
- *    after it is inserted to @q, it should be checked against @q before
- *    the insertion using this generic function.
- *
- *    This function should also be useful for request stacking drivers
- *    in some cases below, so export this function.
- *    Request stacking drivers like request-based dm may change the queue
- *    limits while requests are in the queue (e.g. dm's table swapping).
- *    Such request stacking drivers should check those requests agaist
- *    the new queue limits again when they dispatch those requests,
- *    although such checkings are also done against the old queue limits
- *    when submitting requests.
- */
-int blk_rq_check_limits(struct request_queue *q, struct request *rq)
-{
-	if (rq->cmd_flags & REQ_DISCARD)
-		return 0;
-
-	if (blk_rq_sectors(rq) > queue_max_sectors(q) ||
-	    blk_rq_bytes(rq) > queue_max_hw_sectors(q) << 9) {
-		printk(KERN_ERR "%s: over max size limit.\n", __func__);
-		return -EIO;
-	}
-
-	/*
-	 * queue's settings related to segment counting like q->bounce_pfn
-	 * may differ from that of other stacking queues.
-	 * Recalculate it to check the request correctly on this queue's
-	 * limitation.
-	 */
-	blk_recalc_rq_segments(rq);
-	if (rq->nr_phys_segments > queue_max_segments(q)) {
-		printk(KERN_ERR "%s: over max segments limit.\n", __func__);
-		return -EIO;
-	}
-
-	return 0;
-}
-EXPORT_SYMBOL_GPL(blk_rq_check_limits);
-
-/**
- * blk_insert_cloned_request - Helper for stacking drivers to submit a request
- * @q:  the queue to submit the request
- * @rq: the request being queued
- */
-int blk_insert_cloned_request(struct request_queue *q, struct request *rq)
-{
-	unsigned long flags;
-	int where = ELEVATOR_INSERT_BACK;
-
-	if (blk_rq_check_limits(q, rq))
-		return -EIO;
-
-	if (rq->rq_disk &&
-	    should_fail_request(&rq->rq_disk->part0, blk_rq_bytes(rq)))
-		return -EIO;
-
-	spin_lock_irqsave(q->queue_lock, flags);
-	if (unlikely(blk_queue_dead(q))) {
-		spin_unlock_irqrestore(q->queue_lock, flags);
-		return -ENODEV;
-	}
-
-	/*
-	 * Submitting request must be dequeued before calling this function
-	 * because it will be linked to another request_queue
-	 */
-	BUG_ON(blk_queued_rq(rq));
-
-	if (rq->cmd_flags & (REQ_FLUSH|REQ_FUA))
-		where = ELEVATOR_INSERT_FLUSH;
-
-	add_acct_request(q, rq, where);
-	if (where == ELEVATOR_INSERT_FLUSH)
-		__blk_run_queue(q);
-	spin_unlock_irqrestore(q->queue_lock, flags);
-
-	return 0;
-}
-EXPORT_SYMBOL_GPL(blk_insert_cloned_request);
-
-/**
- * blk_rq_err_bytes - determine number of bytes till the next failure boundary
- * @rq: request to examine
- *
- * Description:
- *     A request could be merge of IOs which require different failure
- *     handling.  This function determines the number of bytes which
- *     can be failed from the beginning of the request without
- *     crossing into area which need to be retried further.
- *
- * Return:
- *     The number of bytes to fail.
- *
- * Context:
- *     queue_lock must be held.
- */
-unsigned int blk_rq_err_bytes(const struct request *rq)
-{
-	unsigned int ff = rq->cmd_flags & REQ_FAILFAST_MASK;
-	unsigned int bytes = 0;
+	struct throtl_data *td = q->td;
+	struct throtl_rb_root *st = &td->tg_service_tree;
+	struct throtl_grp *tg;
+	struct bio_list bl;
 	struct bio *bio;
 
-	if (!(rq->cmd_flags & REQ_MIXED_MERGE))
-		return blk_rq_bytes(rq);
+	WARN_ON_ONCE(!queue_is_locked(q));
+
+	bio_list_init(&bl);
+
+	while ((tg = throtl_rb_first(st))) {
+		throtl_dequeue_tg(td, tg);
+
+		while ((bio = bio_list_peek(&tg->bio_lists[READ])))
+			tg_dispatch_one_bio(td, tg, bio_data_dir(bio), &bl);
+		while ((bio = bio_list_peek(&tg->bio_lists[WRITE])))
+			tg_dispatch_one_bio(td, tg, bio_data_dir(bio), &bl);
+	}
+	spin_unlock_irq(q->queue_lock);
+
+	while ((bio = bio_list_pop(&bl)))
+		generic_make_request(bio);
+
+	spin_lock_irq(q->queue_lock);
+}
+
+int blk_throtl_init(struct request_queue *q)
+{
+	struct throtl_data *td;
+	struct blkio_group *blkg;
+
+	td = kzalloc_node(sizeof(*td), GFP_KERNEL, q->node);
+	if (!td)
+		return -ENOMEM;
+
+	INIT_HLIST_HEAD(&td->tg_list);
+	td->tg_service_tree = THROTL_RB_ROOT;
+	td->limits_changed = false;
+	INIT_DELAYED_WORK(&td->throtl_work, blk_throtl_work);
+
+	q->td = td;
+	td->queue = q;
+
+	/* alloc and init root group. */
+	rcu_read_lock();
+	spin_lock_irq(q->queue_lock);
+
+	blkg = blkg_lookup_create(&blkio_root_cgroup, q, BLKIO_POLICY_THROTL,
+				  true);
+	if (!IS_ERR(blkg))
+		td->root_tg = tg_of_blkg(blkg);
+
+	spin_unlock_irq(q->queue_lock);
+	rcu_read_unlock();
+
+	if (!td->root_tg) {
+		kfree(td);
+		return -ENOMEM;
+	}
+	return 0;
+}
+
+void blk_throtl_exit(struct request_queue *q)
+{
+	struct throtl_data *td = q->td;
+	bool wait = false;
+
+	BUG_ON(!td);
+
+	throtl_shutdown_wq(q);
+
+	spin_lock_irq(q->queue_lock);
+	throtl_release_tgs(td, true);
+
+	/* If there are other groups */
+	if (td->nr_undestroyed_grps > 0)
+		wait = true;
+
+	spin_unlock_irq(q->queue_lock);
 
 	/*
-	 * Currently the only 'mixing' which can happen is between
-	 * different fastfail types.  We can safely fail portions
-	 * which have all the failfast bits that the first one has -
-	 * the ones which are at least as eager to fail as the first
-	 * one.
-	 */
-	for (bio = rq->bio; bio; bio = bio->bi_next) {
-		if ((bio->bi_rw & ff) != ff)
-			break;
-		bytes += bio->bi_size;
-	}
-
-	/* this could lead to infinite loop */
-	BUG_ON(blk_rq_bytes(rq) && !bytes);
-	return bytes;
-}
-EXPORT_SYMBOL_GPL(blk_rq_err_bytes);
-
-static void blk_account_io_completion(struct request *req, unsigned int bytes)
-{
-	if (blk_do_io_stat(req)) {
-		const int rw = rq_data_dir(req);
-		struct hd_struct *part;
-		int cpu;
-
-		cpu = part_stat_lock();
-		part = req->part;
-		part_stat_add(cpu, part, sectors[rw], bytes >> 9);
-		part_stat_unlock();
-	}
-}
-
-static void blk_account_io_done(struct request *req)
-{
-	/*
-	 * Account IO completion.  flush_rq isn't accounted as a
-	 * normal IO on queueing nor completion.  Accounting the
-	 * containing request is enough.
-	 */
-	if (blk_do_io_stat(req) && !(req->cmd_flags & REQ_FLUSH_SEQ)) {
-		unsigned long duration = jiffies - req->start_time;
-		const int rw = rq_data_dir(req);
-		struct hd_struct *part;
-		int cpu;
-
-		cpu = part_stat_lock();
-		part = req->part;
-
-		part_stat_inc(cpu, part, ios[rw]);
-		part_stat_add(cpu, part, ticks[rw], duration);
-		part_round_stats(cpu, part);
-		part_dec_in_flight(part, rw);
-
-		hd_struct_put(part);
-		part_stat_unlock();
-	}
-}
-
-/**
- * blk_peek_request - peek at the top of a request queue
- * @q: request queue to peek at
- *
- * Description:
- *     Return the request at the top of @q.  The returned request
- *     should be started using blk_start_request() before LLD starts
- *     processing it.
- *
- * Return:
- *     Pointer to the request at the top of @q if available.  Null
- *     otherwise.
- *
- * Context:
- *     queue_lock must be held.
- */
-struct request *blk_peek_request(struct request_queue *q)
-{
-	struct request *rq;
-	int ret;
-
-	while ((rq = __elv_next_request(q)) != NULL) {
-		if (!(rq->cmd_flags & REQ_STARTED)) {
-			/*
-			 * This is the first time the device driver
-			 * sees this request (possibly after
-			 * requeueing).  Notify IO scheduler.
-			 */
-			if (rq->cmd_flags & REQ_SORTED)
-				elv_activate_rq(q, rq);
-
-			/*
-			 * just mark as started even if we don't start
-			 * it, a request that has been delayed should
-			 * not be passed by new incoming requests
-			 */
-			rq->cmd_flags |= REQ_STARTED;
-			trace_block_rq_issue(q, rq);
-		}
-
-		if (!q->boundary_rq || q->boundary_rq == rq) {
-			q->end_sector = rq_end_sector(rq);
-			q->boundary_rq = NULL;
-		}
-
-		if (rq->cmd_flags & REQ_DONTPREP)
-			break;
-
-		if (q->dma_drain_size && blk_rq_bytes(rq)) {
-			/*
-			 * make sure space for the drain appears we
-			 * know we can do this because max_hw_segments
-			 * has been adjusted to be one fewer than the
-			 * device can handle
-			 */
-			rq->nr_phys_segments++;
-		}
-
-		if (!q->prep_rq_fn)
-			break;
-
-		ret = q->prep_rq_fn(q, rq);
-		if (ret == BLKPREP_OK) {
-			break;
-		} else if (ret == BLKPREP_DEFER) {
-			/*
-			 * the request may have been (partially) prepped.
-			 * we need to keep this request in the front to
-			 * avoid resource deadlock.  REQ_STARTED will
-			 * prevent other fs requests from passing this one.
-			 */
-			if (q->dma_drain_size && blk_rq_bytes(rq) &&
-			    !(rq->cmd_flags & REQ_DONTPREP)) {
-				/*
-				 * remove the space for the drain we added
-				 * so that we don't add it again
-				 */
-				--rq->nr_phys_segments;
-			}
-
-			rq = NULL;
-			break;
-		} else if (ret == BLKPREP_KILL) {
-			rq->cmd_flags |= REQ_QUIET;
-			/*
-			 * Mark this request as started so we don't trigger
-			 * any debug logic in the end I/O path.
-			 */
-			blk_start_request(rq);
-			__blk_end_request_all(rq, -EIO);
-		} else {
-			printk(KERN_ERR "%s: bad return=%d\n", __func__, ret);
-			break;
-		}
-	}
-
-	return rq;
-}
-EXPORT_SYMBOL(blk_peek_request);
-
-void blk_dequeue_request(struct request *rq)
-{
-	struct request_queue *q = rq->q;
-
-	BUG_ON(list_empty(&rq->queuelist));
-	BUG_ON(ELV_ON_HASH(rq));
-
-	list_del_init(&rq->queuelist);
-
-	/*
-	 * the time frame between a request being removed from the lists
-	 * and to it is freed is accounted as io that is in progress at
-	 * the driver side.
-	 */
-	if (blk_account_rq(rq)) {
-		q->in_flight[rq_is_sync(rq)]++;
-		set_io_start_time_ns(rq);
-	}
-}
-
-/**
- * blk_start_request - start request processing on the driver
- * @req: request to dequeue
- *
- * Description:
- *     Dequeue @req and start timeout timer on it.  This hands off the
- *     request to the driver.
- *
- *     Block internal functions which don't want to start timer should
- *     call blk_dequeue_request().
- *
- * Context:
- *     queue_lock must be held.
- */
-void blk_start_request(struct request *req)
-{
-	blk_dequeue_request(req);
-
-	/*
-	 * We are now handing the request to the hardware, initialize
-	 * resid_len to full count and add the timeout handler.
-	 */
-	req->resid_len = blk_rq_bytes(req);
-	if (unlikely(blk_bidi_rq(req)))
-		req->next_rq->resid_len = blk_rq_bytes(req->next_rq);
-
-	blk_add_timer(req);
-}
-EXPORT_SYMBOL(blk_start_request);
-
-/**
- * blk_fetch_request - fetch a request from a request queue
- * @q: request queue to fetch a request from
- *
- * Description:
- *     Return the request at the top of @q.  The request is started on
- *     return and LLD can start processing it immediately.
- *
- * Return:
- *     Pointer to the request at the top of @q if available.  Null
- *     otherwise.
- *
- * Context:
- *     queue_lock must be held.
- */
-struct request *blk_fetch_request(struct request_queue *q)
-{
-	struct request *rq;
-
-	rq = blk_peek_request(q);
-	if (rq)
-		blk_start_request(rq);
-	return rq;
-}
-EXPORT_SYMBOL(blk_fetch_request);
-
-/**
- * blk_update_request - Special helper function for request stacking drivers
- * @req:      the request being processed
- * @error:    %0 for success, < %0 for error
- * @nr_bytes: number of bytes to complete @req
- *
- * Description:
- *     Ends I/O on a number of bytes attached to @req, but doesn't complete
- *     the request structure even if @req doesn't have leftover.
- *     If @req has leftover, sets it up for the next range of segments.
- *
- *     This special helper function is only for request stacking drivers
- *     (e.g. request-based dm) so that they can handle partial completion.
- *     Actual device drivers should use blk_end_request instead.
- *
- *     Passing the result of blk_rq_bytes() as @nr_bytes guarantees
- *     %false return from this function.
- *
- * Return:
- *     %false - this request doesn't have any more data
- *     %true  - this request has more data
- **/
-bool blk_update_request(struct request *req, int error, unsigned int nr_bytes)
-{
-	int total_bytes, bio_nbytes, next_idx = 0;
-	struct bio *bio;
-
-	if (!req->bio)
-		return false;
-
-	trace_block_rq_complete(req->q, req);
-
-	/*
-	 * For fs requests, rq is just carrier of independent bio's
-	 * and each partial completion should be handled separately.
-	 * Reset per-request error on each partial completion.
+	 * Wait for tg->blkg->q accessors to exit their grace periods.
+	 * Do this wait only if there are other undestroyed groups out
+	 * there (other than root group). This can happen if cgroup deletion
+	 * path claimed the responsibility of cleaning up a group before
+	 * queue cleanup code get to the group.
 	 *
-	 * TODO: tj: This is too subtle.  It would be better to let
-	 * low level drivers do what they see fit.
+	 * Do not call synchronize_rcu() unconditionally as there are drivers
+	 * which create/delete request queue hundreds of times during scan/boot
+	 * and synchronize_rcu() can take significant time and slow down boot.
 	 */
-	if (req->cmd_type == REQ_TYPE_FS)
-		req->errors = 0;
-
-	if (error && req->cmd_type == REQ_TYPE_FS &&
-	    !(req->cmd_flags & REQ_QUIET)) {
-		char *error_type;
-
-		switch (error) {
-		case -ENOLINK:
-			error_type = "recoverable transport";
-			break;
-		case -EREMOTEIO:
-			error_type = "critical target";
-			break;
-		case -EBADE:
-			error_type = "critical nexus";
-			break;
-		case -EIO:
-		default:
-			error_type = "I/O";
-			break;
-		}
-		printk(KERN_ERR "end_request: %s error, dev %s, sector %llu\n",
-		       error_type, req->rq_disk ? req->rq_disk->disk_name : "?",
-		       (unsigned long long)blk_rq_pos(req));
-	}
-
-	blk_account_io_completion(req, nr_bytes);
-
-	total_bytes = bio_nbytes = 0;
-	while ((bio = req->bio) != NULL) {
-		int nbytes;
-
-		if (nr_bytes >= bio->bi_size) {
-			req->bio = bio->bi_next;
-			nbytes = bio->bi_size;
-			req_bio_endio(req, bio, nbytes, error);
-			next_idx = 0;
-			bio_nbytes = 0;
-		} else {
-			int idx = bio->bi_idx + next_idx;
-
-			if (unlikely(idx >= bio->bi_vcnt)) {
-				blk_dump_rq_flags(req, "__end_that");
-				printk(KERN_ERR "%s: bio idx %d >= vcnt %d\n",
-				       __func__, idx, bio->bi_vcnt);
-				break;
-			}
-
-			nbytes = bio_iovec_idx(bio, idx)->bv_len;
-			BIO_BUG_ON(nbytes > bio->bi_size);
-
-			/*
-			 * not a complete bvec done
-			 */
-			if (unlikely(nbytes > nr_bytes)) {
-				bio_nbytes += nr_bytes;
-				total_bytes += nr_bytes;
-				break;
-			}
-
-			/*
-			 * advance to the next vector
-			 */
-			next_idx++;
-			bio_nbytes += nbytes;
-		}
-
-		total_bytes += nbytes;
-		nr_bytes -= nbytes;
-
-		bio = req->bio;
-		if (bio) {
-			/*
-			 * end more in this run, or just return 'not-done'
-			 */
-			if (unlikely(nr_bytes <= 0))
-				break;
-		}
-	}
+	if (wait)
+		synchronize_rcu();
 
 	/*
-	 * completely done
+	 * Just being safe to make sure after previous flush if some body did
+	 * update limits through cgroup and another work got queued, cancel
+	 * it.
 	 */
-	if (!req->bio) {
-		/*
-		 * Reset counters so that the request stacking driver
-		 * can find how many bytes remain in the request
-		 * later.
-		 */
-		req->__data_len = 0;
-		return false;
-	}
+	throtl_shutdown_wq(q);
 
-	/*
-	 * if the request wasn't completed, update state
-	 */
-	if (bio_nbytes) {
-		req_bio_endio(req, bio, bio_nbytes, error);
-		bio->bi_idx += next_idx;
-		bio_iovec(bio)->bv_offset += nr_bytes;
-		bio_iovec(bio)->bv_len -= nr_bytes;
-	}
-
-	req->__data_len -= total_bytes;
-	req->buffer = bio_data(req->bio);
-
-	/* update sector only for requests with clear definition of sector */
-	if (req->cmd_type == REQ_TYPE_FS || (req->cmd_flags & REQ_DISCARD))
-		req->__sector += total_bytes >> 9;
-
-	/* mixed attributes always follow the first bio */
-	if (req->cmd_flags & REQ_MIXED_MERGE) {
-		req->cmd_flags &= ~REQ_FAILFAST_MASK;
-		req->cmd_flags |= req->bio->bi_rw & REQ_FAILFAST_MASK;
-	}
-
-	/*
-	 * If total number of sectors is less than the first segment
-	 * size, something has gone terribly wrong.
-	 */
-	if (blk_rq_bytes(req) < blk_rq_cur_bytes(req)) {
-		blk_dump_rq_flags(req, "request botched");
-		req->__data_len = blk_rq_cur_bytes(req);
-	}
-
-	/* recalculate the number of segments */
-	blk_recalc_rq_segments(req);
-
-	return true;
-}
-EXPORT_SYMBOL_GPL(blk_update_request);
-
-static bool blk_update_bidi_request(struct request *rq, int error,
-				    unsigned int nr_bytes,
-				    unsigned int bidi_bytes)
-{
-	if (blk_update_request(rq, error, nr_bytes))
-		return true;
-
-	/* Bidi request must be completed as a whole */
-	if (unlikely(blk_bidi_rq(rq)) &&
-	    blk_update_request(rq->next_rq, error, bidi_bytes))
-		return true;
-
-	if (blk_queue_add_random(rq->q))
-		add_disk_randomness(rq->rq_disk);
-
-	return false;
+	kfree(q->td);
 }
 
-/**
- * blk_unprep_request - unprepare a request
- * @req:	the request
- *
- * This function makes a request ready for complete resubmission (or
- * completion).  It happens only after all error handling is complete,
- * so represents the appropriate moment to deallocate any resources
- * that were allocated to the request in the prep_rq_fn.  The queue
- * lock is held when calling this.
- */
-void blk_unprep_request(struct request *req)
+static int __init throtl_init(void)
 {
-	struct request_queue *q = req->q;
+	kthrotld_workqueue = alloc_workqueue("kthrotld", WQ_MEM_RECLAIM, 0);
+	if (!kthrotld_workqueue)
+		panic("Failed to create kthrotld\n");
 
-	req->cmd_flags &= ~REQ_DONTPREP;
-	if (q->unprep_rq_fn)
-		q->unprep_rq_fn(q, req);
-}
-EXPORT_SYMBOL_GPL(blk_unprep_request);
-
-/*
- * queue lock must be held
- */
-static void blk_finish_request(struct request *req, int error)
-{
-	if (blk_rq_tagged(req))
-		blk_queue_end_tag(req->q, req);
-
-	BUG_ON(blk_queued_rq(req));
-
-	if (unlikely(laptop_mode) && req->cmd_type == REQ_TYPE_FS)
-		laptop_io_completion(&req->q->backing_dev_info);
-
-	blk_delete_timer(req);
-
-	if (req->cmd_flags & REQ_DONTPREP)
-		blk_unprep_request(req);
-
-
-	blk_account_io_done(req);
-
-	if (req->end_io)
-		req->end_io(req, error);
-	else {
-		if (blk_bidi_rq(req))
-			__blk_put_request(req->next_rq->q, req->next_rq);
-
-		__blk_put_request(req->q, req);
-	}
-}
-
-/**
- * blk_end_bidi_request - Complete a bidi request
- * @rq:         the request to complete
- * @error:      %0 for success, < %0 for error
- * @nr_bytes:   number of bytes to complete @rq
- * @bidi_bytes: number of bytes to complete @rq->next_rq
- *
- * Description:
- *     Ends I/O on a number of bytes attached to @rq and @rq->next_rq.
- *     Drivers that supports bidi can safely call this member for any
- *     type of request, bidi or uni.  In the later case @bidi_bytes is
- *     just ignored.
- *
- * Return:
- *     %false - we are done with this request
- *     %true  - still buffers pending for this request
- **/
-static bool blk_end_bidi_request(struct request *rq, int error,
-				 unsigned int nr_bytes, unsigned int bidi_bytes)
-{
-	struct request_queue *q = rq->q;
-	unsigned long flags;
-
-	if (blk_update_bidi_request(rq, error, nr_bytes, bidi_bytes))
-		return true;
-
-	spin_lock_irqsave(q->queue_lock, flags);
-	blk_finish_request(rq, error);
-	spin_unlock_irqrestore(q->queue_lock, flags);
-
-	return false;
-}
-
-/**
- * __blk_end_bidi_request - Complete a bidi request with queue lock held
- * @rq:         the request to complete
- * @error:      %0 for success, < %0 for error
- * @nr_bytes:   number of bytes to complete @rq
- * @bidi_bytes: number of bytes to complete @rq->next_rq
- *
- * Description:
- *     Identical to blk_end_bidi_request() except that queue lock is
- *     assumed to be locked on entry and remains so on return.
- *
- * Return:
- *     %false - we are done with this request
- *     %true  - still buffers pending for this request
- **/
-bool __blk_end_bidi_request(struct request *rq, int error,
-				   unsigned int nr_bytes, unsigned int bidi_bytes)
-{
-	if (blk_update_bidi_request(rq, error, nr_bytes, bidi_bytes))
-		return true;
-
-	blk_finish_request(rq, error);
-
-	return false;
-}
-
-/**
- * blk_end_request - Helper function for drivers to complete the request.
- * @rq:       the request being processed
- * @error:    %0 for success, < %0 for error
- * @nr_bytes: number of bytes to complete
- *
- * Description:
- *     Ends I/O on a number of bytes attached to @rq.
- *     If @rq has leftover, sets it up for the next range of segments.
- *
- * Return:
- *     %false - we are done with this request
- *     %true  - still buffers pending for this request
- **/
-bool blk_end_request(struct request *rq, int error, unsigned int nr_bytes)
-{
-	return blk_end_bidi_request(rq, error, nr_bytes, 0);
-}
-EXPORT_SYMBOL(blk_end_request);
-
-/**
- * blk_end_request_all - Helper function for drives to finish the request.
- * @rq: the request to finish
- * @error: %0 for success, < %0 for error
- *
- * Description:
- *     Completely finish @rq.
- */
-void blk_end_request_all(struct request *rq, int error)
-{
-	bool pending;
-	unsigned int bidi_bytes = 0;
-
-	if (unlikely(blk_bidi_rq(rq)))
-		bidi_bytes = blk_rq_bytes(rq->next_rq);
-
-	pending = blk_end_bidi_request(rq, error, blk_rq_bytes(rq), bidi_bytes);
-	BUG_ON(pending);
-}
-EXPORT_SYMBOL(blk_end_request_all);
-
-/**
- * blk_end_request_cur - Helper function to finish the current request chunk.
- * @rq: the request to finish the current chunk for
- * @error: %0 for success, < %0 for error
- *
- * Description:
- *     Complete the current consecutively mapped chunk from @rq.
- *
- * Return:
- *     %false - we are done with this request
- *     %true  - still buffers pending for this request
- */
-bool blk_end_request_cur(struct request *rq, int error)
-{
-	return blk_end_request(rq, error, blk_rq_cur_bytes(rq));
-}
-EXPORT_SYMBOL(blk_end_request_cur);
-
-/**
- * blk_end_request_err - Finish a request till the next failure boundary.
- * @rq: the request to finish till the next failure boundary for
- * @error: must be negative errno
- *
- * Description:
- *     Complete @rq till the next failure boundary.
- *
- * Return:
- *     %false - we are done with this request
- *     %true  - still buffers pending for this request
- */
-bool blk_end_request_err(struct request *rq, int error)
-{
-	WARN_ON(error >= 0);
-	return blk_end_request(rq, error, blk_rq_err_bytes(rq));
-}
-EXPORT_SYMBOL_GPL(blk_end_request_err);
-
-/**
- * __blk_end_request - Helper function for drivers to complete the request.
- * @rq:       the request being processed
- * @error:    %0 for success, < %0 for error
- * @nr_bytes: number of bytes to complete
- *
- * Description:
- *     Must be called with queue lock held unlike blk_end_request().
- *
- * Return:
- *     %false - we are done with this request
- *     %true  - still buffers pending for this request
- **/
-bool __blk_end_request(struct request *rq, int error, unsigned int nr_bytes)
-{
-	return __blk_end_bidi_request(rq, error, nr_bytes, 0);
-}
-EXPORT_SYMBOL(__blk_end_request);
-
-/**
- * __blk_end_request_all - Helper function for drives to finish the request.
- * @rq: the request to finish
- * @error: %0 for success, < %0 for error
- *
- * Description:
- *     Completely finish @rq.  Must be called with queue lock held.
- */
-void __blk_end_request_all(struct request *rq, int error)
-{
-	bool pending;
-	unsigned int bidi_bytes = 0;
-
-	if (unlikely(blk_bidi_rq(rq)))
-		bidi_bytes = blk_rq_bytes(rq->next_rq);
-
-	pending = __blk_end_bidi_request(rq, error, blk_rq_bytes(rq), bidi_bytes);
-	BUG_ON(pending);
-}
-EXPORT_SYMBOL(__blk_end_request_all);
-
-/**
- * __blk_end_request_cur - Helper function to finish the current request chunk.
- * @rq: the request to finish the current chunk for
- * @error: %0 for success, < %0 for error
- *
- * Description:
- *     Complete the current consecutively mapped chunk from @rq.  Must
- *     be called with queue lock held.
- *
- * Return:
- *     %false - we are done with this request
- *     %true  - still buffers pending for this request
- */
-bool __blk_end_request_cur(struct request *rq, int error)
-{
-	return __blk_end_request(rq, error, blk_rq_cur_bytes(rq));
-}
-EXPORT_SYMBOL(__blk_end_request_cur);
-
-/**
- * __blk_end_request_err - Finish a request till the next failure boundary.
- * @rq: the request to finish till the next failure boundary for
- * @error: must be negative errno
- *
- * Description:
- *     Complete @rq till the next failure boundary.  Must be called
- *     with queue lock held.
- *
- * Return:
- *     %false - we are done with this request
- *     %true  - still buffers pending for this request
- */
-bool __blk_end_request_err(struct request *rq, int error)
-{
-	WARN_ON(error >= 0);
-	return __blk_end_request(rq, error, blk_rq_err_bytes(rq));
-}
-EXPORT_SYMBOL_GPL(__blk_end_request_err);
-
-void blk_rq_bio_prep(struct request_queue *q, struct request *rq,
-		     struct bio *bio)
-{
-	/* Bit 0 (R/W) is identical in rq->cmd_flags and bio->bi_rw */
-	rq->cmd_flags |= bio->bi_rw & REQ_WRITE;
-
-	if (bio_has_data(bio)) {
-		rq->nr_phys_segments = bio_phys_segments(q, bio);
-		rq->buffer = bio_data(bio);
-	}
-	rq->__data_len = bio->bi_size;
-	rq->bio = rq->biotail = bio;
-
-	if (bio->bi_bdev)
-		rq->rq_disk = bio->bi_bdev->bd_disk;
-}
-
-#if ARCH_IMPLEMENTS_FLUSH_DCACHE_PAGE
-/**
- * rq_flush_dcache_pages - Helper function to flush all pages in a request
- * @rq: the request to be flushed
- *
- * Description:
- *     Flush all pages in @rq.
- */
-void rq_flush_dcache_pages(struct request *rq)
-{
-	struct req_iterator iter;
-	struct bio_vec *bvec;
-
-	rq_for_each_segment(bvec, rq, iter)
-		flush_dcache_page(bvec->bv_page);
-}
-EXPORT_SYMBOL_GPL(rq_flush_dcache_pages);
-#endif
-
-/**
- * blk_lld_busy - Check if underlying low-level drivers of a device are busy
- * @q : the queue of the device being checked
- *
- * Description:
- *    Check if underlying low-level drivers of a device are busy.
- *    If the drivers want to export their busy state, they must set own
- *    exporting function using blk_queue_lld_busy() first.
- *
- *    Basically, this function is used only by request stacking drivers
- *    to stop dispatching requests to underlying devices when underlying
- *    devices are busy.  This behavior helps more I/O merging on the queue
- *    of the request stacking driver and prevents I/O throughput regression
- *    on burst I/O load.
- *
- * Return:
- *    0 - Not busy (The request stacking driver should dispatch request)
- *    1 - Busy (The request stacking driver should stop dispatching request)
- */
-int blk_lld_busy(struct request_queue *q)
-{
-	if (q->lld_busy_fn)
-		return q->lld_busy_fn(q);
-
+	blkio_policy_register(&blkio_policy_throtl);
 	return 0;
 }
-EXPORT_SYMBOL_GPL(blk_lld_busy);
 
-/**
- * blk_rq_unprep_clone - Helper function to free all bios in a cloned request
- * @rq: the clone request to be cleaned up
- *
- * Description:
- *     Free all bios in @rq for a cloned request.
- */
-void blk_rq_unprep_clone(struct request *rq)
-{
-	struct bio *bio;
-
-	while ((bio = rq->bio) != NULL) {
-		rq->bio = bio->bi_next;
-
-		bio_put(bio);
-	}
-}
-EXPORT_SYMBOL_GPL(blk_rq_unprep_clone);
-
-/*
- * Copy attributes of the original request to the clone request.
- * The actual data parts (e.g. ->cmd, ->buffer, ->sense) are not copied.
- */
-static void __blk_rq_prep_clone(struct request *dst, struct request *src)
-{
-	dst->cpu = src->cpu;
-	dst->cmd_flags = (src->cmd_flags & REQ_CLONE_MASK) | REQ_NOMERGE;
-	dst->cmd_type = src->cmd_type;
-	dst->__sector = blk_rq_pos(src);
-	dst->__data_len = blk_rq_bytes(src);
-	dst->nr_phys_segments = src->nr_phys_segments;
-	dst->ioprio = src->ioprio;
-	dst->extra_len = src->extra_len;
-}
-
-/**
- * blk_rq_prep_clone - Helper function to setup clone request
- * @rq: the request to be setup
- * @rq_src: original request to be cloned
- * @bs: bio_set that bios for clone are allocated from
- * @gfp_mask: memory allocation mask for bio
- * @bio_ctr: setup function to be called for each clone bio.
- *           Returns %0 for success, non %0 for failure.
- * @data: private data to be passed to @bio_ctr
- *
- * Description:
- *     Clones bios in @rq_src to @rq, and copies attributes of @rq_src to @rq.
- *     The actual data parts of @rq_src (e.g. ->cmd, ->buffer, ->sense)
- *     are not copied, and copying such parts is the caller's responsibility.
- *     Also, pages which the original bios are pointing to are not copied
- *     and the cloned bios just point same pages.
- *     So cloned bios must be completed before original bios, which means
- *     the caller must complete @rq before @rq_src.
- */
-int blk_rq_prep_clone(struct request *rq, struct request *rq_src,
-		      struct bio_set *bs, gfp_t gfp_mask,
-		      int (*bio_ctr)(struct bio *, struct bio *, void *),
-		      void *data)
-{
-	struct bio *bio, *bio_src;
-
-	if (!bs)
-		bs = fs_bio_set;
-
-	blk_rq_init(NULL, rq);
-
-	__rq_for_each_bio(bio_src, rq_src) {
-		bio = bio_alloc_bioset(gfp_mask, bio_src->bi_max_vecs, bs);
-		if (!bio)
-			goto free_and_out;
-
-		__bio_clone(bio, bio_src);
-
-		if (bio_integrity(bio_src) &&
-		    bio_integrity_clone(bio, bio_src, gfp_mask, bs))
-			goto free_and_out;
-
-		if (bio_ctr && bio_ctr(bio, bio_src, data))
-			goto free_and_out;
-
-		if (rq->bio) {
-			rq->biotail->bi_next = bio;
-			rq->biotail = bio;
-		} else
-			rq->bio = rq->biotail = bio;
-	}
-
-	__blk_rq_prep_clone(rq, rq_src);
-
-	return 0;
-
-free_and_out:
-	if (bio)
-		bio_free(bio, bs);
-	blk_rq_unprep_clone(rq);
-
-	return -ENOMEM;
-}
-EXPORT_SYMBOL_GPL(blk_rq_prep_clone);
-
-int kblockd_schedule_work(struct request_queue *q, struct work_struct *work)
-{
-	return queue_work(kblockd_workqueue, work);
-}
-EXPORT_SYMBOL(kblockd_schedule_work);
-
-int kblockd_schedule_delayed_work(struct request_queue *q,
-			struct delayed_work *dwork, unsigned long delay)
-{
-	return queue_delayed_work(kblockd_workqueue, dwork, delay);
-}
-EXPORT_SYMBOL(kblockd_schedule_delayed_work);
-
-#define PLUG_MAGIC	0x91827364
-
-/**
- * blk_start_plug - initialize blk_plug and track it inside the task_struct
- * @plug:	The &struct blk_plug that needs to be initialized
- *
- * Description:
- *   Tracking blk_plug inside the task_struct will help with auto-flushing the
- *   pending I/O should the task end up blocking between blk_start_plug() and
- *   blk_finish_plug(). This is important from a performance perspective, but
- *   also ensures that we don't deadlock. For instance, if the task is blocking
- *   for a memory allocation, memory reclaim could end up wanting to free a
- *   page belonging to that request that is currently residing in our private
- *   plug. By flushing the pending I/O when the process goes to sleep, we avoid
- *   this kind of deadlock.
- */
-void blk_start_plug(struct blk_plug *plug)
-{
-	struct task_struct *tsk = current;
-
-	plug->magic = PLUG_MAGIC;
-	INIT_LIST_HEAD(&plug->list);
-	INIT_LIST_HEAD(&plug->cb_list);
-	plug->should_sort = 0;
-
-	/*
-	 * If this is a nested plug, don't actually assign it. It will be
-	 * flushed on its own.
-	 */
-	if (!tsk->plug) {
-		/*
-		 * Store ordering should not be needed here, since a potential
-		 * preempt will imply a full memory barrier
-		 */
-		tsk->plug = plug;
-	}
-}
-EXPORT_SYMBOL(blk_start_plug);
-
-static int plug_rq_cmp(void *priv, struct list_head *a, struct list_head *b)
-{
-	struct request *rqa = container_of(a, struct request, queuelist);
-	struct request *rqb = container_of(b, struct request, queuelist);
-
-	return !(rqa->q <= rqb->q);
-}
-
-/*
- * If 'from_schedule' is true, then postpone the dispatch of requests
- * until a safe kblockd context. We due this to avoid accidental big
- * additional stack usage in driver dispatch, in places where the originally
- * plugger did not intend it.
- */
-static void queue_unplugged(struct request_queue *q, unsigned int depth,
-			    bool from_schedule)
-	__releases(q->queue_lock)
-{
-	trace_block_unplug(q, depth, !from_schedule);
-
-	/*
-	 * Don't mess with dead queue.
-	 */
-	if (unlikely(blk_queue_dead(q))) {
-		spin_unlock(q->queue_lock);
-		return;
-	}
-
-	/*
-	 * If we are punting this to kblockd, then we can safely drop
-	 * the queue_lock before waking kblockd (which needs to take
-	 * this lock).
-	 */
-	if (from_schedule) {
-		spin_unlock(q->queue_lock);
-		blk_run_queue_async(q);
-	} else {
-		__blk_run_queue(q);
-		spin_unlock(q->queue_lock);
-	}
-
-}
-
-static void flush_plug_callbacks(struct blk_plug *plug)
-{
-	LIST_HEAD(callbacks);
-
-	if (list_empty(&plug->cb_list))
-		return;
-
-	list_splice_init(&plug->cb_list, &callbacks);
-
-	while (!list_empty(&callbacks)) {
-		struct blk_plug_cb *cb = list_first_entry(&callbacks,
-							  struct blk_plug_cb,
-							  list);
-		list_del(&cb->list);
-		cb->callback(cb);
-	}
-}
-
-void blk_flush_plug_list(struct blk_plug *plug, bool from_schedule)
-{
-	struct request_queue *q;
-	unsigned long flags;
-	struct request *rq;
-	LIST_HEAD(list);
-	unsigned int depth;
-
-	BUG_ON(plug->magic != PLUG_MAGIC);
-
-	flush_plug_callbacks(plug);
-	if (list_empty(&plug->list))
-		return;
-
-	list_splice_init(&plug->list, &list);
-
-	if (plug->should_sort) {
-		list_sort(NULL, &list, plug_rq_cmp);
-		plug->should_sort = 0;
-	}
-
-	q = NULL;
-	depth = 0;
-
-	/*
-	 * Save and disable interrupts here, to avoid doing it for every
-	 * queue lock we have to take.
-	 */
-	local_irq_save(flags);
-	while (!list_empty(&list)) {
-		rq = list_entry_rq(list.next);
-		list_del_init(&rq->queuelist);
-		BUG_ON(!rq->q);
-		if (rq->q != q) {
-			/*
-			 * This drops the queue lock
-			 */
-			if (q)
-				queue_unplugged(q, depth, from_schedule);
-			q = rq->q;
-			depth = 0;
-			spin_lock(q->queue_lock);
-		}
-
-		/*
-		 * Short-circuit if @q is dead
-		 */
-		if (unlikely(blk_queue_dead(q))) {
-			__blk_end_request_all(rq, -ENODEV);
-			continue;
-		}
-
-		/*
-		 * rq is already accounted, so use raw insert
-		 */
-		if (rq->cmd_flags & (REQ_FLUSH | REQ_FUA))
-			__elv_add_request(q, rq, ELEVATOR_INSERT_FLUSH);
-		else
-			__elv_add_request(q, rq, ELEVATOR_INSERT_SORT_MERGE);
-
-		depth++;
-	}
-
-	/*
-	 * This drops the queue lock
-	 */
-	if (q)
-		queue_unplugged(q, depth, from_schedule);
-
-	local_irq_restore(flags);
-}
-
-void blk_finish_plug(struct blk_plug *plug)
-{
-	blk_flush_plug_list(plug, false);
-
-	if (plug == current->plug)
-		current->plug = NULL;
-}
-EXPORT_SYMBOL(blk_finish_plug);
-
-int __init blk_dev_init(void)
-{
-	BUILD_BUG_ON(__REQ_NR_BITS > 8 *
-			sizeof(((struct request *)0)->cmd_flags));
-
-	/* used for unplugging and affects IO latency/throughput - HIGHPRI */
-	kblockd_workqueue = alloc_workqueue("kblockd",
-					    WQ_MEM_RECLAIM | WQ_HIGHPRI, 0);
-	if (!kblockd_workqueue)
-		panic("Failed to create kblockd\n");
-
-	request_cachep = kmem_cache_create("blkdev_requests",
-			sizeof(struct request), 0, SLAB_PANIC, NULL);
-
-	blk_requestq_cachep = kmem_cache_create("blkdev_queue",
-			sizeof(struct request_queue), 0, SLAB_PANIC, NULL);
-
-	return 0;
-}
+module_init(throtl_init);
