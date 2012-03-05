@@ -241,6 +241,13 @@ config ARM_PATCH_PHYS_VIRT_16BIT
 config ARCH_HIBERNATION_POSSIBLE
 	def_bool y
 
+config NEED_MACH_IO_H
+	bool
+	help
+	  Select this when mach/io.h is required to provide special
+	  definitions for this platform.  The need for mach/io.h should
+	  be avoided when possible.
+
 config NO_MACH_MEMORY_H
 	bool
 	help
