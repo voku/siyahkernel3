@@ -28,8 +28,6 @@ enum blkio_policy_id {
 
 #ifdef CONFIG_BLK_CGROUP
 
-extern struct percpu_mempool *blkg_stats_cpu_pool;
-
 enum stat_type {
 	/* Total time spent (in ns) between request dispatch to the driver and
 	 * request completion for IOs doen by this cgroup. This may not be
@@ -114,7 +112,6 @@ struct blkio_cgroup {
 	unsigned int weight;
 	spinlock_t lock;
 	struct hlist_head blkg_list;
-	struct list_head policy_list; /* list of blkio_policy_node */
 };
 
 struct blkio_group_stats {
@@ -162,6 +159,15 @@ struct blkio_group_conf {
 	u64 bps[2];
 };
 
+/* per-blkg per-policy data */
+struct blkg_policy_data {
+	/* the blkg this per-policy data belongs to */
+	struct blkio_group *blkg;
+
+	/* pol->pdata_size bytes of private data used by policy impl */
+	char pdata[] __aligned(__alignof__(unsigned long long));
+};
+
 struct blkio_group {
 	/* Pointer to the associated request_queue, RCU protected */
 	struct request_queue __rcu *q;
@@ -180,41 +186,11 @@ struct blkio_group {
 	struct blkio_group_stats stats;
 	/* Per cpu stats pointer */
 	struct blkio_group_stats_cpu __percpu *stats_cpu;
+
+	struct blkg_policy_data *pd;
 };
 
-struct blkio_policy_node {
-	struct list_head node;
-	dev_t dev;
-	/* This node belongs to max bw policy or porportional weight policy */
-	enum blkio_policy_id plid;
-	/* cgroup file to which this rule belongs to */
-	int fileid;
-
-	union {
-		unsigned int weight;
-		/*
-		 * Rate read/write in terms of bytes per second
-		 * Whether this rate represents read or write is determined
-		 * by file type "fileid".
-		 */
-		u64 bps;
-		unsigned int iops;
-	} val;
-};
-
-extern unsigned int blkcg_get_weight(struct blkio_cgroup *blkcg,
-				     dev_t dev);
-extern uint64_t blkcg_get_read_bps(struct blkio_cgroup *blkcg,
-				     dev_t dev);
-extern uint64_t blkcg_get_write_bps(struct blkio_cgroup *blkcg,
-				     dev_t dev);
-extern unsigned int blkcg_get_read_iops(struct blkio_cgroup *blkcg,
-				     dev_t dev);
-extern unsigned int blkcg_get_write_iops(struct blkio_cgroup *blkcg,
-				     dev_t dev);
-
-typedef struct blkio_group *(blkio_alloc_group_fn)(struct request_queue *q,
-						   struct blkio_cgroup *blkcg);
+typedef void (blkio_init_group_fn)(struct blkio_group *blkg);
 typedef void (blkio_link_group_fn)(struct request_queue *q,
 			struct blkio_group *blkg);
 typedef void (blkio_unlink_group_fn)(struct request_queue *q,
@@ -232,7 +208,7 @@ typedef void (blkio_update_group_write_iops_fn)(struct request_queue *q,
 			struct blkio_group *blkg, unsigned int write_iops);
 
 struct blkio_policy_ops {
-	blkio_alloc_group_fn *blkio_alloc_group_fn;
+	blkio_init_group_fn *blkio_init_group_fn;
 	blkio_link_group_fn *blkio_link_group_fn;
 	blkio_unlink_group_fn *blkio_unlink_group_fn;
 	blkio_clear_queue_fn *blkio_clear_queue_fn;
@@ -247,12 +223,49 @@ struct blkio_policy_type {
 	struct list_head list;
 	struct blkio_policy_ops ops;
 	enum blkio_policy_id plid;
+	size_t pdata_size;		/* policy specific private data size */
 };
+
+extern int blkcg_init_queue(struct request_queue *q);
+extern void blkcg_drain_queue(struct request_queue *q);
+extern void blkcg_exit_queue(struct request_queue *q);
 
 /* Blkio controller policy registration */
 extern void blkio_policy_register(struct blkio_policy_type *);
 extern void blkio_policy_unregister(struct blkio_policy_type *);
 extern void blkg_destroy_all(struct request_queue *q);
+
+/**
+ * blkg_to_pdata - get policy private data
+ * @blkg: blkg of interest
+ * @pol: policy of interest
+ *
+ * Return pointer to private data associated with the @blkg-@pol pair.
+ */
+static inline void *blkg_to_pdata(struct blkio_group *blkg,
+			      struct blkio_policy_type *pol)
+{
+	return blkg ? blkg->pd->pdata : NULL;
+}
+
+/**
+ * pdata_to_blkg - get blkg associated with policy private data
+ * @pdata: policy private data of interest
+ * @pol: policy @pdata is for
+ *
+ * @pdata is policy private data for @pol.  Determine the blkg it's
+ * associated with.
+ */
+static inline struct blkio_group *pdata_to_blkg(void *pdata,
+						struct blkio_policy_type *pol)
+{
+	if (pdata) {
+		struct blkg_policy_data *pd =
+			container_of(pdata, struct blkg_policy_data, pdata);
+		return pd->blkg;
+	}
+	return NULL;
+}
 
 static inline char *blkg_path(struct blkio_group *blkg)
 {
@@ -267,10 +280,17 @@ struct blkio_group {
 struct blkio_policy_type {
 };
 
+static inline int blkcg_init_queue(struct request_queue *q) { return 0; }
+static inline void blkcg_drain_queue(struct request_queue *q) { }
+static inline void blkcg_exit_queue(struct request_queue *q) { }
 static inline void blkio_policy_register(struct blkio_policy_type *blkiop) { }
 static inline void blkio_policy_unregister(struct blkio_policy_type *blkiop) { }
 static inline void blkg_destroy_all(struct request_queue *q) { }
 
+static inline void *blkg_to_pdata(struct blkio_group *blkg,
+				struct blkio_policy_type *pol) { return NULL; }
+static inline struct blkio_group *pdata_to_blkg(void *pdata,
+				struct blkio_policy_type *pol) { return NULL; }
 static inline char *blkg_path(struct blkio_group *blkg) { return NULL; }
 
 #endif
