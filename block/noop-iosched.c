@@ -90,16 +90,18 @@ static int noop_dispatch(struct request_queue *q, int force)
 	return 0;
 }
 
-static void *noop_init_queue(struct request_queue *q)
+static int noop_init_queue(struct request_queue *q)
 {
 	struct noop_data *nd;
 
 	nd = kmalloc_node(sizeof(*nd), GFP_KERNEL, q->node);
 	if (!nd)
-		return NULL;
+		return -ENOMEM;
+
 	INIT_LIST_HEAD(&nd->queue);
 	nd->sort_list = RB_ROOT;
-	return nd;
+	q->elevator->elevator_data = nd;
+	return 0;
 }
 
 static void noop_exit_queue(struct elevator_queue *e)
