@@ -246,6 +246,13 @@ config ARM_PATCH_PHYS_VIRT_16BIT
 config ARCH_HIBERNATION_POSSIBLE
 	def_bool y
 
+config NEED_MACH_IO_H
+	bool
+	help
+	  Select this when mach/io.h is required to provide special
+	  definitions for this platform.  The need for mach/io.h should
+	  be avoided when possible.
+
 config NO_MACH_MEMORY_H
 	bool
 	help
@@ -1574,6 +1581,14 @@ config HAVE_ARM_TWD
 	help
 	  This options enables support for the ARM timer and watchdog unit
 
+config MCPM
+	bool "Multi-Cluster Power Management"
+	depends on CPU_V7 && SMP
+	help
+	  This option provides the common power management infrastructure
+	  for (multi-)cluster based systems, such as big.LITTLE based
+	  systems.
+
 choice
 	prompt "Memory split"
 	default VMSPLIT_3G
@@ -2075,7 +2090,7 @@ config XIP_PHYS_ADDR
 
 config KEXEC
 	bool "Kexec system call (EXPERIMENTAL)"
-	depends on EXPERIMENTAL && (!SMP || HOTPLUG_CPU)
+	depends on (!SMP || PM_SLEEP_SMP)
 	help
 	  kexec is a system call that implements the ability to shutdown your
 	  current kernel, and to start another kernel.  It is like a reboot
@@ -2084,8 +2099,7 @@ config KEXEC
 
 	  It is an ongoing process to be certain the hardware in a machine
 	  is properly shutdown, so do not be surprised if this code does not
-	  initially work for you.  It may help to enable device hotplugging
-	  support.
+	  initially work for you.
 
 config ATAGS_PROC
 	bool "Export atags in procfs"
@@ -2277,7 +2291,6 @@ config NEON
 
 config KERNEL_MODE_NEON
 	bool "Support for NEON in kernel mode"
-	default n
 	depends on NEON && AEABI
 	help
 	  Say Y to include support for NEON in kernel mode.
