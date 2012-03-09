@@ -425,7 +425,7 @@ static int hci_uart_register_dev(struct hci_uart *hu)
 	hdev->close = hci_uart_close;
 	hdev->flush = hci_uart_flush;
 	hdev->send  = hci_uart_send_frame;
-	hdev->parent = hu->tty->dev;
+	SET_HCIDEV_DEV(hdev, hu->tty->dev);
 
 	hdev->owner = THIS_MODULE;
 
