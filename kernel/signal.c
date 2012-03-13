@@ -1017,15 +1017,6 @@ static inline int legacy_queue(struct sigpending *signals, int sig)
 	return (sig < SIGRTMIN) && sigismember(&signals->signal, sig);
 }
 
-/*
- * map the uid in struct cred into user namespace *ns
- */
-static inline uid_t map_cred_ns(const struct cred *cred,
-				struct user_namespace *ns)
-{
-	return from_kuid_munged(ns, cred->uid);
-}
-
 #ifdef CONFIG_USER_NS
 static inline void userns_fixup_signal_uid(struct siginfo *info, struct task_struct *t)
 {
@@ -1676,8 +1667,8 @@ bool do_notify_parent(struct task_struct *tsk, int sig)
 	 */
 	rcu_read_lock();
 	info.si_pid = task_pid_nr_ns(tsk, tsk->parent->nsproxy->pid_ns);
-	info.si_uid = map_cred_ns(__task_cred(tsk),
-			task_cred_xxx(tsk->parent, user_ns));
+	info.si_uid = from_kuid_munged(task_cred_xxx(tsk->parent, user_ns),
+				       task_uid(tsk));
 	rcu_read_unlock();
 
 	task_cputime(tsk, &utime, &stime);
@@ -1762,8 +1753,7 @@ static void do_notify_parent_cldstop(struct task_struct *tsk,
 	 */
 	rcu_read_lock();
 	info.si_pid = task_pid_nr_ns(tsk, parent->nsproxy->pid_ns);
-	info.si_uid = map_cred_ns(__task_cred(tsk),
-			task_cred_xxx(parent, user_ns));
+	info.si_uid = from_kuid_munged(task_cred_xxx(parent, user_ns), task_uid(tsk));
 	rcu_read_unlock();
 
 	task_cputime(tsk, &utime, &stime);
@@ -2180,8 +2170,8 @@ static int ptrace_signal(int signr, siginfo_t *info,
 		info->si_code = SI_USER;
 		rcu_read_lock();
 		info->si_pid = task_pid_vnr(current->parent);
-		info->si_uid = map_cred_ns(__task_cred(current->parent),
-				current_user_ns());
+		info->si_uid = from_kuid_munged(current_user_ns(),
+						task_uid(current->parent));
 		rcu_read_unlock();
 	}
 
