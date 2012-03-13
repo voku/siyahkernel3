@@ -572,7 +572,8 @@ static bool has_pid_permissions(struct pid_namespace *pid,
 }
 
 
-static int proc_pid_permission(struct inode *inode, int mask)
+static int proc_pid_permission(struct inode *inode, int mask,
+				unsigned int flags)
 {
 	struct pid_namespace *pid = inode->i_sb->s_fs_info;
 	struct task_struct *task;
@@ -595,7 +596,7 @@ static int proc_pid_permission(struct inode *inode, int mask)
 
 		return -EPERM;
 	}
-	return generic_permission(inode, mask);
+	return generic_permission(inode, mask, flags, NULL);
 }
 
 
