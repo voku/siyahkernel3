@@ -2014,11 +2014,11 @@ enum file_time_flags {
 	S_VERSION = 8,
 };
 
-extern void touch_atime(struct vfsmount *mnt, struct dentry *dentry);
+extern void touch_atime(struct path *);
 static inline void file_accessed(struct file *file)
 {
 	if (!(file->f_flags & O_NOATIME))
-		touch_atime(file->f_path.mnt, file->f_path.dentry);
+		touch_atime(&file->f_path);
 }
 
 int sync_inode(struct inode *inode, struct writeback_control *wbc);
