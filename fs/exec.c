@@ -846,6 +846,7 @@ static int exec_mmap(struct mm_struct *mm)
 	if (old_mm) {
 		up_read(&old_mm->mmap_sem);
 		BUG_ON(active_mm != old_mm);
+		setmax_mm_hiwater_rss(&tsk->signal->maxrss, old_mm);
 		mm_update_next_owner(old_mm);
 		mmput(old_mm);
 		return 0;
@@ -972,9 +973,6 @@ static int de_thread(struct task_struct *tsk)
 no_thread_group:
 	/* we have changed execution domain */
 	tsk->exit_signal = SIGCHLD;
-
-	if (current->mm)
-		setmax_mm_hiwater_rss(&sig->maxrss, current->mm);
 
 	exit_itimers(sig);
 	flush_itimer_signals();
