@@ -685,9 +685,6 @@ static int __compact_pgdat(pg_data_t *pgdat, struct compact_control *cc)
 	int zoneid;
 	struct zone *zone;
 
-	/* Flush pending updates to the LRU lists */
-	lru_add_drain_all();
-
 	for (zoneid = 0; zoneid < MAX_NR_ZONES; zoneid++) {
 
 		zone = &pgdat->node_zones[zoneid];
@@ -732,23 +729,21 @@ int compact_pgdat(pg_data_t *pgdat, int order)
 
 static int compact_node(int nid, bool sync)
 {
-	pg_data_t *pgdat;
 	struct compact_control cc = {
 		.order = -1,
 		.sync = true,
 	};
 
-	if (nid < 0 || nid >= nr_node_ids || !node_online(nid))
-		return -EINVAL;
-	pgdat = NODE_DATA(nid);
-
-	return __compact_pgdat(pgdat, &cc);
+	return __compact_pgdat(NODE_DATA(nid), &cc);
 }
 
 /* Compact all nodes in the system */
 int compact_nodes(bool sync)
 {
 	int nid;
+
+	/* Flush pending updates to the LRU lists */
+	lru_add_drain_all();
 
 	for_each_online_node(nid)
 		compact_node(nid, sync);
@@ -776,4 +771,3 @@ int sysctl_extfrag_handler(struct ctl_table *table, int write,
 
 	return 0;
 }
-
