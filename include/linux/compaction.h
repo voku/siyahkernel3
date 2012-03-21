@@ -38,19 +38,25 @@ extern unsigned long compact_zone_order(struct zone *zone, int order,
  * allocation success. 1 << compact_defer_limit compactions are skipped up
  * to a limit of 1 << COMPACT_MAX_DEFER_SHIFT
  */
-static inline void defer_compaction(struct zone *zone)
+static inline void defer_compaction(struct zone *zone, int order)
 {
 	zone->compact_considered = 0;
 	zone->compact_defer_shift++;
+
+	if (order < zone->compact_order_failed)
+		zone->compact_order_failed = order;
 
 	if (zone->compact_defer_shift > COMPACT_MAX_DEFER_SHIFT)
 		zone->compact_defer_shift = COMPACT_MAX_DEFER_SHIFT;
 }
 
 /* Returns true if compaction should be skipped this time */
-static inline bool compaction_deferred(struct zone *zone)
+static inline bool compaction_deferred(struct zone *zone, int order)
 {
 	unsigned long defer_limit = 1UL << zone->compact_defer_shift;
+
+	if (order < zone->compact_order_failed)
+		return false;
 
 	/* Avoid possible overflow */
 	if (++zone->compact_considered > defer_limit)
@@ -83,11 +89,11 @@ static inline unsigned long compact_zone_order(struct zone *zone, int order,
 	return COMPACT_CONTINUE;
 }
 
-static inline void defer_compaction(struct zone *zone)
+static inline void defer_compaction(struct zone *zone, int order)
 {
 }
 
-static inline bool compaction_deferred(struct zone *zone)
+static inline bool compaction_deferred(struct zone *zone, int order)
 {
 	return 1;
 }
@@ -98,24 +104,5 @@ static inline int compact_nodes(bool sync)
 }
 
 #endif /* CONFIG_COMPACTION */
-
-#if defined(CONFIG_COMPACTION) && defined(CONFIG_SYSFS) && defined(CONFIG_NUMA)
-extern int compaction_register_node(struct node *node);
-extern void compaction_unregister_node(struct node *node);
-
-#else
-
-#if 0
-static inline int compaction_register_node(struct node *node)
-{
-	return 0;
-}
-
-static inline void compaction_unregister_node(struct node *node)
-{
-}
-#endif
-
-#endif /* CONFIG_COMPACTION && CONFIG_SYSFS && CONFIG_NUMA */
 
 #endif /* _LINUX_COMPACTION_H */

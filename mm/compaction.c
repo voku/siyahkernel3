@@ -700,8 +700,18 @@ static int __compact_pgdat(pg_data_t *pgdat, struct compact_control *cc)
 		INIT_LIST_HEAD(&cc->freepages);
 		INIT_LIST_HEAD(&cc->migratepages);
 
-		if (cc->order < 0 || !compaction_deferred(zone))
+		if (cc->order < 0 || !compaction_deferred(zone, cc->order))
 			compact_zone(zone, cc);
+
+		if (cc->order > 0) {
+			int ok = zone_watermark_ok(zone, cc->order,
+						low_wmark_pages(zone), 0, 0);
+			if (ok && cc->order > zone->compact_order_failed)
+				zone->compact_order_failed = cc->order + 1;
+			/* Currently async compaction is never deferred. */
+			else if (!ok && cc->sync)
+				defer_compaction(zone, cc->order);
+		}
 
 		VM_BUG_ON(!list_empty(&cc->freepages));
 		VM_BUG_ON(!list_empty(&cc->migratepages));
@@ -767,24 +777,3 @@ int sysctl_extfrag_handler(struct ctl_table *table, int write,
 	return 0;
 }
 
-#if defined(CONFIG_SYSFS) && defined(CONFIG_NUMA)
-ssize_t sysfs_compact_node(struct device *dev,
-			struct device_attribute *attr,
-			const char *buf, size_t count)
-{
-	compact_node(dev->id);
-
-	return count;
-}
-static DEVICE_ATTR(compact, S_IWUSR, NULL, sysfs_compact_node);
-
-int compaction_register_node(struct node *node)
-{
-	return device_create_file(&node->dev, &dev_attr_compact);
-}
-
-void compaction_unregister_node(struct node *node)
-{
-	return device_remove_file(&node->dev, &dev_attr_compact);
-}
-#endif /* CONFIG_SYSFS && CONFIG_NUMA */
