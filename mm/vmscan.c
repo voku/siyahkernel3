@@ -1340,40 +1340,6 @@ int isolate_lru_page(struct page *page)
 	return ret;
 }
 
-#ifdef CONFIG_ZRAM_FOR_ANDROID
-/**
- * isolate_lru_page_compcache - tries to isolate a page for compcache
- * @page: page to isolate from its LRU list
- *
- * Isolates a @page from an LRU list, clears PageLRU,but
- * does not adjusts the vmstat statistic
- * Returns 0 if the page was removed from an LRU list.
- * Returns -EBUSY if the page was not on an LRU list.
- */
-int isolate_lru_page_compcache(struct page *page)
-{
-	int ret = -EBUSY;
-
-	VM_BUG_ON(!page_count(page));
-
-	if (PageLRU(page)) {
-		struct zone *zone = page_zone(page);
-
-		spin_lock_irq(&zone->lru_lock);
-		if (PageLRU(page)) {
-			int lru = page_lru(page);
-			ret = 0;
-			get_page(page);
-			ClearPageLRU(page);
-			mem_cgroup_lru_del_list(page, lru);
-			list_del(&page->lru);
-		}
-		spin_unlock_irq(&zone->lru_lock);
-	}
-	return ret;
-}
-#endif
-
 /*
  * Are there way too many processes in the direct reclaim path already?
  */
@@ -1456,7 +1422,6 @@ update_isolated_counts(struct mem_cgroup_zone *mz,
 		       unsigned long *nr_anon,
 		       unsigned long *nr_file)
 {
-	struct zone_reclaim_stat *reclaim_stat = get_reclaim_stat(mz);
 	struct zone *zone = mz->zone;
 	unsigned int count[NR_LRU_LISTS] = { 0, };
 	unsigned long nr_active = 0;
@@ -1477,6 +1442,7 @@ update_isolated_counts(struct mem_cgroup_zone *mz,
 		count[lru] += numpages;
 	}
 
+	preempt_disable();
 	__count_vm_events(PGDEACTIVATE, nr_active);
 
 	__mod_zone_page_state(zone, NR_ACTIVE_FILE,
@@ -1491,8 +1457,9 @@ update_isolated_counts(struct mem_cgroup_zone *mz,
 	*nr_anon = count[LRU_ACTIVE_ANON] + count[LRU_INACTIVE_ANON];
 	*nr_file = count[LRU_ACTIVE_FILE] + count[LRU_INACTIVE_FILE];
 
-	reclaim_stat->recent_scanned[0] += *nr_anon;
-	reclaim_stat->recent_scanned[1] += *nr_file;
+	__mod_zone_page_state(zone, NR_ISOLATED_ANON, *nr_anon);
+	__mod_zone_page_state(zone, NR_ISOLATED_FILE, *nr_file);
+	preempt_enable();
 }
 
 /*
@@ -1552,6 +1519,7 @@ shrink_inactive_list(unsigned long nr_to_scan, struct mem_cgroup_zone *mz,
 	unsigned long nr_file;
 	isolate_mode_t isolate_mode = ISOLATE_INACTIVE;
 	struct zone *zone = mz->zone;
+	struct zone_reclaim_stat *reclaim_stat = get_reclaim_stat(mz);
 
 	while (unlikely(too_many_isolated(zone, file, sc))) {
 		congestion_wait(BLK_RW_ASYNC, HZ/10);
@@ -1585,18 +1553,12 @@ shrink_inactive_list(unsigned long nr_to_scan, struct mem_cgroup_zone *mz,
 			__count_zone_vm_events(PGSCAN_DIRECT, zone,
 					       nr_scanned);
 	}
+	spin_unlock_irq(&zone->lru_lock);
 
-	if (nr_taken == 0) {
-		spin_unlock_irq(&zone->lru_lock);
+	if (nr_taken == 0)
 		return 0;
-	}
 
 	update_isolated_counts(mz, &page_list, &nr_anon, &nr_file);
-
-	__mod_zone_page_state(zone, NR_ISOLATED_ANON, nr_anon);
-	__mod_zone_page_state(zone, NR_ISOLATED_FILE, nr_file);
-
-	spin_unlock_irq(&zone->lru_lock);
 
 	nr_reclaimed = shrink_page_list(&page_list, mz, sc);
 
@@ -1607,6 +1569,9 @@ shrink_inactive_list(unsigned long nr_to_scan, struct mem_cgroup_zone *mz,
 	}
 
 	spin_lock_irq(&zone->lru_lock);
+
+	reclaim_stat->recent_scanned[0] += nr_anon;
+	reclaim_stat->recent_scanned[1] += nr_file;
 
 	if (current_is_kswapd())
 		__count_vm_events(KSWAPD_STEAL, nr_reclaimed);
