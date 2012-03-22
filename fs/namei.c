@@ -151,7 +151,7 @@ error:
 
 char *getname(const char __user * filename)
 {
-	return getname_flags(filename, 0, 0);
+	return getname_flags(filename, 0, NULL);
 }
 
 #ifdef CONFIG_AUDITSYSCALL
@@ -1386,7 +1386,7 @@ static inline int nested_symlink(struct path *path, struct nameidata *nd)
  */
 static inline long count_masked_bytes(unsigned long mask)
 {
-	return mask*0x0001020304050608 >> 56;
+	return mask*0x0001020304050608ul >> 56;
 }
 
 static inline unsigned int fold_hash(unsigned long hash)
@@ -1886,7 +1886,7 @@ int user_path_at_empty(int dfd, const char __user *name, unsigned flags,
 int user_path_at(int dfd, const char __user *name, unsigned flags,
 		 struct path *path)
 {
-	return user_path_at_empty(dfd, name, flags, path, 0);
+	return user_path_at_empty(dfd, name, flags, path, NULL);
 }
 
 static int user_path_parent(int dfd, const char __user *path,
