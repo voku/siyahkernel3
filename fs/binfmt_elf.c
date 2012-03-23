@@ -1108,6 +1108,9 @@ static unsigned long vma_dump_size(struct vm_area_struct *vma,
 	if (vma->vm_flags & VM_ALWAYSDUMP)
 		goto whole;
 
+	if (vma->vm_flags & VM_NODUMP)
+		return 0;
+
 	/* Hugetlb memory check */
 	if (vma->vm_flags & VM_HUGETLB) {
 		if ((vma->vm_flags & VM_SHARED) && FILTER(HUGETLB_SHARED))
