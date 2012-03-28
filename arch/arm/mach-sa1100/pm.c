@@ -29,7 +29,11 @@
 
 #include <mach/hardware.h>
 #include <asm/memory.h>
+<<<<<<< HEAD
 #include <asm/system.h>
+=======
+#include <asm/suspend.h>
+>>>>>>> 9f97da7... Disintegrate asm/system.h for ARM
 #include <asm/mach/time.h>
 
 extern void sa1100_cpu_suspend(long);

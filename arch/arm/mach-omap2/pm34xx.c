@@ -31,6 +31,12 @@
 #include <linux/console.h>
 #include <trace/events/power.h>
 
+<<<<<<< HEAD
+=======
+#include <asm/suspend.h>
+#include <asm/system_misc.h>
+
+>>>>>>> 9f97da7... Disintegrate asm/system.h for ARM
 #include <plat/sram.h>
 #include "clockdomain.h"
 #include "powerdomain.h"

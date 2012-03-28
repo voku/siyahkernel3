@@ -26,7 +26,6 @@
 #include <linux/types.h>
 #include <asm/byteorder.h>
 #include <asm/memory.h>
-#include <asm/system.h>
 
 /*
  * ISA I/O bus memory addresses are 1:1 with the physical address.
@@ -97,6 +96,7 @@ static inline void __iomem *__typesafe_io(unsigned long addr)
 
 /* IO barriers */
 #ifdef CONFIG_ARM_DMA_MEM_BUFFERABLE
+#include <asm/barrier.h>
 #define __iormb()		rmb()
 #define __iowmb()		wmb()
 #else

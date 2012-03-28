@@ -33,7 +33,6 @@
 #include <asm/mach-types.h>
 #include <asm/irq.h>
 #include <asm/setup.h>
-#include <asm/system.h>
 
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>

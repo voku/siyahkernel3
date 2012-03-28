@@ -15,6 +15,7 @@
 #include <linux/list.h>
 #include <linux/err.h>
 #include <linux/slab.h>
+#include <asm/system_misc.h>
 
 #include "powerdomain.h"
 #include <mach/omap4-common.h>

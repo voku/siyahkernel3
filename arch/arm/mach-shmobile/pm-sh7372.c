@@ -18,7 +18,13 @@
 #include <linux/pm_clock.h>
 #include <linux/platform_device.h>
 #include <linux/delay.h>
+<<<<<<< HEAD
 #include <asm/system.h>
+=======
+#include <linux/irq.h>
+#include <linux/bitrev.h>
+#include <linux/console.h>
+>>>>>>> 9f97da7... Disintegrate asm/system.h for ARM
 #include <asm/io.h>
 #include <asm/tlbflush.h>
 #include <mach/common.h>
