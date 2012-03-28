@@ -24,6 +24,12 @@ struct dma_map_ops {
 	int (*get_sgtable)(struct device *dev, struct sg_table *sgt, void *,
 			      dma_addr_t, size_t, struct dma_attrs *attrs);
 
+	void* (*alloc)(struct device *dev, size_t size,
+				dma_addr_t *dma_handle, gfp_t gfp,
+				struct dma_attrs *attrs);
+	void (*free)(struct device *dev, size_t size,
+			      void *vaddr, dma_addr_t dma_handle,
+			      struct dma_attrs *attrs);
 	dma_addr_t (*map_page)(struct device *dev, struct page *page,
 			       unsigned long offset, size_t size,
 			       enum dma_data_direction dir,
