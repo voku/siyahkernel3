@@ -69,6 +69,7 @@
 #include <linux/oom.h>
 #include <linux/khugepaged.h>
 #include <linux/signalfd.h>
+#include <linux/uprobes.h>
 
 #include <asm/pgtable.h>
 #include <asm/pgalloc.h>
@@ -437,6 +438,9 @@ static int dup_mmap(struct mm_struct *mm, struct mm_struct *oldmm)
 			tmp->vm_ops->open(tmp);
 
 		if (retval)
+			goto out;
+
+		if (file && uprobe_mmap(tmp))
 			goto out;
 	}
 	/* a new mm has just been created */

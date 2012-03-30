@@ -17,35 +17,33 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
- * Copyright (C) IBM Corporation, 2008-2011
+ * Copyright (C) IBM Corporation, 2008-2012
  * Authors:
  *	Srikar Dronamraju
  *	Jim Keniston
+ * Copyright (C) 2011-2012 Red Hat, Inc., Peter Zijlstra <pzijlstr@redhat.com>
  */
 
 #include <linux/errno.h>
 #include <linux/rbtree.h>
 
 struct vm_area_struct;
+struct mm_struct;
+struct inode;
+
 #ifdef CONFIG_ARCH_SUPPORTS_UPROBES
-#include <asm/uprobes.h>
-#else
-
-typedef u8 uprobe_opcode_t;
-struct uprobe_arch_info {};
-
-#define MAX_UINSN_BYTES 4
+# include <asm/uprobes.h>
 #endif
-
-#define uprobe_opcode_sz sizeof(uprobe_opcode_t)
 
 /* flags that denote/change uprobes behaviour */
 
 /* Have a copy of original instruction */
-#define UPROBES_COPY_INSN	0x1
+#define UPROBE_COPY_INSN	0x1
 
 /* Dont run handlers when first register/ last unregister in progress*/
-#define UPROBES_RUN_HANDLER	0x2
+#define UPROBE_RUN_HANDLER	0x2
+/* Can skip singlestep */
+#define UPROBE_SKIP_SSTEP	0x4
 
 struct uprobe_consumer {
 	int (*handler)(struct uprobe_consumer *self, struct pt_regs *regs);
@@ -58,39 +56,109 @@ struct uprobe_consumer {
 	struct uprobe_consumer *next;
 };
 
-struct uprobe {
-	struct rb_node		rb_node;	/* node in the rb tree */
-	atomic_t		ref;
-	struct rw_semaphore	consumer_rwsem;
-	struct list_head	pending_list;
-	struct uprobe_arch_info arch_info;
-	struct uprobe_consumer	*consumers;
-	struct inode		*inode;		/* Also hold a ref to inode */
-	loff_t			offset;
-	int			flags;
-	u8			insn[MAX_UINSN_BYTES];
+#ifdef CONFIG_UPROBES
+enum uprobe_task_state {
+	UTASK_RUNNING,
+	UTASK_BP_HIT,
+	UTASK_SSTEP,
+	UTASK_SSTEP_ACK,
+	UTASK_SSTEP_TRAPPED,
 };
 
-#ifdef CONFIG_UPROBES
-extern int __weak set_bkpt(struct mm_struct *mm, struct uprobe *uprobe, unsigned long vaddr);
-extern int __weak set_orig_insn(struct mm_struct *mm, struct uprobe *uprobe, unsigned long vaddr, bool verify);
-extern bool __weak is_bkpt_insn(uprobe_opcode_t *insn);
-extern int uprobe_register(struct inode *inode, loff_t offset, struct uprobe_consumer *consumer);
-extern void uprobe_unregister(struct inode *inode, loff_t offset, struct uprobe_consumer *consumer);
+/*
+ * uprobe_task: Metadata of a task while it singlesteps.
+ */
+struct uprobe_task {
+	enum uprobe_task_state		state;
+	struct arch_uprobe_task		autask;
+
+	struct uprobe			*active_uprobe;
+
+	unsigned long			xol_vaddr;
+	unsigned long			vaddr;
+};
+
+/*
+ * On a breakpoint hit, thread contests for a slot.  It frees the
+ * slot after singlestep. Currently a fixed number of slots are
+ * allocated.
+ */
+struct xol_area {
+	wait_queue_head_t 	wq;		/* if all slots are busy */
+	atomic_t 		slot_count;	/* number of in-use slots */
+	unsigned long 		*bitmap;	/* 0 = free slot */
+	struct page 		*page;
+
+	/*
+	 * We keep the vma's vm_start rather than a pointer to the vma
+	 * itself.  The probed process or a naughty kernel module could make
+	 * the vma go away, and we must handle that reasonably gracefully.
+	 */
+	unsigned long 		vaddr;		/* Page(s) of instruction slots */
+};
+
+struct uprobes_state {
+	struct xol_area		*xol_area;
+	atomic_t		count;
+};
+extern int __weak set_swbp(struct arch_uprobe *aup, struct mm_struct *mm, unsigned long vaddr);
+extern int __weak set_orig_insn(struct arch_uprobe *aup, struct mm_struct *mm,  unsigned long vaddr, bool verify);
+extern bool __weak is_swbp_insn(uprobe_opcode_t *insn);
+extern int uprobe_register(struct inode *inode, loff_t offset, struct uprobe_consumer *uc);
+extern void uprobe_unregister(struct inode *inode, loff_t offset, struct uprobe_consumer *uc);
 extern int uprobe_mmap(struct vm_area_struct *vma);
-#else /* CONFIG_UPROBES is not defined */
+extern void uprobe_munmap(struct vm_area_struct *vma);
+extern void uprobe_free_utask(struct task_struct *t);
+extern void uprobe_copy_process(struct task_struct *t);
+extern unsigned long __weak uprobe_get_swbp_addr(struct pt_regs *regs);
+extern int uprobe_post_sstep_notifier(struct pt_regs *regs);
+extern int uprobe_pre_sstep_notifier(struct pt_regs *regs);
+extern void uprobe_notify_resume(struct pt_regs *regs);
+extern bool uprobe_deny_signal(void);
+extern bool __weak arch_uprobe_skip_sstep(struct arch_uprobe *aup, struct pt_regs *regs);
+extern void uprobe_clear_state(struct mm_struct *mm);
+extern void uprobe_reset_state(struct mm_struct *mm);
+#else /* !CONFIG_UPROBES */
+struct uprobes_state {
+};
 static inline int
-uprobe_register(struct inode *inode, loff_t offset, struct uprobe_consumer *consumer)
+uprobe_register(struct inode *inode, loff_t offset, struct uprobe_consumer *uc)
 {
 	return -ENOSYS;
 }
 static inline void
-uprobe_unregister(struct inode *inode, loff_t offset, struct uprobe_consumer *consumer)
+uprobe_unregister(struct inode *inode, loff_t offset, struct uprobe_consumer *uc)
 {
 }
 static inline int uprobe_mmap(struct vm_area_struct *vma)
 {
 	return 0;
 }
-#endif /* CONFIG_UPROBES */
+static inline void uprobe_munmap(struct vm_area_struct *vma)
+{
+}
+static inline void uprobe_notify_resume(struct pt_regs *regs)
+{
+}
+static inline bool uprobe_deny_signal(void)
+{
+	return false;
+}
+static inline unsigned long uprobe_get_swbp_addr(struct pt_regs *regs)
+{
+	return 0;
+}
+static inline void uprobe_free_utask(struct task_struct *t)
+{
+}
+static inline void uprobe_copy_process(struct task_struct *t)
+{
+}
+static inline void uprobe_clear_state(struct mm_struct *mm)
+{
+}
+static inline void uprobe_reset_state(struct mm_struct *mm)
+{
+}
+#endif /* !CONFIG_UPROBES */
 #endif	/* _LINUX_UPROBES_H */
