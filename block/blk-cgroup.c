@@ -552,7 +552,6 @@ static struct blkio_group *blkg_alloc(struct blkio_cgroup *blkcg,
 
 struct blkio_group *blkg_lookup_create(struct blkio_cgroup *blkcg,
 				       struct request_queue *q,
-				       enum blkio_policy_id plid,
 				       bool for_root)
 	__releases(q->queue_lock) __acquires(q->queue_lock)
 {
@@ -1044,7 +1043,7 @@ static int blkio_policy_parse_and_set(char *buf, enum blkio_policy_id plid,
 	rcu_read_lock();
 
 	spin_lock_irq(disk->queue->queue_lock);
-	blkg = blkg_lookup_create(blkcg, disk->queue, plid, false);
+	blkg = blkg_lookup_create(blkcg, disk->queue, false);
 	spin_unlock_irq(disk->queue->queue_lock);
 
 	if (IS_ERR(blkg)) {
