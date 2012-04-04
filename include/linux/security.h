@@ -1523,7 +1523,7 @@ struct security_operations {
 	int (*file_send_sigiotask) (struct task_struct *tsk,
 				    struct fown_struct *fown, int sig);
 	int (*file_receive) (struct file *file);
-	int (*dentry_open) (struct file *file, const struct cred *cred);
+	int (*file_open) (struct file *file, const struct cred *cred);
 
 	int (*task_create) (unsigned long clone_flags);
 	void (*task_free) (struct task_struct *task);
@@ -1786,7 +1786,7 @@ int security_file_set_fowner(struct file *file);
 int security_file_send_sigiotask(struct task_struct *tsk,
 				 struct fown_struct *fown, int sig);
 int security_file_receive(struct file *file);
-int security_dentry_open(struct file *file, const struct cred *cred);
+int security_file_open(struct file *file, const struct cred *cred);
 int security_task_create(unsigned long clone_flags);
 int security_cred_alloc_blank(struct cred *cred, gfp_t gfp);
 void security_cred_free(struct cred *cred);
@@ -2285,8 +2285,8 @@ static inline int security_file_receive(struct file *file)
 	return 0;
 }
 
-static inline int security_dentry_open(struct file *file,
-				       const struct cred *cred)
+static inline int security_file_open(struct file *file,
+				     const struct cred *cred)
 {
 	return 0;
 }
