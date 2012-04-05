@@ -164,6 +164,9 @@ $(OUTPUT)python/perf.so: $(PYRF_OBJS)
 
 SCRIPTS = $(patsubst %.sh,%,$(SCRIPT_SH))
 
+EVENT_PARSE_DIR = ../lib/traceevent/
+LIBTRACEEVENT = $(OUTPUT)$(EVENT_PARSE_DIR)libtraceevent.a
+
 #
 # Single 'perf' binary right now:
 #
@@ -263,6 +266,7 @@ LIB_H += util/cpumap.h
 LIB_H += util/top.h
 LIB_H += $(ARCH_INCLUDE)
 LIB_H += util/cgroup.h
+LIB_H += $(EVENT_PARSE_DIR)event-parse.h
 
 LIB_OBJS += $(OUTPUT)util/abspath.o
 LIB_OBJS += $(OUTPUT)util/alias.o
@@ -630,7 +634,7 @@ $(OUTPUT)perf.o: perf.c $(OUTPUT)common-cmds.h $(OUTPUT)PERF-CFLAGS
 		'-DPERF_HTML_PATH="$(htmldir_SQ)"' \
 		$(ALL_CFLAGS) -c $(filter %.c,$^) -o $@
 
-$(OUTPUT)perf: $(OUTPUT)perf.o $(BUILTIN_OBJS) $(PERFLIBS)
+$(OUTPUT)perf: $(OUTPUT)perf.o $(BUILTIN_OBJS) $(PERFLIBS) $(LIBTRACEEVENT)
 	$(QUIET_LINK)$(CC) $(ALL_CFLAGS) $(ALL_LDFLAGS) $(OUTPUT)perf.o \
                $(BUILTIN_OBJS) $(LIBS) -o $@
 
@@ -722,6 +726,10 @@ $(sort $(dir $(DIRECTORY_DEPS))):
 
 $(LIB_FILE): $(LIB_OBJS)
 	$(QUIET_AR)$(RM) $@ && $(AR) rcs $@ $(LIB_OBJS)
+
+# libparsevent.a
+$(LIBTRACEEVENT):
+	make -C $(EVENT_PARSE_DIR) $(COMMAND_O) libtraceevent.a
 
 help:
 	@echo 'Perf make targets:'
