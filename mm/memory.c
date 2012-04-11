@@ -57,6 +57,7 @@
 #include <linux/swapops.h>
 #include <linux/elf.h>
 #include <linux/gfp.h>
+#include <linux/uprobes.h>
 
 #include <asm/io.h>
 #include <asm/pgalloc.h>
@@ -1330,6 +1331,9 @@ static void unmap_single_vma(struct mmu_gather *tlb,
 	end = min(vma->vm_end, end_addr);
 	if (end <= vma->vm_start)
 		return;
+
+	if (vma->vm_file)
+		uprobe_munmap(vma, start, end);
 
 	if (unlikely(is_pfn_mapping(vma)))
 		untrack_pfn(vma, 0, 0);
