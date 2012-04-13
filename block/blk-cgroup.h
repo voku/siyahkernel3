@@ -59,29 +59,13 @@ struct blkg_rwstat {
 	uint64_t			cnt[BLKG_RWSTAT_NR];
 };
 
-/* Per cpu blkio group stats */
-struct blkio_group_stats_cpu {
-	/* total bytes transferred */
-	struct blkg_rwstat		service_bytes;
-	/* total IOs serviced, post merge */
-	struct blkg_rwstat		serviced;
-};
-
-struct blkio_group_conf {
-	u64 iops[2];
-	u64 bps[2];
-};
-
 /* per-blkg per-policy data */
 struct blkg_policy_data {
 	/* the blkg this per-policy data belongs to */
 	struct blkio_group *blkg;
 
-	/* Configuration */
-	struct blkio_group_conf conf;
-
-	/* Per cpu stats pointer */
-	struct blkio_group_stats_cpu __percpu *stats_cpu;
+	/* used during policy activation */
+	struct list_head alloc_node;
 
 	/* pol->pdata_size bytes of private data used by policy impl */
 	char pdata[] __aligned(__alignof__(unsigned long long));
@@ -100,19 +84,20 @@ struct blkio_group {
 
 	struct blkg_policy_data *pd[BLKCG_MAX_POLS];
 
-	/* List of blkg waiting for per cpu stats memory to be allocated */
-	struct list_head alloc_node;
 	struct rcu_head rcu_head;
 };
 
 typedef void (blkio_init_group_fn)(struct blkio_group *blkg);
+typedef void (blkio_exit_group_fn)(struct blkio_group *blkg);
+typedef void (blkio_reset_group_stats_fn)(struct blkio_group *blkg);
 
 struct blkio_policy_ops {
 	blkio_init_group_fn *blkio_init_group_fn;
+	blkio_exit_group_fn *blkio_exit_group_fn;
+	blkio_reset_group_stats_fn *blkio_reset_group_stats_fn;
 };
 
 struct blkio_policy_type {
-	struct list_head list;
 	struct blkio_policy_ops ops;
 	int plid;
 	size_t pdata_size;		/* policy specific private data size */
@@ -126,9 +111,11 @@ extern void blkcg_exit_queue(struct request_queue *q);
 /* Blkio controller policy registration */
 extern int blkio_policy_register(struct blkio_policy_type *);
 extern void blkio_policy_unregister(struct blkio_policy_type *);
+extern int blkcg_activate_policy(struct request_queue *q,
+				 const struct blkio_policy_type *pol);
+extern void blkcg_deactivate_policy(struct request_queue *q,
+				    const struct blkio_policy_type *pol);
 extern void blkg_destroy_all(struct request_queue *q, bool destroy_root);
-extern void update_root_blkg_pd(struct request_queue *q,
-				const struct blkio_policy_type *pol);
 
 void blkcg_print_blkgs(struct seq_file *sf, struct blkio_cgroup *blkcg,
 		       u64 (*prfill)(struct seq_file *, void *, int),
@@ -343,10 +330,12 @@ static inline void blkcg_drain_queue(struct request_queue *q) { }
 static inline void blkcg_exit_queue(struct request_queue *q) { }
 static inline int blkio_policy_register(struct blkio_policy_type *blkiop) { return 0; }
 static inline void blkio_policy_unregister(struct blkio_policy_type *blkiop) { }
+static inline int blkcg_activate_policy(struct request_queue *q,
+					const struct blkio_policy_type *pol) { return 0; }
+static inline void blkcg_deactivate_policy(struct request_queue *q,
+					   const struct blkio_policy_type *pol) { }
 static inline void blkg_destroy_all(struct request_queue *q,
 				    bool destory_root) { }
-static inline void update_root_blkg_pd(struct request_queue *q,
-				       const struct blkio_policy_type *pol) { }
 
 static inline void *blkg_to_pdata(struct blkio_group *blkg,
 				struct blkio_policy_type *pol) { return NULL; }
