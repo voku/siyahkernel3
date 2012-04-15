@@ -75,7 +75,7 @@ int nfc_genl_targets_found(struct nfc_dev *dev);
 int nfc_genl_device_added(struct nfc_dev *dev);
 int nfc_genl_device_removed(struct nfc_dev *dev);
 
-struct nfc_dev *nfc_get_device(unsigned idx);
+struct nfc_dev *nfc_get_device(unsigned int idx);
 
 static inline void nfc_put_device(struct nfc_dev *dev)
 {

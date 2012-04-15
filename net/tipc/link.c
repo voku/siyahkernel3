@@ -619,7 +619,7 @@ static void link_activate(struct link *l_ptr)
  * @event: state machine event to process
  */
 
-static void link_state_event(struct link *l_ptr, unsigned event)
+static void link_state_event(struct link *l_ptr, unsigned int event)
 {
 	struct link *other;
 	u32 cont_intv = l_ptr->continuity_interval;
