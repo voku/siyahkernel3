@@ -34,6 +34,7 @@
 #include <linux/android_aid.h>
 #endif
 #include <linux/binfmts.h>
+#include <linux/personality.h>
 
 /*
  * If a non-root user executes a setuid-root binary in
