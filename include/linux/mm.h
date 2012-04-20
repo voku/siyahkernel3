@@ -1491,7 +1491,7 @@ out:
 extern int do_munmap(struct mm_struct *, unsigned long, size_t);
 
 /* These take the mm semaphore themselves */
-extern unsigned long do_brk(unsigned long, unsigned long);
+extern unsigned long vm_brk(unsigned long, unsigned long);
 extern int vm_munmap(unsigned long, size_t);
 
 /* truncate.c */
