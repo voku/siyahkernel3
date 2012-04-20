@@ -3771,7 +3771,8 @@ static inline void update_sg_lb_stats(struct sched_domain *sd,
 	unsigned long nr_running, max_nr_running, min_nr_running;
 	unsigned long load, max_cpu_load, min_cpu_load;
 	int i;
-	unsigned int balance_cpu = -1, first_idle_cpu = 0;
+	unsigned int balance_cpu = -1;
+	unsigned long balance_load = ~0UL;
 	unsigned long avg_load_per_task = 0;
 
 	if (local_group)
@@ -3790,12 +3791,11 @@ static inline void update_sg_lb_stats(struct sched_domain *sd,
 
 		/* Bias balancing toward cpus of our domain */
 		if (local_group) {
-			if (idle_cpu(i) && !first_idle_cpu) {
-				first_idle_cpu = 1;
+			load = target_load(i, load_idx);
+			if (load < balance_load || idle_cpu(i)) {
+				balance_load = load;
 				balance_cpu = i;
 			}
-
-			load = target_load(i, load_idx);
 		} else {
 			load = source_load(i, load_idx);
 			if (load > max_cpu_load)
