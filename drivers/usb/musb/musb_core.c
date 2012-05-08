@@ -1010,10 +1010,7 @@ static void musb_shutdown(struct platform_device *pdev)
 	struct musb	*musb = dev_to_musb(&pdev->dev);
 	unsigned long	flags;
 
-	if (pm_runtime_get_sync(musb->controller) < 0) {
-		pr_info("musb_shutdown: unable to get runtime_pm\n");
-		return;
-	}
+	pm_runtime_get_sync(musb->controller);
 	spin_lock_irqsave(&musb->lock, flags);
 	musb_platform_disable(musb);
 	musb_generic_disable(musb);
