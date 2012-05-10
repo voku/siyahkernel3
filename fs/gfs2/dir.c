@@ -777,7 +777,7 @@ static struct gfs2_leaf *new_leaf(struct inode *inode, struct buffer_head **pbh,
 	struct buffer_head *bh;
 	struct gfs2_leaf *leaf;
 	struct gfs2_dirent *dent;
-	struct qstr name = { .name = "", .len = 0, .hash = 0 };
+	struct qstr name = { .name = "" };
 
 	error = gfs2_alloc_block(ip, &bn, &n);
 	if (error)

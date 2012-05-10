@@ -99,9 +99,8 @@ rpc_setup_pipedir(struct rpc_clnt *clnt, char *dir_name)
 	static uint32_t clntid;
 	struct path path, dir;
 	char name[15];
-	struct qstr q = {
-		.name = name,
-	};
+	struct qstr q = { .name = name };
+	struct dentry *dir, *dentry;
 	int error;
 
 	clnt->cl_path.mnt = ERR_PTR(-ENOENT);

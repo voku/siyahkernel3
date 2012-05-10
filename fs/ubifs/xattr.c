@@ -300,7 +300,7 @@ int ubifs_setxattr(struct dentry *dentry, const char *name,
 {
 	struct inode *inode, *host = dentry->d_inode;
 	struct ubifs_info *c = host->i_sb->s_fs_info;
-	struct qstr nm = { .name = name, .len = strlen(name) };
+	struct qstr nm = QSTR_INIT(name, strlen(name));
 	struct ubifs_dent_node *xent;
 	union ubifs_key key;
 	int err, type;
@@ -363,7 +363,7 @@ ssize_t ubifs_getxattr(struct dentry *dentry, const char *name, void *buf,
 {
 	struct inode *inode, *host = dentry->d_inode;
 	struct ubifs_info *c = host->i_sb->s_fs_info;
-	struct qstr nm = { .name = name, .len = strlen(name) };
+	struct qstr nm = QSTR_INIT(name, strlen(name));
 	struct ubifs_inode *ui;
 	struct ubifs_dent_node *xent;
 	union ubifs_key key;
@@ -526,7 +526,7 @@ int ubifs_removexattr(struct dentry *dentry, const char *name)
 {
 	struct inode *inode, *host = dentry->d_inode;
 	struct ubifs_info *c = host->i_sb->s_fs_info;
-	struct qstr nm = { .name = name, .len = strlen(name) };
+	struct qstr nm = QSTR_INIT(name, strlen(name));
 	struct ubifs_dent_node *xent;
 	union ubifs_key key;
 	int err;
