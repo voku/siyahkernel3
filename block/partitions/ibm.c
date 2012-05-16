@@ -342,16 +342,66 @@ int ibm_partition(struct parsed_partitions *state)
 		 * label. If it has the LDL format, then we simply define a
 		 * partition as if it had an LNX1 label.
 		 */
-		res = 1;
-		if (info->format == DASD_FORMAT_LDL) {
-			strlcat(state->pp_buf, "(nonl)", PAGE_SIZE);
-			size = i_size >> 9;
-			offset = (info->label_block + 1) * (blocksize >> 9);
-			put_partition(state, 1, offset, size-offset);
-			strlcat(state->pp_buf, "\n", PAGE_SIZE);
-		}
-	} else
-		res = 0;
+		if (strncmp(type, "VOL1",  4) == 0) {
+			snprintf(tmp, sizeof(tmp), "VOL1/%8s:", name);
+			strlcat(state->pp_buf, tmp, PAGE_SIZE);
+			/*
+			 * get block number and read then go through format1
+			 * labels
+			 */
+			blk = cchhb2blk(&label->vol.vtoc, geo) + 1;
+			counter = 0;
+			data = read_part_sector(state, blk * (blocksize/512),
+						&sect);
+			while (data != NULL) {
+				struct vtoc_format1_label f1;
+
+				memcpy(&f1, data,
+				       sizeof(struct vtoc_format1_label));
+				put_dev_sector(sect);
+
+				/* skip FMT4 / FMT5 / FMT7 labels */
+				if (f1.DS1FMTID == _ascebc['4']
+				    || f1.DS1FMTID == _ascebc['5']
+				    || f1.DS1FMTID == _ascebc['7']
+				    || f1.DS1FMTID == _ascebc['9']) {
+					blk++;
+					data = read_part_sector(state,
+						blk * (blocksize/512), &sect);
+					continue;
+				}
+
+				/* only FMT1 and 8 labels valid at this point */
+				if (f1.DS1FMTID != _ascebc['1'] &&
+				    f1.DS1FMTID != _ascebc['8'])
+					break;
+
+				/* OK, we got valid partition data */
+				offset = cchh2blk(&f1.DS1EXT1.llimit, geo);
+				size  = cchh2blk(&f1.DS1EXT1.ulimit, geo) -
+					offset + geo->sectors;
+				if (counter >= state->limit)
+					break;
+				put_partition(state, counter + 1,
+					      offset * (blocksize >> 9),
+					      size * (blocksize >> 9));
+				counter++;
+				blk++;
+				data = read_part_sector(state,
+						blk * (blocksize/512), &sect);
+			}
+
+			if (!data)
+				/* Are we not supposed to report this ? */
+				goto out_readerr;
+		} else
+			printk(KERN_INFO "Expected Label VOL1 not "
+			       "found, treating as CDL formated Disk");
+
+	}
+
+	strlcat(state->pp_buf, "\n", PAGE_SIZE);
+	goto out_freeall;
 
 out_freeall:
 	kfree(label);
