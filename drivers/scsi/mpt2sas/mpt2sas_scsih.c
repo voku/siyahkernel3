@@ -2749,6 +2749,34 @@ _scsih_fw_event_cleanup_queue(struct MPT2SAS_ADAPTER *ioc)
 }
 
 /**
+<<<<<<< HEAD
+=======
+ * _scsih_ublock_io_all_device - unblock every device
+ * @ioc: per adapter object
+ *
+ * change the device state from block to running
+ */
+static void
+_scsih_ublock_io_all_device(struct MPT2SAS_ADAPTER *ioc)
+{
+	struct MPT2SAS_DEVICE *sas_device_priv_data;
+	struct scsi_device *sdev;
+
+	shost_for_each_device(sdev, ioc->shost) {
+		sas_device_priv_data = sdev->hostdata;
+		if (!sas_device_priv_data)
+			continue;
+		if (!sas_device_priv_data->block)
+			continue;
+		sas_device_priv_data->block = 0;
+		dewtprintk(ioc, sdev_printk(KERN_INFO, sdev, "device_running, "
+		    "handle(0x%04x)\n",
+		    sas_device_priv_data->sas_target->handle));
+		scsi_internal_device_unblock(sdev, SDEV_RUNNING);
+	}
+}
+/**
+>>>>>>> 5d9fb5c... [SCSI] core, classes, mpt2sas: have scsi_internal_device_unblock take new state
  * _scsih_ublock_io_device - set the device state to SDEV_RUNNING
  * @ioc: per adapter object
  * @handle: device handle
@@ -2772,7 +2800,7 @@ _scsih_ublock_io_device(struct MPT2SAS_ADAPTER *ioc, u16 handle)
 			    MPT2SAS_INFO_FMT "SDEV_RUNNING: "
 			    "handle(0x%04x)\n", ioc->name, handle));
 			sas_device_priv_data->block = 0;
-			scsi_internal_device_unblock(sdev);
+			scsi_internal_device_unblock(sdev, SDEV_RUNNING);
 		}
 	}
 }
