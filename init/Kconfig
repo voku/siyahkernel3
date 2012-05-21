@@ -386,6 +386,7 @@ config AUDIT_TREE
 	select FSNOTIFY
 
 source "kernel/irq/Kconfig"
+source "kernel/time/Kconfig"
 
 menu "RCU Subsystem"
 

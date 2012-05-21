@@ -97,7 +97,6 @@ config X86
 	select ALWAYS_USE_PERSISTENT_CLOCK
 	select GENERIC_STRNCPY_FROM_USER
 	select GENERIC_STRNLEN_USER
-<<<<<<< HEAD
 	select HAVE_CONTEXT_TRACKING if X86_64
 	select HAVE_IRQ_TIME_ACCOUNTING
 	select VIRT_TO_BUS
@@ -108,10 +107,8 @@ config X86
 	select OLD_SIGSUSPEND3 if X86_32 || IA32_EMULATION
 	select OLD_SIGACTION if X86_32
 	select COMPAT_OLD_SIGACTION if IA32_EMULATION
-=======
 	select MODULES_USE_ELF_REL if X86_32
 	select MODULES_USE_ELF_RELA if X86_64
->>>>>>> 786d35d... Make most arch asm/module.h files use asm-generic/module.h
 
 config INSTRUCTION_DECODER
 	def_bool (KPROBES || PERF_EVENTS || UPROBES)
@@ -290,7 +287,15 @@ source "kernel/Kconfig.freezer"
 
 menu "Processor type and features"
 
-source "kernel/time/Kconfig"
+config ZONE_DMA
+	bool "DMA memory allocation support" if EXPERT
+	default y
+	help
+	  DMA memory allocation support allows devices with less than 32-bit
+	  addressing to allocate within the first 16MB of address space.
+	  Disable if no such devices will be used.
+
+	  If unsure, say Y.
 
 config SMP
 	bool "Symmetric multi-processing support"

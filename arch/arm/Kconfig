@@ -1448,8 +1448,6 @@ endmenu
 
 menu "Kernel Features"
 
-source "kernel/time/Kconfig"
-
 config SMP
 	bool "Symmetric Multi-Processing"
 	depends on CPU_V6K || CPU_V7
