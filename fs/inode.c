@@ -1628,6 +1628,7 @@ void __init inode_init_early(void)
 					HASH_EARLY,
 					&i_hash_shift,
 					&i_hash_mask,
+					0,
 					0);
 
 	for (loop = 0; loop < (1 << i_hash_shift); loop++)
@@ -1659,6 +1660,7 @@ void __init inode_init(void)
 					0,
 					&i_hash_shift,
 					&i_hash_mask,
+					0,
 					0);
 
 	for (loop = 0; loop < (1 << i_hash_shift); loop++)
