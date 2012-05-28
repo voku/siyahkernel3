@@ -1309,6 +1309,102 @@ static int do_test(int m)
 	case 499:
 		break;
 #endif
+
+	case 500:
+		test_acipher_speed("ecb(aes)", ENCRYPT, sec, NULL, 0,
+				   speed_template_16_24_32);
+		test_acipher_speed("ecb(aes)", DECRYPT, sec, NULL, 0,
+				   speed_template_16_24_32);
+		test_acipher_speed("cbc(aes)", ENCRYPT, sec, NULL, 0,
+				   speed_template_16_24_32);
+		test_acipher_speed("cbc(aes)", DECRYPT, sec, NULL, 0,
+				   speed_template_16_24_32);
+		test_acipher_speed("lrw(aes)", ENCRYPT, sec, NULL, 0,
+				   speed_template_32_40_48);
+		test_acipher_speed("lrw(aes)", DECRYPT, sec, NULL, 0,
+				   speed_template_32_40_48);
+		test_acipher_speed("xts(aes)", ENCRYPT, sec, NULL, 0,
+				   speed_template_32_48_64);
+		test_acipher_speed("xts(aes)", DECRYPT, sec, NULL, 0,
+				   speed_template_32_48_64);
+		test_acipher_speed("ctr(aes)", ENCRYPT, sec, NULL, 0,
+				   speed_template_16_24_32);
+		test_acipher_speed("ctr(aes)", DECRYPT, sec, NULL, 0,
+				   speed_template_16_24_32);
+		break;
+
+	case 501:
+		test_acipher_speed("ecb(des3_ede)", ENCRYPT, sec,
+				   des3_speed_template, DES3_SPEED_VECTORS,
+				   speed_template_24);
+		test_acipher_speed("ecb(des3_ede)", DECRYPT, sec,
+				   des3_speed_template, DES3_SPEED_VECTORS,
+				   speed_template_24);
+		test_acipher_speed("cbc(des3_ede)", ENCRYPT, sec,
+				   des3_speed_template, DES3_SPEED_VECTORS,
+				   speed_template_24);
+		test_acipher_speed("cbc(des3_ede)", DECRYPT, sec,
+				   des3_speed_template, DES3_SPEED_VECTORS,
+				   speed_template_24);
+		break;
+
+	case 502:
+		test_acipher_speed("ecb(des)", ENCRYPT, sec, NULL, 0,
+				   speed_template_8);
+		test_acipher_speed("ecb(des)", DECRYPT, sec, NULL, 0,
+				   speed_template_8);
+		test_acipher_speed("cbc(des)", ENCRYPT, sec, NULL, 0,
+				   speed_template_8);
+		test_acipher_speed("cbc(des)", DECRYPT, sec, NULL, 0,
+				   speed_template_8);
+		break;
+
+	case 503:
+		test_acipher_speed("ecb(serpent)", ENCRYPT, sec, NULL, 0,
+				   speed_template_16_32);
+		test_acipher_speed("ecb(serpent)", DECRYPT, sec, NULL, 0,
+				   speed_template_16_32);
+		test_acipher_speed("cbc(serpent)", ENCRYPT, sec, NULL, 0,
+				   speed_template_16_32);
+		test_acipher_speed("cbc(serpent)", DECRYPT, sec, NULL, 0,
+				   speed_template_16_32);
+		test_acipher_speed("ctr(serpent)", ENCRYPT, sec, NULL, 0,
+				   speed_template_16_32);
+		test_acipher_speed("ctr(serpent)", DECRYPT, sec, NULL, 0,
+				   speed_template_16_32);
+		test_acipher_speed("lrw(serpent)", ENCRYPT, sec, NULL, 0,
+				   speed_template_32_48);
+		test_acipher_speed("lrw(serpent)", DECRYPT, sec, NULL, 0,
+				   speed_template_32_48);
+		test_acipher_speed("xts(serpent)", ENCRYPT, sec, NULL, 0,
+				   speed_template_32_64);
+		test_acipher_speed("xts(serpent)", DECRYPT, sec, NULL, 0,
+				   speed_template_32_64);
+		break;
+
+	case 504:
+		test_acipher_speed("ecb(twofish)", ENCRYPT, sec, NULL, 0,
+				   speed_template_16_24_32);
+		test_acipher_speed("ecb(twofish)", DECRYPT, sec, NULL, 0,
+				   speed_template_16_24_32);
+		test_acipher_speed("cbc(twofish)", ENCRYPT, sec, NULL, 0,
+				   speed_template_16_24_32);
+		test_acipher_speed("cbc(twofish)", DECRYPT, sec, NULL, 0,
+				   speed_template_16_24_32);
+		test_acipher_speed("ctr(twofish)", ENCRYPT, sec, NULL, 0,
+				   speed_template_16_24_32);
+		test_acipher_speed("ctr(twofish)", DECRYPT, sec, NULL, 0,
+				   speed_template_16_24_32);
+		test_acipher_speed("lrw(twofish)", ENCRYPT, sec, NULL, 0,
+				   speed_template_32_40_48);
+		test_acipher_speed("lrw(twofish)", DECRYPT, sec, NULL, 0,
+				   speed_template_32_40_48);
+		test_acipher_speed("xts(twofish)", ENCRYPT, sec, NULL, 0,
+				   speed_template_32_48_64);
+		test_acipher_speed("xts(twofish)", DECRYPT, sec, NULL, 0,
+				   speed_template_32_48_64);
+		break;
+
 	case 1000:
 		test_available();
 		break;
