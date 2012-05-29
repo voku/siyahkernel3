@@ -1158,10 +1158,13 @@ static void __split_huge_page_refcount(struct page *page)
 	unsigned long head_index = page->index;
 	struct zone *zone = page_zone(page);
 	int zonestat;
+	struct lruvec *lruvec;
 	int tail_count = 0;
 
 	/* prevent PageLRU to go away from under us, and freeze lru stats */
 	spin_lock_irq(&zone->lru_lock);
+	lruvec = mem_cgroup_page_lruvec(page, zone);
+
 	compound_lock(page);
 
 	for (i = 1; i < HPAGE_PMD_NR; i++) {
@@ -1236,12 +1239,12 @@ static void __split_huge_page_refcount(struct page *page)
 
 		mem_cgroup_split_huge_fixup(page, page_tail);
 
-		lru_add_page_tail(zone, page, page_tail);
+		lru_add_page_tail(page, page_tail, lruvec);
 	}
 	atomic_sub(tail_count, &page->_count);
 	BUG_ON(atomic_read(&page->_count) <= 0);
 
-	__dec_zone_page_state(page, NR_ANON_TRANSPARENT_HUGEPAGES);
+	__mod_zone_page_state(zone, NR_ANON_TRANSPARENT_HUGEPAGES, -1);
 	__mod_zone_page_state(zone, NR_ANON_PAGES, HPAGE_PMD_NR);
 
 	/*

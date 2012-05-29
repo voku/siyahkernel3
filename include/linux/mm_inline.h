@@ -21,22 +21,22 @@ static inline int page_is_file_cache(struct page *page)
 	return !PageSwapBacked(page);
 }
 
-static inline void
-add_page_to_lru_list(struct zone *zone, struct page *page, enum lru_list lru)
+static __always_inline void add_page_to_lru_list(struct page *page,
+				struct lruvec *lruvec, enum lru_list lru)
 {
-	struct lruvec *lruvec;
-
-	lruvec = mem_cgroup_lru_add_list(zone, page, lru);
+	int nr_pages = hpage_nr_pages(page);
+	mem_cgroup_update_lru_size(lruvec, lru, nr_pages);
 	list_add(&page->lru, &lruvec->lists[lru]);
-	__mod_zone_page_state(zone, NR_LRU_BASE + lru, hpage_nr_pages(page));
+	__mod_zone_page_state(lruvec_zone(lruvec), NR_LRU_BASE + lru, nr_pages);
 }
 
-static inline void
-del_page_from_lru_list(struct zone *zone, struct page *page, enum lru_list lru)
+static __always_inline void del_page_from_lru_list(struct page *page,
+				struct lruvec *lruvec, enum lru_list lru)
 {
-	mem_cgroup_lru_del_list(page, lru);
+	int nr_pages = hpage_nr_pages(page);
+	mem_cgroup_update_lru_size(lruvec, lru, -nr_pages);
 	list_del(&page->lru);
-	__mod_zone_page_state(zone, NR_LRU_BASE + lru, -hpage_nr_pages(page));
+	__mod_zone_page_state(lruvec_zone(lruvec), NR_LRU_BASE + lru, -nr_pages);
 }
 
 /**
@@ -54,8 +54,14 @@ static inline enum lru_list page_lru_base_type(struct page *page)
 	return LRU_INACTIVE_ANON;
 }
 
-static inline void
-del_page_from_lru(struct zone *zone, struct page *page)
+/**
+ * page_off_lru - which LRU list was page on? clearing its lru flags.
+ * @page: the page to test
+ *
+ * Returns the LRU list a page was on, as an index into the array of LRU
+ * lists; and clears its Unevictable or Active flags, ready for freeing.
+ */
+static __always_inline enum lru_list page_off_lru(struct page *page)
 {
 	enum lru_list lru;
 
@@ -69,9 +75,7 @@ del_page_from_lru(struct zone *zone, struct page *page)
 			lru += LRU_ACTIVE;
 		}
 	}
-	mem_cgroup_lru_del_list(page, lru);
-	list_del(&page->lru);
-	__mod_zone_page_state(zone, NR_LRU_BASE + lru, -hpage_nr_pages(page));
+	return lru;
 }
 
 /**
@@ -81,7 +85,7 @@ del_page_from_lru(struct zone *zone, struct page *page)
  * Returns the LRU list a page should be on, as an index
  * into the array of LRU lists.
  */
-static inline enum lru_list page_lru(struct page *page)
+static __always_inline enum lru_list page_lru(struct page *page)
 {
 	enum lru_list lru;
 
@@ -92,7 +96,6 @@ static inline enum lru_list page_lru(struct page *page)
 		if (PageActive(page))
 			lru += LRU_ACTIVE;
 	}
-
 	return lru;
 }
 
