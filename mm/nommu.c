@@ -1064,6 +1064,9 @@ static int validate_mmap_request(struct file *file,
 	ret = security_mmap_addr(addr);
 	if (ret < 0)
 		return ret;
+	ret = security_mmap_file(file, reqprot, prot, flags);
+	if (ret < 0)
+		return ret;
 
 	/* looks okay */
 	*_capabilities = capabilities;
