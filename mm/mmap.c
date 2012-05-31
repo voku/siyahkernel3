@@ -957,7 +957,7 @@ void vm_stat_account(struct mm_struct *mm, unsigned long flags,
  * The caller must hold down_write(&current->mm->mmap_sem).
  */
 
-static unsigned long do_mmap_pgoff(struct file *file, unsigned long addr,
+unsigned long do_mmap_pgoff(struct file *file, unsigned long addr,
 			unsigned long len, unsigned long prot,
 			unsigned long flags, unsigned long pgoff)
 {
@@ -1094,7 +1094,7 @@ static unsigned long do_mmap_pgoff(struct file *file, unsigned long addr,
 	return mmap_region(file, addr, len, flags, vm_flags, pgoff);
 }
 
-unsigned long do_mmap(struct file *file, unsigned long addr,
+static unsigned long do_mmap(struct file *file, unsigned long addr,
 	unsigned long len, unsigned long prot,
 	unsigned long flag, unsigned long offset)
 {
