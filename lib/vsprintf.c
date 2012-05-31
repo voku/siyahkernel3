@@ -123,7 +123,8 @@ char *put_dec_full9(char *buf, unsigned q)
 {
 	unsigned r;
 
-	/* Possible ways to approx. divide by 10
+	/*
+	 * Possible ways to approx. divide by 10
 	 * (x * 0x1999999a) >> 32 x < 1073741829 (multiply must be 64-bit)
 	 * (x * 0xcccd) >> 19     x <      81920 (x < 262149 when 64-bit mul)
 	 * (x * 0x6667) >> 18     x <      43699
@@ -175,28 +176,36 @@ char *put_dec_trunc8(char *buf, unsigned r)
 	/* Copy of previous function's body with added early returns */
 	q      = (r * (uint64_t)0x1999999a) >> 32;
 	*buf++ = (r - 10 * q) + '0'; /* 2 */
-	if (q == 0) return buf;
+	if (q == 0)
+		return buf;
 	r      = (q * (uint64_t)0x1999999a) >> 32;
 	*buf++ = (q - 10 * r) + '0'; /* 3 */
-	if (r == 0) return buf;
+	if (r == 0)
+		return buf;
 	q      = (r * (uint64_t)0x1999999a) >> 32;
 	*buf++ = (r - 10 * q) + '0'; /* 4 */
-	if (q == 0) return buf;
+	if (q == 0)
+		return buf;
 	r      = (q * (uint64_t)0x1999999a) >> 32;
 	*buf++ = (q - 10 * r) + '0'; /* 5 */
-	if (r == 0) return buf;
+	if (r == 0)
+		return buf;
 	q      = (r * 0x199a) >> 16;
 	*buf++ = (r - 10 * q)  + '0'; /* 6 */
-	if (q == 0) return buf;
+	if (q == 0)
+		return buf;
 	r      = (q * 0xcd) >> 11;
 	*buf++ = (q - 10 * r)  + '0'; /* 7 */
-	if (r == 0) return buf;
+	if (r == 0)
+		return buf;
 	q      = (r * 0xcd) >> 11;
 	*buf++ = (r - 10 * q) + '0'; /* 8 */
-	if (q == 0) return buf;
+	if (q == 0)
+		return buf;
 	*buf++ = q + '0'; /* 9 */
 	return buf;
 }
+
 /* There are two algorithms to print larger numbers.
  * One is generic: divide by 1000000000 and repeatedly print
  * groups of (up to) 9 digits. It's conceptually simple,
@@ -287,7 +296,7 @@ char *put_dec(char *buf, unsigned long long n)
 	if (!q)
 		goto done;
 	buf = put_dec_full4(buf, q);
-done:
+ done:
 	while (buf[-1] == '0')
 		--buf;
 
@@ -530,7 +539,7 @@ char *symbol_string(char *buf, char *end, void *ptr,
 	else if (ext != 'f' && ext != 's')
 		sprint_symbol(sym, value);
 	else
-		kallsyms_lookup(value, NULL, NULL, NULL, sym);
+		sprint_symbol_no_offset(sym, value);
 
 	return string(buf, end, sym, spec);
 #else
@@ -661,7 +670,7 @@ char *mac_address_string(char *buf, char *end, u8 *addr,
 	}
 
 	for (i = 0; i < 6; i++) {
-		p = pack_hex_byte(p, addr[i]);
+		p = hex_byte_pack(p, addr[i]);
 		if (fmt[0] == 'M' && i != 5)
 			*p++ = separator;
 	}
@@ -781,13 +790,13 @@ char *ip6_compressed_string(char *p, const char *addr)
 		lo = word & 0xff;
 		if (hi) {
 			if (hi > 0x0f)
-				p = pack_hex_byte(p, hi);
+				p = hex_byte_pack(p, hi);
 			else
 				*p++ = hex_asc_lo(hi);
-			p = pack_hex_byte(p, lo);
+			p = hex_byte_pack(p, lo);
 		}
 		else if (lo > 0x0f)
-			p = pack_hex_byte(p, lo);
+			p = hex_byte_pack(p, lo);
 		else
 			*p++ = hex_asc_lo(lo);
 		needcolon = true;
@@ -809,8 +818,8 @@ char *ip6_string(char *p, const char *addr, const char *fmt)
 	int i;
 
 	for (i = 0; i < 8; i++) {
-		p = pack_hex_byte(p, *addr++);
-		p = pack_hex_byte(p, *addr++);
+		p = hex_byte_pack(p, *addr++);
+		p = hex_byte_pack(p, *addr++);
 		if (fmt[0] == 'I' && i != 7)
 			*p++ = ':';
 	}
@@ -868,7 +877,7 @@ char *uuid_string(char *buf, char *end, const u8 *addr,
 	}
 
 	for (i = 0; i < 16; i++) {
-		p = pack_hex_byte(p, addr[index[i]]);
+		p = hex_byte_pack(p, addr[index[i]]);
 		switch (i) {
 		case 3:
 		case 5:
@@ -889,6 +898,18 @@ char *uuid_string(char *buf, char *end, const u8 *addr,
 	}
 
 	return string(buf, end, uuid, spec);
+}
+
+static
+char *netdev_feature_string(char *buf, char *end, const u8 *addr,
+		      struct printf_spec spec)
+{
+	spec.flags |= SPECIAL | SMALL | ZEROPAD;
+	if (spec.field_width == -1)
+		spec.field_width = 2 + 2 * sizeof(netdev_features_t);
+	spec.base = 16;
+
+	return number(buf, end, *(const netdev_features_t *)addr, spec);
 }
 
 int kptr_restrict __read_mostly;
@@ -938,6 +959,7 @@ int kptr_restrict __read_mostly;
  *       Do not use this feature without some mechanism to verify the
  *       correctness of the format string and va_list arguments.
  * - 'K' For a kernel pointer that should be hidden from unprivileged users
+ * - 'NF' For a netdev_features_t
  *
  * Note: The difference between 'S' and 'F' is that on ia64 and ppc64
  * function pointers are really function descriptors, which contain a
@@ -1017,6 +1039,12 @@ char *pointer(const char *fmt, char *buf, char *end, void *ptr,
 		      (kptr_restrict == 1 &&
 		       has_capability_noaudit(current, CAP_SYSLOG))))
 			ptr = NULL;
+		break;
+	case 'N':
+		switch (fmt[1]) {
+		case 'F':
+			return netdev_feature_string(buf, end, ptr, spec);
+		}
 		break;
 	}
 	spec.flags |= SMALL;
