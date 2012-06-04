@@ -971,8 +971,6 @@ power_attr(pm_freeze_timeout);
 #endif	/* CONFIG_FREEZER*/
 
 static struct attribute *g[] = {
-	&touch_event_attr.attr,
-	&touch_event_timer_attr.attr,
 	&state_attr.attr,
 #ifdef CONFIG_PM_TRACE
 	&pm_trace_attr.attr,
@@ -988,6 +986,8 @@ static struct attribute *g[] = {
 	&wake_lock_attr.attr,
 	&wake_unlock_attr.attr,
 #endif
+	&touch_event_attr.attr,
+	&touch_event_timer_attr.attr,
 #ifdef CONFIG_PM_DEBUG
 	&pm_test_attr.attr,
 #endif
