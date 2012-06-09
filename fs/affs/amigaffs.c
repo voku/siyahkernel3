@@ -136,9 +136,14 @@ affs_fix_dcache(struct dentry *dentry, u32 entry_ino)
 		dentry = list_entry(next, struct dentry, d_alias);
 =======
 	struct dentry *dentry;
+	struct hlist_node *p;
 	spin_lock(&inode->i_lock);
+<<<<<<< HEAD
 	hlist_for_each_entry(dentry, &inode->i_dentry, d_alias) {
 >>>>>>> b67bfe0... hlist: drop the node parameter from iterators
+=======
+	hlist_for_each_entry(dentry, p, &inode->i_dentry, d_alias) {
+>>>>>>> b3d9b7a... vfs: switch i_dentry/d_alias to hlist
 		if (entry_ino == (u32)(long)dentry->d_fsdata) {
 			dentry->d_fsdata = data;
 			break;

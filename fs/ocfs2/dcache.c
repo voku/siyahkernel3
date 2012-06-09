@@ -170,6 +170,7 @@ struct dentry *ocfs2_find_local_alias(struct inode *inode,
 				      int skip_unhashed)
 {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	struct list_head *p;
 	struct dentry *dentry = NULL;
 
@@ -183,6 +184,13 @@ struct dentry *ocfs2_find_local_alias(struct inode *inode,
 	spin_lock(&inode->i_lock);
 	hlist_for_each_entry(dentry, &inode->i_dentry, d_alias) {
 >>>>>>> b67bfe0... hlist: drop the node parameter from iterators
+=======
+	struct hlist_node *p;
+	struct dentry *dentry;
+
+	spin_lock(&inode->i_lock);
+	hlist_for_each_entry(dentry, p, &inode->i_dentry, d_alias) {
+>>>>>>> b3d9b7a... vfs: switch i_dentry/d_alias to hlist
 		spin_lock(&dentry->d_lock);
 		if (ocfs2_match_dentry(dentry, parent_blkno, skip_unhashed)) {
 			trace_ocfs2_find_local_alias(dentry->d_name.len,
