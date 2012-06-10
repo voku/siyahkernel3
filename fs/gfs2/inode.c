@@ -754,8 +754,9 @@ fail:
  */
 
 static int gfs2_create(struct inode *dir, struct dentry *dentry,
-		       umode_t mode, struct nameidata *nd)
+		       umode_t mode, bool excl)
 {
+<<<<<<< HEAD
 	struct inode *inode;
 	int ret;
 
@@ -774,6 +775,9 @@ static int gfs2_create(struct inode *dir, struct dentry *dentry,
 
 	d_instantiate(dentry, inode);
 	return 0;
+=======
+	return gfs2_create_inode(dir, dentry, S_IFREG | mode, 0, NULL, 0, excl);
+>>>>>>> ebfc3b4... don't pass nameidata to ->create()
 }
 
 /**
