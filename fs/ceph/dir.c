@@ -611,6 +611,50 @@ static struct dentry *ceph_lookup(struct inode *dir, struct dentry *dentry,
 	return dentry;
 }
 
+<<<<<<< HEAD
+=======
+struct file *ceph_atomic_open(struct inode *dir, struct dentry *dentry,
+			      struct opendata *od, unsigned flags, umode_t mode,
+			      int *opened)
+{
+	int err;
+	struct dentry *res = NULL;
+	struct file *filp;
+
+	if (!(flags & O_CREAT)) {
+		if (dentry->d_name.len > NAME_MAX)
+			return ERR_PTR(-ENAMETOOLONG);
+
+		err = ceph_init_dentry(dentry);
+		if (err < 0)
+			return ERR_PTR(err);
+
+		return ceph_lookup_open(dir, dentry, od, flags, mode, opened);
+	}
+
+	if (d_unhashed(dentry)) {
+		res = ceph_lookup(dir, dentry, NULL);
+		if (IS_ERR(res))
+			return ERR_CAST(res);
+
+		if (res)
+			dentry = res;
+	}
+
+	/* We don't deal with positive dentries here */
+	if (dentry->d_inode) {
+		finish_no_open(od, res);
+		return NULL;
+	}
+
+	*opened |= FILE_CREATED;
+	filp = ceph_lookup_open(dir, dentry, od, flags, mode, opened);
+	dput(res);
+
+	return filp;
+}
+
+>>>>>>> 4723768... ->atomic_open() prototype change - pass int * instead of bool *
 /*
  * If we do a create but get no trace back from the MDS, follow up with
  * a lookup (the VFS expects us to link up the provided dentry).

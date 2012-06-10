@@ -256,6 +256,17 @@ static int
 v9fs_vfs_create_dotl(struct inode *dir, struct dentry *dentry, umode_t omode,
 		struct nameidata *nd)
 {
+<<<<<<< HEAD
+=======
+	return v9fs_vfs_mknod_dotl(dir, dentry, omode, 0);
+}
+
+static struct file *
+v9fs_vfs_atomic_open_dotl(struct inode *dir, struct dentry *dentry,
+			  struct opendata *od, unsigned flags, umode_t omode,
+			  int *opened)
+{
+>>>>>>> 4723768... ->atomic_open() prototype change - pass int * instead of bool *
 	int err = 0;
 	gid_t gid;
 	int flags;
@@ -364,7 +375,11 @@ v9fs_vfs_create_dotl(struct inode *dir, struct dentry *dentry, umode_t omode,
 	}
 	mutex_unlock(&v9inode->v_mutex);
 	/* Since we are opening a file, assign the open fid to the file */
+<<<<<<< HEAD
 	filp = lookup_instantiate_filp(nd, dentry, generic_file_open);
+=======
+	filp = finish_open(od, dentry, generic_file_open, opened);
+>>>>>>> 4723768... ->atomic_open() prototype change - pass int * instead of bool *
 	if (IS_ERR(filp)) {
 		err = PTR_ERR(filp);
 		goto err_clunk_old_fid;
@@ -374,7 +389,14 @@ v9fs_vfs_create_dotl(struct inode *dir, struct dentry *dentry, umode_t omode,
 	if (v9ses->cache)
 		v9fs_cache_inode_set_cookie(inode, filp);
 #endif
+<<<<<<< HEAD
 	return 0;
+=======
+	*opened |= FILE_CREATED;
+out:
+	dput(res);
+	return filp;
+>>>>>>> 4723768... ->atomic_open() prototype change - pass int * instead of bool *
 
 error:
 	if (fid)

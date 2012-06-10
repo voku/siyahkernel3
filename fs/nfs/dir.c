@@ -111,8 +111,14 @@ const struct inode_operations nfs3_dir_inode_operations = {
 
 #ifdef CONFIG_NFS_V4
 
+<<<<<<< HEAD
 static struct dentry *nfs_atomic_lookup(struct inode *, struct dentry *, struct nameidata *);
 static int nfs_open_create(struct inode *dir, struct dentry *dentry, umode_t mode, struct nameidata *nd);
+=======
+static struct file *nfs_atomic_open(struct inode *, struct dentry *,
+				    struct opendata *, unsigned, umode_t,
+				    int *);
+>>>>>>> 4723768... ->atomic_open() prototype change - pass int * instead of bool *
 const struct inode_operations nfs4_dir_inode_operations = {
 	.create		= nfs_open_create,
 	.lookup		= nfs_atomic_lookup,
@@ -1383,7 +1389,14 @@ static int do_open(struct inode *inode, struct file *filp)
 	return 0;
 }
 
+<<<<<<< HEAD
 static int nfs_intent_set_file(struct nameidata *nd, struct nfs_open_context *ctx)
+=======
+static struct file *nfs_finish_open(struct nfs_open_context *ctx,
+				    struct dentry *dentry,
+				    struct opendata *od, unsigned open_flags,
+				    int *opened)
+>>>>>>> 4723768... ->atomic_open() prototype change - pass int * instead of bool *
 {
 	struct file *filp;
 	int ret = 0;
@@ -1396,17 +1409,29 @@ static int nfs_intent_set_file(struct nameidata *nd, struct nfs_open_context *ct
 		if (ret < 0)
 			goto out;
 	}
+<<<<<<< HEAD
 	filp = lookup_instantiate_filp(nd, ctx->path.dentry, do_open);
 	if (IS_ERR(filp))
 		ret = PTR_ERR(filp);
 	else
+=======
+
+	filp = finish_open(od, dentry, do_open, opened);
+	if (!IS_ERR(filp))
+>>>>>>> 4723768... ->atomic_open() prototype change - pass int * instead of bool *
 		nfs_file_set_open_context(filp, ctx);
 out:
 	put_nfs_open_context(ctx);
 	return ret;
 }
 
+<<<<<<< HEAD
 static struct dentry *nfs_atomic_lookup(struct inode *dir, struct dentry *dentry, struct nameidata *nd)
+=======
+static struct file *nfs_atomic_open(struct inode *dir, struct dentry *dentry,
+				    struct opendata *od, unsigned open_flags,
+				    umode_t mode, int *opened)
+>>>>>>> 4723768... ->atomic_open() prototype change - pass int * instead of bool *
 {
 	struct nfs_open_context *ctx;
 	struct iattr attr;
@@ -1489,7 +1514,19 @@ static struct dentry *nfs_atomic_lookup(struct inode *dir, struct dentry *dentry
 	}
 out:
 	nfs_set_verifier(dentry, nfs_save_change_attribute(dir));
+<<<<<<< HEAD
 	return res;
+=======
+
+	filp = nfs_finish_open(ctx, dentry, od, open_flags, opened);
+
+	dput(res);
+	return filp;
+
+out_err:
+	return ERR_PTR(err);
+
+>>>>>>> 4723768... ->atomic_open() prototype change - pass int * instead of bool *
 no_open:
 	return nfs_lookup(dir, dentry, nd);
 }

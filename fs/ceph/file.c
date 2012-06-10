@@ -212,6 +212,7 @@ out:
  * may_open() fails, the struct *file gets cleaned up (i.e.
  * ceph_release gets called).  So fear not!
  */
+<<<<<<< HEAD
 /*
  * flags
  *  path_lookup_open   -> LOOKUP_OPEN
@@ -220,6 +221,11 @@ out:
 struct dentry *ceph_lookup_open(struct inode *dir, struct dentry *dentry,
 				struct nameidata *nd, int mode,
 				int locked_dir)
+=======
+struct file *ceph_lookup_open(struct inode *dir, struct dentry *dentry,
+			      struct opendata *od, unsigned flags, umode_t mode,
+			      int *opened)
+>>>>>>> 4723768... ->atomic_open() prototype change - pass int * instead of bool *
 {
 	struct ceph_fs_client *fsc = ceph_sb_to_client(dir->i_sb);
 	struct ceph_mds_client *mdsc = fsc->mdsc;
@@ -247,9 +253,19 @@ struct dentry *ceph_lookup_open(struct inode *dir, struct dentry *dentry,
 	dentry = ceph_finish_lookup(req, dentry, err);
 	if (!err && (flags & O_CREAT) && !req->r_reply_info.head->is_dentry)
 		err = ceph_handle_notrace_create(dir, dentry);
+<<<<<<< HEAD
 	if (!err)
 		err = ceph_init_file(req->r_dentry->d_inode, file,
 				     req->r_fmode);
+=======
+	if (err)
+		goto out;
+	file = finish_open(od, req->r_dentry, ceph_open, opened);
+	if (IS_ERR(file))
+		err = PTR_ERR(file);
+out:
+	ret = ceph_finish_lookup(req, dentry, err);
+>>>>>>> 4723768... ->atomic_open() prototype change - pass int * instead of bool *
 	ceph_mdsc_put_request(req);
 	dout("ceph_lookup_open result=%p\n", dentry);
 	return dentry;
