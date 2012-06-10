@@ -1607,9 +1607,13 @@ no_open:
 	if (IS_ERR(res))
 		goto out;
 
+<<<<<<< HEAD
 	finish_no_open(file, res);
 	return 1;
 >>>>>>> d958527... make ->atomic_open() return int
+=======
+	return finish_no_open(file, res);
+>>>>>>> e45198a... make finish_no_open() return int
 }
 
 static int nfs_open_revalidate(struct dentry *dentry, unsigned int flags)

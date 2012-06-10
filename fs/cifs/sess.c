@@ -394,6 +394,10 @@ static int decode_ntlmssp_challenge(char *bcc_ptr, int blob_len,
 	ses->ntlmssp->server_flags = le32_to_cpu(pblob->NegotiateFlags);
 	tioffset = le32_to_cpu(pblob->TargetInfoArray.BufferOffset);
 	tilen = le16_to_cpu(pblob->TargetInfoArray.Length);
+	if (tioffset > blob_len || tioffset + tilen > blob_len) {
+		cERROR(1, "tioffset + tilen too high %u + %u", tioffset, tilen);
+		return -EINVAL;
+	}
 	if (tilen) {
 		ses->auth_key.response = kmalloc(tilen, GFP_KERNEL);
 		if (!ses->auth_key.response) {
@@ -682,7 +686,7 @@ ssetup_ntlmssp_authenticate:
 			cpu_to_le16(CIFS_AUTH_RESP_SIZE);
 
 		/* calculate ntlm response and session key */
-		rc = setup_ntlm_response(ses);
+		rc = setup_ntlm_response(ses, nls_cp);
 		if (rc) {
 			cERROR(1, "Error %d during NTLM authentication", rc);
 			goto ssetup_exit;
