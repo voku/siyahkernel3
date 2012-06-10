@@ -4059,7 +4059,7 @@ static int btrfs_dentry_delete(const struct dentry *dentry)
 }
 
 static struct dentry *btrfs_lookup(struct inode *dir, struct dentry *dentry,
-				   struct nameidata *nd)
+				   unsigned int flags)
 {
 	return d_splice_alias(btrfs_lookup_dentry(dir, dentry), dentry);
 }

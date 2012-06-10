@@ -816,7 +816,7 @@ static int v9fs_vfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode
  */
 
 struct dentry *v9fs_vfs_lookup(struct inode *dir, struct dentry *dentry,
-				      struct nameidata *nameidata)
+				      unsigned int flags)
 {
 	struct dentry *res;
 	struct super_block *sb;
@@ -826,8 +826,13 @@ struct dentry *v9fs_vfs_lookup(struct inode *dir, struct dentry *dentry,
 	char *name;
 	int result = 0;
 
+<<<<<<< HEAD
 	P9_DPRINTK(P9_DEBUG_VFS, "dir: %p dentry: (%s) %p nameidata: %p\n",
 		dir, dentry->d_name.name, dentry, nameidata);
+=======
+	p9_debug(P9_DEBUG_VFS, "dir: %p dentry: (%s) %p flags: %x\n",
+		 dir, dentry->d_name.name, dentry, flags);
+>>>>>>> 00cd8dd... stop passing nameidata to ->lookup()
 
 	if (dentry->d_name.len > NAME_MAX)
 		return ERR_PTR(-ENAMETOOLONG);
@@ -906,7 +911,7 @@ v9fs_vfs_atomic_open(struct inode *dir, struct dentry *dentry,
 	struct dentry *res = NULL;
 
 	if (d_unhashed(dentry)) {
-		res = v9fs_vfs_lookup(dir, dentry, NULL);
+		res = v9fs_vfs_lookup(dir, dentry, 0);
 		if (IS_ERR(res))
 			return PTR_ERR(res);
 

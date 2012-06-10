@@ -788,7 +788,7 @@ static int gfs2_create(struct inode *dir, struct dentry *dentry,
  */
 
 static struct dentry *gfs2_lookup(struct inode *dir, struct dentry *dentry,
-				  struct nameidata *nd)
+				  unsigned int flags)
 {
 	struct inode *inode = NULL;
 

@@ -190,7 +190,7 @@ static int dbg_check_name(struct ubifs_dent_node *dent, struct qstr *nm)
 #endif
 
 static struct dentry *ubifs_lookup(struct inode *dir, struct dentry *dentry,
-				   struct nameidata *nd)
+				   unsigned int flags)
 {
 	int err;
 	union ubifs_key key;
