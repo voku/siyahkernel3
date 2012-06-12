@@ -13,7 +13,7 @@
 #include <asm/cacheflush.h>
 #include <asm/smp_plat.h>
 
-extern volatile int pen_release;
+#include "core.h"
 
 static inline void cpu_enter_lowpower(void)
 {
