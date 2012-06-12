@@ -1101,7 +1101,6 @@ static int do_test(int m)
 		break;
 
 	case 28:
-
 		ret += tcrypt_test("tgr160");
 		break;
 
@@ -1393,6 +1392,49 @@ static int do_test(int m)
 				  speed_template_32_64);
 		break;
 
+	case 208:
+		test_cipher_speed("ecb(arc4)", ENCRYPT, sec, NULL, 0,
+				  speed_template_8);
+		break;
+
+	case 209:
+		test_cipher_speed("ecb(cast5)", ENCRYPT, sec, NULL, 0,
+				  speed_template_8_16);
+		test_cipher_speed("ecb(cast5)", DECRYPT, sec, NULL, 0,
+				  speed_template_8_16);
+		test_cipher_speed("cbc(cast5)", ENCRYPT, sec, NULL, 0,
+				  speed_template_8_16);
+		test_cipher_speed("cbc(cast5)", DECRYPT, sec, NULL, 0,
+				  speed_template_8_16);
+		test_cipher_speed("ctr(cast5)", ENCRYPT, sec, NULL, 0,
+				  speed_template_8_16);
+		test_cipher_speed("ctr(cast5)", DECRYPT, sec, NULL, 0,
+				  speed_template_8_16);
+		break;
+
+	case 210:
+		test_cipher_speed("ecb(cast6)", ENCRYPT, sec, NULL, 0,
+				  speed_template_16_32);
+		test_cipher_speed("ecb(cast6)", DECRYPT, sec, NULL, 0,
+				  speed_template_16_32);
+		test_cipher_speed("cbc(cast6)", ENCRYPT, sec, NULL, 0,
+				  speed_template_16_32);
+		test_cipher_speed("cbc(cast6)", DECRYPT, sec, NULL, 0,
+				  speed_template_16_32);
+		test_cipher_speed("ctr(cast6)", ENCRYPT, sec, NULL, 0,
+				  speed_template_16_32);
+		test_cipher_speed("ctr(cast6)", DECRYPT, sec, NULL, 0,
+				  speed_template_16_32);
+		test_cipher_speed("lrw(cast6)", ENCRYPT, sec, NULL, 0,
+				  speed_template_32_48);
+		test_cipher_speed("lrw(cast6)", DECRYPT, sec, NULL, 0,
+				  speed_template_32_48);
+		test_cipher_speed("xts(cast6)", ENCRYPT, sec, NULL, 0,
+				  speed_template_32_64);
+		test_cipher_speed("xts(cast6)", DECRYPT, sec, NULL, 0,
+				  speed_template_32_64);
+		break;
+
 	case 300:
 		/* fall through */
 
@@ -1641,76 +1683,85 @@ static int do_test(int m)
 				   speed_template_32_48_64);
 		break;
 
-	case 500:
-		test_acipher_speed("ecb(aes)", ENCRYPT, sec, NULL, 0,
-				   speed_template_16_24_32);
-		test_acipher_speed("ecb(aes)", DECRYPT, sec, NULL, 0,
-				   speed_template_16_24_32);
-		test_acipher_speed("cbc(aes)", ENCRYPT, sec, NULL, 0,
-				   speed_template_16_24_32);
-		test_acipher_speed("cbc(aes)", DECRYPT, sec, NULL, 0,
-				   speed_template_16_24_32);
-		test_acipher_speed("lrw(aes)", ENCRYPT, sec, NULL, 0,
-				   speed_template_32_40_48);
-		test_acipher_speed("lrw(aes)", DECRYPT, sec, NULL, 0,
-				   speed_template_32_40_48);
-		test_acipher_speed("xts(aes)", ENCRYPT, sec, NULL, 0,
-				   speed_template_32_48_64);
-		test_acipher_speed("xts(aes)", DECRYPT, sec, NULL, 0,
-				   speed_template_32_48_64);
-		test_acipher_speed("ctr(aes)", ENCRYPT, sec, NULL, 0,
-				   speed_template_16_24_32);
-		test_acipher_speed("ctr(aes)", DECRYPT, sec, NULL, 0,
-				   speed_template_16_24_32);
-		break;
-
-	case 501:
-		test_acipher_speed("ecb(des3_ede)", ENCRYPT, sec,
-				   des3_speed_template, DES3_SPEED_VECTORS,
-				   speed_template_24);
-		test_acipher_speed("ecb(des3_ede)", DECRYPT, sec,
-				   des3_speed_template, DES3_SPEED_VECTORS,
-				   speed_template_24);
-		test_acipher_speed("cbc(des3_ede)", ENCRYPT, sec,
-				   des3_speed_template, DES3_SPEED_VECTORS,
-				   speed_template_24);
-		test_acipher_speed("cbc(des3_ede)", DECRYPT, sec,
-				   des3_speed_template, DES3_SPEED_VECTORS,
-				   speed_template_24);
-		break;
-
-	case 502:
-		test_acipher_speed("ecb(des)", ENCRYPT, sec, NULL, 0,
-				   speed_template_8);
-		test_acipher_speed("ecb(des)", DECRYPT, sec, NULL, 0,
-				   speed_template_8);
-		test_acipher_speed("cbc(des)", ENCRYPT, sec, NULL, 0,
-				   speed_template_8);
-		test_acipher_speed("cbc(des)", DECRYPT, sec, NULL, 0,
+	case 505:
+		test_acipher_speed("ecb(arc4)", ENCRYPT, sec, NULL, 0,
 				   speed_template_8);
 		break;
 
-	case 503:
-		test_acipher_speed("ecb(serpent)", ENCRYPT, sec, NULL, 0,
+	case 506:
+		test_acipher_speed("ecb(cast5)", ENCRYPT, sec, NULL, 0,
+				   speed_template_8_16);
+		test_acipher_speed("ecb(cast5)", DECRYPT, sec, NULL, 0,
+				   speed_template_8_16);
+		test_acipher_speed("cbc(cast5)", ENCRYPT, sec, NULL, 0,
+				   speed_template_8_16);
+		test_acipher_speed("cbc(cast5)", DECRYPT, sec, NULL, 0,
+				   speed_template_8_16);
+		test_acipher_speed("ctr(cast5)", ENCRYPT, sec, NULL, 0,
+				   speed_template_8_16);
+		test_acipher_speed("ctr(cast5)", DECRYPT, sec, NULL, 0,
+				   speed_template_8_16);
+		break;
+
+	case 507:
+		test_acipher_speed("ecb(cast6)", ENCRYPT, sec, NULL, 0,
 				   speed_template_16_32);
-		test_acipher_speed("ecb(serpent)", DECRYPT, sec, NULL, 0,
+		test_acipher_speed("ecb(cast6)", DECRYPT, sec, NULL, 0,
 				   speed_template_16_32);
-		test_acipher_speed("cbc(serpent)", ENCRYPT, sec, NULL, 0,
+		test_acipher_speed("cbc(cast6)", ENCRYPT, sec, NULL, 0,
 				   speed_template_16_32);
-		test_acipher_speed("cbc(serpent)", DECRYPT, sec, NULL, 0,
+		test_acipher_speed("cbc(cast6)", DECRYPT, sec, NULL, 0,
 				   speed_template_16_32);
-		test_acipher_speed("ctr(serpent)", ENCRYPT, sec, NULL, 0,
+		test_acipher_speed("ctr(cast6)", ENCRYPT, sec, NULL, 0,
 				   speed_template_16_32);
-		test_acipher_speed("ctr(serpent)", DECRYPT, sec, NULL, 0,
+		test_acipher_speed("ctr(cast6)", DECRYPT, sec, NULL, 0,
 				   speed_template_16_32);
-		test_acipher_speed("lrw(serpent)", ENCRYPT, sec, NULL, 0,
+		test_acipher_speed("lrw(cast6)", ENCRYPT, sec, NULL, 0,
 				   speed_template_32_48);
-		test_acipher_speed("lrw(serpent)", DECRYPT, sec, NULL, 0,
+		test_acipher_speed("lrw(cast6)", DECRYPT, sec, NULL, 0,
 				   speed_template_32_48);
-		test_acipher_speed("xts(serpent)", ENCRYPT, sec, NULL, 0,
+		test_acipher_speed("xts(cast6)", ENCRYPT, sec, NULL, 0,
 				   speed_template_32_64);
-		test_acipher_speed("xts(serpent)", DECRYPT, sec, NULL, 0,
+		test_acipher_speed("xts(cast6)", DECRYPT, sec, NULL, 0,
 				   speed_template_32_64);
+		break;
+
+	case 508:
+		test_acipher_speed("ecb(camellia)", ENCRYPT, sec, NULL, 0,
+				   speed_template_16_32);
+		test_acipher_speed("ecb(camellia)", DECRYPT, sec, NULL, 0,
+				   speed_template_16_32);
+		test_acipher_speed("cbc(camellia)", ENCRYPT, sec, NULL, 0,
+				   speed_template_16_32);
+		test_acipher_speed("cbc(camellia)", DECRYPT, sec, NULL, 0,
+				   speed_template_16_32);
+		test_acipher_speed("ctr(camellia)", ENCRYPT, sec, NULL, 0,
+				   speed_template_16_32);
+		test_acipher_speed("ctr(camellia)", DECRYPT, sec, NULL, 0,
+				   speed_template_16_32);
+		test_acipher_speed("lrw(camellia)", ENCRYPT, sec, NULL, 0,
+				   speed_template_32_48);
+		test_acipher_speed("lrw(camellia)", DECRYPT, sec, NULL, 0,
+				   speed_template_32_48);
+		test_acipher_speed("xts(camellia)", ENCRYPT, sec, NULL, 0,
+				   speed_template_32_64);
+		test_acipher_speed("xts(camellia)", DECRYPT, sec, NULL, 0,
+				   speed_template_32_64);
+		break;
+
+	case 509:
+		test_acipher_speed("ecb(blowfish)", ENCRYPT, sec, NULL, 0,
+				   speed_template_8_32);
+		test_acipher_speed("ecb(blowfish)", DECRYPT, sec, NULL, 0,
+				   speed_template_8_32);
+		test_acipher_speed("cbc(blowfish)", ENCRYPT, sec, NULL, 0,
+				   speed_template_8_32);
+		test_acipher_speed("cbc(blowfish)", DECRYPT, sec, NULL, 0,
+				   speed_template_8_32);
+		test_acipher_speed("ctr(blowfish)", ENCRYPT, sec, NULL, 0,
+				   speed_template_8_32);
+		test_acipher_speed("ctr(blowfish)", DECRYPT, sec, NULL, 0,
+				   speed_template_8_32);
 		break;
 
 	case 1000:
