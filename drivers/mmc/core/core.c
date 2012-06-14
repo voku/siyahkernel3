@@ -2116,6 +2116,7 @@ void mmc_rescan(struct work_struct *work)
 void mmc_start_host(struct mmc_host *host)
 {
 	host->f_init = max(freqs[0], host->f_min);
+	host->rescan_disable = 0;
 	mmc_power_up(host);
 	mmc_detect_change(host, 0);
 }
@@ -2129,6 +2130,7 @@ void mmc_stop_host(struct mmc_host *host)
 	spin_unlock_irqrestore(&host->lock, flags);
 #endif
 
+	host->rescan_disable = 1;
 	if (cancel_delayed_work_sync(&host->detect))
 		wake_unlock(&host->detect_wake_lock);
 	mmc_flush_scheduled_work();
