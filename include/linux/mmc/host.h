@@ -149,6 +149,18 @@ struct mmc_async_req {
 	int (*err_check) (struct mmc_card *, struct mmc_async_req *);
 };
 
+struct mmc_hotplug {
+	unsigned int irq;
+	void *handler_priv;
+};
+
+struct regulator;
+
+struct mmc_supply {
+	struct regulator *vmmc;		/* Card power supply */
+	struct regulator *vqmmc;	/* Optional Vccq supply */
+};
+
 struct mmc_host {
 	struct device		*parent;
 	struct device		class_dev;
@@ -327,6 +339,7 @@ struct mmc_host {
 #ifdef CONFIG_REGULATOR
 	bool			regulator_enabled; /* regulator state */
 #endif
+	struct mmc_supply	supply;
 
 	struct dentry		*debugfs_root;
 
@@ -401,13 +414,12 @@ static inline void mmc_signal_sdio_irq(struct mmc_host *host)
 	wake_up_process(host->sdio_irq_thread);
 }
 
-struct regulator;
-
 #ifdef CONFIG_REGULATOR
 int mmc_regulator_get_ocrmask(struct regulator *supply);
 int mmc_regulator_set_ocr(struct mmc_host *mmc,
 			struct regulator *supply,
 			unsigned short vdd_bit);
+int mmc_regulator_get_supply(struct mmc_host *mmc);
 #else
 static inline int mmc_regulator_get_ocrmask(struct regulator *supply)
 {
@@ -417,6 +429,11 @@ static inline int mmc_regulator_get_ocrmask(struct regulator *supply)
 static inline int mmc_regulator_set_ocr(struct mmc_host *mmc,
 				 struct regulator *supply,
 				 unsigned short vdd_bit)
+{
+	return 0;
+}
+
+static inline int mmc_regulator_get_supply(struct mmc_host *mmc)
 {
 	return 0;
 }
