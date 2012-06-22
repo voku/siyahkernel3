@@ -112,6 +112,7 @@ const struct inode_operations nfs3_dir_inode_operations = {
 #ifdef CONFIG_NFS_V4
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 static struct dentry *nfs_atomic_lookup(struct inode *, struct dentry *, struct nameidata *);
 static int nfs_open_create(struct inode *dir, struct dentry *dentry, umode_t mode, struct nameidata *nd);
 =======
@@ -119,6 +120,11 @@ static struct file *nfs_atomic_open(struct inode *, struct dentry *,
 				    struct opendata *, unsigned, umode_t,
 				    int *);
 >>>>>>> 4723768... ->atomic_open() prototype change - pass int * instead of bool *
+=======
+static int nfs_atomic_open(struct inode *, struct dentry *,
+			   struct opendata *, unsigned, umode_t,
+			   int *);
+>>>>>>> d958527... make ->atomic_open() return int
 const struct inode_operations nfs4_dir_inode_operations = {
 	.create		= nfs_open_create,
 	.lookup		= nfs_atomic_lookup,
@@ -1390,6 +1396,7 @@ static int do_open(struct inode *inode, struct file *filp)
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 static int nfs_intent_set_file(struct nameidata *nd, struct nfs_open_context *ctx)
 =======
 static struct file *nfs_finish_open(struct nfs_open_context *ctx,
@@ -1397,16 +1404,27 @@ static struct file *nfs_finish_open(struct nfs_open_context *ctx,
 				    struct opendata *od, unsigned open_flags,
 				    int *opened)
 >>>>>>> 4723768... ->atomic_open() prototype change - pass int * instead of bool *
+=======
+static int nfs_finish_open(struct nfs_open_context *ctx,
+			   struct dentry *dentry,
+			   struct opendata *od, unsigned open_flags,
+			   int *opened)
+>>>>>>> d958527... make ->atomic_open() return int
 {
 	struct file *filp;
 	int ret = 0;
 
 	/* If the open_intent is for execute, we have an extra check to make */
 	if (ctx->mode & FMODE_EXEC) {
+<<<<<<< HEAD
 		ret = nfs_may_open(ctx->path.dentry->d_inode,
 				ctx->cred,
 				nd->intent.open.flags);
 		if (ret < 0)
+=======
+		err = nfs_may_open(dentry->d_inode, ctx->cred, open_flags);
+		if (err < 0)
+>>>>>>> d958527... make ->atomic_open() return int
 			goto out;
 	}
 <<<<<<< HEAD
@@ -1417,6 +1435,7 @@ static struct file *nfs_finish_open(struct nfs_open_context *ctx,
 =======
 
 	filp = finish_open(od, dentry, do_open, opened);
+<<<<<<< HEAD
 	if (!IS_ERR(filp))
 >>>>>>> 4723768... ->atomic_open() prototype change - pass int * instead of bool *
 		nfs_file_set_open_context(filp, ctx);
@@ -1432,20 +1451,58 @@ static struct file *nfs_atomic_open(struct inode *dir, struct dentry *dentry,
 				    struct opendata *od, unsigned open_flags,
 				    umode_t mode, int *opened)
 >>>>>>> 4723768... ->atomic_open() prototype change - pass int * instead of bool *
+=======
+	if (IS_ERR(filp)) {
+		err = PTR_ERR(filp);
+		goto out;
+	}
+	nfs_file_set_open_context(filp, ctx);
+	err = 0;
+
+out:
+	put_nfs_open_context(ctx);
+	return err;
+}
+
+static int nfs_atomic_open(struct inode *dir, struct dentry *dentry,
+			    struct opendata *od, unsigned open_flags,
+			    umode_t mode, int *opened)
+>>>>>>> d958527... make ->atomic_open() return int
 {
 	struct nfs_open_context *ctx;
 	struct iattr attr;
 	struct dentry *res = NULL;
 	struct inode *inode;
+<<<<<<< HEAD
 	int open_flags;
+=======
+>>>>>>> d958527... make ->atomic_open() return int
 	int err;
 
 	dfprintk(VFS, "NFS: atomic_lookup(%s/%ld), %s\n",
 			dir->i_sb->s_id, dir->i_ino, dentry->d_name.name);
 
+<<<<<<< HEAD
 	/* Check that we are indeed trying to open this file */
 	if (!is_atomic_open(nd))
 		goto no_open;
+=======
+	/* NFS only supports OPEN on regular files */
+	if ((open_flags & O_DIRECTORY)) {
+		if (!d_unhashed(dentry)) {
+			/*
+			 * Hashed negative dentry with O_DIRECTORY: dentry was
+			 * revalidated and is fine, no need to perform lookup
+			 * again
+			 */
+			return -ENOENT;
+		}
+		goto no_open;
+	}
+
+	if (dentry->d_name.len > NFS_SERVER(dir)->namelen)
+		return -ENAMETOOLONG;
+>>>>>>> d958527... make ->atomic_open() return int
 
 	if (dentry->d_name.len > NFS_SERVER(dir)->namelen) {
 		res = ERR_PTR(-ENAMETOOLONG);
@@ -1498,6 +1555,10 @@ static struct file *nfs_atomic_open(struct inode *dir, struct dentry *dentry,
 				res = ERR_CAST(inode);
 				goto out;
 		}
+<<<<<<< HEAD
+=======
+		goto out;
+>>>>>>> d958527... make ->atomic_open() return int
 	}
 	res = d_add_unique(dentry, inode);
 	nfs_unblock_sillyrename(dentry->d_parent);
@@ -1518,17 +1579,25 @@ out:
 	return res;
 =======
 
-	filp = nfs_finish_open(ctx, dentry, od, open_flags, opened);
+	err = nfs_finish_open(ctx, dentry, od, open_flags, opened);
 
 	dput(res);
-	return filp;
-
-out_err:
-	return ERR_PTR(err);
+out:
+	return err;
 
 >>>>>>> 4723768... ->atomic_open() prototype change - pass int * instead of bool *
 no_open:
+<<<<<<< HEAD
 	return nfs_lookup(dir, dentry, nd);
+=======
+	res = nfs_lookup(dir, dentry, NULL);
+	err = PTR_ERR(res);
+	if (IS_ERR(res))
+		goto out;
+
+	finish_no_open(od, res);
+	return 1;
+>>>>>>> d958527... make ->atomic_open() return int
 }
 
 static int nfs_open_revalidate(struct dentry *dentry, unsigned int flags)

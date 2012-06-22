@@ -261,7 +261,7 @@ v9fs_vfs_create_dotl(struct inode *dir, struct dentry *dentry, umode_t omode,
 	return v9fs_vfs_mknod_dotl(dir, dentry, omode, 0);
 }
 
-static struct file *
+static int
 v9fs_vfs_atomic_open_dotl(struct inode *dir, struct dentry *dentry,
 			  struct opendata *od, unsigned flags, umode_t omode,
 			  int *opened)
@@ -280,6 +280,25 @@ v9fs_vfs_atomic_open_dotl(struct inode *dir, struct dentry *dentry,
 	struct p9_fid *dfid, *ofid, *inode_fid;
 	struct v9fs_session_info *v9ses;
 	struct posix_acl *pacl = NULL, *dacl = NULL;
+<<<<<<< HEAD
+=======
+	struct dentry *res = NULL;
+
+	if (d_unhashed(dentry)) {
+		res = v9fs_vfs_lookup(dir, dentry, NULL);
+		if (IS_ERR(res))
+			return PTR_ERR(res);
+
+		if (res)
+			dentry = res;
+	}
+
+	/* Only creates */
+	if (!(flags & O_CREAT) || dentry->d_inode) {
+		finish_no_open(od, res);
+		return 1;
+	}
+>>>>>>> d958527... make ->atomic_open() return int
 
 	v9ses = v9fs_inode2v9ses(dir);
 	if (nd)
@@ -300,16 +319,26 @@ v9fs_vfs_atomic_open_dotl(struct inode *dir, struct dentry *dentry,
 	dfid = v9fs_fid_lookup(dentry->d_parent);
 	if (IS_ERR(dfid)) {
 		err = PTR_ERR(dfid);
+<<<<<<< HEAD
 		P9_DPRINTK(P9_DEBUG_VFS, "fid lookup failed %d\n", err);
 		return err;
+=======
+		p9_debug(P9_DEBUG_VFS, "fid lookup failed %d\n", err);
+		goto out;
+>>>>>>> d958527... make ->atomic_open() return int
 	}
 
 	/* clone a fid to use for creation */
 	ofid = p9_client_walk(dfid, 0, NULL, 1);
 	if (IS_ERR(ofid)) {
 		err = PTR_ERR(ofid);
+<<<<<<< HEAD
 		P9_DPRINTK(P9_DEBUG_VFS, "p9_client_walk failed %d\n", err);
 		return err;
+=======
+		p9_debug(P9_DEBUG_VFS, "p9_client_walk failed %d\n", err);
+		goto out;
+>>>>>>> d958527... make ->atomic_open() return int
 	}
 
 	gid = v9fs_get_fsgid_for_create(dir);
@@ -395,8 +424,12 @@ v9fs_vfs_atomic_open_dotl(struct inode *dir, struct dentry *dentry,
 	*opened |= FILE_CREATED;
 out:
 	dput(res);
+<<<<<<< HEAD
 	return filp;
 >>>>>>> 4723768... ->atomic_open() prototype change - pass int * instead of bool *
+=======
+	return err;
+>>>>>>> d958527... make ->atomic_open() return int
 
 error:
 	if (fid)
@@ -405,7 +438,11 @@ err_clunk_old_fid:
 	if (ofid)
 		p9_client_clunk(ofid);
 	v9fs_set_create_acl(NULL, &dacl, &pacl);
+<<<<<<< HEAD
 	return err;
+=======
+	goto out;
+>>>>>>> d958527... make ->atomic_open() return int
 }
 
 /**

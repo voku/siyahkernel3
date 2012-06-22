@@ -888,8 +888,12 @@ error:
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 static struct file *
+=======
+static int
+>>>>>>> d958527... make ->atomic_open() return int
 v9fs_vfs_atomic_open(struct inode *dir, struct dentry *dentry,
 		     struct opendata *od, unsigned flags, umode_t mode,
 		     int *opened)
@@ -905,7 +909,7 @@ v9fs_vfs_atomic_open(struct inode *dir, struct dentry *dentry,
 	if (d_unhashed(dentry)) {
 		res = v9fs_vfs_lookup(dir, dentry, NULL);
 		if (IS_ERR(res))
-			return ERR_CAST(res);
+			return PTR_ERR(res);
 
 		if (res)
 			dentry = res;
@@ -914,7 +918,7 @@ v9fs_vfs_atomic_open(struct inode *dir, struct dentry *dentry,
 	/* Only creates */
 	if (!(flags & O_CREAT) || dentry->d_inode) {
 		finish_no_open(od, res);
-		return NULL;
+		return 1;
 	}
 
 	err = 0;
@@ -966,13 +970,11 @@ v9fs_vfs_atomic_open(struct inode *dir, struct dentry *dentry,
 	*opened |= FILE_CREATED;
 out:
 	dput(res);
-	return filp;
+	return err;
 
 error:
 	if (fid)
 		p9_client_clunk(fid);
-
-	filp = ERR_PTR(err);
 	goto out;
 }
 
