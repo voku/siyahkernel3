@@ -122,7 +122,7 @@ static struct file *nfs_atomic_open(struct inode *, struct dentry *,
 >>>>>>> 4723768... ->atomic_open() prototype change - pass int * instead of bool *
 =======
 static int nfs_atomic_open(struct inode *, struct dentry *,
-			   struct opendata *, unsigned, umode_t,
+			   struct file *, unsigned, umode_t,
 			   int *);
 >>>>>>> d958527... make ->atomic_open() return int
 const struct inode_operations nfs4_dir_inode_operations = {
@@ -1407,12 +1407,21 @@ static struct file *nfs_finish_open(struct nfs_open_context *ctx,
 =======
 static int nfs_finish_open(struct nfs_open_context *ctx,
 			   struct dentry *dentry,
-			   struct opendata *od, unsigned open_flags,
+			   struct file *file, unsigned open_flags,
 			   int *opened)
 >>>>>>> d958527... make ->atomic_open() return int
 {
+<<<<<<< HEAD
 	struct file *filp;
 	int ret = 0;
+=======
+	int err;
+
+	if (ctx->dentry != dentry) {
+		dput(ctx->dentry);
+		ctx->dentry = dget(dentry);
+	}
+>>>>>>> 30d9049... kill struct opendata
 
 	/* If the open_intent is for execute, we have an extra check to make */
 	if (ctx->mode & FMODE_EXEC) {
@@ -1434,6 +1443,7 @@ static int nfs_finish_open(struct nfs_open_context *ctx,
 	else
 =======
 
+<<<<<<< HEAD
 	filp = finish_open(od, dentry, do_open, opened);
 <<<<<<< HEAD
 	if (!IS_ERR(filp))
@@ -1454,10 +1464,12 @@ static struct file *nfs_atomic_open(struct inode *dir, struct dentry *dentry,
 =======
 	if (IS_ERR(filp)) {
 		err = PTR_ERR(filp);
+=======
+	err = finish_open(file, dentry, do_open, opened);
+	if (err)
+>>>>>>> 30d9049... kill struct opendata
 		goto out;
-	}
-	nfs_file_set_open_context(filp, ctx);
-	err = 0;
+	nfs_file_set_open_context(file, ctx);
 
 out:
 	put_nfs_open_context(ctx);
@@ -1465,7 +1477,7 @@ out:
 }
 
 static int nfs_atomic_open(struct inode *dir, struct dentry *dentry,
-			    struct opendata *od, unsigned open_flags,
+			    struct file *file, unsigned open_flags,
 			    umode_t mode, int *opened)
 >>>>>>> d958527... make ->atomic_open() return int
 {
@@ -1579,7 +1591,7 @@ out:
 	return res;
 =======
 
-	err = nfs_finish_open(ctx, dentry, od, open_flags, opened);
+	err = nfs_finish_open(ctx, dentry, file, open_flags, opened);
 
 	dput(res);
 out:
@@ -1595,7 +1607,7 @@ no_open:
 	if (IS_ERR(res))
 		goto out;
 
-	finish_no_open(od, res);
+	finish_no_open(file, res);
 	return 1;
 >>>>>>> d958527... make ->atomic_open() return int
 }

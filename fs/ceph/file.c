@@ -229,14 +229,17 @@ struct file *ceph_lookup_open(struct inode *dir, struct dentry *dentry,
 >>>>>>> 4723768... ->atomic_open() prototype change - pass int * instead of bool *
 =======
 int ceph_lookup_open(struct inode *dir, struct dentry *dentry,
-		     struct opendata *od, unsigned flags, umode_t mode,
+		     struct file *file, unsigned flags, umode_t mode,
 		     int *opened)
 >>>>>>> d958527... make ->atomic_open() return int
 {
 	struct ceph_fs_client *fsc = ceph_sb_to_client(dir->i_sb);
 	struct ceph_mds_client *mdsc = fsc->mdsc;
+<<<<<<< HEAD
 	struct file *file = nd->intent.open.file;
 	struct inode *parent_inode = get_dentry_parent_inode(file->f_dentry);
+=======
+>>>>>>> 30d9049... kill struct opendata
 	struct ceph_mds_request *req;
 	int err;
 	int flags = nd->intent.open.flags;
@@ -266,9 +269,7 @@ int ceph_lookup_open(struct inode *dir, struct dentry *dentry,
 =======
 	if (err)
 		goto out;
-	file = finish_open(od, req->r_dentry, ceph_open, opened);
-	if (IS_ERR(file))
-		err = PTR_ERR(file);
+	err = finish_open(file, req->r_dentry, ceph_open, opened);
 out:
 	ret = ceph_finish_lookup(req, dentry, err);
 >>>>>>> 4723768... ->atomic_open() prototype change - pass int * instead of bool *

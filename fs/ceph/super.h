@@ -789,7 +789,7 @@ extern struct file *ceph_lookup_open(struct inode *dir, struct dentry *dentry,
 >>>>>>> 4723768... ->atomic_open() prototype change - pass int * instead of bool *
 =======
 extern int ceph_lookup_open(struct inode *dir, struct dentry *dentry,
-			     struct opendata *od, unsigned flags,
+			     struct file *od, unsigned flags,
 			     umode_t mode, int *opened);
 >>>>>>> d958527... make ->atomic_open() return int
 extern int ceph_release(struct inode *inode, struct file *filp);

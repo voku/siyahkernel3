@@ -263,7 +263,7 @@ v9fs_vfs_create_dotl(struct inode *dir, struct dentry *dentry, umode_t omode,
 
 static int
 v9fs_vfs_atomic_open_dotl(struct inode *dir, struct dentry *dentry,
-			  struct opendata *od, unsigned flags, umode_t omode,
+			  struct file *file, unsigned flags, umode_t omode,
 			  int *opened)
 {
 >>>>>>> 4723768... ->atomic_open() prototype change - pass int * instead of bool *
@@ -272,7 +272,6 @@ v9fs_vfs_atomic_open_dotl(struct inode *dir, struct dentry *dentry,
 	int flags;
 	umode_t mode;
 	char *name = NULL;
-	struct file *filp;
 	struct p9_qid qid;
 	struct inode *inode;
 	struct p9_fid *fid = NULL;
@@ -295,7 +294,7 @@ v9fs_vfs_atomic_open_dotl(struct inode *dir, struct dentry *dentry,
 
 	/* Only creates */
 	if (!(flags & O_CREAT) || dentry->d_inode) {
-		finish_no_open(od, res);
+		finish_no_open(file, res);
 		return 1;
 	}
 >>>>>>> d958527... make ->atomic_open() return int
@@ -405,18 +404,22 @@ v9fs_vfs_atomic_open_dotl(struct inode *dir, struct dentry *dentry,
 	mutex_unlock(&v9inode->v_mutex);
 	/* Since we are opening a file, assign the open fid to the file */
 <<<<<<< HEAD
+<<<<<<< HEAD
 	filp = lookup_instantiate_filp(nd, dentry, generic_file_open);
 =======
 	filp = finish_open(od, dentry, generic_file_open, opened);
 >>>>>>> 4723768... ->atomic_open() prototype change - pass int * instead of bool *
 	if (IS_ERR(filp)) {
 		err = PTR_ERR(filp);
+=======
+	err = finish_open(file, dentry, generic_file_open, opened);
+	if (err)
+>>>>>>> 30d9049... kill struct opendata
 		goto err_clunk_old_fid;
-	}
-	filp->private_data = ofid;
+	file->private_data = ofid;
 #ifdef CONFIG_9P_FSCACHE
 	if (v9ses->cache)
-		v9fs_cache_inode_set_cookie(inode, filp);
+		v9fs_cache_inode_set_cookie(inode, file);
 #endif
 <<<<<<< HEAD
 	return 0;
