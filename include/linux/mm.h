@@ -1601,10 +1601,10 @@ extern int filemap_page_mkwrite(struct vm_area_struct *vma, struct vm_fault *vmf
 int write_one_page(struct page *page, int wait);
 void task_dirty_inc(struct task_struct *tsk);
 
-/* readahead.c in kbytes */
-#define VM_MAX_READAHEAD	1024
+/* readahead.c in kbytes, for max 64GB cards*/
+#define VM_MAX_READAHEAD	2048
 /* kbytes (includes current page) */
-#define VM_MIN_READAHEAD	16
+#define VM_MIN_READAHEAD	32
 
 extern unsigned long max_readahead_pages;
 
