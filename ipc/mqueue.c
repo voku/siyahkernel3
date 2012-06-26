@@ -746,11 +746,8 @@ static struct file *do_create(struct ipc_namespace *ipc_ns, struct inode *dir,
 	}
 
 	mode &= ~current_umask();
-	ret = mnt_want_write(ipc_ns->mq_mnt);
-	if (ret)
-		goto out;
-	ret = vfs_create(dir->d_inode, dentry, mode, true);
-	dentry->d_fsdata = NULL;
+	ret = vfs_create(dir, path->dentry, mode, true);
+	path->dentry->d_fsdata = NULL;
 	if (ret)
 		return ERR_PTR(ret);
 	return dentry_open(path, oflag, cred);
