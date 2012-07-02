@@ -35,10 +35,6 @@ struct compact_control {
 	unsigned long migrate_pfn;	/* isolate_migratepages search base */
 	bool sync;			/* Synchronous migration */
 
-	/* Account for isolated anon and file pages */
-	unsigned long nr_anon;
-	unsigned long nr_file;
-
 	unsigned int order;		/* order a direct compactor needs */
 	int migratetype;		/* MOVABLE, RECLAIMABLE etc */
 	struct zone *zone;
@@ -85,6 +81,11 @@ static unsigned long isolate_freepages_block(struct zone *zone,
 
 		if (!pfn_valid_within(blockpfn))
 			continue;
+
+		/* Watch for unexpected holes punched in the memmap */
+		if (!memmap_valid_within(blockpfn, page, zone))
+			continue;
+
 		nr_scanned++;
 
 		if (!PageBuddy(page))
@@ -179,6 +180,11 @@ static void isolate_freepages(struct zone *zone,
 		 * pages do not belong to a single zone.
 		 */
 		page = pfn_to_page(pfn);
+
+		/* Watch for unexpected holes punched in the memmap */
+		if (!memmap_valid_within(pfn, page, zone))
+			continue;
+
 		if (page_zone(page) != zone)
 			continue;
 
@@ -223,17 +229,13 @@ static void isolate_freepages(struct zone *zone,
 static void acct_isolated(struct zone *zone, struct compact_control *cc)
 {
 	struct page *page;
-	unsigned int count[NR_LRU_LISTS] = { 0, };
+	unsigned int count[2] = { 0, };
 
-	list_for_each_entry(page, &cc->migratepages, lru) {
-		int lru = page_lru_base_type(page);
-		count[lru]++;
-	}
+	list_for_each_entry(page, &cc->migratepages, lru)
+		count[!!page_is_file_cache(page)]++;
 
-	cc->nr_anon = count[LRU_ACTIVE_ANON] + count[LRU_INACTIVE_ANON];
-	cc->nr_file = count[LRU_ACTIVE_FILE] + count[LRU_INACTIVE_FILE];
-	__mod_zone_page_state(zone, NR_ISOLATED_ANON, cc->nr_anon);
-	__mod_zone_page_state(zone, NR_ISOLATED_FILE, cc->nr_file);
+	__mod_zone_page_state(zone, NR_ISOLATED_ANON, count[0]);
+	__mod_zone_page_state(zone, NR_ISOLATED_FILE, count[1]);
 }
 
 /* Similar to reclaim, but different enough that they don't share logic */
@@ -269,6 +271,7 @@ static isolate_migrate_t isolate_migratepages(struct zone *zone,
 	unsigned long last_pageblock_nr = 0, pageblock_nr;
 	unsigned long nr_scanned = 0, nr_isolated = 0;
 	struct list_head *migratelist = &cc->migratepages;
+	isolate_mode_t mode = ISOLATE_ACTIVE|ISOLATE_INACTIVE;
 
 	/* Do not scan outside zone boundaries */
 	low_pfn = max(cc->migrate_pfn, zone->zone_start_pfn);
@@ -320,34 +323,17 @@ static isolate_migrate_t isolate_migratepages(struct zone *zone,
 		} else if (!locked)
 			spin_lock_irq(&zone->lru_lock);
 
-		/*
-		 * migrate_pfn does not necessarily start aligned to a
-		 * pageblock. Ensure that pfn_valid is called when moving
-		 * into a new MAX_ORDER_NR_PAGES range in case of large
-		 * memory holes within the zone
-		 */
-		if ((low_pfn & (MAX_ORDER_NR_PAGES - 1)) == 0) {
-			if (!pfn_valid(low_pfn)) {
-				low_pfn += MAX_ORDER_NR_PAGES - 1;
-				continue;
-			}
-		}
-
 		if (!pfn_valid_within(low_pfn))
 			continue;
 		nr_scanned++;
 
-		/*
-		 * Get the page and ensure the page is within the same zone.
-		 * See the comment in isolate_freepages about overlapping
-		 * nodes. It is deliberate that the new zone lock is not taken
-		 * as memory compaction should not move pages between nodes.
-		 */
+		/* Get the page and skip if free */
 		page = pfn_to_page(low_pfn);
-		if (page_zone(page) != zone)
+
+		/* Watch for unexpected holes punched in the memmap */
+		if (!memmap_valid_within(low_pfn, page, zone))
 			continue;
 
-		/* Skip if free */
 		if (PageBuddy(page))
 			continue;
 
@@ -378,8 +364,11 @@ static isolate_migrate_t isolate_migratepages(struct zone *zone,
 			continue;
 		}
 
+		if (!cc->sync)
+			mode |= ISOLATE_CLEAN;
+
 		/* Try isolate the page */
-		if (__isolate_lru_page(page, ISOLATE_BOTH, 0) != 0)
+		if (__isolate_lru_page(page, mode, 0) != 0)
 			continue;
 
 		VM_BUG_ON(PageTransCompound(page));
@@ -657,10 +646,6 @@ unsigned long try_to_compact_pages(struct zonelist *zonelist,
 	if (!order || !may_enter_fs || !may_perform_io)
 		return rc;
 
-#ifdef CONFIG_MACH_Q1_BD
-	/* Temporary log to get information whether the compaction works well */
-	printk(KERN_NOTICE "%s, order=%d, sync=%d\n", __func__, order, sync);
-#endif
 	count_vm_event(COMPACTSTALL);
 
 	/* Compact each zone in the list */
