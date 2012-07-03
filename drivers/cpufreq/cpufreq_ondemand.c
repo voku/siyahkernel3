@@ -47,16 +47,16 @@
 #define MICRO_FREQUENCY_MIN_SAMPLE_RATE         (10000)
 #define MIN_FREQUENCY_UP_THRESHOLD              (10)
 #define MAX_FREQUENCY_UP_THRESHOLD              (100)
-#define FREQ_STEP                               (30)
+#define FREQ_STEP                               (20)
 #define UP_THRESHOLD_AT_MIN_FREQ                (60)
 #define FREQ_FOR_RESPONSIVENESS                 (500000)
 #define DEF_SUSPEND_FREQ			(200000)
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 /* FIX ME! what is set here, will be on wake state also! */
-#define FREQ_STEP_SUSPEND                       (30)
+#define FREQ_STEP_SUSPEND                       (20)
 #define SAMPLING_FACTOR_SUSPEND                 (1)
-#define DEF_FREQUENCY_UP_THRESHOLD_SUSPEND      (85)
+#define DEF_FREQUENCY_UP_THRESHOLD_SUSPEND      (95)
 #endif
 
 /*
@@ -153,7 +153,7 @@ static struct dbs_tuners {
 	.down_differential = DEF_FREQUENCY_DOWN_DIFFERENTIAL,
 	.ignore_nice = 0,
 	.powersave_bias = 0,
-	.deep_sleep = 1,
+	.deep_sleep = 0,
 	.fast_start = 1,
 	.freq_step = FREQ_STEP,
 	.freq_responsiveness = FREQ_FOR_RESPONSIVENESS,

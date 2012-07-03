@@ -144,7 +144,7 @@ static unsigned int get_nr_run_avg(void)
 
 #define DEF_SAMPLING_DOWN_FACTOR		(2)
 #define MAX_SAMPLING_DOWN_FACTOR		(100000)
-#define DEF_FREQUENCY_DOWN_DIFFERENTIAL		(2)
+#define DEF_FREQUENCY_DOWN_DIFFERENTIAL		(5)
 #define DEF_FREQUENCY_UP_THRESHOLD		(85)
 #define DEF_FREQUENCY_MIN_SAMPLE_RATE		(10000)
 #define MIN_FREQUENCY_UP_THRESHOLD		(11)
@@ -155,27 +155,27 @@ static unsigned int get_nr_run_avg(void)
 
 #define DEF_MAX_CPU_LOCK			(0)
 #define DEF_UP_NR_CPUS				(1)
-#define DEF_CPU_UP_RATE				(10)
-#define DEF_CPU_DOWN_RATE			(20)
+#define DEF_CPU_UP_RATE				(30)
+#define DEF_CPU_DOWN_RATE			(30)
 #define DEF_FREQ_STEP				(40)
 #define DEF_START_DELAY				(0)
 
-#define UP_THRESHOLD_AT_MIN_FREQ		(40)
-#define FREQ_FOR_RESPONSIVENESS			(600000)
+#define UP_THRESHOLD_AT_MIN_FREQ		(95)
+#define FREQ_FOR_RESPONSIVENESS			(400000)
 
 #define HOTPLUG_DOWN_INDEX			(0)
 #define HOTPLUG_UP_INDEX			(1)
 
 #ifdef CONFIG_CPU_EXYNOS4210
 static int hotplug_rq[4][2] = {
-	{0, 100}, {100, 300}, {300, 400}, {400, 0}
+	{0, 350}, {350, 200}, {200, 300}, {300, 0}
 };
 
 static int hotplug_freq[4][2] = {
 	{0, 500000},
 	{400000, 500000},
-	{400000, 800000},
-	{500000, 0}
+	{200000, 500000},
+	{200000, 0}
 };
 #else
 static int hotplug_rq[4][2] = {
@@ -907,7 +907,7 @@ static int check_up(void)
 	int up_freq, up_rq;
 	int min_freq = INT_MAX;
 	int min_rq_avg = INT_MAX;
-//	int avg_freq = 0, avg_rq = 0;
+	int avg_freq = 0, avg_rq = 0;
 	int online;
 	int hotplug_lock = atomic_read(&g_hotplug_lock);
 
@@ -926,8 +926,7 @@ static int check_up(void)
 
 	if (num_hist % up_rate)
 		return 0;
-
-	if (num_hist == 0) num_hist = MAX_HOTPLUG_RATE;
+    if(num_hist == 0) num_hist = MAX_HOTPLUG_RATE;
 
 	for (i = num_hist - 1; i >= num_hist - up_rate; --i) {
 		usage = &hotplug_history->usage[i];
@@ -937,17 +936,16 @@ static int check_up(void)
 
 		min_freq = min(min_freq, freq);
 		min_rq_avg = min(min_rq_avg, rq_avg);
-//		avg_rq += rq_avg;
-//		avg_freq += freq;
+		avg_rq += rq_avg;
+		avg_freq += freq;
 
 		if (dbs_tuners_ins.dvfs_debug)
 			debug_hotplug_check(1, rq_avg, freq, usage);
 	}
-//	avg_rq /= up_rate;
-//	avg_freq /= up_rate;
+	avg_rq /= up_rate;
+	avg_freq /= up_rate;
 
-//	if (avg_freq >= up_freq && avg_rq > up_rq) {
-	if (min_freq >= up_freq && min_rq_avg > up_rq) {
+	if (avg_freq >= up_freq && avg_rq > up_rq) {
 		printk(KERN_ERR "[HOTPLUG IN] %s %d>=%d && %d>%d\n",
 			__func__, min_freq, up_freq, min_rq_avg, up_rq);
 		//hotplug_history->num_hist = 0;
@@ -966,7 +964,7 @@ static int check_down(void)
 	int down_freq, down_rq;
 	int max_freq = 0;
 	int max_rq_avg = 0;
-//	int avg_freq = 0, avg_rq = 0;
+	int avg_freq = 0, avg_rq = 0;
 	int online;
 	int hotplug_lock = atomic_read(&g_hotplug_lock);
 
@@ -984,10 +982,9 @@ static int check_down(void)
 		&& online > dbs_tuners_ins.max_cpu_lock)
 		return 1;
 
-	if (num_hist % down_rate)	
+	if (num_hist == 0 || num_hist % down_rate)
 		return 0;
-
-	if (num_hist == 0) num_hist = MAX_HOTPLUG_RATE; //make it circular -gm
+    if(num_hist == 0) num_hist = MAX_HOTPLUG_RATE; //make it circular -gm
 
 	for (i = num_hist - 1; i >= num_hist - down_rate; --i) {
 		usage = &hotplug_history->usage[i];
@@ -997,17 +994,16 @@ static int check_down(void)
 
 		max_freq = max(max_freq, freq);
 		max_rq_avg = max(max_rq_avg, rq_avg);
-//		avg_rq += rq_avg;
-//		avg_freq += freq;
+		avg_rq += rq_avg;
+		avg_freq += freq;
 
 		if (dbs_tuners_ins.dvfs_debug)
 			debug_hotplug_check(0, rq_avg, freq, usage);
 	}
-//	avg_rq /= down_rate;
-//	avg_freq /= down_rate;
+	avg_rq /= down_rate;
+	avg_freq /= down_rate;
 
-//	if (avg_freq <= down_freq && avg_rq <= down_rq) {
-	if (max_freq <= down_freq && max_rq_avg <= down_rq) {
+	if (avg_freq <= down_freq && avg_rq <= down_rq) {
 		printk(KERN_ERR "[HOTPLUG OUT] %s %d<=%d && %d<%d\n",
 			__func__, max_freq, down_freq, max_rq_avg, down_rq);
 		//hotplug_history->num_hist = 0;
@@ -1217,7 +1213,7 @@ static inline void dbs_timer_exit(struct cpu_dbs_info_s *dbs_info)
 	cancel_work_sync(&dbs_info->down_work);
 }
 
-#if 0 //Not used function
+#if 0 //disbled for now.
 static int pm_notifier_call(struct notifier_block *this,
 			    unsigned long event, void *ptr)
 {
@@ -1240,6 +1236,10 @@ static int pm_notifier_call(struct notifier_block *this,
 	}
 	return NOTIFY_DONE;
 }
+
+static struct notifier_block pm_notifier = {
+	.notifier_call = pm_notifier_call,
+};
 #endif
 
 static int reboot_notifier_call(struct notifier_block *this,
@@ -1447,4 +1447,3 @@ fs_initcall(cpufreq_gov_dbs_init);
 module_init(cpufreq_gov_dbs_init);
 #endif
 module_exit(cpufreq_gov_dbs_exit);
-

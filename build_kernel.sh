@@ -18,7 +18,7 @@ export USE_SEC_FIPS_MODE=true
 # gcc 4.7 (Linaro 12.04)
 #export CROSS_COMPILE=$PARENT_DIR/linaro/bin/arm-eabi-
 # gcc 4.7.1 (Linaro 12.05)
-export CROSS_COMPILE=linaro-12-05-android-toolchain/bin/arm-eabi-
+export CROSS_COMPILE=linaro-12-android-toolchain/bin/arm-eabi-
 
 # build script
 export USER=`whoami`
