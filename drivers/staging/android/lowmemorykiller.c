@@ -108,7 +108,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	int min_score_adj = OOM_SCORE_ADJ_MAX + 1;
 	int target_free = 0;
 	int selected_tasksize = 0;
-	int selected_target_offset;
+	int selected_target_offset = 0;
 	int selected_oom_score_adj;
 	int array_size = ARRAY_SIZE(lowmem_adj);
 	int other_free = global_page_state(NR_FREE_PAGES);
