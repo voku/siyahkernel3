@@ -48,10 +48,6 @@ static int dhd_dongle_up = FALSE;
 
 static s32 wl_dongle_up(struct net_device *ndev, u32 up);
 
-/**
- * Function implementations
- */
-
 s32 dhd_cfg80211_init(struct wl_priv *wl)
 {
 	dhd_dongle_up = FALSE;
@@ -62,6 +58,12 @@ s32 dhd_cfg80211_deinit(struct wl_priv *wl)
 {
 	dhd_dongle_up = FALSE;
 	return 0;
+}
+
+s32 dhd_cfg80211_get_opmode(struct wl_priv *wl)
+{
+	dhd_pub_t *dhd =  (dhd_pub_t *)(wl->pub);
+	return dhd->op_mode;
 }
 
 s32 dhd_cfg80211_down(struct wl_priv *wl)

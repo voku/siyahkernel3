@@ -149,6 +149,11 @@ do {									\
 #define WL_ACT_FRAME_RETRY 4
 #define WL_INVALID -1
 
+/* Bring down SCB Timeout to 20secs from 60secs default */
+#ifndef WL_SCB_TIMEOUT
+#define WL_SCB_TIMEOUT 20
+#endif
+
 /* driver status */
 enum wl_status {
 	WL_STATUS_READY = 0,
