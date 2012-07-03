@@ -1348,7 +1348,7 @@ static int sec_bat_check_temper(struct sec_bat_info *info)
 		}
 	}
 
-	dev_info(info->dev, "%s: temp=%d, adc=%d\n", __func__, temp, temp_adc);
+	dev_dbg(info->dev, "%s: temp=%d, adc=%d\n", __func__, temp, temp_adc);
 
 	return temp;
 }
