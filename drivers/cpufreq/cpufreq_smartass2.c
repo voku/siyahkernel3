@@ -52,7 +52,7 @@ static unsigned int awake_ideal_freq;
  * that practically when sleep_ideal_freq==0 the awake_ideal_freq is used
  * also when suspended).
  */
-#define DEFAULT_SLEEP_IDEAL_FREQ 200000
+#define DEFAULT_SLEEP_IDEAL_FREQ 0
 static unsigned int sleep_ideal_freq;
 
 /*
@@ -792,11 +792,11 @@ static void smartass2_suspend(int cpu, int suspend)
 
 static void smartass2_early_suspend(struct early_suspend *handler) {
 	int i;
-	if (suspended || sleep_ideal_freq==0) // disable behavior for sleep_ideal_freq==0
+	if (suspended || sleep_ideal_freq == 0) // disable behavior for sleep_ideal_freq==0
 		return;
 	suspended = 1;
 	for_each_online_cpu(i)
-		smartass2_suspend(i,1);
+		smartass2_suspend(i, 1);
 }
 
 static void smartass2_late_resume(struct early_suspend *handler) {
@@ -805,7 +805,7 @@ static void smartass2_late_resume(struct early_suspend *handler) {
 		return;
 	suspended = 0;
 	for_each_online_cpu(i)
-		smartass2_suspend(i,0);
+		smartass2_suspend(i, 0);
 }
 
 static struct early_suspend smartass2_power_suspend = {
