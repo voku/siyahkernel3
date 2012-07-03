@@ -347,27 +347,42 @@ CHECK		= sparse
 
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
-CFLAGS_COMPILE  = -pipe -fno-ident -fprofile-correction
-CFLAGS_ARM      = -marm -mtune=cortex-a9 -march=armv7-a -mfpu=neon \
-		  -mfloat-abi=softfp \
-		  --param l2-cache-size=1024 \
-		  --param l1-cache-size=64 \
-		  --param simultaneous-prefetches=8 \
-		  --param prefetch-latency=400 
-CFLAGS_REGISTER = -fschedule-insns -fsched-spec-load -fforce-addr \
+
+CFLAGS_COMPILE  = -pipe
+CFLAGS_ARM      = -marm \
+				  -mtune=cortex-a9 \
+				  -march=armv7-a \
+				  -mfpu=neon \
+				  -mfloat-abi=softfp \
+				  -fsingle-precision-constant \
+				  --param l2-cache-size=1024 \
+				  --param l1-cache-size=64 \
+				  --param simultaneous-prefetches=8 \
+				  --param prefetch-latency=400 
+CFLAGS_DISABLE  = -fno-delete-null-pointer-checks \
+				  -fno-gcse \
+				  -fno-ident
+CFLAGS_REGISTER = -fschedule-insns \
+				  -fsched-spec-load \
+				  -fforce-addr \
 				  -frename-registers
-CFLAGS_MATH		= -ffast-math
-CFLAGS_LOOPS    = -fsingle-precision-constant -fgraphite-identity \
-				  -ftree-loop-distribution -ftree-loop-linear \
-				  -floop-strip-mine -floop-block \
-				  -ftree-vectorize -mvectorize-with-neon-quad -fvect-cost-model \
-				  -fpredictive-commoning -finline-functions \
-				  -funswitch-loops -fgcse-after-reload -falign-loops \
-				  -fprefetch-loop-arrays -fipa-cp-clone
-CFLAGS_MODULO   = -fmodulo-sched -fmodulo-sched-allow-regmoves
-CFLAGS_DISABLE  = -fno-delete-null-pointer-checks -fno-gcse
-KERNELFLAGS     = $(CFLAGS_COMPILE) $(CFLAGS_ARM) $(CFLAGS_MATH) \
-                  $(CFLAGS_LOOPS) $(CFLAGS_MODULO) $(CFLAGS_DISABLE)
+CFLAGS_MODULO   = -fmodulo-sched \
+				  -fmodulo-sched-allow-regmoves
+CFLAGS_LOOPS_DEFAULT = -ftree-vectorize \
+				  -ftree-loop-linear \
+				  -floop-interchange \
+				  -floop-strip-mine \
+				  -floop-block \
+				  -ftree-loop-distribution \
+				  -fgraphite-identity
+CFLAGS_LOOPS_TESTING = \
+				  -mvectorize-with-neon-quad \
+				  -fvect-cost-model \
+				  -fprefetch-loop-arrays 
+
+KERNELFLAGS     = $(CFLAGS_COMPILE) $(CFLAGS_ARM) \
+				  $(CFLAGS_DISABLE) $(CFLAGS_MODULO) \
+				  $(CFLAGS_LOOPS_DEFAULT) $(CFLAGS_LOOPS_TESTING) 
 MODFLAGS        = -DMODULE $(KERNELFLAGS)
 CFLAGS_MODULE   = $(MODFLAGS)
 AFLAGS_MODULE   = $(MODFLAGS)
