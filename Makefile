@@ -380,9 +380,24 @@ CFLAGS_LOOPS_TESTING = \
 				  -fvect-cost-model \
 				  -fprefetch-loop-arrays 
 
+<<<<<<< .merge_file_RGMF1y
 KERNELFLAGS     = $(CFLAGS_COMPILE) $(CFLAGS_ARM) \
 				  $(CFLAGS_DISABLE) $(CFLAGS_MODULO) \
 				  $(CFLAGS_LOOPS_DEFAULT) $(CFLAGS_LOOPS_TESTING) 
+=======
+CFLAGS_EXPEREMENT = -fprofile-correction \
+				  -ffast-math \
+				  -fpredictive-commoning \
+				  -finline-functions \
+				  -funswitch-loops \
+				  -fgcse-after-reload \
+				  -falign-loops \
+				  -fipa-cp-clone
+
+KERNELFLAGS     = $(CFLAGS_COMPILE) $(CFLAGS_ARM) \
+				  $(CFLAGS_DISABLE) $(CFLAGS_MODULO) \
+				  $(CFLAGS_LOOPS_DEFAULT) $(CFLAGS_LOOPS_TESTING) $(CFLAGS_EXPEREMENT)
+>>>>>>> .merge_file_Pyt07x
 MODFLAGS        = -DMODULE $(KERNELFLAGS)
 CFLAGS_MODULE   = $(MODFLAGS)
 AFLAGS_MODULE   = $(MODFLAGS)
