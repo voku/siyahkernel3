@@ -610,7 +610,7 @@ static int update_brightness(struct lcd_info *lcd, u8 force)
 
 		lcd->current_bl = lcd->bl;
 
-		dev_info(&lcd->ld->dev, "id=%d brightness=%d, bl=%d, candela=%d\n", pdata->lcdtype, brightness, lcd->bl, candela_table[lcd->bl]);
+		//dev_info(&lcd->ld->dev, "id=%d brightness=%d, bl=%d, candela=%d\n", pdata->lcdtype, brightness, lcd->bl, candela_table[lcd->bl]);
 	}
 
 	mutex_unlock(&lcd->bl_lock);

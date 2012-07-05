@@ -1257,10 +1257,10 @@ static void report_input_data(struct mxt224_data *data)
 			data->fingers[i].z = TSP_STATE_INACTIVE;
 		/* logging */
 #ifdef __TSP_DEBUG
-			printk(KERN_ERR "[TSP] Up[%d] %4d,%4d\n", i,
-			       data->fingers[i].x, data->fingers[i].y);
+			//printk(KERN_ERR "[TSP] Up[%d] %4d,%4d\n", i,
+			//       data->fingers[i].x, data->fingers[i].y);
 #else
-			printk(KERN_ERR "[TSP] Up[%d]\n", i);
+			//printk(KERN_ERR "[TSP] Up[%d]\n", i);
 #endif
 			continue;
 		}
@@ -1296,14 +1296,14 @@ static void report_input_data(struct mxt224_data *data)
 		/* logging */
 #ifdef __TSP_DEBUG
 		if (copy_data->touch_is_pressed_arr[i] == 1)
-			printk(KERN_ERR "[TSP] Dn[%d] %4d,%4d\n", i,
-			       data->fingers[i].x, data->fingers[i].y);
+			//printk(KERN_ERR "[TSP] Dn[%d] %4d,%4d\n", i,
+			//       data->fingers[i].x, data->fingers[i].y);
 		if (copy_data->touch_is_pressed_arr[i] == 2)
-			printk(KERN_ERR "[TSP] Mv[%d] %4d,%4d\n", i,
-			       data->fingers[i].x, data->fingers[i].y);
+			//printk(KERN_ERR "[TSP] Mv[%d] %4d,%4d\n", i,
+			//       data->fingers[i].x, data->fingers[i].y);
 #else
 		if (copy_data->touch_is_pressed_arr[i] == 1) {
-			printk(KERN_ERR "[TSP] Dn[%d]\n", i);
+			//printk(KERN_ERR "[TSP] Dn[%d]\n", i);
 			copy_data->touch_is_pressed_arr[i] = 2;
 		}
 #endif
