@@ -45,7 +45,7 @@
 #include <linux/suspend.h>
 #endif
 
-#if defined(CONFIG_MACH_U1_BD) && defined(CONFIG_TARGET_LOCALE_KOR)
+#if defined(CONFIG_MACH_U1_BD) && defined(CONFIG_TARGET_LOCALE_EUR)
 #include <mach/regs-clock.h>
 #include "boot_progressbar.h"
 #define DISPLAY_BOOT_PROGRESS
