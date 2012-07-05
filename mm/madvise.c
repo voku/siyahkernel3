@@ -14,8 +14,8 @@
 #include <linux/falloc.h>
 #include <linux/sched.h>
 #include <linux/ksm.h>
-#include <linux/file.h>
 #include <linux/fs.h>
+#include <linux/file.h>
 
 /*
  * Any behaviour which results in changes to the vma->vm_flags needs to
@@ -225,14 +225,14 @@ static long madvise_remove(struct vm_area_struct *vma,
 			+ ((loff_t)vma->vm_pgoff << PAGE_SHIFT);
 
 	/*
-	 * filesystem's fallocate may need to take i_mutex. 
-	 * We need to explicitly grab a reference because the vma (and
-	 * hence the vma's reference to the file) can go away as soon as
-	 * we drop mmap_sem.
+	 * Filesystem's fallocate may need to take i_mutex.  We need to
+	 * explicitly grab a reference because the vma (and hence the
+	 * vma's reference to the file) can go away as soon as we drop
+	 * mmap_sem.
 	 */
 	get_file(f);
 	up_read(&current->mm->mmap_sem);
-	error = do_fallocate(vma->vm_file,
+	error = do_fallocate(f,
 				FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE,
 				offset, end - start);
 	fput(f);
