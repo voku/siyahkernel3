@@ -2659,7 +2659,7 @@ static void shmem_i_callback(struct rcu_head *head)
 
 static void shmem_destroy_inode(struct inode *inode)
 {
-	if (S_ISREG(inode->i_mode))
+	if (S_ISREG(inode->i_mode)) {
 		/* only struct inode is valid if it's an inline symlink */
 		mpol_free_shared_policy(&SHMEM_I(inode)->policy);
 	}
