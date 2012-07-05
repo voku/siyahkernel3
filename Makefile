@@ -361,7 +361,8 @@ ifdef CONFIG_CC_OPTIMIZE_FAST
 CFLAGS_COMPILE   = -Ofast
 endif
 
-CFLAGS_COMPILE  += -pipe
+CFLAGS_COMPILE  += -pipe \
+				  -fprofile-correction
 
 CFLAGS_ARM      = -marm \
 				  -mtune=cortex-a9 \
@@ -397,12 +398,8 @@ CFLAGS_LOOPS_DEFAULT = -ftree-vectorize \
 CFLAGS_LOOPS_TESTING = \
 				  -mvectorize-with-neon-quad \
 				  -fvect-cost-model \
-				  -fprefetch-loop-arrays 
-
-CFLAGS_EXPEREMENT = -fprofile-correction \
-				  -funsafe-math-optimizations \
+				  -fprefetch-loop-arrays  \
 				  -funsafe-loop-optimizations \
-				  -fexpensive-optimizations \
 				  -funroll-loops
 
 KERNELFLAGS     = $(CFLAGS_COMPILE) \
@@ -411,8 +408,7 @@ KERNELFLAGS     = $(CFLAGS_COMPILE) \
 				  $(CFLAGS_MODULO) \
 				  $(CFLAGS_REGISTER) \
 				  $(CFLAGS_LOOPS_DEFAULT) \
-				  $(CFLAGS_LOOPS_TESTING) \
-				  $(CFLAGS_EXPEREMENT)
+				  $(CFLAGS_LOOPS_TESTING)
 MODFLAGS        = -DMODULE $(KERNELFLAGS)
 CFLAGS_MODULE   = $(MODFLAGS)
 AFLAGS_MODULE   = $(MODFLAGS)
