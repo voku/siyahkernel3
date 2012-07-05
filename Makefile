@@ -395,7 +395,8 @@ CFLAGS_LOOPS_TESTING = \
 				  -fvect-cost-model \
 				  -fprefetch-loop-arrays  \
 				  -funsafe-loop-optimizations \
-				  -funroll-loops
+				  -funroll-loops \
+				  -finline-limit=100000
 
 KERNELFLAGS     = $(CFLAGS_COMPILE) \
 				  $(CFLAGS_ARM) \
