@@ -376,13 +376,8 @@ CFLAGS_ARM      = -marm \
 				  --param prefetch-latency=400 
 
 CFLAGS_DISABLE  = -fno-delete-null-pointer-checks \
-				  -fno-ident
-
-CFLAGS_REGISTER = -fschedule-insns \
-				  -fsched-spec-load \
-				  -fforce-addr \
-				  -frename-registers \
-				  -fbranch-target-load-optimize
+				  -fno-ident \
+				  -fno-gcse
 
 CFLAGS_MODULO   = -fmodulo-sched \
 				  -fmodulo-sched-allow-regmoves
