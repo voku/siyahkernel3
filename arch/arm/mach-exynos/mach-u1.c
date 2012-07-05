@@ -1941,7 +1941,7 @@ static struct lcd_platform_data ld9040_platform_data = {
 	/* it indicates whether lcd panel is enabled from u-boot. */
 	.lcd_enabled = 1,
 	.reset_delay = 20,	/* 20ms */
-	.power_on_delay = 50,	/* 50ms */
+	.power_on_delay = 20,	/* 20ms */
 	.power_off_delay = 200,	/* 120ms */
 	.pdata = &u1_panel_data,
 };
