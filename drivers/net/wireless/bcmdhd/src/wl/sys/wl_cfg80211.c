@@ -5656,7 +5656,7 @@ static s32 wl_inform_single_bss(struct wl_priv *wl, struct wl_bss_info *bi)
 #endif
 	channel = ieee80211_get_channel(wiphy, freq);
 	if (!channel) {
-		WL_ERR(("No valid channel"));
+		WL_ERR(("No valid channel: %u\n", freq));
 		kfree(notif_bss_info);
 		return -EINVAL;
 	}
@@ -8261,6 +8261,7 @@ s32 wl_update_wiphybands(struct wl_priv *wl)
 		return err;
        }
 
+#if 0
 	err = wl_construct_reginfo(wl, bw_cap);
 	if (err) {
 		WL_ERR(("wl_construct_reginfo() fails err=%d\n", err));
@@ -8269,6 +8270,7 @@ s32 wl_update_wiphybands(struct wl_priv *wl)
 		/* Ignore error if "chanspecs" command is not supported */
 		err = 0;
 	}
+#endif
 
 	wiphy = wl_to_wiphy(wl);
 	nband = bandlist[0];
