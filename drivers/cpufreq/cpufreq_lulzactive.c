@@ -903,7 +903,8 @@ void start_lulzactive(void)
 	struct cpufreq_lulzactive_cpuinfo *pcpu;
 	struct sched_param param = { .sched_priority = MAX_RT_PRIO-1 };
 
-	if (pump_up_step == 0) {
+	if( pump_up_step == 0 )
+	{
 		pcpu = &per_cpu(cpuinfo, 0);
 		cpufreq_frequency_table_target(
 				pcpu->policy, pcpu->lulzfreq_table,
@@ -913,11 +914,14 @@ void start_lulzactive(void)
 				pcpu->policy, pcpu->lulzfreq_table,
 				800000, CPUFREQ_RELATION_H,
 				&index800);
-		for (i = index800; i < index500; i++) {
-			if (pcpu->lulzfreq_table[i].frequency == CPUFREQ_ENTRY_INVALID) continue;
-				pump_up_step++;
+		for(i=index800;i<index500;i++)
+		{
+		  if(pcpu->lulzfreq_table[i].frequency==CPUFREQ_ENTRY_INVALID) continue;
+		  pump_up_step++;
 		}
-	} if (pump_down_step == 0) {
+	}
+	if( pump_down_step == 0 )
+	{
 		pump_down_step = pump_up_step;
 	}	
 

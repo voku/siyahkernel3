@@ -137,7 +137,7 @@ static void notify_change_of_temperature(struct sec_therm_info *info)
 	envp[env_offset++] = temp_buf;
 	envp[env_offset] = NULL;
 
-	dev_info(info->dev, "%s: uevent: %s\n", __func__, temp_buf);
+	dev_dbg(info->dev, "%s: uevent: %s\n", __func__, temp_buf);
 	kobject_uevent_env(&info->dev->kobj, KOBJ_CHANGE, envp);
 }
 

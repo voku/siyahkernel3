@@ -878,7 +878,7 @@ static int if_usb_suspend(struct usb_interface *intf, pm_message_t message)
 	devdata->usb_ld->suspended++;
 
 	if (devdata->usb_ld->suspended == LINKPM_DEV_NUM) {
-		pr_debug("[if_usb_suspended]\n");
+//		pr_debug("[if_usb_suspended]\n");
 		wake_unlock(&pm_data->l2_wake);
 	}
 	return 0;
@@ -902,7 +902,7 @@ static int if_usb_resume(struct usb_interface *intf)
 
 	devdata->usb_ld->suspended--;
 	if (!devdata->usb_ld->suspended) {
-		pr_debug("[if_usb_resumed]\n");
+//		pr_debug("[if_usb_resumed]\n");
 		wake_lock(&pm_data->l2_wake);
 	}
 

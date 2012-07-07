@@ -287,7 +287,7 @@ static int loop_sdmmc_check(void)
 
 	for (iter = 0; iter < sdmmc_dev_num; iter++) {
 		if (check_sdmmc_op(iter)) {
-			printk(KERN_DEBUG "SDMMC [%d] working\n", iter);
+//			printk(KERN_DEBUG "SDMMC [%d] working\n", iter);
 			return 1;
 		}
 	}

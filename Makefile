@@ -348,22 +348,7 @@ CHECK		= sparse
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
 
-ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
-CFLAGS_COMPILE   = -Os
-endif
-ifdef CONFIG_CC_OPTIMIZE_DEFAULT
-CFLAGS_COMPILE   = -O2
-endif
-ifdef CONFIG_CC_OPTIMIZE_ALOT
-CFLAGS_COMPILE   = -O3
-endif
-ifdef CONFIG_CC_OPTIMIZE_FAST
-CFLAGS_COMPILE   = -Ofast
-endif
-
-CFLAGS_COMPILE  += -pipe \
-				  -fprofile-correction
-
+CFLAGS_COMPILE  = -pipe
 CFLAGS_ARM      = -marm \
 				  -mtune=cortex-a9 \
 				  -march=armv7-a \
@@ -374,14 +359,11 @@ CFLAGS_ARM      = -marm \
 				  --param l1-cache-size=64 \
 				  --param simultaneous-prefetches=8 \
 				  --param prefetch-latency=400 
-
 CFLAGS_DISABLE  = -fno-delete-null-pointer-checks \
 				  -fno-ident \
 				  -fno-gcse
-
 CFLAGS_MODULO   = -fmodulo-sched \
 				  -fmodulo-sched-allow-regmoves
-
 CFLAGS_LOOPS_DEFAULT = -ftree-vectorize \
 				  -ftree-loop-linear \
 				  -floop-interchange \
@@ -389,21 +371,24 @@ CFLAGS_LOOPS_DEFAULT = -ftree-vectorize \
 				  -floop-block \
 				  -ftree-loop-distribution \
 				  -fgraphite-identity
-
 CFLAGS_LOOPS_TESTING = \
 				  -mvectorize-with-neon-quad \
 				  -fvect-cost-model \
-				  -fprefetch-loop-arrays  \
-				  -funsafe-loop-optimizations \
+				  -fprefetch-loop-arrays 
+
+CFLAGS_EXPEREMENT = -fprofile-correction \
+				  -ffast-math \
+				  -fpredictive-commoning \
+				  -finline-functions \
+				  -funswitch-loops \
+				  -fgcse-after-reload \
+				  -falign-loops \
+				  -fipa-cp-clone \
 				  -finline-limit=600
 
-KERNELFLAGS     = $(CFLAGS_COMPILE) \
-				  $(CFLAGS_ARM) \
-				  $(CFLAGS_DISABLE) \
-				  $(CFLAGS_MODULO) \
-				  $(CFLAGS_REGISTER) \
-				  $(CFLAGS_LOOPS_DEFAULT) \
-				  $(CFLAGS_LOOPS_TESTING)
+KERNELFLAGS     = $(CFLAGS_COMPILE) $(CFLAGS_ARM) \
+				  $(CFLAGS_DISABLE) $(CFLAGS_MODULO) \
+				  $(CFLAGS_LOOPS_DEFAULT) $(CFLAGS_LOOPS_TESTING) $(CFLAGS_EXPEREMENT)
 MODFLAGS        = -DMODULE $(KERNELFLAGS)
 CFLAGS_MODULE   = $(MODFLAGS)
 AFLAGS_MODULE   = $(MODFLAGS)

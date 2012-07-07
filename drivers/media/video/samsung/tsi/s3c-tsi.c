@@ -23,7 +23,7 @@
 #include <asm/page.h>
 #include <mach/irqs.h>
 #include <mach/gpio.h>
-#if defined(CONFIG_CPU_S5PV210) || defined(CONFIG_TARGET_LOCALE_EUR)
+#if defined(CONFIG_CPU_S5PV210) || defined(CONFIG_TARGET_LOCALE_NTT)
 #include <mach/map.h>
 #include <mach/regs-clock.h>
 #include <mach/regs-tsi.h>
@@ -34,14 +34,14 @@
 #endif
 #include <plat/gpio-cfg.h>
 
-#if defined(CONFIG_CPU_S5PV210) || defined(CONFIG_TARGET_LOCALE_EUR)
+#if defined(CONFIG_CPU_S5PV210) || defined(CONFIG_TARGET_LOCALE_NTT)
 #include <linux/sched.h>
 #include <linux/wait.h>
 #include <linux/poll.h>
 #include <linux/slab.h>
 #endif
 
-#if defined(CONFIG_CPU_S5PV210) || defined(CONFIG_TARGET_LOCALE_EUR)
+#if defined(CONFIG_CPU_S5PV210) || defined(CONFIG_TARGET_LOCALE_NTT)
 #define TSI_BUF_SIZE	(128*1024)
 #define TSI_PKT_CNT      16
 #else
@@ -90,7 +90,7 @@ typedef struct {
 	void __iomem	*tsi_base;
 	int tsi_irq;
 	int running;
-#if defined(CONFIG_PM) && defined(CONFIG_TARGET_LOCALE_EUR)
+#if defined(CONFIG_PM) && defined(CONFIG_TARGET_LOCALE_NTT)
 	int last_running_state;
 #endif
 	int new_pkt;
@@ -173,7 +173,7 @@ void s3c_tsi_set_gpio(void)
 	s3c_gpio_cfgpin(EXYNOS4210_GPE0(2), S3C_GPIO_SFN(4));
 	s3c_gpio_setpull(EXYNOS4210_GPE0(2), S3C_GPIO_PULL_NONE);
 
-#if defined(CONFIG_TARGET_LOCALE_EUR)
+#if defined(CONFIG_TARGET_LOCALE_NTT)
 	printk(" %s : system_rev %d\n", __func__, system_rev);
 
 	if (system_rev >= 11) {
@@ -187,7 +187,7 @@ void s3c_tsi_set_gpio(void)
 	s3c_gpio_setpull(S5PV310_GPE0(3), S3C_GPIO_PULL_NONE);
 #endif
 
-#if !defined(CONFIG_TARGET_LOCALE_EUR)
+#if !defined(CONFIG_TARGET_LOCALE_NTT)
 	/*  SYNC */
 	s3c_gpio_cfgpin(S5PV310_GPE0(1), S3C_GPIO_SFN(4));
 	s3c_gpio_setpull(S5PV310_GPE0(1), S3C_GPIO_PULL_NONE);
@@ -267,7 +267,7 @@ static int s3c_tsi_start(tsi_dev *tsi)
 		return -1;
 	}
 	pkt_size = pkt1->len;
-#if defined(CONFIG_CPU_S5PV210) || defined(CONFIG_TARGET_LOCALE_EUR)
+#if defined(CONFIG_CPU_S5PV210) || defined(CONFIG_TARGET_LOCALE_NTT)
 	/*	when set the TS BUF SIZE to the S3C_TS_SIZE,
 	if you want get a 10-block TS from TSIF,
 	you should set the value of S3C_TS_SIZE as 47*10(not 188*10)
@@ -402,7 +402,7 @@ void s3c_tsi_rx_int(tsi_dev *tsi)
 	}
 	list_move_tail(&pkt->list, &tsi->partial_list);
 
-#if defined(CONFIG_CPU_S5PV210) || defined(CONFIG_TARGET_LOCALE_EUR)
+#if defined(CONFIG_CPU_S5PV210) || defined(CONFIG_TARGET_LOCALE_NTT)
 	/*	namkh, request from Abraham
 		If there arise a buffer-full interrupt,
 		a new ts buffer address should be set.
@@ -462,7 +462,7 @@ int s3c_tsi_mmap(struct file *filp, struct vm_area_struct *vma)
 	return 0;
 }
 
-#if defined(CONFIG_CPU_S5PV210) || defined(CONFIG_TARGET_LOCALE_EUR)
+#if defined(CONFIG_CPU_S5PV210) || defined(CONFIG_TARGET_LOCALE_NTT)
 static unsigned int	s3c_tsi_poll(struct file *file, poll_table *wait)
 {
 	unsigned int mask = 0;
@@ -492,7 +492,7 @@ static ssize_t s3c_tsi_read(struct file *file, char *buf, size_t count, loff_t *
 	list_debug(&tsi->full_list);
 #endif
 
-#if defined(CONFIG_CPU_S5PV210)  || defined(CONFIG_TARGET_LOCALE_EUR)
+#if defined(CONFIG_CPU_S5PV210)  || defined(CONFIG_TARGET_LOCALE_NTT)
 	ret = wait_event_interruptible(tsi->read_wq, tsi->new_pkt);
 	if (ret < 0)	{
 		tsi_dbg("woken up from signal..returning\n");
@@ -601,7 +601,7 @@ static int s3c_tsi_open(struct inode *inode, struct file *file)
 {
 	tsi_dev *s3c_tsi = platform_get_drvdata(s3c_tsi_dev);
 	tsi_dbg(" %s\n", __func__);
-#if defined(CONFIG_CPU_S5PV210) || defined(CONFIG_TARGET_LOCALE_EUR)
+#if defined(CONFIG_CPU_S5PV210) || defined(CONFIG_TARGET_LOCALE_NTT)
 	/* Fix the TSI data problem (Don't generated waking up sleep state)
 	clk_enable(s3c_tsi->tsi_clk);
 	*/
@@ -617,7 +617,7 @@ static struct file_operations tsi_fops = {
 	release :	s3c_tsi_release,
 	unlocked_ioctl		:	s3c_tsi_ioctl,
 	read :		s3c_tsi_read,
-#if defined(CONFIG_CPU_S5PV210) || defined(CONFIG_TARGET_LOCALE_EUR)
+#if defined(CONFIG_CPU_S5PV210) || defined(CONFIG_TARGET_LOCALE_NTT)
 	poll :		s3c_tsi_poll,
 #endif
 	mmap :		s3c_tsi_mmap,
@@ -641,7 +641,7 @@ static int tsi_setup_bufs(tsi_dev *dev, struct list_head *head)
 	tsi_phy = dev->tsi_buf_phy;
 	tsi_virt = (u32) dev->tsi_buf_virt;
 	tsi_size = dev->tsi_buf_size;
-#if defined(CONFIG_CPU_S5PV210) || defined(CONFIG_TARGET_LOCALE_EUR)
+#if defined(CONFIG_CPU_S5PV210) || defined(CONFIG_TARGET_LOCALE_NTT)
 	/* TSI generates interrupt after filling this many bytes */
 	buf_size = dev->tsi_conf->num_packet * TS_PKT_SIZE*TSI_PKT_CNT;
 #else
@@ -654,7 +654,7 @@ static int tsi_setup_bufs(tsi_dev *dev, struct list_head *head)
 		pkt = kmalloc(sizeof(tsi_pkt), GFP_KERNEL);
 		if (!pkt)
 			return list_empty(head) ? -ENOMEM : 0 ;
-#if defined(CONFIG_CPU_S5PV210) || defined(CONFIG_TARGET_LOCALE_EUR)
+#if defined(CONFIG_CPU_S5PV210) || defined(CONFIG_TARGET_LOCALE_NTT)
 		/*	Address should be byte-aligned
 			Commented by sjinu, 2009_03_18	*/
 		pkt->addr = ((u32)tsi_phy + i*buf_size);
@@ -718,13 +718,13 @@ static int s3c_tsi_probe(struct platform_device *pdev)
 	conf->flt_mode    = OFF;
 	conf->pid_flt_mode = BYPASS;
 	conf->byte_order = MSB2LSB;
-#if defined(CONFIG_TARGET_LOCALE_EUR)
+#if defined(CONFIG_TARGET_LOCALE_NTT)
 	conf->sync_detect = S3C_TSI_SYNC_DET_MODE_TS_SYNC_BYTE;
 #else
 	conf->sync_detect = S3C_TSI_SYNC_DET_MODE_TS_SYNC8;
 #endif
 
-#if defined(CONFIG_CPU_S5PV210) || defined(CONFIG_TARGET_LOCALE_EUR)
+#if defined(CONFIG_CPU_S5PV210) || defined(CONFIG_TARGET_LOCALE_NTT)
 	/*
 	 to avoid making interrupt during getting the TS from TS buffer,
 	 we use the burst-length as 8 beat.
@@ -796,7 +796,7 @@ static int s3c_tsi_probe(struct platform_device *pdev)
 	init_waitqueue_head(&tsi_priv->read_wq);
 	tsi_priv->new_pkt = 0;
 	tsi_priv->running = 0;
-#if defined(CONFIG_PM) && defined(CONFIG_TARGET_LOCALE_EUR)
+#if defined(CONFIG_PM) && defined(CONFIG_TARGET_LOCALE_NTT)
 	tsi_priv->last_running_state = tsi_priv->running;
 #endif
 
@@ -880,7 +880,7 @@ static int s3c_tsi_remove(struct platform_device *dev)
 }
 
 
-#if defined(CONFIG_PM) && defined(CONFIG_TARGET_LOCALE_EUR)
+#if defined(CONFIG_PM) && defined(CONFIG_TARGET_LOCALE_NTT)
 static int s3c_tsi_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	tsi_dev *tsi = platform_get_drvdata(s3c_tsi_dev);
@@ -916,7 +916,7 @@ static struct platform_driver s3c_tsi_driver = {
 	.probe		= s3c_tsi_probe,
 	.remove		= s3c_tsi_remove,
 	.shutdown	= NULL,
-#if defined(CONFIG_PM) && defined(CONFIG_TARGET_LOCALE_EUR)
+#if defined(CONFIG_PM) && defined(CONFIG_TARGET_LOCALE_NTT)
 	.suspend	= s3c_tsi_suspend,
 	.resume		= s3c_tsi_resume,
 #else
