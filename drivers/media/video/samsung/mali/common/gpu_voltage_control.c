@@ -47,7 +47,7 @@ static ssize_t gpu_voltage_store(struct device *dev, struct device_attribute *at
 	unsigned int ret = -EINVAL;
 	int i = 0;
 
-	ret = sscanf(buf, "%d %d %d", &gv[0], &gv[1], &gv[2]);
+	ret = sscanf(buf, "%d %d %d\n", &gv[0], &gv[1], &gv[2]);
 	if(ret!=3) 
 	{
 		ret = sscanf(buf, "%d %d", &gv[0], &gv[1]);
@@ -78,7 +78,7 @@ static ssize_t gpu_asv_group_store(struct device *dev, struct device_attribute *
 {
 	unsigned int ret, data;
 
-	ret = sscanf(buf, "%d", &data);
+	ret = sscanf(buf, "%d\n", &data);
 	if (ret != 1 || data < 0 || data > 7)
 		return -EINVAL;
 
