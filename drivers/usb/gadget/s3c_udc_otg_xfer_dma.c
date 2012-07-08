@@ -510,6 +510,16 @@ static irqreturn_t s3c_udc_irq(int irq, void *_dev)
 		DEBUG_ISR("\tReset interrupt - (GOTGCTL):0x%x\n", usb_status);
 		__raw_writel(INT_RESET, dev->regs + S3C_UDC_OTG_GINTSTS);
 
+#if defined(CONFIG_MACH_M0_CMCC)
+		pr_info("[YSJ][%s] intr_status=0x%x, "
+					"gintmsk=0x%x, "
+					"usb_status=0x%x\n",
+					__func__,
+					intr_status,
+					gintmsk,
+					usb_status);
+#endif
+
 		set_conf_done = 0;
 
 		if ((usb_status & 0xc0000) == (0x3 << 18)) {
@@ -541,6 +551,10 @@ static irqreturn_t s3c_udc_irq(int irq, void *_dev)
 				}
 #endif
 				spin_unlock(&dev->lock);
+#if defined(CONFIG_MACH_M0_CMCC)
+				pr_info("[YSJ][%s] disconnect gadget",
+					__func__);
+#endif
 				dev->driver->disconnect(&dev->gadget);
 				spin_lock(&dev->lock);
 			}
