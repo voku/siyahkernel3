@@ -903,6 +903,15 @@ static int mass_storage_function_init(struct android_usb_function *f,
 				android_usb_pdata->nluns);
 		config->fsg.nluns = android_usb_pdata->nluns;
 		for (i = 0; i < android_usb_pdata->nluns; i++) {
+#if defined(CONFIG_MACH_M0_CTC)
+			/*FOR CTC PC-MODEM START*/
+			if (2 == i) {
+				printk(KERN_DEBUG "%s Enable cdfs\n", __func__);
+				config->fsg.luns[i].ro = 1;
+				config->fsg.luns[i].cdrom = 1;
+			}
+			/*FOR CTC PC-MODEM END*/
+#endif
 			config->fsg.luns[i].removable = 1;
 			config->fsg.luns[i].nofua = 1;
 		}
