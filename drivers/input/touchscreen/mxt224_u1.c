@@ -1230,6 +1230,8 @@ static int __devinit mxt224_init_touch_driver(struct mxt224_data *data)
 #ifdef CONFIG_KEYBOARD_CYPRESS_SAMMY_CM9
 void (*mxt224_touch_cb)(void) = NULL;
 #endif
+extern void flash_led_buttons(unsigned int flash_timeout);
+static unsigned int flash_timeout = 0;
 
 static void report_input_data(struct mxt224_data *data)
 {
@@ -1360,6 +1362,8 @@ static void report_input_data(struct mxt224_data *data)
 #ifdef CONFIG_KEYBOARD_CYPRESS_SAMMY_CM9
 		if(mxt224_touch_cb!=NULL) (*mxt224_touch_cb)();
 #endif
+		if (flash_timeout)
+			flash_led_buttons(flash_timeout);
 	}
 }
 
@@ -3258,6 +3262,29 @@ static ssize_t touch_lock_freq_store(struct device *dev,
 	return size;
 }
 
+static ssize_t led_flash_timeout_show(struct device *dev,
+				  struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", flash_timeout);
+}
+
+static ssize_t led_flash_timeout_store(struct device *dev,
+				   struct device_attribute *attr,
+				   const char *buf, size_t size)
+{
+	int ret;
+	unsigned int value;
+
+	ret = sscanf(buf, "%d\n", &value);
+
+	if (ret != 1)
+		return -EINVAL;
+	else
+		flash_timeout = value;
+
+	return size;
+}
+
 static DEVICE_ATTR(set_refer0, S_IRUGO | S_IWUSR | S_IWGRP,
 		   set_refer0_mode_show, NULL);
 static DEVICE_ATTR(set_delta0, S_IRUGO | S_IWUSR | S_IWGRP,
@@ -3334,6 +3361,8 @@ static DEVICE_ATTR(tsp_touch_config, S_IRUGO | S_IWUSR | S_IWGRP,
 	touch_config_show, touch_config_store);
 static DEVICE_ATTR(tsp_touch_freq, S_IRUGO | S_IWUSR | S_IWGRP,
 	touch_lock_freq_show, touch_lock_freq_store);
+static DEVICE_ATTR(tsp_flash_timeout, S_IRUGO | S_IWUSR | S_IWGRP,
+	led_flash_timeout_show, led_flash_timeout_store);
 
 static int sec_touchscreen_enable(struct mxt224_data *data)
 {
@@ -3740,6 +3769,10 @@ static int __devinit mxt224_probe(struct i2c_client *client,
 	if (device_create_file(sec_touchscreen, &dev_attr_tsp_touch_freq) < 0)
 		printk(KERN_ERR "Failed to create device file(%s)!\n",
 		       dev_attr_tsp_touch_freq.attr.name);
+
+	if (device_create_file(sec_touchscreen, &dev_attr_tsp_flash_timeout) < 0)
+		printk(KERN_ERR "Failed to create device file(%s)!\n",
+		       dev_attr_tsp_flash_timeout.attr.name);
 
 	if (device_create_file
 	    (sec_touchscreen, &dev_attr_tsp_firm_version_phone) < 0)
