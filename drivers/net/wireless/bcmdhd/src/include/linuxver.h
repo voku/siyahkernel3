@@ -516,7 +516,11 @@ typedef struct {
 	(tsk_ctl)->thr_pid = -1; \
 }
 
-
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0))
+#define BLOCKABLE()  (!in_atomic())
+#else
+#define BLOCKABLE()  (!in_interrupt())
+#endif
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 31))
 #define KILL_PROC(nr, sig) \

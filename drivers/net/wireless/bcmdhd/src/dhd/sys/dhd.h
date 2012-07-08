@@ -137,7 +137,6 @@ typedef enum  {
 	DHD_IF_DELETING
 } dhd_if_state_t;
 
-
 #if defined(CONFIG_DHD_USE_STATIC_BUF)
 
 uint8* dhd_os_prealloc(void *osh, int section, uint size);
@@ -241,6 +240,11 @@ typedef struct dhd_pub {
 	wl_country_t dhd_cspec;		/* Current Locale info */
 	char eventmask[WL_EVENTING_MASK_LEN];
 	int	op_mode;				/* STA, HostAPD, WFD, SoftAP */
+
+	/* Set this to 1 to use a seperate interface (p2p0) for p2p operations.
+	 *  For ICS MR1 releases it should be disable to be compatable with ICS MR1 Framework
+	 *  see target dhd-cdc-sdmmc-panda-cfg80211-icsmr1-gpl-debug in Makefile
+	*/
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 25)) && 1
 	struct mutex	wl_start_stop_lock; /* lock/unlock for Android start/stop */
@@ -498,6 +502,7 @@ extern int net_os_rxfilter_add_remove(struct net_device *dev, int val, int num);
 
 extern int dhd_get_dtim_skip(dhd_pub_t *dhd);
 extern bool dhd_check_ap_wfd_mode_set(dhd_pub_t *dhd);
+extern bool dhd_os_check_hang(dhd_pub_t *dhdp, int ifidx, int ret);
 
 #ifdef DHD_DEBUG
 extern int write_to_file(dhd_pub_t *dhd, uint8 *buf, int size);

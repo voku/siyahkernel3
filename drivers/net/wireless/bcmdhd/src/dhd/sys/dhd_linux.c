@@ -49,6 +49,7 @@
 #include <epivers.h>
 #include <bcmutils.h>
 #include <bcmendian.h>
+#include <bcmdevs.h>
 
 #include <proto/ethernet.h>
 #include <dngl_stats.h>
@@ -134,9 +135,9 @@ DECLARE_WAIT_QUEUE_HEAD(dhd_dpc_wait);
 #if defined(OOB_INTR_ONLY)
 extern void dhd_enable_oob_intr(struct dhd_bus *bus, bool enable);
 #endif /* defined(OOB_INTR_ONLY) */
-
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))
 static void dhd_hang_process(struct work_struct *work);
-
+#endif
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0))
 MODULE_LICENSE("GPL v2");
 #endif /* LinuxVer */
@@ -294,7 +295,9 @@ typedef struct dhd_info {
 	bool dhd_tasklet_create;
 #endif /* DHDTHREAD */
 	tsk_ctl_t	thr_sysioc_ctl;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))
 	struct work_struct work_hang;
+#endif
 
 	/* Wakelocks */
 #if defined(CONFIG_HAS_WAKELOCK) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))
@@ -380,7 +383,7 @@ module_param(dhd_console_ms, uint, 0644);
 	/sys/module/bcmdhd/wifi_pm */
 #if defined(CONFIG_HAS_EARLYSUSPEND)
 uint wifi_pm = 0;
-module_param(wifi_pm, uint, 0644);
+module_param(wifi_pm, uint, 0664);
 #endif /* defined(CONFIG_HAS_EARLYSUSPEND) */
 
 uint dhd_slpauto = TRUE;
@@ -444,12 +447,6 @@ module_param_string(iface_name, iface_name, IFNAMSIZ, 0);
 		strncpy(current->comm, a, MIN(sizeof(current->comm), (strlen(a) + 1))); \
 	} while (0);
 #endif /* LINUX_VERSION_CODE  */
-
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0))
-#define BLOCKABLE()	(!in_atomic())
-#else
-#define BLOCKABLE()	(!in_interrupt())
-#endif
 
 /* The following are specific to the SDIO dongle */
 
@@ -563,7 +560,7 @@ static int dhd_wl_host_event(dhd_info_t *dhd, int *ifidx, void *pktdata,
 static int dhd_sleep_pm_callback(struct notifier_block *nfb, unsigned long action, void *ignored)
 {
 	int ret = NOTIFY_DONE;
-#if (LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 39))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 39))
 	switch (action) {
 	case PM_HIBERNATION_PREPARE:
 	case PM_SUSPEND_PREPARE:
@@ -722,16 +719,20 @@ static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 	return 0;
 }
 
-static void dhd_suspend_resume_helper(struct dhd_info *dhd, int val)
+static int dhd_suspend_resume_helper(struct dhd_info *dhd, int val)
 {
 	dhd_pub_t *dhdp = &dhd->pub;
+	int ret = 0;
 
 	DHD_OS_WAKE_LOCK(dhdp);
 	/* Set flag when early suspend was called */
 	dhdp->in_suspend = val;
-	if ((!dhdp->suspend_disable_flag) && (dhd_check_ap_wfd_mode_set(dhdp) == FALSE))
-		dhd_set_suspend(val, dhdp);
+	if ((!dhdp->suspend_disable_flag) && (dhd_check_ap_wfd_mode_set(dhdp) == FALSE)) {
+		ret = dhd_set_suspend(val, dhdp);
+	}
 	DHD_OS_WAKE_UNLOCK(dhdp);
+
+	return ret;
 }
 
 static void dhd_early_suspend(struct early_suspend *h)
@@ -1233,7 +1234,7 @@ dhd_op_if(dhd_if_t *ifp)
 #endif
 			netif_stop_queue(ifp->net);
 			unregister_netdev(ifp->net);
-			ret = DHD_DEL_IF;	/* Make sure the free_netdev() is called */
+			ret = DHD_DEL_IF;
 		}
 		break;
 	case DHD_IF_DELETING:
@@ -1742,6 +1743,7 @@ dhd_rx_frame(dhd_pub_t *dhdp, int ifidx, void *pktbuf, int numpkt, uint8 chan)
 			*/
 			((athost_wl_status_info_t*)dhdp->wlfc_state)->stats.wlfc_header_only_pkt++;
 			PKTFREE(dhdp->osh, pktbuf, TRUE);
+			DHD_TRACE(("RX: wlfc header \n"));
 			continue;
 		}
 #endif
@@ -1840,12 +1842,14 @@ dhd_rx_frame(dhd_pub_t *dhdp, int ifidx, void *pktbuf, int numpkt, uint8 chan)
 				tout_ctrl = DHD_PACKET_TIMEOUT_MS;
 			if (event.event_type == WLC_E_BTA_HCI_EVENT) {
 				dhd_bta_doevt(dhdp, data, event.datalen);
-			} else if (event.event_type == WLC_E_PFN_NET_FOUND) {
-				tout_ctrl *= 2;
 			}
-
-		} else {
-			tout_rx = DHD_PACKET_TIMEOUT_MS;
+#ifdef PNO_SUPPORT
+			if (event.event_type == WLC_E_PFN_NET_FOUND) {
+				tout_ctrl *= 2;
+#endif /* PNO_SUPPORT */
+			} else {
+				tout_rx = DHD_PACKET_TIMEOUT_MS;
+			}
 #endif /* WLBTAMP */
 		}
 
@@ -2748,7 +2752,6 @@ dhd_open(struct net_device *net)
 	}
 
 	dhd->pub.hang_was_sent = 0;
-
 #if !defined(WL_CFG80211)
 	/*
 	 * Force start if ifconfig_up gets called before START command
@@ -3190,7 +3193,9 @@ dhd_attach(osl_t *osh, struct dhd_bus *bus, uint bus_hdrlen)
 	}
 	dhd_state |= DHD_ATTACH_STATE_THREADS_CREATED;
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))
 	INIT_WORK(&dhd->work_hang, dhd_hang_process);
+#endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))  */
 
 	/*
 	 * Save the dhd_info into the priv
@@ -3439,14 +3444,14 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 #if defined(VSDB) || defined(ROAM_ENABLE)
 	uint bcn_timeout = 8;
 #else
-	uint bcn_timeout = 4;
+	uint bcn_timeout = DHD_BEACON_TIMEOUT_NORMAL;
 #endif
 	uint retry_max = 3;
 #if defined(ARP_OFFLOAD_SUPPORT)
 	int arpoe = 1;
 #endif
 	int scan_assoc_time = DHD_SCAN_ACTIVE_TIME;
-	int scan_unassoc_time = 80;
+	int scan_unassoc_time = 40;
 	int scan_passive_time = DHD_SCAN_PASSIVE_TIME;
 	char buf[WLC_IOCTL_SMLEN];
 	char *ptr;
@@ -3534,7 +3539,7 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 #endif /* GET_CUSTOM_MAC_ENABLE */
 
 #ifdef SET_RANDOM_MAC_SOFTAP
-	if ((!op_mode && strstr(fw_path, "_apsta") != NULL) || (op_mode == 0x02)) {
+	if ((!op_mode && strstr(fw_path, "_apsta") != NULL) || (op_mode == HOSTAPD_MASK)) {
 		uint rand_mac;
 
 		srandom32((uint)jiffies);
@@ -4280,7 +4285,9 @@ void dhd_detach(dhd_pub_t *dhdp)
 	}
 #endif /* defined(CONFIG_HAS_EARLYSUSPEND) */
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))
 	cancel_work_sync(&dhd->work_hang);
+#endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))  */
 
 #if defined(CONFIG_WIRELESS_EXT)
 	if (dhd->dhd_state & DHD_ATTACH_STATE_WL_ATTACH) {
@@ -4534,7 +4541,7 @@ dhd_module_init(void)
 
 	return error;
 
-#if 1 && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))
 fail_2:
 	dhd_bus_unregister();
 #endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) */
@@ -4976,7 +4983,11 @@ void dhd_wait_for_event(dhd_pub_t *dhd, bool *lockvar)
 {
 #if 1 && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0))
 	struct dhd_info *dhdinfo =  dhd->info;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))
 	int timeout = msecs_to_jiffies(2000);
+#else
+	int timeout = 2 * HZ;
+#endif
 	dhd_os_sdunlock(dhd);
 	wait_event_timeout(dhdinfo->ctrl_wait, (*lockvar == FALSE), timeout);
 	dhd_os_sdlock(dhd);
