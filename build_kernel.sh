@@ -32,11 +32,8 @@ then
 fi
 
 if [ ! -f $KERNELDIR/.config ]; then
+	cp $KERNELDIR/arch/arm/configs/dorimanx_defconfig .config
 	make dorimanx_defconfig
-else
-	if [ $KERNELDIR/arch/arm/configs/dorimanx_defconfig -nt .config ]; then
-		cp $KERNELDIR/arch/arm/configs/dorimanx_defconfig .config
-	fi;
 fi
 
 . $KERNELDIR/.config
