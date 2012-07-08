@@ -272,7 +272,7 @@ unsigned int mali_asv_group;
 static mali_bool mali_dvfs_table_update(void)
 {
 	unsigned int exynos_result_of_asv_group;
-	unsigned int i, target_asv;;
+	unsigned int i, target_asv;
 
 	exynos_result_of_asv_group = mali_asv_group = exynos_result_of_asv & 0xf;
 	target_asv = exynos_result_of_asv >> 28;
