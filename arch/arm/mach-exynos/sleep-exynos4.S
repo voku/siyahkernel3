@@ -53,7 +53,7 @@ ENTRY(s3c_cpu_save)
 	str	r2, [r0], #4
 
 	ldr	r3, =resume_with_mmu
-	bl	cpu_suspend
+	bl	__cpu_suspend
 
 	bl	exynos4_cpu_suspend
 

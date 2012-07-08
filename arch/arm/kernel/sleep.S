@@ -14,7 +14,7 @@
  * Note: sp is decremented to allocate space for CPU state on stack
  * r0-r3,r9,r10,lr corrupted
  */
-ENTRY(cpu_suspend)
+ENTRY(__cpu_suspend)
 	mov	r9, lr
 #ifdef MULTI_CPU
 	ldr	r10, =processor
@@ -65,7 +65,7 @@ ENTRY(cpu_suspend)
 	mov	lr, r9
 	b	__cpuc_flush_kern_all
 #endif
-ENDPROC(cpu_suspend)
+ENDPROC(__cpu_suspend)
 	.ltorg
 
 /*
