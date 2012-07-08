@@ -87,7 +87,7 @@ mali_dvfs_table mali_dvfs[MALI_DVFS_STEPS]={
 
 #define ASV_8_LEVEL	8
 #define ASV_5_LEVEL	5
-
+#define ASV_LEVEL_SUPPORT 1
 static unsigned int asv_3d_volt_5_table[ASV_5_LEVEL][MALI_DVFS_STEPS] = {
 	/* L3 (66MHz) L2(160MHz), L1(267MHz) */
         { 975000, 1000000, 1100000},	/* S */
@@ -272,8 +272,8 @@ unsigned int mali_asv_group;
 static mali_bool mali_dvfs_table_update(void)
 {
 	unsigned int exynos_result_of_asv_group;
-	unsigned int target_asv;
-	unsigned int i;
+	unsigned int i, target_asv;;
+
 	exynos_result_of_asv_group = mali_asv_group = exynos_result_of_asv & 0xf;
 	target_asv = exynos_result_of_asv >> 28;
 	MALI_PRINT(("exynos_result_of_asv_group = 0x%x, target_asv = 0x%x\n",
@@ -300,6 +300,7 @@ void update_mali_dvfs_table(unsigned int asv_group)
 	unsigned int i;
 
 	mali_asv_group = asv_group & 0xf;
+
 	for (i = 0; i < MALI_DVFS_STEPS; i++) {
 		mali_dvfs[i].vol = asv_3d_volt_8_table[asv_group][i];
 		MALI_PRINT(("mali_dvfs[%d].vol = %d\n", i, mali_dvfs[i].vol));
