@@ -508,6 +508,7 @@ struct wl_priv {
 #endif /* WL_CFG80211_GON_COLLISION */
 	s32 (*state_notifier) (struct wl_priv *wl, struct net_info *_net_info, enum wl_status state, bool set);
 	unsigned long interrested_state;
+	u16 hostapd_chan;	/* remember chan requested by framework for hostapd  */
 	u16 scan_busy_count;
 };
 
