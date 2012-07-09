@@ -11,6 +11,8 @@ export EXTRA_AFLAGS=-mfpu=neon
 export USE_SEC_FIPS_MODE=true
 
 # compiler
+# system gcc
+export CROSS_COMPILE=/usr/bin/arm-linux-gnueabi-
 # gcc 4.5.2
 #export CROSS_COMPILE=$PARENT_DIR/toolchain/bin/arm-none-eabi-
 # gcc 4.4.3 (CM9)
@@ -18,7 +20,7 @@ export USE_SEC_FIPS_MODE=true
 # gcc 4.7 (Linaro 12.04)
 #export CROSS_COMPILE=$PARENT_DIR/linaro/bin/arm-eabi-
 # gcc 4.7.1 (Linaro 12.05)
-export CROSS_COMPILE=android-toolchain/bin/arm-eabi-
+#export CROSS_COMPILE=android-toolchain/bin/arm-eabi-
 
 # build script
 export USER=`whoami`

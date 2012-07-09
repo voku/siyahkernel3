@@ -810,7 +810,7 @@ static int exynos4_enter_lowpower(struct cpuidle_device *dev,
                 struct cpuidle_driver *drv,
                 int index)
 {
-	//unsigned int enter_mode;
+	unsigned int enter_mode;
 	unsigned int tmp;
 	int new_index = index;
 
