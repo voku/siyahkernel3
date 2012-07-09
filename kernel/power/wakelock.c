@@ -53,11 +53,10 @@ suspend_state_t requested_suspend_state = PM_SUSPEND_MEM;
 static struct wake_lock unknown_wakeup;
 static struct wake_lock suspend_backoff_lock;
 
-#define SUSPEND_BACKOFF_FAILURES	10
-#define SUSPEND_BACKOFF_INTERVAL	5000
+#define SUSPEND_BACKOFF_THRESHOLD	10
+#define SUSPEND_BACKOFF_INTERVAL	10000
 
-static unsigned suspend_backoff_count;
-static unsigned suspend_fail_count;
+static unsigned suspend_short_count;
 
 #ifdef CONFIG_WAKELOCK_STAT
 static struct wake_lock deleted_wake_locks;
@@ -380,10 +379,8 @@ long has_wake_lock(int type)
 static void suspend_backoff(void)
 {
 	pr_info("suspend: too many immediate wakeups, back off\n");
-	++suspend_backoff_count;
 	wake_lock_timeout(&suspend_backoff_lock,
-			  msecs_to_jiffies(suspend_backoff_count *
-				SUSPEND_BACKOFF_INTERVAL));
+			  msecs_to_jiffies(SUSPEND_BACKOFF_INTERVAL));
 }
 
 static void suspend(struct work_struct *work)
@@ -426,15 +423,14 @@ static void suspend(struct work_struct *work)
 	}
 
 	if (ts_exit.tv_sec - ts_entry.tv_sec <= 1) {
-		++suspend_fail_count;
+		++suspend_short_count;
 
-		if (suspend_fail_count == SUSPEND_BACKOFF_FAILURES) {
+		if (suspend_short_count == SUSPEND_BACKOFF_THRESHOLD) {
 			suspend_backoff();
-			suspend_fail_count = 0;
+			suspend_short_count = 0;
 		}
 	} else {
-		suspend_fail_count = 0;
-		suspend_backoff_count = 0;
+		suspend_short_count = 0;
 	}
 
 	if (current_event_num == entry_event_num) {
