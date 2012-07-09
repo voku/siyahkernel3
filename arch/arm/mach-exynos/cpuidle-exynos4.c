@@ -525,7 +525,7 @@ static int exynos4_enter_core0_aftr(struct cpuidle_device *dev,
 	__raw_writel(tmp, S5P_CENTRAL_SEQ_CONFIGURATION);
 
 	cpu_pm_enter();
-	cpu_do_idle();
+	cpu_suspend(0, idle_finisher);
 
 	scu_enable(S5P_VA_SCU);
 	cpu_pm_exit();

@@ -21,6 +21,7 @@
 #include <linux/power/charger-manager.h>
 
 #include <asm/cacheflush.h>
+#include <asm/suspend.h>
 #include <mach/hardware.h>
 #include <mach/map.h>
 
@@ -238,7 +239,7 @@ static void __maybe_unused s3c_pm_show_resume_irqs(int start,
 }
 
 void (*pm_cpu_prep)(void);
-void (*pm_cpu_sleep)(void);
+void (*pm_cpu_sleep)(unsigned long);
 void (*pm_cpu_restore)(void);
 int (*pm_prepare)(void);
 void (*pm_finish)(void);
@@ -307,15 +308,11 @@ static int s3c_pm_enter(suspend_state_t state)
 
 	printk(KERN_ALERT "PM: SLEEP\n");
 
-	/* s3c_cpu_save will also act as our return point from when
+	/* this will also act as our return point from when
 	 * we resume as it saves its own register state and restores it
 	 * during the resume.  */
 
-	s3c_cpu_save(0, PLAT_PHYS_OFFSET - PAGE_OFFSET);
-
-	/* restore the cpu state using the kernel's cpu init code. */
-
-	cpu_init();
+	cpu_suspend(0, pm_cpu_sleep);
 
 	s3c_pm_restore_core();
 	s3c_pm_restore_uarts();
