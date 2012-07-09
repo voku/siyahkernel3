@@ -826,8 +826,10 @@ static int exynos4_enter_lowpower(struct cpuidle_device *dev,
 	}
 
     if (new_index == 0)
+    		printk(KERN_INFO "Info: starting Idle Mode!\n");
 		return exynos4_enter_idle(dev, drv, new_index);
 	else
+		printk(KERN_INFO "Info: starting AFTR Idle Mode!\n");
 		return exynos4_enter_core0_aftr(dev, drv, new_index);
 
 	//enter_mode = exynos4_check_entermode();
