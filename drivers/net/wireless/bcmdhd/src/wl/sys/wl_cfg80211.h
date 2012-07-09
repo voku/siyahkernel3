@@ -145,7 +145,7 @@ do {									\
 #define WL_SCAN_CONNECT_DWELL_TIME_MS 100
 
 #define WL_SCAN_TIMER_INTERVAL_MS	8000 /* Scan timeout */
-#define WL_CHANNEL_SYNC_RETRY	5
+#define WL_CHANNEL_SYNC_RETRY	3
 #define WL_ACT_FRAME_RETRY 4
 #define WL_INVALID -1
 
