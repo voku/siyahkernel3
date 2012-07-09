@@ -774,16 +774,22 @@ static int exynos4_enter_lowpower(struct cpuidle_device *dev,
 		__raw_writel(tmp, S5P_CENTRAL_SEQ_OPTION);
 	}
 
-    if (new_index == 0)
-        return exynos4_enter_idle(dev, drv, new_index);
+	if (new_index == 0) {
+		printk(KERN_INFO "Info: starting Idle Mode!\n");
+        	return exynos4_enter_idle(dev, drv, new_index);
+	}
 
 	enter_mode = exynos4_check_entermode();
-	if (!enter_mode)
+	if (!enter_mode) {
+		printk(KERN_INFO "Info: starting Idle Mode!\n");
 		return exynos4_enter_idle(dev, drv, new_index);
-	else if (enter_mode == S5P_CHECK_DIDLE)
+	} else if (enter_mode == S5P_CHECK_DIDLE) {
+		printk(KERN_INFO "Info: starting AFTR Idle Mode!\n");
 		return exynos4_enter_core0_aftr(dev, drv, new_index);
-	else
+	} else {
+		printk(KERN_INFO "Info: starting LPA Idle Mode!\n");
 		return exynos4_enter_core0_lpa(dev, drv, new_index);
+	}
 }
 
 static int exynos4_cpuidle_notifier_event(struct notifier_block *this,
