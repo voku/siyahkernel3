@@ -161,7 +161,7 @@ static struct dbs_tuners {
 #endif
 };
 
-static unsigned int dbs_enable=1;	/* number of CPUs using this policy */
+static unsigned int dbs_enable=0;	/* number of CPUs using this policy */
 
 // ondemand suspend mods (Thanks to Imoseyon)
 static unsigned int suspended = 0;
