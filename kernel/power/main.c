@@ -422,7 +422,7 @@ static ssize_t cpufreq_max_limit_store(struct kobject *kobj,
 {
 	int val;
 	unsigned int cpufreq_level;
-//	int lock_ret;
+	int lock_ret;
 	ssize_t ret = -EINVAL;
 
 	mutex_lock(&cpufreq_limit_mutex);
