@@ -342,26 +342,55 @@ static inline int check_gps_uart_op(void)
 
 static int exynos4_check_operation(void)
 {
-	if (check_power_domain())
-		return 1;
+	unsigned int ret = 0;
 
-	if (clock_domain_enabled(LPA_DOMAIN))
+	ret = check_power_domain();
+	if (ret) {
+		printk(KERN_INFO "check failed: check_power_domain [%d]\n", ret);
 		return 1;
+	}
 
-	if (loop_sdmmc_check() || exynos4_check_usb_op())
+	ret = clock_domain_enabled(LPA_DOMAIN);
+	if (ret) {
+		printk(KERN_INFO "check failed: clock_domain_enabled [%d]\n", ret);
 		return 1;
+	}
+
+	// check if SD/MMC is working
+	ret = loop_sdmmc_check();
+	if (ret) {
+		printk(KERN_INFO "check failed: loop_sdmmc_check [%d]\n", ret);
+		return 1;
+	}
+
+	ret = exynos4_check_usb_op();
+	if (ret) {
+		printk(KERN_INFO "check failed: exynos4_check_usb_op [%d]\n", ret);
+		return 1;
+	}
+
 #ifdef CONFIG_SND_SAMSUNG_RP
-	if (srp_get_op_level())
+	// check if sound is working -> sound/soc/samsung/srp_ulp/srp.c
+	ret = srp_get_op_level();
+	if (ret) {
+		printk(KERN_INFO "check failed: srp_get_op_level [%d]\n", ret);
 		return 1;
+	}
 #endif
 
 #if defined(CONFIG_BT)
-	if (check_bt_op())
+	ret = check_bt_op();
+	if (ret) {
+		printk(KERN_INFO "check failed: check_bt_op [%d]\n", ret);
 		return 1;
+	}
 #endif
 
-	if (check_gps_uart_op())
+	ret = check_gps_uart_op();
+	if (ret) {
+		printk(KERN_INFO "check failed: check_gps_uart_op [%d]\n", ret);
 		return 1;
+	}
 
 	return 0;
 }
