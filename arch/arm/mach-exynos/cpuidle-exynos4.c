@@ -11,16 +11,12 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/cpuidle.h>
-#include <linux/cpu_pm.h>
 #include <linux/io.h>
 #include <linux/suspend.h>
 #include <linux/platform_device.h>
 #include <linux/gpio.h>
 
 #include <asm/proc-fns.h>
-#include <asm/smp_scu.h>
-#include <asm/suspend.h>
-#include <asm/unified.h>
 #include <asm/tlbflush.h>
 #include <asm/cacheflush.h>
 
@@ -49,9 +45,6 @@
 				(S5P_VA_SYSRAM + 0x24) : S5P_INFORM7)
 #define REG_DIRECTGO_FLAG	(samsung_rev() < EXYNOS4210_REV_1_1 ?\
 				(S5P_VA_SYSRAM + 0x20) : S5P_INFORM6)
-
-#define S5P_CHECK_AFTR		(samsung_rev() == EXYNOS4210_REV_1_0 ? \
-				0xBAD00000 : 0xFCBA0D10)
 #endif
 
 extern unsigned long sys_pwr_conf_addr;
@@ -464,36 +457,9 @@ void exynos4_flush_cache(void *addr, phys_addr_t phy_ttb_base)
 	flush_cache_all();
 }
 
-/* Ext-GIC nIRQ/nFIQ is the only wakeup source in AFTR */
 static void exynos4_set_wakeupmask(void)
 {
 	__raw_writel(0x0000ff3e, S5P_WAKEUP_MASK);
-}
-
-static unsigned int g_pwr_ctrl, g_diag_reg;
-
-static void save_cpu_arch_register(void)
-{
-	/*read power control register*/
-	asm("mrc p15, 0, %0, c15, c0, 0" : "=r"(g_pwr_ctrl) : : "cc");
-	/*read diagnostic register*/
-	asm("mrc p15, 0, %0, c15, c0, 1" : "=r"(g_diag_reg) : : "cc");
-	return;
-}
-
-static void restore_cpu_arch_register(void)
-{
-	/*write power control register*/
-	asm("mcr p15, 0, %0, c15, c0, 0" : : "r"(g_pwr_ctrl) : "cc");
-	/*write diagnostic register*/
-	asm("mcr p15, 0, %0, c15, c0, 1" : : "r"(g_diag_reg) : "cc");
-	return;
-}
-
-static int idle_finisher(unsigned long flags)
-{
-	cpu_do_idle();
-	return 1;
 }
 
 static void vfp_enable(void *unused)
@@ -534,55 +500,37 @@ static int exynos4_enter_core0_aftr(struct cpuidle_device *dev,
 	/* Set value of power down register for aftr mode */
 	exynos4_sys_powerdown_conf(SYS_AFTR);
 
-	__raw_writel(BSYM(virt_to_phys(s3c_cpu_resume)),
-						 REG_DIRECTGO_ADDR);
-	__raw_writel(S5P_CHECK_AFTR, REG_DIRECTGO_FLAG);
-
 	if (!soc_is_exynos4210())
 		exynos4_reset_assert_ctrl(0);
 
 	if (!soc_is_exynos4210())
 		exynos4x12_set_abb(ABB_MODE_100V);
 
-	save_cpu_arch_register();
+	if (exynos4_enter_lp(0, PLAT_PHYS_OFFSET - PAGE_OFFSET) == 0) {
 
-	/*
-	 * Setting Central Sequence Register for power down mode
-	 */
-	tmp = __raw_readl(S5P_CENTRAL_SEQ_CONFIGURATION);
-	tmp &= ~S5P_CENTRAL_LOWPWR_CFG;
-	__raw_writel(tmp, S5P_CENTRAL_SEQ_CONFIGURATION);
+		/*
+		 * Clear Central Sequence Register in exiting early wakeup
+		 */
+		tmp = __raw_readl(S5P_CENTRAL_SEQ_CONFIGURATION);
+		tmp |= (S5P_CENTRAL_LOWPWR_CFG);
+		__raw_writel(tmp, S5P_CENTRAL_SEQ_CONFIGURATION);
 
-	cpu_pm_enter();
-	cpu_suspend(0, idle_finisher);
+		goto early_wakeup;
+	}
+	flush_tlb_all();
 
-	scu_enable(S5P_VA_SCU);
-	cpu_pm_exit();
+	cpu_init();
 
 	vfp_enable(NULL);
 
-	restore_cpu_arch_register();
-
 	s3c_pm_do_restore_core(exynos4_aftr_save,
 			       ARRAY_SIZE(exynos4_aftr_save));
-	
+early_wakeup:
 	if ((exynos_result_of_asv > 3) && !soc_is_exynos4210())
 		exynos4x12_set_abb(ABB_MODE_130V);
 
 	if (!soc_is_exynos4210())
 		exynos4_reset_assert_ctrl(1);
-
-	/*
-	 * If PMU failed while entering sleep mode, WFI will be
-	 * ignored by PMU and then exiting cpu_do_idle().
-	 * S5P_CENTRAL_LOWPWR_CFG bit will not be set automatically
-	 * in this situation.
-	 */
-	tmp = __raw_readl(S5P_CENTRAL_SEQ_CONFIGURATION);
-	if (!(tmp & S5P_CENTRAL_LOWPWR_CFG)) {
-		tmp |= S5P_CENTRAL_LOWPWR_CFG;
-		__raw_writel(tmp, S5P_CENTRAL_SEQ_CONFIGURATION);
-	}
 
 	/* Clear wakeup state register */
 	__raw_writel(0x0, S5P_WAKEUP_STAT);
@@ -662,6 +610,7 @@ static int exynos4_enter_core0_lpa(struct cpuidle_device *dev,
 	if (!soc_is_exynos4210())
 		exynos4x12_set_abb(ABB_MODE_100V);
 
+
 	if (exynos4_enter_lp(0, PLAT_PHYS_OFFSET - PAGE_OFFSET) == 0) {
 
 		/*
@@ -725,7 +674,7 @@ static int exynos4_enter_lowpower(struct cpuidle_device *dev,
 				struct cpuidle_driver *drv,
 			    int index);
 
-static struct cpuidle_state exynos4_cpuidle_set[] __initdata = {
+static struct cpuidle_state exynos4_cpuidle_set[] = {
 	[0] = {
 		.enter				= exynos4_enter_idle,
 		.exit_latency		= 1,
@@ -990,8 +939,6 @@ static int __init exynos4_init_cpuidle(void)
 			memcpy(&drv->states[i], &exynos4_cpuidle_set[i],
 					sizeof(struct cpuidle_state));
 		}
-
-		drv->safe_state_index = (int)&drv->states[0];
 
 		if (cpuidle_register_device(device)) {
 			printk(KERN_ERR "CPUidle register device failed\n,");

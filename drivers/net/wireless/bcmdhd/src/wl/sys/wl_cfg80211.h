@@ -127,7 +127,7 @@ do {									\
 #define WL_SCAN_RETRY_MAX	3
 #define WL_NUM_PMKIDS_MAX	MAXPMKID
 #define WL_SCAN_BUF_MAX		(1024 * 8)
-#define WL_TLV_INFO_MAX		1024
+#define WL_TLV_INFO_MAX 	1500 /* customer want to large size IE, so increase ie length */
 #define WL_SCAN_IE_LEN_MAX      2048
 #define WL_BSS_INFO_MAX		2048
 #define WL_ASSOC_INFO_MAX	512
@@ -508,7 +508,6 @@ struct wl_priv {
 #endif /* WL_CFG80211_GON_COLLISION */
 	s32 (*state_notifier) (struct wl_priv *wl, struct net_info *_net_info, enum wl_status state, bool set);
 	unsigned long interrested_state;
-	u16 hostapd_chan;	/* remember chan requested by framework for hostapd  */
 	u16 scan_busy_count;
 };
 
@@ -782,6 +781,7 @@ extern s32 wl_cfg80211_up(void *para);
 extern s32 wl_cfg80211_down(void *para);
 extern s32 wl_cfg80211_notify_ifadd(struct net_device *ndev, s32 idx, s32 bssidx,
 	void* _net_attach);
+extern s32 wl_cfg80211_ifdel_ops(struct net_device *net);
 extern s32 wl_cfg80211_notify_ifdel(struct net_device *ndev);
 extern s32 wl_cfg80211_is_progress_ifadd(void);
 extern s32 wl_cfg80211_is_progress_ifchange(void);
