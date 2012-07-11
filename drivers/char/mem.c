@@ -31,7 +31,6 @@
 #include <linux/aio.h>
 
 #include <asm/uaccess.h>
-#include <asm/io.h>
 
 #ifdef CONFIG_IA64
 # include <linux/efi.h>
@@ -44,6 +43,8 @@
 #include <linux/platform_device.h>
 #endif
 #endif
+
+#define DEVPORT_MINOR	4
 
 static inline unsigned long size_inside_page(unsigned long start,
 					     unsigned long size)
@@ -977,11 +978,15 @@ static int __init chr_dev_init(void)
 			devlist[minor].dev_info->dev = IS_ERR(dev) ? NULL : dev;
 
 #else
+		/*
+		 * Create /dev/port? 
+		 */
+		if ((minor == DEVPORT_MINOR) && !arch_has_dev_port())
+			continue;
+
 		device_create(mem_class, NULL, MKDEV(MEM_MAJOR, minor),
 				    NULL, devlist[minor].name);
-
 #endif
-
 	}
 
 	return tty_init();

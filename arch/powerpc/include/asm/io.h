@@ -24,6 +24,14 @@ extern struct pci_dev *isa_bridge_pcidev;
 #define arch_has_dev_port()	(isa_bridge_pcidev != NULL)
 #endif
 
+#if defined(CONFIG_PPC64) && defined(CONFIG_PCI)
+extern struct pci_dev *isa_bridge_pcidev;
+/*
+ * has legacy ISA devices ?
+ */
+#define arch_has_dev_port()	(isa_bridge_pcidev != NULL)
+#endif
+
 #include <linux/device.h>
 #include <linux/io.h>
 
