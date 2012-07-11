@@ -1195,10 +1195,6 @@ __setup("no_console_suspend", console_suspend_disable);
  */
 void suspend_console(void)
 {
-<<<<<<< HEAD
-=======
-	// TODO: revert
->>>>>>> ac183695c5a05d6c9d1bc2416a93f62e96ca53e4
 	//if (!console_suspend_enabled)
 		return;
 	printk("Suspending console(s) (use no_console_suspend to debug)\n");
@@ -1209,10 +1205,6 @@ void suspend_console(void)
 
 void resume_console(void)
 {
-<<<<<<< HEAD
-=======
-	// TODO: revert
->>>>>>> ac183695c5a05d6c9d1bc2416a93f62e96ca53e4
 	//if (!console_suspend_enabled)
 		return;
 	down(&console_sem);

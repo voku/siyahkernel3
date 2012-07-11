@@ -1606,6 +1606,7 @@ static void wl_scan_prep(struct wl_scan_params *params,
 	params->active_time = htod32(params->active_time);
 	params->passive_time = htod32(params->passive_time);
 	params->home_time = htod32(params->home_time);
+
 	/* if request is null just exit so it will be all channel broadcast scan */
 	if (!request)
 		return;
@@ -1707,7 +1708,6 @@ wl_run_iscan(struct wl_iscan_ctrl *iscan, struct cfg80211_scan_request *request,
 	}
 
 	wl_scan_prep(&params->params, request, -1);
-
 	params->version = htod32(ISCAN_REQ_VERSION);
 	params->action = htod16(action);
 	params->scan_duration = htod16(0);
@@ -3644,8 +3644,7 @@ wl_cfg80211_get_station(struct wiphy *wiphy, struct net_device *dev,
 		u8 *curmacp = wl_read_prof(wl, dev, WL_PROF_BSSID);
 		err = -ENODEV;
 		if (!wl_get_drv_status(wl, CONNECTED, dev) ||
-			(dhd_is_associated(dhd, NULL, &err) == FALSE)) {
-	
+			   (dhd_is_associated(dhd, NULL, &err) == FALSE)) {
 			WL_ERR(("NOT assoc: %d\n", err));
 			goto get_station_err;
 		}
