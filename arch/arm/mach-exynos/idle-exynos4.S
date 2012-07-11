@@ -56,7 +56,7 @@ ENTRY(exynos4_enter_lp)
 	str	r2, [r0], #4
 
 	ldr	r3, =resume_with_mmu
-	bl	__cpu_suspend
+	bl	cpu_suspend
 
 	mov	r0, sp
 

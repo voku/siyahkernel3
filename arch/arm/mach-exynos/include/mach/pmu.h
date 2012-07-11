@@ -63,7 +63,6 @@ struct exynos4_c2c_pmu_conf {
 };
 
 /* external function for exynos4 series */
-extern void s3c_cpu_resume(void);
 extern void exynos4_sys_powerdown_conf(enum sys_powerdown mode);
 extern int exynos4_enter_lp(unsigned long *saveblk, long);
 extern void exynos4_idle_resume(void);

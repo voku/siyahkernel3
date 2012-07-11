@@ -2,7 +2,6 @@
 #define __ASM_ARM_SUSPEND_H
 
 #include <asm/memory.h>
-#include <asm/tlbflush.h>
 
 extern void cpu_resume(void);
 
@@ -15,7 +14,6 @@ static inline void cpu_suspend(unsigned long arg, void (*fn)(unsigned long))
        extern void __cpu_suspend(int, long, unsigned long,
                                  void (*)(unsigned long));
        __cpu_suspend(0, PHYS_OFFSET - PAGE_OFFSET, arg, fn);
-       flush_tlb_all();
 }
 
 #endif

@@ -2289,8 +2289,8 @@ REGULATOR_INIT(ldo10, "VPLL_1.2V", 1200000, 1200000, 1,
 REGULATOR_INIT(ldo10, "VPLL_1.1V", 1100000, 1100000, 1,
 		REGULATOR_CHANGE_STATUS, 1);
 #endif
-REGULATOR_INIT(ldo11, "TOUCH_2.8V", 2800000, 2800000, 1,
-		REGULATOR_CHANGE_STATUS, 0);
+REGULATOR_INIT(ldo11, "TOUCH_2.8V", 2800000, 2800000, 0,
+		REGULATOR_CHANGE_STATUS, 1);
 REGULATOR_INIT(ldo12, "VT_CAM_1.8V", 1800000, 1800000, 0,
 		REGULATOR_CHANGE_STATUS, 1);
 REGULATOR_INIT(ldo13, "VCC_3.0V_LCD", 3000000, 3000000, 1,
@@ -5852,7 +5852,7 @@ struct s5p_platform_tmu u1_tmu_data __initdata = {
 		.start_mem_throttle = 87,
 	},
 	.cpufreq = {
-		.limit_1st_throttle  = 1200000, /* 800MHz in KHz order */
+		.limit_1st_throttle  = 800000, /* 800MHz in KHz order */
 		.limit_2nd_throttle  = 200000, /* 200MHz in KHz order */
 	},
 };

@@ -110,6 +110,4 @@ int wldev_get_band(struct net_device *dev, uint *pband);
 
 int wldev_set_band(struct net_device *dev, uint band);
 
-int wldev_get_auto_channel(struct net_device *dev, int *chan);
-
 #endif /* __WLDEV_COMMON_H__ */

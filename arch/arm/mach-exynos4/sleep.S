@@ -43,7 +43,7 @@ ENTRY(s3c_cpu_save)
 
 	stmfd	sp!, { r3 - r12, lr }
 	ldr	r3, =resume_with_mmu
-	bl	__cpu_suspend
+	bl	cpu_suspend
 
 	ldr	r0, =pm_cpu_sleep
 	ldr	r0, [ r0 ]

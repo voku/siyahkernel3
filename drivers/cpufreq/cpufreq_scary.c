@@ -28,19 +28,19 @@
  * It helps to keep variable names smaller, simpler
  */
 
-#define DEF_FREQUENCY_UP_THRESHOLD		(80)
-#define DEF_FREQUENCY_DOWN_THRESHOLD		(45)
+#define DEF_FREQUENCY_UP_THRESHOLD		(85)
+#define DEF_FREQUENCY_DOWN_THRESHOLD		(50)
 #define DEFAULT_FREQ_STEP			(10)
 #define DEF_SAMPLING_DOWN_FACTOR                (2)
 #define MAX_SAMPLING_DOWN_FACTOR                (100000)
-#define DEFAULT_SLEEP_MIN_FREQ                  200000
-#define DEFAULT_SLEEP_MAX_FREQ			600000
+#define DEFAULT_SLEEP_MIN_FREQ                  700000
+#define DEFAULT_SLEEP_MAX_FREQ			800000
 
 /* This is so that if there are any issues resulting in sleep_prev_freq getting set,
  * there will be a backup freq
  */
-#define DEFAULT_SLEEP_PREV_FREQ			200000
-#define DEFAULT_PREV_MAX			500000
+#define DEFAULT_SLEEP_PREV_FREQ			700000
+#define DEFAULT_PREV_MAX			800000
 static unsigned int suspended;
 static unsigned int sleep_max_freq=DEFAULT_SLEEP_MAX_FREQ;
 static unsigned int sleep_min_freq=DEFAULT_SLEEP_MIN_FREQ;

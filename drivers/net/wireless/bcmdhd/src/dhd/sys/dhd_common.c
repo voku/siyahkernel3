@@ -1764,7 +1764,6 @@ fail:
 
 /*
  * returns = TRUE if associated, FALSE if not associated
- * third paramter retval can return error from error
  */
 bool dhd_is_associated(dhd_pub_t *dhd, void *bss_buf, int *retval)
 {
@@ -2224,7 +2223,6 @@ int dhd_keep_alive_onoff(dhd_pub_t *dhd)
 	return res;
 }
 #endif /* defined(KEEP_ALIVE) */
-
 /* Android ComboSCAN support */
 
 /*

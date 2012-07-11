@@ -406,11 +406,6 @@ int usb_wwan_open(struct tty_struct *tty, struct usb_serial_port *port)
 	portdata = usb_get_serial_port_data(port);
 	intfdata = serial->private;
 
-	/* explicitly set the driver mode to raw */
-	tty->raw = 1;
-	tty->real_raw = 1;
-
-	set_bit(TTY_NO_WRITE_SPLIT, &tty->flags);
 	dbg("%s", __func__);
 
 	/* Start reading from the IN endpoint */
@@ -553,7 +548,7 @@ int usb_wwan_startup(struct usb_serial *serial)
 		init_usb_anchor(&portdata->delayed);
 
 		for (j = 0; j < N_IN_URB; j++) {
-			buffer = kmalloc(IN_BUFLEN, GFP_KERNEL);
+			buffer = (u8 *) __get_free_page(GFP_KERNEL);
 			if (!buffer)
 				goto bail_out_error;
 			portdata->in_buffer[j] = buffer;
