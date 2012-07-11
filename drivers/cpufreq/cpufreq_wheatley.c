@@ -31,11 +31,11 @@
  */
 
 #define DEF_FREQUENCY_DOWN_DIFFERENTIAL		(10)
-#define DEF_FREQUENCY_UP_THRESHOLD		(85)
+#define DEF_FREQUENCY_UP_THRESHOLD		(80)
 #define DEF_SAMPLING_DOWN_FACTOR		(1)
 #define MAX_SAMPLING_DOWN_FACTOR		(100000)
 #define MICRO_FREQUENCY_DOWN_DIFFERENTIAL	(3)
-#define MICRO_FREQUENCY_UP_THRESHOLD		(85)
+#define MICRO_FREQUENCY_UP_THRESHOLD		(95)
 #define MICRO_FREQUENCY_MIN_SAMPLE_RATE		(10000)
 #define MIN_FREQUENCY_UP_THRESHOLD		(11)
 #define MAX_FREQUENCY_UP_THRESHOLD		(100)
@@ -485,7 +485,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 	unsigned int load, load_freq;
 	int freq_avg;
 	struct cpuidle_device * j_cpuidle_dev = NULL;
-	struct cpuidle_state_usage * deepidle_state = NULL;
+	struct cpuidle_state * deepidle_state = NULL;
 	unsigned long long deepidle_time, deepidle_usage;
 
 	j_dbs_info = &per_cpu(od_cpu_dbs_info, j);
@@ -548,7 +548,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 	j_cpuidle_dev = per_cpu(cpuidle_devices, j);
 
 	if (j_cpuidle_dev)
-	    deepidle_state = &j_cpuidle_dev->states_usage[j_cpuidle_dev->state_count - 1];
+	    deepidle_state = &j_cpuidle_dev->states[j_cpuidle_dev->state_count - 1];
 
 	if (deepidle_state) {
 	    deepidle_time = deepidle_state->time;
@@ -837,4 +837,3 @@ fs_initcall(cpufreq_gov_dbs_init);
 module_init(cpufreq_gov_dbs_init);
 #endif
 module_exit(cpufreq_gov_dbs_exit);
-

@@ -125,7 +125,6 @@ struct menu_device {
 #define LOAD_INT(x) ((x) >> FSHIFT)
 #define LOAD_FRAC(x) LOAD_INT(((x) & (FIXED_1-1)) * 100)
 
-#if 0
 static int get_loadavg(void)
 {
 	unsigned long this = this_cpu_load();
