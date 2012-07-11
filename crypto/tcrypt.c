@@ -1058,6 +1058,10 @@ static int do_test(int m)
 #ifdef CONFIG_CRYPTO_CAST6
 	case 15:
 		ret += tcrypt_test("ecb(cast6)");
+		ret += tcrypt_test("cbc(cast6)");
+		ret += tcrypt_test("ctr(cast6)");
+		ret += tcrypt_test("lrw(cast6)");
+		ret += tcrypt_test("xts(cast6)");
 		break;
 #endif
 	case 16:
