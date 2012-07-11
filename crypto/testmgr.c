@@ -1806,6 +1806,21 @@ static const struct alg_test_desc alg_test_descs[] = {
 			}
 		}
 	}, {
+		.alg = "cbc(cast5)",
+		.test = alg_test_skcipher,
+		.suite = {
+			.cipher = {
+				.enc = {
+					.vecs = cast5_cbc_enc_tv_template,
+					.count = CAST5_CBC_ENC_TEST_VECTORS
+				},
+				.dec = {
+					.vecs = cast5_cbc_dec_tv_template,
+					.count = CAST5_CBC_DEC_TEST_VECTORS
+				}
+			}
+		}
+	}, {
 		.alg = "cbc(des)",
 		.test = alg_test_skcipher,
 		.suite = {
@@ -2006,6 +2021,21 @@ static const struct alg_test_desc alg_test_descs[] = {
 				.dec = {
 					.vecs = camellia_ctr_dec_tv_template,
 					.count = CAMELLIA_CTR_DEC_TEST_VECTORS
+				}
+			}
+		}
+	}, {
+		.alg = "ctr(cast5)",
+		.test = alg_test_skcipher,
+		.suite = {
+			.cipher = {
+				.enc = {
+					.vecs = cast5_ctr_enc_tv_template,
+					.count = CAST5_CTR_ENC_TEST_VECTORS
+				},
+				.dec = {
+					.vecs = cast5_ctr_dec_tv_template,
+					.count = CAST5_CTR_DEC_TEST_VECTORS
 				}
 			}
 		}

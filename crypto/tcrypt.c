@@ -1051,6 +1051,8 @@ static int do_test(int m)
 #ifdef CONFIG_CRYPTO_CAST5
 	case 14:
 		ret += tcrypt_test("ecb(cast5)");
+		ret += tcrypt_test("cbc(cast5)");
+		ret += tcrypt_test("ctr(cast5)");
 		break;
 #endif
 #ifdef CONFIG_CRYPTO_CAST6
