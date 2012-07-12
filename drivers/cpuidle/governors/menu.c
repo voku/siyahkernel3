@@ -110,7 +110,7 @@
 
 struct menu_device {
 	int		last_state_idx;
-	int             needs_update;
+	int		needs_update;
 
 	unsigned int	expected_us;
 	u64		predicted_us;
