@@ -287,14 +287,13 @@ static int loop_sdmmc_check(void)
 
 	for (iter = 0; iter < sdmmc_dev_num; iter++) {
 		if (check_sdmmc_op(iter)) {
-//			printk(KERN_DEBUG "SDMMC [%d] working\n", iter);
+			printk(KERN_DEBUG "SDMMC [%d] working\n", iter);
 			return 1;
 		}
 	}
 	return 0;
 }
 
-#if 0 //Unused function
 /*
  * Check USBOTG is working or not
  * GOTGCTL(0xEC000000)
@@ -312,7 +311,6 @@ static int check_usbotg_op(void)
 
 	return val & (A_SESSION_VALID | B_SESSION_VALID);
 }
-#endif
 
 #ifdef CONFIG_SND_SAMSUNG_RP
 extern int srp_get_op_level(void);	/* By srp driver */
@@ -766,6 +764,7 @@ static int exynos4_enter_lowpower(struct cpuidle_device *dev,
 		__raw_writel(tmp, S5P_CENTRAL_SEQ_OPTION);
 	}
 
+<<<<<<< .merge_file_461G3V
 	if (new_state == &dev->states[0]) {
 		printk(KERN_INFO "Info: starting Idle Mode!\n");
 		return exynos4_enter_idle(dev, new_state);
@@ -782,6 +781,18 @@ static int exynos4_enter_lowpower(struct cpuidle_device *dev,
 		printk(KERN_INFO "Info: starting LPA Idle Mode!\n");
 		return exynos4_enter_core0_lpa(dev, new_state);
 	}
+=======
+	if (new_state == &dev->states[0])
+		return exynos4_enter_idle(dev, new_state);
+
+	enter_mode = exynos4_check_entermode();
+	if (!enter_mode)
+		return exynos4_enter_idle(dev, new_state);
+	else if (enter_mode == S5P_CHECK_DIDLE)
+		return exynos4_enter_core0_aftr(dev, new_state);
+	else
+		return exynos4_enter_core0_lpa(dev, new_state);
+>>>>>>> .merge_file_yQvP1U
 }
 
 static int exynos4_cpuidle_notifier_event(struct notifier_block *this,

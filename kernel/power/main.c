@@ -54,9 +54,8 @@ EXPORT_SYMBOL_GPL(unregister_pm_notifier);
 
 int pm_notifier_call_chain(unsigned long val)
 {
-	int ret = blocking_notifier_call_chain(&pm_chain_head, val, NULL);
-
-	return notifier_to_errno(ret);
+	return (blocking_notifier_call_chain(&pm_chain_head, val, NULL)
+			== NOTIFY_BAD) ? -EINVAL : 0;
 }
 
 /* If set, devices may be suspended and resumed asynchronously. */

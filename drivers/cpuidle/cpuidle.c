@@ -93,22 +93,31 @@ static void cpuidle_idle_call(void)
 	}
 
 	target_state = &dev->states[next_state];
+<<<<<<< .merge_file_xPXst2
+
+	/* enter the state and update stats */
+	dev->last_state = target_state;
+=======
+>>>>>>> .merge_file_lVkil4
 
 	/* enter the state and update stats */
 	dev->last_state = target_state;
 
-	RCU_NONIDLE(
-		trace_power_start(POWER_CSTATE, next_state, dev->cpu);
-		trace_cpu_idle(next_state, dev->cpu)
-	);
+<<<<<<< .merge_file_xPXst2
+	dev->last_residency = target_state->enter(dev, target_state);
+=======
+	trace_power_start(POWER_CSTATE, next_state, dev->cpu);
+	trace_cpu_idle(next_state, dev->cpu);
+>>>>>>> .merge_file_lVkil4
 
 	dev->last_residency = target_state->enter(dev, target_state);
 
-	RCU_NONIDLE(
-		trace_power_end(dev->cpu);
-		trace_cpu_idle(PWR_EVENT_EXIT, dev->cpu);
-	);
+<<<<<<< .merge_file_xPXst2
+=======
+	trace_power_end(dev->cpu);
+	trace_cpu_idle(PWR_EVENT_EXIT, dev->cpu);
 
+>>>>>>> .merge_file_lVkil4
 	if (dev->last_state)
 		target_state = dev->last_state;
 
@@ -326,18 +335,13 @@ static int __cpuidle_register_device(struct cpuidle_device *dev)
 
 	per_cpu(cpuidle_devices, dev->cpu) = dev;
 	list_add(&dev->device_list, &cpuidle_detected_devices);
-	ret = cpuidle_add_sysfs(sys_dev);
-	if (ret)
-		goto err_sysfs;
+	if ((ret = cpuidle_add_sysfs(sys_dev))) {
+		module_put(cpuidle_driver->owner);
+		return ret;
+	}
 
 	dev->registered = 1;
 	return 0;
-
-err_sysfs:
-	list_del(&dev->device_list);
-	per_cpu(cpuidle_devices, dev->cpu) = NULL;
-	module_put(cpuidle_driver->owner);
-	return ret;
 }
 
 /**
