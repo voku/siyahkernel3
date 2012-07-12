@@ -33,8 +33,6 @@
 
 #include <trace/events/power.h>
 
-#define SafeBootSpeed 1200000
-
 unsigned int exynos4x12_volt_table[14];
 
 /**
@@ -1072,10 +1070,6 @@ static int cpufreq_add_dev(struct sys_device *sys_dev)
 
 	init_completion(&policy->kobj_unregister);
 	INIT_WORK(&policy->update, handle_update);
-
-	// Set max speed at boot to 1.2Mhz since is the safest speed to boot
-	if (policy->max != SafeBootSpeed)
-		policy->max = SafeBootSpeed;
 
 	/* Set governor before ->init, so that driver could check it */
 #ifdef CONFIG_HOTPLUG_CPU

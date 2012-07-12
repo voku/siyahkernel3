@@ -245,8 +245,8 @@ CONFIG_SHELL := $(shell if [ -x "$$BASH" ]; then echo $$BASH; \
 
 HOSTCC       = gcc
 HOSTCXX      = g++
-HOSTCFLAGS   = -Wall -Wmissing-prototypes -Wstrict-prototypes -O3 -fomit-frame-pointer
-HOSTCXXFLAGS = -O3
+HOSTCFLAGS   = -Wall -Wmissing-prototypes -Wstrict-prototypes -O2 -fomit-frame-pointer
+HOSTCXXFLAGS = -O2
 
 # Decide whether to build built-in, modular, or both.
 # Normally, just do built-in.
@@ -371,7 +371,7 @@ CFLAGS_LOOPS_DEFAULT = -ftree-vectorize \
 				  -floop-block \
 				  -ftree-loop-distribution \
 				  -fgraphite-identity
-CFLAGS_LOOPS_TESTING = \
+#CFLAGS_LOOPS_TESTING = \
 				  -mvectorize-with-neon-quad \
 				  -fvect-cost-model \
 				  -fprefetch-loop-arrays 
@@ -383,8 +383,7 @@ CFLAGS_EXPEREMENT = -fprofile-correction \
 				  -funswitch-loops \
 				  -fgcse-after-reload \
 				  -falign-loops \
-				  -fipa-cp-clone \
-				  -finline-limit=600
+				  -fipa-cp-clone
 
 KERNELFLAGS     = $(CFLAGS_COMPILE) $(CFLAGS_ARM) \
 				  $(CFLAGS_DISABLE) $(CFLAGS_MODULO) \
