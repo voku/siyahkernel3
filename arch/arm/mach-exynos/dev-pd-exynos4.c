@@ -49,7 +49,8 @@ static int exynos_pd_save(struct device *dev)
 
 static int exynos_pd_restore(struct device *dev)
 {
-	struct samsung_pd_info *pdata = dev->platform_data;
+	struct samsung_pd_info;
+//	struct *pdata = dev->platform_data;
 	struct platform_device *pdev = to_platform_device(dev);
 	int ret = 0;
 
