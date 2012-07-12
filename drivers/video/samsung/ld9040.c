@@ -589,7 +589,8 @@ static int ld9040_ldi_disable(struct lcd_info *lcd)
 static int update_brightness(struct lcd_info *lcd, u8 force)
 {
 	int ret = 0, brightness;
-	struct ld9040_panel_data *pdata = lcd->lcd_pd->pdata;
+	struct ld9040_panel_data; 
+//	struct *pdata = lcd->lcd_pd->pdata;
 
 	mutex_lock(&lcd->bl_lock);
 

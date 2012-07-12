@@ -294,6 +294,7 @@ static int loop_sdmmc_check(void)
 	return 0;
 }
 
+#if 0
 /*
  * Check USBOTG is working or not
  * GOTGCTL(0xEC000000)
@@ -311,6 +312,7 @@ static int check_usbotg_op(void)
 
 	return val & (A_SESSION_VALID | B_SESSION_VALID);
 }
+#endif
 
 #ifdef CONFIG_SND_SAMSUNG_RP
 extern int srp_get_op_level(void);	/* By srp driver */
