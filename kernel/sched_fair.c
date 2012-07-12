@@ -2772,7 +2772,7 @@ static inline void update_sg_lb_stats(struct sched_domain *sd,
 		}
 
 		sgs->group_load += load;
-		gs->sum_nr_running += nr_running;
+		sgs->sum_nr_running += nr_running;
 		sgs->sum_weighted_load += weighted_cpuload(i);
 		if (idle_cpu(i))
 			sgs->idle_cpus++;
