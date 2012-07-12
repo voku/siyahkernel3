@@ -349,6 +349,7 @@ CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
 
 CFLAGS_COMPILE  = -pipe
+
 CFLAGS_ARM      = -marm \
 				  -mtune=cortex-a9 \
 				  -march=armv7-a \
@@ -359,11 +360,17 @@ CFLAGS_ARM      = -marm \
 				  --param l1-cache-size=64 \
 				  --param simultaneous-prefetches=8 \
 				  --param prefetch-latency=400 
+
 CFLAGS_DISABLE  = -fno-delete-null-pointer-checks \
 				  -fno-ident \
-				  -fno-gcse
+				  -fno-gcse \
+				  -fno-inline-functions \
+				  -fno-ipa-cp-clone \
+				  -fno-unswitch-loops
+
 CFLAGS_MODULO   = -fmodulo-sched \
 				  -fmodulo-sched-allow-regmoves
+
 CFLAGS_LOOPS_DEFAULT = -ftree-vectorize \
 				  -ftree-loop-linear \
 				  -floop-interchange \
@@ -371,23 +378,17 @@ CFLAGS_LOOPS_DEFAULT = -ftree-vectorize \
 				  -floop-block \
 				  -ftree-loop-distribution \
 				  -fgraphite-identity
-#CFLAGS_LOOPS_TESTING = \
-				  -mvectorize-with-neon-quad \
-				  -fvect-cost-model \
-				  -fprefetch-loop-arrays 
 
 CFLAGS_EXPEREMENT = -fprofile-correction \
 				  -ffast-math \
-				  -fpredictive-commoning \
-				  -finline-functions \
-				  -funswitch-loops \
-				  -fgcse-after-reload \
-				  -falign-loops \
-				  -fipa-cp-clone
+				  -mvectorize-with-neon-quad
 
-KERNELFLAGS     = $(CFLAGS_COMPILE) $(CFLAGS_ARM) \
-				  $(CFLAGS_DISABLE) $(CFLAGS_MODULO) \
-				  $(CFLAGS_LOOPS_DEFAULT) $(CFLAGS_LOOPS_TESTING) $(CFLAGS_EXPEREMENT)
+KERNELFLAGS     = $(CFLAGS_COMPILE) \
+				  $(CFLAGS_ARM) \
+				  $(CFLAGS_DISABLE) \
+				  $(CFLAGS_MODULO) \
+				  $(CFLAGS_LOOPS_DEFAULT) \
+
 MODFLAGS        = -DMODULE $(KERNELFLAGS)
 CFLAGS_MODULE   = $(MODFLAGS)
 AFLAGS_MODULE   = $(MODFLAGS)
