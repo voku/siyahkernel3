@@ -493,7 +493,7 @@ void	McResCtrl_Init
 	gsGlobalInfo.sInitInfo.bDivF0	= psInitInfo->bDivF0;
 	gsGlobalInfo.sInitInfo.bDivR1	= psInitInfo->bDivR1;
 	gsGlobalInfo.sInitInfo.bDivF1	= psInitInfo->bDivF1;
-	if(McDevProf_IsValid(eMCDRV_FUNC_RANGE) == 1)
+	if (McDevProf_IsValid(eMCDRV_FUNC_RANGE) == 1)
 	{
 		gsGlobalInfo.sInitInfo.bRange0	= psInitInfo->bRange0;
 		gsGlobalInfo.sInitInfo.bRange1	= psInitInfo->bRange1;
@@ -503,7 +503,7 @@ void	McResCtrl_Init
 		gsGlobalInfo.sInitInfo.bRange0	= 0;
 		gsGlobalInfo.sInitInfo.bRange1	= 0;
 	}
-	if(McDevProf_IsValid(eMCDRV_FUNC_BYPASS) == 1)
+	if (McDevProf_IsValid(eMCDRV_FUNC_BYPASS) == 1)
 	{
 		gsGlobalInfo.sInitInfo.bBypass	= psInitInfo->bBypass;
 	}
@@ -519,7 +519,7 @@ void	McResCtrl_Init
 	gsGlobalInfo.sInitInfo.bDioClk2Hiz	= psInitInfo->bDioClk2Hiz;
 	gsGlobalInfo.sInitInfo.bPcmHiz		= psInitInfo->bPcmHiz;
 	gsGlobalInfo.sInitInfo.bLineIn1Dif	= psInitInfo->bLineIn1Dif;
-	if(McDevProf_IsValid(eMCDRV_FUNC_LI2) == 1)
+	if (McDevProf_IsValid(eMCDRV_FUNC_LI2) == 1)
 	{
 		gsGlobalInfo.sInitInfo.bLineIn2Dif	= psInitInfo->bLineIn2Dif;
 	}
@@ -538,7 +538,7 @@ void	McResCtrl_Init
 	gsGlobalInfo.sInitInfo.bLdo			= psInitInfo->bLdo;
 	gsGlobalInfo.sInitInfo.bPad0Func	= psInitInfo->bPad0Func;
 	gsGlobalInfo.sInitInfo.bPad1Func	= psInitInfo->bPad1Func;
-	if(McDevProf_IsValid(eMCDRV_FUNC_PAD2) == 1)
+	if (McDevProf_IsValid(eMCDRV_FUNC_PAD2) == 1)
 	{
 		gsGlobalInfo.sInitInfo.bPad2Func	= psInitInfo->bPad2Func;
 	}
@@ -1680,12 +1680,12 @@ void	McResCtrl_SetClockInfo
 	gsGlobalInfo.sInitInfo.bDivF0	= psClockInfo->bDivF0;
 	gsGlobalInfo.sInitInfo.bDivR1	= psClockInfo->bDivR1;
 	gsGlobalInfo.sInitInfo.bDivF1	= psClockInfo->bDivF1;
-	if(McDevProf_IsValid(eMCDRV_FUNC_RANGE) == 1)
+	if (McDevProf_IsValid(eMCDRV_FUNC_RANGE) == 1)
 	{
 		gsGlobalInfo.sInitInfo.bRange0	= psClockInfo->bRange0;
 		gsGlobalInfo.sInitInfo.bRange1	= psClockInfo->bRange1;
 	}
-	if(McDevProf_IsValid(eMCDRV_FUNC_BYPASS) == 1)
+	if (McDevProf_IsValid(eMCDRV_FUNC_BYPASS) == 1)
 	{
 		gsGlobalInfo.sInitInfo.bBypass	= psClockInfo->bBypass;
 	}
@@ -1800,7 +1800,7 @@ static void	ValidateADC
 	McDebugLog_FuncIn("ValidateADC");
 #endif
 
-	if((McResCtrl_IsDstUsed(eMCDRV_DST_ADC0, eMCDRV_DST_CH0) == 0)
+	if ((McResCtrl_IsDstUsed(eMCDRV_DST_ADC0, eMCDRV_DST_CH0) == 0)
 	&& (McResCtrl_IsDstUsed(eMCDRV_DST_ADC0, eMCDRV_DST_CH1) == 0))
 	{/*	ADC0 source all off	*/
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK]	&= (UINT8)~MCDRV_SRC4_ADC0_ON;
@@ -1819,7 +1819,7 @@ static void	ValidateADC
 		gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK]	|= MCDRV_SRC4_ADC0_OFF;
 	}
 
-	if(McResCtrl_IsSrcUsed(eMCDRV_SRC_ADC0) == 0)
+	if (McResCtrl_IsSrcUsed(eMCDRV_SRC_ADC0) == 0)
 	{
 		gsGlobalInfo.sPathInfo.asAdc0[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK]		&= (UINT8)~MCDRV_SRC0_MIC1_ON;
 		gsGlobalInfo.sPathInfo.asAdc0[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK]		&= (UINT8)~MCDRV_SRC0_MIC2_ON;
@@ -1869,7 +1869,7 @@ static void	ValidateDAC
 	McDebugLog_FuncIn("ValidateDAC");
 #endif
 
-	if((McResCtrl_IsSrcUsed(eMCDRV_SRC_DAC_L) == 0)
+	if ((McResCtrl_IsSrcUsed(eMCDRV_SRC_DAC_L) == 0)
 	&& (McResCtrl_IsSrcUsed(eMCDRV_SRC_DAC_M) == 0)
 	&& (McResCtrl_IsSrcUsed(eMCDRV_SRC_DAC_R) == 0))
 	{/*	DAC is unused	*/
@@ -1905,7 +1905,7 @@ static void	ValidateDAC
 		ValidateADC();
 	}
 
-	if((McResCtrl_GetDACSource(eMCDRV_DAC_MASTER) == eMCDRV_SRC_NONE)
+	if ((McResCtrl_GetDACSource(eMCDRV_DAC_MASTER) == eMCDRV_SRC_NONE)
 	&& (McResCtrl_GetDACSource(eMCDRV_DAC_VOICE) == eMCDRV_SRC_NONE))
 	{/*	DAC source all off	*/
 		gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK]	&= (UINT8)~MCDRV_SRC5_DAC_L_ON;
@@ -1965,7 +1965,7 @@ static void	ValidateAE
 	McDebugLog_FuncIn("ValidateAE");
 #endif
 
-	if(McResCtrl_GetAESource() == eMCDRV_SRC_NONE)
+	if (McResCtrl_GetAESource() == eMCDRV_SRC_NONE)
 	{/*	AE source all off	*/
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_AE_BLOCK]	&= (UINT8)~MCDRV_SRC6_AE_ON;
 		gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_AE_BLOCK]	&= (UINT8)~MCDRV_SRC6_AE_ON;
@@ -1982,7 +1982,7 @@ static void	ValidateAE
 
 		ValidateDAC();
 	}
-	else if(McResCtrl_IsSrcUsed(eMCDRV_SRC_AE) == 0)
+	else if (McResCtrl_IsSrcUsed(eMCDRV_SRC_AE) == 0)
 	{
 		gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	&= (UINT8)~MCDRV_SRC4_PDM_ON;
 		gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK]	&= (UINT8)~MCDRV_SRC4_ADC0_ON;
@@ -2028,7 +2028,7 @@ static void	ValidateMix
 	McDebugLog_FuncIn("ValidateMix");
 #endif
 
-	if(McResCtrl_IsDstUsed(eMCDRV_DST_MIX, eMCDRV_DST_CH0) == 0)
+	if (McResCtrl_IsDstUsed(eMCDRV_DST_MIX, eMCDRV_DST_CH0) == 0)
 	{/*	MIX source all off	*/
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	&= (UINT8)~MCDRV_SRC6_MIX_ON;
 		gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	&= (UINT8)~MCDRV_SRC6_MIX_ON;
@@ -2045,7 +2045,7 @@ static void	ValidateMix
 
 		ValidateDAC();
 	}
-	else if(McResCtrl_IsSrcUsed(eMCDRV_SRC_MIX) == 0)
+	else if (McResCtrl_IsSrcUsed(eMCDRV_SRC_MIX) == 0)
 	{
 		gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]		&= (UINT8)~MCDRV_SRC4_PDM_ON;
 		gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK]	&= (UINT8)~MCDRV_SRC4_ADC0_ON;
@@ -2089,12 +2089,12 @@ static void	SetHPSourceOnOff
 	McDebugLog_FuncIn("SetHPSourceOnOff");
 #endif
 
-	if((psPathInfo->asHpOut[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & (MCDRV_SRC0_MIC1_ON|MCDRV_SRC0_MIC1_OFF)) == MCDRV_SRC0_MIC1_ON)
+	if ((psPathInfo->asHpOut[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & (MCDRV_SRC0_MIC1_ON|MCDRV_SRC0_MIC1_OFF)) == MCDRV_SRC0_MIC1_ON)
 	{
 		gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC1_OFF;
 		gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK]	|= MCDRV_SRC0_MIC1_ON;
 	}
-	else if((psPathInfo->asHpOut[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & (MCDRV_SRC0_MIC1_ON|MCDRV_SRC0_MIC1_OFF)) == MCDRV_SRC0_MIC1_OFF)
+	else if ((psPathInfo->asHpOut[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & (MCDRV_SRC0_MIC1_ON|MCDRV_SRC0_MIC1_OFF)) == MCDRV_SRC0_MIC1_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC1_ON;
 		gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK]	|= MCDRV_SRC0_MIC1_OFF;
@@ -2103,12 +2103,12 @@ static void	SetHPSourceOnOff
 	{
 	}
 
-	if((psPathInfo->asHpOut[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & (MCDRV_SRC0_MIC2_ON|MCDRV_SRC0_MIC2_OFF)) == MCDRV_SRC0_MIC2_ON)
+	if ((psPathInfo->asHpOut[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & (MCDRV_SRC0_MIC2_ON|MCDRV_SRC0_MIC2_OFF)) == MCDRV_SRC0_MIC2_ON)
 	{
 		gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC2_OFF;
 		gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK]	|= MCDRV_SRC0_MIC2_ON;
 	}
-	else if((psPathInfo->asHpOut[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & (MCDRV_SRC0_MIC2_ON|MCDRV_SRC0_MIC2_OFF)) == MCDRV_SRC0_MIC2_OFF)
+	else if ((psPathInfo->asHpOut[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & (MCDRV_SRC0_MIC2_ON|MCDRV_SRC0_MIC2_OFF)) == MCDRV_SRC0_MIC2_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC2_ON;
 		gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK]	|= MCDRV_SRC0_MIC2_OFF;
@@ -2117,12 +2117,12 @@ static void	SetHPSourceOnOff
 	{
 	}
 
-	if((psPathInfo->asHpOut[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & (MCDRV_SRC0_MIC3_ON|MCDRV_SRC0_MIC3_OFF)) == MCDRV_SRC0_MIC3_ON)
+	if ((psPathInfo->asHpOut[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & (MCDRV_SRC0_MIC3_ON|MCDRV_SRC0_MIC3_OFF)) == MCDRV_SRC0_MIC3_ON)
 	{
 		gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC3_OFF;
 		gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK]	|= MCDRV_SRC0_MIC3_ON;
 	}
-	else if((psPathInfo->asHpOut[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & (MCDRV_SRC0_MIC3_ON|MCDRV_SRC0_MIC3_OFF)) == MCDRV_SRC0_MIC3_OFF)
+	else if ((psPathInfo->asHpOut[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & (MCDRV_SRC0_MIC3_ON|MCDRV_SRC0_MIC3_OFF)) == MCDRV_SRC0_MIC3_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC3_ON;
 		gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK]	|= MCDRV_SRC0_MIC3_OFF;
@@ -2131,12 +2131,12 @@ static void	SetHPSourceOnOff
 	{
 	}
 
-	if((psPathInfo->asHpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK] & (MCDRV_SRC1_LINE1_L_ON|MCDRV_SRC1_LINE1_L_OFF)) == MCDRV_SRC1_LINE1_L_ON)
+	if ((psPathInfo->asHpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK] & (MCDRV_SRC1_LINE1_L_ON|MCDRV_SRC1_LINE1_L_OFF)) == MCDRV_SRC1_LINE1_L_ON)
 	{
 		gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK]	&= (UINT8)~MCDRV_SRC1_LINE1_L_OFF;
 		gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK]	|= MCDRV_SRC1_LINE1_L_ON;
 	}
-	else if((psPathInfo->asHpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK] & (MCDRV_SRC1_LINE1_L_ON|MCDRV_SRC1_LINE1_L_OFF)) == MCDRV_SRC1_LINE1_L_OFF)
+	else if ((psPathInfo->asHpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK] & (MCDRV_SRC1_LINE1_L_ON|MCDRV_SRC1_LINE1_L_OFF)) == MCDRV_SRC1_LINE1_L_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK]	&= (UINT8)~MCDRV_SRC1_LINE1_L_ON;
 		gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK]	|= MCDRV_SRC1_LINE1_L_OFF;
@@ -2145,12 +2145,12 @@ static void	SetHPSourceOnOff
 	{
 	}
 
-	if((psPathInfo->asHpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK] & (MCDRV_SRC1_LINE1_M_ON|MCDRV_SRC1_LINE1_M_OFF)) == MCDRV_SRC1_LINE1_M_ON)
+	if ((psPathInfo->asHpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK] & (MCDRV_SRC1_LINE1_M_ON|MCDRV_SRC1_LINE1_M_OFF)) == MCDRV_SRC1_LINE1_M_ON)
 	{
 		gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK]	&= (UINT8)~MCDRV_SRC1_LINE1_M_OFF;
 		gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK]	|= MCDRV_SRC1_LINE1_M_ON;
 	}
-	else if((psPathInfo->asHpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK] & (MCDRV_SRC1_LINE1_M_ON|MCDRV_SRC1_LINE1_M_OFF)) == MCDRV_SRC1_LINE1_M_OFF)
+	else if ((psPathInfo->asHpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK] & (MCDRV_SRC1_LINE1_M_ON|MCDRV_SRC1_LINE1_M_OFF)) == MCDRV_SRC1_LINE1_M_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK]	&= (UINT8)~MCDRV_SRC1_LINE1_M_ON;
 		gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK]	|= MCDRV_SRC1_LINE1_M_OFF;
@@ -2159,12 +2159,12 @@ static void	SetHPSourceOnOff
 	{
 	}
 
-	if((psPathInfo->asHpOut[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK] & (MCDRV_SRC5_DAC_L_ON|MCDRV_SRC5_DAC_L_OFF)) == MCDRV_SRC5_DAC_L_ON)
+	if ((psPathInfo->asHpOut[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK] & (MCDRV_SRC5_DAC_L_ON|MCDRV_SRC5_DAC_L_OFF)) == MCDRV_SRC5_DAC_L_ON)
 	{
 		gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK]	&= (UINT8)~MCDRV_SRC5_DAC_L_OFF;
 		gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK]	|= MCDRV_SRC5_DAC_L_ON;
 	}
-	else if((psPathInfo->asHpOut[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK] & (MCDRV_SRC5_DAC_L_ON|MCDRV_SRC5_DAC_L_OFF)) == MCDRV_SRC5_DAC_L_OFF)
+	else if ((psPathInfo->asHpOut[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK] & (MCDRV_SRC5_DAC_L_ON|MCDRV_SRC5_DAC_L_OFF)) == MCDRV_SRC5_DAC_L_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK]	&= (UINT8)~MCDRV_SRC5_DAC_L_ON;
 		gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK]	|= MCDRV_SRC5_DAC_L_OFF;
@@ -2173,12 +2173,12 @@ static void	SetHPSourceOnOff
 	{
 	}
 
-	if((psPathInfo->asHpOut[0].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK] & (MCDRV_SRC5_DAC_M_ON|MCDRV_SRC5_DAC_M_OFF)) == MCDRV_SRC5_DAC_M_ON)
+	if ((psPathInfo->asHpOut[0].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK] & (MCDRV_SRC5_DAC_M_ON|MCDRV_SRC5_DAC_M_OFF)) == MCDRV_SRC5_DAC_M_ON)
 	{
 		gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK]	&= (UINT8)~MCDRV_SRC5_DAC_M_OFF;
 		gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK]	|= MCDRV_SRC5_DAC_M_ON;
 	}
-	else if((psPathInfo->asHpOut[0].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK] & (MCDRV_SRC5_DAC_M_ON|MCDRV_SRC5_DAC_M_OFF)) == MCDRV_SRC5_DAC_M_OFF)
+	else if ((psPathInfo->asHpOut[0].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK] & (MCDRV_SRC5_DAC_M_ON|MCDRV_SRC5_DAC_M_OFF)) == MCDRV_SRC5_DAC_M_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK]	&= (UINT8)~MCDRV_SRC5_DAC_M_ON;
 		gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK]	|= MCDRV_SRC5_DAC_M_OFF;
@@ -2187,12 +2187,12 @@ static void	SetHPSourceOnOff
 	{
 	}
 
-	if((psPathInfo->asHpOut[1].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & (MCDRV_SRC0_MIC1_ON|MCDRV_SRC0_MIC1_OFF)) == MCDRV_SRC0_MIC1_ON)
+	if ((psPathInfo->asHpOut[1].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & (MCDRV_SRC0_MIC1_ON|MCDRV_SRC0_MIC1_OFF)) == MCDRV_SRC0_MIC1_ON)
 	{
 		gsGlobalInfo.sPathInfo.asHpOut[1].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC1_OFF;
 		gsGlobalInfo.sPathInfo.asHpOut[1].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK]	|= MCDRV_SRC0_MIC1_ON;
 	}
-	else if((psPathInfo->asHpOut[1].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & (MCDRV_SRC0_MIC1_ON|MCDRV_SRC0_MIC1_OFF)) == MCDRV_SRC0_MIC1_OFF)
+	else if ((psPathInfo->asHpOut[1].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & (MCDRV_SRC0_MIC1_ON|MCDRV_SRC0_MIC1_OFF)) == MCDRV_SRC0_MIC1_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asHpOut[1].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC1_ON;
 		gsGlobalInfo.sPathInfo.asHpOut[1].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK]	|= MCDRV_SRC0_MIC1_OFF;
@@ -2201,12 +2201,12 @@ static void	SetHPSourceOnOff
 	{
 	}
 
-	if((psPathInfo->asHpOut[1].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & (MCDRV_SRC0_MIC2_ON|MCDRV_SRC0_MIC2_OFF)) == MCDRV_SRC0_MIC2_ON)
+	if ((psPathInfo->asHpOut[1].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & (MCDRV_SRC0_MIC2_ON|MCDRV_SRC0_MIC2_OFF)) == MCDRV_SRC0_MIC2_ON)
 	{
 		gsGlobalInfo.sPathInfo.asHpOut[1].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC2_OFF;
 		gsGlobalInfo.sPathInfo.asHpOut[1].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK]	|= MCDRV_SRC0_MIC2_ON;
 	}
-	else if((psPathInfo->asHpOut[1].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & (MCDRV_SRC0_MIC2_ON|MCDRV_SRC0_MIC2_OFF)) == MCDRV_SRC0_MIC2_OFF)
+	else if ((psPathInfo->asHpOut[1].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & (MCDRV_SRC0_MIC2_ON|MCDRV_SRC0_MIC2_OFF)) == MCDRV_SRC0_MIC2_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asHpOut[1].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC2_ON;
 		gsGlobalInfo.sPathInfo.asHpOut[1].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK]	|= MCDRV_SRC0_MIC2_OFF;
@@ -2215,12 +2215,12 @@ static void	SetHPSourceOnOff
 	{
 	}
 
-	if((psPathInfo->asHpOut[1].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & (MCDRV_SRC0_MIC3_ON|MCDRV_SRC0_MIC3_OFF)) == MCDRV_SRC0_MIC3_ON)
+	if ((psPathInfo->asHpOut[1].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & (MCDRV_SRC0_MIC3_ON|MCDRV_SRC0_MIC3_OFF)) == MCDRV_SRC0_MIC3_ON)
 	{
 		gsGlobalInfo.sPathInfo.asHpOut[1].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC3_OFF;
 		gsGlobalInfo.sPathInfo.asHpOut[1].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK]	|= MCDRV_SRC0_MIC3_ON;
 	}
-	else if((psPathInfo->asHpOut[1].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & (MCDRV_SRC0_MIC3_ON|MCDRV_SRC0_MIC3_OFF)) == MCDRV_SRC0_MIC3_OFF)
+	else if ((psPathInfo->asHpOut[1].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & (MCDRV_SRC0_MIC3_ON|MCDRV_SRC0_MIC3_OFF)) == MCDRV_SRC0_MIC3_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asHpOut[1].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC3_ON;
 		gsGlobalInfo.sPathInfo.asHpOut[1].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK]	|= MCDRV_SRC0_MIC3_OFF;
@@ -2229,12 +2229,12 @@ static void	SetHPSourceOnOff
 	{
 	}
 
-	if((psPathInfo->asHpOut[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK] & (MCDRV_SRC1_LINE1_R_ON|MCDRV_SRC1_LINE1_R_OFF)) == MCDRV_SRC1_LINE1_R_ON)
+	if ((psPathInfo->asHpOut[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK] & (MCDRV_SRC1_LINE1_R_ON|MCDRV_SRC1_LINE1_R_OFF)) == MCDRV_SRC1_LINE1_R_ON)
 	{
 		gsGlobalInfo.sPathInfo.asHpOut[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK]	&= (UINT8)~MCDRV_SRC1_LINE1_R_OFF;
 		gsGlobalInfo.sPathInfo.asHpOut[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK]	|= MCDRV_SRC1_LINE1_R_ON;
 	}
-	else if((psPathInfo->asHpOut[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK] & (MCDRV_SRC1_LINE1_R_ON|MCDRV_SRC1_LINE1_R_OFF)) == MCDRV_SRC1_LINE1_R_OFF)
+	else if ((psPathInfo->asHpOut[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK] & (MCDRV_SRC1_LINE1_R_ON|MCDRV_SRC1_LINE1_R_OFF)) == MCDRV_SRC1_LINE1_R_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asHpOut[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK]	&= (UINT8)~MCDRV_SRC1_LINE1_R_ON;
 		gsGlobalInfo.sPathInfo.asHpOut[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK]	|= MCDRV_SRC1_LINE1_R_OFF;
@@ -2243,12 +2243,12 @@ static void	SetHPSourceOnOff
 	{
 	}
 
-	if((psPathInfo->asHpOut[1].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK] & (MCDRV_SRC5_DAC_R_ON|MCDRV_SRC5_DAC_R_OFF)) == MCDRV_SRC5_DAC_R_ON)
+	if ((psPathInfo->asHpOut[1].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK] & (MCDRV_SRC5_DAC_R_ON|MCDRV_SRC5_DAC_R_OFF)) == MCDRV_SRC5_DAC_R_ON)
 	{
 		gsGlobalInfo.sPathInfo.asHpOut[1].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK]	&= (UINT8)~MCDRV_SRC5_DAC_R_OFF;
 		gsGlobalInfo.sPathInfo.asHpOut[1].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK]	|= MCDRV_SRC5_DAC_R_ON;
 	}
-	else if((psPathInfo->asHpOut[1].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK] & (MCDRV_SRC5_DAC_R_ON|MCDRV_SRC5_DAC_R_OFF)) == MCDRV_SRC5_DAC_R_OFF)
+	else if ((psPathInfo->asHpOut[1].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK] & (MCDRV_SRC5_DAC_R_ON|MCDRV_SRC5_DAC_R_OFF)) == MCDRV_SRC5_DAC_R_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asHpOut[1].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK]	&= (UINT8)~MCDRV_SRC5_DAC_R_ON;
 		gsGlobalInfo.sPathInfo.asHpOut[1].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK]	|= MCDRV_SRC5_DAC_R_OFF;
@@ -2282,12 +2282,12 @@ static void	SetSPSourceOnOff
 	McDebugLog_FuncIn("SetSPSourceOnOff");
 #endif
 
-	if((psPathInfo->asSpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK] & (MCDRV_SRC1_LINE1_L_ON|MCDRV_SRC1_LINE1_L_OFF)) == MCDRV_SRC1_LINE1_L_ON)
+	if ((psPathInfo->asSpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK] & (MCDRV_SRC1_LINE1_L_ON|MCDRV_SRC1_LINE1_L_OFF)) == MCDRV_SRC1_LINE1_L_ON)
 	{
 		gsGlobalInfo.sPathInfo.asSpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK]	&= (UINT8)~MCDRV_SRC1_LINE1_L_OFF;
 		gsGlobalInfo.sPathInfo.asSpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK]	|= MCDRV_SRC1_LINE1_L_ON;
 	}
-	else if((psPathInfo->asSpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK] & (MCDRV_SRC1_LINE1_L_ON|MCDRV_SRC1_LINE1_L_OFF)) == MCDRV_SRC1_LINE1_L_OFF)
+	else if ((psPathInfo->asSpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK] & (MCDRV_SRC1_LINE1_L_ON|MCDRV_SRC1_LINE1_L_OFF)) == MCDRV_SRC1_LINE1_L_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asSpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK]	&= (UINT8)~MCDRV_SRC1_LINE1_L_ON;
 		gsGlobalInfo.sPathInfo.asSpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK]	|= MCDRV_SRC1_LINE1_L_OFF;
@@ -2296,12 +2296,12 @@ static void	SetSPSourceOnOff
 	{
 	}
 
-	if((psPathInfo->asSpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK] & (MCDRV_SRC1_LINE1_M_ON|MCDRV_SRC1_LINE1_M_OFF)) == MCDRV_SRC1_LINE1_M_ON)
+	if ((psPathInfo->asSpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK] & (MCDRV_SRC1_LINE1_M_ON|MCDRV_SRC1_LINE1_M_OFF)) == MCDRV_SRC1_LINE1_M_ON)
 	{
 		gsGlobalInfo.sPathInfo.asSpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK]	&= (UINT8)~MCDRV_SRC1_LINE1_M_OFF;
 		gsGlobalInfo.sPathInfo.asSpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK]	|= MCDRV_SRC1_LINE1_M_ON;
 	}
-	else if((psPathInfo->asSpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK] & (MCDRV_SRC1_LINE1_M_ON|MCDRV_SRC1_LINE1_M_OFF)) == MCDRV_SRC1_LINE1_M_OFF)
+	else if ((psPathInfo->asSpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK] & (MCDRV_SRC1_LINE1_M_ON|MCDRV_SRC1_LINE1_M_OFF)) == MCDRV_SRC1_LINE1_M_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asSpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK]	&= (UINT8)~MCDRV_SRC1_LINE1_M_ON;
 		gsGlobalInfo.sPathInfo.asSpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK]	|= MCDRV_SRC1_LINE1_M_OFF;
@@ -2310,12 +2310,12 @@ static void	SetSPSourceOnOff
 	{
 	}
 
-	if((psPathInfo->asSpOut[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK] & (MCDRV_SRC5_DAC_L_ON|MCDRV_SRC5_DAC_L_OFF)) == MCDRV_SRC5_DAC_L_ON)
+	if ((psPathInfo->asSpOut[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK] & (MCDRV_SRC5_DAC_L_ON|MCDRV_SRC5_DAC_L_OFF)) == MCDRV_SRC5_DAC_L_ON)
 	{
 		gsGlobalInfo.sPathInfo.asSpOut[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK]	&= (UINT8)~MCDRV_SRC5_DAC_L_OFF;
 		gsGlobalInfo.sPathInfo.asSpOut[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK]	|= MCDRV_SRC5_DAC_L_ON;
 	}
-	else if((psPathInfo->asSpOut[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK] & (MCDRV_SRC5_DAC_L_ON|MCDRV_SRC5_DAC_L_OFF)) == MCDRV_SRC5_DAC_L_OFF)
+	else if ((psPathInfo->asSpOut[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK] & (MCDRV_SRC5_DAC_L_ON|MCDRV_SRC5_DAC_L_OFF)) == MCDRV_SRC5_DAC_L_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asSpOut[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK]	&= (UINT8)~MCDRV_SRC5_DAC_L_ON;
 		gsGlobalInfo.sPathInfo.asSpOut[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK]	|= MCDRV_SRC5_DAC_L_OFF;
@@ -2324,12 +2324,12 @@ static void	SetSPSourceOnOff
 	{
 	}
 
-	if((psPathInfo->asSpOut[0].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK] & (MCDRV_SRC5_DAC_M_ON|MCDRV_SRC5_DAC_M_OFF)) == MCDRV_SRC5_DAC_M_ON)
+	if ((psPathInfo->asSpOut[0].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK] & (MCDRV_SRC5_DAC_M_ON|MCDRV_SRC5_DAC_M_OFF)) == MCDRV_SRC5_DAC_M_ON)
 	{
 		gsGlobalInfo.sPathInfo.asSpOut[0].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK]	&= (UINT8)~MCDRV_SRC5_DAC_M_OFF;
 		gsGlobalInfo.sPathInfo.asSpOut[0].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK]	|= MCDRV_SRC5_DAC_M_ON;
 	}
-	else if((psPathInfo->asSpOut[0].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK] & (MCDRV_SRC5_DAC_M_ON|MCDRV_SRC5_DAC_M_OFF)) == MCDRV_SRC5_DAC_M_OFF)
+	else if ((psPathInfo->asSpOut[0].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK] & (MCDRV_SRC5_DAC_M_ON|MCDRV_SRC5_DAC_M_OFF)) == MCDRV_SRC5_DAC_M_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asSpOut[0].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK]	&= (UINT8)~MCDRV_SRC5_DAC_M_ON;
 		gsGlobalInfo.sPathInfo.asSpOut[0].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK]	|= MCDRV_SRC5_DAC_M_OFF;
@@ -2338,12 +2338,12 @@ static void	SetSPSourceOnOff
 	{
 	}
 
-	if((psPathInfo->asSpOut[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK] & (MCDRV_SRC1_LINE1_R_ON|MCDRV_SRC1_LINE1_R_OFF)) == MCDRV_SRC1_LINE1_R_ON)
+	if ((psPathInfo->asSpOut[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK] & (MCDRV_SRC1_LINE1_R_ON|MCDRV_SRC1_LINE1_R_OFF)) == MCDRV_SRC1_LINE1_R_ON)
 	{
 		gsGlobalInfo.sPathInfo.asSpOut[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK]	&= (UINT8)~MCDRV_SRC1_LINE1_R_OFF;
 		gsGlobalInfo.sPathInfo.asSpOut[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK]	|= MCDRV_SRC1_LINE1_R_ON;
 	}
-	else if((psPathInfo->asSpOut[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK] & (MCDRV_SRC1_LINE1_R_ON|MCDRV_SRC1_LINE1_R_OFF)) == MCDRV_SRC1_LINE1_R_OFF)
+	else if ((psPathInfo->asSpOut[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK] & (MCDRV_SRC1_LINE1_R_ON|MCDRV_SRC1_LINE1_R_OFF)) == MCDRV_SRC1_LINE1_R_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asSpOut[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK]	&= (UINT8)~MCDRV_SRC1_LINE1_R_ON;
 		gsGlobalInfo.sPathInfo.asSpOut[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK]	|= MCDRV_SRC1_LINE1_R_OFF;
@@ -2352,12 +2352,12 @@ static void	SetSPSourceOnOff
 	{
 	}
 
-	if((psPathInfo->asSpOut[1].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK] & (MCDRV_SRC1_LINE1_M_ON|MCDRV_SRC1_LINE1_M_OFF)) == MCDRV_SRC1_LINE1_M_ON)
+	if ((psPathInfo->asSpOut[1].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK] & (MCDRV_SRC1_LINE1_M_ON|MCDRV_SRC1_LINE1_M_OFF)) == MCDRV_SRC1_LINE1_M_ON)
 	{
 		gsGlobalInfo.sPathInfo.asSpOut[1].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK]	&= (UINT8)~MCDRV_SRC1_LINE1_M_OFF;
 		gsGlobalInfo.sPathInfo.asSpOut[1].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK]	|= MCDRV_SRC1_LINE1_M_ON;
 	}
-	else if((psPathInfo->asSpOut[1].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK] & (MCDRV_SRC1_LINE1_M_ON|MCDRV_SRC1_LINE1_M_OFF)) == MCDRV_SRC1_LINE1_M_OFF)
+	else if ((psPathInfo->asSpOut[1].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK] & (MCDRV_SRC1_LINE1_M_ON|MCDRV_SRC1_LINE1_M_OFF)) == MCDRV_SRC1_LINE1_M_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asSpOut[1].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK]	&= (UINT8)~MCDRV_SRC1_LINE1_M_ON;
 		gsGlobalInfo.sPathInfo.asSpOut[1].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK]	|= MCDRV_SRC1_LINE1_M_OFF;
@@ -2366,12 +2366,12 @@ static void	SetSPSourceOnOff
 	{
 	}
 
-	if((psPathInfo->asSpOut[1].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK] & (MCDRV_SRC5_DAC_R_ON|MCDRV_SRC5_DAC_R_OFF)) == MCDRV_SRC5_DAC_R_ON)
+	if ((psPathInfo->asSpOut[1].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK] & (MCDRV_SRC5_DAC_R_ON|MCDRV_SRC5_DAC_R_OFF)) == MCDRV_SRC5_DAC_R_ON)
 	{
 		gsGlobalInfo.sPathInfo.asSpOut[1].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK]	&= (UINT8)~MCDRV_SRC5_DAC_R_OFF;
 		gsGlobalInfo.sPathInfo.asSpOut[1].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK]	|= MCDRV_SRC5_DAC_R_ON;
 	}
-	else if((psPathInfo->asSpOut[1].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK] & (MCDRV_SRC5_DAC_R_ON|MCDRV_SRC5_DAC_R_OFF)) == MCDRV_SRC5_DAC_R_OFF)
+	else if ((psPathInfo->asSpOut[1].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK] & (MCDRV_SRC5_DAC_R_ON|MCDRV_SRC5_DAC_R_OFF)) == MCDRV_SRC5_DAC_R_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asSpOut[1].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK]	&= (UINT8)~MCDRV_SRC5_DAC_R_ON;
 		gsGlobalInfo.sPathInfo.asSpOut[1].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK]	|= MCDRV_SRC5_DAC_R_OFF;
@@ -2380,12 +2380,12 @@ static void	SetSPSourceOnOff
 	{
 	}
 
-	if((psPathInfo->asSpOut[1].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK] & (MCDRV_SRC5_DAC_M_ON|MCDRV_SRC5_DAC_M_OFF)) == MCDRV_SRC5_DAC_M_ON)
+	if ((psPathInfo->asSpOut[1].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK] & (MCDRV_SRC5_DAC_M_ON|MCDRV_SRC5_DAC_M_OFF)) == MCDRV_SRC5_DAC_M_ON)
 	{
 		gsGlobalInfo.sPathInfo.asSpOut[1].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK]	&= (UINT8)~MCDRV_SRC5_DAC_M_OFF;
 		gsGlobalInfo.sPathInfo.asSpOut[1].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK]	|= MCDRV_SRC5_DAC_M_ON;
 	}
-	else if((psPathInfo->asSpOut[1].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK] & (MCDRV_SRC5_DAC_M_ON|MCDRV_SRC5_DAC_M_OFF)) == MCDRV_SRC5_DAC_M_OFF)
+	else if ((psPathInfo->asSpOut[1].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK] & (MCDRV_SRC5_DAC_M_ON|MCDRV_SRC5_DAC_M_OFF)) == MCDRV_SRC5_DAC_M_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asSpOut[1].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK]	&= (UINT8)~MCDRV_SRC5_DAC_M_ON;
 		gsGlobalInfo.sPathInfo.asSpOut[1].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK]	|= MCDRV_SRC5_DAC_M_OFF;
@@ -2419,12 +2419,12 @@ static void	SetRCVSourceOnOff
 	McDebugLog_FuncIn("SetRCVSourceOnOff");
 #endif
 
-	if((psPathInfo->asRcOut[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & (MCDRV_SRC0_MIC1_ON|MCDRV_SRC0_MIC1_OFF)) == MCDRV_SRC0_MIC1_ON)
+	if ((psPathInfo->asRcOut[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & (MCDRV_SRC0_MIC1_ON|MCDRV_SRC0_MIC1_OFF)) == MCDRV_SRC0_MIC1_ON)
 	{
 		gsGlobalInfo.sPathInfo.asRcOut[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC1_OFF;
 		gsGlobalInfo.sPathInfo.asRcOut[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK]	|= MCDRV_SRC0_MIC1_ON;
 	}
-	else if((psPathInfo->asRcOut[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & (MCDRV_SRC0_MIC1_ON|MCDRV_SRC0_MIC1_OFF)) == MCDRV_SRC0_MIC1_OFF)
+	else if ((psPathInfo->asRcOut[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & (MCDRV_SRC0_MIC1_ON|MCDRV_SRC0_MIC1_OFF)) == MCDRV_SRC0_MIC1_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asRcOut[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC1_ON;
 		gsGlobalInfo.sPathInfo.asRcOut[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK]	|= MCDRV_SRC0_MIC1_OFF;
@@ -2433,12 +2433,12 @@ static void	SetRCVSourceOnOff
 	{
 	}
 
-	if((psPathInfo->asRcOut[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & (MCDRV_SRC0_MIC2_ON|MCDRV_SRC0_MIC2_OFF)) == MCDRV_SRC0_MIC2_ON)
+	if ((psPathInfo->asRcOut[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & (MCDRV_SRC0_MIC2_ON|MCDRV_SRC0_MIC2_OFF)) == MCDRV_SRC0_MIC2_ON)
 	{
 		gsGlobalInfo.sPathInfo.asRcOut[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC2_OFF;
 		gsGlobalInfo.sPathInfo.asRcOut[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK]	|= MCDRV_SRC0_MIC2_ON;
 	}
-	else if((psPathInfo->asRcOut[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & (MCDRV_SRC0_MIC2_ON|MCDRV_SRC0_MIC2_OFF)) == MCDRV_SRC0_MIC2_OFF)
+	else if ((psPathInfo->asRcOut[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & (MCDRV_SRC0_MIC2_ON|MCDRV_SRC0_MIC2_OFF)) == MCDRV_SRC0_MIC2_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asRcOut[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC2_ON;
 		gsGlobalInfo.sPathInfo.asRcOut[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK]	|= MCDRV_SRC0_MIC2_OFF;
@@ -2447,12 +2447,12 @@ static void	SetRCVSourceOnOff
 	{
 	}
 
-	if((psPathInfo->asRcOut[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & (MCDRV_SRC0_MIC3_ON|MCDRV_SRC0_MIC3_OFF)) == MCDRV_SRC0_MIC3_ON)
+	if ((psPathInfo->asRcOut[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & (MCDRV_SRC0_MIC3_ON|MCDRV_SRC0_MIC3_OFF)) == MCDRV_SRC0_MIC3_ON)
 	{
 		gsGlobalInfo.sPathInfo.asRcOut[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC3_OFF;
 		gsGlobalInfo.sPathInfo.asRcOut[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK]	|= MCDRV_SRC0_MIC3_ON;
 	}
-	else if((psPathInfo->asRcOut[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & (MCDRV_SRC0_MIC3_ON|MCDRV_SRC0_MIC3_OFF)) == MCDRV_SRC0_MIC3_OFF)
+	else if ((psPathInfo->asRcOut[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & (MCDRV_SRC0_MIC3_ON|MCDRV_SRC0_MIC3_OFF)) == MCDRV_SRC0_MIC3_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asRcOut[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC3_ON;
 		gsGlobalInfo.sPathInfo.asRcOut[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK]	|= MCDRV_SRC0_MIC3_OFF;
@@ -2461,12 +2461,12 @@ static void	SetRCVSourceOnOff
 	{
 	}
 
-	if((psPathInfo->asRcOut[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK] & (MCDRV_SRC1_LINE1_M_ON|MCDRV_SRC1_LINE1_M_OFF)) == MCDRV_SRC1_LINE1_M_ON)
+	if ((psPathInfo->asRcOut[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK] & (MCDRV_SRC1_LINE1_M_ON|MCDRV_SRC1_LINE1_M_OFF)) == MCDRV_SRC1_LINE1_M_ON)
 	{
 		gsGlobalInfo.sPathInfo.asRcOut[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK]	&= (UINT8)~MCDRV_SRC1_LINE1_M_OFF;
 		gsGlobalInfo.sPathInfo.asRcOut[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK]	|= MCDRV_SRC1_LINE1_M_ON;
 	}
-	else if((psPathInfo->asRcOut[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK] & (MCDRV_SRC1_LINE1_M_ON|MCDRV_SRC1_LINE1_M_OFF)) == MCDRV_SRC1_LINE1_M_OFF)
+	else if ((psPathInfo->asRcOut[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK] & (MCDRV_SRC1_LINE1_M_ON|MCDRV_SRC1_LINE1_M_OFF)) == MCDRV_SRC1_LINE1_M_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asRcOut[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK]	&= (UINT8)~MCDRV_SRC1_LINE1_M_ON;
 		gsGlobalInfo.sPathInfo.asRcOut[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK]	|= MCDRV_SRC1_LINE1_M_OFF;
@@ -2475,12 +2475,12 @@ static void	SetRCVSourceOnOff
 	{
 	}
 
-	if((psPathInfo->asRcOut[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK] & (MCDRV_SRC5_DAC_L_ON|MCDRV_SRC5_DAC_L_OFF)) == MCDRV_SRC5_DAC_L_ON)
+	if ((psPathInfo->asRcOut[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK] & (MCDRV_SRC5_DAC_L_ON|MCDRV_SRC5_DAC_L_OFF)) == MCDRV_SRC5_DAC_L_ON)
 	{
 		gsGlobalInfo.sPathInfo.asRcOut[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK]	&= (UINT8)~MCDRV_SRC5_DAC_L_OFF;
 		gsGlobalInfo.sPathInfo.asRcOut[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK]	|= MCDRV_SRC5_DAC_L_ON;
 	}
-	else if((psPathInfo->asRcOut[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK] & (MCDRV_SRC5_DAC_L_ON|MCDRV_SRC5_DAC_L_OFF)) == MCDRV_SRC5_DAC_L_OFF)
+	else if ((psPathInfo->asRcOut[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK] & (MCDRV_SRC5_DAC_L_ON|MCDRV_SRC5_DAC_L_OFF)) == MCDRV_SRC5_DAC_L_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asRcOut[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK]	&= (UINT8)~MCDRV_SRC5_DAC_L_ON;
 		gsGlobalInfo.sPathInfo.asRcOut[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK]	|= MCDRV_SRC5_DAC_L_OFF;
@@ -2489,12 +2489,12 @@ static void	SetRCVSourceOnOff
 	{
 	}
 
-	if((psPathInfo->asRcOut[0].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK] & (MCDRV_SRC5_DAC_R_ON|MCDRV_SRC5_DAC_R_OFF)) == MCDRV_SRC5_DAC_R_ON)
+	if ((psPathInfo->asRcOut[0].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK] & (MCDRV_SRC5_DAC_R_ON|MCDRV_SRC5_DAC_R_OFF)) == MCDRV_SRC5_DAC_R_ON)
 	{
 		gsGlobalInfo.sPathInfo.asRcOut[0].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK]	&= (UINT8)~MCDRV_SRC5_DAC_R_OFF;
 		gsGlobalInfo.sPathInfo.asRcOut[0].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK]	|= MCDRV_SRC5_DAC_R_ON;
 	}
-	else if((psPathInfo->asRcOut[0].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK] & (MCDRV_SRC5_DAC_R_ON|MCDRV_SRC5_DAC_R_OFF)) == MCDRV_SRC5_DAC_R_OFF)
+	else if ((psPathInfo->asRcOut[0].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK] & (MCDRV_SRC5_DAC_R_ON|MCDRV_SRC5_DAC_R_OFF)) == MCDRV_SRC5_DAC_R_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asRcOut[0].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK]	&= (UINT8)~MCDRV_SRC5_DAC_R_ON;
 		gsGlobalInfo.sPathInfo.asRcOut[0].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK]	|= MCDRV_SRC5_DAC_R_OFF;
@@ -2528,12 +2528,12 @@ static void	SetLO1SourceOnOff
 	McDebugLog_FuncIn("SetLO1SourceOnOff");
 #endif
 
-	if((psPathInfo->asLout1[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & (MCDRV_SRC0_MIC1_ON|MCDRV_SRC0_MIC1_OFF)) == MCDRV_SRC0_MIC1_ON)
+	if ((psPathInfo->asLout1[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & (MCDRV_SRC0_MIC1_ON|MCDRV_SRC0_MIC1_OFF)) == MCDRV_SRC0_MIC1_ON)
 	{
 		gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC1_OFF;
 		gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK]	|= MCDRV_SRC0_MIC1_ON;
 	}
-	else if((psPathInfo->asLout1[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & (MCDRV_SRC0_MIC1_ON|MCDRV_SRC0_MIC1_OFF)) == MCDRV_SRC0_MIC1_OFF)
+	else if ((psPathInfo->asLout1[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & (MCDRV_SRC0_MIC1_ON|MCDRV_SRC0_MIC1_OFF)) == MCDRV_SRC0_MIC1_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC1_ON;
 		gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK]	|= MCDRV_SRC0_MIC1_OFF;
@@ -2542,12 +2542,12 @@ static void	SetLO1SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asLout1[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & (MCDRV_SRC0_MIC2_ON|MCDRV_SRC0_MIC2_OFF)) == MCDRV_SRC0_MIC2_ON)
+	if ((psPathInfo->asLout1[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & (MCDRV_SRC0_MIC2_ON|MCDRV_SRC0_MIC2_OFF)) == MCDRV_SRC0_MIC2_ON)
 	{
 		gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC2_OFF;
 		gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK]	|= MCDRV_SRC0_MIC2_ON;
 	}
-	else if((psPathInfo->asLout1[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & (MCDRV_SRC0_MIC2_ON|MCDRV_SRC0_MIC2_OFF)) == MCDRV_SRC0_MIC2_OFF)
+	else if ((psPathInfo->asLout1[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & (MCDRV_SRC0_MIC2_ON|MCDRV_SRC0_MIC2_OFF)) == MCDRV_SRC0_MIC2_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC2_ON;
 		gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK]	|= MCDRV_SRC0_MIC2_OFF;
@@ -2556,12 +2556,12 @@ static void	SetLO1SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asLout1[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & (MCDRV_SRC0_MIC3_ON|MCDRV_SRC0_MIC3_OFF)) == MCDRV_SRC0_MIC3_ON)
+	if ((psPathInfo->asLout1[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & (MCDRV_SRC0_MIC3_ON|MCDRV_SRC0_MIC3_OFF)) == MCDRV_SRC0_MIC3_ON)
 	{
 		gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC3_OFF;
 		gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK]	|= MCDRV_SRC0_MIC3_ON;
 	}
-	else if((psPathInfo->asLout1[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & (MCDRV_SRC0_MIC3_ON|MCDRV_SRC0_MIC3_OFF)) == MCDRV_SRC0_MIC3_OFF)
+	else if ((psPathInfo->asLout1[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & (MCDRV_SRC0_MIC3_ON|MCDRV_SRC0_MIC3_OFF)) == MCDRV_SRC0_MIC3_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC3_ON;
 		gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK]	|= MCDRV_SRC0_MIC3_OFF;
@@ -2570,12 +2570,12 @@ static void	SetLO1SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asLout1[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK] & (MCDRV_SRC1_LINE1_L_ON|MCDRV_SRC1_LINE1_L_OFF)) == MCDRV_SRC1_LINE1_L_ON)
+	if ((psPathInfo->asLout1[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK] & (MCDRV_SRC1_LINE1_L_ON|MCDRV_SRC1_LINE1_L_OFF)) == MCDRV_SRC1_LINE1_L_ON)
 	{
 		gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK]	&= (UINT8)~MCDRV_SRC1_LINE1_L_OFF;
 		gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK]	|= MCDRV_SRC1_LINE1_L_ON;
 	}
-	else if((psPathInfo->asLout1[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK] & (MCDRV_SRC1_LINE1_L_ON|MCDRV_SRC1_LINE1_L_OFF)) == MCDRV_SRC1_LINE1_L_OFF)
+	else if ((psPathInfo->asLout1[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK] & (MCDRV_SRC1_LINE1_L_ON|MCDRV_SRC1_LINE1_L_OFF)) == MCDRV_SRC1_LINE1_L_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK]	&= (UINT8)~MCDRV_SRC1_LINE1_L_ON;
 		gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK]	|= MCDRV_SRC1_LINE1_L_OFF;
@@ -2584,12 +2584,12 @@ static void	SetLO1SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asLout1[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK] & (MCDRV_SRC1_LINE1_M_ON|MCDRV_SRC1_LINE1_M_OFF)) == MCDRV_SRC1_LINE1_M_ON)
+	if ((psPathInfo->asLout1[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK] & (MCDRV_SRC1_LINE1_M_ON|MCDRV_SRC1_LINE1_M_OFF)) == MCDRV_SRC1_LINE1_M_ON)
 	{
 		gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK]	&= (UINT8)~MCDRV_SRC1_LINE1_M_OFF;
 		gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK]	|= MCDRV_SRC1_LINE1_M_ON;
 	}
-	else if((psPathInfo->asLout1[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK] & (MCDRV_SRC1_LINE1_M_ON|MCDRV_SRC1_LINE1_M_OFF)) == MCDRV_SRC1_LINE1_M_OFF)
+	else if ((psPathInfo->asLout1[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK] & (MCDRV_SRC1_LINE1_M_ON|MCDRV_SRC1_LINE1_M_OFF)) == MCDRV_SRC1_LINE1_M_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK]	&= (UINT8)~MCDRV_SRC1_LINE1_M_ON;
 		gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK]	|= MCDRV_SRC1_LINE1_M_OFF;
@@ -2598,12 +2598,12 @@ static void	SetLO1SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asLout1[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK] & (MCDRV_SRC5_DAC_L_ON|MCDRV_SRC5_DAC_L_OFF)) == MCDRV_SRC5_DAC_L_ON)
+	if ((psPathInfo->asLout1[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK] & (MCDRV_SRC5_DAC_L_ON|MCDRV_SRC5_DAC_L_OFF)) == MCDRV_SRC5_DAC_L_ON)
 	{
 		gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK]	&= (UINT8)~MCDRV_SRC5_DAC_L_OFF;
 		gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK]	|= MCDRV_SRC5_DAC_L_ON;
 	}
-	else if((psPathInfo->asLout1[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK] & (MCDRV_SRC5_DAC_L_ON|MCDRV_SRC5_DAC_L_OFF)) == MCDRV_SRC5_DAC_L_OFF)
+	else if ((psPathInfo->asLout1[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK] & (MCDRV_SRC5_DAC_L_ON|MCDRV_SRC5_DAC_L_OFF)) == MCDRV_SRC5_DAC_L_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK]	&= (UINT8)~MCDRV_SRC5_DAC_L_ON;
 		gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK]	|= MCDRV_SRC5_DAC_L_OFF;
@@ -2612,12 +2612,12 @@ static void	SetLO1SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asLout1[0].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK] & (MCDRV_SRC5_DAC_M_ON|MCDRV_SRC5_DAC_M_OFF)) == MCDRV_SRC5_DAC_M_ON)
+	if ((psPathInfo->asLout1[0].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK] & (MCDRV_SRC5_DAC_M_ON|MCDRV_SRC5_DAC_M_OFF)) == MCDRV_SRC5_DAC_M_ON)
 	{
 		gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK]	&= (UINT8)~MCDRV_SRC5_DAC_M_OFF;
 		gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK]	|= MCDRV_SRC5_DAC_M_ON;
 	}
-	else if((psPathInfo->asLout1[0].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK] & (MCDRV_SRC5_DAC_M_ON|MCDRV_SRC5_DAC_M_OFF)) == MCDRV_SRC5_DAC_M_OFF)
+	else if ((psPathInfo->asLout1[0].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK] & (MCDRV_SRC5_DAC_M_ON|MCDRV_SRC5_DAC_M_OFF)) == MCDRV_SRC5_DAC_M_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK]	&= (UINT8)~MCDRV_SRC5_DAC_M_ON;
 		gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK]	|= MCDRV_SRC5_DAC_M_OFF;
@@ -2626,12 +2626,12 @@ static void	SetLO1SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asLout1[1].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & (MCDRV_SRC0_MIC1_ON|MCDRV_SRC0_MIC1_OFF)) == MCDRV_SRC0_MIC1_ON)
+	if ((psPathInfo->asLout1[1].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & (MCDRV_SRC0_MIC1_ON|MCDRV_SRC0_MIC1_OFF)) == MCDRV_SRC0_MIC1_ON)
 	{
 		gsGlobalInfo.sPathInfo.asLout1[1].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC1_OFF;
 		gsGlobalInfo.sPathInfo.asLout1[1].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK]	|= MCDRV_SRC0_MIC1_ON;
 	}
-	else if((psPathInfo->asLout1[1].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & (MCDRV_SRC0_MIC1_ON|MCDRV_SRC0_MIC1_OFF)) == MCDRV_SRC0_MIC1_OFF)
+	else if ((psPathInfo->asLout1[1].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & (MCDRV_SRC0_MIC1_ON|MCDRV_SRC0_MIC1_OFF)) == MCDRV_SRC0_MIC1_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asLout1[1].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC1_ON;
 		gsGlobalInfo.sPathInfo.asLout1[1].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK]	|= MCDRV_SRC0_MIC1_OFF;
@@ -2640,12 +2640,12 @@ static void	SetLO1SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asLout1[1].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & (MCDRV_SRC0_MIC2_ON|MCDRV_SRC0_MIC2_OFF)) == MCDRV_SRC0_MIC2_ON)
+	if ((psPathInfo->asLout1[1].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & (MCDRV_SRC0_MIC2_ON|MCDRV_SRC0_MIC2_OFF)) == MCDRV_SRC0_MIC2_ON)
 	{
 		gsGlobalInfo.sPathInfo.asLout1[1].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC2_OFF;
 		gsGlobalInfo.sPathInfo.asLout1[1].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK]	|= MCDRV_SRC0_MIC2_ON;
 	}
-	else if((psPathInfo->asLout1[1].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & (MCDRV_SRC0_MIC2_ON|MCDRV_SRC0_MIC2_OFF)) == MCDRV_SRC0_MIC2_OFF)
+	else if ((psPathInfo->asLout1[1].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & (MCDRV_SRC0_MIC2_ON|MCDRV_SRC0_MIC2_OFF)) == MCDRV_SRC0_MIC2_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asLout1[1].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC2_ON;
 		gsGlobalInfo.sPathInfo.asLout1[1].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK]	|= MCDRV_SRC0_MIC2_OFF;
@@ -2654,12 +2654,12 @@ static void	SetLO1SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asLout1[1].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & (MCDRV_SRC0_MIC3_ON|MCDRV_SRC0_MIC3_OFF)) == MCDRV_SRC0_MIC3_ON)
+	if ((psPathInfo->asLout1[1].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & (MCDRV_SRC0_MIC3_ON|MCDRV_SRC0_MIC3_OFF)) == MCDRV_SRC0_MIC3_ON)
 	{
 		gsGlobalInfo.sPathInfo.asLout1[1].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC3_OFF;
 		gsGlobalInfo.sPathInfo.asLout1[1].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK]	|= MCDRV_SRC0_MIC3_ON;
 	}
-	else if((psPathInfo->asLout1[1].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & (MCDRV_SRC0_MIC3_ON|MCDRV_SRC0_MIC3_OFF)) == MCDRV_SRC0_MIC3_OFF)
+	else if ((psPathInfo->asLout1[1].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & (MCDRV_SRC0_MIC3_ON|MCDRV_SRC0_MIC3_OFF)) == MCDRV_SRC0_MIC3_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asLout1[1].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC3_ON;
 		gsGlobalInfo.sPathInfo.asLout1[1].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK]	|= MCDRV_SRC0_MIC3_OFF;
@@ -2668,12 +2668,12 @@ static void	SetLO1SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asLout1[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK] & (MCDRV_SRC1_LINE1_R_ON|MCDRV_SRC1_LINE1_R_OFF)) == MCDRV_SRC1_LINE1_R_ON)
+	if ((psPathInfo->asLout1[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK] & (MCDRV_SRC1_LINE1_R_ON|MCDRV_SRC1_LINE1_R_OFF)) == MCDRV_SRC1_LINE1_R_ON)
 	{
 		gsGlobalInfo.sPathInfo.asLout1[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK]	&= (UINT8)~MCDRV_SRC1_LINE1_R_OFF;
 		gsGlobalInfo.sPathInfo.asLout1[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK]	|= MCDRV_SRC1_LINE1_R_ON;
 	}
-	else if((psPathInfo->asLout1[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK] & (MCDRV_SRC1_LINE1_R_ON|MCDRV_SRC1_LINE1_R_OFF)) == MCDRV_SRC1_LINE1_R_OFF)
+	else if ((psPathInfo->asLout1[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK] & (MCDRV_SRC1_LINE1_R_ON|MCDRV_SRC1_LINE1_R_OFF)) == MCDRV_SRC1_LINE1_R_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asLout1[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK]	&= (UINT8)~MCDRV_SRC1_LINE1_R_ON;
 		gsGlobalInfo.sPathInfo.asLout1[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK]	|= MCDRV_SRC1_LINE1_R_OFF;
@@ -2682,12 +2682,12 @@ static void	SetLO1SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asLout1[1].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK] & (MCDRV_SRC5_DAC_R_ON|MCDRV_SRC5_DAC_R_OFF)) == MCDRV_SRC5_DAC_R_ON)
+	if ((psPathInfo->asLout1[1].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK] & (MCDRV_SRC5_DAC_R_ON|MCDRV_SRC5_DAC_R_OFF)) == MCDRV_SRC5_DAC_R_ON)
 	{
 		gsGlobalInfo.sPathInfo.asLout1[1].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK]	&= (UINT8)~MCDRV_SRC5_DAC_R_OFF;
 		gsGlobalInfo.sPathInfo.asLout1[1].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK]	|= MCDRV_SRC5_DAC_R_ON;
 	}
-	else if((psPathInfo->asLout1[1].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK] & (MCDRV_SRC5_DAC_R_ON|MCDRV_SRC5_DAC_R_OFF)) == MCDRV_SRC5_DAC_R_OFF)
+	else if ((psPathInfo->asLout1[1].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK] & (MCDRV_SRC5_DAC_R_ON|MCDRV_SRC5_DAC_R_OFF)) == MCDRV_SRC5_DAC_R_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asLout1[1].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK]	&= (UINT8)~MCDRV_SRC5_DAC_R_ON;
 		gsGlobalInfo.sPathInfo.asLout1[1].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK]	|= MCDRV_SRC5_DAC_R_OFF;
@@ -2721,12 +2721,12 @@ static void	SetLO2SourceOnOff
 	McDebugLog_FuncIn("SetLO2SourceOnOff");
 #endif
 
-	if((psPathInfo->asLout2[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & (MCDRV_SRC0_MIC1_ON|MCDRV_SRC0_MIC1_OFF)) == MCDRV_SRC0_MIC1_ON)
+	if ((psPathInfo->asLout2[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & (MCDRV_SRC0_MIC1_ON|MCDRV_SRC0_MIC1_OFF)) == MCDRV_SRC0_MIC1_ON)
 	{
 		gsGlobalInfo.sPathInfo.asLout2[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC1_OFF;
 		gsGlobalInfo.sPathInfo.asLout2[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK]	|= MCDRV_SRC0_MIC1_ON;
 	}
-	else if((psPathInfo->asLout2[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & (MCDRV_SRC0_MIC1_ON|MCDRV_SRC0_MIC1_OFF)) == MCDRV_SRC0_MIC1_OFF)
+	else if ((psPathInfo->asLout2[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & (MCDRV_SRC0_MIC1_ON|MCDRV_SRC0_MIC1_OFF)) == MCDRV_SRC0_MIC1_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asLout2[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC1_ON;
 		gsGlobalInfo.sPathInfo.asLout2[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK]	|= MCDRV_SRC0_MIC1_OFF;
@@ -2735,12 +2735,12 @@ static void	SetLO2SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asLout2[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & (MCDRV_SRC0_MIC2_ON|MCDRV_SRC0_MIC2_OFF)) == MCDRV_SRC0_MIC2_ON)
+	if ((psPathInfo->asLout2[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & (MCDRV_SRC0_MIC2_ON|MCDRV_SRC0_MIC2_OFF)) == MCDRV_SRC0_MIC2_ON)
 	{
 		gsGlobalInfo.sPathInfo.asLout2[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC2_OFF;
 		gsGlobalInfo.sPathInfo.asLout2[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK]	|= MCDRV_SRC0_MIC2_ON;
 	}
-	else if((psPathInfo->asLout2[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & (MCDRV_SRC0_MIC2_ON|MCDRV_SRC0_MIC2_OFF)) == MCDRV_SRC0_MIC2_OFF)
+	else if ((psPathInfo->asLout2[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & (MCDRV_SRC0_MIC2_ON|MCDRV_SRC0_MIC2_OFF)) == MCDRV_SRC0_MIC2_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asLout2[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC2_ON;
 		gsGlobalInfo.sPathInfo.asLout2[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK]	|= MCDRV_SRC0_MIC2_OFF;
@@ -2749,12 +2749,12 @@ static void	SetLO2SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asLout2[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & (MCDRV_SRC0_MIC3_ON|MCDRV_SRC0_MIC3_OFF)) == MCDRV_SRC0_MIC3_ON)
+	if ((psPathInfo->asLout2[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & (MCDRV_SRC0_MIC3_ON|MCDRV_SRC0_MIC3_OFF)) == MCDRV_SRC0_MIC3_ON)
 	{
 		gsGlobalInfo.sPathInfo.asLout2[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC3_OFF;
 		gsGlobalInfo.sPathInfo.asLout2[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK]	|= MCDRV_SRC0_MIC3_ON;
 	}
-	else if((psPathInfo->asLout2[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & (MCDRV_SRC0_MIC3_ON|MCDRV_SRC0_MIC3_OFF)) == MCDRV_SRC0_MIC3_OFF)
+	else if ((psPathInfo->asLout2[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & (MCDRV_SRC0_MIC3_ON|MCDRV_SRC0_MIC3_OFF)) == MCDRV_SRC0_MIC3_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asLout2[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC3_ON;
 		gsGlobalInfo.sPathInfo.asLout2[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK]	|= MCDRV_SRC0_MIC3_OFF;
@@ -2763,12 +2763,12 @@ static void	SetLO2SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asLout2[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK] & (MCDRV_SRC1_LINE1_L_ON|MCDRV_SRC1_LINE1_L_OFF)) == MCDRV_SRC1_LINE1_L_ON)
+	if ((psPathInfo->asLout2[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK] & (MCDRV_SRC1_LINE1_L_ON|MCDRV_SRC1_LINE1_L_OFF)) == MCDRV_SRC1_LINE1_L_ON)
 	{
 		gsGlobalInfo.sPathInfo.asLout2[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK]	&= (UINT8)~MCDRV_SRC1_LINE1_L_OFF;
 		gsGlobalInfo.sPathInfo.asLout2[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK]	|= MCDRV_SRC1_LINE1_L_ON;
 	}
-	else if((psPathInfo->asLout2[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK] & (MCDRV_SRC1_LINE1_L_ON|MCDRV_SRC1_LINE1_L_OFF)) == MCDRV_SRC1_LINE1_L_OFF)
+	else if ((psPathInfo->asLout2[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK] & (MCDRV_SRC1_LINE1_L_ON|MCDRV_SRC1_LINE1_L_OFF)) == MCDRV_SRC1_LINE1_L_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asLout2[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK]	&= (UINT8)~MCDRV_SRC1_LINE1_L_ON;
 		gsGlobalInfo.sPathInfo.asLout2[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK]	|= MCDRV_SRC1_LINE1_L_OFF;
@@ -2777,12 +2777,12 @@ static void	SetLO2SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asLout2[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK] & (MCDRV_SRC1_LINE1_M_ON|MCDRV_SRC1_LINE1_M_OFF)) == MCDRV_SRC1_LINE1_M_ON)
+	if ((psPathInfo->asLout2[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK] & (MCDRV_SRC1_LINE1_M_ON|MCDRV_SRC1_LINE1_M_OFF)) == MCDRV_SRC1_LINE1_M_ON)
 	{
 		gsGlobalInfo.sPathInfo.asLout2[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK]	&= (UINT8)~MCDRV_SRC1_LINE1_M_OFF;
 		gsGlobalInfo.sPathInfo.asLout2[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK]	|= MCDRV_SRC1_LINE1_M_ON;
 	}
-	else if((psPathInfo->asLout2[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK] & (MCDRV_SRC1_LINE1_M_ON|MCDRV_SRC1_LINE1_M_OFF)) == MCDRV_SRC1_LINE1_M_OFF)
+	else if ((psPathInfo->asLout2[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK] & (MCDRV_SRC1_LINE1_M_ON|MCDRV_SRC1_LINE1_M_OFF)) == MCDRV_SRC1_LINE1_M_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asLout2[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK]	&= (UINT8)~MCDRV_SRC1_LINE1_M_ON;
 		gsGlobalInfo.sPathInfo.asLout2[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK]	|= MCDRV_SRC1_LINE1_M_OFF;
@@ -2791,12 +2791,12 @@ static void	SetLO2SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asLout2[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK] & (MCDRV_SRC5_DAC_L_ON|MCDRV_SRC5_DAC_L_OFF)) == MCDRV_SRC5_DAC_L_ON)
+	if ((psPathInfo->asLout2[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK] & (MCDRV_SRC5_DAC_L_ON|MCDRV_SRC5_DAC_L_OFF)) == MCDRV_SRC5_DAC_L_ON)
 	{
 		gsGlobalInfo.sPathInfo.asLout2[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK]	&= (UINT8)~MCDRV_SRC5_DAC_L_OFF;
 		gsGlobalInfo.sPathInfo.asLout2[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK]	|= MCDRV_SRC5_DAC_L_ON;
 	}
-	else if((psPathInfo->asLout2[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK] & (MCDRV_SRC5_DAC_L_ON|MCDRV_SRC5_DAC_L_OFF)) == MCDRV_SRC5_DAC_L_OFF)
+	else if ((psPathInfo->asLout2[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK] & (MCDRV_SRC5_DAC_L_ON|MCDRV_SRC5_DAC_L_OFF)) == MCDRV_SRC5_DAC_L_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asLout2[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK]	&= (UINT8)~MCDRV_SRC5_DAC_L_ON;
 		gsGlobalInfo.sPathInfo.asLout2[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK]	|= MCDRV_SRC5_DAC_L_OFF;
@@ -2805,12 +2805,12 @@ static void	SetLO2SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asLout2[0].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK] & (MCDRV_SRC5_DAC_M_ON|MCDRV_SRC5_DAC_M_OFF)) == MCDRV_SRC5_DAC_M_ON)
+	if ((psPathInfo->asLout2[0].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK] & (MCDRV_SRC5_DAC_M_ON|MCDRV_SRC5_DAC_M_OFF)) == MCDRV_SRC5_DAC_M_ON)
 	{
 		gsGlobalInfo.sPathInfo.asLout2[0].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK]	&= (UINT8)~MCDRV_SRC5_DAC_M_OFF;
 		gsGlobalInfo.sPathInfo.asLout2[0].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK]	|= MCDRV_SRC5_DAC_M_ON;
 	}
-	else if((psPathInfo->asLout2[0].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK] & (MCDRV_SRC5_DAC_M_ON|MCDRV_SRC5_DAC_M_OFF)) == MCDRV_SRC5_DAC_M_OFF)
+	else if ((psPathInfo->asLout2[0].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK] & (MCDRV_SRC5_DAC_M_ON|MCDRV_SRC5_DAC_M_OFF)) == MCDRV_SRC5_DAC_M_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asLout2[0].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK]	&= (UINT8)~MCDRV_SRC5_DAC_M_ON;
 		gsGlobalInfo.sPathInfo.asLout2[0].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK]	|= MCDRV_SRC5_DAC_M_OFF;
@@ -2819,12 +2819,12 @@ static void	SetLO2SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asLout2[1].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & (MCDRV_SRC0_MIC1_ON|MCDRV_SRC0_MIC1_OFF)) == MCDRV_SRC0_MIC1_ON)
+	if ((psPathInfo->asLout2[1].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & (MCDRV_SRC0_MIC1_ON|MCDRV_SRC0_MIC1_OFF)) == MCDRV_SRC0_MIC1_ON)
 	{
 		gsGlobalInfo.sPathInfo.asLout2[1].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC1_OFF;
 		gsGlobalInfo.sPathInfo.asLout2[1].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK]	|= MCDRV_SRC0_MIC1_ON;
 	}
-	else if((psPathInfo->asLout2[1].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & (MCDRV_SRC0_MIC1_ON|MCDRV_SRC0_MIC1_OFF)) == MCDRV_SRC0_MIC1_OFF)
+	else if ((psPathInfo->asLout2[1].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & (MCDRV_SRC0_MIC1_ON|MCDRV_SRC0_MIC1_OFF)) == MCDRV_SRC0_MIC1_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asLout2[1].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC1_ON;
 		gsGlobalInfo.sPathInfo.asLout2[1].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK]	|= MCDRV_SRC0_MIC1_OFF;
@@ -2833,12 +2833,12 @@ static void	SetLO2SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asLout2[1].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & (MCDRV_SRC0_MIC2_ON|MCDRV_SRC0_MIC2_OFF)) == MCDRV_SRC0_MIC2_ON)
+	if ((psPathInfo->asLout2[1].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & (MCDRV_SRC0_MIC2_ON|MCDRV_SRC0_MIC2_OFF)) == MCDRV_SRC0_MIC2_ON)
 	{
 		gsGlobalInfo.sPathInfo.asLout2[1].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC2_OFF;
 		gsGlobalInfo.sPathInfo.asLout2[1].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK]	|= MCDRV_SRC0_MIC2_ON;
 	}
-	else if((psPathInfo->asLout2[1].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & (MCDRV_SRC0_MIC2_ON|MCDRV_SRC0_MIC2_OFF)) == MCDRV_SRC0_MIC2_OFF)
+	else if ((psPathInfo->asLout2[1].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & (MCDRV_SRC0_MIC2_ON|MCDRV_SRC0_MIC2_OFF)) == MCDRV_SRC0_MIC2_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asLout2[1].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC2_ON;
 		gsGlobalInfo.sPathInfo.asLout2[1].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK]	|= MCDRV_SRC0_MIC2_OFF;
@@ -2847,12 +2847,12 @@ static void	SetLO2SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asLout2[1].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & (MCDRV_SRC0_MIC3_ON|MCDRV_SRC0_MIC3_OFF)) == MCDRV_SRC0_MIC3_ON)
+	if ((psPathInfo->asLout2[1].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & (MCDRV_SRC0_MIC3_ON|MCDRV_SRC0_MIC3_OFF)) == MCDRV_SRC0_MIC3_ON)
 	{
 		gsGlobalInfo.sPathInfo.asLout2[1].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC3_OFF;
 		gsGlobalInfo.sPathInfo.asLout2[1].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK]	|= MCDRV_SRC0_MIC3_ON;
 	}
-	else if((psPathInfo->asLout2[1].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & (MCDRV_SRC0_MIC3_ON|MCDRV_SRC0_MIC3_OFF)) == MCDRV_SRC0_MIC3_OFF)
+	else if ((psPathInfo->asLout2[1].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & (MCDRV_SRC0_MIC3_ON|MCDRV_SRC0_MIC3_OFF)) == MCDRV_SRC0_MIC3_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asLout2[1].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC3_ON;
 		gsGlobalInfo.sPathInfo.asLout2[1].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK]	|= MCDRV_SRC0_MIC3_OFF;
@@ -2861,12 +2861,12 @@ static void	SetLO2SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asLout2[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK] & (MCDRV_SRC1_LINE1_R_ON|MCDRV_SRC1_LINE1_R_OFF)) == MCDRV_SRC1_LINE1_R_ON)
+	if ((psPathInfo->asLout2[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK] & (MCDRV_SRC1_LINE1_R_ON|MCDRV_SRC1_LINE1_R_OFF)) == MCDRV_SRC1_LINE1_R_ON)
 	{
 		gsGlobalInfo.sPathInfo.asLout2[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK]	&= (UINT8)~MCDRV_SRC1_LINE1_R_OFF;
 		gsGlobalInfo.sPathInfo.asLout2[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK]	|= MCDRV_SRC1_LINE1_R_ON;
 	}
-	else if((psPathInfo->asLout2[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK] & (MCDRV_SRC1_LINE1_R_ON|MCDRV_SRC1_LINE1_R_OFF)) == MCDRV_SRC1_LINE1_R_OFF)
+	else if ((psPathInfo->asLout2[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK] & (MCDRV_SRC1_LINE1_R_ON|MCDRV_SRC1_LINE1_R_OFF)) == MCDRV_SRC1_LINE1_R_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asLout2[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK]	&= (UINT8)~MCDRV_SRC1_LINE1_R_ON;
 		gsGlobalInfo.sPathInfo.asLout2[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK]	|= MCDRV_SRC1_LINE1_R_OFF;
@@ -2875,12 +2875,12 @@ static void	SetLO2SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asLout2[1].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK] & (MCDRV_SRC5_DAC_R_ON|MCDRV_SRC5_DAC_R_OFF)) == MCDRV_SRC5_DAC_R_ON)
+	if ((psPathInfo->asLout2[1].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK] & (MCDRV_SRC5_DAC_R_ON|MCDRV_SRC5_DAC_R_OFF)) == MCDRV_SRC5_DAC_R_ON)
 	{
 		gsGlobalInfo.sPathInfo.asLout2[1].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK]	&= (UINT8)~MCDRV_SRC5_DAC_R_OFF;
 		gsGlobalInfo.sPathInfo.asLout2[1].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK]	|= MCDRV_SRC5_DAC_R_ON;
 	}
-	else if((psPathInfo->asLout2[1].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK] & (MCDRV_SRC5_DAC_R_ON|MCDRV_SRC5_DAC_R_OFF)) == MCDRV_SRC5_DAC_R_OFF)
+	else if ((psPathInfo->asLout2[1].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK] & (MCDRV_SRC5_DAC_R_ON|MCDRV_SRC5_DAC_R_OFF)) == MCDRV_SRC5_DAC_R_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asLout2[1].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK]	&= (UINT8)~MCDRV_SRC5_DAC_R_ON;
 		gsGlobalInfo.sPathInfo.asLout2[1].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK]	|= MCDRV_SRC5_DAC_R_OFF;
@@ -2941,7 +2941,7 @@ static void	SetDIT0SourceOnOff
 	McDebugLog_FuncIn("SetDIT0SourceOnOff");
 #endif
 
-	if(((psPathInfo->asDit0[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK] & (MCDRV_SRC4_PDM_ON|MCDRV_SRC4_PDM_OFF)) == MCDRV_SRC4_PDM_ON)
+	if (((psPathInfo->asDit0[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK] & (MCDRV_SRC4_PDM_ON|MCDRV_SRC4_PDM_OFF)) == MCDRV_SRC4_PDM_ON)
 	&& (gsGlobalInfo.sInitInfo.bPad0Func == MCDRV_PAD_PDMCK))
 	{
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	&= (UINT8)~MCDRV_SRC4_PDM_OFF;
@@ -2959,7 +2959,7 @@ static void	SetDIT0SourceOnOff
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	&= (UINT8)~MCDRV_SRC6_MIX_ON;
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	|= MCDRV_SRC6_MIX_OFF;
 	}
-	else if((psPathInfo->asDit0[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK] & (MCDRV_SRC4_PDM_ON|MCDRV_SRC4_PDM_OFF)) == MCDRV_SRC4_PDM_OFF)
+	else if ((psPathInfo->asDit0[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK] & (MCDRV_SRC4_PDM_ON|MCDRV_SRC4_PDM_OFF)) == MCDRV_SRC4_PDM_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	&= (UINT8)~MCDRV_SRC4_PDM_ON;
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	|= MCDRV_SRC4_PDM_OFF;
@@ -2968,7 +2968,7 @@ static void	SetDIT0SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asDit0[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK] & (MCDRV_SRC4_ADC0_ON|MCDRV_SRC4_ADC0_OFF)) == MCDRV_SRC4_ADC0_ON)
+	if ((psPathInfo->asDit0[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK] & (MCDRV_SRC4_ADC0_ON|MCDRV_SRC4_ADC0_OFF)) == MCDRV_SRC4_ADC0_ON)
 	{
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	&= (UINT8)~MCDRV_SRC4_PDM_ON;
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	|= MCDRV_SRC4_PDM_OFF;
@@ -2985,7 +2985,7 @@ static void	SetDIT0SourceOnOff
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	&= (UINT8)~MCDRV_SRC6_MIX_ON;
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	|= MCDRV_SRC6_MIX_OFF;
 	}
-	else if((psPathInfo->asDit0[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK] & (MCDRV_SRC4_ADC0_ON|MCDRV_SRC4_ADC0_OFF)) == MCDRV_SRC4_ADC0_OFF)
+	else if ((psPathInfo->asDit0[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK] & (MCDRV_SRC4_ADC0_ON|MCDRV_SRC4_ADC0_OFF)) == MCDRV_SRC4_ADC0_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK]	&= (UINT8)~MCDRV_SRC4_ADC0_ON;
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK]	|= MCDRV_SRC4_ADC0_OFF;
@@ -2994,7 +2994,7 @@ static void	SetDIT0SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asDit0[0].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK] & (MCDRV_SRC3_DIR0_ON|MCDRV_SRC3_DIR0_OFF)) == MCDRV_SRC3_DIR0_ON)
+	if ((psPathInfo->asDit0[0].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK] & (MCDRV_SRC3_DIR0_ON|MCDRV_SRC3_DIR0_OFF)) == MCDRV_SRC3_DIR0_ON)
 	{
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	&= (UINT8)~MCDRV_SRC4_PDM_ON;
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	|= MCDRV_SRC4_PDM_OFF;
@@ -3011,7 +3011,7 @@ static void	SetDIT0SourceOnOff
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	&= (UINT8)~MCDRV_SRC6_MIX_ON;
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	|= MCDRV_SRC6_MIX_OFF;
 	}
-	else if((psPathInfo->asDit0[0].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK] & (MCDRV_SRC3_DIR0_ON|MCDRV_SRC3_DIR0_OFF)) == MCDRV_SRC3_DIR0_OFF)
+	else if ((psPathInfo->asDit0[0].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK] & (MCDRV_SRC3_DIR0_ON|MCDRV_SRC3_DIR0_OFF)) == MCDRV_SRC3_DIR0_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK]	&= (UINT8)~MCDRV_SRC3_DIR0_ON;
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK]	|= MCDRV_SRC3_DIR0_OFF;
@@ -3020,7 +3020,7 @@ static void	SetDIT0SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asDit0[0].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK] & (MCDRV_SRC3_DIR1_ON|MCDRV_SRC3_DIR1_OFF)) == MCDRV_SRC3_DIR1_ON)
+	if ((psPathInfo->asDit0[0].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK] & (MCDRV_SRC3_DIR1_ON|MCDRV_SRC3_DIR1_OFF)) == MCDRV_SRC3_DIR1_ON)
 	{
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	&= (UINT8)~MCDRV_SRC4_PDM_ON;
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	|= MCDRV_SRC4_PDM_OFF;
@@ -3037,7 +3037,7 @@ static void	SetDIT0SourceOnOff
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	&= (UINT8)~MCDRV_SRC6_MIX_ON;
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	|= MCDRV_SRC6_MIX_OFF;
 	}
-	else if((psPathInfo->asDit0[0].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK] & (MCDRV_SRC3_DIR1_ON|MCDRV_SRC3_DIR1_OFF)) == MCDRV_SRC3_DIR1_OFF)
+	else if ((psPathInfo->asDit0[0].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK] & (MCDRV_SRC3_DIR1_ON|MCDRV_SRC3_DIR1_OFF)) == MCDRV_SRC3_DIR1_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK]	&= (UINT8)~MCDRV_SRC3_DIR1_ON;
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK]	|= MCDRV_SRC3_DIR1_OFF;
@@ -3046,7 +3046,7 @@ static void	SetDIT0SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asDit0[0].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK] & (MCDRV_SRC3_DIR2_ON|MCDRV_SRC3_DIR2_OFF)) == MCDRV_SRC3_DIR2_ON)
+	if ((psPathInfo->asDit0[0].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK] & (MCDRV_SRC3_DIR2_ON|MCDRV_SRC3_DIR2_OFF)) == MCDRV_SRC3_DIR2_ON)
 	{
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	&= (UINT8)~MCDRV_SRC4_PDM_ON;
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	|= MCDRV_SRC4_PDM_OFF;
@@ -3063,7 +3063,7 @@ static void	SetDIT0SourceOnOff
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	&= (UINT8)~MCDRV_SRC6_MIX_ON;
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	|= MCDRV_SRC6_MIX_OFF;
 	}
-	else if((psPathInfo->asDit0[0].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK] & (MCDRV_SRC3_DIR2_ON|MCDRV_SRC3_DIR2_OFF)) == MCDRV_SRC3_DIR2_OFF)
+	else if ((psPathInfo->asDit0[0].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK] & (MCDRV_SRC3_DIR2_ON|MCDRV_SRC3_DIR2_OFF)) == MCDRV_SRC3_DIR2_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK]	&= (UINT8)~MCDRV_SRC3_DIR2_ON;
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK]	|= MCDRV_SRC3_DIR2_OFF;
@@ -3072,7 +3072,7 @@ static void	SetDIT0SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asDit0[0].abSrcOnOff[MCDRV_SRC_AE_BLOCK] & (MCDRV_SRC6_AE_ON|MCDRV_SRC6_AE_OFF)) == MCDRV_SRC6_AE_ON)
+	if ((psPathInfo->asDit0[0].abSrcOnOff[MCDRV_SRC_AE_BLOCK] & (MCDRV_SRC6_AE_ON|MCDRV_SRC6_AE_OFF)) == MCDRV_SRC6_AE_ON)
 	{
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	&= (UINT8)~MCDRV_SRC4_PDM_ON;
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	|= MCDRV_SRC4_PDM_OFF;
@@ -3089,7 +3089,7 @@ static void	SetDIT0SourceOnOff
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	&= (UINT8)~MCDRV_SRC6_MIX_ON;
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	|= MCDRV_SRC6_MIX_OFF;
 	}
-	else if((psPathInfo->asDit0[0].abSrcOnOff[MCDRV_SRC_AE_BLOCK] & (MCDRV_SRC6_AE_ON|MCDRV_SRC6_AE_OFF)) == MCDRV_SRC6_AE_OFF)
+	else if ((psPathInfo->asDit0[0].abSrcOnOff[MCDRV_SRC_AE_BLOCK] & (MCDRV_SRC6_AE_ON|MCDRV_SRC6_AE_OFF)) == MCDRV_SRC6_AE_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_AE_BLOCK]		&= (UINT8)~MCDRV_SRC6_AE_ON;
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_AE_BLOCK]		|= MCDRV_SRC6_AE_OFF;
@@ -3098,7 +3098,7 @@ static void	SetDIT0SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asDit0[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK] & (MCDRV_SRC6_MIX_ON|MCDRV_SRC6_MIX_OFF)) == MCDRV_SRC6_MIX_ON)
+	if ((psPathInfo->asDit0[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK] & (MCDRV_SRC6_MIX_ON|MCDRV_SRC6_MIX_OFF)) == MCDRV_SRC6_MIX_ON)
 	{
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	&= (UINT8)~MCDRV_SRC4_PDM_ON;
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	|= MCDRV_SRC4_PDM_OFF;
@@ -3115,7 +3115,7 @@ static void	SetDIT0SourceOnOff
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	&= (UINT8)~MCDRV_SRC6_MIX_OFF;
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	|= MCDRV_SRC6_MIX_ON;
 	}
-	else if((psPathInfo->asDit0[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK] & (MCDRV_SRC6_MIX_ON|MCDRV_SRC6_MIX_OFF)) == MCDRV_SRC6_MIX_OFF)
+	else if ((psPathInfo->asDit0[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK] & (MCDRV_SRC6_MIX_ON|MCDRV_SRC6_MIX_OFF)) == MCDRV_SRC6_MIX_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	&= (UINT8)~MCDRV_SRC6_MIX_ON;
 		gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	|= MCDRV_SRC6_MIX_OFF;
@@ -3149,7 +3149,7 @@ static void	SetDIT1SourceOnOff
 	McDebugLog_FuncIn("SetDIT1SourceOnOff");
 #endif
 
-	if(((psPathInfo->asDit1[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK] & (MCDRV_SRC4_PDM_ON|MCDRV_SRC4_PDM_OFF)) == MCDRV_SRC4_PDM_ON)
+	if (((psPathInfo->asDit1[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK] & (MCDRV_SRC4_PDM_ON|MCDRV_SRC4_PDM_OFF)) == MCDRV_SRC4_PDM_ON)
 	&& (gsGlobalInfo.sInitInfo.bPad0Func == MCDRV_PAD_PDMCK))
 	{
 		gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	&= (UINT8)~MCDRV_SRC4_PDM_OFF;
@@ -3167,7 +3167,7 @@ static void	SetDIT1SourceOnOff
 		gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	&= (UINT8)~MCDRV_SRC6_MIX_ON;
 		gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	|= MCDRV_SRC6_MIX_OFF;
 	}
-	else if((psPathInfo->asDit1[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK] & (MCDRV_SRC4_PDM_ON|MCDRV_SRC4_PDM_OFF)) == MCDRV_SRC4_PDM_OFF)
+	else if ((psPathInfo->asDit1[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK] & (MCDRV_SRC4_PDM_ON|MCDRV_SRC4_PDM_OFF)) == MCDRV_SRC4_PDM_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	&= (UINT8)~MCDRV_SRC4_PDM_ON;
 		gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	|= MCDRV_SRC4_PDM_OFF;
@@ -3176,7 +3176,7 @@ static void	SetDIT1SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asDit1[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK] & (MCDRV_SRC4_ADC0_ON|MCDRV_SRC4_ADC0_OFF)) == MCDRV_SRC4_ADC0_ON)
+	if ((psPathInfo->asDit1[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK] & (MCDRV_SRC4_ADC0_ON|MCDRV_SRC4_ADC0_OFF)) == MCDRV_SRC4_ADC0_ON)
 	{
 		gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	&= (UINT8)~MCDRV_SRC4_PDM_ON;
 		gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	|= MCDRV_SRC4_PDM_OFF;
@@ -3193,7 +3193,7 @@ static void	SetDIT1SourceOnOff
 		gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	&= (UINT8)~MCDRV_SRC6_MIX_ON;
 		gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	|= MCDRV_SRC6_MIX_OFF;
 	}
-	else if((psPathInfo->asDit1[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK] & (MCDRV_SRC4_ADC0_ON|MCDRV_SRC4_ADC0_OFF)) == MCDRV_SRC4_ADC0_OFF)
+	else if ((psPathInfo->asDit1[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK] & (MCDRV_SRC4_ADC0_ON|MCDRV_SRC4_ADC0_OFF)) == MCDRV_SRC4_ADC0_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK]	&= (UINT8)~MCDRV_SRC4_ADC0_ON;
 		gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK]	|= MCDRV_SRC4_ADC0_OFF;
@@ -3202,7 +3202,7 @@ static void	SetDIT1SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asDit1[0].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK] & (MCDRV_SRC3_DIR0_ON|MCDRV_SRC3_DIR0_OFF)) == MCDRV_SRC3_DIR0_ON)
+	if ((psPathInfo->asDit1[0].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK] & (MCDRV_SRC3_DIR0_ON|MCDRV_SRC3_DIR0_OFF)) == MCDRV_SRC3_DIR0_ON)
 	{
 		gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	&= (UINT8)~MCDRV_SRC4_PDM_ON;
 		gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	|= MCDRV_SRC4_PDM_OFF;
@@ -3219,7 +3219,7 @@ static void	SetDIT1SourceOnOff
 		gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	&= (UINT8)~MCDRV_SRC6_MIX_ON;
 		gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	|= MCDRV_SRC6_MIX_OFF;
 	}
-	else if((psPathInfo->asDit1[0].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK] & (MCDRV_SRC3_DIR0_ON|MCDRV_SRC3_DIR0_OFF)) == MCDRV_SRC3_DIR0_OFF)
+	else if ((psPathInfo->asDit1[0].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK] & (MCDRV_SRC3_DIR0_ON|MCDRV_SRC3_DIR0_OFF)) == MCDRV_SRC3_DIR0_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK]	&= (UINT8)~MCDRV_SRC3_DIR0_ON;
 		gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK]	|= MCDRV_SRC3_DIR0_OFF;
@@ -3228,7 +3228,7 @@ static void	SetDIT1SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asDit1[0].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK] & (MCDRV_SRC3_DIR1_ON|MCDRV_SRC3_DIR1_OFF)) == MCDRV_SRC3_DIR1_ON)
+	if ((psPathInfo->asDit1[0].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK] & (MCDRV_SRC3_DIR1_ON|MCDRV_SRC3_DIR1_OFF)) == MCDRV_SRC3_DIR1_ON)
 	{
 		gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	&= (UINT8)~MCDRV_SRC4_PDM_ON;
 		gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	|= MCDRV_SRC4_PDM_OFF;
@@ -3245,7 +3245,7 @@ static void	SetDIT1SourceOnOff
 		gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	&= (UINT8)~MCDRV_SRC6_MIX_ON;
 		gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	|= MCDRV_SRC6_MIX_OFF;
 	}
-	else if((psPathInfo->asDit1[0].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK] & (MCDRV_SRC3_DIR1_ON|MCDRV_SRC3_DIR1_OFF)) == MCDRV_SRC3_DIR1_OFF)
+	else if ((psPathInfo->asDit1[0].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK] & (MCDRV_SRC3_DIR1_ON|MCDRV_SRC3_DIR1_OFF)) == MCDRV_SRC3_DIR1_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK]	&= (UINT8)~MCDRV_SRC3_DIR1_ON;
 		gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK]	|= MCDRV_SRC3_DIR1_OFF;
@@ -3254,7 +3254,7 @@ static void	SetDIT1SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asDit1[0].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK] & (MCDRV_SRC3_DIR2_ON|MCDRV_SRC3_DIR2_OFF)) == MCDRV_SRC3_DIR2_ON)
+	if ((psPathInfo->asDit1[0].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK] & (MCDRV_SRC3_DIR2_ON|MCDRV_SRC3_DIR2_OFF)) == MCDRV_SRC3_DIR2_ON)
 	{
 		gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	&= (UINT8)~MCDRV_SRC4_PDM_ON;
 		gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	|= MCDRV_SRC4_PDM_OFF;
@@ -3271,7 +3271,7 @@ static void	SetDIT1SourceOnOff
 		gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	&= (UINT8)~MCDRV_SRC6_MIX_ON;
 		gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	|= MCDRV_SRC6_MIX_OFF;
 	}
-	else if((psPathInfo->asDit1[0].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK] & (MCDRV_SRC3_DIR2_ON|MCDRV_SRC3_DIR2_OFF)) == MCDRV_SRC3_DIR2_OFF)
+	else if ((psPathInfo->asDit1[0].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK] & (MCDRV_SRC3_DIR2_ON|MCDRV_SRC3_DIR2_OFF)) == MCDRV_SRC3_DIR2_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK]	&= (UINT8)~MCDRV_SRC3_DIR2_ON;
 		gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK]	|= MCDRV_SRC3_DIR2_OFF;
@@ -3280,7 +3280,7 @@ static void	SetDIT1SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asDit1[0].abSrcOnOff[MCDRV_SRC_AE_BLOCK] & (MCDRV_SRC6_AE_ON|MCDRV_SRC6_AE_OFF)) == MCDRV_SRC6_AE_ON)
+	if ((psPathInfo->asDit1[0].abSrcOnOff[MCDRV_SRC_AE_BLOCK] & (MCDRV_SRC6_AE_ON|MCDRV_SRC6_AE_OFF)) == MCDRV_SRC6_AE_ON)
 	{
 		gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	&= (UINT8)~MCDRV_SRC4_PDM_ON;
 		gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	|= MCDRV_SRC4_PDM_OFF;
@@ -3297,7 +3297,7 @@ static void	SetDIT1SourceOnOff
 		gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	&= (UINT8)~MCDRV_SRC6_MIX_ON;
 		gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	|= MCDRV_SRC6_MIX_OFF;
 	}
-	else if((psPathInfo->asDit1[0].abSrcOnOff[MCDRV_SRC_AE_BLOCK] & (MCDRV_SRC6_AE_ON|MCDRV_SRC6_AE_OFF)) == MCDRV_SRC6_AE_OFF)
+	else if ((psPathInfo->asDit1[0].abSrcOnOff[MCDRV_SRC_AE_BLOCK] & (MCDRV_SRC6_AE_ON|MCDRV_SRC6_AE_OFF)) == MCDRV_SRC6_AE_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_AE_BLOCK]		&= (UINT8)~MCDRV_SRC6_AE_ON;
 		gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_AE_BLOCK]		|= MCDRV_SRC6_AE_OFF;
@@ -3306,7 +3306,7 @@ static void	SetDIT1SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asDit1[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK] & (MCDRV_SRC6_MIX_ON|MCDRV_SRC6_MIX_OFF)) == MCDRV_SRC6_MIX_ON)
+	if ((psPathInfo->asDit1[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK] & (MCDRV_SRC6_MIX_ON|MCDRV_SRC6_MIX_OFF)) == MCDRV_SRC6_MIX_ON)
 	{
 		gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	&= (UINT8)~MCDRV_SRC4_PDM_ON;
 		gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	|= MCDRV_SRC4_PDM_OFF;
@@ -3323,7 +3323,7 @@ static void	SetDIT1SourceOnOff
 		gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	&= (UINT8)~MCDRV_SRC6_MIX_OFF;
 		gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	|= MCDRV_SRC6_MIX_ON;
 	}
-	else if((psPathInfo->asDit1[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK] & (MCDRV_SRC6_MIX_ON|MCDRV_SRC6_MIX_OFF)) == MCDRV_SRC6_MIX_OFF)
+	else if ((psPathInfo->asDit1[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK] & (MCDRV_SRC6_MIX_ON|MCDRV_SRC6_MIX_OFF)) == MCDRV_SRC6_MIX_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	&= (UINT8)~MCDRV_SRC6_MIX_ON;
 		gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	|= MCDRV_SRC6_MIX_OFF;
@@ -3357,7 +3357,7 @@ static void	SetDIT2SourceOnOff
 	McDebugLog_FuncIn("SetDIT2SourceOnOff");
 #endif
 
-	if(((psPathInfo->asDit2[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK] & (MCDRV_SRC4_PDM_ON|MCDRV_SRC4_PDM_OFF)) == MCDRV_SRC4_PDM_ON)
+	if (((psPathInfo->asDit2[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK] & (MCDRV_SRC4_PDM_ON|MCDRV_SRC4_PDM_OFF)) == MCDRV_SRC4_PDM_ON)
 	&& (gsGlobalInfo.sInitInfo.bPad0Func == MCDRV_PAD_PDMCK))
 	{
 		gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	&= (UINT8)~MCDRV_SRC4_PDM_OFF;
@@ -3375,7 +3375,7 @@ static void	SetDIT2SourceOnOff
 		gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	&= (UINT8)~MCDRV_SRC6_MIX_ON;
 		gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	|= MCDRV_SRC6_MIX_OFF;
 	}
-	else if((psPathInfo->asDit2[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK] & (MCDRV_SRC4_PDM_ON|MCDRV_SRC4_PDM_OFF)) == MCDRV_SRC4_PDM_OFF)
+	else if ((psPathInfo->asDit2[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK] & (MCDRV_SRC4_PDM_ON|MCDRV_SRC4_PDM_OFF)) == MCDRV_SRC4_PDM_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	&= (UINT8)~MCDRV_SRC4_PDM_ON;
 		gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	|= MCDRV_SRC4_PDM_OFF;
@@ -3384,7 +3384,7 @@ static void	SetDIT2SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asDit2[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK] & (MCDRV_SRC4_ADC0_ON|MCDRV_SRC4_ADC0_OFF)) == MCDRV_SRC4_ADC0_ON)
+	if ((psPathInfo->asDit2[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK] & (MCDRV_SRC4_ADC0_ON|MCDRV_SRC4_ADC0_OFF)) == MCDRV_SRC4_ADC0_ON)
 	{
 		gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	&= (UINT8)~MCDRV_SRC4_PDM_ON;
 		gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	|= MCDRV_SRC4_PDM_OFF;
@@ -3401,7 +3401,7 @@ static void	SetDIT2SourceOnOff
 		gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	&= (UINT8)~MCDRV_SRC6_MIX_ON;
 		gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	|= MCDRV_SRC6_MIX_OFF;
 	}
-	else if((psPathInfo->asDit2[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK] & (MCDRV_SRC4_ADC0_ON|MCDRV_SRC4_ADC0_OFF)) == MCDRV_SRC4_ADC0_OFF)
+	else if ((psPathInfo->asDit2[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK] & (MCDRV_SRC4_ADC0_ON|MCDRV_SRC4_ADC0_OFF)) == MCDRV_SRC4_ADC0_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK]	&= (UINT8)~MCDRV_SRC4_ADC0_ON;
 		gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK]	|= MCDRV_SRC4_ADC0_OFF;
@@ -3410,7 +3410,7 @@ static void	SetDIT2SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asDit2[0].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK] & (MCDRV_SRC3_DIR0_ON|MCDRV_SRC3_DIR0_OFF)) == MCDRV_SRC3_DIR0_ON)
+	if ((psPathInfo->asDit2[0].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK] & (MCDRV_SRC3_DIR0_ON|MCDRV_SRC3_DIR0_OFF)) == MCDRV_SRC3_DIR0_ON)
 	{
 		gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	&= (UINT8)~MCDRV_SRC4_PDM_ON;
 		gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	|= MCDRV_SRC4_PDM_OFF;
@@ -3427,7 +3427,7 @@ static void	SetDIT2SourceOnOff
 		gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	&= (UINT8)~MCDRV_SRC6_MIX_ON;
 		gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	|= MCDRV_SRC6_MIX_OFF;
 	}
-	else if((psPathInfo->asDit2[0].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK] & (MCDRV_SRC3_DIR0_ON|MCDRV_SRC3_DIR0_OFF)) == MCDRV_SRC3_DIR0_OFF)
+	else if ((psPathInfo->asDit2[0].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK] & (MCDRV_SRC3_DIR0_ON|MCDRV_SRC3_DIR0_OFF)) == MCDRV_SRC3_DIR0_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK]	&= (UINT8)~MCDRV_SRC3_DIR0_ON;
 		gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK]	|= MCDRV_SRC3_DIR0_OFF;
@@ -3436,7 +3436,7 @@ static void	SetDIT2SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asDit2[0].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK] & (MCDRV_SRC3_DIR1_ON|MCDRV_SRC3_DIR1_OFF)) == MCDRV_SRC3_DIR1_ON)
+	if ((psPathInfo->asDit2[0].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK] & (MCDRV_SRC3_DIR1_ON|MCDRV_SRC3_DIR1_OFF)) == MCDRV_SRC3_DIR1_ON)
 	{
 		gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	&= (UINT8)~MCDRV_SRC4_PDM_ON;
 		gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	|= MCDRV_SRC4_PDM_OFF;
@@ -3453,7 +3453,7 @@ static void	SetDIT2SourceOnOff
 		gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	&= (UINT8)~MCDRV_SRC6_MIX_ON;
 		gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	|= MCDRV_SRC6_MIX_OFF;
 	}
-	else if((psPathInfo->asDit2[0].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK] & (MCDRV_SRC3_DIR1_ON|MCDRV_SRC3_DIR1_OFF)) == MCDRV_SRC3_DIR1_OFF)
+	else if ((psPathInfo->asDit2[0].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK] & (MCDRV_SRC3_DIR1_ON|MCDRV_SRC3_DIR1_OFF)) == MCDRV_SRC3_DIR1_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK]	&= (UINT8)~MCDRV_SRC3_DIR1_ON;
 		gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK]	|= MCDRV_SRC3_DIR1_OFF;
@@ -3462,7 +3462,7 @@ static void	SetDIT2SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asDit2[0].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK] & (MCDRV_SRC3_DIR2_ON|MCDRV_SRC3_DIR2_OFF)) == MCDRV_SRC3_DIR2_ON)
+	if ((psPathInfo->asDit2[0].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK] & (MCDRV_SRC3_DIR2_ON|MCDRV_SRC3_DIR2_OFF)) == MCDRV_SRC3_DIR2_ON)
 	{
 		gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	&= (UINT8)~MCDRV_SRC4_PDM_ON;
 		gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	|= MCDRV_SRC4_PDM_OFF;
@@ -3479,7 +3479,7 @@ static void	SetDIT2SourceOnOff
 		gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	&= (UINT8)~MCDRV_SRC6_MIX_ON;
 		gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	|= MCDRV_SRC6_MIX_OFF;
 	}
-	else if((psPathInfo->asDit2[0].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK] & (MCDRV_SRC3_DIR2_ON|MCDRV_SRC3_DIR2_OFF)) == MCDRV_SRC3_DIR2_OFF)
+	else if ((psPathInfo->asDit2[0].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK] & (MCDRV_SRC3_DIR2_ON|MCDRV_SRC3_DIR2_OFF)) == MCDRV_SRC3_DIR2_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK]	&= (UINT8)~MCDRV_SRC3_DIR2_ON;
 		gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK]	|= MCDRV_SRC3_DIR2_OFF;
@@ -3488,7 +3488,7 @@ static void	SetDIT2SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asDit2[0].abSrcOnOff[MCDRV_SRC_AE_BLOCK] & (MCDRV_SRC6_AE_ON|MCDRV_SRC6_AE_OFF)) == MCDRV_SRC6_AE_ON)
+	if ((psPathInfo->asDit2[0].abSrcOnOff[MCDRV_SRC_AE_BLOCK] & (MCDRV_SRC6_AE_ON|MCDRV_SRC6_AE_OFF)) == MCDRV_SRC6_AE_ON)
 	{
 		gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	&= (UINT8)~MCDRV_SRC4_PDM_ON;
 		gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	|= MCDRV_SRC4_PDM_OFF;
@@ -3505,7 +3505,7 @@ static void	SetDIT2SourceOnOff
 		gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	&= (UINT8)~MCDRV_SRC6_MIX_ON;
 		gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	|= MCDRV_SRC6_MIX_OFF;
 	}
-	else if((psPathInfo->asDit2[0].abSrcOnOff[MCDRV_SRC_AE_BLOCK] & (MCDRV_SRC6_AE_ON|MCDRV_SRC6_AE_OFF)) == MCDRV_SRC6_AE_OFF)
+	else if ((psPathInfo->asDit2[0].abSrcOnOff[MCDRV_SRC_AE_BLOCK] & (MCDRV_SRC6_AE_ON|MCDRV_SRC6_AE_OFF)) == MCDRV_SRC6_AE_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_AE_BLOCK]		&= (UINT8)~MCDRV_SRC6_AE_ON;
 		gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_AE_BLOCK]		|= MCDRV_SRC6_AE_OFF;
@@ -3514,7 +3514,7 @@ static void	SetDIT2SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asDit2[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK] & (MCDRV_SRC6_MIX_ON|MCDRV_SRC6_MIX_OFF)) == MCDRV_SRC6_MIX_ON)
+	if ((psPathInfo->asDit2[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK] & (MCDRV_SRC6_MIX_ON|MCDRV_SRC6_MIX_OFF)) == MCDRV_SRC6_MIX_ON)
 	{
 		gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	&= (UINT8)~MCDRV_SRC4_PDM_ON;
 		gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	|= MCDRV_SRC4_PDM_OFF;
@@ -3531,7 +3531,7 @@ static void	SetDIT2SourceOnOff
 		gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	&= (UINT8)~MCDRV_SRC6_MIX_OFF;
 		gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	|= MCDRV_SRC6_MIX_ON;
 	}
-	else if((psPathInfo->asDit2[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK] & (MCDRV_SRC6_MIX_ON|MCDRV_SRC6_MIX_OFF)) == MCDRV_SRC6_MIX_OFF)
+	else if ((psPathInfo->asDit2[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK] & (MCDRV_SRC6_MIX_ON|MCDRV_SRC6_MIX_OFF)) == MCDRV_SRC6_MIX_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	&= (UINT8)~MCDRV_SRC6_MIX_ON;
 		gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	|= MCDRV_SRC6_MIX_OFF;
@@ -3569,7 +3569,7 @@ static void	SetDACSourceOnOff
 
 	for(bCh = 0; bCh < DAC_PATH_CHANNELS; bCh++)
 	{
-		if(((psPathInfo->asDac[bCh].abSrcOnOff[MCDRV_SRC_PDM_BLOCK] & (MCDRV_SRC4_PDM_ON|MCDRV_SRC4_PDM_OFF)) == MCDRV_SRC4_PDM_ON)
+		if (((psPathInfo->asDac[bCh].abSrcOnOff[MCDRV_SRC_PDM_BLOCK] & (MCDRV_SRC4_PDM_ON|MCDRV_SRC4_PDM_OFF)) == MCDRV_SRC4_PDM_ON)
 		&& (gsGlobalInfo.sInitInfo.bPad0Func == MCDRV_PAD_PDMCK))
 		{
 			gsGlobalInfo.sPathInfo.asDac[bCh].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	&= (UINT8)~MCDRV_SRC4_PDM_OFF;
@@ -3587,7 +3587,7 @@ static void	SetDACSourceOnOff
 			gsGlobalInfo.sPathInfo.asDac[bCh].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	&= (UINT8)~MCDRV_SRC6_MIX_ON;
 			gsGlobalInfo.sPathInfo.asDac[bCh].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	|= MCDRV_SRC6_MIX_OFF;
 		}
-		else if((psPathInfo->asDac[bCh].abSrcOnOff[MCDRV_SRC_PDM_BLOCK] & (MCDRV_SRC4_PDM_ON|MCDRV_SRC4_PDM_OFF)) == MCDRV_SRC4_PDM_OFF)
+		else if ((psPathInfo->asDac[bCh].abSrcOnOff[MCDRV_SRC_PDM_BLOCK] & (MCDRV_SRC4_PDM_ON|MCDRV_SRC4_PDM_OFF)) == MCDRV_SRC4_PDM_OFF)
 		{
 			gsGlobalInfo.sPathInfo.asDac[bCh].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	&= (UINT8)~MCDRV_SRC4_PDM_ON;
 			gsGlobalInfo.sPathInfo.asDac[bCh].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	|= MCDRV_SRC4_PDM_OFF;
@@ -3596,7 +3596,7 @@ static void	SetDACSourceOnOff
 		{
 		}
 
-		if((psPathInfo->asDac[bCh].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK] & (MCDRV_SRC4_ADC0_ON|MCDRV_SRC4_ADC0_OFF)) == MCDRV_SRC4_ADC0_ON)
+		if ((psPathInfo->asDac[bCh].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK] & (MCDRV_SRC4_ADC0_ON|MCDRV_SRC4_ADC0_OFF)) == MCDRV_SRC4_ADC0_ON)
 		{
 			gsGlobalInfo.sPathInfo.asDac[bCh].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	&= (UINT8)~MCDRV_SRC4_PDM_ON;
 			gsGlobalInfo.sPathInfo.asDac[bCh].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	|= MCDRV_SRC4_PDM_OFF;
@@ -3613,7 +3613,7 @@ static void	SetDACSourceOnOff
 			gsGlobalInfo.sPathInfo.asDac[bCh].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	&= (UINT8)~MCDRV_SRC6_MIX_ON;
 			gsGlobalInfo.sPathInfo.asDac[bCh].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	|= MCDRV_SRC6_MIX_OFF;
 		}
-		else if((psPathInfo->asDac[bCh].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK] & (MCDRV_SRC4_ADC0_ON|MCDRV_SRC4_ADC0_OFF)) == MCDRV_SRC4_ADC0_OFF)
+		else if ((psPathInfo->asDac[bCh].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK] & (MCDRV_SRC4_ADC0_ON|MCDRV_SRC4_ADC0_OFF)) == MCDRV_SRC4_ADC0_OFF)
 		{
 			gsGlobalInfo.sPathInfo.asDac[bCh].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK]	&= (UINT8)~MCDRV_SRC4_ADC0_ON;
 			gsGlobalInfo.sPathInfo.asDac[bCh].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK]	|= MCDRV_SRC4_ADC0_OFF;
@@ -3622,7 +3622,7 @@ static void	SetDACSourceOnOff
 		{
 		}
 
-		if((psPathInfo->asDac[bCh].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK] & (MCDRV_SRC3_DIR0_ON|MCDRV_SRC3_DIR0_OFF)) == MCDRV_SRC3_DIR0_ON)
+		if ((psPathInfo->asDac[bCh].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK] & (MCDRV_SRC3_DIR0_ON|MCDRV_SRC3_DIR0_OFF)) == MCDRV_SRC3_DIR0_ON)
 		{
 			gsGlobalInfo.sPathInfo.asDac[bCh].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	&= (UINT8)~MCDRV_SRC4_PDM_ON;
 			gsGlobalInfo.sPathInfo.asDac[bCh].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	|= MCDRV_SRC4_PDM_OFF;
@@ -3639,7 +3639,7 @@ static void	SetDACSourceOnOff
 			gsGlobalInfo.sPathInfo.asDac[bCh].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	&= (UINT8)~MCDRV_SRC6_MIX_ON;
 			gsGlobalInfo.sPathInfo.asDac[bCh].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	|= MCDRV_SRC6_MIX_OFF;
 		}
-		else if((psPathInfo->asDac[bCh].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK] & (MCDRV_SRC3_DIR0_ON|MCDRV_SRC3_DIR0_OFF)) == MCDRV_SRC3_DIR0_OFF)
+		else if ((psPathInfo->asDac[bCh].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK] & (MCDRV_SRC3_DIR0_ON|MCDRV_SRC3_DIR0_OFF)) == MCDRV_SRC3_DIR0_OFF)
 		{
 			gsGlobalInfo.sPathInfo.asDac[bCh].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK]	&= (UINT8)~MCDRV_SRC3_DIR0_ON;
 			gsGlobalInfo.sPathInfo.asDac[bCh].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK]	|= MCDRV_SRC3_DIR0_OFF;
@@ -3648,7 +3648,7 @@ static void	SetDACSourceOnOff
 		{
 		}
 
-		if((psPathInfo->asDac[bCh].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK] & (MCDRV_SRC3_DIR1_ON|MCDRV_SRC3_DIR1_OFF)) == MCDRV_SRC3_DIR1_ON)
+		if ((psPathInfo->asDac[bCh].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK] & (MCDRV_SRC3_DIR1_ON|MCDRV_SRC3_DIR1_OFF)) == MCDRV_SRC3_DIR1_ON)
 		{
 			gsGlobalInfo.sPathInfo.asDac[bCh].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	&= (UINT8)~MCDRV_SRC4_PDM_ON;
 			gsGlobalInfo.sPathInfo.asDac[bCh].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	|= MCDRV_SRC4_PDM_OFF;
@@ -3665,7 +3665,7 @@ static void	SetDACSourceOnOff
 			gsGlobalInfo.sPathInfo.asDac[bCh].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	&= (UINT8)~MCDRV_SRC6_MIX_ON;
 			gsGlobalInfo.sPathInfo.asDac[bCh].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	|= MCDRV_SRC6_MIX_OFF;
 		}
-		else if((psPathInfo->asDac[bCh].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK] & (MCDRV_SRC3_DIR1_ON|MCDRV_SRC3_DIR1_OFF)) == MCDRV_SRC3_DIR1_OFF)
+		else if ((psPathInfo->asDac[bCh].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK] & (MCDRV_SRC3_DIR1_ON|MCDRV_SRC3_DIR1_OFF)) == MCDRV_SRC3_DIR1_OFF)
 		{
 			gsGlobalInfo.sPathInfo.asDac[bCh].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK]	&= (UINT8)~MCDRV_SRC3_DIR1_ON;
 			gsGlobalInfo.sPathInfo.asDac[bCh].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK]	|= MCDRV_SRC3_DIR1_OFF;
@@ -3674,7 +3674,7 @@ static void	SetDACSourceOnOff
 		{
 		}
 
-		if((psPathInfo->asDac[bCh].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK] & (MCDRV_SRC3_DIR2_ON|MCDRV_SRC3_DIR2_OFF)) == MCDRV_SRC3_DIR2_ON)
+		if ((psPathInfo->asDac[bCh].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK] & (MCDRV_SRC3_DIR2_ON|MCDRV_SRC3_DIR2_OFF)) == MCDRV_SRC3_DIR2_ON)
 		{
 			gsGlobalInfo.sPathInfo.asDac[bCh].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	&= (UINT8)~MCDRV_SRC4_PDM_ON;
 			gsGlobalInfo.sPathInfo.asDac[bCh].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	|= MCDRV_SRC4_PDM_OFF;
@@ -3691,7 +3691,7 @@ static void	SetDACSourceOnOff
 			gsGlobalInfo.sPathInfo.asDac[bCh].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	&= (UINT8)~MCDRV_SRC6_MIX_ON;
 			gsGlobalInfo.sPathInfo.asDac[bCh].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	|= MCDRV_SRC6_MIX_OFF;
 		}
-		else if((psPathInfo->asDac[bCh].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK] & (MCDRV_SRC3_DIR2_ON|MCDRV_SRC3_DIR2_OFF)) == MCDRV_SRC3_DIR2_OFF)
+		else if ((psPathInfo->asDac[bCh].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK] & (MCDRV_SRC3_DIR2_ON|MCDRV_SRC3_DIR2_OFF)) == MCDRV_SRC3_DIR2_OFF)
 		{
 			gsGlobalInfo.sPathInfo.asDac[bCh].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK]	&= (UINT8)~MCDRV_SRC3_DIR2_ON;
 			gsGlobalInfo.sPathInfo.asDac[bCh].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK]	|= MCDRV_SRC3_DIR2_OFF;
@@ -3700,7 +3700,7 @@ static void	SetDACSourceOnOff
 		{
 		}
 
-		if((psPathInfo->asDac[bCh].abSrcOnOff[MCDRV_SRC_AE_BLOCK] & (MCDRV_SRC6_AE_ON|MCDRV_SRC6_AE_OFF)) == MCDRV_SRC6_AE_ON)
+		if ((psPathInfo->asDac[bCh].abSrcOnOff[MCDRV_SRC_AE_BLOCK] & (MCDRV_SRC6_AE_ON|MCDRV_SRC6_AE_OFF)) == MCDRV_SRC6_AE_ON)
 		{
 			gsGlobalInfo.sPathInfo.asDac[bCh].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	&= (UINT8)~MCDRV_SRC4_PDM_ON;
 			gsGlobalInfo.sPathInfo.asDac[bCh].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	|= MCDRV_SRC4_PDM_OFF;
@@ -3717,7 +3717,7 @@ static void	SetDACSourceOnOff
 			gsGlobalInfo.sPathInfo.asDac[bCh].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	&= (UINT8)~MCDRV_SRC6_MIX_ON;
 			gsGlobalInfo.sPathInfo.asDac[bCh].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	|= MCDRV_SRC6_MIX_OFF;
 		}
-		else if((psPathInfo->asDac[bCh].abSrcOnOff[MCDRV_SRC_AE_BLOCK] & (MCDRV_SRC6_AE_ON|MCDRV_SRC6_AE_OFF)) == MCDRV_SRC6_AE_OFF)
+		else if ((psPathInfo->asDac[bCh].abSrcOnOff[MCDRV_SRC_AE_BLOCK] & (MCDRV_SRC6_AE_ON|MCDRV_SRC6_AE_OFF)) == MCDRV_SRC6_AE_OFF)
 		{
 			gsGlobalInfo.sPathInfo.asDac[bCh].abSrcOnOff[MCDRV_SRC_AE_BLOCK]	&= (UINT8)~MCDRV_SRC6_AE_ON;
 			gsGlobalInfo.sPathInfo.asDac[bCh].abSrcOnOff[MCDRV_SRC_AE_BLOCK]	|= MCDRV_SRC6_AE_OFF;
@@ -3726,7 +3726,7 @@ static void	SetDACSourceOnOff
 		{
 		}
 
-		if((psPathInfo->asDac[bCh].abSrcOnOff[MCDRV_SRC_MIX_BLOCK] & (MCDRV_SRC6_MIX_ON|MCDRV_SRC6_MIX_OFF)) == MCDRV_SRC6_MIX_ON)
+		if ((psPathInfo->asDac[bCh].abSrcOnOff[MCDRV_SRC_MIX_BLOCK] & (MCDRV_SRC6_MIX_ON|MCDRV_SRC6_MIX_OFF)) == MCDRV_SRC6_MIX_ON)
 		{
 			gsGlobalInfo.sPathInfo.asDac[bCh].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	&= (UINT8)~MCDRV_SRC4_PDM_ON;
 			gsGlobalInfo.sPathInfo.asDac[bCh].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	|= MCDRV_SRC4_PDM_OFF;
@@ -3743,7 +3743,7 @@ static void	SetDACSourceOnOff
 			gsGlobalInfo.sPathInfo.asDac[bCh].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	&= (UINT8)~MCDRV_SRC6_MIX_OFF;
 			gsGlobalInfo.sPathInfo.asDac[bCh].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	|= MCDRV_SRC6_MIX_ON;
 		}
-		else if((psPathInfo->asDac[bCh].abSrcOnOff[MCDRV_SRC_MIX_BLOCK] & (MCDRV_SRC6_MIX_ON|MCDRV_SRC6_MIX_OFF)) == MCDRV_SRC6_MIX_OFF)
+		else if ((psPathInfo->asDac[bCh].abSrcOnOff[MCDRV_SRC_MIX_BLOCK] & (MCDRV_SRC6_MIX_ON|MCDRV_SRC6_MIX_OFF)) == MCDRV_SRC6_MIX_OFF)
 		{
 			gsGlobalInfo.sPathInfo.asDac[bCh].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	&= (UINT8)~MCDRV_SRC6_MIX_ON;
 			gsGlobalInfo.sPathInfo.asDac[bCh].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	|= MCDRV_SRC6_MIX_OFF;
@@ -3778,7 +3778,7 @@ static void	SetAESourceOnOff
 	McDebugLog_FuncIn("SetAESourceOnOff");
 #endif
 
-	if(((psPathInfo->asAe[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK] & (MCDRV_SRC4_PDM_ON|MCDRV_SRC4_PDM_OFF)) == MCDRV_SRC4_PDM_ON)
+	if (((psPathInfo->asAe[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK] & (MCDRV_SRC4_PDM_ON|MCDRV_SRC4_PDM_OFF)) == MCDRV_SRC4_PDM_ON)
 	&& (gsGlobalInfo.sInitInfo.bPad0Func == MCDRV_PAD_PDMCK))
 	{
 		gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	&= (UINT8)~MCDRV_SRC4_PDM_OFF;
@@ -3794,7 +3794,7 @@ static void	SetAESourceOnOff
 		gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	&= (UINT8)~MCDRV_SRC6_MIX_ON;
 		gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	|= MCDRV_SRC6_MIX_OFF;
 	}
-	else if((psPathInfo->asAe[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK] & (MCDRV_SRC4_PDM_ON|MCDRV_SRC4_PDM_OFF)) == MCDRV_SRC4_PDM_OFF)
+	else if ((psPathInfo->asAe[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK] & (MCDRV_SRC4_PDM_ON|MCDRV_SRC4_PDM_OFF)) == MCDRV_SRC4_PDM_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	&= (UINT8)~MCDRV_SRC4_PDM_ON;
 		gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	|= MCDRV_SRC4_PDM_OFF;
@@ -3803,7 +3803,7 @@ static void	SetAESourceOnOff
 	{
 	}
 
-	if((psPathInfo->asAe[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK] & (MCDRV_SRC4_ADC0_ON|MCDRV_SRC4_ADC0_OFF)) == MCDRV_SRC4_ADC0_ON)
+	if ((psPathInfo->asAe[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK] & (MCDRV_SRC4_ADC0_ON|MCDRV_SRC4_ADC0_OFF)) == MCDRV_SRC4_ADC0_ON)
 	{
 		gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	&= (UINT8)~MCDRV_SRC4_PDM_ON;
 		gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	|= MCDRV_SRC4_PDM_OFF;
@@ -3818,7 +3818,7 @@ static void	SetAESourceOnOff
 		gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	&= (UINT8)~MCDRV_SRC6_MIX_ON;
 		gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	|= MCDRV_SRC6_MIX_OFF;
 	}
-	else if((psPathInfo->asAe[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK] & (MCDRV_SRC4_ADC0_ON|MCDRV_SRC4_ADC0_OFF)) == MCDRV_SRC4_ADC0_OFF)
+	else if ((psPathInfo->asAe[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK] & (MCDRV_SRC4_ADC0_ON|MCDRV_SRC4_ADC0_OFF)) == MCDRV_SRC4_ADC0_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK]	&= (UINT8)~MCDRV_SRC4_ADC0_ON;
 		gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK]	|= MCDRV_SRC4_ADC0_OFF;
@@ -3827,7 +3827,7 @@ static void	SetAESourceOnOff
 	{
 	}
 
-	if((psPathInfo->asAe[0].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK] & (MCDRV_SRC3_DIR0_ON|MCDRV_SRC3_DIR0_OFF)) == MCDRV_SRC3_DIR0_ON)
+	if ((psPathInfo->asAe[0].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK] & (MCDRV_SRC3_DIR0_ON|MCDRV_SRC3_DIR0_OFF)) == MCDRV_SRC3_DIR0_ON)
 	{
 		gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	&= (UINT8)~MCDRV_SRC4_PDM_ON;
 		gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	|= MCDRV_SRC4_PDM_OFF;
@@ -3842,7 +3842,7 @@ static void	SetAESourceOnOff
 		gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	&= (UINT8)~MCDRV_SRC6_MIX_ON;
 		gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	|= MCDRV_SRC6_MIX_OFF;
 	}
-	else if((psPathInfo->asAe[0].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK] & (MCDRV_SRC3_DIR0_ON|MCDRV_SRC3_DIR0_OFF)) == MCDRV_SRC3_DIR0_OFF)
+	else if ((psPathInfo->asAe[0].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK] & (MCDRV_SRC3_DIR0_ON|MCDRV_SRC3_DIR0_OFF)) == MCDRV_SRC3_DIR0_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK]	&= (UINT8)~MCDRV_SRC3_DIR0_ON;
 		gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK]	|= MCDRV_SRC3_DIR0_OFF;
@@ -3851,7 +3851,7 @@ static void	SetAESourceOnOff
 	{
 	}
 
-	if((psPathInfo->asAe[0].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK] & (MCDRV_SRC3_DIR1_ON|MCDRV_SRC3_DIR1_OFF)) == MCDRV_SRC3_DIR1_ON)
+	if ((psPathInfo->asAe[0].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK] & (MCDRV_SRC3_DIR1_ON|MCDRV_SRC3_DIR1_OFF)) == MCDRV_SRC3_DIR1_ON)
 	{
 		gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	&= (UINT8)~MCDRV_SRC4_PDM_ON;
 		gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	|= MCDRV_SRC4_PDM_OFF;
@@ -3866,7 +3866,7 @@ static void	SetAESourceOnOff
 		gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	&= (UINT8)~MCDRV_SRC6_MIX_ON;
 		gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	|= MCDRV_SRC6_MIX_OFF;
 	}
-	else if((psPathInfo->asAe[0].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK] & (MCDRV_SRC3_DIR1_ON|MCDRV_SRC3_DIR1_OFF)) == MCDRV_SRC3_DIR1_OFF)
+	else if ((psPathInfo->asAe[0].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK] & (MCDRV_SRC3_DIR1_ON|MCDRV_SRC3_DIR1_OFF)) == MCDRV_SRC3_DIR1_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK]	&= (UINT8)~MCDRV_SRC3_DIR1_ON;
 		gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK]	|= MCDRV_SRC3_DIR1_OFF;
@@ -3875,7 +3875,7 @@ static void	SetAESourceOnOff
 	{
 	}
 
-	if((psPathInfo->asAe[0].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK] & (MCDRV_SRC3_DIR2_ON|MCDRV_SRC3_DIR2_OFF)) == MCDRV_SRC3_DIR2_ON)
+	if ((psPathInfo->asAe[0].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK] & (MCDRV_SRC3_DIR2_ON|MCDRV_SRC3_DIR2_OFF)) == MCDRV_SRC3_DIR2_ON)
 	{
 		gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	&= (UINT8)~MCDRV_SRC4_PDM_ON;
 		gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	|= MCDRV_SRC4_PDM_OFF;
@@ -3890,7 +3890,7 @@ static void	SetAESourceOnOff
 		gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	&= (UINT8)~MCDRV_SRC6_MIX_ON;
 		gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	|= MCDRV_SRC6_MIX_OFF;
 	}
-	else if((psPathInfo->asAe[0].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK] & (MCDRV_SRC3_DIR2_ON|MCDRV_SRC3_DIR2_OFF)) == MCDRV_SRC3_DIR2_OFF)
+	else if ((psPathInfo->asAe[0].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK] & (MCDRV_SRC3_DIR2_ON|MCDRV_SRC3_DIR2_OFF)) == MCDRV_SRC3_DIR2_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK]	&= (UINT8)~MCDRV_SRC3_DIR2_ON;
 		gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK]	|= MCDRV_SRC3_DIR2_OFF;
@@ -3899,7 +3899,7 @@ static void	SetAESourceOnOff
 	{
 	}
 
-	if((psPathInfo->asAe[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK] & (MCDRV_SRC6_MIX_ON|MCDRV_SRC6_MIX_OFF)) == MCDRV_SRC6_MIX_ON)
+	if ((psPathInfo->asAe[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK] & (MCDRV_SRC6_MIX_ON|MCDRV_SRC6_MIX_OFF)) == MCDRV_SRC6_MIX_ON)
 	{
 		gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	&= (UINT8)~MCDRV_SRC4_PDM_ON;
 		gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	|= MCDRV_SRC4_PDM_OFF;
@@ -3914,7 +3914,7 @@ static void	SetAESourceOnOff
 		gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	&= (UINT8)~MCDRV_SRC6_MIX_OFF;
 		gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	|= MCDRV_SRC6_MIX_ON;
 	}
-	else if((psPathInfo->asAe[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK] & (MCDRV_SRC6_MIX_ON|MCDRV_SRC6_MIX_OFF)) == MCDRV_SRC6_MIX_OFF)
+	else if ((psPathInfo->asAe[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK] & (MCDRV_SRC6_MIX_ON|MCDRV_SRC6_MIX_OFF)) == MCDRV_SRC6_MIX_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	&= (UINT8)~MCDRV_SRC6_MIX_ON;
 		gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK]	|= MCDRV_SRC6_MIX_OFF;
@@ -3975,12 +3975,12 @@ static void	SetADC0SourceOnOff
 	McDebugLog_FuncIn("SetADC0SourceOnOff");
 #endif
 
-	if((psPathInfo->asAdc0[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & (MCDRV_SRC0_MIC1_ON|MCDRV_SRC0_MIC1_OFF)) == MCDRV_SRC0_MIC1_ON)
+	if ((psPathInfo->asAdc0[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & (MCDRV_SRC0_MIC1_ON|MCDRV_SRC0_MIC1_OFF)) == MCDRV_SRC0_MIC1_ON)
 	{
 		gsGlobalInfo.sPathInfo.asAdc0[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC1_OFF;
 		gsGlobalInfo.sPathInfo.asAdc0[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK]	|= MCDRV_SRC0_MIC1_ON;
 	}
-	else if((psPathInfo->asAdc0[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & (MCDRV_SRC0_MIC1_ON|MCDRV_SRC0_MIC1_OFF)) == MCDRV_SRC0_MIC1_OFF)
+	else if ((psPathInfo->asAdc0[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & (MCDRV_SRC0_MIC1_ON|MCDRV_SRC0_MIC1_OFF)) == MCDRV_SRC0_MIC1_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asAdc0[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC1_ON;
 		gsGlobalInfo.sPathInfo.asAdc0[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK]	|= MCDRV_SRC0_MIC1_OFF;
@@ -3989,12 +3989,12 @@ static void	SetADC0SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asAdc0[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & (MCDRV_SRC0_MIC2_ON|MCDRV_SRC0_MIC2_OFF)) == MCDRV_SRC0_MIC2_ON)
+	if ((psPathInfo->asAdc0[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & (MCDRV_SRC0_MIC2_ON|MCDRV_SRC0_MIC2_OFF)) == MCDRV_SRC0_MIC2_ON)
 	{
 		gsGlobalInfo.sPathInfo.asAdc0[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC2_OFF;
 		gsGlobalInfo.sPathInfo.asAdc0[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK]	|= MCDRV_SRC0_MIC2_ON;
 	}
-	else if((psPathInfo->asAdc0[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & (MCDRV_SRC0_MIC2_ON|MCDRV_SRC0_MIC2_OFF)) == MCDRV_SRC0_MIC2_OFF)
+	else if ((psPathInfo->asAdc0[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & (MCDRV_SRC0_MIC2_ON|MCDRV_SRC0_MIC2_OFF)) == MCDRV_SRC0_MIC2_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asAdc0[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC2_ON;
 		gsGlobalInfo.sPathInfo.asAdc0[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK]	|= MCDRV_SRC0_MIC2_OFF;
@@ -4003,12 +4003,12 @@ static void	SetADC0SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asAdc0[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & (MCDRV_SRC0_MIC3_ON|MCDRV_SRC0_MIC3_OFF)) == MCDRV_SRC0_MIC3_ON)
+	if ((psPathInfo->asAdc0[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & (MCDRV_SRC0_MIC3_ON|MCDRV_SRC0_MIC3_OFF)) == MCDRV_SRC0_MIC3_ON)
 	{
 		gsGlobalInfo.sPathInfo.asAdc0[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC3_OFF;
 		gsGlobalInfo.sPathInfo.asAdc0[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK]	|= MCDRV_SRC0_MIC3_ON;
 	}
-	else if((psPathInfo->asAdc0[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & (MCDRV_SRC0_MIC3_ON|MCDRV_SRC0_MIC3_OFF)) == MCDRV_SRC0_MIC3_OFF)
+	else if ((psPathInfo->asAdc0[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & (MCDRV_SRC0_MIC3_ON|MCDRV_SRC0_MIC3_OFF)) == MCDRV_SRC0_MIC3_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asAdc0[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC3_ON;
 		gsGlobalInfo.sPathInfo.asAdc0[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK]	|= MCDRV_SRC0_MIC3_OFF;
@@ -4017,12 +4017,12 @@ static void	SetADC0SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asAdc0[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK] & (MCDRV_SRC1_LINE1_L_ON|MCDRV_SRC1_LINE1_L_OFF)) == MCDRV_SRC1_LINE1_L_ON)
+	if ((psPathInfo->asAdc0[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK] & (MCDRV_SRC1_LINE1_L_ON|MCDRV_SRC1_LINE1_L_OFF)) == MCDRV_SRC1_LINE1_L_ON)
 	{
 		gsGlobalInfo.sPathInfo.asAdc0[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK]	&= (UINT8)~MCDRV_SRC1_LINE1_L_OFF;
 		gsGlobalInfo.sPathInfo.asAdc0[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK]	|= MCDRV_SRC1_LINE1_L_ON;
 	}
-	else if((psPathInfo->asAdc0[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK] & (MCDRV_SRC1_LINE1_L_ON|MCDRV_SRC1_LINE1_L_OFF)) == MCDRV_SRC1_LINE1_L_OFF)
+	else if ((psPathInfo->asAdc0[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK] & (MCDRV_SRC1_LINE1_L_ON|MCDRV_SRC1_LINE1_L_OFF)) == MCDRV_SRC1_LINE1_L_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asAdc0[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK]	&= (UINT8)~MCDRV_SRC1_LINE1_L_ON;
 		gsGlobalInfo.sPathInfo.asAdc0[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK]	|= MCDRV_SRC1_LINE1_L_OFF;
@@ -4031,12 +4031,12 @@ static void	SetADC0SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asAdc0[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK] & (MCDRV_SRC1_LINE1_M_ON|MCDRV_SRC1_LINE1_M_OFF)) == MCDRV_SRC1_LINE1_M_ON)
+	if ((psPathInfo->asAdc0[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK] & (MCDRV_SRC1_LINE1_M_ON|MCDRV_SRC1_LINE1_M_OFF)) == MCDRV_SRC1_LINE1_M_ON)
 	{
 		gsGlobalInfo.sPathInfo.asAdc0[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK]	&= (UINT8)~MCDRV_SRC1_LINE1_M_OFF;
 		gsGlobalInfo.sPathInfo.asAdc0[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK]	|= MCDRV_SRC1_LINE1_M_ON;
 	}
-	else if((psPathInfo->asAdc0[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK] & (MCDRV_SRC1_LINE1_M_ON|MCDRV_SRC1_LINE1_M_OFF)) == MCDRV_SRC1_LINE1_M_OFF)
+	else if ((psPathInfo->asAdc0[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK] & (MCDRV_SRC1_LINE1_M_ON|MCDRV_SRC1_LINE1_M_OFF)) == MCDRV_SRC1_LINE1_M_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asAdc0[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK]	&= (UINT8)~MCDRV_SRC1_LINE1_M_ON;
 		gsGlobalInfo.sPathInfo.asAdc0[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK]	|= MCDRV_SRC1_LINE1_M_OFF;
@@ -4045,12 +4045,12 @@ static void	SetADC0SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asAdc0[1].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & (MCDRV_SRC0_MIC1_ON|MCDRV_SRC0_MIC1_OFF)) == MCDRV_SRC0_MIC1_ON)
+	if ((psPathInfo->asAdc0[1].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & (MCDRV_SRC0_MIC1_ON|MCDRV_SRC0_MIC1_OFF)) == MCDRV_SRC0_MIC1_ON)
 	{
 		gsGlobalInfo.sPathInfo.asAdc0[1].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC1_OFF;
 		gsGlobalInfo.sPathInfo.asAdc0[1].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK]	|= MCDRV_SRC0_MIC1_ON;
 	}
-	else if((psPathInfo->asAdc0[1].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & (MCDRV_SRC0_MIC1_ON|MCDRV_SRC0_MIC1_OFF)) == MCDRV_SRC0_MIC1_OFF)
+	else if ((psPathInfo->asAdc0[1].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & (MCDRV_SRC0_MIC1_ON|MCDRV_SRC0_MIC1_OFF)) == MCDRV_SRC0_MIC1_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asAdc0[1].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC1_ON;
 		gsGlobalInfo.sPathInfo.asAdc0[1].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK]	|= MCDRV_SRC0_MIC1_OFF;
@@ -4059,12 +4059,12 @@ static void	SetADC0SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asAdc0[1].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & (MCDRV_SRC0_MIC2_ON|MCDRV_SRC0_MIC2_OFF)) == MCDRV_SRC0_MIC2_ON)
+	if ((psPathInfo->asAdc0[1].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & (MCDRV_SRC0_MIC2_ON|MCDRV_SRC0_MIC2_OFF)) == MCDRV_SRC0_MIC2_ON)
 	{
 		gsGlobalInfo.sPathInfo.asAdc0[1].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC2_OFF;
 		gsGlobalInfo.sPathInfo.asAdc0[1].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK]	|= MCDRV_SRC0_MIC2_ON;
 	}
-	else if((psPathInfo->asAdc0[1].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & (MCDRV_SRC0_MIC2_ON|MCDRV_SRC0_MIC2_OFF)) == MCDRV_SRC0_MIC2_OFF)
+	else if ((psPathInfo->asAdc0[1].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & (MCDRV_SRC0_MIC2_ON|MCDRV_SRC0_MIC2_OFF)) == MCDRV_SRC0_MIC2_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asAdc0[1].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC2_ON;
 		gsGlobalInfo.sPathInfo.asAdc0[1].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK]	|= MCDRV_SRC0_MIC2_OFF;
@@ -4073,12 +4073,12 @@ static void	SetADC0SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asAdc0[1].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & (MCDRV_SRC0_MIC3_ON|MCDRV_SRC0_MIC3_OFF)) == MCDRV_SRC0_MIC3_ON)
+	if ((psPathInfo->asAdc0[1].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & (MCDRV_SRC0_MIC3_ON|MCDRV_SRC0_MIC3_OFF)) == MCDRV_SRC0_MIC3_ON)
 	{
 		gsGlobalInfo.sPathInfo.asAdc0[1].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC3_OFF;
 		gsGlobalInfo.sPathInfo.asAdc0[1].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK]	|= MCDRV_SRC0_MIC3_ON;
 	}
-	else if((psPathInfo->asAdc0[1].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & (MCDRV_SRC0_MIC3_ON|MCDRV_SRC0_MIC3_OFF)) == MCDRV_SRC0_MIC3_OFF)
+	else if ((psPathInfo->asAdc0[1].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & (MCDRV_SRC0_MIC3_ON|MCDRV_SRC0_MIC3_OFF)) == MCDRV_SRC0_MIC3_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asAdc0[1].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC3_ON;
 		gsGlobalInfo.sPathInfo.asAdc0[1].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK]	|= MCDRV_SRC0_MIC3_OFF;
@@ -4087,12 +4087,12 @@ static void	SetADC0SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asAdc0[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK] & (MCDRV_SRC1_LINE1_R_ON|MCDRV_SRC1_LINE1_R_OFF)) == MCDRV_SRC1_LINE1_R_ON)
+	if ((psPathInfo->asAdc0[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK] & (MCDRV_SRC1_LINE1_R_ON|MCDRV_SRC1_LINE1_R_OFF)) == MCDRV_SRC1_LINE1_R_ON)
 	{
 		gsGlobalInfo.sPathInfo.asAdc0[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK]	&= (UINT8)~MCDRV_SRC1_LINE1_R_OFF;
 		gsGlobalInfo.sPathInfo.asAdc0[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK]	|= MCDRV_SRC1_LINE1_R_ON;
 	}
-	else if((psPathInfo->asAdc0[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK] & (MCDRV_SRC1_LINE1_R_ON|MCDRV_SRC1_LINE1_R_OFF)) == MCDRV_SRC1_LINE1_R_OFF)
+	else if ((psPathInfo->asAdc0[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK] & (MCDRV_SRC1_LINE1_R_ON|MCDRV_SRC1_LINE1_R_OFF)) == MCDRV_SRC1_LINE1_R_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asAdc0[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK]	&= (UINT8)~MCDRV_SRC1_LINE1_R_ON;
 		gsGlobalInfo.sPathInfo.asAdc0[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK]	|= MCDRV_SRC1_LINE1_R_OFF;
@@ -4101,12 +4101,12 @@ static void	SetADC0SourceOnOff
 	{
 	}
 
-	if((psPathInfo->asAdc0[1].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK] & (MCDRV_SRC1_LINE1_M_ON|MCDRV_SRC1_LINE1_M_OFF)) == MCDRV_SRC1_LINE1_M_ON)
+	if ((psPathInfo->asAdc0[1].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK] & (MCDRV_SRC1_LINE1_M_ON|MCDRV_SRC1_LINE1_M_OFF)) == MCDRV_SRC1_LINE1_M_ON)
 	{
 		gsGlobalInfo.sPathInfo.asAdc0[1].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK]	&= (UINT8)~MCDRV_SRC1_LINE1_M_OFF;
 		gsGlobalInfo.sPathInfo.asAdc0[1].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK]	|= MCDRV_SRC1_LINE1_M_ON;
 	}
-	else if((psPathInfo->asAdc0[1].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK] & (MCDRV_SRC1_LINE1_M_ON|MCDRV_SRC1_LINE1_M_OFF)) == MCDRV_SRC1_LINE1_M_OFF)
+	else if ((psPathInfo->asAdc0[1].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK] & (MCDRV_SRC1_LINE1_M_ON|MCDRV_SRC1_LINE1_M_OFF)) == MCDRV_SRC1_LINE1_M_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asAdc0[1].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK]	&= (UINT8)~MCDRV_SRC1_LINE1_M_ON;
 		gsGlobalInfo.sPathInfo.asAdc0[1].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK]	|= MCDRV_SRC1_LINE1_M_OFF;
@@ -4167,13 +4167,13 @@ static void	SetMixSourceOnOff
 	McDebugLog_FuncIn("SetMixSourceOnOff");
 #endif
 
-	if(((psPathInfo->asMix[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK] & (MCDRV_SRC4_PDM_ON|MCDRV_SRC4_PDM_OFF)) == MCDRV_SRC4_PDM_ON)
+	if (((psPathInfo->asMix[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK] & (MCDRV_SRC4_PDM_ON|MCDRV_SRC4_PDM_OFF)) == MCDRV_SRC4_PDM_ON)
 	&& (gsGlobalInfo.sInitInfo.bPad0Func == MCDRV_PAD_PDMCK))
 	{
 		gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	&= (UINT8)~MCDRV_SRC4_PDM_OFF;
 		gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	|= MCDRV_SRC4_PDM_ON;
 	}
-	else if((psPathInfo->asMix[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK] & (MCDRV_SRC4_PDM_ON|MCDRV_SRC4_PDM_OFF)) == MCDRV_SRC4_PDM_OFF)
+	else if ((psPathInfo->asMix[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK] & (MCDRV_SRC4_PDM_ON|MCDRV_SRC4_PDM_OFF)) == MCDRV_SRC4_PDM_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	&= (UINT8)~MCDRV_SRC4_PDM_ON;
 		gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK]	|= MCDRV_SRC4_PDM_OFF;
@@ -4182,12 +4182,12 @@ static void	SetMixSourceOnOff
 	{
 	}
 
-	if((psPathInfo->asMix[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK] & (MCDRV_SRC4_ADC0_ON|MCDRV_SRC4_ADC0_OFF)) == MCDRV_SRC4_ADC0_ON)
+	if ((psPathInfo->asMix[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK] & (MCDRV_SRC4_ADC0_ON|MCDRV_SRC4_ADC0_OFF)) == MCDRV_SRC4_ADC0_ON)
 	{
 		gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK]	&= (UINT8)~MCDRV_SRC4_ADC0_OFF;
 		gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK]	|= MCDRV_SRC4_ADC0_ON;
 	}
-	else if((psPathInfo->asMix[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK] & (MCDRV_SRC4_ADC0_ON|MCDRV_SRC4_ADC0_OFF)) == MCDRV_SRC4_ADC0_OFF)
+	else if ((psPathInfo->asMix[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK] & (MCDRV_SRC4_ADC0_ON|MCDRV_SRC4_ADC0_OFF)) == MCDRV_SRC4_ADC0_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK]	&= (UINT8)~MCDRV_SRC4_ADC0_ON;
 		gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK]	|= MCDRV_SRC4_ADC0_OFF;
@@ -4196,12 +4196,12 @@ static void	SetMixSourceOnOff
 	{
 	}
 
-	if((psPathInfo->asMix[0].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK] & (MCDRV_SRC3_DIR0_ON|MCDRV_SRC3_DIR0_OFF)) == MCDRV_SRC3_DIR0_ON)
+	if ((psPathInfo->asMix[0].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK] & (MCDRV_SRC3_DIR0_ON|MCDRV_SRC3_DIR0_OFF)) == MCDRV_SRC3_DIR0_ON)
 	{
 		gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK]	&= (UINT8)~MCDRV_SRC3_DIR0_OFF;
 		gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK]	|= MCDRV_SRC3_DIR0_ON;
 	}
-	else if((psPathInfo->asMix[0].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK] & (MCDRV_SRC3_DIR0_ON|MCDRV_SRC3_DIR0_OFF)) == MCDRV_SRC3_DIR0_OFF)
+	else if ((psPathInfo->asMix[0].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK] & (MCDRV_SRC3_DIR0_ON|MCDRV_SRC3_DIR0_OFF)) == MCDRV_SRC3_DIR0_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK]	&= (UINT8)~MCDRV_SRC3_DIR0_ON;
 		gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK]	|= MCDRV_SRC3_DIR0_OFF;
@@ -4210,12 +4210,12 @@ static void	SetMixSourceOnOff
 	{
 	}
 
-	if((psPathInfo->asMix[0].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK] & (MCDRV_SRC3_DIR1_ON|MCDRV_SRC3_DIR1_OFF)) == MCDRV_SRC3_DIR1_ON)
+	if ((psPathInfo->asMix[0].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK] & (MCDRV_SRC3_DIR1_ON|MCDRV_SRC3_DIR1_OFF)) == MCDRV_SRC3_DIR1_ON)
 	{
 		gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK]	&= (UINT8)~MCDRV_SRC3_DIR1_OFF;
 		gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK]	|= MCDRV_SRC3_DIR1_ON;
 	}
-	else if((psPathInfo->asMix[0].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK] & (MCDRV_SRC3_DIR1_ON|MCDRV_SRC3_DIR1_OFF)) == MCDRV_SRC3_DIR1_OFF)
+	else if ((psPathInfo->asMix[0].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK] & (MCDRV_SRC3_DIR1_ON|MCDRV_SRC3_DIR1_OFF)) == MCDRV_SRC3_DIR1_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK]	&= (UINT8)~MCDRV_SRC3_DIR1_ON;
 		gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK]	|= MCDRV_SRC3_DIR1_OFF;
@@ -4224,12 +4224,12 @@ static void	SetMixSourceOnOff
 	{
 	}
 
-	if((psPathInfo->asMix[0].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK] & (MCDRV_SRC3_DIR2_ON|MCDRV_SRC3_DIR2_OFF)) == MCDRV_SRC3_DIR2_ON)
+	if ((psPathInfo->asMix[0].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK] & (MCDRV_SRC3_DIR2_ON|MCDRV_SRC3_DIR2_OFF)) == MCDRV_SRC3_DIR2_ON)
 	{
 		gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK]	&= (UINT8)~MCDRV_SRC3_DIR2_OFF;
 		gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK]	|= MCDRV_SRC3_DIR2_ON;
 	}
-	else if((psPathInfo->asMix[0].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK] & (MCDRV_SRC3_DIR2_ON|MCDRV_SRC3_DIR2_OFF)) == MCDRV_SRC3_DIR2_OFF)
+	else if ((psPathInfo->asMix[0].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK] & (MCDRV_SRC3_DIR2_ON|MCDRV_SRC3_DIR2_OFF)) == MCDRV_SRC3_DIR2_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK]	&= (UINT8)~MCDRV_SRC3_DIR2_ON;
 		gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK]	|= MCDRV_SRC3_DIR2_OFF;
@@ -4238,12 +4238,12 @@ static void	SetMixSourceOnOff
 	{
 	}
 
-	if((psPathInfo->asMix[0].abSrcOnOff[MCDRV_SRC_AE_BLOCK] & (MCDRV_SRC6_AE_ON|MCDRV_SRC6_AE_OFF)) == MCDRV_SRC6_AE_ON)
+	if ((psPathInfo->asMix[0].abSrcOnOff[MCDRV_SRC_AE_BLOCK] & (MCDRV_SRC6_AE_ON|MCDRV_SRC6_AE_OFF)) == MCDRV_SRC6_AE_ON)
 	{
 		gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_AE_BLOCK]	&= (UINT8)~MCDRV_SRC6_AE_OFF;
 		gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_AE_BLOCK]	|= MCDRV_SRC6_AE_ON;
 	}
-	else if((psPathInfo->asMix[0].abSrcOnOff[MCDRV_SRC_AE_BLOCK] & (MCDRV_SRC6_AE_ON|MCDRV_SRC6_AE_OFF)) == MCDRV_SRC6_AE_OFF)
+	else if ((psPathInfo->asMix[0].abSrcOnOff[MCDRV_SRC_AE_BLOCK] & (MCDRV_SRC6_AE_ON|MCDRV_SRC6_AE_OFF)) == MCDRV_SRC6_AE_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_AE_BLOCK]	&= (UINT8)~MCDRV_SRC6_AE_ON;
 		gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_AE_BLOCK]	|= MCDRV_SRC6_AE_OFF;
@@ -4277,12 +4277,12 @@ static void	SetBiasSourceOnOff
 	McDebugLog_FuncIn("SetBiasSourceOnOff");
 #endif
 
-	if((psPathInfo->asBias[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & (MCDRV_SRC0_MIC1_ON|MCDRV_SRC0_MIC1_OFF)) == MCDRV_SRC0_MIC1_ON)
+	if ((psPathInfo->asBias[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & (MCDRV_SRC0_MIC1_ON|MCDRV_SRC0_MIC1_OFF)) == MCDRV_SRC0_MIC1_ON)
 	{
 		gsGlobalInfo.sPathInfo.asBias[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC1_OFF;
 		gsGlobalInfo.sPathInfo.asBias[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK]	|= MCDRV_SRC0_MIC1_ON;
 	}
-	else if((psPathInfo->asBias[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & (MCDRV_SRC0_MIC1_ON|MCDRV_SRC0_MIC1_OFF)) == MCDRV_SRC0_MIC1_OFF)
+	else if ((psPathInfo->asBias[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & (MCDRV_SRC0_MIC1_ON|MCDRV_SRC0_MIC1_OFF)) == MCDRV_SRC0_MIC1_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asBias[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC1_ON;
 		gsGlobalInfo.sPathInfo.asBias[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK]	|= MCDRV_SRC0_MIC1_OFF;
@@ -4291,12 +4291,12 @@ static void	SetBiasSourceOnOff
 	{
 	}
 
-	if((psPathInfo->asBias[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & (MCDRV_SRC0_MIC2_ON|MCDRV_SRC0_MIC2_OFF)) == MCDRV_SRC0_MIC2_ON)
+	if ((psPathInfo->asBias[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & (MCDRV_SRC0_MIC2_ON|MCDRV_SRC0_MIC2_OFF)) == MCDRV_SRC0_MIC2_ON)
 	{
 		gsGlobalInfo.sPathInfo.asBias[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC2_OFF;
 		gsGlobalInfo.sPathInfo.asBias[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK]	|= MCDRV_SRC0_MIC2_ON;
 	}
-	else if((psPathInfo->asBias[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & (MCDRV_SRC0_MIC2_ON|MCDRV_SRC0_MIC2_OFF)) == MCDRV_SRC0_MIC2_OFF)
+	else if ((psPathInfo->asBias[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & (MCDRV_SRC0_MIC2_ON|MCDRV_SRC0_MIC2_OFF)) == MCDRV_SRC0_MIC2_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asBias[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC2_ON;
 		gsGlobalInfo.sPathInfo.asBias[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK]	|= MCDRV_SRC0_MIC2_OFF;
@@ -4305,12 +4305,12 @@ static void	SetBiasSourceOnOff
 	{
 	}
 
-	if((psPathInfo->asBias[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & (MCDRV_SRC0_MIC3_ON|MCDRV_SRC0_MIC3_OFF)) == MCDRV_SRC0_MIC3_ON)
+	if ((psPathInfo->asBias[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & (MCDRV_SRC0_MIC3_ON|MCDRV_SRC0_MIC3_OFF)) == MCDRV_SRC0_MIC3_ON)
 	{
 		gsGlobalInfo.sPathInfo.asBias[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC3_OFF;
 		gsGlobalInfo.sPathInfo.asBias[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK]	|= MCDRV_SRC0_MIC3_ON;
 	}
-	else if((psPathInfo->asBias[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & (MCDRV_SRC0_MIC3_ON|MCDRV_SRC0_MIC3_OFF)) == MCDRV_SRC0_MIC3_OFF)
+	else if ((psPathInfo->asBias[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & (MCDRV_SRC0_MIC3_ON|MCDRV_SRC0_MIC3_OFF)) == MCDRV_SRC0_MIC3_OFF)
 	{
 		gsGlobalInfo.sPathInfo.asBias[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK]	&= (UINT8)~MCDRV_SRC0_MIC3_ON;
 		gsGlobalInfo.sPathInfo.asBias[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK]	|= MCDRV_SRC0_MIC3_OFF;
@@ -4401,41 +4401,41 @@ void	McResCtrl_SetDioInfo
 #endif
 
 
-	if((dUpdateInfo & MCDRV_DIO0_COM_UPDATE_FLAG) != 0UL)
+	if ((dUpdateInfo & MCDRV_DIO0_COM_UPDATE_FLAG) != 0UL)
 	{
 		SetDIOCommon(psDioInfo, 0);
 	}
-	if((dUpdateInfo & MCDRV_DIO1_COM_UPDATE_FLAG) != 0UL)
+	if ((dUpdateInfo & MCDRV_DIO1_COM_UPDATE_FLAG) != 0UL)
 	{
 		SetDIOCommon(psDioInfo, 1);
 	}
-	if((dUpdateInfo & MCDRV_DIO2_COM_UPDATE_FLAG) != 0UL)
+	if ((dUpdateInfo & MCDRV_DIO2_COM_UPDATE_FLAG) != 0UL)
 	{
 		SetDIOCommon(psDioInfo, 2);
 	}
 
-	if((dUpdateInfo & MCDRV_DIO0_DIR_UPDATE_FLAG) != 0UL)
+	if ((dUpdateInfo & MCDRV_DIO0_DIR_UPDATE_FLAG) != 0UL)
 	{
 		SetDIODIR(psDioInfo, 0);
 	}
-	if((dUpdateInfo & MCDRV_DIO1_DIR_UPDATE_FLAG) != 0UL)
+	if ((dUpdateInfo & MCDRV_DIO1_DIR_UPDATE_FLAG) != 0UL)
 	{
 		SetDIODIR(psDioInfo, 1);
 	}
-	if((dUpdateInfo & MCDRV_DIO2_DIR_UPDATE_FLAG) != 0UL)
+	if ((dUpdateInfo & MCDRV_DIO2_DIR_UPDATE_FLAG) != 0UL)
 	{
 		SetDIODIR(psDioInfo, 2);
 	}
 
-	if((dUpdateInfo & MCDRV_DIO0_DIT_UPDATE_FLAG) != 0UL)
+	if ((dUpdateInfo & MCDRV_DIO0_DIT_UPDATE_FLAG) != 0UL)
 	{
 		SetDIODIT(psDioInfo, 0);
 	}
-	if((dUpdateInfo & MCDRV_DIO1_DIT_UPDATE_FLAG) != 0UL)
+	if ((dUpdateInfo & MCDRV_DIO1_DIT_UPDATE_FLAG) != 0UL)
 	{
 		SetDIODIT(psDioInfo, 1);
 	}
-	if((dUpdateInfo & MCDRV_DIO2_DIT_UPDATE_FLAG) != 0UL)
+	if ((dUpdateInfo & MCDRV_DIO2_DIT_UPDATE_FLAG) != 0UL)
 	{
 		SetDIODIT(psDioInfo, 2);
 	}
@@ -4467,17 +4467,17 @@ static void	SetDIOCommon
 	McDebugLog_FuncIn("SetDIOCommon");
 #endif
 
-	if((psDioInfo->asPortInfo[bPort].sDioCommon.bMasterSlave == MCDRV_DIO_SLAVE)
+	if ((psDioInfo->asPortInfo[bPort].sDioCommon.bMasterSlave == MCDRV_DIO_SLAVE)
 	|| (psDioInfo->asPortInfo[bPort].sDioCommon.bMasterSlave == MCDRV_DIO_MASTER))
 	{
 		gsGlobalInfo.sDioInfo.asPortInfo[bPort].sDioCommon.bMasterSlave	= psDioInfo->asPortInfo[bPort].sDioCommon.bMasterSlave;
 	}
-	if((psDioInfo->asPortInfo[bPort].sDioCommon.bAutoFs == MCDRV_AUTOFS_OFF)
+	if ((psDioInfo->asPortInfo[bPort].sDioCommon.bAutoFs == MCDRV_AUTOFS_OFF)
 	|| (psDioInfo->asPortInfo[bPort].sDioCommon.bAutoFs == MCDRV_AUTOFS_ON))
 	{
 		gsGlobalInfo.sDioInfo.asPortInfo[bPort].sDioCommon.bAutoFs	= psDioInfo->asPortInfo[bPort].sDioCommon.bAutoFs;
 	}
-	if((psDioInfo->asPortInfo[bPort].sDioCommon.bFs == MCDRV_FS_48000)
+	if ((psDioInfo->asPortInfo[bPort].sDioCommon.bFs == MCDRV_FS_48000)
 	|| (psDioInfo->asPortInfo[bPort].sDioCommon.bFs == MCDRV_FS_44100)
 	|| (psDioInfo->asPortInfo[bPort].sDioCommon.bFs == MCDRV_FS_32000)
 	|| (psDioInfo->asPortInfo[bPort].sDioCommon.bFs == MCDRV_FS_24000)
@@ -4489,7 +4489,7 @@ static void	SetDIOCommon
 	{
 		gsGlobalInfo.sDioInfo.asPortInfo[bPort].sDioCommon.bFs	= psDioInfo->asPortInfo[bPort].sDioCommon.bFs;
 	}
-	if((psDioInfo->asPortInfo[bPort].sDioCommon.bBckFs == MCDRV_BCKFS_64)
+	if ((psDioInfo->asPortInfo[bPort].sDioCommon.bBckFs == MCDRV_BCKFS_64)
 	|| (psDioInfo->asPortInfo[bPort].sDioCommon.bBckFs == MCDRV_BCKFS_48)
 	|| (psDioInfo->asPortInfo[bPort].sDioCommon.bBckFs == MCDRV_BCKFS_32)
 	|| (psDioInfo->asPortInfo[bPort].sDioCommon.bBckFs == MCDRV_BCKFS_512)
@@ -4499,34 +4499,34 @@ static void	SetDIOCommon
 	{
 		gsGlobalInfo.sDioInfo.asPortInfo[bPort].sDioCommon.bBckFs	= psDioInfo->asPortInfo[bPort].sDioCommon.bBckFs;
 	}
-	if((psDioInfo->asPortInfo[bPort].sDioCommon.bInterface == MCDRV_DIO_DA)
+	if ((psDioInfo->asPortInfo[bPort].sDioCommon.bInterface == MCDRV_DIO_DA)
 	|| (psDioInfo->asPortInfo[bPort].sDioCommon.bInterface == MCDRV_DIO_PCM))
 	{
 		gsGlobalInfo.sDioInfo.asPortInfo[bPort].sDioCommon.bInterface	= psDioInfo->asPortInfo[bPort].sDioCommon.bInterface;
 	}
-	if((psDioInfo->asPortInfo[bPort].sDioCommon.bBckInvert == MCDRV_BCLK_NORMAL)
+	if ((psDioInfo->asPortInfo[bPort].sDioCommon.bBckInvert == MCDRV_BCLK_NORMAL)
 	|| (psDioInfo->asPortInfo[bPort].sDioCommon.bBckInvert == MCDRV_BCLK_INVERT))
 	{
 		gsGlobalInfo.sDioInfo.asPortInfo[bPort].sDioCommon.bBckInvert	= psDioInfo->asPortInfo[bPort].sDioCommon.bBckInvert;
 	}
-	if(psDioInfo->asPortInfo[bPort].sDioCommon.bInterface == MCDRV_DIO_PCM)
+	if (psDioInfo->asPortInfo[bPort].sDioCommon.bInterface == MCDRV_DIO_PCM)
 	{
-		if((psDioInfo->asPortInfo[bPort].sDioCommon.bPcmHizTim == MCDRV_PCMHIZTIM_FALLING)
+		if ((psDioInfo->asPortInfo[bPort].sDioCommon.bPcmHizTim == MCDRV_PCMHIZTIM_FALLING)
 		|| (psDioInfo->asPortInfo[bPort].sDioCommon.bPcmHizTim == MCDRV_PCMHIZTIM_RISING))
 		{
 			gsGlobalInfo.sDioInfo.asPortInfo[bPort].sDioCommon.bPcmHizTim	= psDioInfo->asPortInfo[bPort].sDioCommon.bPcmHizTim;
 		}
-		if((psDioInfo->asPortInfo[bPort].sDioCommon.bPcmClkDown == MCDRV_PCM_CLKDOWN_OFF)
+		if ((psDioInfo->asPortInfo[bPort].sDioCommon.bPcmClkDown == MCDRV_PCM_CLKDOWN_OFF)
 		|| (psDioInfo->asPortInfo[bPort].sDioCommon.bPcmClkDown == MCDRV_PCM_CLKDOWN_HALF))
 		{
 			gsGlobalInfo.sDioInfo.asPortInfo[bPort].sDioCommon.bPcmClkDown	= psDioInfo->asPortInfo[bPort].sDioCommon.bPcmClkDown;
 		}
-		if((psDioInfo->asPortInfo[bPort].sDioCommon.bPcmFrame == MCDRV_PCM_SHORTFRAME)
+		if ((psDioInfo->asPortInfo[bPort].sDioCommon.bPcmFrame == MCDRV_PCM_SHORTFRAME)
 		|| (psDioInfo->asPortInfo[bPort].sDioCommon.bPcmFrame == MCDRV_PCM_LONGFRAME))
 		{
 			gsGlobalInfo.sDioInfo.asPortInfo[bPort].sDioCommon.bPcmFrame	= psDioInfo->asPortInfo[bPort].sDioCommon.bPcmFrame;
 		}
-		if(psDioInfo->asPortInfo[bPort].sDioCommon.bPcmHighPeriod <= 31)
+		if (psDioInfo->asPortInfo[bPort].sDioCommon.bPcmHighPeriod <= 31)
 		{
 			gsGlobalInfo.sDioInfo.asPortInfo[bPort].sDioCommon.bPcmHighPeriod	= psDioInfo->asPortInfo[bPort].sDioCommon.bPcmHighPeriod;
 		}
@@ -4562,29 +4562,29 @@ static void	SetDIODIR
 #endif
 
 	gsGlobalInfo.sDioInfo.asPortInfo[bPort].sDir.wSrcRate	= psDioInfo->asPortInfo[bPort].sDir.wSrcRate;
-	if(gsGlobalInfo.sDioInfo.asPortInfo[bPort].sDioCommon.bInterface == MCDRV_DIO_DA)
+	if (gsGlobalInfo.sDioInfo.asPortInfo[bPort].sDioCommon.bInterface == MCDRV_DIO_DA)
 	{
-		if((psDioInfo->asPortInfo[bPort].sDir.sDaFormat.bBitSel == MCDRV_BITSEL_16)
+		if ((psDioInfo->asPortInfo[bPort].sDir.sDaFormat.bBitSel == MCDRV_BITSEL_16)
 		|| (psDioInfo->asPortInfo[bPort].sDir.sDaFormat.bBitSel == MCDRV_BITSEL_20)
 		|| (psDioInfo->asPortInfo[bPort].sDir.sDaFormat.bBitSel == MCDRV_BITSEL_24))
 		{
 			gsGlobalInfo.sDioInfo.asPortInfo[bPort].sDir.sDaFormat.bBitSel	= psDioInfo->asPortInfo[bPort].sDir.sDaFormat.bBitSel;
 		}
-		if((psDioInfo->asPortInfo[bPort].sDir.sDaFormat.bMode == MCDRV_DAMODE_HEADALIGN)
+		if ((psDioInfo->asPortInfo[bPort].sDir.sDaFormat.bMode == MCDRV_DAMODE_HEADALIGN)
 		|| (psDioInfo->asPortInfo[bPort].sDir.sDaFormat.bMode == MCDRV_DAMODE_I2S)
 		|| (psDioInfo->asPortInfo[bPort].sDir.sDaFormat.bMode == MCDRV_DAMODE_TAILALIGN))
 		{
 			gsGlobalInfo.sDioInfo.asPortInfo[bPort].sDir.sDaFormat.bMode	= psDioInfo->asPortInfo[bPort].sDir.sDaFormat.bMode;
 		}
 	}
-	else if(gsGlobalInfo.sDioInfo.asPortInfo[bPort].sDioCommon.bInterface == MCDRV_DIO_PCM)
+	else if (gsGlobalInfo.sDioInfo.asPortInfo[bPort].sDioCommon.bInterface == MCDRV_DIO_PCM)
 	{
-		if((psDioInfo->asPortInfo[bPort].sDir.sPcmFormat.bMono == MCDRV_PCM_STEREO)
+		if ((psDioInfo->asPortInfo[bPort].sDir.sPcmFormat.bMono == MCDRV_PCM_STEREO)
 		|| (psDioInfo->asPortInfo[bPort].sDir.sPcmFormat.bMono == MCDRV_PCM_MONO))
 		{
 			gsGlobalInfo.sDioInfo.asPortInfo[bPort].sDir.sPcmFormat.bMono	= psDioInfo->asPortInfo[bPort].sDir.sPcmFormat.bMono;
 		}
-		if((psDioInfo->asPortInfo[bPort].sDir.sPcmFormat.bOrder == MCDRV_PCM_MSB_FIRST)
+		if ((psDioInfo->asPortInfo[bPort].sDir.sPcmFormat.bOrder == MCDRV_PCM_MSB_FIRST)
 		|| (psDioInfo->asPortInfo[bPort].sDir.sPcmFormat.bOrder == MCDRV_PCM_LSB_FIRST)
 		|| (psDioInfo->asPortInfo[bPort].sDir.sPcmFormat.bOrder == MCDRV_PCM_MSB_FIRST_SIGN)
 		|| (psDioInfo->asPortInfo[bPort].sDir.sPcmFormat.bOrder == MCDRV_PCM_LSB_FIRST_SIGN)
@@ -4593,13 +4593,13 @@ static void	SetDIODIR
 		{
 			gsGlobalInfo.sDioInfo.asPortInfo[bPort].sDir.sPcmFormat.bOrder	= psDioInfo->asPortInfo[bPort].sDir.sPcmFormat.bOrder;
 		}
-		if((psDioInfo->asPortInfo[bPort].sDir.sPcmFormat.bLaw == MCDRV_PCM_LINEAR)
+		if ((psDioInfo->asPortInfo[bPort].sDir.sPcmFormat.bLaw == MCDRV_PCM_LINEAR)
 		|| (psDioInfo->asPortInfo[bPort].sDir.sPcmFormat.bLaw == MCDRV_PCM_ALAW)
 		|| (psDioInfo->asPortInfo[bPort].sDir.sPcmFormat.bLaw == MCDRV_PCM_MULAW))
 		{
 			gsGlobalInfo.sDioInfo.asPortInfo[bPort].sDir.sPcmFormat.bLaw	= psDioInfo->asPortInfo[bPort].sDir.sPcmFormat.bLaw;
 		}
-		if((psDioInfo->asPortInfo[bPort].sDir.sPcmFormat.bBitSel == MCDRV_PCM_BITSEL_8)
+		if ((psDioInfo->asPortInfo[bPort].sDir.sPcmFormat.bBitSel == MCDRV_PCM_BITSEL_8)
 		|| (psDioInfo->asPortInfo[bPort].sDir.sPcmFormat.bBitSel == MCDRV_PCM_BITSEL_13)
 		|| (psDioInfo->asPortInfo[bPort].sDir.sPcmFormat.bBitSel == MCDRV_PCM_BITSEL_14)
 		|| (psDioInfo->asPortInfo[bPort].sDir.sPcmFormat.bBitSel == MCDRV_PCM_BITSEL_16))
@@ -4613,7 +4613,7 @@ static void	SetDIODIR
 
 	for(bDIOCh = 0; bDIOCh < DIO_CHANNELS; bDIOCh++)
 	{
-		if(psDioInfo->asPortInfo[bPort].sDir.abSlot[bDIOCh] < 2)
+		if (psDioInfo->asPortInfo[bPort].sDir.abSlot[bDIOCh] < 2)
 		{
 			gsGlobalInfo.sDioInfo.asPortInfo[bPort].sDir.abSlot[bDIOCh]	= psDioInfo->asPortInfo[bPort].sDir.abSlot[bDIOCh];
 		}
@@ -4649,29 +4649,29 @@ static void	SetDIODIT
 #endif
 
 	gsGlobalInfo.sDioInfo.asPortInfo[bPort].sDit.wSrcRate	= psDioInfo->asPortInfo[bPort].sDit.wSrcRate;
-	if(gsGlobalInfo.sDioInfo.asPortInfo[bPort].sDioCommon.bInterface == MCDRV_DIO_DA)
+	if (gsGlobalInfo.sDioInfo.asPortInfo[bPort].sDioCommon.bInterface == MCDRV_DIO_DA)
 	{
-		if((psDioInfo->asPortInfo[bPort].sDit.sDaFormat.bBitSel == MCDRV_BITSEL_16)
+		if ((psDioInfo->asPortInfo[bPort].sDit.sDaFormat.bBitSel == MCDRV_BITSEL_16)
 		|| (psDioInfo->asPortInfo[bPort].sDit.sDaFormat.bBitSel == MCDRV_BITSEL_20)
 		|| (psDioInfo->asPortInfo[bPort].sDit.sDaFormat.bBitSel == MCDRV_BITSEL_24))
 		{
 			gsGlobalInfo.sDioInfo.asPortInfo[bPort].sDit.sDaFormat.bBitSel	= psDioInfo->asPortInfo[bPort].sDit.sDaFormat.bBitSel;
 		}
-		if((psDioInfo->asPortInfo[bPort].sDit.sDaFormat.bMode == MCDRV_DAMODE_HEADALIGN)
+		if ((psDioInfo->asPortInfo[bPort].sDit.sDaFormat.bMode == MCDRV_DAMODE_HEADALIGN)
 		|| (psDioInfo->asPortInfo[bPort].sDit.sDaFormat.bMode == MCDRV_DAMODE_I2S)
 		|| (psDioInfo->asPortInfo[bPort].sDit.sDaFormat.bMode == MCDRV_DAMODE_TAILALIGN))
 		{
 			gsGlobalInfo.sDioInfo.asPortInfo[bPort].sDit.sDaFormat.bMode	= psDioInfo->asPortInfo[bPort].sDit.sDaFormat.bMode;
 		}
 	}
-	else if(gsGlobalInfo.sDioInfo.asPortInfo[bPort].sDioCommon.bInterface == MCDRV_DIO_PCM)
+	else if (gsGlobalInfo.sDioInfo.asPortInfo[bPort].sDioCommon.bInterface == MCDRV_DIO_PCM)
 	{
-		if((psDioInfo->asPortInfo[bPort].sDit.sPcmFormat.bMono == MCDRV_PCM_STEREO)
+		if ((psDioInfo->asPortInfo[bPort].sDit.sPcmFormat.bMono == MCDRV_PCM_STEREO)
 		|| (psDioInfo->asPortInfo[bPort].sDit.sPcmFormat.bMono == MCDRV_PCM_MONO))
 		{
 			gsGlobalInfo.sDioInfo.asPortInfo[bPort].sDit.sPcmFormat.bMono	= psDioInfo->asPortInfo[bPort].sDit.sPcmFormat.bMono;
 		}
-		if((psDioInfo->asPortInfo[bPort].sDit.sPcmFormat.bOrder == MCDRV_PCM_MSB_FIRST)
+		if ((psDioInfo->asPortInfo[bPort].sDit.sPcmFormat.bOrder == MCDRV_PCM_MSB_FIRST)
 		|| (psDioInfo->asPortInfo[bPort].sDit.sPcmFormat.bOrder == MCDRV_PCM_LSB_FIRST)
 		|| (psDioInfo->asPortInfo[bPort].sDit.sPcmFormat.bOrder == MCDRV_PCM_MSB_FIRST_SIGN)
 		|| (psDioInfo->asPortInfo[bPort].sDit.sPcmFormat.bOrder == MCDRV_PCM_LSB_FIRST_SIGN)
@@ -4680,13 +4680,13 @@ static void	SetDIODIT
 		{
 			gsGlobalInfo.sDioInfo.asPortInfo[bPort].sDit.sPcmFormat.bOrder	= psDioInfo->asPortInfo[bPort].sDit.sPcmFormat.bOrder;
 		}
-		if((psDioInfo->asPortInfo[bPort].sDit.sPcmFormat.bLaw == MCDRV_PCM_LINEAR)
+		if ((psDioInfo->asPortInfo[bPort].sDit.sPcmFormat.bLaw == MCDRV_PCM_LINEAR)
 		|| (psDioInfo->asPortInfo[bPort].sDit.sPcmFormat.bLaw == MCDRV_PCM_ALAW)
 		|| (psDioInfo->asPortInfo[bPort].sDit.sPcmFormat.bLaw == MCDRV_PCM_MULAW))
 		{
 			gsGlobalInfo.sDioInfo.asPortInfo[bPort].sDit.sPcmFormat.bLaw	= psDioInfo->asPortInfo[bPort].sDit.sPcmFormat.bLaw;
 		}
-		if((psDioInfo->asPortInfo[bPort].sDit.sPcmFormat.bBitSel == MCDRV_PCM_BITSEL_8)
+		if ((psDioInfo->asPortInfo[bPort].sDit.sPcmFormat.bBitSel == MCDRV_PCM_BITSEL_8)
 		|| (psDioInfo->asPortInfo[bPort].sDit.sPcmFormat.bBitSel == MCDRV_PCM_BITSEL_13)
 		|| (psDioInfo->asPortInfo[bPort].sDit.sPcmFormat.bBitSel == MCDRV_PCM_BITSEL_14)
 		|| (psDioInfo->asPortInfo[bPort].sDit.sPcmFormat.bBitSel == MCDRV_PCM_BITSEL_16))
@@ -4700,7 +4700,7 @@ static void	SetDIODIT
 
 	for(bDIOCh = 0; bDIOCh < DIO_CHANNELS; bDIOCh++)
 	{
-		if(psDioInfo->asPortInfo[bPort].sDit.abSlot[bDIOCh] < 2)
+		if (psDioInfo->asPortInfo[bPort].sDit.abSlot[bDIOCh] < 2)
 		{
 			gsGlobalInfo.sDioInfo.asPortInfo[bPort].sDit.abSlot[bDIOCh]	= psDioInfo->asPortInfo[bPort].sDit.abSlot[bDIOCh];
 		}
@@ -4763,30 +4763,30 @@ void	McResCtrl_SetVolInfo
 
 	for(bCh = 0; bCh < AD0_VOL_CHANNELS; bCh++)
 	{
-		if(((UINT16)psVolInfo->aswD_Ad0[bCh] & 0x01) != 0)
+		if (((UINT16)psVolInfo->aswD_Ad0[bCh] & 0x01) != 0)
 		{
 			gsGlobalInfo.sVolInfo.aswD_Ad0[bCh]	= (SINT16)((UINT16)psVolInfo->aswD_Ad0[bCh] & 0xFFFE);
 		}
-		if(((UINT16)psVolInfo->aswD_Ad0Att[bCh] & 0x01) != 0)
+		if (((UINT16)psVolInfo->aswD_Ad0Att[bCh] & 0x01) != 0)
 		{
 			gsGlobalInfo.sVolInfo.aswD_Ad0Att[bCh]	= (SINT16)((UINT16)psVolInfo->aswD_Ad0Att[bCh] & 0xFFFE);
 		}
-		if(((UINT16)psVolInfo->aswA_Ad0[bCh] & 0x01) != 0)
+		if (((UINT16)psVolInfo->aswA_Ad0[bCh] & 0x01) != 0)
 		{
 			gsGlobalInfo.sVolInfo.aswA_Ad0[bCh]	= (SINT16)((UINT16)psVolInfo->aswA_Ad0[bCh] & 0xFFFE);
 		}
 	}
 	for(bCh = 0; bCh < AD1_VOL_CHANNELS; bCh++)
 	{
-		if(((UINT16)psVolInfo->aswD_Ad1[bCh] & 0x01) != 0)
+		if (((UINT16)psVolInfo->aswD_Ad1[bCh] & 0x01) != 0)
 		{
 			gsGlobalInfo.sVolInfo.aswD_Ad1[bCh]	= (SINT16)((UINT16)psVolInfo->aswD_Ad1[bCh] & 0xFFFE);
 		}
-		if(((UINT16)psVolInfo->aswD_Ad1Att[bCh] & 0x01) != 0)
+		if (((UINT16)psVolInfo->aswD_Ad1Att[bCh] & 0x01) != 0)
 		{
 			gsGlobalInfo.sVolInfo.aswD_Ad1Att[bCh]	= (SINT16)((UINT16)psVolInfo->aswD_Ad1Att[bCh] & 0xFFFE);
 		}
-		if(((UINT16)psVolInfo->aswA_Ad1[bCh] & 0x01) != 0)
+		if (((UINT16)psVolInfo->aswA_Ad1[bCh] & 0x01) != 0)
 		{
 			gsGlobalInfo.sVolInfo.aswA_Ad1[bCh]	= (SINT16)((UINT16)psVolInfo->aswA_Ad1[bCh] & 0xFFFE);
 		}
@@ -4794,7 +4794,7 @@ void	McResCtrl_SetVolInfo
 
 	for(bCh = 0; bCh < AENG6_VOL_CHANNELS; bCh++)
 	{
-		if(((UINT16)psVolInfo->aswD_Aeng6[bCh] & 0x01) != 0)
+		if (((UINT16)psVolInfo->aswD_Aeng6[bCh] & 0x01) != 0)
 		{
 			gsGlobalInfo.sVolInfo.aswD_Aeng6[bCh]	= (SINT16)((UINT16)psVolInfo->aswD_Aeng6[bCh] & 0xFFFE);
 		}
@@ -4802,11 +4802,11 @@ void	McResCtrl_SetVolInfo
 
 	for(bCh = 0; bCh < PDM_VOL_CHANNELS; bCh++)
 	{
-		if(((UINT16)psVolInfo->aswD_Pdm[bCh] & 0x01) != 0)
+		if (((UINT16)psVolInfo->aswD_Pdm[bCh] & 0x01) != 0)
 		{
 			gsGlobalInfo.sVolInfo.aswD_Pdm[bCh]	= (SINT16)((UINT16)psVolInfo->aswD_Pdm[bCh] & 0xFFFE);
 		}
-		if(((UINT16)psVolInfo->aswD_SideTone[bCh] & 0x01) != 0)
+		if (((UINT16)psVolInfo->aswD_SideTone[bCh] & 0x01) != 0)
 		{
 			gsGlobalInfo.sVolInfo.aswD_SideTone[bCh]	= (SINT16)((UINT16)psVolInfo->aswD_SideTone[bCh] & 0xFFFE);
 		}
@@ -4814,11 +4814,11 @@ void	McResCtrl_SetVolInfo
 
 	for(bCh = 0; bCh < DTMF_VOL_CHANNELS; bCh++)
 	{
-		if(((UINT16)psVolInfo->aswD_Dtmfb[bCh] & 0x01) != 0)
+		if (((UINT16)psVolInfo->aswD_Dtmfb[bCh] & 0x01) != 0)
 		{
 			gsGlobalInfo.sVolInfo.aswD_Dtmfb[bCh]	= (SINT16)((UINT16)psVolInfo->aswD_Dtmfb[bCh] & 0xFFFE);
 		}
-		if(((UINT16)psVolInfo->aswD_DtmfAtt[bCh] & 0x01) != 0)
+		if (((UINT16)psVolInfo->aswD_DtmfAtt[bCh] & 0x01) != 0)
 		{
 			gsGlobalInfo.sVolInfo.aswD_DtmfAtt[bCh]	= (SINT16)((UINT16)psVolInfo->aswD_DtmfAtt[bCh] & 0xFFFE);
 		}
@@ -4826,15 +4826,15 @@ void	McResCtrl_SetVolInfo
 
 	for(bCh = 0; bCh < DIO0_VOL_CHANNELS; bCh++)
 	{
-		if(((UINT16)psVolInfo->aswD_Dir0[bCh] & 0x01) != 0)
+		if (((UINT16)psVolInfo->aswD_Dir0[bCh] & 0x01) != 0)
 		{
 			gsGlobalInfo.sVolInfo.aswD_Dir0[bCh]	= (SINT16)((UINT16)psVolInfo->aswD_Dir0[bCh] & 0xFFFE);
 		}
-		if(((UINT16)psVolInfo->aswD_Dir0Att[bCh] & 0x01) != 0)
+		if (((UINT16)psVolInfo->aswD_Dir0Att[bCh] & 0x01) != 0)
 		{
 			gsGlobalInfo.sVolInfo.aswD_Dir0Att[bCh]	= (SINT16)((UINT16)psVolInfo->aswD_Dir0Att[bCh] & 0xFFFE);
 		}
-		if(((UINT16)psVolInfo->aswD_Dit0[bCh] & 0x01) != 0)
+		if (((UINT16)psVolInfo->aswD_Dit0[bCh] & 0x01) != 0)
 		{
 			gsGlobalInfo.sVolInfo.aswD_Dit0[bCh]	= (SINT16)((UINT16)psVolInfo->aswD_Dit0[bCh] & 0xFFFE);
 		}
@@ -4842,15 +4842,15 @@ void	McResCtrl_SetVolInfo
 
 	for(bCh = 0; bCh < DIO1_VOL_CHANNELS; bCh++)
 	{
-		if(((UINT16)psVolInfo->aswD_Dir1[bCh] & 0x01) != 0)
+		if (((UINT16)psVolInfo->aswD_Dir1[bCh] & 0x01) != 0)
 		{
 			gsGlobalInfo.sVolInfo.aswD_Dir1[bCh]	= (SINT16)((UINT16)psVolInfo->aswD_Dir1[bCh] & 0xFFFE);
 		}
-		if(((UINT16)psVolInfo->aswD_Dir1Att[bCh] & 0x01) != 0)
+		if (((UINT16)psVolInfo->aswD_Dir1Att[bCh] & 0x01) != 0)
 		{
 			gsGlobalInfo.sVolInfo.aswD_Dir1Att[bCh]	= (SINT16)((UINT16)psVolInfo->aswD_Dir1Att[bCh] & 0xFFFE);
 		}
-		if(((UINT16)psVolInfo->aswD_Dit1[bCh] & 0x01) != 0)
+		if (((UINT16)psVolInfo->aswD_Dit1[bCh] & 0x01) != 0)
 		{
 			gsGlobalInfo.sVolInfo.aswD_Dit1[bCh]	= (SINT16)((UINT16)psVolInfo->aswD_Dit1[bCh] & 0xFFFE);
 		}
@@ -4858,15 +4858,15 @@ void	McResCtrl_SetVolInfo
 
 	for(bCh = 0; bCh < DIO2_VOL_CHANNELS; bCh++)
 	{
-		if(((UINT16)psVolInfo->aswD_Dir2[bCh] & 0x01) != 0)
+		if (((UINT16)psVolInfo->aswD_Dir2[bCh] & 0x01) != 0)
 		{
 			gsGlobalInfo.sVolInfo.aswD_Dir2[bCh]	= (SINT16)((UINT16)psVolInfo->aswD_Dir2[bCh] & 0xFFFE);
 		}
-		if(((UINT16)psVolInfo->aswD_Dir2Att[bCh] & 0x01) != 0)
+		if (((UINT16)psVolInfo->aswD_Dir2Att[bCh] & 0x01) != 0)
 		{
 			gsGlobalInfo.sVolInfo.aswD_Dir2Att[bCh]	= (SINT16)((UINT16)psVolInfo->aswD_Dir2Att[bCh] & 0xFFFE);
 		}
-		if(((UINT16)psVolInfo->aswD_Dit2[bCh] & 0x01) != 0)
+		if (((UINT16)psVolInfo->aswD_Dit2[bCh] & 0x01) != 0)
 		{
 			gsGlobalInfo.sVolInfo.aswD_Dit2[bCh]	= (SINT16)((UINT16)psVolInfo->aswD_Dit2[bCh] & 0xFFFE);
 		}
@@ -4874,15 +4874,15 @@ void	McResCtrl_SetVolInfo
 
 	for(bCh = 0; bCh < DAC_VOL_CHANNELS; bCh++)
 	{
-		if(((UINT16)psVolInfo->aswD_DacMaster[bCh] & 0x01) != 0)
+		if (((UINT16)psVolInfo->aswD_DacMaster[bCh] & 0x01) != 0)
 		{
 			gsGlobalInfo.sVolInfo.aswD_DacMaster[bCh]	= (SINT16)((UINT16)psVolInfo->aswD_DacMaster[bCh] & 0xFFFE);
 		}
-		if(((UINT16)psVolInfo->aswD_DacVoice[bCh] & 0x01) != 0)
+		if (((UINT16)psVolInfo->aswD_DacVoice[bCh] & 0x01) != 0)
 		{
 			gsGlobalInfo.sVolInfo.aswD_DacVoice[bCh]	= (SINT16)((UINT16)psVolInfo->aswD_DacVoice[bCh] & 0xFFFE);
 		}
-		if(((UINT16)psVolInfo->aswD_DacAtt[bCh] & 0x01) != 0)
+		if (((UINT16)psVolInfo->aswD_DacAtt[bCh] & 0x01) != 0)
 		{
 			gsGlobalInfo.sVolInfo.aswD_DacAtt[bCh]	= (SINT16)((UINT16)psVolInfo->aswD_DacAtt[bCh] & 0xFFFE);
 		}
@@ -4890,7 +4890,7 @@ void	McResCtrl_SetVolInfo
 
 	for(bCh = 0; bCh < LIN1_VOL_CHANNELS; bCh++)
 	{
-		if(((UINT16)psVolInfo->aswA_Lin1[bCh] & 0x01) != 0)
+		if (((UINT16)psVolInfo->aswA_Lin1[bCh] & 0x01) != 0)
 		{
 			gsGlobalInfo.sVolInfo.aswA_Lin1[bCh]	= (SINT16)((UINT16)psVolInfo->aswA_Lin1[bCh] & 0xFFFE);
 		}
@@ -4898,7 +4898,7 @@ void	McResCtrl_SetVolInfo
 
 	for(bCh = 0; bCh < LIN2_VOL_CHANNELS; bCh++)
 	{
-		if(((UINT16)psVolInfo->aswA_Lin2[bCh] & 0x01) != 0)
+		if (((UINT16)psVolInfo->aswA_Lin2[bCh] & 0x01) != 0)
 		{
 			gsGlobalInfo.sVolInfo.aswA_Lin2[bCh]	= (SINT16)((UINT16)psVolInfo->aswA_Lin2[bCh] & 0xFFFE);
 		}
@@ -4906,7 +4906,7 @@ void	McResCtrl_SetVolInfo
 
 	for(bCh = 0; bCh < MIC1_VOL_CHANNELS; bCh++)
 	{
-		if(((UINT16)psVolInfo->aswA_Mic1[bCh] & 0x01) != 0)
+		if (((UINT16)psVolInfo->aswA_Mic1[bCh] & 0x01) != 0)
 		{
 			gsGlobalInfo.sVolInfo.aswA_Mic1[bCh]	= (SINT16)((UINT16)psVolInfo->aswA_Mic1[bCh] & 0xFFFE);
 		}
@@ -4914,7 +4914,7 @@ void	McResCtrl_SetVolInfo
 
 	for(bCh = 0; bCh < MIC2_VOL_CHANNELS; bCh++)
 	{
-		if(((UINT16)psVolInfo->aswA_Mic2[bCh] & 0x01) != 0)
+		if (((UINT16)psVolInfo->aswA_Mic2[bCh] & 0x01) != 0)
 		{
 			gsGlobalInfo.sVolInfo.aswA_Mic2[bCh]	= (SINT16)((UINT16)psVolInfo->aswA_Mic2[bCh] & 0xFFFE);
 		}
@@ -4922,7 +4922,7 @@ void	McResCtrl_SetVolInfo
 
 	for(bCh = 0; bCh < MIC3_VOL_CHANNELS; bCh++)
 	{
-		if(((UINT16)psVolInfo->aswA_Mic3[bCh] & 0x01) != 0)
+		if (((UINT16)psVolInfo->aswA_Mic3[bCh] & 0x01) != 0)
 		{
 			gsGlobalInfo.sVolInfo.aswA_Mic3[bCh]	= (SINT16)((UINT16)psVolInfo->aswA_Mic3[bCh] & 0xFFFE);
 		}
@@ -4930,7 +4930,7 @@ void	McResCtrl_SetVolInfo
 
 	for(bCh = 0; bCh < HP_VOL_CHANNELS; bCh++)
 	{
-		if(((UINT16)psVolInfo->aswA_Hp[bCh] & 0x01) != 0)
+		if (((UINT16)psVolInfo->aswA_Hp[bCh] & 0x01) != 0)
 		{
 			gsGlobalInfo.sVolInfo.aswA_Hp[bCh]	= (SINT16)((UINT16)psVolInfo->aswA_Hp[bCh] & 0xFFFE);
 		}
@@ -4938,7 +4938,7 @@ void	McResCtrl_SetVolInfo
 
 	for(bCh = 0; bCh < SP_VOL_CHANNELS; bCh++)
 	{
-		if(((UINT16)psVolInfo->aswA_Sp[bCh] & 0x01) != 0)
+		if (((UINT16)psVolInfo->aswA_Sp[bCh] & 0x01) != 0)
 		{
 			gsGlobalInfo.sVolInfo.aswA_Sp[bCh]	= (SINT16)((UINT16)psVolInfo->aswA_Sp[bCh] & 0xFFFE);
 		}
@@ -4946,7 +4946,7 @@ void	McResCtrl_SetVolInfo
 
 	for(bCh = 0; bCh < RC_VOL_CHANNELS; bCh++)
 	{
-		if(((UINT16)psVolInfo->aswA_Rc[bCh] & 0x01) != 0)
+		if (((UINT16)psVolInfo->aswA_Rc[bCh] & 0x01) != 0)
 		{
 			gsGlobalInfo.sVolInfo.aswA_Rc[bCh]	= (SINT16)((UINT16)psVolInfo->aswA_Rc[bCh] & 0xFFFE);
 		}
@@ -4954,7 +4954,7 @@ void	McResCtrl_SetVolInfo
 
 	for(bCh = 0; bCh < LOUT1_VOL_CHANNELS; bCh++)
 	{
-		if(((UINT16)psVolInfo->aswA_Lout1[bCh] & 0x01) != 0)
+		if (((UINT16)psVolInfo->aswA_Lout1[bCh] & 0x01) != 0)
 		{
 			gsGlobalInfo.sVolInfo.aswA_Lout1[bCh]	= (SINT16)((UINT16)psVolInfo->aswA_Lout1[bCh] & 0xFFFE);
 		}
@@ -4962,7 +4962,7 @@ void	McResCtrl_SetVolInfo
 
 	for(bCh = 0; bCh < LOUT2_VOL_CHANNELS; bCh++)
 	{
-		if(((UINT16)psVolInfo->aswA_Lout2[bCh] & 0x01) != 0)
+		if (((UINT16)psVolInfo->aswA_Lout2[bCh] & 0x01) != 0)
 		{
 			gsGlobalInfo.sVolInfo.aswA_Lout2[bCh]	= (SINT16)((UINT16)psVolInfo->aswA_Lout2[bCh] & 0xFFFE);
 		}
@@ -4970,7 +4970,7 @@ void	McResCtrl_SetVolInfo
 
 	for(bCh = 0; bCh < MIC1_VOL_CHANNELS; bCh++)
 	{
-		if(((UINT16)psVolInfo->aswA_Mic1Gain[bCh] & 0x01) != 0)
+		if (((UINT16)psVolInfo->aswA_Mic1Gain[bCh] & 0x01) != 0)
 		{
 			gsGlobalInfo.sVolInfo.aswA_Mic1Gain[bCh]	= (SINT16)((UINT16)psVolInfo->aswA_Mic1Gain[bCh] & 0xFFFE);
 		}
@@ -4978,7 +4978,7 @@ void	McResCtrl_SetVolInfo
 
 	for(bCh = 0; bCh < MIC2_VOL_CHANNELS; bCh++)
 	{
-		if(((UINT16)psVolInfo->aswA_Mic2Gain[bCh] & 0x01) != 0)
+		if (((UINT16)psVolInfo->aswA_Mic2Gain[bCh] & 0x01) != 0)
 		{
 			gsGlobalInfo.sVolInfo.aswA_Mic2Gain[bCh]	= (SINT16)((UINT16)psVolInfo->aswA_Mic2Gain[bCh] & 0xFFFE);
 		}
@@ -4986,7 +4986,7 @@ void	McResCtrl_SetVolInfo
 
 	for(bCh = 0; bCh < MIC3_VOL_CHANNELS; bCh++)
 	{
-		if(((UINT16)psVolInfo->aswA_Mic3Gain[bCh] & 0x01) != 0)
+		if (((UINT16)psVolInfo->aswA_Mic3Gain[bCh] & 0x01) != 0)
 		{
 			gsGlobalInfo.sVolInfo.aswA_Mic3Gain[bCh]	= (SINT16)((UINT16)psVolInfo->aswA_Mic3Gain[bCh] & 0xFFFE);
 		}
@@ -4994,7 +4994,7 @@ void	McResCtrl_SetVolInfo
 
 	for(bCh = 0; bCh < HPGAIN_VOL_CHANNELS; bCh++)
 	{
-		if(((UINT16)psVolInfo->aswA_HpGain[bCh] & 0x01) != 0)
+		if (((UINT16)psVolInfo->aswA_HpGain[bCh] & 0x01) != 0)
 		{
 			gsGlobalInfo.sVolInfo.aswA_HpGain[bCh]	= (SINT16)((UINT16)psVolInfo->aswA_HpGain[bCh] & 0xFFFE);
 		}
@@ -5055,7 +5055,7 @@ void	McResCtrl_SetDacInfo
 #endif
 
 
-	if((dUpdateInfo & MCDRV_DAC_MSWP_UPDATE_FLAG) != 0UL)
+	if ((dUpdateInfo & MCDRV_DAC_MSWP_UPDATE_FLAG) != 0UL)
 	{
 		switch(psDacInfo->bMasterSwap)
 		{
@@ -5073,7 +5073,7 @@ void	McResCtrl_SetDacInfo
 			break;
 		}
 	}
-	if((dUpdateInfo & MCDRV_DAC_VSWP_UPDATE_FLAG) != 0UL)
+	if ((dUpdateInfo & MCDRV_DAC_VSWP_UPDATE_FLAG) != 0UL)
 	{
 		switch(psDacInfo->bVoiceSwap)
 		{
@@ -5091,9 +5091,9 @@ void	McResCtrl_SetDacInfo
 			break;
 		}
 	}
-	if((dUpdateInfo & MCDRV_DAC_HPF_UPDATE_FLAG) != 0UL)
+	if ((dUpdateInfo & MCDRV_DAC_HPF_UPDATE_FLAG) != 0UL)
 	{
-		if((psDacInfo->bDcCut == MCDRV_DCCUT_ON) || (psDacInfo->bDcCut == MCDRV_DCCUT_OFF))
+		if ((psDacInfo->bDcCut == MCDRV_DCCUT_ON) || (psDacInfo->bDcCut == MCDRV_DCCUT_OFF))
 		{
 			gsGlobalInfo.sDacInfo.bDcCut	= psDacInfo->bDcCut;
 		}
@@ -5154,7 +5154,7 @@ void	McResCtrl_SetAdcInfo
 #endif
 
 
-	if((dUpdateInfo & MCDRV_ADCADJ_UPDATE_FLAG) != 0UL)
+	if ((dUpdateInfo & MCDRV_ADCADJ_UPDATE_FLAG) != 0UL)
 	{
 		switch(psAdcInfo->bAgcAdjust)
 		{
@@ -5168,16 +5168,16 @@ void	McResCtrl_SetAdcInfo
 			break;
 		}
 	}
-	if((dUpdateInfo & MCDRV_ADCAGC_UPDATE_FLAG) != 0UL)
+	if ((dUpdateInfo & MCDRV_ADCAGC_UPDATE_FLAG) != 0UL)
 	{
-		if((psAdcInfo->bAgcOn == MCDRV_AGC_OFF) || (psAdcInfo->bAgcOn == MCDRV_AGC_ON))
+		if ((psAdcInfo->bAgcOn == MCDRV_AGC_OFF) || (psAdcInfo->bAgcOn == MCDRV_AGC_ON))
 		{
 			gsGlobalInfo.sAdcInfo.bAgcOn	= psAdcInfo->bAgcOn;
 		}
 	}
-	if((dUpdateInfo & MCDRV_ADCMONO_UPDATE_FLAG) != 0UL)
+	if ((dUpdateInfo & MCDRV_ADCMONO_UPDATE_FLAG) != 0UL)
 	{
-		if((psAdcInfo->bMono == MCDRV_ADC_STEREO) || (psAdcInfo->bMono == MCDRV_ADC_MONO))
+		if ((psAdcInfo->bMono == MCDRV_ADC_STEREO) || (psAdcInfo->bMono == MCDRV_ADC_MONO))
 		{
 			gsGlobalInfo.sAdcInfo.bMono	= psAdcInfo->bMono;
 		}
@@ -5236,7 +5236,7 @@ void	McResCtrl_SetSpInfo
 #endif
 
 
-	if((psSpInfo->bSwap == MCDRV_SPSWAP_OFF) || (psSpInfo->bSwap == MCDRV_SPSWAP_SWAP))
+	if ((psSpInfo->bSwap == MCDRV_SPSWAP_OFF) || (psSpInfo->bSwap == MCDRV_SPSWAP_SWAP))
 	{
 		gsGlobalInfo.sSpInfo.bSwap	= psSpInfo->bSwap;
 	}
@@ -5300,22 +5300,22 @@ void	McResCtrl_SetDngInfo
 
 	for(bItem = MCDRV_DNG_ITEM_HP; bItem <= MCDRV_DNG_ITEM_RC; bItem++)
 	{
-		if (bItem == MCDRV_DNG_ITEM_HP)
-		{
-			if (psDngInfo->abOnOff[bItem] == MCDRV_DNG_ON)
-			{
+		if (bItem == MCDRV_DNG_ITEM_HP) {
+
+			if (psDngInfo->abOnOff[bItem] == MCDRV_DNG_ON) {
+
 				gsGlobalInfo.sDngInfo.abOnOff[bItem] =  MCDRV_DNG_OFF;
 				return;
 			}
 		}
-		if((dUpdateInfo & (MCDRV_DNGSW_HP_UPDATE_FLAG<<(8*bItem))) != 0UL)
+		if ((dUpdateInfo & (MCDRV_DNGSW_HP_UPDATE_FLAG<<(8*bItem))) != 0UL)
 		{
-			if((psDngInfo->abOnOff[bItem] == MCDRV_DNG_OFF) || (psDngInfo->abOnOff[bItem] == MCDRV_DNG_ON))
+			if ((psDngInfo->abOnOff[bItem] == MCDRV_DNG_OFF) || (psDngInfo->abOnOff[bItem] == MCDRV_DNG_ON))
 			{
 				gsGlobalInfo.sDngInfo.abOnOff[bItem]	= psDngInfo->abOnOff[bItem];
 			}
 		}
-		if((dUpdateInfo & (MCDRV_DNGTHRES_HP_UPDATE_FLAG<<(8*bItem))) != 0UL)
+		if ((dUpdateInfo & (MCDRV_DNGTHRES_HP_UPDATE_FLAG<<(8*bItem))) != 0UL)
 		{
 			switch(psDngInfo->abThreshold[bItem])
 			{
@@ -5335,7 +5335,7 @@ void	McResCtrl_SetDngInfo
 				break;
 			}
 		}
-		if((dUpdateInfo & (MCDRV_DNGHOLD_HP_UPDATE_FLAG<<(8*bItem))) != 0UL)
+		if ((dUpdateInfo & (MCDRV_DNGHOLD_HP_UPDATE_FLAG<<(8*bItem))) != 0UL)
 		{
 			switch(psDngInfo->abHold[bItem])
 			{
@@ -5348,7 +5348,7 @@ void	McResCtrl_SetDngInfo
 				break;
 			}
 		}
-		if((dUpdateInfo & (MCDRV_DNGATK_HP_UPDATE_FLAG<<(8*bItem))) != 0UL)
+		if ((dUpdateInfo & (MCDRV_DNGATK_HP_UPDATE_FLAG<<(8*bItem))) != 0UL)
 		{
 			switch(psDngInfo->abAttack[bItem])
 			{
@@ -5362,7 +5362,7 @@ void	McResCtrl_SetDngInfo
 				break;
 			}
 		}
-		if((dUpdateInfo & (MCDRV_DNGREL_HP_UPDATE_FLAG<<(8*bItem))) != 0UL)
+		if ((dUpdateInfo & (MCDRV_DNGREL_HP_UPDATE_FLAG<<(8*bItem))) != 0UL)
 		{
 			switch(psDngInfo->abRelease[bItem])
 			{
@@ -5375,7 +5375,7 @@ void	McResCtrl_SetDngInfo
 				break;
 			}
 		}
-		if((dUpdateInfo & (MCDRV_DNGTARGET_HP_UPDATE_FLAG<<(8*bItem))) != 0UL)
+		if ((dUpdateInfo & (MCDRV_DNGTARGET_HP_UPDATE_FLAG<<(8*bItem))) != 0UL)
 		{
 			switch(psDngInfo->abTarget[bItem])
 			{
@@ -5448,73 +5448,65 @@ void	McResCtrl_SetAeInfo
 #endif
 
 
-	if((McDevProf_IsValid(eMCDRV_FUNC_DBEX) == 1)
+	if ((McDevProf_IsValid(eMCDRV_FUNC_DBEX) == 1)
 	&& ((dUpdateInfo & MCDRV_AEUPDATE_FLAG_BEXWIDE_ONOFF) != 0UL))
 	{
-		if((psAeInfo->bOnOff & MCDRV_BEXWIDE_ON) != 0)
+		if ((psAeInfo->bOnOff & MCDRV_BEXWIDE_ON) != 0)
 		{
 			gsGlobalInfo.sAeInfo.bOnOff	|= MCDRV_BEXWIDE_ON;
-		}
-		else
-		{
+		} else {
 			gsGlobalInfo.sAeInfo.bOnOff &= (UINT8)~MCDRV_BEXWIDE_ON;
 		}
 	}
-	if((dUpdateInfo & MCDRV_AEUPDATE_FLAG_DRC_ONOFF) != 0UL)
+	if ((dUpdateInfo & MCDRV_AEUPDATE_FLAG_DRC_ONOFF) != 0UL)
 	{
-		if((psAeInfo->bOnOff & MCDRV_DRC_ON) != 0)
+		if ((psAeInfo->bOnOff & MCDRV_DRC_ON) != 0)
 		{
 			gsGlobalInfo.sAeInfo.bOnOff	|= MCDRV_DRC_ON;
-		}
-		else
-		{
+		} else {
 			gsGlobalInfo.sAeInfo.bOnOff &= (UINT8)~MCDRV_DRC_ON;
 		}
 	}
-	if((dUpdateInfo & MCDRV_AEUPDATE_FLAG_EQ5_ONOFF) != 0UL)
+	if ((dUpdateInfo & MCDRV_AEUPDATE_FLAG_EQ5_ONOFF) != 0UL)
 	{
-		if((psAeInfo->bOnOff & MCDRV_EQ5_ON) != 0)
+		if ((psAeInfo->bOnOff & MCDRV_EQ5_ON) != 0)
 		{
 			gsGlobalInfo.sAeInfo.bOnOff	|= MCDRV_EQ5_ON;
-		}
-		else
-		{
+		} else {
 			gsGlobalInfo.sAeInfo.bOnOff &= (UINT8)~MCDRV_EQ5_ON;
 		}
 	}
-	if((dUpdateInfo & MCDRV_AEUPDATE_FLAG_EQ3_ONOFF) != 0UL)
+	if ((dUpdateInfo & MCDRV_AEUPDATE_FLAG_EQ3_ONOFF) != 0UL)
 	{
-		if((psAeInfo->bOnOff & MCDRV_EQ3_ON) != 0)
+		if ((psAeInfo->bOnOff & MCDRV_EQ3_ON) != 0)
 		{
 			gsGlobalInfo.sAeInfo.bOnOff	|= MCDRV_EQ3_ON;
-		}
-		else
-		{
+		} else {
 			gsGlobalInfo.sAeInfo.bOnOff &= (UINT8)~MCDRV_EQ3_ON;
 		}
 	}
 
-	if((dUpdateInfo & MCDRV_AEUPDATE_FLAG_BEX) != 0UL)
+	if ((dUpdateInfo & MCDRV_AEUPDATE_FLAG_BEX) != 0UL)
 	{
 		McSrv_MemCopy(psAeInfo->abBex, gsGlobalInfo.sAeInfo.abBex, BEX_PARAM_SIZE);
 	}
 
-	if((dUpdateInfo & MCDRV_AEUPDATE_FLAG_WIDE) != 0UL)
+	if ((dUpdateInfo & MCDRV_AEUPDATE_FLAG_WIDE) != 0UL)
 	{
 		McSrv_MemCopy(psAeInfo->abWide, gsGlobalInfo.sAeInfo.abWide, WIDE_PARAM_SIZE);
 	}
 
-	if((dUpdateInfo & MCDRV_AEUPDATE_FLAG_DRC) != 0UL)
+	if ((dUpdateInfo & MCDRV_AEUPDATE_FLAG_DRC) != 0UL)
 	{
 		McSrv_MemCopy(psAeInfo->abDrc, gsGlobalInfo.sAeInfo.abDrc, DRC_PARAM_SIZE);
 	}
 
-	if((dUpdateInfo & MCDRV_AEUPDATE_FLAG_EQ5) != 0UL)
+	if ((dUpdateInfo & MCDRV_AEUPDATE_FLAG_EQ5) != 0UL)
 	{
 		McSrv_MemCopy(psAeInfo->abEq5, gsGlobalInfo.sAeInfo.abEq5, EQ5_PARAM_SIZE);
 	}
 
-	if((dUpdateInfo & MCDRV_AEUPDATE_FLAG_EQ3) != 0UL)
+	if ((dUpdateInfo & MCDRV_AEUPDATE_FLAG_EQ3) != 0UL)
 	{
 		McSrv_MemCopy(psAeInfo->abEq3, gsGlobalInfo.sAeInfo.abEq3, EQ3_PARAM_SIZE);
 	}
@@ -5574,7 +5566,7 @@ void	McResCtrl_SetPdmInfo
 #endif
 
 
-	if((dUpdateInfo & MCDRV_PDMCLK_UPDATE_FLAG) != 0UL)
+	if ((dUpdateInfo & MCDRV_PDMCLK_UPDATE_FLAG) != 0UL)
 	{
 		switch(psPdmInfo->bClk)
 		{
@@ -5587,7 +5579,7 @@ void	McResCtrl_SetPdmInfo
 			break;
 		}
 	}
-	if((dUpdateInfo & MCDRV_PDMADJ_UPDATE_FLAG) != 0UL)
+	if ((dUpdateInfo & MCDRV_PDMADJ_UPDATE_FLAG) != 0UL)
 	{
 		switch(psPdmInfo->bAgcAdjust)
 		{
@@ -5601,7 +5593,7 @@ void	McResCtrl_SetPdmInfo
 			break;
 		}
 	}
-	if((dUpdateInfo & MCDRV_PDMAGC_UPDATE_FLAG) != 0UL)
+	if ((dUpdateInfo & MCDRV_PDMAGC_UPDATE_FLAG) != 0UL)
 	{
 		switch(psPdmInfo->bAgcOn)
 		{
@@ -5613,7 +5605,7 @@ void	McResCtrl_SetPdmInfo
 			break;
 		}
 	}
-	if((dUpdateInfo & MCDRV_PDMEDGE_UPDATE_FLAG) != 0UL)
+	if ((dUpdateInfo & MCDRV_PDMEDGE_UPDATE_FLAG) != 0UL)
 	{
 		switch(psPdmInfo->bPdmEdge)
 		{
@@ -5625,7 +5617,7 @@ void	McResCtrl_SetPdmInfo
 			break;
 		}
 	}
-	if((dUpdateInfo & MCDRV_PDMWAIT_UPDATE_FLAG) != 0UL)
+	if ((dUpdateInfo & MCDRV_PDMWAIT_UPDATE_FLAG) != 0UL)
 	{
 		switch(psPdmInfo->bPdmWait)
 		{
@@ -5639,7 +5631,7 @@ void	McResCtrl_SetPdmInfo
 			break;
 		}
 	}
-	if((dUpdateInfo & MCDRV_PDMSEL_UPDATE_FLAG) != 0UL)
+	if ((dUpdateInfo & MCDRV_PDMSEL_UPDATE_FLAG) != 0UL)
 	{
 		switch(psPdmInfo->bPdmSel)
 		{
@@ -5653,7 +5645,7 @@ void	McResCtrl_SetPdmInfo
 			break;
 		}
 	}
-	if((dUpdateInfo & MCDRV_PDMMONO_UPDATE_FLAG) != 0UL)
+	if ((dUpdateInfo & MCDRV_PDMMONO_UPDATE_FLAG) != 0UL)
 	{
 		switch(psPdmInfo->bMono)
 		{
@@ -5723,25 +5715,25 @@ void	McResCtrl_SetGPMode
 
 	for(bPad = 0; bPad < GPIO_PAD_NUM; bPad++)
 	{
-		if((psGpMode->abGpDdr[bPad] == MCDRV_GPDDR_IN)
+		if ((psGpMode->abGpDdr[bPad] == MCDRV_GPDDR_IN)
 		|| (psGpMode->abGpDdr[bPad] == MCDRV_GPDDR_OUT))
 		{
 			gsGlobalInfo.sGpMode.abGpDdr[bPad]	= psGpMode->abGpDdr[bPad];
 		}
-		if(McDevProf_IsValid(eMCDRV_FUNC_GPMODE) == 1)
+		if (McDevProf_IsValid(eMCDRV_FUNC_GPMODE) == 1)
 		{
-			if((psGpMode->abGpMode[bPad] == MCDRV_GPMODE_RISING)
+			if ((psGpMode->abGpMode[bPad] == MCDRV_GPMODE_RISING)
 			|| (psGpMode->abGpMode[bPad] == MCDRV_GPMODE_FALLING)
 			|| (psGpMode->abGpMode[bPad] == MCDRV_GPMODE_BOTH))
 			{
 				gsGlobalInfo.sGpMode.abGpMode[bPad]	= psGpMode->abGpMode[bPad];
 			}
-			if((psGpMode->abGpHost[bPad] == MCDRV_GPHOST_SCU)
+			if ((psGpMode->abGpHost[bPad] == MCDRV_GPHOST_SCU)
 			|| (psGpMode->abGpHost[bPad] == MCDRV_GPHOST_CDSP))
 			{
 				gsGlobalInfo.sGpMode.abGpHost[bPad]	= psGpMode->abGpHost[bPad];
 			}
-			if((psGpMode->abGpInvert[bPad] == MCDRV_GPINV_NORMAL)
+			if ((psGpMode->abGpInvert[bPad] == MCDRV_GPINV_NORMAL)
 			|| (psGpMode->abGpInvert[bPad] == MCDRV_GPINV_INVERT))
 			{
 				gsGlobalInfo.sGpMode.abGpInvert[bPad]	= psGpMode->abGpInvert[bPad];
@@ -5803,30 +5795,28 @@ void	McResCtrl_SetGPMask
 	McDebugLog_FuncIn("McResCtrl_SetGPMask");
 #endif
 
-	if(dPadNo == MCDRV_GP_PAD0)
+	if (dPadNo == MCDRV_GP_PAD0)
 	{
-		if((gsGlobalInfo.sInitInfo.bPad0Func == MCDRV_PAD_GPIO)
+		if ((gsGlobalInfo.sInitInfo.bPad0Func == MCDRV_PAD_GPIO)
 		&& (gsGlobalInfo.sGpMode.abGpDdr[dPadNo] == MCDRV_GPDDR_IN))
 		{
-			if((bMask == MCDRV_GPMASK_ON) || (bMask == MCDRV_GPMASK_OFF))
+			if ((bMask == MCDRV_GPMASK_ON) || (bMask == MCDRV_GPMASK_OFF))
 			{
 				gsGlobalInfo.abGpMask[dPadNo]	= bMask;
 			}
 		}
 	}
-	else if(dPadNo == MCDRV_GP_PAD1)
+	else if (dPadNo == MCDRV_GP_PAD1)
 	{
-		if((gsGlobalInfo.sInitInfo.bPad1Func == MCDRV_PAD_GPIO)
+		if ((gsGlobalInfo.sInitInfo.bPad1Func == MCDRV_PAD_GPIO)
 		&& (gsGlobalInfo.sGpMode.abGpDdr[dPadNo] == MCDRV_GPDDR_IN))
 		{
-			if((bMask == MCDRV_GPMASK_ON) || (bMask == MCDRV_GPMASK_OFF))
+			if ((bMask == MCDRV_GPMASK_ON) || (bMask == MCDRV_GPMASK_OFF))
 			{
 				gsGlobalInfo.abGpMask[dPadNo]	= bMask;
 			}
 		}
-	}
-	else
-	{
+	} else {
 	}
 
 #if (MCDRV_DEBUG_LEVEL>=4)
@@ -5923,15 +5913,15 @@ void	McResCtrl_SetSysEq
 	McDebugLog_FuncIn("McResCtrl_SetSysEq");
 #endif
 
-	if((dUpdateInfo & MCDRV_SYSEQ_ONOFF_UPDATE_FLAG) != 0UL)
+	if ((dUpdateInfo & MCDRV_SYSEQ_ONOFF_UPDATE_FLAG) != 0UL)
 	{
-		if((psSysEq->bOnOff == MCDRV_SYSEQ_OFF) || (psSysEq->bOnOff == MCDRV_SYSEQ_ON))
+		if ((psSysEq->bOnOff == MCDRV_SYSEQ_OFF) || (psSysEq->bOnOff == MCDRV_SYSEQ_ON))
 		{
 			gsGlobalInfo.sSysEq.bOnOff	= psSysEq->bOnOff;
 		}
 	}
 
-	if((dUpdateInfo & MCDRV_SYSEQ_PARAM_UPDATE_FLAG) != 0UL)
+	if ((dUpdateInfo & MCDRV_SYSEQ_PARAM_UPDATE_FLAG) != 0UL)
 	{
 		for(i = 0; i < sizeof(gsGlobalInfo.sSysEq.abParam); i++)
 		{
@@ -6026,87 +6016,71 @@ void	McResCtrl_GetVolReg
 
 	*psVolInfo	= gsGlobalInfo.sVolInfo;
 
-	if(gsGlobalInfo.sInitInfo.bDclGain == MCDRV_DCLGAIN_6)
+	if (gsGlobalInfo.sInitInfo.bDclGain == MCDRV_DCLGAIN_6)
 	{
 		swGainUp	= 6 * 256;
 	}
-	else if(gsGlobalInfo.sInitInfo.bDclGain == MCDRV_DCLGAIN_12)
+	else if (gsGlobalInfo.sInitInfo.bDclGain == MCDRV_DCLGAIN_12)
 	{
 		swGainUp	= 12 * 256;
 	}
-	else if(gsGlobalInfo.sInitInfo.bDclGain == MCDRV_DCLGAIN_18)
+	else if (gsGlobalInfo.sInitInfo.bDclGain == MCDRV_DCLGAIN_18)
 	{
 		swGainUp	= 18 * 256;
-	}
-	else
-	{
+	} else {
 		swGainUp	= 0;
 	}
 
 	psVolInfo->aswA_HpGain[0]	= MCDRV_REG_MUTE;
-	if(McResCtrl_IsDstUsed(eMCDRV_DST_HP, eMCDRV_DST_CH0) == 0)
+	if (McResCtrl_IsDstUsed(eMCDRV_DST_HP, eMCDRV_DST_CH0) == 0)
 	{
 		psVolInfo->aswA_Hp[0]	= MCDRV_REG_MUTE;
-	}
-	else
-	{
+	} else {
 		psVolInfo->aswA_Hp[0]		= GetHpVolReg(gsGlobalInfo.sVolInfo.aswA_Hp[0]);
 		psVolInfo->aswA_HpGain[0]	= GetHpGainReg(gsGlobalInfo.sVolInfo.aswA_HpGain[0]);
 	}
-	if(McResCtrl_IsDstUsed(eMCDRV_DST_HP, eMCDRV_DST_CH1) == 0)
+	if (McResCtrl_IsDstUsed(eMCDRV_DST_HP, eMCDRV_DST_CH1) == 0)
 	{
 		psVolInfo->aswA_Hp[1]	= MCDRV_REG_MUTE;
-	}
-	else
-	{
+	} else {
 		psVolInfo->aswA_Hp[1]	= GetHpVolReg(gsGlobalInfo.sVolInfo.aswA_Hp[1]);
 		psVolInfo->aswA_HpGain[0]	= GetHpGainReg(gsGlobalInfo.sVolInfo.aswA_HpGain[0]);
 	}
 
-	if(McResCtrl_IsDstUsed(eMCDRV_DST_SP, eMCDRV_DST_CH0) == 0)
+	if (McResCtrl_IsDstUsed(eMCDRV_DST_SP, eMCDRV_DST_CH0) == 0)
 	{
 		psVolInfo->aswA_Sp[0]	= MCDRV_REG_MUTE;
-	}
-	else
-	{
+	} else {
 		psVolInfo->aswA_Sp[0]	= GetSpVolReg(gsGlobalInfo.sVolInfo.aswA_Sp[0]);
 	}
-	if(McResCtrl_IsDstUsed(eMCDRV_DST_SP, eMCDRV_DST_CH1) == 0)
+	if (McResCtrl_IsDstUsed(eMCDRV_DST_SP, eMCDRV_DST_CH1) == 0)
 	{
 		psVolInfo->aswA_Sp[1]	= MCDRV_REG_MUTE;
-	}
-	else
-	{
+	} else {
 		psVolInfo->aswA_Sp[1]	= GetSpVolReg(gsGlobalInfo.sVolInfo.aswA_Sp[1]);
 	}
 
-	if(McResCtrl_IsDstUsed(eMCDRV_DST_RCV, eMCDRV_DST_CH0) == 0)
+	if (McResCtrl_IsDstUsed(eMCDRV_DST_RCV, eMCDRV_DST_CH0) == 0)
 	{
 		psVolInfo->aswA_Rc[0]	= MCDRV_REG_MUTE;
-	}
-	else
-	{
+	} else {
 		psVolInfo->aswA_Rc[0]	= GetRcVolReg(gsGlobalInfo.sVolInfo.aswA_Rc[0]);
 	}
 
-	if(McResCtrl_IsDstUsed(eMCDRV_DST_LOUT1, eMCDRV_DST_CH0) == 0)
+	if (McResCtrl_IsDstUsed(eMCDRV_DST_LOUT1, eMCDRV_DST_CH0) == 0)
 	{
 		psVolInfo->aswA_Lout1[0]	= MCDRV_REG_MUTE;
-	}
-	else
-	{
+	} else {
 		psVolInfo->aswA_Lout1[0]	= GetLoVolReg(gsGlobalInfo.sVolInfo.aswA_Lout1[0]);
 	}
-	if(McResCtrl_IsDstUsed(eMCDRV_DST_LOUT1, eMCDRV_DST_CH1) == 0)
+	if (McResCtrl_IsDstUsed(eMCDRV_DST_LOUT1, eMCDRV_DST_CH1) == 0)
 	{
 		psVolInfo->aswA_Lout1[1]	= MCDRV_REG_MUTE;
-	}
-	else
-	{
+	} else {
 		psVolInfo->aswA_Lout1[1]	= GetLoVolReg(gsGlobalInfo.sVolInfo.aswA_Lout1[1]);
 	}
 
-	if(McResCtrl_IsDstUsed(eMCDRV_DST_LOUT2, eMCDRV_DST_CH0) == 0)
+	if (McResCtrl_IsDstUsed(eMCDRV_DST_LOUT2, eMCDRV_DST_CH0) == 0)
 	{
 		psVolInfo->aswA_Lout2[0]	= MCDRV_REG_MUTE;
 	}
@@ -6114,7 +6088,7 @@ void	McResCtrl_GetVolReg
 	{
 		psVolInfo->aswA_Lout2[0]	= GetLoVolReg(gsGlobalInfo.sVolInfo.aswA_Lout2[0]);
 	}
-	if(McResCtrl_IsDstUsed(eMCDRV_DST_LOUT2, eMCDRV_DST_CH1) == 0)
+	if (McResCtrl_IsDstUsed(eMCDRV_DST_LOUT2, eMCDRV_DST_CH1) == 0)
 	{
 		psVolInfo->aswA_Lout2[1]	= MCDRV_REG_MUTE;
 	}
@@ -6125,7 +6099,7 @@ void	McResCtrl_GetVolReg
 
 	for(bCh = 0; bCh < AD0_VOL_CHANNELS; bCh++)
 	{
-		if(McResCtrl_IsDstUsed(eMCDRV_DST_ADC0, abDSTCh[bCh]) == 0)
+		if (McResCtrl_IsDstUsed(eMCDRV_DST_ADC0, abDSTCh[bCh]) == 0)
 		{/*	ADC0 source all off	*/
 			psVolInfo->aswA_Ad0[bCh]	= MCDRV_REG_MUTE;
 			psVolInfo->aswD_Ad0[bCh]	= MCDRV_REG_MUTE;
@@ -6136,7 +6110,7 @@ void	McResCtrl_GetVolReg
 			psVolInfo->aswD_Ad0[bCh]	= GetDigitalVolReg(gsGlobalInfo.sVolInfo.aswD_Ad0[bCh] - swGainUp);
 		}
 	}
-	if(((gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK] & MCDRV_SRC4_ADC0_ON) == MCDRV_SRC4_ADC0_ON)
+	if (((gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK] & MCDRV_SRC4_ADC0_ON) == MCDRV_SRC4_ADC0_ON)
 	|| ((gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK] & MCDRV_SRC4_PDM_ON) == MCDRV_SRC4_PDM_ON)
 	|| (((gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_AE_BLOCK] & MCDRV_SRC6_AE_ON) == MCDRV_SRC6_AE_ON)
 		&& ((McResCtrl_GetAESource() == eMCDRV_SRC_PDM) || (McResCtrl_GetAESource() == eMCDRV_SRC_ADC0))))
@@ -6154,9 +6128,9 @@ void	McResCtrl_GetVolReg
 		}
 	}
 
-	if(McDevProf_IsValid(eMCDRV_FUNC_ADC1) == 1)
+	if (McDevProf_IsValid(eMCDRV_FUNC_ADC1) == 1)
 	{
-		if(McResCtrl_IsDstUsed(eMCDRV_DST_ADC1, eMCDRV_DST_CH0) == 0)
+		if (McResCtrl_IsDstUsed(eMCDRV_DST_ADC1, eMCDRV_DST_CH0) == 0)
 		{/*	ADC1 source all off	*/
 			for(bCh = 0; bCh < AD1_VOL_CHANNELS; bCh++)
 			{
@@ -6172,7 +6146,7 @@ void	McResCtrl_GetVolReg
 				psVolInfo->aswD_Ad1[bCh]	= GetDigitalVolReg(gsGlobalInfo.sVolInfo.aswD_Ad1[bCh] - swGainUp);
 			}
 		}
-		if((gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_ADC1_BLOCK] & MCDRV_SRC4_ADC1_ON) == MCDRV_SRC4_ADC1_ON)
+		if ((gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_ADC1_BLOCK] & MCDRV_SRC4_ADC1_ON) == MCDRV_SRC4_ADC1_ON)
 		{
 			for(bCh = 0; bCh < AD1_VOL_CHANNELS; bCh++)
 			{
@@ -6188,7 +6162,7 @@ void	McResCtrl_GetVolReg
 		}
 	}
 
-	if(((gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK] & MCDRV_SRC1_LINE1_L_ON) == MCDRV_SRC1_LINE1_L_ON)
+	if (((gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK] & MCDRV_SRC1_LINE1_L_ON) == MCDRV_SRC1_LINE1_L_ON)
 	|| ((gsGlobalInfo.sPathInfo.asSpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK] & MCDRV_SRC1_LINE1_L_ON) == MCDRV_SRC1_LINE1_L_ON)
 	|| ((gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK] & MCDRV_SRC1_LINE1_L_ON) == MCDRV_SRC1_LINE1_L_ON)
 	|| ((gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK] & MCDRV_SRC1_LINE1_L_ON) == MCDRV_SRC1_LINE1_L_ON)
@@ -6208,7 +6182,7 @@ void	McResCtrl_GetVolReg
 		psVolInfo->aswA_Lin1[0]	= MCDRV_REG_MUTE;
 	}
 
-	if(((gsGlobalInfo.sPathInfo.asHpOut[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK] & MCDRV_SRC1_LINE1_R_ON) == MCDRV_SRC1_LINE1_R_ON)
+	if (((gsGlobalInfo.sPathInfo.asHpOut[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK] & MCDRV_SRC1_LINE1_R_ON) == MCDRV_SRC1_LINE1_R_ON)
 	|| ((gsGlobalInfo.sPathInfo.asSpOut[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK] & MCDRV_SRC1_LINE1_R_ON) == MCDRV_SRC1_LINE1_R_ON)
 	|| ((gsGlobalInfo.sPathInfo.asLout1[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK] & MCDRV_SRC1_LINE1_R_ON) == MCDRV_SRC1_LINE1_R_ON)
 	|| ((gsGlobalInfo.sPathInfo.asLout2[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK] & MCDRV_SRC1_LINE1_R_ON) == MCDRV_SRC1_LINE1_R_ON)
@@ -6227,13 +6201,13 @@ void	McResCtrl_GetVolReg
 		psVolInfo->aswA_Lin1[1]	= MCDRV_REG_MUTE;
 	}
 
-	if(McDevProf_IsValid(eMCDRV_FUNC_LI2) == 1)
+	if (McDevProf_IsValid(eMCDRV_FUNC_LI2) == 1)
 	{
 		psVolInfo->aswA_Lin2[0]	= MCDRV_REG_MUTE;
 		psVolInfo->aswA_Lin2[1]	= MCDRV_REG_MUTE;
 	}
 
-	if(McResCtrl_IsSrcUsed(eMCDRV_SRC_MIC1) == 0)
+	if (McResCtrl_IsSrcUsed(eMCDRV_SRC_MIC1) == 0)
 	{/*	MIC1 is unused	*/
 		for(bCh = 0; bCh < MIC1_VOL_CHANNELS; bCh++)
 		{
@@ -6245,7 +6219,7 @@ void	McResCtrl_GetVolReg
 	{
 		for(bCh = 0; bCh < MIC1_VOL_CHANNELS; bCh++)
 		{
-			if(((gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & MCDRV_SRC0_MIC1_ON) != MCDRV_SRC0_MIC1_ON)
+			if (((gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & MCDRV_SRC0_MIC1_ON) != MCDRV_SRC0_MIC1_ON)
 			&& ((gsGlobalInfo.sPathInfo.asHpOut[1].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & MCDRV_SRC0_MIC1_ON) != MCDRV_SRC0_MIC1_ON)
 			&& ((gsGlobalInfo.sPathInfo.asRcOut[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & MCDRV_SRC0_MIC1_ON) != MCDRV_SRC0_MIC1_ON)
 			&& ((gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & MCDRV_SRC0_MIC1_ON) != MCDRV_SRC0_MIC1_ON)
@@ -6262,7 +6236,7 @@ void	McResCtrl_GetVolReg
 			psVolInfo->aswA_Mic1Gain[bCh]	= GetMcGainReg(gsGlobalInfo.sVolInfo.aswA_Mic1Gain[bCh]);
 		}
 	}
-	if(McResCtrl_IsSrcUsed(eMCDRV_SRC_MIC2) == 0)
+	if (McResCtrl_IsSrcUsed(eMCDRV_SRC_MIC2) == 0)
 	{/*	MIC2 is unused	*/
 		for(bCh = 0; bCh < MIC2_VOL_CHANNELS; bCh++)
 		{
@@ -6274,7 +6248,7 @@ void	McResCtrl_GetVolReg
 	{
 		for(bCh = 0; bCh < MIC2_VOL_CHANNELS; bCh++)
 		{
-			if(((gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & MCDRV_SRC0_MIC2_ON) != MCDRV_SRC0_MIC2_ON)
+			if (((gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & MCDRV_SRC0_MIC2_ON) != MCDRV_SRC0_MIC2_ON)
 			&& ((gsGlobalInfo.sPathInfo.asHpOut[1].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & MCDRV_SRC0_MIC2_ON) != MCDRV_SRC0_MIC2_ON)
 			&& ((gsGlobalInfo.sPathInfo.asRcOut[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & MCDRV_SRC0_MIC2_ON) != MCDRV_SRC0_MIC2_ON)
 			&& ((gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & MCDRV_SRC0_MIC2_ON) != MCDRV_SRC0_MIC2_ON)
@@ -6291,7 +6265,7 @@ void	McResCtrl_GetVolReg
 			psVolInfo->aswA_Mic2Gain[bCh]	= GetMcGainReg(gsGlobalInfo.sVolInfo.aswA_Mic2Gain[bCh]);
 		}
 	}
-	if(McResCtrl_IsSrcUsed(eMCDRV_SRC_MIC3) == 0)
+	if (McResCtrl_IsSrcUsed(eMCDRV_SRC_MIC3) == 0)
 	{/*	MIC3 is unused	*/
 		for(bCh = 0; bCh < MIC3_VOL_CHANNELS; bCh++)
 		{
@@ -6303,7 +6277,7 @@ void	McResCtrl_GetVolReg
 	{
 		for(bCh = 0; bCh < MIC3_VOL_CHANNELS; bCh++)
 		{
-			if(((gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & MCDRV_SRC0_MIC3_ON) != MCDRV_SRC0_MIC3_ON)
+			if (((gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & MCDRV_SRC0_MIC3_ON) != MCDRV_SRC0_MIC3_ON)
 			&& ((gsGlobalInfo.sPathInfo.asHpOut[1].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & MCDRV_SRC0_MIC3_ON) != MCDRV_SRC0_MIC3_ON)
 			&& ((gsGlobalInfo.sPathInfo.asRcOut[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & MCDRV_SRC0_MIC3_ON) != MCDRV_SRC0_MIC3_ON)
 			&& ((gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & MCDRV_SRC0_MIC3_ON) != MCDRV_SRC0_MIC3_ON)
@@ -6321,7 +6295,7 @@ void	McResCtrl_GetVolReg
 		}
 	}
 
-	if(McResCtrl_IsSrcUsed(eMCDRV_SRC_DIR0) == 0)
+	if (McResCtrl_IsSrcUsed(eMCDRV_SRC_DIR0) == 0)
 	{/*	DIR0 is unused	*/
 		for(bCh = 0; bCh < DIO0_VOL_CHANNELS; bCh++)
 		{
@@ -6335,7 +6309,7 @@ void	McResCtrl_GetVolReg
 			psVolInfo->aswD_Dir0[bCh]		= GetDigitalVolReg(gsGlobalInfo.sVolInfo.aswD_Dir0[bCh] - swGainUp);
 		}
 	}
-	if(((gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK] & MCDRV_SRC3_DIR0_ON) == MCDRV_SRC3_DIR0_ON)
+	if (((gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK] & MCDRV_SRC3_DIR0_ON) == MCDRV_SRC3_DIR0_ON)
 	|| (((gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_AE_BLOCK] & MCDRV_SRC6_AE_ON) == MCDRV_SRC6_AE_ON)
 		&& (McResCtrl_GetAESource() == eMCDRV_SRC_DIR0)))
 	{
@@ -6351,7 +6325,7 @@ void	McResCtrl_GetVolReg
 			psVolInfo->aswD_Dir0Att[bCh]	= MCDRV_REG_MUTE;
 		}
 	}
-	if(McResCtrl_IsSrcUsed(eMCDRV_SRC_DIR1) == 0)
+	if (McResCtrl_IsSrcUsed(eMCDRV_SRC_DIR1) == 0)
 	{/*	DIR1 is unused	*/
 		for(bCh = 0; bCh < DIO1_VOL_CHANNELS; bCh++)
 		{
@@ -6365,7 +6339,7 @@ void	McResCtrl_GetVolReg
 			psVolInfo->aswD_Dir1[bCh]		= GetDigitalVolReg(gsGlobalInfo.sVolInfo.aswD_Dir1[bCh] - swGainUp);
 		}
 	}
-	if(((gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK] & MCDRV_SRC3_DIR1_ON) == MCDRV_SRC3_DIR1_ON)
+	if (((gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK] & MCDRV_SRC3_DIR1_ON) == MCDRV_SRC3_DIR1_ON)
 	|| (((gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_AE_BLOCK] & MCDRV_SRC6_AE_ON) == MCDRV_SRC6_AE_ON)
 		&& (McResCtrl_GetAESource() == eMCDRV_SRC_DIR1)))
 	{
@@ -6381,7 +6355,7 @@ void	McResCtrl_GetVolReg
 			psVolInfo->aswD_Dir1Att[bCh]	= MCDRV_REG_MUTE;
 		}
 	}
-	if(McResCtrl_IsSrcUsed(eMCDRV_SRC_DIR2) == 0)
+	if (McResCtrl_IsSrcUsed(eMCDRV_SRC_DIR2) == 0)
 	{/*	DIR2 is unused	*/
 		for(bCh = 0; bCh < DIO2_VOL_CHANNELS; bCh++)
 		{
@@ -6395,7 +6369,7 @@ void	McResCtrl_GetVolReg
 			psVolInfo->aswD_Dir2[bCh]		= GetDigitalVolReg(gsGlobalInfo.sVolInfo.aswD_Dir2[bCh] - swGainUp);
 		}
 	}
-	if(((gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK] & MCDRV_SRC3_DIR2_ON) == MCDRV_SRC3_DIR2_ON)
+	if (((gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK] & MCDRV_SRC3_DIR2_ON) == MCDRV_SRC3_DIR2_ON)
 	|| (((gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_AE_BLOCK] & MCDRV_SRC6_AE_ON) == MCDRV_SRC6_AE_ON)
 		&& (McResCtrl_GetAESource() == eMCDRV_SRC_DIR2)))
 	{
@@ -6412,7 +6386,7 @@ void	McResCtrl_GetVolReg
 		}
 	}
 
-	if(McResCtrl_GetDITSource(eMCDRV_DIO_0) == eMCDRV_SRC_NONE)
+	if (McResCtrl_GetDITSource(eMCDRV_DIO_0) == eMCDRV_SRC_NONE)
 	{/*	DIT0 source all off	*/
 		for(bCh = 0; bCh < DIO0_VOL_CHANNELS; bCh++)
 		{
@@ -6426,7 +6400,7 @@ void	McResCtrl_GetVolReg
 			psVolInfo->aswD_Dit0[bCh]	= GetDigitalVolReg(gsGlobalInfo.sVolInfo.aswD_Dit0[bCh] + swGainUp);
 		}
 	}
-	if(McResCtrl_GetDITSource(eMCDRV_DIO_1) == eMCDRV_SRC_NONE)
+	if (McResCtrl_GetDITSource(eMCDRV_DIO_1) == eMCDRV_SRC_NONE)
 	{/*	DIT1 source all off	*/
 		for(bCh = 0; bCh < DIO1_VOL_CHANNELS; bCh++)
 		{
@@ -6440,7 +6414,7 @@ void	McResCtrl_GetVolReg
 			psVolInfo->aswD_Dit1[bCh]	= GetDigitalVolReg(gsGlobalInfo.sVolInfo.aswD_Dit1[bCh] + swGainUp);
 		}
 	}
-	if(McResCtrl_GetDITSource(eMCDRV_DIO_2) == eMCDRV_SRC_NONE)
+	if (McResCtrl_GetDITSource(eMCDRV_DIO_2) == eMCDRV_SRC_NONE)
 	{/*	DIT2 source all off	*/
 		for(bCh = 0; bCh < DIO2_VOL_CHANNELS; bCh++)
 		{
@@ -6455,7 +6429,7 @@ void	McResCtrl_GetVolReg
 		}
 	}
 
-	if((McResCtrl_GetDACSource(eMCDRV_DAC_MASTER) == eMCDRV_SRC_NONE)
+	if ((McResCtrl_GetDACSource(eMCDRV_DAC_MASTER) == eMCDRV_SRC_NONE)
 	&& (McResCtrl_GetDACSource(eMCDRV_DAC_VOICE) == eMCDRV_SRC_NONE))
 	{
 		for(bCh = 0; bCh < DAC_VOL_CHANNELS; bCh++)
@@ -6467,7 +6441,7 @@ void	McResCtrl_GetVolReg
 	}
 	else
 	{
-		if(McResCtrl_GetDACSource(eMCDRV_DAC_MASTER) == eMCDRV_SRC_NONE)
+		if (McResCtrl_GetDACSource(eMCDRV_DAC_MASTER) == eMCDRV_SRC_NONE)
 		{
 			for(bCh = 0; bCh < DAC_VOL_CHANNELS; bCh++)
 			{
@@ -6481,7 +6455,7 @@ void	McResCtrl_GetVolReg
 				psVolInfo->aswD_DacMaster[bCh]	= GetDigitalVolReg(gsGlobalInfo.sVolInfo.aswD_DacMaster[bCh]);
 			}
 		}
-		if(McResCtrl_GetDACSource(eMCDRV_DAC_VOICE) == eMCDRV_SRC_NONE)
+		if (McResCtrl_GetDACSource(eMCDRV_DAC_VOICE) == eMCDRV_SRC_NONE)
 		{
 			for(bCh = 0; bCh < DAC_VOL_CHANNELS; bCh++)
 			{
@@ -6501,7 +6475,7 @@ void	McResCtrl_GetVolReg
 		}
 	}
 
-	if((McResCtrl_IsSrcUsed(eMCDRV_SRC_PDM) == 0)
+	if ((McResCtrl_IsSrcUsed(eMCDRV_SRC_PDM) == 0)
 	&& (McResCtrl_IsSrcUsed(eMCDRV_SRC_ADC0) == 0))
 	{/*	PDM&ADC0 is unused	*/
 		for(bCh = 0; bCh < AENG6_VOL_CHANNELS; bCh++)
@@ -6517,7 +6491,7 @@ void	McResCtrl_GetVolReg
 		}
 	}
 
-	if(McResCtrl_IsSrcUsed(eMCDRV_SRC_PDM) == 0)
+	if (McResCtrl_IsSrcUsed(eMCDRV_SRC_PDM) == 0)
 	{/*	PDM is unused	*/
 		for(bCh = 0; bCh < PDM_VOL_CHANNELS; bCh++)
 		{
@@ -6534,7 +6508,7 @@ void	McResCtrl_GetVolReg
 		}
 	}
 
-	if(McDevProf_IsValid(eMCDRV_FUNC_DTMF) == 1)
+	if (McDevProf_IsValid(eMCDRV_FUNC_DTMF) == 1)
 	{
 		/*	DTMF	*/
 		for(bCh = 0; bCh < DTMF_VOL_CHANNELS; bCh++)
@@ -6572,11 +6546,11 @@ static SINT16	GetDigitalVolReg
 	McDebugLog_FuncIn("GetDigitalVolReg");
 #endif
 
-	if(swVol < (-74*256))
+	if (swVol < (-74*256))
 	{
 		swRet	= 0;
 	}
-	else if(swVol < 0)
+	else if (swVol < 0)
 	{
 		swRet	= 96 + (swVol-128)/256;
 	}
@@ -6585,12 +6559,12 @@ static SINT16	GetDigitalVolReg
 		swRet	= 96 + (swVol+128)/256;
 	}
 
-	if(swRet < 22)
+	if (swRet < 22)
 	{
 		swRet	= 0;
 	}
 
-	if(swRet > 114)
+	if (swRet > 114)
 	{
 		swRet	= 114;
 	}
@@ -6626,11 +6600,11 @@ static SINT16	GetADVolReg
 	McDebugLog_FuncIn("GetADVolReg");
 #endif
 
-	if(swVol < (-27*256))
+	if (swVol < (-27*256))
 	{
 		swRet	= 0;
 	}
-	else if(swVol < 0)
+	else if (swVol < 0)
 	{
 		swRet	= 19 + (swVol-192) * 2 / (256*3);
 	}
@@ -6639,12 +6613,12 @@ static SINT16	GetADVolReg
 		swRet	= 19 + (swVol+192) * 2 / (256*3);
 	}
 
-	if(swRet < 0)
+	if (swRet < 0)
 	{
 		swRet	= 0;
 	}
 
-	if(swRet > 31)
+	if (swRet > 31)
 	{
 		swRet	= 31;
 	}
@@ -6680,11 +6654,11 @@ static SINT16	GetLIVolReg
 	McDebugLog_FuncIn("GetLIVolReg");
 #endif
 
-	if(swVol < (-30*256))
+	if (swVol < (-30*256))
 	{
 		swRet	= 0;
 	}
-	else if(swVol < 0)
+	else if (swVol < 0)
 	{
 		swRet	= 21 + (swVol-192) * 2 / (256*3);
 	}
@@ -6693,11 +6667,11 @@ static SINT16	GetLIVolReg
 		swRet	= 21 + (swVol+192) * 2 / (256*3);
 	}
 
-	if(swRet < 0)
+	if (swRet < 0)
 	{
 		swRet	= 0;
 	}
-	if(swRet > 31)
+	if (swRet > 31)
 	{
 		swRet	= 31;
 	}
@@ -6732,11 +6706,11 @@ static SINT16	GetMcVolReg
 	McDebugLog_FuncIn("GetMcVolReg");
 #endif
 
-	if(swVol < (-30*256))
+	if (swVol < (-30*256))
 	{
 		swRet	= 0;
 	}
-	else if(swVol < 0)
+	else if (swVol < 0)
 	{
 		swRet	= 21 + (swVol-192) * 2 / (256*3);
 	}
@@ -6745,11 +6719,11 @@ static SINT16	GetMcVolReg
 		swRet	= 21 + (swVol+192) * 2 / (256*3);
 	}
 
-	if(swRet < 0)
+	if (swRet < 0)
 	{
 		swRet	= 0;
 	}
-	if(swRet > 31)
+	if (swRet > 31)
 	{
 		swRet	= 31;
 	}
@@ -6785,15 +6759,15 @@ static SINT16	GetMcGainReg
 	McDebugLog_FuncIn("GetMcGainReg");
 #endif
 
-	if(swGain < 18)
+	if (swGain < 18)
 	{
 		swRet	= 0;
 	}
-	else if(swGain < 23)
+	else if (swGain < 23)
 	{
 		swRet	= 1;
 	}
-	else if(swGain < 28)
+	else if (swGain < 28)
 	{
 		swRet	= 2;
 	}
@@ -6833,37 +6807,37 @@ static SINT16	GetHpVolReg
 	McDebugLog_FuncIn("GetHpVolReg");
 #endif
 
-	if(swVol >= 0)
+	if (swVol >= 0)
 	{
 		swRet	= 31;
 	}
-	else if(swDB <= -8)
+	else if (swDB <= -8)
 	{
-		if(swVol < (-36*256))
+		if (swVol < (-36*256))
 		{
 			swRet	= 0;
 		}
-		else if(swDB <= -32)
+		else if (swDB <= -32)
 		{
 			swRet	= 1;
 		}
-		else if(swDB <= -26)
+		else if (swDB <= -26)
 		{
 			swRet	= 2;
 		}
-		else if(swDB <= -23)
+		else if (swDB <= -23)
 		{
 			swRet	= 3;
 		}
-		else if(swDB <= -21)
+		else if (swDB <= -21)
 		{
 			swRet	= 4;
 		}
-		else if(swDB <= -19)
+		else if (swDB <= -19)
 		{
 			swRet	= 5;
 		}
-		else if(swDB <= -17)
+		else if (swDB <= -17)
 		{
 			swRet	= 6;
 		}
@@ -6909,15 +6883,15 @@ static SINT16	GetHpGainReg
 	McDebugLog_FuncIn("GetHpGainReg");
 #endif
 
-	if(swDB < 3)
+	if (swDB < 3)
 	{
 		swRet	= 0;
 	}
-	else if(swDB < 9)
+	else if (swDB < 9)
 	{
 		swRet	= 1;
 	}
-	else if(swDB < 18)
+	else if (swDB < 18)
 	{
 		swRet	= 2;
 	}
@@ -6958,37 +6932,37 @@ static SINT16	GetSpVolReg
 	McDebugLog_FuncIn("GetSpVolReg");
 #endif
 
-	if(swVol >= 0)
+	if (swVol >= 0)
 	{
 		swRet	= 31;
 	}
-	else if(swDB <= -8)
+	else if (swDB <= -8)
 	{
-		if(swVol < (-36*256))
+		if (swVol < (-36*256))
 		{
 			swRet	= 0;
 		}
-		else if(swDB <= -32)
+		else if (swDB <= -32)
 		{
 			swRet	= 1;
 		}
-		else if(swDB <= -26)
+		else if (swDB <= -26)
 		{
 			swRet	= 2;
 		}
-		else if(swDB <= -23)
+		else if (swDB <= -23)
 		{
 			swRet	= 3;
 		}
-		else if(swDB <= -21)
+		else if (swDB <= -21)
 		{
 			swRet	= 4;
 		}
-		else if(swDB <= -19)
+		else if (swDB <= -19)
 		{
 			swRet	= 5;
 		}
-		else if(swDB <= -17)
+		else if (swDB <= -17)
 		{
 			swRet	= 6;
 		}
@@ -7034,37 +7008,37 @@ static SINT16	GetRcVolReg
 	McDebugLog_FuncIn("GetRcVolReg");
 #endif
 
-	if(swVol >= 0)
+	if (swVol >= 0)
 	{
 		swRet	= 31;
 	}
-	else if(swDB <= -8)
+	else if (swDB <= -8)
 	{
-		if(swVol < (-36*256))
+		if (swVol < (-36*256))
 		{
 			swRet	= 0;
 		}
-		else if(swDB <= -32)
+		else if (swDB <= -32)
 		{
 			swRet	= 1;
 		}
-		else if(swDB <= -26)
+		else if (swDB <= -26)
 		{
 			swRet	= 2;
 		}
-		else if(swDB <= -23)
+		else if (swDB <= -23)
 		{
 			swRet	= 3;
 		}
-		else if(swDB <= -21)
+		else if (swDB <= -21)
 		{
 			swRet	= 4;
 		}
-		else if(swDB <= -19)
+		else if (swDB <= -19)
 		{
 			swRet	= 5;
 		}
-		else if(swDB <= -17)
+		else if (swDB <= -17)
 		{
 			swRet	= 6;
 		}
@@ -7109,15 +7083,15 @@ static SINT16	GetLoVolReg
 	McDebugLog_FuncIn("GetLoVolReg");
 #endif
 
-	if(swVol < (-30*256))
+	if (swVol < (-30*256))
 	{
 		swRet	= 0;
 	}
-	if(swRet < 0)
+	if (swRet < 0)
 	{
 		swRet	= 0;
 	}
-	if(swRet > 31)
+	if (swRet > 31)
 	{
 		swRet	= 31;
 	}
@@ -7155,11 +7129,11 @@ void	McResCtrl_GetPowerInfo
 
 	/*	Digital power	*/
 	psPowerInfo->dDigital	= 0;
-	if((bPowerMode & MCDRV_POWMODE_CLKON) == 0)
+	if ((bPowerMode & MCDRV_POWMODE_CLKON) == 0)
 	{
 		psPowerInfo->dDigital |= (MCDRV_POWINFO_DIGITAL_DP0 | MCDRV_POWINFO_DIGITAL_DP1 | MCDRV_POWINFO_DIGITAL_DP2 | MCDRV_POWINFO_DIGITAL_PLLRST0);
 	}
-	if((McResCtrl_GetDITSource(eMCDRV_DIO_0)	!= eMCDRV_SRC_NONE)
+	if ((McResCtrl_GetDITSource(eMCDRV_DIO_0)	!= eMCDRV_SRC_NONE)
 	|| (McResCtrl_GetDITSource(eMCDRV_DIO_1)	!= eMCDRV_SRC_NONE)
 	|| (McResCtrl_GetDITSource(eMCDRV_DIO_2)	!= eMCDRV_SRC_NONE)
 	|| (McResCtrl_IsSrcUsed(eMCDRV_SRC_DAC_L)	!= 0)
@@ -7178,36 +7152,36 @@ void	McResCtrl_GetPowerInfo
 	}
 
 	/*	DPBDSP	*/
-	if((McResCtrl_IsSrcUsed(eMCDRV_SRC_AE) == 0)
+	if ((McResCtrl_IsSrcUsed(eMCDRV_SRC_AE) == 0)
 	|| ((gsGlobalInfo.sAeInfo.bOnOff&(MCDRV_BEXWIDE_ON|MCDRV_DRC_ON)) == 0))
 	{
 		psPowerInfo->dDigital |= MCDRV_POWINFO_DIGITAL_DPBDSP;
 	}
 
 	/*	DPADIF	*/
-	if(McResCtrl_IsSrcUsed(eMCDRV_SRC_ADC0) == 0)
+	if (McResCtrl_IsSrcUsed(eMCDRV_SRC_ADC0) == 0)
 	{
 		psPowerInfo->dDigital |= MCDRV_POWINFO_DIGITAL_DPADIF;
 	}
 
 	/*	DPPDM	*/
-	if((gsGlobalInfo.sInitInfo.bPad0Func != MCDRV_PAD_PDMCK) || (McResCtrl_IsSrcUsed(eMCDRV_SRC_PDM) == 0))
+	if ((gsGlobalInfo.sInitInfo.bPad0Func != MCDRV_PAD_PDMCK) || (McResCtrl_IsSrcUsed(eMCDRV_SRC_PDM) == 0))
 	{
 		psPowerInfo->dDigital |= MCDRV_POWINFO_DIGITAL_DPPDM;
 	}
 
 	/*	DPDI*	*/
-	if((gsGlobalInfo.sDioInfo.asPortInfo[0].sDioCommon.bMasterSlave == MCDRV_DIO_SLAVE)
+	if ((gsGlobalInfo.sDioInfo.asPortInfo[0].sDioCommon.bMasterSlave == MCDRV_DIO_SLAVE)
 	|| (((McResCtrl_IsSrcUsed(eMCDRV_SRC_DIR0) == 0) && (McResCtrl_GetDITSource(eMCDRV_DIO_0) == eMCDRV_SRC_NONE))))
 	{
 		psPowerInfo->dDigital |= MCDRV_POWINFO_DIGITAL_DPDI0;
 	}
-	if((gsGlobalInfo.sDioInfo.asPortInfo[1].sDioCommon.bMasterSlave == MCDRV_DIO_SLAVE)
+	if ((gsGlobalInfo.sDioInfo.asPortInfo[1].sDioCommon.bMasterSlave == MCDRV_DIO_SLAVE)
 	|| (((McResCtrl_IsSrcUsed(eMCDRV_SRC_DIR1) == 0) && (McResCtrl_GetDITSource(eMCDRV_DIO_1) == eMCDRV_SRC_NONE))))
 	{
 		psPowerInfo->dDigital |= MCDRV_POWINFO_DIGITAL_DPDI1;
 	}
-	if((gsGlobalInfo.sDioInfo.asPortInfo[2].sDioCommon.bMasterSlave == MCDRV_DIO_SLAVE)
+	if ((gsGlobalInfo.sDioInfo.asPortInfo[2].sDioCommon.bMasterSlave == MCDRV_DIO_SLAVE)
 	|| (((McResCtrl_IsSrcUsed(eMCDRV_SRC_DIR2) == 0) && (McResCtrl_GetDITSource(eMCDRV_DIO_2) == eMCDRV_SRC_NONE))))
 	{
 		psPowerInfo->dDigital |= MCDRV_POWINFO_DIGITAL_DPDI2;
@@ -7220,7 +7194,7 @@ void	McResCtrl_GetPowerInfo
 	}
 
 	/*	SPL*	*/
-	if(McResCtrl_IsDstUsed(eMCDRV_DST_SP, eMCDRV_DST_CH0) == 0)
+	if (McResCtrl_IsDstUsed(eMCDRV_DST_SP, eMCDRV_DST_CH0) == 0)
 	{
 		psPowerInfo->abAnalog[1] |= MCB_PWM_SPL1;
 		psPowerInfo->abAnalog[1] |= MCB_PWM_SPL2;
@@ -7230,7 +7204,7 @@ void	McResCtrl_GetPowerInfo
 		bAnalogOn	= 1;
 	}
 	/*	SPR*	*/
-	if(McResCtrl_IsDstUsed(eMCDRV_DST_SP, eMCDRV_DST_CH1) == 0)
+	if (McResCtrl_IsDstUsed(eMCDRV_DST_SP, eMCDRV_DST_CH1) == 0)
 	{
 		psPowerInfo->abAnalog[1] |= MCB_PWM_SPR1;
 		psPowerInfo->abAnalog[1] |= MCB_PWM_SPR2;
@@ -7241,7 +7215,7 @@ void	McResCtrl_GetPowerInfo
 	}
 
 	/*	HPL	*/
-	if(McResCtrl_IsDstUsed(eMCDRV_DST_HP, eMCDRV_DST_CH0) == 0)
+	if (McResCtrl_IsDstUsed(eMCDRV_DST_HP, eMCDRV_DST_CH0) == 0)
 	{
 		psPowerInfo->abAnalog[1] |= MCB_PWM_HPL;
 	}
@@ -7250,7 +7224,7 @@ void	McResCtrl_GetPowerInfo
 		bAnalogOn	= 1;
 	}
 	/*	HPR	*/
-	if(McResCtrl_IsDstUsed(eMCDRV_DST_HP, eMCDRV_DST_CH1) == 0)
+	if (McResCtrl_IsDstUsed(eMCDRV_DST_HP, eMCDRV_DST_CH1) == 0)
 	{
 		psPowerInfo->abAnalog[1] |= MCB_PWM_HPR;
 	}
@@ -7259,13 +7233,13 @@ void	McResCtrl_GetPowerInfo
 		bAnalogOn	= 1;
 	}
 	/*	CP	*/
-	if(((psPowerInfo->abAnalog[1] & MCB_PWM_HPL) != 0) && ((psPowerInfo->abAnalog[1] & MCB_PWM_HPR) != 0))
+	if (((psPowerInfo->abAnalog[1] & MCB_PWM_HPL) != 0) && ((psPowerInfo->abAnalog[1] & MCB_PWM_HPR) != 0))
 	{
 		psPowerInfo->abAnalog[0] |= MCB_PWM_CP;
 	}
 
 	/*	LOUT1L	*/
-	if(McResCtrl_IsDstUsed(eMCDRV_DST_LOUT1, eMCDRV_DST_CH0) == 0)
+	if (McResCtrl_IsDstUsed(eMCDRV_DST_LOUT1, eMCDRV_DST_CH0) == 0)
 	{
 		psPowerInfo->abAnalog[2] |= MCB_PWM_LO1L;
 	}
@@ -7274,7 +7248,7 @@ void	McResCtrl_GetPowerInfo
 		bAnalogOn	= 1;
 	}
 	/*	LOUT1R	*/
-	if(McResCtrl_IsDstUsed(eMCDRV_DST_LOUT1, eMCDRV_DST_CH1) == 0)
+	if (McResCtrl_IsDstUsed(eMCDRV_DST_LOUT1, eMCDRV_DST_CH1) == 0)
 	{
 		psPowerInfo->abAnalog[2] |= MCB_PWM_LO1R;
 	}
@@ -7283,7 +7257,7 @@ void	McResCtrl_GetPowerInfo
 		bAnalogOn	= 1;
 	}
 	/*	LOUT2L	*/
-	if(McResCtrl_IsDstUsed(eMCDRV_DST_LOUT2, eMCDRV_DST_CH0) == 0)
+	if (McResCtrl_IsDstUsed(eMCDRV_DST_LOUT2, eMCDRV_DST_CH0) == 0)
 	{
 		psPowerInfo->abAnalog[2] |= MCB_PWM_LO2L;
 	}
@@ -7292,7 +7266,7 @@ void	McResCtrl_GetPowerInfo
 		bAnalogOn	= 1;
 	}
 	/*	LOUT2R	*/
-	if(McResCtrl_IsDstUsed(eMCDRV_DST_LOUT2, eMCDRV_DST_CH1) == 0)
+	if (McResCtrl_IsDstUsed(eMCDRV_DST_LOUT2, eMCDRV_DST_CH1) == 0)
 	{
 		psPowerInfo->abAnalog[2] |= MCB_PWM_LO2R;
 	}
@@ -7301,7 +7275,7 @@ void	McResCtrl_GetPowerInfo
 		bAnalogOn	= 1;
 	}
 	/*	RCV	*/
-	if(McResCtrl_IsDstUsed(eMCDRV_DST_RCV, eMCDRV_DST_CH0) == 0)
+	if (McResCtrl_IsDstUsed(eMCDRV_DST_RCV, eMCDRV_DST_CH0) == 0)
 	{
 		psPowerInfo->abAnalog[2] |= MCB_PWM_RC1;
 		psPowerInfo->abAnalog[2] |= MCB_PWM_RC2;
@@ -7311,7 +7285,7 @@ void	McResCtrl_GetPowerInfo
 		bAnalogOn	= 1;
 	}
 	/*	DA	*/
-	if((McResCtrl_IsDstUsed(eMCDRV_DST_DAC, eMCDRV_DST_CH0) == 0)
+	if ((McResCtrl_IsDstUsed(eMCDRV_DST_DAC, eMCDRV_DST_CH0) == 0)
 	&& (McResCtrl_IsDstUsed(eMCDRV_DST_DAC, eMCDRV_DST_CH1) == 0))
 	{
 		psPowerInfo->abAnalog[3] |= MCB_PWM_DAL;
@@ -7319,12 +7293,12 @@ void	McResCtrl_GetPowerInfo
 	}
 	else
 	{
-		if((McResCtrl_IsSrcUsed(eMCDRV_SRC_DAC_L) == 0)
+		if ((McResCtrl_IsSrcUsed(eMCDRV_SRC_DAC_L) == 0)
 		&& (McResCtrl_IsSrcUsed(eMCDRV_SRC_DAC_M) == 0))
 		{
 			psPowerInfo->abAnalog[3] |= MCB_PWM_DAL;
 		}
-		if((McResCtrl_IsSrcUsed(eMCDRV_SRC_DAC_R) == 0)
+		if ((McResCtrl_IsSrcUsed(eMCDRV_SRC_DAC_R) == 0)
 		&& (McResCtrl_IsSrcUsed(eMCDRV_SRC_DAC_M) == 0))
 		{
 			psPowerInfo->abAnalog[3] |= MCB_PWM_DAR;
@@ -7332,13 +7306,13 @@ void	McResCtrl_GetPowerInfo
 		bAnalogOn	= 1;
 	}
 	/*	ADC0L	*/
-	if(McResCtrl_IsDstUsed(eMCDRV_DST_ADC0, eMCDRV_DST_CH0) == 1)
+	if (McResCtrl_IsDstUsed(eMCDRV_DST_ADC0, eMCDRV_DST_CH0) == 1)
 	{
 		bAnalogOn	= 1;
 	}
 	else
 	{
-		if((McDevProf_IsValid(eMCDRV_FUNC_LI2) == 1)
+		if ((McDevProf_IsValid(eMCDRV_FUNC_LI2) == 1)
 		&& (((gsGlobalInfo.sPathInfo.asAdc0[0].abSrcOnOff[MCDRV_SRC_LINE2_L_BLOCK] & MCDRV_SRC2_LINE2_L_ON) == MCDRV_SRC2_LINE2_L_ON)
 			|| ((gsGlobalInfo.sPathInfo.asAdc0[0].abSrcOnOff[MCDRV_SRC_LINE2_M_BLOCK] & MCDRV_SRC2_LINE2_M_ON) == MCDRV_SRC2_LINE2_M_ON)))
 		{
@@ -7350,13 +7324,13 @@ void	McResCtrl_GetPowerInfo
 		}
 	}
 	/*	ADC0R	*/
-	if(McResCtrl_IsDstUsed(eMCDRV_DST_ADC0, eMCDRV_DST_CH1) == 1)
+	if (McResCtrl_IsDstUsed(eMCDRV_DST_ADC0, eMCDRV_DST_CH1) == 1)
 	{
 		bAnalogOn	= 1;
 	}
 	else
 	{
-		if((McDevProf_IsValid(eMCDRV_FUNC_LI2) == 1)
+		if ((McDevProf_IsValid(eMCDRV_FUNC_LI2) == 1)
 		&& (((gsGlobalInfo.sPathInfo.asAdc0[1].abSrcOnOff[MCDRV_SRC_LINE2_R_BLOCK] & MCDRV_SRC2_LINE2_R_ON) == MCDRV_SRC2_LINE2_R_ON)
 			|| ((gsGlobalInfo.sPathInfo.asAdc0[1].abSrcOnOff[MCDRV_SRC_LINE2_M_BLOCK] & MCDRV_SRC2_LINE2_M_ON) == MCDRV_SRC2_LINE2_M_ON)))
 		{
@@ -7367,11 +7341,11 @@ void	McResCtrl_GetPowerInfo
 			psPowerInfo->abAnalog[1] |= MCB_PWM_ADR;
 		}
 	}
-	if(McDevProf_IsValid(eMCDRV_FUNC_ADC1) == 1)
+	if (McDevProf_IsValid(eMCDRV_FUNC_ADC1) == 1)
 	{
 	}
 	/*	LI	*/
-	if((McResCtrl_IsSrcUsed(eMCDRV_SRC_LINE1_L) == 0)
+	if ((McResCtrl_IsSrcUsed(eMCDRV_SRC_LINE1_L) == 0)
 	&& (McResCtrl_IsSrcUsed(eMCDRV_SRC_LINE1_M) == 0)
 	&& (McResCtrl_IsSrcUsed(eMCDRV_SRC_LINE1_R) == 0))
 	{
@@ -7381,9 +7355,9 @@ void	McResCtrl_GetPowerInfo
 	{
 		bAnalogOn	= 1;
 	}
-	if(McDevProf_IsValid(eMCDRV_FUNC_LI2) == 1)
+	if (McDevProf_IsValid(eMCDRV_FUNC_LI2) == 1)
 	{
-		if((McResCtrl_IsSrcUsed(eMCDRV_SRC_LINE2_L) == 0)
+		if ((McResCtrl_IsSrcUsed(eMCDRV_SRC_LINE2_L) == 0)
 		&& (McResCtrl_IsSrcUsed(eMCDRV_SRC_LINE2_M) == 0)
 		&& (McResCtrl_IsSrcUsed(eMCDRV_SRC_LINE2_R) == 0))
 		{
@@ -7395,7 +7369,7 @@ void	McResCtrl_GetPowerInfo
 		}
 	}
 	/*	MC1	*/
-	if(McResCtrl_IsSrcUsed(eMCDRV_SRC_MIC1) == 0)
+	if (McResCtrl_IsSrcUsed(eMCDRV_SRC_MIC1) == 0)
 	{
 		psPowerInfo->abAnalog[4] |= MCB_PWM_MC1;
 	}
@@ -7404,7 +7378,7 @@ void	McResCtrl_GetPowerInfo
 		bAnalogOn	= 1;
 	}
 	/*	MC2	*/
-	if(McResCtrl_IsSrcUsed(eMCDRV_SRC_MIC2) == 0)
+	if (McResCtrl_IsSrcUsed(eMCDRV_SRC_MIC2) == 0)
 	{
 		psPowerInfo->abAnalog[4] |= MCB_PWM_MC2;
 	}
@@ -7413,7 +7387,7 @@ void	McResCtrl_GetPowerInfo
 		bAnalogOn	= 1;
 	}
 	/*	MC3	*/
-	if(McResCtrl_IsSrcUsed(eMCDRV_SRC_MIC3) == 0)
+	if (McResCtrl_IsSrcUsed(eMCDRV_SRC_MIC3) == 0)
 	{
 		psPowerInfo->abAnalog[4] |= MCB_PWM_MC3;
 	}
@@ -7421,7 +7395,7 @@ void	McResCtrl_GetPowerInfo
 	{
 		bAnalogOn	= 1;
 	}
-	if((gsGlobalInfo.sPathInfo.asBias[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & MCDRV_SRC0_MIC1_ON) != MCDRV_SRC0_MIC1_ON)
+	if ((gsGlobalInfo.sPathInfo.asBias[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & MCDRV_SRC0_MIC1_ON) != MCDRV_SRC0_MIC1_ON)
 	{
 		psPowerInfo->abAnalog[3] |= MCB_PWM_MB1;
 	}
@@ -7429,7 +7403,7 @@ void	McResCtrl_GetPowerInfo
 	{
 		bAnalogOn	= 1;
 	}
-	if((gsGlobalInfo.sPathInfo.asBias[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & MCDRV_SRC0_MIC2_ON) != MCDRV_SRC0_MIC2_ON)
+	if ((gsGlobalInfo.sPathInfo.asBias[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & MCDRV_SRC0_MIC2_ON) != MCDRV_SRC0_MIC2_ON)
 	{
 		psPowerInfo->abAnalog[3] |= MCB_PWM_MB2;
 	}
@@ -7437,7 +7411,7 @@ void	McResCtrl_GetPowerInfo
 	{
 		bAnalogOn	= 1;
 	}
-	if((gsGlobalInfo.sPathInfo.asBias[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & MCDRV_SRC0_MIC3_ON) != MCDRV_SRC0_MIC3_ON)
+	if ((gsGlobalInfo.sPathInfo.asBias[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & MCDRV_SRC0_MIC3_ON) != MCDRV_SRC0_MIC3_ON)
 	{
 		psPowerInfo->abAnalog[3] |= MCB_PWM_MB3;
 	}
@@ -7541,7 +7515,7 @@ void	McResCtrl_GetPowerInfoRegAccess
 		case	MCI_DCL:
 			break;
 		default:
-			if((psRegInfo->bAddress >= MCI_SYS_CEQ0_19_12) && (psRegInfo->bAddress <= MCI_SYS_CEQ4_3_0))
+			if ((psRegInfo->bAddress >= MCI_SYS_CEQ0_19_12) && (psRegInfo->bAddress <= MCI_SYS_CEQ4_3_0))
 			{
 				break;
 			}
@@ -7644,56 +7618,56 @@ void	McResCtrl_GetCurPowerInfo
 
 	psPowerInfo->dDigital	= 0;
 	bReg	= gsGlobalInfo.abRegValB_CODEC[MCI_DPADIF];
-	if((bReg & (MCB_DP0_CLKI1|MCB_DP0_CLKI0)) == (MCB_DP0_CLKI1|MCB_DP0_CLKI0))
+	if ((bReg & (MCB_DP0_CLKI1|MCB_DP0_CLKI0)) == (MCB_DP0_CLKI1|MCB_DP0_CLKI0))
 	{
 		psPowerInfo->dDigital	|= MCDRV_POWINFO_DIGITAL_DP0;
 	}
 	bReg	= gsGlobalInfo.abRegValB_BASE[MCI_PWM_DIGITAL];
-	if((bReg & MCB_PWM_DP1) == MCB_PWM_DP1)
+	if ((bReg & MCB_PWM_DP1) == MCB_PWM_DP1)
 	{
 		psPowerInfo->dDigital	|= MCDRV_POWINFO_DIGITAL_DP1;
 	}
-	if((bReg & MCB_PWM_DP2) == MCB_PWM_DP2)
+	if ((bReg & MCB_PWM_DP2) == MCB_PWM_DP2)
 	{
 		psPowerInfo->dDigital	|= MCDRV_POWINFO_DIGITAL_DP2;
 	}
 
 	bReg	= gsGlobalInfo.abRegValB_BASE[MCI_PWM_DIGITAL_1];
-	if((bReg & MCB_PWM_DPB) == MCB_PWM_DPB)
+	if ((bReg & MCB_PWM_DPB) == MCB_PWM_DPB)
 	{
 		psPowerInfo->dDigital	|= MCDRV_POWINFO_DIGITAL_DPB;
 	}
-	if((bReg & MCB_PWM_DPDI0) == MCB_PWM_DPDI0)
+	if ((bReg & MCB_PWM_DPDI0) == MCB_PWM_DPDI0)
 	{
 		psPowerInfo->dDigital	|= MCDRV_POWINFO_DIGITAL_DPDI0;
 	}
-	if((bReg & MCB_PWM_DPDI1) == MCB_PWM_DPDI1)
+	if ((bReg & MCB_PWM_DPDI1) == MCB_PWM_DPDI1)
 	{
 		psPowerInfo->dDigital	|= MCDRV_POWINFO_DIGITAL_DPDI1;
 	}
-	if((bReg & MCB_PWM_DPDI2) == MCB_PWM_DPDI2)
+	if ((bReg & MCB_PWM_DPDI2) == MCB_PWM_DPDI2)
 	{
 		psPowerInfo->dDigital	|= MCDRV_POWINFO_DIGITAL_DPDI2;
 	}
-	if((bReg & MCB_PWM_DPPDM) == MCB_PWM_DPPDM)
+	if ((bReg & MCB_PWM_DPPDM) == MCB_PWM_DPPDM)
 	{
 		psPowerInfo->dDigital	|= MCDRV_POWINFO_DIGITAL_DPPDM;
 	}
 
 	bReg	= gsGlobalInfo.abRegValB_BASE[MCI_PWM_DIGITAL_BDSP];
-	if((bReg & MCB_PWM_DPBDSP) == MCB_PWM_DPBDSP)
+	if ((bReg & MCB_PWM_DPBDSP) == MCB_PWM_DPBDSP)
 	{
 		psPowerInfo->dDigital	|= MCDRV_POWINFO_DIGITAL_DPBDSP;
 	}
 
 	bReg	= gsGlobalInfo.abRegValB_CODEC[MCI_PLL_RST];
-	if((bReg & MCB_PLLRST0) == MCB_PLLRST0)
+	if ((bReg & MCB_PLLRST0) == MCB_PLLRST0)
 	{
 		psPowerInfo->dDigital	|= MCDRV_POWINFO_DIGITAL_PLLRST0;
 	}
 
 	bReg	= gsGlobalInfo.abRegValB_CODEC[MCI_DPADIF];
-	if((bReg & MCB_DPADIF) == MCB_DPADIF)
+	if ((bReg & MCB_DPADIF) == MCB_DPADIF)
 	{
 		psPowerInfo->dDigital	|= MCDRV_POWINFO_DIGITAL_DPADIF;
 	}
@@ -7727,31 +7701,31 @@ MCDRV_SRC_TYPE	McResCtrl_GetDACSource
 #endif
 
 
-	if((gsGlobalInfo.sPathInfo.asDac[eCh].abSrcOnOff[MCDRV_SRC_PDM_BLOCK] & MCDRV_SRC4_PDM_ON) == MCDRV_SRC4_PDM_ON)
+	if ((gsGlobalInfo.sPathInfo.asDac[eCh].abSrcOnOff[MCDRV_SRC_PDM_BLOCK] & MCDRV_SRC4_PDM_ON) == MCDRV_SRC4_PDM_ON)
 	{
 		eSrcType	= eMCDRV_SRC_PDM;
 	}
-	else if((gsGlobalInfo.sPathInfo.asDac[eCh].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK] & MCDRV_SRC4_ADC0_ON) == MCDRV_SRC4_ADC0_ON)
+	else if ((gsGlobalInfo.sPathInfo.asDac[eCh].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK] & MCDRV_SRC4_ADC0_ON) == MCDRV_SRC4_ADC0_ON)
 	{
 		eSrcType	= eMCDRV_SRC_ADC0;
 	}
-	else if((gsGlobalInfo.sPathInfo.asDac[eCh].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK] & MCDRV_SRC3_DIR0_ON) == MCDRV_SRC3_DIR0_ON)
+	else if ((gsGlobalInfo.sPathInfo.asDac[eCh].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK] & MCDRV_SRC3_DIR0_ON) == MCDRV_SRC3_DIR0_ON)
 	{
 		eSrcType	= eMCDRV_SRC_DIR0;
 	}
-	else if((gsGlobalInfo.sPathInfo.asDac[eCh].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK] & MCDRV_SRC3_DIR1_ON) == MCDRV_SRC3_DIR1_ON)
+	else if ((gsGlobalInfo.sPathInfo.asDac[eCh].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK] & MCDRV_SRC3_DIR1_ON) == MCDRV_SRC3_DIR1_ON)
 	{
 		eSrcType	= eMCDRV_SRC_DIR1;
 	}
-	else if((gsGlobalInfo.sPathInfo.asDac[eCh].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK] & MCDRV_SRC3_DIR2_ON) == MCDRV_SRC3_DIR2_ON)
+	else if ((gsGlobalInfo.sPathInfo.asDac[eCh].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK] & MCDRV_SRC3_DIR2_ON) == MCDRV_SRC3_DIR2_ON)
 	{
 		eSrcType	= eMCDRV_SRC_DIR2;
 	}
-	else if((gsGlobalInfo.sPathInfo.asDac[eCh].abSrcOnOff[MCDRV_SRC_MIX_BLOCK] & MCDRV_SRC6_MIX_ON) == MCDRV_SRC6_MIX_ON)
+	else if ((gsGlobalInfo.sPathInfo.asDac[eCh].abSrcOnOff[MCDRV_SRC_MIX_BLOCK] & MCDRV_SRC6_MIX_ON) == MCDRV_SRC6_MIX_ON)
 	{
 		eSrcType	= eMCDRV_SRC_MIX;
 	}
-	else if((gsGlobalInfo.sPathInfo.asDac[eCh].abSrcOnOff[MCDRV_SRC_AE_BLOCK] & MCDRV_SRC6_AE_ON) == MCDRV_SRC6_AE_ON)
+	else if ((gsGlobalInfo.sPathInfo.asDac[eCh].abSrcOnOff[MCDRV_SRC_AE_BLOCK] & MCDRV_SRC6_AE_ON) == MCDRV_SRC6_AE_ON)
 	{
 		eSrcType	= McResCtrl_GetAESource();
 	}
@@ -7790,15 +7764,15 @@ MCDRV_SRC_TYPE	McResCtrl_GetDITSource
 	McDebugLog_FuncIn("McResCtrl_GetDITSource");
 #endif
 
-	if(ePort == 0)
+	if (ePort == 0)
 	{
 		pasDit	= &gsGlobalInfo.sPathInfo.asDit0[0];
 	}
-	else if(ePort == 1)
+	else if (ePort == 1)
 	{
 		pasDit	= &gsGlobalInfo.sPathInfo.asDit1[0];
 	}
-	else if(ePort == 2)
+	else if (ePort == 2)
 	{
 		pasDit	= &gsGlobalInfo.sPathInfo.asDit2[0];
 	}
@@ -7806,33 +7780,33 @@ MCDRV_SRC_TYPE	McResCtrl_GetDITSource
 	{
 	}
 
-	if(pasDit != NULL)
+	if (pasDit != NULL)
 	{
-		if((pasDit->abSrcOnOff[MCDRV_SRC_PDM_BLOCK] & MCDRV_SRC4_PDM_ON) == MCDRV_SRC4_PDM_ON)
+		if ((pasDit->abSrcOnOff[MCDRV_SRC_PDM_BLOCK] & MCDRV_SRC4_PDM_ON) == MCDRV_SRC4_PDM_ON)
 		{
 			eSrcType	= eMCDRV_SRC_PDM;
 		}
-		else if((pasDit->abSrcOnOff[MCDRV_SRC_ADC0_BLOCK] & MCDRV_SRC4_ADC0_ON) == MCDRV_SRC4_ADC0_ON)
+		else if ((pasDit->abSrcOnOff[MCDRV_SRC_ADC0_BLOCK] & MCDRV_SRC4_ADC0_ON) == MCDRV_SRC4_ADC0_ON)
 		{
 			eSrcType	= eMCDRV_SRC_ADC0;
 		}
-		else if((pasDit->abSrcOnOff[MCDRV_SRC_DIR0_BLOCK] & MCDRV_SRC3_DIR0_ON) == MCDRV_SRC3_DIR0_ON)
+		else if ((pasDit->abSrcOnOff[MCDRV_SRC_DIR0_BLOCK] & MCDRV_SRC3_DIR0_ON) == MCDRV_SRC3_DIR0_ON)
 		{
 			eSrcType	= eMCDRV_SRC_DIR0;
 		}
-		else if((pasDit->abSrcOnOff[MCDRV_SRC_DIR1_BLOCK] & MCDRV_SRC3_DIR1_ON) == MCDRV_SRC3_DIR1_ON)
+		else if ((pasDit->abSrcOnOff[MCDRV_SRC_DIR1_BLOCK] & MCDRV_SRC3_DIR1_ON) == MCDRV_SRC3_DIR1_ON)
 		{
 			eSrcType	= eMCDRV_SRC_DIR1;
 		}
-		else if((pasDit->abSrcOnOff[MCDRV_SRC_DIR2_BLOCK] & MCDRV_SRC3_DIR2_ON) == MCDRV_SRC3_DIR2_ON)
+		else if ((pasDit->abSrcOnOff[MCDRV_SRC_DIR2_BLOCK] & MCDRV_SRC3_DIR2_ON) == MCDRV_SRC3_DIR2_ON)
 		{
 			eSrcType	= eMCDRV_SRC_DIR2;
 		}
-		else if((pasDit->abSrcOnOff[MCDRV_SRC_MIX_BLOCK] & MCDRV_SRC6_MIX_ON) == MCDRV_SRC6_MIX_ON)
+		else if ((pasDit->abSrcOnOff[MCDRV_SRC_MIX_BLOCK] & MCDRV_SRC6_MIX_ON) == MCDRV_SRC6_MIX_ON)
 		{
 			eSrcType	= eMCDRV_SRC_MIX;
 		}
-		else if((pasDit->abSrcOnOff[MCDRV_SRC_AE_BLOCK] & MCDRV_SRC6_AE_ON) == MCDRV_SRC6_AE_ON)
+		else if ((pasDit->abSrcOnOff[MCDRV_SRC_AE_BLOCK] & MCDRV_SRC6_AE_ON) == MCDRV_SRC6_AE_ON)
 		{
 			eSrcType	= McResCtrl_GetAESource();
 		}
@@ -7872,27 +7846,27 @@ MCDRV_SRC_TYPE	McResCtrl_GetAESource
 	McDebugLog_FuncIn("McResCtrl_GetAESource");
 #endif
 
-	if((gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK] & MCDRV_SRC4_PDM_ON) == MCDRV_SRC4_PDM_ON)
+	if ((gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK] & MCDRV_SRC4_PDM_ON) == MCDRV_SRC4_PDM_ON)
 	{
 		eSrcType	= eMCDRV_SRC_PDM;
 	}
-	else if((gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK] & MCDRV_SRC4_ADC0_ON) == MCDRV_SRC4_ADC0_ON)
+	else if ((gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK] & MCDRV_SRC4_ADC0_ON) == MCDRV_SRC4_ADC0_ON)
 	{
 		eSrcType	= eMCDRV_SRC_ADC0;
 	}
-	else if((gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK] & MCDRV_SRC3_DIR0_ON) == MCDRV_SRC3_DIR0_ON)
+	else if ((gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK] & MCDRV_SRC3_DIR0_ON) == MCDRV_SRC3_DIR0_ON)
 	{
 		eSrcType	= eMCDRV_SRC_DIR0;
 	}
-	else if((gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK] & MCDRV_SRC3_DIR1_ON) == MCDRV_SRC3_DIR1_ON)
+	else if ((gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK] & MCDRV_SRC3_DIR1_ON) == MCDRV_SRC3_DIR1_ON)
 	{
 		eSrcType	= eMCDRV_SRC_DIR1;
 	}
-	else if((gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK] & MCDRV_SRC3_DIR2_ON) == MCDRV_SRC3_DIR2_ON)
+	else if ((gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK] & MCDRV_SRC3_DIR2_ON) == MCDRV_SRC3_DIR2_ON)
 	{
 		eSrcType	= eMCDRV_SRC_DIR2;
 	}
-	else if((gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK] & MCDRV_SRC6_MIX_ON) == MCDRV_SRC6_MIX_ON)
+	else if ((gsGlobalInfo.sPathInfo.asAe[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK] & MCDRV_SRC6_MIX_ON) == MCDRV_SRC6_MIX_ON)
 	{
 		eSrcType	= eMCDRV_SRC_MIX;
 	}
@@ -7934,7 +7908,7 @@ UINT8	McResCtrl_IsSrcUsed
 	switch(ePathSrc)
 	{
 	case	eMCDRV_SRC_MIC1:
-		if(((gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & MCDRV_SRC0_MIC1_ON) == MCDRV_SRC0_MIC1_ON)
+		if (((gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & MCDRV_SRC0_MIC1_ON) == MCDRV_SRC0_MIC1_ON)
 		|| ((gsGlobalInfo.sPathInfo.asHpOut[1].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & MCDRV_SRC0_MIC1_ON) == MCDRV_SRC0_MIC1_ON)
 		|| ((gsGlobalInfo.sPathInfo.asRcOut[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & MCDRV_SRC0_MIC1_ON) == MCDRV_SRC0_MIC1_ON)
 		|| ((gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & MCDRV_SRC0_MIC1_ON) == MCDRV_SRC0_MIC1_ON)
@@ -7949,7 +7923,7 @@ UINT8	McResCtrl_IsSrcUsed
 		break;
 
 	case	eMCDRV_SRC_MIC2:
-		if(((gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & MCDRV_SRC0_MIC2_ON) == MCDRV_SRC0_MIC2_ON)
+		if (((gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & MCDRV_SRC0_MIC2_ON) == MCDRV_SRC0_MIC2_ON)
 		|| ((gsGlobalInfo.sPathInfo.asHpOut[1].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & MCDRV_SRC0_MIC2_ON) == MCDRV_SRC0_MIC2_ON)
 		|| ((gsGlobalInfo.sPathInfo.asRcOut[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & MCDRV_SRC0_MIC2_ON) == MCDRV_SRC0_MIC2_ON)
 		|| ((gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & MCDRV_SRC0_MIC2_ON) == MCDRV_SRC0_MIC2_ON)
@@ -7964,7 +7938,7 @@ UINT8	McResCtrl_IsSrcUsed
 		break;
 
 	case	eMCDRV_SRC_MIC3:
-		if(((gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & MCDRV_SRC0_MIC3_ON) == MCDRV_SRC0_MIC3_ON)
+		if (((gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & MCDRV_SRC0_MIC3_ON) == MCDRV_SRC0_MIC3_ON)
 		|| ((gsGlobalInfo.sPathInfo.asHpOut[1].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & MCDRV_SRC0_MIC3_ON) == MCDRV_SRC0_MIC3_ON)
 		|| ((gsGlobalInfo.sPathInfo.asRcOut[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & MCDRV_SRC0_MIC3_ON) == MCDRV_SRC0_MIC3_ON)
 		|| ((gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & MCDRV_SRC0_MIC3_ON) == MCDRV_SRC0_MIC3_ON)
@@ -7979,7 +7953,7 @@ UINT8	McResCtrl_IsSrcUsed
 		break;
 
 	case	eMCDRV_SRC_LINE1_L:
-		if(((gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK] & MCDRV_SRC1_LINE1_L_ON) == MCDRV_SRC1_LINE1_L_ON)
+		if (((gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK] & MCDRV_SRC1_LINE1_L_ON) == MCDRV_SRC1_LINE1_L_ON)
 		|| ((gsGlobalInfo.sPathInfo.asSpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK] & MCDRV_SRC1_LINE1_L_ON) == MCDRV_SRC1_LINE1_L_ON)
 		|| ((gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK] & MCDRV_SRC1_LINE1_L_ON) == MCDRV_SRC1_LINE1_L_ON)
 		|| ((gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK] & MCDRV_SRC1_LINE1_L_ON) == MCDRV_SRC1_LINE1_L_ON)
@@ -7991,7 +7965,7 @@ UINT8	McResCtrl_IsSrcUsed
 		break;
 
 	case	eMCDRV_SRC_LINE1_R:
-		if(((gsGlobalInfo.sPathInfo.asHpOut[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK] & MCDRV_SRC1_LINE1_R_ON) == MCDRV_SRC1_LINE1_R_ON)
+		if (((gsGlobalInfo.sPathInfo.asHpOut[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK] & MCDRV_SRC1_LINE1_R_ON) == MCDRV_SRC1_LINE1_R_ON)
 		|| ((gsGlobalInfo.sPathInfo.asSpOut[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK] & MCDRV_SRC1_LINE1_R_ON) == MCDRV_SRC1_LINE1_R_ON)
 		|| ((gsGlobalInfo.sPathInfo.asLout1[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK] & MCDRV_SRC1_LINE1_R_ON) == MCDRV_SRC1_LINE1_R_ON)
 		|| ((gsGlobalInfo.sPathInfo.asLout2[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK] & MCDRV_SRC1_LINE1_R_ON) == MCDRV_SRC1_LINE1_R_ON)
@@ -8002,7 +7976,7 @@ UINT8	McResCtrl_IsSrcUsed
 		break;
 
 	case	eMCDRV_SRC_LINE1_M:
-		if(((gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK] & MCDRV_SRC1_LINE1_M_ON) == MCDRV_SRC1_LINE1_M_ON)
+		if (((gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK] & MCDRV_SRC1_LINE1_M_ON) == MCDRV_SRC1_LINE1_M_ON)
 		|| ((gsGlobalInfo.sPathInfo.asSpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK] & MCDRV_SRC1_LINE1_M_ON) == MCDRV_SRC1_LINE1_M_ON)
 		|| ((gsGlobalInfo.sPathInfo.asSpOut[1].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK] & MCDRV_SRC1_LINE1_M_ON) == MCDRV_SRC1_LINE1_M_ON)
 		|| ((gsGlobalInfo.sPathInfo.asRcOut[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK] & MCDRV_SRC1_LINE1_M_ON) == MCDRV_SRC1_LINE1_M_ON)
@@ -8017,7 +7991,7 @@ UINT8	McResCtrl_IsSrcUsed
 		break;
 
 	case	eMCDRV_SRC_LINE2_L:
-		if(((gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_LINE2_L_BLOCK] & MCDRV_SRC2_LINE2_L_ON) == MCDRV_SRC2_LINE2_L_ON)
+		if (((gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_LINE2_L_BLOCK] & MCDRV_SRC2_LINE2_L_ON) == MCDRV_SRC2_LINE2_L_ON)
 		|| ((gsGlobalInfo.sPathInfo.asSpOut[0].abSrcOnOff[MCDRV_SRC_LINE2_L_BLOCK] & MCDRV_SRC2_LINE2_L_ON) == MCDRV_SRC2_LINE2_L_ON)
 		|| ((gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_LINE2_L_BLOCK] & MCDRV_SRC2_LINE2_L_ON) == MCDRV_SRC2_LINE2_L_ON)
 		|| ((gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_LINE2_L_BLOCK] & MCDRV_SRC2_LINE2_L_ON) == MCDRV_SRC2_LINE2_L_ON)
@@ -8029,7 +8003,7 @@ UINT8	McResCtrl_IsSrcUsed
 		break;
 
 	case	eMCDRV_SRC_LINE2_R:
-		if(((gsGlobalInfo.sPathInfo.asHpOut[1].abSrcOnOff[MCDRV_SRC_LINE2_R_BLOCK] & MCDRV_SRC2_LINE2_R_ON) == MCDRV_SRC2_LINE2_R_ON)
+		if (((gsGlobalInfo.sPathInfo.asHpOut[1].abSrcOnOff[MCDRV_SRC_LINE2_R_BLOCK] & MCDRV_SRC2_LINE2_R_ON) == MCDRV_SRC2_LINE2_R_ON)
 		|| ((gsGlobalInfo.sPathInfo.asSpOut[1].abSrcOnOff[MCDRV_SRC_LINE2_R_BLOCK] & MCDRV_SRC2_LINE2_R_ON) == MCDRV_SRC2_LINE2_R_ON)
 		|| ((gsGlobalInfo.sPathInfo.asLout1[1].abSrcOnOff[MCDRV_SRC_LINE2_R_BLOCK] & MCDRV_SRC2_LINE2_R_ON) == MCDRV_SRC2_LINE2_R_ON)
 		|| ((gsGlobalInfo.sPathInfo.asLout2[1].abSrcOnOff[MCDRV_SRC_LINE2_R_BLOCK] & MCDRV_SRC2_LINE2_R_ON) == MCDRV_SRC2_LINE2_R_ON)
@@ -8040,7 +8014,7 @@ UINT8	McResCtrl_IsSrcUsed
 		break;
 
 	case	eMCDRV_SRC_LINE2_M:
-		if(((gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_LINE2_M_BLOCK] & MCDRV_SRC2_LINE2_M_ON) == MCDRV_SRC2_LINE2_M_ON)
+		if (((gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_LINE2_M_BLOCK] & MCDRV_SRC2_LINE2_M_ON) == MCDRV_SRC2_LINE2_M_ON)
 		|| ((gsGlobalInfo.sPathInfo.asSpOut[0].abSrcOnOff[MCDRV_SRC_LINE2_M_BLOCK] & MCDRV_SRC2_LINE2_M_ON) == MCDRV_SRC2_LINE2_M_ON)
 		|| ((gsGlobalInfo.sPathInfo.asSpOut[1].abSrcOnOff[MCDRV_SRC_LINE2_M_BLOCK] & MCDRV_SRC2_LINE2_M_ON) == MCDRV_SRC2_LINE2_M_ON)
 		|| ((gsGlobalInfo.sPathInfo.asRcOut[0].abSrcOnOff[MCDRV_SRC_LINE2_M_BLOCK] & MCDRV_SRC2_LINE2_M_ON) == MCDRV_SRC2_LINE2_M_ON)
@@ -8055,7 +8029,7 @@ UINT8	McResCtrl_IsSrcUsed
 		break;
 
 	case	eMCDRV_SRC_DIR0:
-		if(((gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK] & MCDRV_SRC3_DIR0_ON) == MCDRV_SRC3_DIR0_ON)
+		if (((gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK] & MCDRV_SRC3_DIR0_ON) == MCDRV_SRC3_DIR0_ON)
 		|| ((gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK] & MCDRV_SRC3_DIR0_ON) == MCDRV_SRC3_DIR0_ON)
 		|| ((gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK] & MCDRV_SRC3_DIR0_ON) == MCDRV_SRC3_DIR0_ON)
 		|| ((gsGlobalInfo.sPathInfo.asDac[0].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK] & MCDRV_SRC3_DIR0_ON) == MCDRV_SRC3_DIR0_ON)
@@ -8068,7 +8042,7 @@ UINT8	McResCtrl_IsSrcUsed
 		break;
 
 	case	eMCDRV_SRC_DIR1:
-		if(((gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK] & MCDRV_SRC3_DIR1_ON) == MCDRV_SRC3_DIR1_ON)
+		if (((gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK] & MCDRV_SRC3_DIR1_ON) == MCDRV_SRC3_DIR1_ON)
 		|| ((gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK] & MCDRV_SRC3_DIR1_ON) == MCDRV_SRC3_DIR1_ON)
 		|| ((gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK] & MCDRV_SRC3_DIR1_ON) == MCDRV_SRC3_DIR1_ON)
 		|| ((gsGlobalInfo.sPathInfo.asDac[0].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK] & MCDRV_SRC3_DIR1_ON) == MCDRV_SRC3_DIR1_ON)
@@ -8081,7 +8055,7 @@ UINT8	McResCtrl_IsSrcUsed
 		break;
 
 	case	eMCDRV_SRC_DIR2:
-		if(((gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK] & MCDRV_SRC3_DIR2_ON) == MCDRV_SRC3_DIR2_ON)
+		if (((gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK] & MCDRV_SRC3_DIR2_ON) == MCDRV_SRC3_DIR2_ON)
 		|| ((gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK] & MCDRV_SRC3_DIR2_ON) == MCDRV_SRC3_DIR2_ON)
 		|| ((gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK] & MCDRV_SRC3_DIR2_ON) == MCDRV_SRC3_DIR2_ON)
 		|| ((gsGlobalInfo.sPathInfo.asDac[0].abSrcOnOff[MCDRV_SRC_DIR2_BLOCK] & MCDRV_SRC3_DIR2_ON) == MCDRV_SRC3_DIR2_ON)
@@ -8097,7 +8071,7 @@ UINT8	McResCtrl_IsSrcUsed
 		break;
 
 	case	eMCDRV_SRC_PDM:
-		if(((gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK] & MCDRV_SRC4_PDM_ON) == MCDRV_SRC4_PDM_ON)
+		if (((gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK] & MCDRV_SRC4_PDM_ON) == MCDRV_SRC4_PDM_ON)
 		|| ((gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK] & MCDRV_SRC4_PDM_ON) == MCDRV_SRC4_PDM_ON)
 		|| ((gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK] & MCDRV_SRC4_PDM_ON) == MCDRV_SRC4_PDM_ON)
 		|| ((gsGlobalInfo.sPathInfo.asDac[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK] & MCDRV_SRC4_PDM_ON) == MCDRV_SRC4_PDM_ON)
@@ -8110,7 +8084,7 @@ UINT8	McResCtrl_IsSrcUsed
 		break;
 
 	case	eMCDRV_SRC_ADC0:
-		if(((gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK] & MCDRV_SRC4_ADC0_ON) == MCDRV_SRC4_ADC0_ON)
+		if (((gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK] & MCDRV_SRC4_ADC0_ON) == MCDRV_SRC4_ADC0_ON)
 		|| ((gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK] & MCDRV_SRC4_ADC0_ON) == MCDRV_SRC4_ADC0_ON)
 		|| ((gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK] & MCDRV_SRC4_ADC0_ON) == MCDRV_SRC4_ADC0_ON)
 		|| ((gsGlobalInfo.sPathInfo.asDac[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK] & MCDRV_SRC4_ADC0_ON) == MCDRV_SRC4_ADC0_ON)
@@ -8126,7 +8100,7 @@ UINT8	McResCtrl_IsSrcUsed
 		break;
 
 	case	eMCDRV_SRC_DAC_L:
-		if(((gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK] & MCDRV_SRC5_DAC_L_ON) == MCDRV_SRC5_DAC_L_ON)
+		if (((gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK] & MCDRV_SRC5_DAC_L_ON) == MCDRV_SRC5_DAC_L_ON)
 		|| ((gsGlobalInfo.sPathInfo.asSpOut[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK] & MCDRV_SRC5_DAC_L_ON) == MCDRV_SRC5_DAC_L_ON)
 		|| ((gsGlobalInfo.sPathInfo.asRcOut[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK] & MCDRV_SRC5_DAC_L_ON) == MCDRV_SRC5_DAC_L_ON)
 		|| ((gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK] & MCDRV_SRC5_DAC_L_ON) == MCDRV_SRC5_DAC_L_ON)
@@ -8137,7 +8111,7 @@ UINT8	McResCtrl_IsSrcUsed
 		break;
 
 	case	eMCDRV_SRC_DAC_R:
-		if(((gsGlobalInfo.sPathInfo.asHpOut[1].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK] & MCDRV_SRC5_DAC_R_ON) == MCDRV_SRC5_DAC_R_ON)
+		if (((gsGlobalInfo.sPathInfo.asHpOut[1].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK] & MCDRV_SRC5_DAC_R_ON) == MCDRV_SRC5_DAC_R_ON)
 		|| ((gsGlobalInfo.sPathInfo.asSpOut[1].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK] & MCDRV_SRC5_DAC_R_ON) == MCDRV_SRC5_DAC_R_ON)
 		|| ((gsGlobalInfo.sPathInfo.asRcOut[0].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK] & MCDRV_SRC5_DAC_R_ON) == MCDRV_SRC5_DAC_R_ON)
 		|| ((gsGlobalInfo.sPathInfo.asLout1[1].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK] & MCDRV_SRC5_DAC_R_ON) == MCDRV_SRC5_DAC_R_ON)
@@ -8148,7 +8122,7 @@ UINT8	McResCtrl_IsSrcUsed
 		break;
 
 	case	eMCDRV_SRC_DAC_M:
-		if(((gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK] & MCDRV_SRC5_DAC_M_ON) == MCDRV_SRC5_DAC_M_ON)
+		if (((gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK] & MCDRV_SRC5_DAC_M_ON) == MCDRV_SRC5_DAC_M_ON)
 		|| ((gsGlobalInfo.sPathInfo.asSpOut[0].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK] & MCDRV_SRC5_DAC_M_ON) == MCDRV_SRC5_DAC_M_ON)
 		|| ((gsGlobalInfo.sPathInfo.asSpOut[1].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK] & MCDRV_SRC5_DAC_M_ON) == MCDRV_SRC5_DAC_M_ON)
 		|| ((gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK] & MCDRV_SRC5_DAC_M_ON) == MCDRV_SRC5_DAC_M_ON)
@@ -8159,7 +8133,7 @@ UINT8	McResCtrl_IsSrcUsed
 		break;
 
 	case	eMCDRV_SRC_AE:
-		if(((gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_AE_BLOCK] & MCDRV_SRC6_AE_ON) == MCDRV_SRC6_AE_ON)
+		if (((gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_AE_BLOCK] & MCDRV_SRC6_AE_ON) == MCDRV_SRC6_AE_ON)
 		|| ((gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_AE_BLOCK] & MCDRV_SRC6_AE_ON) == MCDRV_SRC6_AE_ON)
 		|| ((gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_AE_BLOCK] & MCDRV_SRC6_AE_ON) == MCDRV_SRC6_AE_ON)
 		|| ((gsGlobalInfo.sPathInfo.asDac[0].abSrcOnOff[MCDRV_SRC_AE_BLOCK] & MCDRV_SRC6_AE_ON) == MCDRV_SRC6_AE_ON)
@@ -8174,7 +8148,7 @@ UINT8	McResCtrl_IsSrcUsed
 		break;
 
 	case	eMCDRV_SRC_MIX:
-		if(((gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK] & MCDRV_SRC6_MIX_ON) == MCDRV_SRC6_MIX_ON)
+		if (((gsGlobalInfo.sPathInfo.asDit0[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK] & MCDRV_SRC6_MIX_ON) == MCDRV_SRC6_MIX_ON)
 		|| ((gsGlobalInfo.sPathInfo.asDit1[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK] & MCDRV_SRC6_MIX_ON) == MCDRV_SRC6_MIX_ON)
 		|| ((gsGlobalInfo.sPathInfo.asDit2[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK] & MCDRV_SRC6_MIX_ON) == MCDRV_SRC6_MIX_ON)
 		|| ((gsGlobalInfo.sPathInfo.asDac[0].abSrcOnOff[MCDRV_SRC_MIX_BLOCK] & MCDRV_SRC6_MIX_ON) == MCDRV_SRC6_MIX_ON)
@@ -8231,9 +8205,9 @@ UINT8	McResCtrl_IsDstUsed
 	switch(eType)
 	{
 	case	eMCDRV_DST_HP:
-		if(eCh == eMCDRV_DST_CH0)
+		if (eCh == eMCDRV_DST_CH0)
 		{
-			if(((gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & MCDRV_SRC0_MIC1_ON) == MCDRV_SRC0_MIC1_ON)
+			if (((gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & MCDRV_SRC0_MIC1_ON) == MCDRV_SRC0_MIC1_ON)
 			|| ((gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & MCDRV_SRC0_MIC2_ON) == MCDRV_SRC0_MIC2_ON)
 			|| ((gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & MCDRV_SRC0_MIC3_ON) == MCDRV_SRC0_MIC3_ON)
 			|| ((gsGlobalInfo.sPathInfo.asHpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK] & MCDRV_SRC1_LINE1_L_ON) == MCDRV_SRC1_LINE1_L_ON)
@@ -8244,9 +8218,9 @@ UINT8	McResCtrl_IsDstUsed
 				bUsed	= 1;
 			}
 		}
-		else if(eCh == eMCDRV_DST_CH1)
+		else if (eCh == eMCDRV_DST_CH1)
 		{
-			if(((gsGlobalInfo.sPathInfo.asHpOut[1].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & MCDRV_SRC0_MIC1_ON) == MCDRV_SRC0_MIC1_ON)
+			if (((gsGlobalInfo.sPathInfo.asHpOut[1].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & MCDRV_SRC0_MIC1_ON) == MCDRV_SRC0_MIC1_ON)
 			|| ((gsGlobalInfo.sPathInfo.asHpOut[1].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & MCDRV_SRC0_MIC2_ON) == MCDRV_SRC0_MIC2_ON)
 			|| ((gsGlobalInfo.sPathInfo.asHpOut[1].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & MCDRV_SRC0_MIC3_ON) == MCDRV_SRC0_MIC3_ON)
 			|| ((gsGlobalInfo.sPathInfo.asHpOut[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK] & MCDRV_SRC1_LINE1_R_ON) == MCDRV_SRC1_LINE1_R_ON)
@@ -8261,9 +8235,9 @@ UINT8	McResCtrl_IsDstUsed
 		break;
 
 	case	eMCDRV_DST_SP:
-		if(eCh == eMCDRV_DST_CH0)
+		if (eCh == eMCDRV_DST_CH0)
 		{
-			if(((gsGlobalInfo.sPathInfo.asSpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK] & MCDRV_SRC1_LINE1_L_ON) == MCDRV_SRC1_LINE1_L_ON)
+			if (((gsGlobalInfo.sPathInfo.asSpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK] & MCDRV_SRC1_LINE1_L_ON) == MCDRV_SRC1_LINE1_L_ON)
 			|| ((gsGlobalInfo.sPathInfo.asSpOut[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK] & MCDRV_SRC1_LINE1_M_ON) == MCDRV_SRC1_LINE1_M_ON)
 			|| ((gsGlobalInfo.sPathInfo.asSpOut[0].abSrcOnOff[MCDRV_SRC_DAC_L_BLOCK] & MCDRV_SRC5_DAC_L_ON) == MCDRV_SRC5_DAC_L_ON)
 			|| ((gsGlobalInfo.sPathInfo.asSpOut[0].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK] & MCDRV_SRC5_DAC_M_ON) == MCDRV_SRC5_DAC_M_ON))
@@ -8271,9 +8245,9 @@ UINT8	McResCtrl_IsDstUsed
 				bUsed	= 1;
 			}
 		}
-		else if(eCh == eMCDRV_DST_CH1)
+		else if (eCh == eMCDRV_DST_CH1)
 		{
-			if(((gsGlobalInfo.sPathInfo.asSpOut[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK] & MCDRV_SRC1_LINE1_R_ON) == MCDRV_SRC1_LINE1_R_ON)
+			if (((gsGlobalInfo.sPathInfo.asSpOut[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK] & MCDRV_SRC1_LINE1_R_ON) == MCDRV_SRC1_LINE1_R_ON)
 			|| ((gsGlobalInfo.sPathInfo.asSpOut[1].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK] & MCDRV_SRC1_LINE1_M_ON) == MCDRV_SRC1_LINE1_M_ON)
 			|| ((gsGlobalInfo.sPathInfo.asSpOut[1].abSrcOnOff[MCDRV_SRC_DAC_R_BLOCK] & MCDRV_SRC5_DAC_R_ON) == MCDRV_SRC5_DAC_R_ON)
 			|| ((gsGlobalInfo.sPathInfo.asSpOut[1].abSrcOnOff[MCDRV_SRC_DAC_M_BLOCK] & MCDRV_SRC5_DAC_M_ON) == MCDRV_SRC5_DAC_M_ON))
@@ -8287,9 +8261,9 @@ UINT8	McResCtrl_IsDstUsed
 		break;
 
 	case	eMCDRV_DST_RCV:
-		if(eCh == eMCDRV_DST_CH0)
+		if (eCh == eMCDRV_DST_CH0)
 		{
-			if(((gsGlobalInfo.sPathInfo.asRcOut[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & MCDRV_SRC0_MIC1_ON) == MCDRV_SRC0_MIC1_ON)
+			if (((gsGlobalInfo.sPathInfo.asRcOut[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & MCDRV_SRC0_MIC1_ON) == MCDRV_SRC0_MIC1_ON)
 			|| ((gsGlobalInfo.sPathInfo.asRcOut[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & MCDRV_SRC0_MIC2_ON) == MCDRV_SRC0_MIC2_ON)
 			|| ((gsGlobalInfo.sPathInfo.asRcOut[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & MCDRV_SRC0_MIC3_ON) == MCDRV_SRC0_MIC3_ON)
 			|| ((gsGlobalInfo.sPathInfo.asRcOut[0].abSrcOnOff[MCDRV_SRC_LINE1_M_BLOCK] & MCDRV_SRC1_LINE1_M_ON) == MCDRV_SRC1_LINE1_M_ON)
@@ -8305,9 +8279,9 @@ UINT8	McResCtrl_IsDstUsed
 		break;
 
 	case	eMCDRV_DST_LOUT1:
-		if(eCh == eMCDRV_DST_CH0)
+		if (eCh == eMCDRV_DST_CH0)
 		{
-			if(((gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & MCDRV_SRC0_MIC1_ON) == MCDRV_SRC0_MIC1_ON)
+			if (((gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & MCDRV_SRC0_MIC1_ON) == MCDRV_SRC0_MIC1_ON)
 			|| ((gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & MCDRV_SRC0_MIC2_ON) == MCDRV_SRC0_MIC2_ON)
 			|| ((gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & MCDRV_SRC0_MIC3_ON) == MCDRV_SRC0_MIC3_ON)
 			|| ((gsGlobalInfo.sPathInfo.asLout1[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK] & MCDRV_SRC1_LINE1_L_ON) == MCDRV_SRC1_LINE1_L_ON)
@@ -8318,9 +8292,9 @@ UINT8	McResCtrl_IsDstUsed
 				bUsed	= 1;
 			}
 		}
-		else if(eCh == eMCDRV_DST_CH1)
+		else if (eCh == eMCDRV_DST_CH1)
 		{
-			if(((gsGlobalInfo.sPathInfo.asLout1[1].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & MCDRV_SRC0_MIC1_ON) == MCDRV_SRC0_MIC1_ON)
+			if (((gsGlobalInfo.sPathInfo.asLout1[1].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & MCDRV_SRC0_MIC1_ON) == MCDRV_SRC0_MIC1_ON)
 			|| ((gsGlobalInfo.sPathInfo.asLout1[1].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & MCDRV_SRC0_MIC2_ON) == MCDRV_SRC0_MIC2_ON)
 			|| ((gsGlobalInfo.sPathInfo.asLout1[1].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & MCDRV_SRC0_MIC3_ON) == MCDRV_SRC0_MIC3_ON)
 			|| ((gsGlobalInfo.sPathInfo.asLout1[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK] & MCDRV_SRC1_LINE1_R_ON) == MCDRV_SRC1_LINE1_R_ON)
@@ -8335,9 +8309,9 @@ UINT8	McResCtrl_IsDstUsed
 		break;
 
 	case	eMCDRV_DST_LOUT2:
-		if(eCh == eMCDRV_DST_CH0)
+		if (eCh == eMCDRV_DST_CH0)
 		{
-			if(((gsGlobalInfo.sPathInfo.asLout2[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & MCDRV_SRC0_MIC1_ON) == MCDRV_SRC0_MIC1_ON)
+			if (((gsGlobalInfo.sPathInfo.asLout2[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & MCDRV_SRC0_MIC1_ON) == MCDRV_SRC0_MIC1_ON)
 			|| ((gsGlobalInfo.sPathInfo.asLout2[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & MCDRV_SRC0_MIC2_ON) == MCDRV_SRC0_MIC2_ON)
 			|| ((gsGlobalInfo.sPathInfo.asLout2[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & MCDRV_SRC0_MIC3_ON) == MCDRV_SRC0_MIC3_ON)
 			|| ((gsGlobalInfo.sPathInfo.asLout2[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK] & MCDRV_SRC1_LINE1_L_ON) == MCDRV_SRC1_LINE1_L_ON)
@@ -8348,9 +8322,9 @@ UINT8	McResCtrl_IsDstUsed
 				bUsed	= 1;
 			}
 		}
-		else if(eCh == eMCDRV_DST_CH1)
+		else if (eCh == eMCDRV_DST_CH1)
 		{
-			if(((gsGlobalInfo.sPathInfo.asLout2[1].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & MCDRV_SRC0_MIC1_ON) == MCDRV_SRC0_MIC1_ON)
+			if (((gsGlobalInfo.sPathInfo.asLout2[1].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & MCDRV_SRC0_MIC1_ON) == MCDRV_SRC0_MIC1_ON)
 			|| ((gsGlobalInfo.sPathInfo.asLout2[1].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & MCDRV_SRC0_MIC2_ON) == MCDRV_SRC0_MIC2_ON)
 			|| ((gsGlobalInfo.sPathInfo.asLout2[1].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & MCDRV_SRC0_MIC3_ON) == MCDRV_SRC0_MIC3_ON)
 			|| ((gsGlobalInfo.sPathInfo.asLout2[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK] & MCDRV_SRC1_LINE1_R_ON) == MCDRV_SRC1_LINE1_R_ON)
@@ -8368,9 +8342,9 @@ UINT8	McResCtrl_IsDstUsed
 		break;
 
 	case	eMCDRV_DST_DIT0:
-		if(eCh == eMCDRV_DST_CH0)
+		if (eCh == eMCDRV_DST_CH0)
 		{
-			if(McResCtrl_GetDITSource(eMCDRV_DIO_0) != eMCDRV_SRC_NONE)
+			if (McResCtrl_GetDITSource(eMCDRV_DIO_0) != eMCDRV_SRC_NONE)
 			{
 				bUsed	= 1;
 			}
@@ -8381,9 +8355,9 @@ UINT8	McResCtrl_IsDstUsed
 		break;
 
 	case	eMCDRV_DST_DIT1:
-		if(eCh == eMCDRV_DST_CH0)
+		if (eCh == eMCDRV_DST_CH0)
 		{
-			if(McResCtrl_GetDITSource(eMCDRV_DIO_1) != eMCDRV_SRC_NONE)
+			if (McResCtrl_GetDITSource(eMCDRV_DIO_1) != eMCDRV_SRC_NONE)
 			{
 				bUsed	= 1;
 			}
@@ -8394,9 +8368,9 @@ UINT8	McResCtrl_IsDstUsed
 		break;
 
 	case	eMCDRV_DST_DIT2:
-		if(eCh == eMCDRV_DST_CH0)
+		if (eCh == eMCDRV_DST_CH0)
 		{
-			if(McResCtrl_GetDITSource(eMCDRV_DIO_2) != eMCDRV_SRC_NONE)
+			if (McResCtrl_GetDITSource(eMCDRV_DIO_2) != eMCDRV_SRC_NONE)
 			{
 				bUsed	= 1;
 			}
@@ -8407,16 +8381,16 @@ UINT8	McResCtrl_IsDstUsed
 		break;
 
 	case	eMCDRV_DST_DAC:
-		if(eCh == eMCDRV_DST_CH0)
+		if (eCh == eMCDRV_DST_CH0)
 		{
-			if(McResCtrl_GetDACSource(eMCDRV_DAC_MASTER) != eMCDRV_SRC_NONE)
+			if (McResCtrl_GetDACSource(eMCDRV_DAC_MASTER) != eMCDRV_SRC_NONE)
 			{
 				bUsed	= 1;
 			}
 		}
-		else if(eCh == eMCDRV_DST_CH1)
+		else if (eCh == eMCDRV_DST_CH1)
 		{
-			if(McResCtrl_GetDACSource(eMCDRV_DAC_VOICE) != eMCDRV_SRC_NONE)
+			if (McResCtrl_GetDACSource(eMCDRV_DAC_VOICE) != eMCDRV_SRC_NONE)
 			{
 				bUsed	= 1;
 			}
@@ -8427,9 +8401,9 @@ UINT8	McResCtrl_IsDstUsed
 		break;
 
 	case	eMCDRV_DST_AE:
-		if(eCh == eMCDRV_DST_CH0)
+		if (eCh == eMCDRV_DST_CH0)
 		{
-			if(McResCtrl_GetAESource() != eMCDRV_SRC_NONE)
+			if (McResCtrl_GetAESource() != eMCDRV_SRC_NONE)
 			{
 				bUsed	= 1;
 			}
@@ -8443,9 +8417,9 @@ UINT8	McResCtrl_IsDstUsed
 		break;
 
 	case	eMCDRV_DST_ADC0:
-		if(eCh == eMCDRV_DST_CH0)
+		if (eCh == eMCDRV_DST_CH0)
 		{
-			if(((gsGlobalInfo.sPathInfo.asAdc0[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & MCDRV_SRC0_MIC1_ON) == MCDRV_SRC0_MIC1_ON)
+			if (((gsGlobalInfo.sPathInfo.asAdc0[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & MCDRV_SRC0_MIC1_ON) == MCDRV_SRC0_MIC1_ON)
 			|| ((gsGlobalInfo.sPathInfo.asAdc0[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & MCDRV_SRC0_MIC2_ON) == MCDRV_SRC0_MIC2_ON)
 			|| ((gsGlobalInfo.sPathInfo.asAdc0[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & MCDRV_SRC0_MIC3_ON) == MCDRV_SRC0_MIC3_ON)
 			|| ((gsGlobalInfo.sPathInfo.asAdc0[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK] & MCDRV_SRC1_LINE1_L_ON) == MCDRV_SRC1_LINE1_L_ON)
@@ -8454,9 +8428,9 @@ UINT8	McResCtrl_IsDstUsed
 				bUsed	= 1;
 			}
 		}
-		else if(eCh == eMCDRV_DST_CH1)
+		else if (eCh == eMCDRV_DST_CH1)
 		{
-			if(((gsGlobalInfo.sPathInfo.asAdc0[1].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & MCDRV_SRC0_MIC1_ON) == MCDRV_SRC0_MIC1_ON)
+			if (((gsGlobalInfo.sPathInfo.asAdc0[1].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & MCDRV_SRC0_MIC1_ON) == MCDRV_SRC0_MIC1_ON)
 			|| ((gsGlobalInfo.sPathInfo.asAdc0[1].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & MCDRV_SRC0_MIC2_ON) == MCDRV_SRC0_MIC2_ON)
 			|| ((gsGlobalInfo.sPathInfo.asAdc0[1].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & MCDRV_SRC0_MIC3_ON) == MCDRV_SRC0_MIC3_ON)
 			|| ((gsGlobalInfo.sPathInfo.asAdc0[1].abSrcOnOff[MCDRV_SRC_LINE1_R_BLOCK] & MCDRV_SRC1_LINE1_R_ON) == MCDRV_SRC1_LINE1_R_ON)
@@ -8471,11 +8445,11 @@ UINT8	McResCtrl_IsDstUsed
 		break;
 
 	case	eMCDRV_DST_ADC1:
-		if(McDevProf_IsValid(eMCDRV_FUNC_ADC1) == 1)
+		if (McDevProf_IsValid(eMCDRV_FUNC_ADC1) == 1)
 		{
-			if(eCh == eMCDRV_DST_CH0)
+			if (eCh == eMCDRV_DST_CH0)
 			{
-				if(((gsGlobalInfo.sPathInfo.asAdc1[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & MCDRV_SRC0_MIC1_ON) == MCDRV_SRC0_MIC1_ON)
+				if (((gsGlobalInfo.sPathInfo.asAdc1[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & MCDRV_SRC0_MIC1_ON) == MCDRV_SRC0_MIC1_ON)
 				|| ((gsGlobalInfo.sPathInfo.asAdc1[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & MCDRV_SRC0_MIC2_ON) == MCDRV_SRC0_MIC2_ON)
 				|| ((gsGlobalInfo.sPathInfo.asAdc1[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & MCDRV_SRC0_MIC3_ON) == MCDRV_SRC0_MIC3_ON)
 				|| ((gsGlobalInfo.sPathInfo.asAdc1[0].abSrcOnOff[MCDRV_SRC_LINE1_L_BLOCK] & MCDRV_SRC1_LINE1_L_ON) == MCDRV_SRC1_LINE1_L_ON)
@@ -8491,11 +8465,11 @@ UINT8	McResCtrl_IsDstUsed
 		break;
 
 	case	eMCDRV_DST_MIX:
-		if(eCh != 0)
+		if (eCh != 0)
 		{
 			break;
 		}
-		if(((gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK] & MCDRV_SRC4_PDM_ON) == MCDRV_SRC4_PDM_ON)
+		if (((gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_PDM_BLOCK] & MCDRV_SRC4_PDM_ON) == MCDRV_SRC4_PDM_ON)
 		|| ((gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_ADC0_BLOCK] & MCDRV_SRC4_ADC0_ON) == MCDRV_SRC4_ADC0_ON)
 		|| ((gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_DIR0_BLOCK] & MCDRV_SRC3_DIR0_ON) == MCDRV_SRC3_DIR0_ON)
 		|| ((gsGlobalInfo.sPathInfo.asMix[0].abSrcOnOff[MCDRV_SRC_DIR1_BLOCK] & MCDRV_SRC3_DIR1_ON) == MCDRV_SRC3_DIR1_ON)
@@ -8507,9 +8481,9 @@ UINT8	McResCtrl_IsDstUsed
 		break;
 
 	case	eMCDRV_DST_BIAS:
-		if(eCh == eMCDRV_DST_CH0)
+		if (eCh == eMCDRV_DST_CH0)
 		{
-			if(((gsGlobalInfo.sPathInfo.asBias[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & MCDRV_SRC0_MIC1_ON) == MCDRV_SRC0_MIC1_ON)
+			if (((gsGlobalInfo.sPathInfo.asBias[0].abSrcOnOff[MCDRV_SRC_MIC1_BLOCK] & MCDRV_SRC0_MIC1_ON) == MCDRV_SRC0_MIC1_ON)
 			|| ((gsGlobalInfo.sPathInfo.asBias[0].abSrcOnOff[MCDRV_SRC_MIC2_BLOCK] & MCDRV_SRC0_MIC2_ON) == MCDRV_SRC0_MIC2_ON)
 			|| ((gsGlobalInfo.sPathInfo.asBias[0].abSrcOnOff[MCDRV_SRC_MIC3_BLOCK] & MCDRV_SRC0_MIC3_ON) == MCDRV_SRC0_MIC3_ON))
 			{
@@ -8639,7 +8613,7 @@ MCDRV_PACKET*	McResCtrl_AllocPacketBuf
 	McDebugLog_FuncIn("McResCtrl_AllocPacketBuf");
 #endif
 
-	if(eMCDRV_PACKETBUF_ALLOCATED == gsGlobalInfo.ePacketBufAlloc)
+	if (eMCDRV_PACKETBUF_ALLOCATED == gsGlobalInfo.ePacketBufAlloc)
 	{
 		#if (MCDRV_DEBUG_LEVEL>=4)
 			sdRet	= 0;
@@ -8758,7 +8732,7 @@ void	McResCtrl_AddRegUpdate
 		pwNextAddress	= gawNextAddressA;
 		bAddressADR		= (UINT8)wAddress;
 		bAddressWINDOW	= bAddressADR;
-		if(MCDRV_A_REG_NUM <= wAddress)
+		if (MCDRV_A_REG_NUM <= wAddress)
 		{
 			#if (MCDRV_DEBUG_LEVEL>=4)
 				McDebugLog_FuncOut("McResCtrl_AddRegUpdate", 0);
@@ -8773,7 +8747,7 @@ void	McResCtrl_AddRegUpdate
 		pwNextAddress	= gawNextAddressB_BASE;
 		bAddressADR		= MCI_BASE_ADR;
 		bAddressWINDOW	= MCI_BASE_WINDOW;
-		if(MCDRV_B_BASE_REG_NUM <= wAddress)
+		if (MCDRV_B_BASE_REG_NUM <= wAddress)
 		{
 			#if (MCDRV_DEBUG_LEVEL>=4)
 				McDebugLog_FuncOut("McResCtrl_AddRegUpdate", 0);
@@ -8788,7 +8762,7 @@ void	McResCtrl_AddRegUpdate
 		pwNextAddress	= gawNextAddressB_CODEC;
 		bAddressADR		= MCI_CD_ADR;
 		bAddressWINDOW	= MCI_CD_WINDOW;
-		if(MCDRV_B_CODEC_REG_NUM <= wAddress)
+		if (MCDRV_B_CODEC_REG_NUM <= wAddress)
 		{
 			#if (MCDRV_DEBUG_LEVEL>=4)
 				McDebugLog_FuncOut("McResCtrl_AddRegUpdate", 0);
@@ -8803,7 +8777,7 @@ void	McResCtrl_AddRegUpdate
 		pwNextAddress	= gawNextAddressB_Ana;
 		bAddressADR		= MCI_ANA_ADR;
 		bAddressWINDOW	= MCI_ANA_WINDOW;
-		if(MCDRV_B_ANA_REG_NUM <= wAddress)
+		if (MCDRV_B_ANA_REG_NUM <= wAddress)
 		{
 			#if (MCDRV_DEBUG_LEVEL>=4)
 				McDebugLog_FuncOut("McResCtrl_AddRegUpdate", 0);
@@ -8818,7 +8792,7 @@ void	McResCtrl_AddRegUpdate
 		pwNextAddress	= gawNextAddressB_MIXER;
 		bAddressADR		= MCI_MIX_ADR;
 		bAddressWINDOW	= MCI_MIX_WINDOW;
-		if(MCDRV_B_MIXER_REG_NUM <= wAddress)
+		if (MCDRV_B_MIXER_REG_NUM <= wAddress)
 		{
 			#if (MCDRV_DEBUG_LEVEL>=4)
 				McDebugLog_FuncOut("McResCtrl_AddRegUpdate", 0);
@@ -8833,7 +8807,7 @@ void	McResCtrl_AddRegUpdate
 		pwNextAddress	= gawNextAddressB_AE;
 		bAddressADR		= MCI_AE_ADR;
 		bAddressWINDOW	= MCI_AE_WINDOW;
-		if(MCDRV_B_AE_REG_NUM <= wAddress)
+		if (MCDRV_B_AE_REG_NUM <= wAddress)
 		{
 			#if (MCDRV_DEBUG_LEVEL>=4)
 				McDebugLog_FuncOut("McResCtrl_AddRegUpdate", 0);
@@ -8848,7 +8822,7 @@ void	McResCtrl_AddRegUpdate
 		pwNextAddress	= gawNextAddressB_CDSP;
 		bAddressADR		= MCI_CDSP_ADR;
 		bAddressWINDOW	= MCI_CDSP_WINDOW;
-		if(MCDRV_B_CDSP_REG_NUM <= wAddress)
+		if (MCDRV_B_CDSP_REG_NUM <= wAddress)
 		{
 			#if (MCDRV_DEBUG_LEVEL>=4)
 				McDebugLog_FuncOut("McResCtrl_AddRegUpdate", 0);
@@ -8864,21 +8838,21 @@ void	McResCtrl_AddRegUpdate
 		return;
 	}
 
-	if((gsGlobalInfo.wCurSlaveAddress != 0xFFFF) && (gsGlobalInfo.wCurSlaveAddress != wSlaveAddress))
+	if ((gsGlobalInfo.wCurSlaveAddress != 0xFFFF) && (gsGlobalInfo.wCurSlaveAddress != wSlaveAddress))
 	{
 		McResCtrl_ExecuteRegUpdate();
 		McResCtrl_InitRegUpdate();
 	}
 
-	if((gsGlobalInfo.wCurRegType != 0xFFFF) && (gsGlobalInfo.wCurRegType != wRegType))
+	if ((gsGlobalInfo.wCurRegType != 0xFFFF) && (gsGlobalInfo.wCurRegType != wRegType))
 	{
 		McResCtrl_ExecuteRegUpdate();
 		McResCtrl_InitRegUpdate();
 	}
 
-	if((eMCDRV_UPDATE_FORCE == eUpdateMode) || (bData != pbRegVal[wAddress]))
+	if ((eMCDRV_UPDATE_FORCE == eUpdateMode) || (bData != pbRegVal[wAddress]))
 	{
-		if(gsGlobalInfo.wCurRegAddress == 0xFFFF)
+		if (gsGlobalInfo.wCurRegAddress == 0xFFFF)
 		{
 			gsGlobalInfo.wCurRegAddress	= wAddress;
 		}
@@ -9037,18 +9011,18 @@ SINT32	McResCtrl_WaitEvent
 		dInterval	= gsGlobalInfo.sInitInfo.sWaitTime.dSvolInterval;
 		dTimeOut	= gsGlobalInfo.sInitInfo.sWaitTime.dSvolTimeOut;
 		bSlaveAddr	= McDevProf_GetSlaveAddr(eMCDRV_SLAVE_ADDR_DIG);
-		if((dParam>>8) != (UINT32)0)
+		if ((dParam>>8) != (UINT32)0)
 		{
 			abWriteData[0]	= MCI_MIX_ADR<<1;
 			abWriteData[1]	= MCI_DAC_INS_FLAG;
 			McSrv_WriteI2C(bSlaveAddr, abWriteData, 2);
 			sdRet	= WaitBitRelease(bSlaveAddr, MCI_MIX_WINDOW, (UINT8)(dParam>>8), dInterval, dTimeOut);
-			if(MCDRV_SUCCESS != sdRet)
+			if (MCDRV_SUCCESS != sdRet)
 			{
 				break;
 			}
 		}
-		else if((dParam&(UINT32)0xFF) != (UINT32)0)
+		else if ((dParam&(UINT32)0xFF) != (UINT32)0)
 		{
 			abWriteData[0]	= MCI_MIX_ADR<<1;
 			abWriteData[1]	= MCI_INS_FLAG;
@@ -9068,7 +9042,7 @@ SINT32	McResCtrl_WaitEvent
 		abWriteData[1]	= MCI_DIT_INVFLAGL;
 		McSrv_WriteI2C(bSlaveAddr, abWriteData, 2);
 		sdRet	= WaitBitRelease(bSlaveAddr, (UINT16)MCI_MIX_WINDOW, (MCB_DIT0_INVFLAGL|MCB_DIT1_INVFLAGL|MCB_DIT2_INVFLAGL), dInterval, dTimeOut);
-		if(MCDRV_SUCCESS != sdRet)
+		if (MCDRV_SUCCESS != sdRet)
 		{
 			break;
 		}
@@ -9076,7 +9050,7 @@ SINT32	McResCtrl_WaitEvent
 		abWriteData[1]	= MCI_DIT_INVFLAGR;
 		McSrv_WriteI2C(McDevProf_GetSlaveAddr(eMCDRV_SLAVE_ADDR_DIG), abWriteData, 2);
 		sdRet	= WaitBitRelease(bSlaveAddr, (UINT16)MCI_MIX_WINDOW, (MCB_DIT0_INVFLAGR|MCB_DIT1_INVFLAGR|MCB_DIT2_INVFLAGR), dInterval, dTimeOut);
-		if(MCDRV_SUCCESS != sdRet)
+		if (MCDRV_SUCCESS != sdRet)
 		{
 			break;
 		}
@@ -9084,7 +9058,7 @@ SINT32	McResCtrl_WaitEvent
 		abWriteData[1]	= MCI_DIR_VFLAGL;
 		McSrv_WriteI2C(bSlaveAddr, abWriteData, 2);
 		sdRet	= WaitBitRelease(bSlaveAddr, (UINT16)MCI_MIX_WINDOW, (MCB_PDM0_VFLAGL|MCB_DIR0_VFLAGL|MCB_DIR1_VFLAGL|MCB_DIR2_VFLAGL), dInterval, dTimeOut);
-		if(MCDRV_SUCCESS != sdRet)
+		if (MCDRV_SUCCESS != sdRet)
 		{
 			break;
 		}
@@ -9092,7 +9066,7 @@ SINT32	McResCtrl_WaitEvent
 		abWriteData[1]	= MCI_DIR_VFLAGR;
 		McSrv_WriteI2C(bSlaveAddr, abWriteData, 2);
 		sdRet	= WaitBitRelease(bSlaveAddr, (UINT16)MCI_MIX_WINDOW, (MCB_PDM0_VFLAGR|MCB_DIR0_VFLAGR|MCB_DIR1_VFLAGR|MCB_DIR2_VFLAGR), dInterval, dTimeOut);
-		if(MCDRV_SUCCESS != sdRet)
+		if (MCDRV_SUCCESS != sdRet)
 		{
 			break;
 		}
@@ -9100,7 +9074,7 @@ SINT32	McResCtrl_WaitEvent
 		abWriteData[1]	= MCI_AD_VFLAGL;
 		McSrv_WriteI2C(bSlaveAddr, abWriteData, 2);
 		sdRet	= WaitBitRelease(bSlaveAddr, (UINT16)MCI_MIX_WINDOW, (MCB_ADC_VFLAGL|MCB_AENG6_VFLAGL), dInterval, dTimeOut);
-		if(MCDRV_SUCCESS != sdRet)
+		if (MCDRV_SUCCESS != sdRet)
 		{
 			break;
 		}
@@ -9108,7 +9082,7 @@ SINT32	McResCtrl_WaitEvent
 		abWriteData[1]	= MCI_AD_VFLAGR;
 		McSrv_WriteI2C(bSlaveAddr, abWriteData, 2);
 		sdRet	= WaitBitRelease(bSlaveAddr, (UINT16)MCI_MIX_WINDOW, (MCB_ADC_VFLAGR|MCB_AENG6_VFLAGR), dInterval, dTimeOut);
-		if(MCDRV_SUCCESS != sdRet)
+		if (MCDRV_SUCCESS != sdRet)
 		{
 			break;
 		}
@@ -9116,7 +9090,7 @@ SINT32	McResCtrl_WaitEvent
 		abWriteData[1]	= MCI_AFLAGL;
 		McSrv_WriteI2C(bSlaveAddr, abWriteData, 2);
 		sdRet	= WaitBitRelease(bSlaveAddr, (UINT16)MCI_MIX_WINDOW, (MCB_ADC_AFLAGL|MCB_DIR0_AFLAGL|MCB_DIR1_AFLAGL|MCB_DIR2_AFLAGL), dInterval, dTimeOut);
-		if(MCDRV_SUCCESS != sdRet)
+		if (MCDRV_SUCCESS != sdRet)
 		{
 			break;
 		}
@@ -9124,7 +9098,7 @@ SINT32	McResCtrl_WaitEvent
 		abWriteData[1]	= MCI_AFLAGR;
 		McSrv_WriteI2C(bSlaveAddr, abWriteData, 2);
 		sdRet	= WaitBitRelease(bSlaveAddr, (UINT16)MCI_MIX_WINDOW, (MCB_ADC_AFLAGR|MCB_DIR0_AFLAGR|MCB_DIR1_AFLAGR|MCB_DIR2_AFLAGR), dInterval, dTimeOut);
-		if(MCDRV_SUCCESS != sdRet)
+		if (MCDRV_SUCCESS != sdRet)
 		{
 			break;
 		}
@@ -9132,7 +9106,7 @@ SINT32	McResCtrl_WaitEvent
 		abWriteData[1]	= MCI_DAC_FLAGL;
 		McSrv_WriteI2C(bSlaveAddr, abWriteData, 2);
 		sdRet	= WaitBitRelease(bSlaveAddr, (UINT16)MCI_MIX_WINDOW, (MCB_ST_FLAGL|MCB_MASTER_OFLAGL|MCB_VOICE_FLAGL|MCB_DAC_FLAGL), dInterval, dTimeOut);
-		if(MCDRV_SUCCESS != sdRet)
+		if (MCDRV_SUCCESS != sdRet)
 		{
 			break;
 		}
@@ -9146,18 +9120,18 @@ SINT32	McResCtrl_WaitEvent
 		dInterval	= gsGlobalInfo.sInitInfo.sWaitTime.dSvolInterval;
 		dTimeOut	= gsGlobalInfo.sInitInfo.sWaitTime.dSvolTimeOut;
 		bSlaveAddr	= McDevProf_GetSlaveAddr(eMCDRV_SLAVE_ADDR_DIG);
-		if((dParam>>8) != (UINT32)0)
+		if ((dParam>>8) != (UINT32)0)
 		{
 			abWriteData[0]	= MCI_MIX_ADR<<1;
 			abWriteData[1]	= MCI_DIT_INVFLAGL;
 			McSrv_WriteI2C(bSlaveAddr, abWriteData, 2);
 			sdRet	= WaitBitRelease(bSlaveAddr, (UINT16)MCI_MIX_WINDOW, (UINT8)(dParam>>8), dInterval, dTimeOut);
-			if(MCDRV_SUCCESS != sdRet)
+			if (MCDRV_SUCCESS != sdRet)
 			{
 				break;
 			}
 		}
-		if((dParam&(UINT32)0xFF) != (UINT32)0)
+		if ((dParam&(UINT32)0xFF) != (UINT32)0)
 		{
 			abWriteData[0]	= MCI_MIX_ADR<<1;
 			abWriteData[1]	= MCI_DIT_INVFLAGR;
@@ -9170,18 +9144,18 @@ SINT32	McResCtrl_WaitEvent
 		dInterval	= gsGlobalInfo.sInitInfo.sWaitTime.dSvolInterval;
 		dTimeOut	= gsGlobalInfo.sInitInfo.sWaitTime.dSvolTimeOut;
 		bSlaveAddr	= McDevProf_GetSlaveAddr(eMCDRV_SLAVE_ADDR_DIG);
-		if((dParam>>8) != (UINT32)0)
+		if ((dParam>>8) != (UINT32)0)
 		{
 			abWriteData[0]	= MCI_MIX_ADR<<1;
 			abWriteData[1]	= MCI_DAC_FLAGL;
 			McSrv_WriteI2C(bSlaveAddr, abWriteData, 2);
 			sdRet	= WaitBitRelease(bSlaveAddr, (UINT16)MCI_MIX_WINDOW, (UINT8)(dParam>>8), dInterval, dTimeOut);
-			if(MCDRV_SUCCESS != sdRet)
+			if (MCDRV_SUCCESS != sdRet)
 			{
 				break;
 			}
 		}
-		if((dParam&(UINT32)0xFF) != (UINT32)0)
+		if ((dParam&(UINT32)0xFF) != (UINT32)0)
 		{
 			abWriteData[0]	= MCI_MIX_ADR<<1;
 			abWriteData[1]	= MCI_DAC_FLAGR;
@@ -9194,18 +9168,18 @@ SINT32	McResCtrl_WaitEvent
 		dInterval	= gsGlobalInfo.sInitInfo.sWaitTime.dSvolInterval;
 		dTimeOut	= gsGlobalInfo.sInitInfo.sWaitTime.dSvolTimeOut;
 		bSlaveAddr	= McDevProf_GetSlaveAddr(eMCDRV_SLAVE_ADDR_ANA);
-		if((dParam>>8) != (UINT32)0)
+		if ((dParam>>8) != (UINT32)0)
 		{
 			abWriteData[0]	= MCI_ANA_ADR<<1;
 			abWriteData[1]	= MCI_BUSY1;
 			McSrv_WriteI2C(bSlaveAddr, abWriteData, 2);
 			sdRet	= WaitBitRelease(bSlaveAddr, (UINT16)MCI_ANA_WINDOW, (UINT8)(dParam>>8), dInterval, dTimeOut);
-			if(MCDRV_SUCCESS != sdRet)
+			if (MCDRV_SUCCESS != sdRet)
 			{
 				break;
 			}
 		}
-		if((dParam&(UINT32)0xFF) != (UINT32)0)
+		if ((dParam&(UINT32)0xFF) != (UINT32)0)
 		{
 			abWriteData[0]	= MCI_ANA_ADR<<1;
 			abWriteData[1]	= MCI_BUSY2;
@@ -9222,7 +9196,7 @@ SINT32	McResCtrl_WaitEvent
 		abWriteData[1]	= MCI_AP_A1;
 		McSrv_WriteI2C(bSlaveAddr, abWriteData, 2);
 		sdRet	= WaitBitSet(bSlaveAddr, (UINT16)MCI_ANA_WINDOW, (UINT8)(dParam>>8), dInterval, dTimeOut);
-		if(MCDRV_SUCCESS != sdRet)
+		if (MCDRV_SUCCESS != sdRet)
 		{
 			break;
 		}
@@ -9290,7 +9264,7 @@ SINT32	McResCtrl_WaitEvent
 		abWriteData[1] 	 = MCI_AD_VFLAGL;
 		McSrv_WriteI2C(bSlaveAddr, abWriteData, 2);
 		sdRet	= WaitBitRelease(bSlaveAddr, (UINT16)MCI_MIX_WINDOW, MCB_ADC_VFLAGL, dInterval, dTimeOut);
-		if(MCDRV_SUCCESS != sdRet)
+		if (MCDRV_SUCCESS != sdRet)
 		{
 			 break;
 		}
@@ -9351,7 +9325,7 @@ static SINT32	WaitBitSet
 	while(dCycles < dTimeOut)
 	{
 		bData	= McSrv_ReadI2C(bSlaveAddr, wRegAddr);
-		if((bData & bBit) == bBit)
+		if ((bData & bBit) == bBit)
 		{
 			sdRet	= MCDRV_SUCCESS;
 			break;
@@ -9408,7 +9382,7 @@ static SINT32	WaitBitRelease
 	while(dCycles < dTimeOut)
 	{
 		bData	= McSrv_ReadI2C(bSlaveAddr, wRegAddr);
-		if(0 == (bData & bBit))
+		if (0 == (bData & bBit))
 		{
 			sdRet	= MCDRV_SUCCESS;
 			break;

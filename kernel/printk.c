@@ -1195,7 +1195,7 @@ __setup("no_console_suspend", console_suspend_disable);
  */
 void suspend_console(void)
 {
-	//if (!console_suspend_enabled)
+	if (!console_suspend_enabled)
 		return;
 	printk("Suspending console(s) (use no_console_suspend to debug)\n");
 	console_lock();
@@ -1205,7 +1205,7 @@ void suspend_console(void)
 
 void resume_console(void)
 {
-	//if (!console_suspend_enabled)
+	if (!console_suspend_enabled)
 		return;
 	down(&console_sem);
 	console_suspended = 0;
