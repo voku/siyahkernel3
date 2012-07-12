@@ -45,7 +45,7 @@
 #include <linux/suspend.h>
 #endif
 
-#if defined(CONFIG_MACH_U1_BD) && defined(CONFIG_TARGET_LOCALE_EUR)
+#if defined(CONFIG_MACH_U1_BD) && defined(CONFIG_TARGET_LOCALE_KOR)
 #include <mach/regs-clock.h>
 #include "boot_progressbar.h"
 #define DISPLAY_BOOT_PROGRESS
@@ -53,6 +53,18 @@
 
 
 struct s3cfb_fimd_desc		*fbfimd;
+
+/*inline struct s3cfb_global *get_fimd_global(int id)
+{
+	struct s3cfb_global *fbdev;
+
+	if (id < 5)
+		fbdev = fbfimd->fbdev[0];
+	else
+		fbdev = fbfimd->fbdev[1];
+
+	return fbdev;
+}*/
 
 int s3cfb_vsync_status_check(void)
 {

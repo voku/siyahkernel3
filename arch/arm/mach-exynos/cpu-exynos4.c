@@ -218,9 +218,7 @@ static struct map_desc exynos4212_iodesc[] __initdata = {
 
 static void exynos4_idle(void)
 {
-	if (arm_pm_idle)
-		arm_pm_idle();
-	else
+	if (!need_resched())
 		cpu_do_idle();
 
 	local_irq_enable();

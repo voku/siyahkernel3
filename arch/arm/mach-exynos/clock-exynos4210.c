@@ -51,15 +51,15 @@ static struct sleep_save exynos4210_clock_save[] = {
 };
 
 static struct sleep_save exynos4210_epll_save[] = {
-	SAVE_ITEM(EXYNOS4_EPLL_LOCK),
-	SAVE_ITEM(EXYNOS4_EPLL_CON0),
-	SAVE_ITEM(EXYNOS4_EPLL_CON1),
+       SAVE_ITEM(EXYNOS4_EPLL_LOCK),
+       SAVE_ITEM(EXYNOS4_EPLL_CON0),
+       SAVE_ITEM(EXYNOS4_EPLL_CON1),
 };
 
 static struct sleep_save exynos4210_vpll_save[] = {
-	SAVE_ITEM(EXYNOS4_VPLL_LOCK),
-	SAVE_ITEM(EXYNOS4_VPLL_CON0),
-	SAVE_ITEM(EXYNOS4_VPLL_CON1),
+       SAVE_ITEM(EXYNOS4_VPLL_LOCK),
+       SAVE_ITEM(EXYNOS4_VPLL_CON0),
+       SAVE_ITEM(EXYNOS4_VPLL_CON1),
 };
 #endif
 
