@@ -764,24 +764,6 @@ static int exynos4_enter_lowpower(struct cpuidle_device *dev,
 		__raw_writel(tmp, S5P_CENTRAL_SEQ_OPTION);
 	}
 
-<<<<<<< .merge_file_461G3V
-	if (new_state == &dev->states[0]) {
-		printk(KERN_INFO "Info: starting Idle Mode!\n");
-		return exynos4_enter_idle(dev, new_state);
-	}
-
-	enter_mode = exynos4_check_entermode();
-	if (!enter_mode) {
-		printk(KERN_INFO "Info: starting Idle Mode!\n");
-		return exynos4_enter_idle(dev, new_state);
-	} else if (enter_mode == S5P_CHECK_DIDLE) {
-		printk(KERN_INFO "Info: starting AFTR Idle Mode!\n");
-		return exynos4_enter_core0_aftr(dev, new_state);
-	} else {
-		printk(KERN_INFO "Info: starting LPA Idle Mode!\n");
-		return exynos4_enter_core0_lpa(dev, new_state);
-	}
-=======
 	if (new_state == &dev->states[0])
 		return exynos4_enter_idle(dev, new_state);
 
@@ -792,7 +774,6 @@ static int exynos4_enter_lowpower(struct cpuidle_device *dev,
 		return exynos4_enter_core0_aftr(dev, new_state);
 	else
 		return exynos4_enter_core0_lpa(dev, new_state);
->>>>>>> .merge_file_yQvP1U
 }
 
 static int exynos4_cpuidle_notifier_event(struct notifier_block *this,
