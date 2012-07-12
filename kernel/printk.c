@@ -1199,9 +1199,7 @@ MODULE_PARM_DESC(console_suspend, "suspend console during suspend"
  */
 void suspend_console(void)
 {
-#ifdef CONFIG_CONSOLE_SUSPEND
 	if (!console_suspend_enabled)
-#endif
 		return;
 	printk("Suspending console(s) (use no_console_suspend to debug)\n");
 	console_lock();
@@ -1211,9 +1209,7 @@ void suspend_console(void)
 
 void resume_console(void)
 {
-#ifdef CONFIG_CONSOLE_SUSPEND
 	if (!console_suspend_enabled)
-#endif
 		return;
 	down(&console_sem);
 	console_suspended = 0;
