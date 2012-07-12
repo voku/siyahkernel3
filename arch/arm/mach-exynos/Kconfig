@@ -1462,3 +1462,9 @@ config BT_BCM4334
 	help
 	  Adds BCM4334 RFKILL driver for Broadcom BCM4334 chipset
 endif
+
+config CONSOLE_SUSPEND
+	bool "Enable Console suspend - less debug"
+	default y
+	help
+	  Disable this if you need more debug for Power Managment / Idle
