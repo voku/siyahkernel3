@@ -109,8 +109,8 @@ struct lcd_info  {
 
 
 static const unsigned int candela_table[GAMMA_MAX] = {
-	 10, 30,  40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150,
-	160, 170, 180, 190, 200, 210, 220, 230, 240, 250,
+	 10, 30,  50, 70, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180,
+	190, 200, 210, 220, 230, 240, 250, 260, 270, 280,
 	300
 };
 
@@ -308,18 +308,20 @@ static int ld9040_panel_send_sequence(struct lcd_info *lcd,
 int min_gamma = 0, max_gamma = MAX_GAMMA, min_bl = 40;
 static int get_backlight_level_from_brightness(unsigned int bl)
 {
-	int gamma_value =0;
-	int gamma_val_x10 =0;
+	int gamma_value = 0;
+	int gamma_val_x10 = 0;
 
-	if(bl >= min_bl){
-		gamma_val_x10 = 10 *(max_gamma-1-min_gamma)*bl/(MAX_BL-min_bl) 
-		    + (10 - 10*(max_gamma-1-min_gamma)*(min_bl)/(MAX_BL-min_bl));
-		gamma_value=(gamma_val_x10 +5)/10 + min_gamma;
-	}else{
+	if (bl >= min_bl) {
+		gamma_val_x10 = 10 *(max_gamma - 1 - min_gamma)*bl / (MAX_BL-min_bl) 
+		    + (10 - 10*(max_gamma-1-min_gamma) * (min_bl) / (MAX_BL-min_bl));
+		gamma_value=(gamma_val_x10 + 5) / 10 + min_gamma;
+	} else {
 		gamma_value =min_gamma;
 	}
-	if(gamma_value > MAX_GAMMA) gamma_value = MAX_GAMMA;
-	else if(gamma_value < min_gamma) gamma_value = min_gamma;
+	if (gamma_value > MAX_GAMMA) 
+			gamma_value = MAX_GAMMA;
+	else if (gamma_value < min_gamma) 
+			gamma_value = min_gamma;
 	return gamma_value;
 }
 
@@ -346,27 +348,27 @@ declare_show(min_bl) {
 
 declare_store(min_gamma) {	
 	int val;
-	if(sscanf(buf,"%d",&val)==1) {
-		if(val>23) val=23;
-		else if(val<0) val=0;
+	if (sscanf(buf, "%d", &val) == 1) {
+		if (val > 23) val = 23;
+		else if (val < 0) val = 0;
 		min_gamma = val;
 	}
 	return size;
 }
-declare_store(max_gamma) {	
+declare_store(max_gamma) {
 	int val;
-	if(sscanf(buf,"%d",&val)==1) {
-		if(val>MAX_GAMMA) val=MAX_GAMMA;
-		else if(val<0) val=0;
+	if (sscanf(buf, "%d", &val) == 1) {
+		if (val > MAX_GAMMA) val = MAX_GAMMA;
+		else if (val < 0) val = 0;
 		max_gamma = val;
 	}
 	return size;
 }
 declare_store(min_bl) {	
 	int val;
-	if(sscanf(buf,"%d",&val)==1) {
-		if(val>200) val=200;
-		else if(val<0) val=0;
+	if (sscanf(buf, "%d", &val) == 1) {
+		if (val > 200) val = 200;
+		else if (val < 0) val = 0;
 		min_bl = val;
 	}
 	return size;
@@ -417,11 +419,11 @@ static int ld9040_gamma_ctl(struct lcd_info *lcd)
 		memcpy(gamma_adjust, gamma, GAMMA_DATA_SIZE);
 		for (i = 0; i < ARRAY_SIZE(gamma_adjust_map); i++) {
 			if (gamma_adjust_map[i] != 0) {
-				signed short value = gamma_adjust[(i+1)*2+1];
+				signed short value = gamma_adjust[(i + 1) * 2 + 1];
 				value += lcd->user_gamma_adjust / gamma_adjust_map[i];
 				if (value > 0xFF) value = 0xFF;
 				else if (value < 0) value = 0x00;
-				gamma_adjust[(i+1)*2+1] = (unsigned short)value;
+				gamma_adjust[(i + 1)* 2 + 1] = (unsigned short)value;
 			}
 		}
 		ret = ld9040_panel_send_sequence(lcd, gamma_adjust);
@@ -587,7 +589,8 @@ static int ld9040_ldi_disable(struct lcd_info *lcd)
 static int update_brightness(struct lcd_info *lcd, u8 force)
 {
 	int ret = 0, brightness;
-	struct ld9040_panel_data *pdata = lcd->lcd_pd->pdata;
+	struct ld9040_panel_data; 
+//	struct *pdata = lcd->lcd_pd->pdata;
 
 	mutex_lock(&lcd->bl_lock);
 
@@ -608,7 +611,7 @@ static int update_brightness(struct lcd_info *lcd, u8 force)
 
 		lcd->current_bl = lcd->bl;
 
-		dev_info(&lcd->ld->dev, "id=%d brightness=%d, bl=%d, candela=%d\n", pdata->lcdtype, brightness, lcd->bl, candela_table[lcd->bl]);
+		//dev_info(&lcd->ld->dev, "id=%d brightness=%d, bl=%d, candela=%d\n", pdata->lcdtype, brightness, lcd->bl, candela_table[lcd->bl]);
 	}
 
 	mutex_unlock(&lcd->bl_lock);
@@ -1109,7 +1112,7 @@ static ssize_t ld9040_sysfs_store_user_gamma_adjust(struct device *dev,
 
 	if (lcd->ldi_enable)
 	{
-		if(lcd->current_user_gamma_adjust == lcd->user_gamma_adjust)
+		if (lcd->current_user_gamma_adjust == lcd->user_gamma_adjust)
 			printk("there is no gamma shift & brightness changed\n");	
 		else
 		{
@@ -1458,4 +1461,3 @@ module_exit(ld9040_exit);
 
 MODULE_DESCRIPTION("LD9040 AMOLED LCD Driver");
 MODULE_LICENSE("GPL");
-

@@ -379,18 +379,19 @@ CFLAGS_LOOPS_DEFAULT = -ftree-vectorize \
 				  -ftree-loop-distribution \
 				  -fgraphite-identity
 
+CFLAGS_ADDONS = -funswitch-loops \
+				  -fpredictive-commoning
+
 CFLAGS_EXPEREMENT = -fprofile-correction \
 				  -ffast-math \
 				  -mvectorize-with-neon-quad \
-				  -funswitch-loops \
-				  -fpredictive-commoning
 
 KERNELFLAGS     = $(CFLAGS_COMPILE) \
 				  $(CFLAGS_ARM) \
 				  $(CFLAGS_DISABLE) \
 				  $(CFLAGS_MODULO) \
 				  $(CFLAGS_LOOPS_DEFAULT) \
-				  $(CFLAGS_EXPEREMENT)
+				  $(CFLAGS_ADDONS)
 
 MODFLAGS        = -DMODULE $(KERNELFLAGS)
 CFLAGS_MODULE   = $(MODFLAGS)
