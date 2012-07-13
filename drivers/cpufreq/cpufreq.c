@@ -32,11 +32,7 @@
 
 #include <trace/events/power.h>
 
-<<<<<<< HEAD
 unsigned int exynos4x12_volt_table[14];
-=======
-#define SafeBootSpeed 1200000
->>>>>>> Dorimanx-SG2-I9100-Kernel/master-3.0.y
 
 /**
  * The "cpufreq driver" - the arch- or hardware-dependent low
