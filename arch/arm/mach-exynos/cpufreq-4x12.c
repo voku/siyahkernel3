@@ -29,7 +29,9 @@
 
 #undef PRINT_DIV_VAL
 
-#undef ENABLE_CLKOUT
+#define ENABLE_CLKOUT
+
+#define CPUFREQ_VOL_COMP 50000
 
 static int max_support_idx;
 static int min_support_idx = (CPUFREQ_LEVEL_END - 1);
@@ -79,7 +81,7 @@ static unsigned int clkdiv_cpu0_4212[CPUFREQ_LEVEL_END][8] = {
 	{ 0, 3, 7, 0, 6, 1, 2, 0 },
 
 	/* ARM L2: 1300Mhz */
-	{ 0, 3, 7, 0, 5, 1, 2, 0 },
+	{ 0, 3, 7, 0, 6, 1, 2, 0 },
 
 	/* ARM L3: 1200Mhz */
 	{ 0, 3, 7, 0, 5, 1, 2, 0 },

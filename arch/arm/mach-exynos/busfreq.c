@@ -45,8 +45,8 @@
 
 #define MAX_LOAD		100
 #define DIVIDING_FACTOR		10000
-#define UP_THRESHOLD_DEFAULT	30
-#define DOWN_THRESHOLD_DEFAULT	30
+#define UP_THRESHOLD_DEFAULT	23
+#define DOWN_THRESHOLD_DEFAULT	23
 
 static unsigned up_threshold;
 static unsigned down_threshold;
@@ -77,7 +77,6 @@ enum busfreq_level_idx {
 	LV_0,
 	LV_1,
 	LV_2,
-	LV_3,
 	LV_END
 };
 
@@ -97,7 +96,6 @@ static struct busfreq_table exynos4_busfreq_table[] = {
 	{LV_0, 400000, 1100000, 0, 0},
 	{LV_1, 267000, 1000000, 0, 0},
 	{LV_2, 133000,  950000, 0, 0},
-	{LV_3, 100000,  950000, 0, 0},
 	{0, 0, 0, 0, 0},
 };
 
@@ -127,12 +125,9 @@ static unsigned int clkdiv_dmc0[LV_END][8] = {
 
 	/* DMC L2: 133MHz */
 	{ 5, 2, 1, 5, 1, 1, 3, 1 },
-
-	/* DMC L3: 100MHz */
-	{ 5, 2, 1, 5, 1, 1, 3, 1 },
 };
 
-static unsigned int clkdiv_top[LV_END][6] = {
+static unsigned int clkdiv_top[LV_END][5] = {
 	/*
 	 * Clock divider value for following
 	 * { DIVACLK200, DIVACLK100, DIVACLK160, DIVACLK133, DIVONENAND }
@@ -145,9 +140,6 @@ static unsigned int clkdiv_top[LV_END][6] = {
 	{ 4, 7, 5, 6, 1 },
 
 	/* ACLK200 L2: 133MHz */
-	{ 5, 7, 7, 7, 1 },
-
-	/* ACLK200 L3: 100MHz */
 	{ 5, 7, 7, 7, 1 },
 };
 
@@ -165,9 +157,6 @@ static unsigned int clkdiv_lr_bus[LV_END][2] = {
 
 	/* ACLK_GDL/R L3: 133MHz */
 	{ 5, 1 },
-
-	/* ACLK_GDL/R L3: 100MHz */
-	{ 5, 1 },
 };
 
 static unsigned int clkdiv_ip_bus[LV_END][3] = {
@@ -184,10 +173,6 @@ static unsigned int clkdiv_ip_bus[LV_END][3] = {
 	{ 3, 4, 5 },
 
 	/* L2: MFC 200MHz G2D 133MHz FIMC 100MHz */
-	/* { 5, 5, 7 }, */
-	{ 3, 5, 7 },
-
-	/* L3: MFC 200MHz G2D 100MHz FIMC 100MHz */
 	/* { 5, 5, 7 }, */
 	{ 3, 5, 7 },
 };
@@ -777,15 +762,13 @@ static int __init busfreq_mon_init(void)
 			EXYNOS4_CLKDIV_TOP_ACLK100_MASK |
 			EXYNOS4_CLKDIV_TOP_ACLK160_MASK |
 			EXYNOS4_CLKDIV_TOP_ACLK133_MASK |
-			EXYNOS4_CLKDIV_TOP_ACLK100_MASK |
 			EXYNOS4_CLKDIV_TOP_ONENAND_MASK);
 
 		tmp |= ((clkdiv_top[i][0] << EXYNOS4_CLKDIV_TOP_ACLK200_SHIFT) |
 			(clkdiv_top[i][1] << EXYNOS4_CLKDIV_TOP_ACLK100_SHIFT) |
 			(clkdiv_top[i][2] << EXYNOS4_CLKDIV_TOP_ACLK160_SHIFT) |
 			(clkdiv_top[i][3] << EXYNOS4_CLKDIV_TOP_ACLK133_SHIFT) |
-			(clkdiv_top[i][4] << EXYNOS4_CLKDIV_TOP_ACLK100_SHIFT) |
-			(clkdiv_top[i][5] << EXYNOS4_CLKDIV_TOP_ONENAND_SHIFT));
+			(clkdiv_top[i][4] << EXYNOS4_CLKDIV_TOP_ONENAND_SHIFT));
 
 		exynos4_busfreq_table[i].clk_topdiv = tmp;
 	}
