@@ -371,13 +371,17 @@ CFLAGS_DISABLE  = -fno-delete-null-pointer-checks \
 CFLAGS_MODULO   = -fmodulo-sched \
 				  -fmodulo-sched-allow-regmoves
 
-CFLAGS_LOOPS_DEFAULT = -ftree-vectorize \
+CFLAGS_LOOPS_DEFAULT1 = -ftree-vectorize \
 				  -ftree-loop-linear \
 				  -floop-interchange \
 				  -floop-strip-mine \
 				  -floop-block \
 				  -ftree-loop-distribution \
-				  -fgraphite-identity
+				  -fgraphiee-identity
+#LOOP FLAGS for GCC 4.3
+CFLAGS_LOOPS_DEFAULT = -ftree-vectorize \
+				  -ftree-loop-linear \
+				  -ftree-loop-distribution  
 
 CFLAGS_ADDONS = -funswitch-loops \
 				  -fpredictive-commoning

@@ -35,6 +35,8 @@
 
 unsigned int exynos4x12_volt_table[14];
 
+unsigned int exynos4x12_volt_table[14];
+
 /**
  * The "cpufreq driver" - the arch- or hardware-dependent low
  * level driver of CPUFreq support, and its spinlock. This lock
@@ -559,6 +561,73 @@ static ssize_t show_scaling_setspeed(struct cpufreq_policy *policy, char *buf)
 	return policy->governor->show_setspeed(policy, buf);
 }
 
+static ssize_t show_UV_uV_table(struct cpufreq_policy *policy, char *buf) {
+	return sprintf(buf, 
+"1500mhz: %d uV\n\
+1400mhz: %d uV\n\
+1300mhz: %d uV\n\
+1200mhz: %d uV\n\
+1100mhz: %d uV\n\
+1000mhz: %d uV\n\
+ 900mhz: %d uV\n\
+ 800mhz: %d uV\n\
+ 700mhz: %d uV\n\
+ 600mhz: %d uV\n\
+ 500mhz: %d uV\n\
+ 400mhz: %d uV\n\
+ 300mhz: %d uV\n\
+ 200mhz: %d uV\n",
+	exynos4x12_volt_table[0],
+	exynos4x12_volt_table[1],
+	exynos4x12_volt_table[2],
+	exynos4x12_volt_table[3],
+	exynos4x12_volt_table[4],
+	exynos4x12_volt_table[5],
+	exynos4x12_volt_table[6],
+	exynos4x12_volt_table[7],
+	exynos4x12_volt_table[8],
+	exynos4x12_volt_table[9],
+	exynos4x12_volt_table[10],
+	exynos4x12_volt_table[11],
+	exynos4x12_volt_table[12],
+	exynos4x12_volt_table[13]);
+}
+
+static ssize_t store_UV_uV_table(struct cpufreq_policy *policy, 
+				 const char *buf, size_t count) {
+
+	unsigned int ret = -EINVAL;
+	int i = 0;
+
+	ret = sscanf(buf, "%d %d %d %d %d %d %d %d %d %d %d %d %d %d",
+		     &exynos4x12_volt_table[0],
+		     &exynos4x12_volt_table[1],
+		     &exynos4x12_volt_table[2],
+		     &exynos4x12_volt_table[3],
+		     &exynos4x12_volt_table[4],
+		     &exynos4x12_volt_table[5],
+		     &exynos4x12_volt_table[6],
+		     &exynos4x12_volt_table[7],
+		     &exynos4x12_volt_table[8],
+		     &exynos4x12_volt_table[9],
+		     &exynos4x12_volt_table[10],
+		     &exynos4x12_volt_table[11],
+		     &exynos4x12_volt_table[12],
+		     &exynos4x12_volt_table[13]);
+
+	if(ret != 14) {
+		return -EINVAL;
+	} else {
+		for (i = 0; i < 14; i++) {
+			if (exynos4x12_volt_table[i] > 1500000) 
+				exynos4x12_volt_table[i] = 1500000;
+			else if (exynos4x12_volt_table[i] < 850000) 
+				exynos4x12_volt_table[i] = 850000;
+		}
+	}
+	return count;
+}
+
 extern ssize_t acpuclk_get_vdd_levels_str(char *buf);
 static ssize_t show_vdd_levels(struct cpufreq_policy *policy, char *buf)
 {
@@ -633,6 +702,11 @@ static ssize_t show_bios_limit(struct cpufreq_policy *policy, char *buf)
 	return sprintf(buf, "%u\n", policy->cpuinfo.max_freq);
 }
 
+extern ssize_t show_asv_group(struct cpufreq_policy *policy, char *buf);
+
+extern ssize_t store_asv_group(struct cpufreq_policy *policy,
+                                      const char *buf, size_t count);
+
 cpufreq_freq_attr_ro_perm(cpuinfo_cur_freq, 0400);
 cpufreq_freq_attr_ro(cpuinfo_min_freq);
 cpufreq_freq_attr_ro(cpuinfo_max_freq);
@@ -652,6 +726,8 @@ cpufreq_freq_attr_rw(scaling_setspeed);
 cpufreq_freq_attr_rw(vdd_levels);
 /* UV table */
 cpufreq_freq_attr_rw(UV_mV_table);
+cpufreq_freq_attr_rw(UV_uV_table);
+cpufreq_freq_attr_rw(asv_group);
 cpufreq_freq_attr_rw(smooth_level);
 
 static struct attribute *default_attrs[] = {
@@ -669,8 +745,10 @@ static struct attribute *default_attrs[] = {
 	&scaling_available_governors.attr,
 	&scaling_setspeed.attr,
 	&vdd_levels.attr,
+	&UV_uV_table.attr,
 	&UV_mV_table.attr,
 	&smooth_level.attr,
+	&asv_group.attr,
 	NULL
 };
 
@@ -1017,6 +1095,19 @@ static int cpufreq_add_dev(struct sys_device *sys_dev)
 		pr_debug("initialization failed\n");
 		goto err_unlock_policy;
 	}
+
+#ifdef CONFIG_HOTPLUG_CPU
+	for_each_online_cpu(sibling) {
+		struct cpufreq_policy *cp = per_cpu(cpufreq_cpu_data, sibling);
+		if (cp && cp->governor && (cpumask_test_cpu(cpu, cp->related_cpus))) {
+			policy->min = cp->min;
+			policy->min_suspend = cp->min_suspend;
+			policy->max = cp->max;
+			policy->max_suspend = cp->max_suspend;
+			break;
+		}
+	}
+#endif
 	policy->user_policy.min = policy->min;
 	policy->user_policy.min_suspend = policy->min_suspend;
 	policy->user_policy.max = policy->max;
@@ -1724,8 +1815,10 @@ static int __cpufreq_set_policy(struct cpufreq_policy *data,
 	data->max = policy->max;
 	data->max_suspend = policy->max_suspend;
 
-	pr_debug("new min and max freqs are %u - %u kHz\n",
-					data->min, data->max);
+	pr_debug("new min and max freqs are %u - %u kHz,\n	\
+		  min&max_suspend freqs are %u - %u kHz\n",
+				data->min, data->max,
+				data->min_suspend, data->max_suspend);
 
 	if (cpufreq_driver->setpolicy) {
 		data->policy = policy->policy;
