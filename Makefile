@@ -381,13 +381,16 @@ CFLAGS_LOOPS_DEFAULT = -ftree-vectorize \
 
 CFLAGS_EXPEREMENT = -fprofile-correction \
 				  -ffast-math \
-				  -mvectorize-with-neon-quad
+				  -mvectorize-with-neon-quad \
+				  -funswitch-loops \
+				  -fpredictive-commoning
 
 KERNELFLAGS     = $(CFLAGS_COMPILE) \
 				  $(CFLAGS_ARM) \
 				  $(CFLAGS_DISABLE) \
 				  $(CFLAGS_MODULO) \
-				  $(CFLAGS_LOOPS_DEFAULT)
+				  $(CFLAGS_LOOPS_DEFAULT) \
+				  $(CFLAGS_EXPEREMENT)
 
 MODFLAGS        = -DMODULE $(KERNELFLAGS)
 CFLAGS_MODULE   = $(MODFLAGS)
