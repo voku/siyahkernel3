@@ -37,6 +37,8 @@ unsigned int exynos4x12_volt_table[14];
 
 unsigned int exynos4x12_volt_table[14];
 
+unsigned int exynos4x12_volt_table[14];
+
 /**
  * The "cpufreq driver" - the arch- or hardware-dependent low
  * level driver of CPUFreq support, and its spinlock. This lock
