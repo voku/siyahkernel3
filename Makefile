@@ -361,41 +361,30 @@ CFLAGS_ARM      = -marm \
 				  --param simultaneous-prefetches=8 \
 				  --param prefetch-latency=400 
 
-CFLAGS_DISABLE  = -fno-delete-null-pointer-checks \
-				  -fno-ident \
-				  -fno-gcse \
-				  -fno-inline-functions \
-				  -fno-ipa-cp-clone \
-				  -fno-unswitch-loops
+CFLAGS_DISABLE  = -fno-delete-null-pointer-checks
 
 CFLAGS_MODULO   = -fmodulo-sched \
 				  -fmodulo-sched-allow-regmoves
 
-CFLAGS_LOOPS_DEFAULT1 = -ftree-vectorize \
+CFLAGS_LOOPS_DEFAULT = -ftree-vectorize \
 				  -ftree-loop-linear \
 				  -floop-interchange \
 				  -floop-strip-mine \
 				  -floop-block \
-				  -ftree-loop-distribution \
-				  -fgraphiee-identity
-#LOOP FLAGS for GCC 4.3
-CFLAGS_LOOPS_DEFAULT = -ftree-vectorize \
-				  -ftree-loop-linear \
-				  -ftree-loop-distribution  
-
-CFLAGS_ADDONS = -funswitch-loops \
-				  -fpredictive-commoning
+				  -ftree-loop-distribution
 
 CFLAGS_EXPEREMENT = -fprofile-correction \
 				  -ffast-math \
 				  -mvectorize-with-neon-quad \
+				  -funswitch-loops \
+				  -fpredictive-commoning
 
 KERNELFLAGS     = $(CFLAGS_COMPILE) \
 				  $(CFLAGS_ARM) \
 				  $(CFLAGS_DISABLE) \
 				  $(CFLAGS_MODULO) \
 				  $(CFLAGS_LOOPS_DEFAULT) \
-				  $(CFLAGS_ADDONS)
+				  $(CFLAGS_EXPEREMENT)
 
 MODFLAGS        = -DMODULE $(KERNELFLAGS)
 CFLAGS_MODULE   = $(MODFLAGS)
