@@ -1306,7 +1306,7 @@ static int cgroup_remount(struct super_block *sb, int *flags, char *data)
 	if (opts.release_agent) {
 		write_lock(&root->lock);
 		strcpy(root->release_agent_path, opts.release_agent);
-	write_unlock(&root->lock);
+		write_unlock(&root->lock);
 	}
  out_unlock:
 	kfree(opts.release_agent);
