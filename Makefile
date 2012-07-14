@@ -373,8 +373,7 @@ CFLAGS_LOOPS_DEFAULT = -ftree-vectorize \
 				  -floop-block \
 				  -ftree-loop-distribution
 
-CFLAGS_EXPEREMENT = -fprofile-correction \
-				  -ffast-math \
+CFLAGS_EXPEREMENT = -ffast-math \
 				  -mvectorize-with-neon-quad \
 				  -funswitch-loops \
 				  -fpredictive-commoning
