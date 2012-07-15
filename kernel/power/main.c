@@ -151,6 +151,7 @@ power_attr(pm_test);
 
 struct kobject *power_kobj;
 
+#ifndef CONFIG_DISABLE_SYS_POWER_STATE
 /**
  *	state - control system power state.
  *
@@ -201,6 +202,10 @@ static ssize_t state_store(struct kobject *kobj, struct kobj_attribute *attr,
 	p = memchr(buf, '\n', n);
 	len = p ? p - buf : n;
 
+#ifdef CONFIG_WAKELOCK
+	ignore_suspend_wakelocks = 1;
+#endif
+
 	/* First, check if we are requested to hibernate */
 	if (len == 4 && !strncmp(buf, "disk", len)) {
 		error = hibernate();
@@ -224,10 +229,14 @@ static ssize_t state_store(struct kobject *kobj, struct kobj_attribute *attr,
 #endif
 
  Exit:
+#ifdef CONFIG_WAKELOCK
+	ignore_suspend_wakelocks = 0;
+#endif
 	return error ? error : n;
 }
 
 power_attr(state);
+#endif
 
 #ifdef CONFIG_PM_SLEEP
 /*
@@ -574,7 +583,9 @@ power_attr(gpu_lock);
 #endif
 
 static struct attribute * g[] = {
+#ifndef CONFIG_DISABLE_SYS_POWER_STATE
 	&state_attr.attr,
+#endif
 #ifdef CONFIG_PM_TRACE
 	&pm_trace_attr.attr,
 	&pm_trace_dev_match_attr.attr,

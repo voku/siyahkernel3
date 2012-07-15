@@ -48,6 +48,7 @@ static int current_event_num;
 struct workqueue_struct *suspend_work_queue;
 struct wake_lock main_wake_lock;
 suspend_state_t requested_suspend_state = PM_SUSPEND_MEM;
+bool ignore_suspend_wakelocks;
 static struct wake_lock unknown_wakeup;
 static struct wake_lock suspend_backoff_lock;
 
@@ -719,6 +720,9 @@ void wake_unlock(struct wake_lock *lock)
 {
 	int type;
 	unsigned long irqflags;
+	if (WARN_ONCE(type == WAKE_LOCK_SUSPEND && ignore_suspend_wakelocks,
+							"ignoring wakelocks\n"))
+		return 0;
 	spin_lock_irqsave(&list_lock, irqflags);
 	type = lock->flags & WAKE_LOCK_TYPE_MASK;
 #ifdef CONFIG_WAKELOCK_STAT

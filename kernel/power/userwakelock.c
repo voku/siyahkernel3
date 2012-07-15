@@ -1,6 +1,6 @@
 /* kernel/power/userwakelock.c
  *
- * Copyright (C) 2005-2008 Google, Inc.
+ * Copyright (C) 2009 Google, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -15,10 +15,20 @@
 
 #include <linux/ctype.h>
 #include <linux/module.h>
-#include <linux/wakelock.h>
 #include <linux/slab.h>
+#include <linux/fs.h>
+#include <linux/miscdevice.h>
+#include <linux/uaccess.h>
+#include <linux/wakelock.h>
+#include <linux/wakelock-dev.h>
 
 #include "power.h"
+
+static int unclean_exit_grace_period = 0;
+module_param_named(unclean_exit_grace_period, unclean_exit_grace_period, int, S_IRUGO | S_IWUSR | S_IWGRP);
+
+static DEFINE_MUTEX(ioctl_lock);
+static struct wake_lock unclean_exit_wake_lock;
 
 enum {
 	DEBUG_FAILURE	= BIT(0),
@@ -217,3 +227,109 @@ not_found:
 	return n;
 }
 
+static int create_user_wake_lock(struct file *file, void __user *name,
+				 size_t name_len)
+{
+	struct user_wake_lock *l;
+	if (file->private_data)
+		return -EBUSY;
+	l = kzalloc(sizeof(*l) + name_len + 1, GFP_KERNEL);
+	if (!l)
+		return -ENOMEM;
+	if (copy_from_user(l->name, name, name_len))
+		goto err_fault;
+	wake_lock_init(&l->wake_lock, WAKE_LOCK_SUSPEND, l->name);
+	file->private_data = l;
+	return 0;
+
+err_fault:
+	kfree(l);
+	return -EFAULT;
+}
+
+static long user_wakelock_ioctl(struct file *file, unsigned int cmd,
+				unsigned long _arg)
+{
+	void __user *arg = (void __user *)_arg;
+	struct user_wake_lock *l;
+	struct timespec ts;
+	unsigned long timeout;
+	long ret;
+
+	mutex_lock(&ioctl_lock);
+	if ((cmd & ~IOCSIZE_MASK) == WAKELOCK_IOCTL_INIT(0)) {
+		ret = create_user_wake_lock(file, arg, _IOC_SIZE(cmd));
+		goto done;
+	}
+	l = file->private_data;
+	if (!l) {
+		ret = -ENOENT;
+		goto done;
+	}
+	switch (cmd) {
+	case WAKELOCK_IOCTL_LOCK:
+		wake_lock(&l->wake_lock);
+		ret = 0;
+		break;
+	case WAKELOCK_IOCTL_LOCK_TIMEOUT:
+		if (copy_from_user(&ts, arg, sizeof(ts))) {
+			ret = -EFAULT;
+			goto done;
+		}
+		timeout  = timespec_to_jiffies(&ts);
+		wake_lock_timeout(&l->wake_lock, timeout);
+		ret = 0;
+		break;
+	case WAKELOCK_IOCTL_UNLOCK:
+		wake_unlock(&l->wake_lock);
+		ret = 0;
+		break;
+	default:
+		ret = -ENOTSUPP;
+	}
+done:
+	if (ret && debug_mask & DEBUG_FAILURE)
+		pr_err("user_wakelock_ioctl: cmd %x failed, %ld\n", cmd, ret);
+	mutex_unlock(&ioctl_lock);
+	return ret;
+}
+
+static int user_wakelock_release(struct inode *inode, struct file *file)
+{
+	struct user_wake_lock *l = file->private_data;
+	if (!l)
+		return 0;
+	if (wake_lock_active(&l->wake_lock) && unclean_exit_grace_period)
+		wake_lock_timeout(&unclean_exit_wake_lock,
+				  unclean_exit_grace_period * HZ);
+	wake_lock_destroy(&l->wake_lock);
+	kfree(l);
+	return 0;
+}
+
+const struct file_operations user_wakelock_fops = {
+	.release = user_wakelock_release,
+	.unlocked_ioctl = user_wakelock_ioctl,
+};
+
+struct miscdevice user_wakelock_device = {
+	.minor = MISC_DYNAMIC_MINOR,
+	.name = "wakelock",
+	.fops = &user_wakelock_fops,
+};
+
+static int __init user_wakelock_init(void)
+{
+	wake_lock_init(&unclean_exit_wake_lock, WAKE_LOCK_SUSPEND,
+		       "user-unclean-exit");
+	return misc_register(&user_wakelock_device);
+}
+
+static void __exit user_wakelock_exit(void)
+{
+	misc_deregister(&user_wakelock_device);
+	wake_lock_destroy(&unclean_exit_wake_lock);
+}
+
+module_init(user_wakelock_init);
+module_exit(user_wakelock_exit);

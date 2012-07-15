@@ -40,6 +40,15 @@ config WAKELOCK_STAT
 	---help---
 	  Report wake lock stats in /proc/wakelocks
 
+config DISABLE_SYS_POWER_STATE
+	bool "Disable /sys/power/state interface"
+	depends on WAKELOCK
+	default n
+	---help---
+	  The /sys/power/state interface does not respect wakelocks. If you
+	  want to run user-space code that does not support wakelocks, do not
+	  enable this option since it removes the interface.
+
 config USER_WAKELOCK
 	bool "Userspace wake locks"
 	depends on WAKELOCK
