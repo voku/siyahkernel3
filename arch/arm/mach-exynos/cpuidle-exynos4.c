@@ -642,16 +642,16 @@ static int exynos4_enter_lowpower(struct cpuidle_device *dev,
 static struct cpuidle_state exynos4_cpuidle_set[] = {
 	[0] = {
 		.enter			= exynos4_enter_idle,
-		.exit_latency		= 1,
-		.target_residency	= 10000,
+		.exit_latency		= 10,
+		.target_residency	= 100000,
 		.flags			= CPUIDLE_FLAG_TIME_VALID,
 		.name			= "IDLE",
 		.desc			= "ARM clock gating(WFI)",
 	},
 	[1] = {
 		.enter			= exynos4_enter_lowpower,
-		.exit_latency		= 300,
-		.target_residency	= 30000,
+		.exit_latency		= 1000,
+		.target_residency	= 500000,
 		.flags			= CPUIDLE_FLAG_TIME_VALID,
 		.name			= "LOW_POWER",
 		.desc			= "ARM power down",
@@ -677,11 +677,8 @@ static int exynos4_enter_idle(struct cpuidle_device *dev,
 	int cpu;
 	unsigned int tmp;
 
-	//printk(KERN_INFO "Info: starting Idle Mode!\n");
-
 	local_irq_disable();
 	do_gettimeofday(&before);
-
 
 	if (use_clock_down == SW_CLK_DWN) {
 		/* USE SW Clock Down */

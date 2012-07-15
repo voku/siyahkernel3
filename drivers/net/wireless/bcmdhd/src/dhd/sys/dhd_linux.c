@@ -45,6 +45,8 @@
 
 #include <asm/uaccess.h>
 #include <asm/unaligned.h>
+#include <linux/moduleparam.h>
+#include <linux/module.h>
 
 #include <epivers.h>
 #include <bcmutils.h>
@@ -378,7 +380,7 @@ module_param(dhd_console_ms, uint, 0644);
 	/sys/module/bcmdhd/wifi_pm */
 #if defined(CONFIG_HAS_EARLYSUSPEND)
 uint wifi_pm = 0;
-module_param(wifi_pm, uint, 0644);
+module_param(wifi_pm, uint, 0755);
 #endif /* defined(CONFIG_HAS_EARLYSUSPEND) */
 
 uint dhd_slpauto = TRUE;
@@ -616,6 +618,7 @@ static void dhd_set_packet_filter(int value, dhd_pub_t *dhd)
 #if defined(CONFIG_HAS_EARLYSUSPEND)
 static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 {
+int power_mode = PM_MAX;
 
 #ifndef CUSTOMER_HW_SAMSUNG
 	char iovbuf[32];
@@ -624,9 +627,7 @@ static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 	char iovbuf[32];
 #endif
 #ifndef CUSTOMER_HW_SAMSUNG
-	int power_mode = PM_MAX;
-	if (wifi_pm == 1)
-		power_mode = PM_FAST;
+//	int power_mode = PM_MAX;
 
 	/* wl_pkt_filter_enable_t	enable_parm; */
 	int bcn_li_dtim = 3;
@@ -638,6 +639,11 @@ static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 
 	DHD_ERROR(("%s: enter, value = %d in_suspend=%d\n",
 		__func__, value, dhd->in_suspend));
+
+        if (wifi_pm == 1) {
+		power_mode = PM_FAST;
+                pr_info("[Dorimanx] %p Wi-Fi Power Management policy changed to PM_FAST.", __func__);
+        }
 
 	if (dhd && dhd->up) {
 		if (value && dhd->in_suspend) {
