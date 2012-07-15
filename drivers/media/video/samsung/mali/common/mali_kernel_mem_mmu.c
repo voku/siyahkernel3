@@ -258,6 +258,7 @@ typedef struct external_mem_allocation
  */
 static _mali_osk_errcode_t mali_memory_core_initialize(mali_kernel_subsystem_identifier id);
 
+#if 0
 /**
  * Fixed block memory subsystem shutdown function.
  * Called by the driver core when the driver is unloaded.
@@ -265,6 +266,7 @@ static _mali_osk_errcode_t mali_memory_core_initialize(mali_kernel_subsystem_ide
  * @param id Identifier assigned by the core to the memory subsystem
  */
 static void mali_memory_core_terminate(mali_kernel_subsystem_identifier id);
+#endif
 
 /**
  * MMU Memory load complete notification function.
@@ -556,6 +558,7 @@ static _mali_osk_errcode_t mali_memory_core_initialize(mali_kernel_subsystem_ide
 	MALI_SUCCESS;
 }
 
+#if 0
 /* called if/when our module is unloaded */
 static void mali_memory_core_terminate(mali_kernel_subsystem_identifier id)
 {
@@ -613,6 +616,7 @@ static void mali_memory_core_terminate(mali_kernel_subsystem_identifier id)
 	}
 
 }
+#endif
 
 static _mali_osk_errcode_t mali_memory_core_session_begin(struct mali_session_data * mali_session_data, mali_kernel_subsystem_session_slot * slot, _mali_osk_notification_queue_t * queue)
 {

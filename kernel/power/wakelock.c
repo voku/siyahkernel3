@@ -48,6 +48,7 @@ static int current_event_num;
 struct workqueue_struct *suspend_work_queue;
 struct wake_lock main_wake_lock;
 suspend_state_t requested_suspend_state = PM_SUSPEND_MEM;
+static bool enable_suspend_wakelocks;
 bool ignore_suspend_wakelocks;
 static struct wake_lock unknown_wakeup;
 static struct wake_lock suspend_backoff_lock;
@@ -374,6 +375,9 @@ long has_wake_lock(int type)
 {
 	long ret;
 	unsigned long irqflags;
+	if (WARN_ONCE(type == WAKE_LOCK_SUSPEND && !enable_suspend_wakelocks,
+							"ignoring wakelocks\n"))
+		return 0;
 	spin_lock_irqsave(&list_lock, irqflags);
 	ret = has_wake_lock_locked(type);
 	if (ret && (debug_mask & DEBUG_WAKEUP) && type == WAKE_LOCK_SUSPEND)
@@ -397,10 +401,12 @@ static void suspend(struct work_struct *work)
 	int entry_event_num;
 	struct timespec ts_entry, ts_exit;
 
+	enable_suspend_wakelocks = 1;
+
 	if (has_wake_lock(WAKE_LOCK_SUSPEND)) {
 		if (debug_mask & DEBUG_SUSPEND)
 			pr_info("suspend: abort suspend\n");
-		return;
+		goto abort;
 	}
 
 	entry_event_num = current_event_num;
@@ -447,6 +453,8 @@ static void suspend(struct work_struct *work)
 			pr_info("suspend: pm_suspend returned with no event\n");
 		wake_lock_timeout(&unknown_wakeup, HZ / 2);
 	}
+abort:
+	enable_suspend_wakelocks = 0;
 }
 static DECLARE_WORK(suspend_work, suspend);
 
@@ -720,9 +728,6 @@ void wake_unlock(struct wake_lock *lock)
 {
 	int type;
 	unsigned long irqflags;
-	if (WARN_ONCE(type == WAKE_LOCK_SUSPEND && ignore_suspend_wakelocks,
-							"ignoring wakelocks\n"))
-		return 0;
 	spin_lock_irqsave(&list_lock, irqflags);
 	type = lock->flags & WAKE_LOCK_TYPE_MASK;
 #ifdef CONFIG_WAKELOCK_STAT

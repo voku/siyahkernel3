@@ -361,7 +361,10 @@ CFLAGS_ARM      = -marm \
 				  --param simultaneous-prefetches=8 \
 				  --param prefetch-latency=400 
 
-CFLAGS_DISABLE  = -fno-delete-null-pointer-checks
+CFLAGS_DISABLE  = -fno-delete-null-pointer-checks \
+				  -fno-ident \
+				  -fno-gcse \
+				  -fno-unswitch-loops
 
 CFLAGS_MODULO   = -fmodulo-sched \
 				  -fmodulo-sched-allow-regmoves
@@ -375,7 +378,7 @@ CFLAGS_LOOPS_DEFAULT = -ftree-vectorize \
 
 CFLAGS_EXPEREMENT = -ffast-math \
 				  -mvectorize-with-neon-quad \
-				  -funswitch-loops \
+				  -funroll-loops \
 				  -fpredictive-commoning
 
 KERNELFLAGS     = $(CFLAGS_COMPILE) \
@@ -385,9 +388,8 @@ KERNELFLAGS     = $(CFLAGS_COMPILE) \
 				  $(CFLAGS_LOOPS_DEFAULT) \
 				  $(CFLAGS_EXPEREMENT)
 
-MODFLAGS        = -DMODULE $(KERNELFLAGS)
-CFLAGS_MODULE   = $(MODFLAGS)
-AFLAGS_MODULE   = $(MODFLAGS)
+CFLAGS_MODULE   = 
+AFLAGS_MODULE   = 
 LDFLAGS_MODULE  =
 CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage
 
