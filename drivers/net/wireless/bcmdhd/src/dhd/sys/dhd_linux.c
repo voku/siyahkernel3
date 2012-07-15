@@ -627,8 +627,6 @@ int power_mode = PM_MAX;
 	char iovbuf[32];
 #endif
 #ifndef CUSTOMER_HW_SAMSUNG
-//	int power_mode = PM_MAX;
-
 	/* wl_pkt_filter_enable_t	enable_parm; */
 	int bcn_li_dtim = 3;
 	uint roamvar = 1;
@@ -640,10 +638,10 @@ int power_mode = PM_MAX;
 	DHD_ERROR(("%s: enter, value = %d in_suspend=%d\n",
 		__func__, value, dhd->in_suspend));
 
-        if (wifi_pm == 1) {
+	if (wifi_pm == 1) {
 		power_mode = PM_FAST;
-                pr_info("[Dorimanx] %p Wi-Fi Power Management policy changed to PM_FAST.", __func__);
-        }
+		pr_info("[Dorimanx] %p Wi-Fi Power Management policy changed to PM_FAST.", __func__);
+	}
 
 	if (dhd && dhd->up) {
 		if (value && dhd->in_suspend) {
