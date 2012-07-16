@@ -4001,13 +4001,13 @@ static void mxt224_power_off(void)
 /*
   Configuration for MXT224
 */
-#define MXT224_THRESHOLD_BATT		42
-#define MXT224_THRESHOLD_BATT_INIT		52
+#define MXT224_THRESHOLD_BATT		50
+#define MXT224_THRESHOLD_BATT_INIT		50
 #define MXT224_THRESHOLD_CHRG		53
-#define MXT224_NOISE_THRESHOLD_BATT		30
+#define MXT224_NOISE_THRESHOLD_BATT		40
 #define MXT224_NOISE_THRESHOLD_CHRG		38
-#define MXT224_MOVFILTER_BATT		11
-#define MXT224_MOVFILTER_CHRG		45
+#define MXT224_MOVFILTER_BATT		14
+#define MXT224_MOVFILTER_CHRG		46
 #define MXT224_ATCHCALST		4
 #define MXT224_ATCHCALTHR		35
 
@@ -4022,7 +4022,7 @@ static u8 t8_config[] = { GEN_ACQUISITIONCONFIG_T8,
 };				/*byte 3: 0 */
 
 static u8 t9_config[] = { TOUCH_MULTITOUCHSCREEN_T9,
-	131, 0, 0, 19, 11, 0, 33, MXT224_THRESHOLD_BATT, 1, 1,
+	131, 0, 0, 19, 11, 0, 32, MXT224_THRESHOLD_BATT, 2, 1,
 	0,
 	5,			/* MOVHYSTI */
 	1, MXT224_MOVFILTER_BATT, MXT224_MAX_MT_FINGERS, 5, 40, 10, 31, 3,
@@ -4164,7 +4164,7 @@ static u8 t8_config_e[] = { GEN_ACQUISITIONCONFIG_T8,
 static u8 t9_config_e[] = { TOUCH_MULTITOUCHSCREEN_T9,
 	139, 0, 0, 19, 11, 0, MXT224E_BLEN_BATT, MXT224E_THRESHOLD_BATT, 2, 1,
 	10,
-	3,			/* MOVHYSTI */
+	5,			/* MOVHYSTI */
 	1, MXT224E_MOVFILTER_BATT, MXT224_MAX_MT_FINGERS, 5, 40, 10, 31, 3,
 	223, 1, 10, 10, 10, 10, 143, 40, 143, 80,
 	18, 15, 50, 50, 0
@@ -4174,7 +4174,7 @@ static u8 t9_config_e[] = { TOUCH_MULTITOUCHSCREEN_T9,
 static u8 t9_config_e[] = { TOUCH_MULTITOUCHSCREEN_T9,
 	139, 0, 0, 19, 11, 0, MXT224E_BLEN_BATT, MXT224E_THRESHOLD_BATT, 2, 1,
 	10,
-	3,			/* MOVHYSTI */
+	5,			/* MOVHYSTI */
 	1, MXT224E_MOVFILTER_BATT, MXT224_MAX_MT_FINGERS, 5, 40, 10, 31, 3,
 	223, 1, 10, 10, 10, 10, 143, 40, 143, 80,
 	18, 15, 50, 50, 2
@@ -4241,7 +4241,7 @@ static u8 t48_config_chrg_e[] = { PROCG_NOISESUPPRESSION_T48,
 	0, 0, 0, 6, 6, 0, 0, 64, 4, 64,
 	10, 0, 10, 5, 0, 19, 0, 20, 0, 0,
 	0, 0, 0, 0, 0, 40, 2,	/*blen=0,threshold=50 */
-	3,			/* MOVHYSTI */
+	10,			/* MOVHYSTI */
 	1, 47,
 	10, 5, 40, 240, 245, 10, 10, 148, 50, 143,
 	80, 18, 10, 0
@@ -4252,7 +4252,7 @@ static u8 t48_config_e[] = { PROCG_NOISESUPPRESSION_T48,
 	0, 0, 0, 6, 6, 0, 0, 64, 4, 64,
 	10, 0, 20, 5, 0, 38, 0, 5, 0, 0,	/*byte 27 original value 20 */
 	0, 0, 0, 0, 32, MXT224E_THRESHOLD, 2,
-	3,
+	10,
 	1, 46,
 	MXT224_MAX_MT_FINGERS, 5, 40, 10, 0, 10, 10, 143, 40, 143,
 	80, 18, 15, 0
@@ -4263,7 +4263,7 @@ static u8 t48_config_chrg_e[] = { PROCG_NOISESUPPRESSION_T48,
 	0, 0, 0, 6, 6, 0, 0, 100, 4, 64,
 	10, 0, 20, 5, 0, 38, 0, 20, 0, 0,
 	0, 0, 0, 0, 0, 40, 2,	/*blen=0,threshold=50 */
-	3,			/* MOVHYSTI */
+	10,			/* MOVHYSTI */
 	1, 15,
 	10, 5, 40, 240, 245, 10, 10, 148, 50, 143,
 	80, 18, 10, 2
@@ -5842,14 +5842,14 @@ static struct platform_device *smdkc210_devices[] __initdata = {
 /* below temperature base on the celcius degree */
 struct s5p_platform_tmu u1_tmu_data __initdata = {
 	.ts = {
-		.stop_1st_throttle  = 77,
-		.start_1st_throttle = 80,
+		.stop_1st_throttle  = 61,
+		.start_1st_throttle = 64,
 		.stop_2nd_throttle  = 87,
 		.start_2nd_throttle = 103,
 		.start_tripping     = 110,
 		.start_emergency    = 120,
-		.stop_mem_throttle  = 82,
-		.start_mem_throttle = 87,
+		.stop_mem_throttle  = 80,
+		.start_mem_throttle = 85,
 	},
 	.cpufreq = {
 		.limit_1st_throttle  = 800000, /* 800MHz in KHz order */

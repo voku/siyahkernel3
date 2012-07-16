@@ -650,8 +650,13 @@ static struct cpuidle_state exynos4_cpuidle_set[] = {
 	},
 	[1] = {
 		.enter			= exynos4_enter_lowpower,
+<<<<<<< .merge_file_K4fnhT
 		.exit_latency		= 1000,
 		.target_residency	= 500000,
+=======
+		.exit_latency		= 300,
+		.target_residency	= 30000,
+>>>>>>> .merge_file_q1ys5R
 		.flags			= CPUIDLE_FLAG_TIME_VALID,
 		.name			= "LOW_POWER",
 		.desc			= "ARM power down",

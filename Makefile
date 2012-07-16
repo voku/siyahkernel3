@@ -245,8 +245,8 @@ CONFIG_SHELL := $(shell if [ -x "$$BASH" ]; then echo $$BASH; \
 
 HOSTCC       = gcc
 HOSTCXX      = g++
-HOSTCFLAGS   = -Wall -Wmissing-prototypes -Wstrict-prototypes -O3 -fomit-frame-pointer
-HOSTCXXFLAGS = -O3
+HOSTCFLAGS   = -Wall -Wmissing-prototypes -Wstrict-prototypes -O2 -fomit-frame-pointer
+HOSTCXXFLAGS = -O2
 
 # Decide whether to build built-in, modular, or both.
 # Normally, just do built-in.
@@ -350,12 +350,15 @@ CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 
 CFLAGS_COMPILE  = -pipe
 
+#CFLAGS_DYNAMIC = -marm -mthumb
+
 CFLAGS_ARM      = -marm \
 				  -mtune=cortex-a9 \
 				  -march=armv7-a \
 				  -mfpu=neon \
 				  -mfloat-abi=softfp \
 				  -fsingle-precision-constant \
+				  -mvectorize-with-neon-quad \
 				  --param l2-cache-size=1024 \
 				  --param l1-cache-size=64 \
 				  --param simultaneous-prefetches=8 \
@@ -369,27 +372,38 @@ CFLAGS_DISABLE  = -fno-delete-null-pointer-checks \
 CFLAGS_MODULO   = -fmodulo-sched \
 				  -fmodulo-sched-allow-regmoves
 
-CFLAGS_LOOPS_DEFAULT = -ftree-vectorize \
+CFLAGS_LOOPS_DEFAULT1 = -ftree-vectorize \
 				  -ftree-loop-linear \
 				  -floop-interchange \
 				  -floop-strip-mine \
 				  -floop-block \
-				  -ftree-loop-distribution
+				  -ftree-loop-distribution \
+				  -fgraphiee-identity \
+				  -floop-block
+#LOOP FLAGS for GCC 4.3
+CFLAGS_LOOPS_DEFAULT = -ftree-vectorize \
+				  -ftree-loop-linear \
+				  -ftree-loop-distribution -funroll-loops
 
-CFLAGS_EXPEREMENT = -ffast-math \
-				  -mvectorize-with-neon-quad \
-				  -funroll-loops \
+CFLAGS_ADDONS = -funswitch-loops \
 				  -fpredictive-commoning
+
+CFLAGS_EXPEREMENT = -fprofile-correction \
+				  -ffast-math \
+				  -fno-ipa-cp-clone \
+				  -fno-inline-functions \
+				  -funroll-loops
 
 KERNELFLAGS     = $(CFLAGS_COMPILE) \
 				  $(CFLAGS_ARM) \
 				  $(CFLAGS_DISABLE) \
 				  $(CFLAGS_MODULO) \
 				  $(CFLAGS_LOOPS_DEFAULT) \
-				  $(CFLAGS_EXPEREMENT)
+				  $(CFLAGS_ADDONS)
 
-CFLAGS_MODULE   = 
-AFLAGS_MODULE   = 
+MODFLAGS        = -DMODULE $(KERNELFLAGS)
+CFLAGS_MODULE   = $(MODFLAGS)
+AFLAGS_MODULE   = $(MODFLAGS)
 LDFLAGS_MODULE  =
 CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage
 

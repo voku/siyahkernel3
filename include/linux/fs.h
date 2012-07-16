@@ -11,6 +11,10 @@
 #include <linux/blk_types.h>
 #include <linux/types.h>
 
+#ifdef CONFIG_FSYNC_CONTROL
+extern bool fsynccontrol_fsync_enabled;
+#endif
+
 /*
  * It's silly to have NR_OPEN bigger than NR_FILE, but you can change
  * the file limit at runtime and only root can increase the per-process

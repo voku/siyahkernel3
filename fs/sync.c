@@ -21,10 +21,6 @@
 #define VALID_FLAGS (SYNC_FILE_RANGE_WAIT_BEFORE|SYNC_FILE_RANGE_WRITE| \
 			SYNC_FILE_RANGE_WAIT_AFTER)
 
-#ifdef CONFIG_FSYNC_CONTROL
-extern bool fsynccontrol_fsync_enabled(void);
-#endif
-
 /*
  * Do the filesystem syncing work. For simple filesystems
  * writeback_inodes_sb(sb) just dirties buffers with inodes so we have to
@@ -144,7 +140,7 @@ SYSCALL_DEFINE1(syncfs, int, fd)
 	int fput_needed;
 
 #ifdef CONFIG_FSYNC_CONTROL
-	if (!fsynccontrol_fsync_enabled())
+	if (!fsynccontrol_fsync_enabled)
 	    return 0;
 #endif
 
@@ -178,7 +174,7 @@ int vfs_fsync_range(struct file *file, loff_t start, loff_t end, int datasync)
 	int err, ret;
 
 #ifdef CONFIG_FSYNC_CONTROL
-	if (!fsynccontrol_fsync_enabled())
+	if (!fsynccontrol_fsync_enabled)
 	    return 0;
 #endif
 
@@ -215,7 +211,7 @@ EXPORT_SYMBOL(vfs_fsync_range);
 int vfs_fsync(struct file *file, int datasync)
 {
 #ifdef CONFIG_FSYNC_CONTROL
-	if (!fsynccontrol_fsync_enabled())
+	if (!fsynccontrol_fsync_enabled)
 	    return 0;
 #endif
 
@@ -229,7 +225,7 @@ static int do_fsync(unsigned int fd, int datasync)
 	int ret = -EBADF;
 
 #ifdef CONFIG_FSYNC_CONTROL
-	if (!fsynccontrol_fsync_enabled())
+	if (!fsynccontrol_fsync_enabled)
 	    return 0;
 #endif
 
@@ -244,7 +240,7 @@ static int do_fsync(unsigned int fd, int datasync)
 SYSCALL_DEFINE1(fsync, unsigned int, fd)
 {
 #ifdef CONFIG_FSYNC_CONTROL
-	if (!fsynccontrol_fsync_enabled())
+	if (!fsynccontrol_fsync_enabled)
 	    return 0;
 #endif
 
@@ -254,7 +250,7 @@ SYSCALL_DEFINE1(fsync, unsigned int, fd)
 SYSCALL_DEFINE1(fdatasync, unsigned int, fd)
 {
 #ifdef CONFIG_FSYNC_CONTROL
-	if (!fsynccontrol_fsync_enabled())
+	if (!fsynccontrol_fsync_enabled)
 	    return 0;
 #endif
 
@@ -272,7 +268,7 @@ SYSCALL_DEFINE1(fdatasync, unsigned int, fd)
 int generic_write_sync(struct file *file, loff_t pos, loff_t count)
 {
 #ifdef CONFIG_FSYNC_CONTROL
-	if (!fsynccontrol_fsync_enabled())
+	if (!fsynccontrol_fsync_enabled)
 	    return 0;
 #endif
 
@@ -341,7 +337,7 @@ SYSCALL_DEFINE(sync_file_range)(int fd, loff_t offset, loff_t nbytes,
 	umode_t i_mode;
 
 #ifdef CONFIG_FSYNC_CONTROL
-	if (!fsynccontrol_fsync_enabled())
+	if (!fsynccontrol_fsync_enabled)
 	    return 0;
 #endif
 

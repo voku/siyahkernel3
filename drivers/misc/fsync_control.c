@@ -10,23 +10,15 @@
 #include <linux/init.h>
 #include <linux/device.h>
 #include <linux/miscdevice.h>
-#include <linux/moduleparam.h>
-#include <linux/module.h>
+#include <linux/fs.h>
 
 #define FSYNCCONTROL_VERSION 1
 
-static bool fsync_enabled = false;
-module_param(fsync_enabled, bool, 0755);
-
-bool fsynccontrol_fsync_enabled(void)
-{
-    return fsync_enabled;
-}
-EXPORT_SYMBOL(fsynccontrol_fsync_enabled);
+bool fsynccontrol_fsync_enabled = true;
 
 static ssize_t fsynccontrol_status_read(struct device * dev, struct device_attribute * attr, char * buf)
 {
-    return sprintf(buf, "%u\n", (fsync_enabled ? 1 : 0));
+    return sprintf(buf, "%u\n", (fsynccontrol_fsync_enabled ? 1 : 0));
 }
 
 static ssize_t fsynccontrol_status_write(struct device * dev, struct device_attribute * attr, const char * buf, size_t size)
@@ -39,14 +31,14 @@ static ssize_t fsynccontrol_status_write(struct device * dev, struct device_attr
 		{
 		    pr_info("%s: FSYNCCONTROL fsync enabled\n", __FUNCTION__);
 
-		    fsync_enabled = true;
+		    fsynccontrol_fsync_enabled = true;
 
 		} 
 	    else if (data == 0) 
 		{
 		    pr_info("%s: FSYNCCONTROL fsync disabled\n", __FUNCTION__);
 
-		    fsync_enabled = false;
+		    fsynccontrol_fsync_enabled = false;
 		} 
 	    else 
 		{
@@ -111,4 +103,3 @@ static int __init fsynccontrol_init(void)
 }
 
 device_initcall(fsynccontrol_init);
-
