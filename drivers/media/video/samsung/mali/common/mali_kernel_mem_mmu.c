@@ -445,7 +445,9 @@ static _mali_osk_errcode_t fill_page(mali_io_address mapping, u32 data);
 
 static _mali_osk_errcode_t mali_allocate_fault_flush_pages(void);
 
+#if 0
 static void mali_free_fault_flush_pages(void);
+#endif
 
 static void mali_mmu_probe_irq_trigger(mali_kernel_memory_mmu * mmu);
 static _mali_osk_errcode_t mali_mmu_probe_irq_acknowledge(mali_kernel_memory_mmu * mmu);
@@ -888,6 +890,7 @@ static _mali_osk_errcode_t mali_allocate_fault_flush_pages(void)
 	MALI_ERROR(err);
 }
 
+#if 0
 static void mali_free_fault_flush_pages(void)
 {
 	if (MALI_INVALID_PAGE != mali_page_fault_flush_page_directory)
@@ -908,6 +911,7 @@ static void mali_free_fault_flush_pages(void)
 		mali_page_fault_flush_data_page = MALI_INVALID_PAGE;
 	}
 }
+#endif
 
 static _mali_osk_errcode_t mali_memory_core_load_complete(mali_kernel_subsystem_identifier id)
 {

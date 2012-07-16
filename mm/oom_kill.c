@@ -32,6 +32,7 @@
 #include <linux/mempolicy.h>
 #include <linux/security.h>
 #include <linux/ptrace.h>
+#include <linux/freezer.h>
 
 int sysctl_panic_on_oom;
 int sysctl_oom_kill_allocating_task;
@@ -72,13 +73,7 @@ int test_set_oom_score_adj(int new_val)
 
 	spin_lock_irq(&sighand->siglock);
 	old_val = current->signal->oom_score_adj;
-	if (new_val != old_val) {
-		if (new_val == OOM_SCORE_ADJ_MIN)
-			atomic_inc(&current->mm->oom_disable_count);
-		else if (old_val == OOM_SCORE_ADJ_MIN)
-			atomic_dec(&current->mm->oom_disable_count);
-		current->signal->oom_score_adj = new_val;
-	}
+	current->signal->oom_score_adj = new_val;
 	spin_unlock_irq(&sighand->siglock);
 
 	return old_val;
@@ -190,12 +185,7 @@ unsigned int oom_badness(struct task_struct *p, struct mem_cgroup *memcg,
 	if (!p)
 		return 0;
 
-	/*
-	 * Shortcut check for a thread sharing p->mm that is OOM_SCORE_ADJ_MIN
-	 * so the entire heuristic doesn't need to be executed for something
-	 * that cannot be killed.
-	 */
-	if (atomic_read(&p->mm->oom_disable_count)) {
+	if (p->signal->oom_score_adj == OOM_SCORE_ADJ_MIN) {
 		task_unlock(p);
 		return 0;
 	}
@@ -336,8 +326,11 @@ static struct task_struct *select_bad_process(unsigned int *ppoints,
 		 * blocked waiting for another task which itself is waiting
 		 * for memory. Is there a better alternative?
 		 */
-		if (test_tsk_thread_flag(p, TIF_MEMDIE))
+		if (test_tsk_thread_flag(p, TIF_MEMDIE)) {
+			if (unlikely(frozen(p)))
+				__thaw_task(p);
 			return ERR_PTR(-1UL);
+		}
 		if (!p->mm)
 			continue;
 
@@ -436,7 +429,7 @@ static void dump_header(struct task_struct *p, gfp_t gfp_mask, int order,
 }
 
 #define K(x) ((x) << (PAGE_SHIFT-10))
-static int oom_kill_task(struct task_struct *p, struct mem_cgroup *mem)
+static int oom_kill_task(struct task_struct *p)
 {
 	struct task_struct *q;
 	struct mm_struct *mm;
@@ -455,7 +448,7 @@ static int oom_kill_task(struct task_struct *p, struct mem_cgroup *mem)
 	task_unlock(p);
 
 	/*
-	 * Kill all processes sharing p->mm in other thread groups, if any.
+	 * Kill all user processes sharing p->mm in other thread groups, if any.
 	 * They don't get access to memory reserves or a higher scheduler
 	 * priority, though, to avoid depletion of all memory or task
 	 * starvation.  This prevents mm->mmap_sem livelock when an oom killed
@@ -465,7 +458,11 @@ static int oom_kill_task(struct task_struct *p, struct mem_cgroup *mem)
 	 * signal.
 	 */
 	for_each_process(q)
-		if (q->mm == mm && !same_thread_group(q, p)) {
+		if (q->mm == mm && !same_thread_group(q, p) &&
+		    !(q->flags & PF_KTHREAD)) {
+			if (q->signal->oom_score_adj == OOM_SCORE_ADJ_MIN)
+				continue;
+
 			task_lock(q);	/* Protect ->comm from prctl() */
 			pr_err("Kill process %d (%s) sharing same memory\n",
 				task_pid_nr(q), q->comm);
@@ -531,7 +528,7 @@ static int oom_kill_process(struct task_struct *p, gfp_t gfp_mask, int order,
 		}
 	} while_each_thread(p, t);
 
-	return oom_kill_task(victim, memcg);
+	return oom_kill_task(victim);
 }
 
 /*
@@ -740,9 +737,9 @@ void out_of_memory(struct zonelist *zonelist, gfp_t gfp_mask,
 	check_panic_on_oom(constraint, gfp_mask, order, mpol_mask);
 
 	read_lock(&tasklist_lock);
-	if (sysctl_oom_kill_allocating_task &&
+	if (sysctl_oom_kill_allocating_task && current->mm &&
 	    !oom_unkillable_task(current, NULL, nodemask) &&
-	    current->mm && !atomic_read(&current->mm->oom_disable_count)) {
+	    current->signal->oom_score_adj != OOM_SCORE_ADJ_MIN) {
 		/*
 		 * oom_kill_process() needs tasklist_lock held.  If it returns
 		 * non-zero, current could not be killed so we must fallback to

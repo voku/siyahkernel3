@@ -350,55 +350,56 @@ CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 
 CFLAGS_COMPILE  = -pipe
 
-CFLAGS_ARM      = -mthumb \
-				  -Wa,-mimplicit-it=thumb \
-				  -mtune=cortex-a9 \
-				  -march=armv7-a \
-				  -mfpu=neon \
-				  -mfloat-abi=softfp \
-				  -fsingle-precision-constant \
-				  -mvectorize-with-neon-quad \
-				  --param l2-cache-size=1024 \
-				  --param l1-cache-size=64 \
-				  --param simultaneous-prefetches=8 \
-				  --param prefetch-latency=400 
+CFLAGS_ARM      = -marm \
+		  -mtune=cortex-a9 \
+		  -march=armv7-a \
+		  -mfpu=neon \
+		  -mfloat-abi=softfp \
+		  -fsingle-precision-constant \
+		  -mvectorize-with-neon-quad \
+		  --param l2-cache-size=1024 \
+		  --param l1-cache-size=64 \
+		  --param simultaneous-prefetches=8 \
+		  --param prefetch-latency=400 
 
 CFLAGS_DISABLE  = -fno-delete-null-pointer-checks \
-				  -fno-ident \
-
-
+		  -fno-ident \
+		  -fno-gcse \
 
 CFLAGS_MODULO   = -fmodulo-sched \
-				  -fmodulo-sched-allow-regmoves
+		  -fmodulo-sched-allow-regmoves
 
+CFLAGS_LOOPS_DEFAULT1 = -ftree-vectorize \
+		  -ftree-loop-linear \
+		  -floop-interchange \
+		  -floop-strip-mine \
+		  -floop-block \
+		  -ftree-loop-distribution \
+		  -fgraphiee-identity \
+		  -floop-block
+#LOOP FLAGS for GCC 4.3
 CFLAGS_LOOPS_DEFAULT = -ftree-vectorize \
-				  -ftree-loop-linear \
-				  -floop-interchange \
-				  -floop-strip-mine \
-				  -floop-block \
-				  -ftree-loop-distribution \
-				  -floop-block \
-				  -funroll-loops
+		  -ftree-loop-linear \
+		  -ftree-loop-distribution \
+		  -funroll-loops
 
 CFLAGS_ADDONS =	  -funswitch-loops \
-				  -fpredictive-commoning
+		  -fpredictive-commoning
 
 CFLAGS_EXPEREMENT = -fprofile-correction \
-				  -ffast-math \
-				  -fno-ipa-cp-clone \
-				  -fno-inline-functions \
-				  -fno-gcse \
-				  -fno-unswitch-loops
+		  -ffast-math \
+		  -fno-ipa-cp-clone \
+		  -fno-inline-functions
 
 KERNELFLAGS     = $(CFLAGS_COMPILE) \
-				  $(CFLAGS_ARM) \
-				  $(CFLAGS_DISABLE) \
-				  $(CFLAGS_MODULO) \
-				  $(CFLAGS_LOOPS_DEFAULT) \
-				  $(CFLAGS_ADDONS)
+		  $(CFLAGS_ARM) \
+		  $(CFLAGS_DISABLE) \
+		  $(CFLAGS_MODULO) \
+		  $(CFLAGS_LOOPS_DEFAULT) \
+		  $(CFLAGS_ADDONS)
 
-MODFLAGS        = 
-CFLAGS_MODULE   = 
+MODFLAGS        =
+CFLAGS_MODULE   =
 AFLAGS_MODULE   = 
 LDFLAGS_MODULE  =
 CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage

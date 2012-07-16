@@ -1,27 +1,31 @@
-#!/system/bin/sh
-JUNK=`find -name *.rej`
-for i in $JUNK
-do
-rm -f $i
-done
+#!/bin/sh
 
-JUNK2=`find -name *.orig`
-for i in $JUNK2
-do
-rm -f $i
-done
+JUNK=`find . -name *.o`;
+for i in $JUNK; do
+	ls $i;
+	rm -f $i;
+done;
 
-CLEANBKP () {
-JUNK3=`find -name *.bkp`
-for i in $JUNK3
-do
-rm -f $i
-done
-}
-CLEANBKP
+JUNK=`find . -name *.rej`;
+for i in $JUNK; do
+	ls $i;
+	rm -f $i
+done;
 
-JUNK4=`find -name *.ko`
-for i in $JUNK4
-do
-rm -f $i
-done
+JUNK=`find . -name *.orig`;
+for i in $JUNK; do
+	ls $i;
+	rm -f $i;
+done;
+
+JUNK=`find . -name *.bkp`;
+for i in $JUNK; do
+	ls $i;
+	rm -f $i;
+done;
+
+JUNK=`find . -name *.ko`;
+for i in $JUNK; do
+	ls $i;
+	rm -f $i;
+done;
