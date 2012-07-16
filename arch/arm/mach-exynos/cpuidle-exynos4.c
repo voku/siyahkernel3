@@ -642,21 +642,16 @@ static int exynos4_enter_lowpower(struct cpuidle_device *dev,
 static struct cpuidle_state exynos4_cpuidle_set[] = {
 	[0] = {
 		.enter			= exynos4_enter_idle,
-		.exit_latency		= 10,
-		.target_residency	= 100000,
+		.exit_latency		= 1,
+		.target_residency	= 10000,
 		.flags			= CPUIDLE_FLAG_TIME_VALID,
 		.name			= "IDLE",
 		.desc			= "ARM clock gating(WFI)",
 	},
 	[1] = {
 		.enter			= exynos4_enter_lowpower,
-<<<<<<< .merge_file_K4fnhT
-		.exit_latency		= 1000,
-		.target_residency	= 500000,
-=======
 		.exit_latency		= 300,
 		.target_residency	= 30000,
->>>>>>> .merge_file_q1ys5R
 		.flags			= CPUIDLE_FLAG_TIME_VALID,
 		.name			= "LOW_POWER",
 		.desc			= "ARM power down",
@@ -772,19 +767,19 @@ static int exynos4_enter_lowpower(struct cpuidle_device *dev,
 	}
 
 	if (new_state == &dev->states[0]) {
-		//printk(KERN_INFO "Info: starting Idle Mode!\n");
+		printk(KERN_INFO "Info: starting Idle Mode!\n");
 		return exynos4_enter_idle(dev, new_state);
 	}
 
 	enter_mode = exynos4_check_entermode();
 	if (!enter_mode) {
-		//printk(KERN_INFO "Info: starting Idle Mode!\n");
+		printk(KERN_INFO "Info: starting Idle Mode!\n");
 		return exynos4_enter_idle(dev, new_state);
 	} else if (enter_mode == S5P_CHECK_DIDLE) {
-		//printk(KERN_INFO "Info: starting AFTR Idle Mode!\n");
+		printk(KERN_INFO "Info: starting AFTR Idle Mode!\n");
 		return exynos4_enter_core0_aftr(dev, new_state);
 	} else {
-		//printk(KERN_INFO "Info: starting LPA Idle Mode!\n");
+		printk(KERN_INFO "Info: starting LPA Idle Mode!\n");
 		return exynos4_enter_core0_lpa(dev, new_state);
 	}
 }
