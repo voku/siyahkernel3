@@ -47,6 +47,7 @@
 #define HCI_UART_RAW_DEVICE	0
 #define HCI_UART_RESET_ON_INIT	1
 #define HCI_UART_CREATE_AMP	2
+#define HCI_UART_INIT_PENDING	3
 
 struct hci_uart;
 
@@ -65,6 +66,8 @@ struct hci_uart {
 	struct hci_dev		*hdev;
 	unsigned long		flags;
 	unsigned long		hdev_flags;
+
+	struct work_struct	init_ready;
 
 	struct hci_uart_proto	*proto;
 	void			*priv;
@@ -85,6 +88,7 @@ struct hci_uart {
 int hci_uart_register_proto(struct hci_uart_proto *p);
 int hci_uart_unregister_proto(struct hci_uart_proto *p);
 int hci_uart_tx_wakeup(struct hci_uart *hu);
+int hci_uart_init_ready(struct hci_uart *hu);
 
 #ifdef CONFIG_BT_HCIUART_H4
 int h4_init(void);
