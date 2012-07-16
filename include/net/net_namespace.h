@@ -104,6 +104,7 @@ struct net {
 	struct netns_xfrm	xfrm;
 #endif
 	struct netns_ipvs	*ipvs;
+	struct sock		*diag_nlsk;
 };
 
 
