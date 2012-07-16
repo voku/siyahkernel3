@@ -350,9 +350,8 @@ CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 
 CFLAGS_COMPILE  = -pipe
 
-#CFLAGS_DYNAMIC = -marm -mthumb
-
-CFLAGS_ARM      = -marm \
+CFLAGS_ARM      = -mthumb \
+				  -Wa,-mimplicit-it=thumb \
 				  -mtune=cortex-a9 \
 				  -march=armv7-a \
 				  -mfpu=neon \
@@ -366,33 +365,30 @@ CFLAGS_ARM      = -marm \
 
 CFLAGS_DISABLE  = -fno-delete-null-pointer-checks \
 				  -fno-ident \
-				  -fno-gcse \
-				  -fno-unswitch-loops
+
+
 
 CFLAGS_MODULO   = -fmodulo-sched \
 				  -fmodulo-sched-allow-regmoves
 
-CFLAGS_LOOPS_DEFAULT1 = -ftree-vectorize \
+CFLAGS_LOOPS_DEFAULT = -ftree-vectorize \
 				  -ftree-loop-linear \
 				  -floop-interchange \
 				  -floop-strip-mine \
 				  -floop-block \
 				  -ftree-loop-distribution \
-				  -fgraphiee-identity \
-				  -floop-block
-#LOOP FLAGS for GCC 4.3
-CFLAGS_LOOPS_DEFAULT = -ftree-vectorize \
-				  -ftree-loop-linear \
-				  -ftree-loop-distribution -funroll-loops
+				  -floop-block \
+				  -funroll-loops
 
-CFLAGS_ADDONS = -funswitch-loops \
+CFLAGS_ADDONS =	  -funswitch-loops \
 				  -fpredictive-commoning
 
 CFLAGS_EXPEREMENT = -fprofile-correction \
 				  -ffast-math \
 				  -fno-ipa-cp-clone \
 				  -fno-inline-functions \
-				  -funroll-loops
+				  -fno-gcse \
+				  -fno-unswitch-loops
 
 KERNELFLAGS     = $(CFLAGS_COMPILE) \
 				  $(CFLAGS_ARM) \
@@ -401,9 +397,9 @@ KERNELFLAGS     = $(CFLAGS_COMPILE) \
 				  $(CFLAGS_LOOPS_DEFAULT) \
 				  $(CFLAGS_ADDONS)
 
-MODFLAGS        = -DMODULE $(KERNELFLAGS)
-CFLAGS_MODULE   = $(MODFLAGS)
-AFLAGS_MODULE   = $(MODFLAGS)
+MODFLAGS        = 
+CFLAGS_MODULE   = 
+AFLAGS_MODULE   = 
 LDFLAGS_MODULE  =
 CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage
 
