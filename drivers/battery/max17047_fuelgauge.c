@@ -54,7 +54,7 @@
 
 /* Polling work */
 #undef	DEBUG_FUELGAUGE_POLLING
-#define MAX17047_POLLING_INTERVAL	10000
+#define MAX17047_POLLING_INTERVAL	30000
 
 struct max17047_fuelgauge_data {
 	struct i2c_client		*client;
