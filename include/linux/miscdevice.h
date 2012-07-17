@@ -38,8 +38,9 @@
 #define FUSE_MINOR		229
 #define KVM_MINOR		232
 #define BTRFS_MINOR		234
-#define AUTOFS_MINOR		235
-#define MAPPER_CTRL_MINOR	236
+#define LOOP_CTRL_MINOR		235
+#define AUTOFS_MINOR		236
+#define MAPPER_CTRL_MINOR	237
 #define MISC_DYNAMIC_MINOR	255
 
 struct device;
