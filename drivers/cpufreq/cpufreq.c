@@ -35,7 +35,9 @@
 
 #define SafeBootSpeed 1200000
 
+#ifndef CONFIG_CPU_EXYNOS4210
 unsigned int exynos4x12_volt_table[14];
+#endif
 
 /**
  * The "cpufreq driver" - the arch- or hardware-dependent low
@@ -563,6 +565,7 @@ static ssize_t show_scaling_setspeed(struct cpufreq_policy *policy, char *buf)
 	return policy->governor->show_setspeed(policy, buf);
 }
 
+#ifndef CONFIG_CPU_EXYNOS4210
 static ssize_t show_UV_uV_table(struct cpufreq_policy *policy, char *buf) {
 	return sprintf(buf, 
 "1500mhz: %d uV\n\
@@ -629,6 +632,7 @@ static ssize_t store_UV_uV_table(struct cpufreq_policy *policy,
 	}
 	return count;
 }
+#endif
 
 extern ssize_t acpuclk_get_vdd_levels_str(char *buf);
 static ssize_t show_vdd_levels(struct cpufreq_policy *policy, char *buf)
@@ -728,7 +732,9 @@ cpufreq_freq_attr_rw(scaling_setspeed);
 cpufreq_freq_attr_rw(vdd_levels);
 /* UV table */
 cpufreq_freq_attr_rw(UV_mV_table);
+#ifndef CONFIG_CPU_EXYNOS4210
 cpufreq_freq_attr_rw(UV_uV_table);
+#endif
 cpufreq_freq_attr_rw(asv_group);
 cpufreq_freq_attr_rw(smooth_level);
 
@@ -747,7 +753,9 @@ static struct attribute *default_attrs[] = {
 	&scaling_available_governors.attr,
 	&scaling_setspeed.attr,
 	&vdd_levels.attr,
+#ifndef CONFIG_CPU_EXYNOS4210
 	&UV_uV_table.attr,
+#endif
 	&UV_mV_table.attr,
 	&smooth_level.attr,
 	&asv_group.attr,

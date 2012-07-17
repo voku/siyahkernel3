@@ -68,7 +68,7 @@ static int fifo_open(struct inode *inode, struct file *filp)
 				 * seen a writer */
 				filp->f_version = pipe->w_counter;
 			} else {
-				if(!wait_for_partner(inode, &pipe->w_counter))
+				if (!wait_for_partner(inode, &pipe->w_counter))
 					goto err_rd;
 			}
 		}
