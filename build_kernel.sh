@@ -55,7 +55,7 @@ for i in $OLDMODULES; do
 done
 
 # remove previous initramfs files
-if [ -e $INITRAMFS_TMP ]; then
+if [ -d $INITRAMFS_TMP ]; then
 	echo "removing old temp iniramfs"
 	rm -rf $INITRAMFS_TMP
 fi
@@ -79,7 +79,7 @@ fi
 # copy initramfs files to tmp directory
 cp -ax $INITRAMFS_SOURCE $INITRAMFS_TMP
 # clear git repositories in initramfs
-if [ -e /tmp/initramfs-source/.git ]; then
+if [ -e $INITRAMFS_TMP/.git ]; then
 	rm -rf /tmp/initramfs-source/.git
 fi
 # remove empty directory placeholders
