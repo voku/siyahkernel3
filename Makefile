@@ -351,46 +351,51 @@ CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 CFLAGS_COMPILE  = -pipe
 
 CFLAGS_ARM      = -marm \
-				  -mtune=cortex-a9 \
-				  -march=armv7-a \
-				  -mfpu=neon \
-				  -mfloat-abi=softfp \
-				  -fsingle-precision-constant \
-				  -mvectorize-with-neon-quad \
-				  --param l2-cache-size=1024 \
-				  --param l1-cache-size=64 \
-				  --param simultaneous-prefetches=8 \
-				  --param prefetch-latency=400 
+		  -mtune=cortex-a9 \
+		  -march=armv7-a \
+		  -mfpu=neon \
+		  -mfloat-abi=softfp \
+		  -fsingle-precision-constant \
+		  -mvectorize-with-neon-quad \
+		  --param l2-cache-size=1024 \
+		  --param l1-cache-size=64 \
+		  --param simultaneous-prefetches=8 \
+		  --param prefetch-latency=400 
 
 CFLAGS_DISABLE  = -fno-delete-null-pointer-checks \
-				  -fno-ident \
-				  -fno-gcse \
+		  -fno-ident \
+		  -fno-gcse \
 
 CFLAGS_MODULO   = -fmodulo-sched \
-				  -fmodulo-sched-allow-regmoves
+		  -fmodulo-sched-allow-regmoves
 
-#LOOP FLAGS for GCC 4.6 / 4.7.1 LINARO
-CFLAGS_LOOPS_DEFAULT1 = -ftree-vectorize \
-				  -ftree-loop-linear \
-				  -floop-interchange \
-				  -floop-strip-mine \
-				  -floop-block \
-				  -ftree-loop-distribution \
-				  -fgraphiee-identity \
-				  -floop-block
-#LOOP FLAGS for GCC 4.3
+#LOOP FLAGS for GCC 4.3 (default)
 CFLAGS_LOOPS_DEFAULT = -ftree-vectorize \
-				  -ftree-loop-linear \
-				  -ftree-loop-distribution -funroll-loops
+		  -ftree-loop-linear \
+		  -ftree-loop-distribution \
+		  -funroll-loops
 
-CFLAGS_ADDONS = -fpredictive-commoning -fprofile-correction
+#LOOP FLAGS for GCC 4.6
+CFLAGS_LOOPS_GCC_4_6 = -floop-interchange \
+		  -floop-strip-mine \
+		  -floop-block
+
+#LOOP FLAGS for GCC 4.7.1 LINARO
+CFLAGS_LOOPS_GCC_4_7 = -floop-interchange \
+		  -floop-strip-mine \
+		  -floop-block \
+		  -fgraphiee-identity
+
+CFLAGS_ADDONS =   -fpredictive-commoning \
+		  -fprofile-correction
 
 KERNELFLAGS     = $(CFLAGS_COMPILE) \
-				  $(CFLAGS_ARM) \
-				  $(CFLAGS_DISABLE) \
-				  $(CFLAGS_MODULO) \
-				  $(CFLAGS_LOOPS_DEFAULT) \
-				  $(CFLAGS_ADDONS)
+		  $(CFLAGS_ARM) \
+		  $(CFLAGS_DISABLE) \
+		  $(CFLAGS_MODULO) \
+		  $(CFLAGS_LOOPS_DEFAULT) \
+		  $(CLFAGS_LOOPS_GCC_4_6) \
+		  $(CFLAGS_ADDONS)
 
 #FLAGSPOOL = -funswitch-loops -fno-inline-functions -fno-ipa-cp-clone -ffast-math
 
