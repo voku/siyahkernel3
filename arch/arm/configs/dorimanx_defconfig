@@ -1,6 +1,6 @@
 #
 # Automatically generated make config: don't edit
-# Linux/arm 3.0.36 Kernel Configuration
+# Linux/arm 3.0.37 Kernel Configuration
 #
 CONFIG_ARM=y
 CONFIG_HAVE_PWM=y
@@ -1139,6 +1139,7 @@ CONFIG_EXTRA_FIRMWARE=""
 CONFIG_BLK_DEV=y
 # CONFIG_BLK_DEV_COW_COMMON is not set
 CONFIG_BLK_DEV_LOOP=y
+CONFIG_BLK_DEV_LOOP_MIN_COUNT=8
 # CONFIG_BLK_DEV_CRYPTOLOOP is not set
 
 #
