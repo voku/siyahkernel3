@@ -2059,6 +2059,10 @@ int cpufreq_unregister_driver(struct cpufreq_driver *driver)
 }
 EXPORT_SYMBOL_GPL(cpufreq_unregister_driver);
 
+#ifdef CONFIG_CPU_FREQ_GOV_INTELLIDEMAND
+	bool lmf_screen_state;
+#endif
+
 static void powersave_early_suspend(struct early_suspend *handler)
 {
 	int cpu;
@@ -2079,6 +2083,9 @@ static void powersave_early_suspend(struct early_suspend *handler)
 		__cpufreq_set_policy(cpu_policy, &new_policy);
 		cpu_policy->user_policy.policy = cpu_policy->policy;
 		cpu_policy->user_policy.governor = cpu_policy->governor;
+#ifdef CONFIG_CPU_FREQ_GOV_INTELLIDEMAND
+		lmf_screen_state = false;
+#endif
 out:
 		cpufreq_cpu_put(cpu_policy);
 	}
@@ -2104,6 +2111,9 @@ static void powersave_late_resume(struct early_suspend *handler)
 		__cpufreq_set_policy(cpu_policy, &new_policy);
 		cpu_policy->user_policy.policy = cpu_policy->policy;
 		cpu_policy->user_policy.governor = cpu_policy->governor;
+#ifdef CONFIG_CPU_FREQ_GOV_INTELLIDEMAND
+                lmf_screen_state = false;
+#endif
 out:
 		cpufreq_cpu_put(cpu_policy);
 	}
