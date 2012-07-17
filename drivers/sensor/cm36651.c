@@ -962,7 +962,7 @@ static int cm36651_i2c_probe(struct i2c_client *client,
 
 	/* light_timer settings. we poll for light values using a timer. */
 	hrtimer_init(&cm36651->light_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
-	cm36651->light_poll_delay = ns_to_ktime(200 * NSEC_PER_MSEC);
+	cm36651->light_poll_delay = ns_to_ktime(500 * NSEC_PER_MSEC);
 	cm36651->light_timer.function = cm36651_light_timer_func;
 
 	/* the timer just fires off a work queue request.  we need a thread
