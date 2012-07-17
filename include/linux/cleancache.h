@@ -30,6 +30,7 @@ struct cleancache_ops {
 			pgoff_t, struct page *);
 	void (*flush_page)(int, struct cleancache_filekey, pgoff_t);
 	void (*flush_inode)(int, struct cleancache_filekey);
+	void (*invalidate_inode)(int, struct cleancache_filekey);
 	void (*flush_fs)(int);
 };
 
@@ -41,6 +42,7 @@ extern int  __cleancache_get_page(struct page *);
 extern void __cleancache_put_page(struct page *);
 extern void __cleancache_flush_page(struct address_space *, struct page *);
 extern void __cleancache_flush_inode(struct address_space *);
+extern void __cleancache_invalidate_inode(struct address_space *);
 extern void __cleancache_flush_fs(struct super_block *);
 extern int cleancache_enabled;
 
@@ -117,6 +119,12 @@ static inline void cleancache_flush_fs(struct super_block *sb)
 {
 	if (cleancache_enabled)
 		__cleancache_flush_fs(sb);
+}
+
+static inline void cleancache_invalidate_inode(struct address_space *mapping)
+{
+        if (cleancache_enabled && cleancache_fs_enabled_mapping(mapping))
+                __cleancache_invalidate_inode(mapping);
 }
 
 #endif /* _LINUX_CLEANCACHE_H */

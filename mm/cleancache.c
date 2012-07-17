@@ -168,6 +168,21 @@ void __cleancache_flush_page(struct address_space *mapping, struct page *page)
 EXPORT_SYMBOL(__cleancache_flush_page);
 
 /*
+ * Invalidate all data from cleancache associated with the poolid and the
+ * mappings's inode so that all subsequent gets to this poolid/inode
+ * will fail.
+ */
+void __cleancache_invalidate_inode(struct address_space *mapping)
+{
+	int pool_id = mapping->host->i_sb->cleancache_poolid;
+	struct cleancache_filekey key = { .u.key = { 0 } };
+
+	if (pool_id >= 0 && cleancache_get_key(mapping->host, &key) >= 0)
+		(*cleancache_ops.invalidate_inode)(pool_id, key);
+}
+EXPORT_SYMBOL(__cleancache_invalidate_inode);
+
+/*
  * Flush all data from cleancache associated with the poolid and the
  * mappings's inode so that all subsequent gets to this poolid/inode
  * will fail.
