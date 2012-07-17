@@ -73,7 +73,7 @@ static DEFINE_PER_CPU(int, cpufreq_policy_cpu);
 static DEFINE_PER_CPU(struct rw_semaphore, cpu_policy_rwsem);
 
 #define lock_policy_rwsem(mode, cpu)					\
-static int lock_policy_rwsem_##mode					\
+int lock_policy_rwsem_##mode					\
 (int cpu)								\
 {									\
 	int policy_cpu = per_cpu(cpufreq_policy_cpu, cpu);		\
@@ -98,7 +98,7 @@ static void unlock_policy_rwsem_read(int cpu)
 	up_read(&per_cpu(cpu_policy_rwsem, policy_cpu));
 }
 
-static void unlock_policy_rwsem_write(int cpu)
+void unlock_policy_rwsem_write(int cpu)
 {
 	int policy_cpu = per_cpu(cpufreq_policy_cpu, cpu);
 	BUG_ON(policy_cpu == -1);
@@ -273,8 +273,10 @@ void cpufreq_notify_transition(struct cpufreq_freqs *freqs, unsigned int state)
 		trace_cpu_frequency(freqs->new, freqs->cpu);
 		srcu_notifier_call_chain(&cpufreq_transition_notifier_list,
 				CPUFREQ_POSTCHANGE, freqs);
-		if (likely(policy) && likely(policy->cpu == freqs->cpu))
+		if (likely(policy) && likely(policy->cpu == freqs->cpu)) {
 			policy->cur = freqs->new;
+			sysfs_notify(&policy->kobj, NULL, "scaling_cur_freq");
+		}
 		break;
 	}
 }
@@ -2057,6 +2059,10 @@ int cpufreq_unregister_driver(struct cpufreq_driver *driver)
 }
 EXPORT_SYMBOL_GPL(cpufreq_unregister_driver);
 
+#ifdef CONFIG_CPU_FREQ_GOV_INTELLIDEMAND
+	bool lmf_screen_state;
+#endif
+
 static void powersave_early_suspend(struct early_suspend *handler)
 {
 	int cpu;
@@ -2077,6 +2083,9 @@ static void powersave_early_suspend(struct early_suspend *handler)
 		__cpufreq_set_policy(cpu_policy, &new_policy);
 		cpu_policy->user_policy.policy = cpu_policy->policy;
 		cpu_policy->user_policy.governor = cpu_policy->governor;
+#ifdef CONFIG_CPU_FREQ_GOV_INTELLIDEMAND
+		lmf_screen_state = false;
+#endif
 out:
 		cpufreq_cpu_put(cpu_policy);
 	}
@@ -2102,6 +2111,9 @@ static void powersave_late_resume(struct early_suspend *handler)
 		__cpufreq_set_policy(cpu_policy, &new_policy);
 		cpu_policy->user_policy.policy = cpu_policy->policy;
 		cpu_policy->user_policy.governor = cpu_policy->governor;
+#ifdef CONFIG_CPU_FREQ_GOV_INTELLIDEMAND
+                lmf_screen_state = false;
+#endif
 out:
 		cpufreq_cpu_put(cpu_policy);
 	}

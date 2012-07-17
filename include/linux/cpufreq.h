@@ -25,12 +25,16 @@
 #define CPUFREQ_NAME_LEN 16
 
 #define CPU_SAFE_MAX_FREQ	1200000
-#define CPU_MAX_SUSPEND_FREQ 	500000
+#define CPU_MAX_SUSPEND_FREQ 	700000
 #define CPU_SAFE_MIN_FREQ	200000
 #define CPU_MIN_SUSPEND_FREQ	200000
 #define CPU_UV_MV_MAX		1500000
 #define CPU_UV_MV_MIN		800000
 
+#ifdef CONFIG_CPU_FREQ_GOV_INTELLIDEMAND
+/* Intellidemand screen state detection */
+extern bool lmf_screen_state;
+#endif
 
 /*********************************************************************
  *                     CPUFREQ NOTIFIER INTERFACE                    *
@@ -209,6 +213,9 @@ extern int __cpufreq_driver_getavg(struct cpufreq_policy *policy,
 
 int cpufreq_register_governor(struct cpufreq_governor *governor);
 void cpufreq_unregister_governor(struct cpufreq_governor *governor);
+
+int lock_policy_rwsem_write(int cpu);
+void unlock_policy_rwsem_write(int cpu);
 
 /*********************************************************************
  *                      CPUFREQ DRIVER INTERFACE                     *

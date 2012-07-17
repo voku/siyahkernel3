@@ -1,6 +1,4 @@
-#!/bin/sh
-
 cp .config .config.bkp;
-make ARCH=arm CROSS_COMPILE=/usr/bin/arm-linux-gnueabi- mrproper;
+make ARCH=arm CROSS_COMPILE=android-toolchain/bin/arm-eabi- mrproper;
 cp .config.bkp .config;
 make clean;

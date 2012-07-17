@@ -1,6 +1,6 @@
 VERSION = 3
 PATCHLEVEL = 0
-SUBLEVEL = 36
+SUBLEVEL = 37
 EXTRAVERSION =
 NAME = Sneaky Weasel
 
@@ -351,56 +351,53 @@ CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 CFLAGS_COMPILE  = -pipe
 
 CFLAGS_ARM      = -marm \
-		  -mtune=cortex-a9 \
-		  -march=armv7-a \
-		  -mfpu=neon \
-		  -mfloat-abi=softfp \
-		  -fsingle-precision-constant \
-		  -mvectorize-with-neon-quad \
-		  --param l2-cache-size=1024 \
-		  --param l1-cache-size=64 \
-		  --param simultaneous-prefetches=8 \
-		  --param prefetch-latency=400 
+				  -mtune=cortex-a9 \
+				  -march=armv7-a \
+				  -mfpu=neon \
+				  -mfloat-abi=softfp \
+				  -fsingle-precision-constant \
+				  -mvectorize-with-neon-quad \
+				  --param l2-cache-size=1024 \
+				  --param l1-cache-size=64 \
+				  --param simultaneous-prefetches=8 \
+				  --param prefetch-latency=400 
 
 CFLAGS_DISABLE  = -fno-delete-null-pointer-checks \
-		  -fno-ident \
-		  -fno-gcse \
+				  -fno-ident \
+				  -fno-gcse \
 
 CFLAGS_MODULO   = -fmodulo-sched \
-		  -fmodulo-sched-allow-regmoves
+				  -fmodulo-sched-allow-regmoves
 
+#LOOP FLAGS for GCC 4.6 / 4.7.1 LINARO
 CFLAGS_LOOPS_DEFAULT1 = -ftree-vectorize \
-		  -ftree-loop-linear \
-		  -floop-interchange \
-		  -floop-strip-mine \
-		  -floop-block \
-		  -ftree-loop-distribution \
-		  -fgraphiee-identity \
-		  -floop-block
+				  -ftree-loop-linear \
+				  -floop-interchange \
+				  -floop-strip-mine \
+				  -floop-block \
+				  -ftree-loop-distribution \
+				  -fgraphiee-identity \
+				  -floop-block
 #LOOP FLAGS for GCC 4.3
 CFLAGS_LOOPS_DEFAULT = -ftree-vectorize \
-		  -ftree-loop-linear \
-		  -ftree-loop-distribution \
-		  -funroll-loops
+				  -ftree-loop-linear \
+				  -ftree-loop-distribution -funroll-loops
 
-CFLAGS_ADDONS =	  -funswitch-loops \
-		  -fpredictive-commoning
-
-CFLAGS_EXPEREMENT = -fprofile-correction \
-		  -ffast-math \
-		  -fno-ipa-cp-clone \
-		  -fno-inline-functions
+CFLAGS_ADDONS = -fpredictive-commoning -fprofile-correction
 
 KERNELFLAGS     = $(CFLAGS_COMPILE) \
-		  $(CFLAGS_ARM) \
-		  $(CFLAGS_DISABLE) \
-		  $(CFLAGS_MODULO) \
-		  $(CFLAGS_LOOPS_DEFAULT) \
-		  $(CFLAGS_ADDONS)
+				  $(CFLAGS_ARM) \
+				  $(CFLAGS_DISABLE) \
+				  $(CFLAGS_MODULO) \
+				  $(CFLAGS_LOOPS_DEFAULT) \
+				  $(CFLAGS_ADDONS)
 
-MODFLAGS        =
-CFLAGS_MODULE   =
-AFLAGS_MODULE   = 
+#FLAGSPOOL = -funswitch-loops -fno-inline-functions -fno-ipa-cp-clone -ffast-math
+
+
+MODFLAGS        = -DMODULE $(KERNELFLAGS)
+CFLAGS_MODULE   = $(MODFLAGS)
+AFLAGS_MODULE   = $(MODFLAGS)
 LDFLAGS_MODULE  =
 CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage
 
@@ -643,6 +640,7 @@ endif
 # This warning generated too much noise in a regular build.
 # Use make W=1 to enable this warning (see scripts/Makefile.build)
 KBUILD_CFLAGS += $(call cc-disable-warning, unused-but-set-variable)
+KBUILD_CFLAGS += $(call cc-disable-warning, uninitialized)
 
 ifdef CONFIG_FRAME_POINTER
 KBUILD_CFLAGS	+= -fno-omit-frame-pointer -fno-optimize-sibling-calls
