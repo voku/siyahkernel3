@@ -287,7 +287,7 @@ static int loop_sdmmc_check(void)
 
 	for (iter = 0; iter < sdmmc_dev_num; iter++) {
 		if (check_sdmmc_op(iter)) {
-//			printk(KERN_DEBUG "SDMMC [%d] working\n", iter);
+			//printk(KERN_DEBUG "SDMMC [%d] working\n", iter);
 			return 1;
 		}
 	}
@@ -767,19 +767,19 @@ static int exynos4_enter_lowpower(struct cpuidle_device *dev,
 	}
 
 	if (new_state == &dev->states[0]) {
-		printk(KERN_INFO "Info: starting Idle Mode!\n");
+		//printk(KERN_INFO "Info: starting Idle Mode!\n");
 		return exynos4_enter_idle(dev, new_state);
 	}
 
 	enter_mode = exynos4_check_entermode();
 	if (!enter_mode) {
-		printk(KERN_INFO "Info: starting Idle Mode!\n");
+		//printk(KERN_INFO "Info: starting Idle Mode!\n");
 		return exynos4_enter_idle(dev, new_state);
 	} else if (enter_mode == S5P_CHECK_DIDLE) {
-		printk(KERN_INFO "Info: starting AFTR Idle Mode!\n");
+		//printk(KERN_INFO "Info: starting AFTR Idle Mode!\n");
 		return exynos4_enter_core0_aftr(dev, new_state);
 	} else {
-		printk(KERN_INFO "Info: starting LPA Idle Mode!\n");
+		//printk(KERN_INFO "Info: starting LPA Idle Mode!\n");
 		return exynos4_enter_core0_lpa(dev, new_state);
 	}
 }
