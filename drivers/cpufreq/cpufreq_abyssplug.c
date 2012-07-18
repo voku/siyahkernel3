@@ -42,7 +42,7 @@
 #define DEFAULT_DOWN_FREQ_MAX_LOAD			(40)
 
 /* default sampling period (uSec) is bogus; 10x ondemand's default for x86 */
-#define DEFAULT_SAMPLING_PERIOD				(100000)
+#define DEFAULT_SAMPLING_PERIOD				(50000)
 
 /* default number of sampling periods to average before hotplug-in decision */
 #define DEFAULT_HOTPLUG_IN_SAMPLING_PERIODS		(5)
