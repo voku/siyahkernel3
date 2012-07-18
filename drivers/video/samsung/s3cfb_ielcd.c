@@ -104,11 +104,11 @@ int s3c_ielcd_stop(void)
 #else
 int s3c_ielcd_stop(void)
 {
-	unsigned int cfg, ielcd_count = 0;
+	unsigned int cfg = 0, ielcd_count = 0;
 
 	cfg = s3c_ielcd_readl(S3C_IELCD_VIDCON0);
 	cfg |= S3C_VIDCON0_ENVID_ENABLE;
-	cfg &= ~(S3C_VIDCON0_ENVID_F_ENABLE);
+	cfg &= ~S3C_VIDCON0_ENVID_F_ENABLE;
 
 	s3c_ielcd_writel(cfg, S3C_IELCD_VIDCON0);
 
