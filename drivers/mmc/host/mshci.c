@@ -2041,7 +2041,8 @@ int mshci_add_host(struct mshci_host *host)
 	mmc->ops = &mshci_ops;
 	mmc->f_min = 400000;
 	mmc->f_max = host->max_clk;
-	mmc->caps |= MMC_CAP_SDIO_IRQ;
+	//SpeedMod: Disable TRIM to fix hard brick bug
+	mmc->caps |= MMC_CAP_SDIO_IRQ; // | MMC_CAP_ERASE;
 
 	mmc->caps |= MMC_CAP_4_BIT_DATA;
 
