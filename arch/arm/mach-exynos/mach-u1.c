@@ -5838,7 +5838,7 @@ static struct platform_device *smdkc210_devices[] __initdata = {
 	&s3c_device_timer[3],
 #endif
 #ifdef CONFIG_VIDEO_TSI
-	&s3c_device_tsi,
+//	&s3c_device_tsi,
 #endif
 #ifdef CONFIG_EXYNOS4_SETUP_THERMAL
 	&s5p_device_tmu,
