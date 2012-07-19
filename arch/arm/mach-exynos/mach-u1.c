@@ -2890,7 +2890,7 @@ static int max8997_muic_cfg_uart_gpio(void)
 	if (path == UART_PATH_CP)
 		gpio_set_value(GPIO_UART_SEL, GPIO_LEVEL_HIGH);
 #endif
-	pr_info("%s: val=%d, path=%d\n", __func__, val, path);
+	pr_info("%s: path=%d\n", __func__, path);
 	return path;
 }
 
