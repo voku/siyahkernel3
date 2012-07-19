@@ -364,7 +364,7 @@ CFLAGS_ARM      = -marm \
 
 CFLAGS_DISABLE  = -fno-delete-null-pointer-checks \
 		  -fno-ident \
-		  -fno-gcse \
+		  -fno-gcse
 
 CFLAGS_MODULO   = -fmodulo-sched \
 		  -fmodulo-sched-allow-regmoves
@@ -372,8 +372,7 @@ CFLAGS_MODULO   = -fmodulo-sched \
 #LOOP FLAGS for GCC 4.3 (default)
 CFLAGS_LOOPS_DEFAULT = -ftree-vectorize \
 		  -ftree-loop-linear \
-		  -ftree-loop-distribution \
-		  -funswitch-loops
+		  -ftree-loop-distribution
 
 #LOOP FLAGS for GCC 4.6
 #CFLAGS_LOOPS_GCC_4_6 = -floop-interchange \
@@ -381,26 +380,27 @@ CFLAGS_LOOPS_DEFAULT = -ftree-vectorize \
 		  -floop-block
 
 #LOOP FLAGS for GCC 4.7.1 LINARO
-CFLAGS_LOOPS_GCC_4_7 = -floop-interchange \
+#CFLAGS_LOOPS_GCC_4_7 = -floop-interchange \
 		  -floop-strip-mine \
 		  -floop-block \
 		  -fgraphiee-identity
 
 CFLAGS_ADDONS =   -fpredictive-commoning \
-		  -fprofile-correction
+		  -funswitch-loops
 
-KERNELFLAGS     = $(CFLAGS_COMPILE) \
+KERNELFLAGS = 	  $(CFLAGS_COMPILE) \
 		  $(CFLAGS_ARM) \
 		  $(CFLAGS_DISABLE) \
 		  $(CFLAGS_MODULO) \
 		  $(CFLAGS_LOOPS_DEFAULT) \
-		  $(CLFAGS_LOOPS_GCC_4_6) \
 		  $(CFLAGS_ADDONS)
 
-#FLAGSPOOL = -fno-inline-functions -fno-ipa-cp-clone -ffast-math -funroll-loops
+EXTRA_BUILDERS = $(CLFAGS_LOOPS_GCC_4_6) $(CFLAGS_LOOPS_GCC_4_7)
+
+#FLAGSPOOL = -fprofile-correction -fno-inline-functions -fno-ipa-cp-clone -ffast-math -funroll-loops
 
 
-MODFLAGS        = -DMODULE $(KERNELFLAGS)
+MODFLAGS        = -DMODULE $(KERNELFLAGS) $(CLFAGS_LOOPS_GCC_4_6)
 CFLAGS_MODULE   = $(MODFLAGS)
 AFLAGS_MODULE   = $(MODFLAGS)
 LDFLAGS_MODULE  =
@@ -647,18 +647,18 @@ endif
 KBUILD_CFLAGS += $(call cc-disable-warning, unused-but-set-variable)
 KBUILD_CFLAGS += $(call cc-disable-warning, uninitialized)
 
-#ifdef CONFIG_FRAME_POINTER
-#KBUILD_CFLAGS	+= -fno-omit-frame-pointer -fno-optimize-sibling-calls
-#else
+ifdef CONFIG_FRAME_POINTER
+KBUILD_CFLAGS	+= -fno-omit-frame-pointer -fno-optimize-sibling-calls
+else
 # Some targets (ARM with Thumb2, for example), can't be built with frame
 # pointers.  For those, we don't have FUNCTION_TRACER automatically
 # select FRAME_POINTER.  However, FUNCTION_TRACER adds -pg, and this is
 # incompatible with -fomit-frame-pointer with current GCC, so we don't use
 # -fomit-frame-pointer with FUNCTION_TRACER.
-#ifndef CONFIG_FUNCTION_TRACER
-#KBUILD_CFLAGS	+= -fomit-frame-pointer
-#endif
-#endif
+ifndef CONFIG_FUNCTION_TRACER
+KBUILD_CFLAGS	+= -fomit-frame-pointer
+endif
+endif
 
 ifdef CONFIG_DEBUG_INFO
 KBUILD_CFLAGS	+= -g
