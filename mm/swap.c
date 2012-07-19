@@ -676,7 +676,6 @@ void lru_add_page_tail(struct zone* zone,
 			active = 0;
 			lru = LRU_INACTIVE_ANON;
 		}
-		update_page_reclaim_stat(zone, page_tail, file, active);
 		lruvec = mem_cgroup_lru_add_list(zone, page_tail, lru);
 		if (likely(PageLRU(page)))
 			list_add(&page_tail->lru, page->lru.prev);
