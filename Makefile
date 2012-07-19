@@ -354,7 +354,7 @@ CFLAGS_ARM      = -marm \
 		  -mtune=cortex-a9 \
 		  -march=armv7-a \
 		  -mfpu=neon \
-		  -mfloat-abi=softfp \
+		  -mfloat-abi=soft \
 		  -fsingle-precision-constant \
 		  -mvectorize-with-neon-quad \
 		  --param l2-cache-size=1024 \
@@ -373,10 +373,10 @@ CFLAGS_MODULO   = -fmodulo-sched \
 CFLAGS_LOOPS_DEFAULT = -ftree-vectorize \
 		  -ftree-loop-linear \
 		  -ftree-loop-distribution \
-		  -funroll-loops
+		  -funswitch-loops
 
 #LOOP FLAGS for GCC 4.6
-CFLAGS_LOOPS_GCC_4_6 = -floop-interchange \
+#CFLAGS_LOOPS_GCC_4_6 = -floop-interchange \
 		  -floop-strip-mine \
 		  -floop-block
 
@@ -397,7 +397,7 @@ KERNELFLAGS     = $(CFLAGS_COMPILE) \
 		  $(CLFAGS_LOOPS_GCC_4_6) \
 		  $(CFLAGS_ADDONS)
 
-#FLAGSPOOL = -funswitch-loops -fno-inline-functions -fno-ipa-cp-clone -ffast-math
+#FLAGSPOOL = -fno-inline-functions -fno-ipa-cp-clone -ffast-math -funroll-loops
 
 
 MODFLAGS        = -DMODULE $(KERNELFLAGS)
@@ -647,18 +647,18 @@ endif
 KBUILD_CFLAGS += $(call cc-disable-warning, unused-but-set-variable)
 KBUILD_CFLAGS += $(call cc-disable-warning, uninitialized)
 
-ifdef CONFIG_FRAME_POINTER
-KBUILD_CFLAGS	+= -fno-omit-frame-pointer -fno-optimize-sibling-calls
-else
+#ifdef CONFIG_FRAME_POINTER
+#KBUILD_CFLAGS	+= -fno-omit-frame-pointer -fno-optimize-sibling-calls
+#else
 # Some targets (ARM with Thumb2, for example), can't be built with frame
 # pointers.  For those, we don't have FUNCTION_TRACER automatically
 # select FRAME_POINTER.  However, FUNCTION_TRACER adds -pg, and this is
 # incompatible with -fomit-frame-pointer with current GCC, so we don't use
 # -fomit-frame-pointer with FUNCTION_TRACER.
-ifndef CONFIG_FUNCTION_TRACER
-KBUILD_CFLAGS	+= -fomit-frame-pointer
-endif
-endif
+#ifndef CONFIG_FUNCTION_TRACER
+#KBUILD_CFLAGS	+= -fomit-frame-pointer
+#endif
+#endif
 
 ifdef CONFIG_DEBUG_INFO
 KBUILD_CFLAGS	+= -g
