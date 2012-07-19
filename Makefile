@@ -354,7 +354,7 @@ CFLAGS_ARM      = -marm \
 		  -mtune=cortex-a9 \
 		  -march=armv7-a \
 		  -mfpu=neon \
-		  -mfloat-abi=soft \
+		  -mfloat-abi=softfp \
 		  -fsingle-precision-constant \
 		  -mvectorize-with-neon-quad \
 		  --param l2-cache-size=1024 \
