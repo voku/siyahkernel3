@@ -51,6 +51,8 @@
 #define DISPLAY_BOOT_PROGRESS
 #endif
 
+bool s3cfb_mdnie_force_disable;
+bool s3cfb_mdnie_suspended;
 
 struct s3cfb_fimd_desc		*fbfimd;
 
@@ -168,6 +170,9 @@ static int s3cfb_sysfs_store_win_power(struct device *dev,
 	int id, to;
 	struct s3cfb_global *fbdev[1];
 	fbdev[0] = fbfimd->fbdev[0];
+
+	if (s3cfb_mdnie_suspended)
+		return len;
 
 	while (*p != '\0') {
 		if (!isspace(*p))
@@ -395,6 +400,9 @@ static int s3cfb_probe(struct platform_device *pdev)
 	if (ret < 0)
 		dev_err(fbdev[0]->dev, "failed to add sysfs entries\n");
 
+	s3cfb_mdnie_force_disable = false;
+	s3cfb_mdnie_suspended = false;
+
 #ifdef DISPLAY_BOOT_PROGRESS
 	if (!(readl(S5P_INFORM2)))
 		s3cfb_start_progress(fbdev[0]->fb[pdata->default_win]);
@@ -475,6 +483,8 @@ void s3cfb_early_suspend(struct early_suspend *h)
 	int i, ret;
 
 	printk(KERN_INFO "+%s\n", __func__);
+
+	s3cfb_mdnie_suspended = true;
 
 #if defined(CONFIG_FB_S5P_S6E8AA0) || defined(CONFIG_FB_S5P_S6E8AB0)
 	s6e8ax0_early_suspend();
@@ -632,6 +642,7 @@ void s3cfb_late_resume(struct early_suspend *h)
 #if defined(CONFIG_FB_S5P_S6E8AA0) || defined(CONFIG_FB_S5P_S6E8AB0)
 	s6e8ax0_late_resume();
 #endif
+	s3cfb_mdnie_suspended = false;
 
 	printk(KERN_INFO "-%s\n", __func__);
 
