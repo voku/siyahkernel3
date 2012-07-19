@@ -320,6 +320,9 @@ static int mc1n2_current_mode;
 static struct snd_soc_codec *mc1n2_codec;
 #endif
 
+#include <mach/cpufreq.h>
+static int mc1n2_freq_lock = 0;
+
 #ifndef ALSA_VER_ANDROID_3_0
 static struct snd_soc_codec *mc1n2_get_codec_data(void)
 {
@@ -3971,6 +3974,8 @@ static int mc1n2_hwdep_ioctl_notify(struct snd_soc_codec *codec,
 		}
 		break;
 	case MCDRV_NOTIFY_MEDIA_PLAY_START:
+		if (mc1n2_freq_lock)
+			exynos_cpufreq_lock(DVFS_LOCK_ID_SND, L14); // CPU CLK lower lock 200MHz
 		break;
 	case MCDRV_NOTIFY_MEDIA_PLAY_STOP:
 		break;
@@ -4955,6 +4960,30 @@ static ssize_t update_reg_vol(struct device *dev, struct device_attribute *attr,
 
 static DEVICE_ATTR(update_volume, S_IWUGO | S_IRUGO, NULL, update_reg_vol);
 
+static ssize_t mc1n2_show_freq_lock(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf,"%d\n", mc1n2_freq_lock);
+}
+
+static ssize_t mc1n2_store_freq_lock(struct device *dev, struct device_attribute *attr, const char *buf, size_t size)
+{
+	int data;
+	if (sscanf(buf, "%d\n", &data) > 0) {
+		mc1n2_freq_lock = data;
+	}
+	return size;
+}
+
+static DEVICE_ATTR(freq_lock, S_IWUGO | S_IRUGO, mc1n2_show_freq_lock, mc1n2_store_freq_lock);
+
+void mc1n2_reboot(void)
+{
+	/* Force term */
+	_McDrv_Ctrl(MCDRV_TERM, NULL, 0);
+	/* Force MCLK OFF */
+	mc1n2_set_mclk_source(0);
+}
+
 /*
  * Module init and exit
  */
@@ -5059,6 +5088,9 @@ static int __init mc1n2_init(void)
 	}
 	if (device_create_file(sound_mc1n2, &dev_attr_update_volume) < 0) {
 		printk(KERN_ERR "Failed to create device file(%s)!\n", dev_attr_update_volume.attr.name);
+	}
+	if (device_create_file(sound_mc1n2, &dev_attr_freq_lock) < 0) {
+		printk(KERN_ERR "Failed to create device file(%s)!\n", dev_attr_freq_lock.attr.name);
 	}
 
 	return i2c_add_driver(&mc1n2_i2c_driver);

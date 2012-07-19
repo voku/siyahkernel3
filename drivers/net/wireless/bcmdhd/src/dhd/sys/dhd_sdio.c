@@ -1154,7 +1154,8 @@ dhdsdio_clkctl(dhd_bus_t *bus, uint target, bool pendok)
 	uint oldstate = bus->clkstate;
 #endif /* DHD_DEBUG */
 
-	DHD_TRACE(("%s: Enter\n", __FUNCTION__));
+	DHD_TRACE(("%s: Enter bus->clkstate %u target %u\n", __FUNCTION__,
+			bus->clkstate, target));	
 
 	/* Early exit if we're already there */
 	if (bus->clkstate == target) {
@@ -3362,6 +3363,9 @@ dhdsdio_download_state(dhd_bus_t *bus, bool enter)
 	uint retries;
 	int bcmerror = 0;
 
+	if (!bus->sih)
+		return BCME_ERROR;
+
 	/* To enter download state, disable ARM and reset SOCRAM.
 	 * To exit download state, simply reset ARM (default is RAM boot).
 	 */
@@ -3647,6 +3651,13 @@ dhd_bus_stop(struct dhd_bus *bus, bool enforce_mutex)
 	/* Reset some F2 state stuff */
 	bus->rxskip = FALSE;
 	bus->tx_seq = bus->rx_seq = 0;
+
+	/* Set to a safe default.  It gets updated when we
+	 * receive a packet from the fw but when we reset,
+	 * we need a safe default to be able to send the
+	 * initial mac address.
+	 */
+	bus->tx_max = 4;
 
 	if (enforce_mutex)
 		dhd_os_sdunlock(bus->dhd);
@@ -5296,6 +5307,15 @@ clkwait:
 
 	if (TXCTLOK(bus) && bus->ctrl_frame_stat && (bus->clkstate == CLK_AVAIL))  {
 		int ret, i;
+		uint8* frame_seq = bus->ctrl_frame_buf + SDPCM_FRAMETAG_LEN;
+
+		if (((bus->sih->chip == BCM4329_CHIP_ID) ||   /* limit to 4329 & 4330 for now  */
+				(bus->sih->chip == BCM4330_CHIP_ID)) && (*frame_seq != bus->tx_seq)) {
+			DHD_ERROR(("%s IOCTL frame seq lag detected!"
+				" frm_seq:%d != bus->tx_seq:%d, corrected\n",
+				__FUNCTION__, *frame_seq, bus->tx_seq));
+			*frame_seq = bus->tx_seq;
+		}
 
 		ret = dhd_bcmsdh_send_buf(bus, bcmsdh_cur_sbwad(sdh), SDIO_FUNC_2, F2SYNC,
 		                      (uint8 *)bus->ctrl_frame_buf, (uint32)bus->ctrl_frame_len,
@@ -6350,8 +6370,10 @@ dhdsdio_probe_attach(struct dhd_bus *bus, osl_t *osh, void *sdh, void *regsva,
 	return TRUE;
 
 fail:
-	if (bus->sih != NULL)
+	if (bus->sih != NULL) {
 		si_detach(bus->sih);
+		bus->sih = NULL;
+	}
 	return FALSE;
 }
 
@@ -6587,6 +6609,7 @@ dhdsdio_release_dongle(dhd_bus_t *bus, osl_t *osh, bool dongle_isolation, bool r
 			dhdsdio_clkctl(bus, CLK_NONE, FALSE);
 		}
 		si_detach(bus->sih);
+		bus->sih = NULL;
 		if (bus->vars && bus->varsz)
 			MFREE(osh, bus->vars, bus->varsz);
 		bus->vars = NULL;

@@ -372,6 +372,13 @@ config AUDIT_TREE
 	depends on AUDITSYSCALL
 	select FSNOTIFY
 
+config TARGET_CM_KERNEL
+	bool "Enable settings for CyanogenMod ROM"
+	help
+	  This option configures a kernel that works with
+	  CyanogenMod ROM settings and options.
+	  also effect the BLN for CM9/AOKP
+
 source "kernel/irq/Kconfig"
 
 menu "RCU Subsystem"

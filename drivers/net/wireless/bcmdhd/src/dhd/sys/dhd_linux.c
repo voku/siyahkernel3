@@ -583,7 +583,7 @@ static int dhd_sleep_pm_callback(struct notifier_block *nfb, unsigned long actio
 
 static struct notifier_block dhd_sleep_pm_notifier = {
 	.notifier_call = dhd_sleep_pm_callback,
-	.priority = 0
+	.priority = 10
 };
 extern int register_pm_notifier(struct notifier_block *nb);
 extern int unregister_pm_notifier(struct notifier_block *nb);
@@ -2751,7 +2751,12 @@ dhd_open(struct net_device *net)
 	 *  We keep WEXT's wl_control_wl_start to provide backward compatibility
 	 *  This should be removed in the future
 	 */
-	wl_control_wl_start(net);
+	ret = wl_control_wl_start(net);
+	if (ret != 0) {
+		DHD_ERROR(("%s: failed with code %d\n", __FUNCTION__, ret));
+		ret = -1;
+		goto exit;
+	}
 #endif
 
 	ifidx = dhd_net2idx(dhd, net);
@@ -2776,9 +2781,10 @@ dhd_open(struct net_device *net)
 		if (!dhd_download_fw_on_driverload) {
 			ret = wl_android_wifi_on(net);
 			if (ret != 0) {
-				DHD_ERROR(("wl_android_wifi_on failed (%d)\n", ret));
+				DHD_ERROR(("%s: failed with code %d\n", __FUNCTION__, ret));
+				ret = -1;
 				goto exit;
-				}
+			}
 		} else {
 #ifdef CUSTOMER_HW_SAMSUNG
 			/* CSP#505233: Flags to indicate if we distingish

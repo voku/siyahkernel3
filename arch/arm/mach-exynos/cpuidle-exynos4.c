@@ -50,6 +50,8 @@
 				(S5P_VA_SYSRAM + 0x20) : S5P_INFORM6)
 #endif
 
+//#define IDLE_TEST
+
 extern unsigned long sys_pwr_conf_addr;
 extern unsigned int l2x0_save[3];
 
@@ -678,21 +680,25 @@ static struct cpuidle_driver exynos4_idle_driver = {
 	.owner		= THIS_MODULE,
 };
 
+#ifdef IDLE_TEST
 static unsigned int cpu_core;
 static unsigned int old_div;
 static DEFINE_SPINLOCK(idle_lock);
+#endif
 
 static int exynos4_enter_idle(struct cpuidle_device *dev,
 			      struct cpuidle_state *state)
 {
 	struct timeval before, after;
 	int idle_time;
+#ifdef IDLE_TEST 
 	int cpu;
 	unsigned int tmp;
-
+#endif
 	local_irq_disable();
 	do_gettimeofday(&before);
 
+#ifdef IDLE_TEST
 	if (use_clock_down == SW_CLK_DWN) {
 		/* USE SW Clock Down */
 		cpu = get_cpu();
@@ -732,6 +738,7 @@ static int exynos4_enter_idle(struct cpuidle_device *dev,
 
 		put_cpu();
 	} else
+#endif
 		cpu_do_idle();
 
 	do_gettimeofday(&after);
