@@ -787,9 +787,6 @@ unlock:
 	unlock_page(page);
 
 move_newpage:
-	mem_cgroup_reset_owner(newpage);
-
-	mem_cgroup_reset_owner(newpage);
 
 	if (rc != -EAGAIN) {
  		/*
