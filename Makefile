@@ -399,11 +399,11 @@ KERNELFLAGS     = $(CFLAGS_COMPILE) \
 		  $(CFLAGS_ADDONS)
 
 ifeq ($(GCCVERSION),4.6)
-#KERNELFLAGS	+=  $(CLFAGS_LOOPS_GCC_4_6)
+KERNELFLAGS	+=  $(CLFAGS_LOOPS_GCC_4_6)
 endif
 
 ifeq ($(GCCVERSION),4.7)
-#KERNELFLAGS	+=  $(CLFAGS_LOOPS_GCC_4_7)
+KERNELFLAGS	+=  $(CLFAGS_LOOPS_GCC_4_7)
 endif
 
 #FLAGSPOOL = -fprofile-correction -fno-inline-functions -fno-ipa-cp-clone -funroll-loops
