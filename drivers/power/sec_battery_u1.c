@@ -2753,7 +2753,7 @@ static ssize_t sec_bat_store(struct device *dev,
 				} else {
 					switch (info->cable_type) {
 					case CABLE_TYPE_USB:
-						value.intval = charge_current_usb;	/* mA */
+						value.intval = charge_current_usb;  /* mA */
 						break;
 					case CABLE_TYPE_MISC:
 						value.intval = charge_current_misc;	/* mA */

@@ -354,7 +354,7 @@ CFLAGS_ARM      = -marm \
 		  -mtune=cortex-a9 \
 		  -march=armv7-a \
 		  -mfpu=neon \
-		  -mfloat-abi=hard \
+		  -mfloat-abi=softfp \
 		  -fsingle-precision-constant \
 		  -mvectorize-with-neon-quad \
 		  --param l2-cache-size=1024 \
@@ -376,7 +376,7 @@ CFLAGS_LOOPS_DEFAULT = -ftree-vectorize \
 		  -funswitch-loops
 
 #LOOP FLAGS for GCC 4.6
-CFLAGS_LOOPS_GCC_4_6 = -floop-interchange \
+#CFLAGS_LOOPS_GCC_4_6 = -floop-interchange \
 		  -floop-strip-mine \
 		  -floop-block
 

@@ -121,7 +121,6 @@ int s3c_ielcd_stop(void)
 		if (!(s3c_ielcd_readl(S3C_IELCD_VIDCON1) & 0xffff0000))
 			return 0;
 	} while (1);
-
 }
 #endif
 
