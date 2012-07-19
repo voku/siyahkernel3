@@ -11,14 +11,13 @@ config KEYBOARD_CYPRESS_SAMMY_CM9
 
 config KEYBOARD_CYPRESS_AOKP
         tristate "Cypress touchkey support for AOKP"
-	select TOUCHKEY_BLN
 	depends on !KEYBOARD_CYPRESS_SAMMY_CM9
         ---help---
           Say Y here to enable the cypress touchkey.
 
 config TOUCHKEY_BLN
 	bool "BLN Support"
-	depends on KEYBOARD_CYPRESS_SAMMY_CM9 || KEYBOARD_CYPRESS_AOKP
+	depends on KEYBOARD_CYPRESS_SAMMY_CM9
 	---help---
 	  BLN support.
 
