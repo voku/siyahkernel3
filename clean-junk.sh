@@ -23,3 +23,9 @@ for i in $JUNK; do
 	ls $i;
 	rm -f $i;
 done;
+
+JUNK=`find . -name *.org`;
+for i in $JUNK; do
+        ls $i;
+        rm -f $i;
+done;
