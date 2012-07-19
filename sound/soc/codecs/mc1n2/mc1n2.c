@@ -4955,6 +4955,14 @@ static ssize_t update_reg_vol(struct device *dev, struct device_attribute *attr,
 
 static DEVICE_ATTR(update_volume, S_IWUGO | S_IRUGO, NULL, update_reg_vol);
 
+void mc1n2_reboot(void)
+{
+	/* Force term */
+	_McDrv_Ctrl(MCDRV_TERM, NULL, 0);
+	/* Force MCLK OFF */
+	mc1n2_set_mclk_source(0);
+}
+
 /*
  * Module init and exit
  */
