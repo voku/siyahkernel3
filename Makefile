@@ -348,6 +348,8 @@ CHECK		= sparse
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
 
+GCCVERSION	:= $(shell $(CC) --version | grep ^gcc | sed 's/^.* //g' | cut -c1-3)
+
 CFLAGS_COMPILE  = -pipe
 
 CFLAGS_ARM      = -marm \
@@ -376,7 +378,7 @@ CFLAGS_LOOPS_DEFAULT = -ftree-vectorize \
 		  -funswitch-loops
 
 #LOOP FLAGS for GCC 4.6
-#CFLAGS_LOOPS_GCC_4_6 = -floop-interchange \
+CFLAGS_LOOPS_GCC_4_6 = -floop-interchange \
 		  -floop-strip-mine \
 		  -floop-block
 
@@ -394,11 +396,17 @@ KERNELFLAGS     = $(CFLAGS_COMPILE) \
 		  $(CFLAGS_DISABLE) \
 		  $(CFLAGS_MODULO) \
 		  $(CFLAGS_LOOPS_DEFAULT) \
-		  $(CLFAGS_LOOPS_GCC_4_6) \
 		  $(CFLAGS_ADDONS)
 
-#FLAGSPOOL = -fno-inline-functions -fno-ipa-cp-clone -ffast-math -funroll-loops
+ifeq ($(GCCVERSION),4.6)
+KERNELFLAGS	+=  $(CLFAGS_LOOPS_GCC_4_6)
+endif
 
+ifeq ($(GCCVERSION),4.7)
+KERNELFLAGS	+=  $(CLFAGS_LOOPS_GCC_4_7)
+endif
+
+#FLAGSPOOL = -fno-inline-functions -fno-ipa-cp-clone -ffast-math -funroll-loops
 
 MODFLAGS        = -DMODULE $(KERNELFLAGS)
 CFLAGS_MODULE   = $(MODFLAGS)
