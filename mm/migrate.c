@@ -787,7 +787,6 @@ unlock:
 	unlock_page(page);
 
 move_newpage:
-
 	if (rc != -EAGAIN) {
  		/*
  		 * A page that has been migrated has all references
