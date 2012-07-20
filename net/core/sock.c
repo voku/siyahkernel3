@@ -1183,6 +1183,9 @@ struct sock *sk_alloc(struct net *net, int family, gfp_t priority,
 		atomic_set(&sk->sk_wmem_alloc, 1);
 
 		sock_update_classid(sk);
+#if IS_ENABLED(CONFIG_NETPRIO_CGROUP)
+		sock_update_netprioidx(sk, current);
+#endif
 	}
 
 	return sk;
