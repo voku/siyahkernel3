@@ -50,7 +50,8 @@
 				(S5P_VA_SYSRAM + 0x20) : S5P_INFORM6)
 #endif
 
-//#define IDLE_TEST
+/* we can disable below define to remove function that handle IDLE cpu freq, added for testing */
+#define IDLE_TEST
 
 extern unsigned long sys_pwr_conf_addr;
 extern unsigned int l2x0_save[3];
