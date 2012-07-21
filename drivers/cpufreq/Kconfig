@@ -164,10 +164,10 @@ config CPU_FREQ_DEFAULT_GOV_INTELLIDEMAND
           Use the CPUFreq governor 'intellidemand' as default.
 
 config CPU_FREQ_DEFAULT_GOV_HYPER
-        bool "hyper"
+        bool "HYPER"
         select CPU_FREQ_GOV_HYPER
         help
-          Use the CPUFreq governor 'hyper' as default.
+          Use the CPUFreq governor 'HYPER' as default.
 	  
 config CPU_FREQ_DEFAULT_GOV_LAZY
     bool "lazy"
@@ -419,10 +419,10 @@ config CPU_FREQ_GOV_ADAPTIVE
 	  If in doubt, say N.
 
 config CPU_FREQ_GOV_HYPER
-        tristate "'hyper' cpufreq governor"
+        tristate "'HYPER' cpufreq governor"
         depends on CPU_FREQ
         help
-          'hyper' - a tweaked "ondemand" based smart and smooth optimized governor!
+          'HYPER' - a tweaked "ondemand" based smart and smooth optimized governor!
 
            If in doubt, say Y.
 

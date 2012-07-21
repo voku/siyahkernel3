@@ -31,10 +31,6 @@
 #define CPU_UV_MV_MAX		1500000
 #define CPU_UV_MV_MIN		800000
 
-#ifdef CONFIG_CPU_FREQ_GOV_INTELLIDEMAND
-/* Intellidemand screen state detection */
-extern bool lmf_screen_state;
-#endif
 
 /*********************************************************************
  *                     CPUFREQ NOTIFIER INTERFACE                    *
@@ -411,8 +407,8 @@ extern struct cpufreq_governor cpufreq_gov_lagfree;
 extern struct cpufreq_governor cpufreq_gov_abyssplug;
 #define CPUFREQ_DEFAULT_GOVERNOR        (&cpufreq_gov_abyssplug)
 #elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_HYPER)
-extern struct cpufreq_governor cpufreq_gov_hyper;
-#define CPUFREQ_DEFAULT_GOVERNOR        (&cpufreq_gov_hyper)
+extern struct cpufreq_governor cpufreq_gov_HYPER;
+#define CPUFREQ_DEFAULT_GOVERNOR        (&cpufreq_gov_HYPER)
 #elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_SCARY)
 extern struct cpufreq_governor cpufreq_gov_scary;
 #define CPUFREQ_DEFAULT_GOVERNOR        (&cpufreq_gov_scary)

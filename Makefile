@@ -348,6 +348,8 @@ CHECK		= sparse
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
 
+GCCVERSION  := $(shell $(CC) --version | grep ^gcc | sed 's/^.* //g' | cut -c1-3)
+
 CFLAGS_COMPILE  = -pipe
 
 CFLAGS_ARM      = -marm \
@@ -375,32 +377,38 @@ CFLAGS_LOOPS_DEFAULT = -ftree-vectorize \
 		  -ftree-loop-distribution
 
 #LOOP FLAGS for GCC 4.6
-#CFLAGS_LOOPS_GCC_4_6 = -floop-interchange \
+CFLAGS_LOOPS_GCC_4_6 = -floop-interchange \
 		  -floop-strip-mine \
 		  -floop-block
 
 #LOOP FLAGS for GCC 4.7.1 LINARO
-#CFLAGS_LOOPS_GCC_4_7 = -floop-interchange \
+CFLAGS_LOOPS_GCC_4_7 = -floop-interchange \
 		  -floop-strip-mine \
 		  -floop-block \
 		  -fgraphiee-identity
 
 CFLAGS_ADDONS =   -fpredictive-commoning \
-		  -funswitch-loops
+		  -funswitch-loops \
+		  -ffast-math
 
-KERNELFLAGS = 	  $(CFLAGS_COMPILE) \
+KERNELFLAGS 	= $(CFLAGS_COMPILE) \
 		  $(CFLAGS_ARM) \
 		  $(CFLAGS_DISABLE) \
 		  $(CFLAGS_MODULO) \
 		  $(CFLAGS_LOOPS_DEFAULT) \
 		  $(CFLAGS_ADDONS)
 
-EXTRA_BUILDERS = $(CLFAGS_LOOPS_GCC_4_6) $(CFLAGS_LOOPS_GCC_4_7)
+ifeq ($(GCCVERSION),4.6)
+KERNELFLAGS  +=  $(CLFAGS_LOOPS_GCC_4_6)
+endif
 
-#FLAGSPOOL = -fprofile-correction -fno-inline-functions -fno-ipa-cp-clone -ffast-math -funroll-loops
+ifeq ($(GCCVERSION),4.7)
+KERNELFLAGS  +=  $(CLFAGS_LOOPS_GCC_4_7)
+endif
 
+#FLAGSPOOL = -fprofile-correction -fno-inline-functions -fno-ipa-cp-clone -funroll-loops
 
-MODFLAGS        = -DMODULE $(KERNELFLAGS) $(CLFAGS_LOOPS_GCC_4_6)
+MODFLAGS        = -DMODULE $(KERNELFLAGS)
 CFLAGS_MODULE   = $(MODFLAGS)
 AFLAGS_MODULE   = $(MODFLAGS)
 LDFLAGS_MODULE  =
@@ -647,18 +655,18 @@ endif
 KBUILD_CFLAGS += $(call cc-disable-warning, unused-but-set-variable)
 KBUILD_CFLAGS += $(call cc-disable-warning, uninitialized)
 
-ifdef CONFIG_FRAME_POINTER
-KBUILD_CFLAGS	+= -fno-omit-frame-pointer -fno-optimize-sibling-calls
-else
+#ifdef CONFIG_FRAME_POINTER
+#KBUILD_CFLAGS	+= -fno-omit-frame-pointer -fno-optimize-sibling-calls
+#else
 # Some targets (ARM with Thumb2, for example), can't be built with frame
 # pointers.  For those, we don't have FUNCTION_TRACER automatically
 # select FRAME_POINTER.  However, FUNCTION_TRACER adds -pg, and this is
 # incompatible with -fomit-frame-pointer with current GCC, so we don't use
 # -fomit-frame-pointer with FUNCTION_TRACER.
-ifndef CONFIG_FUNCTION_TRACER
-KBUILD_CFLAGS	+= -fomit-frame-pointer
-endif
-endif
+#ifndef CONFIG_FUNCTION_TRACER
+#KBUILD_CFLAGS	+= -fomit-frame-pointer
+#endif
+#endif
 
 ifdef CONFIG_DEBUG_INFO
 KBUILD_CFLAGS	+= -g
