@@ -5667,7 +5667,7 @@ static s32 wl_inform_single_bss(struct wl_priv *wl, struct wl_bss_info *bi)
 
 	signal = notif_bss_info->rssi * 100;
 #if defined(WLP2P) && (ENABLE_P2P_INTERFACE)
-	if (wl->p2p_net && wl->scan_request &&
+	if (wl->p2p && wl->p2p_net && wl->scan_request &&
 		wl->scan_request->dev == wl->p2p_net) {
 #else
 	if (p2p_is_on(wl) && p2p_scan(wl)) {
