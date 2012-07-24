@@ -516,7 +516,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 	/* check if auxiliary CPU is needed based on avg_load */
 	if (avg_load > dbs_tuners_ins.up_threshold) {
 		/* should we enable auxillary CPUs? */
-		if (num_online_cpus() < num_possible_cpus() && hotplug_in_avg_load >
+		if (num_online_cpus() < 2 && hotplug_in_avg_load >
 				dbs_tuners_ins.up_threshold) {
 			queue_work_on(this_dbs_info->cpu, khotplug_wq,
 					&this_dbs_info->cpu_up_work);
@@ -573,14 +573,12 @@ out:
 
 static void do_cpu_up(struct work_struct *work)
 {
-	int i = num_online_cpus();
-	if( i < num_possible_cpus() && !cpu_online(i) ) cpu_up(i);
+	cpu_up(1);
 }
 
 static void do_cpu_down(struct work_struct *work)
 {
-	int i = num_online_cpus() - 1;
-	if( i > 0 && cpu_online(i) ) cpu_down(i);
+	cpu_down(1);
 }
 
 static void do_dbs_timer(struct work_struct *work)

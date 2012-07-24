@@ -155,8 +155,8 @@ static unsigned int get_nr_run_avg(void)
 
 #define DEF_MAX_CPU_LOCK			(0)
 #define DEF_UP_NR_CPUS				(1)
-#define DEF_CPU_UP_RATE				(30)
-#define DEF_CPU_DOWN_RATE			(30)
+#define DEF_CPU_UP_RATE				(10)
+#define DEF_CPU_DOWN_RATE			(20)
 #define DEF_FREQ_STEP				(40)
 #define DEF_START_DELAY				(0)
 
@@ -1215,7 +1215,7 @@ static inline void dbs_timer_exit(struct cpu_dbs_info_s *dbs_info)
 	cancel_work_sync(&dbs_info->down_work);
 }
 
-#if 0 //disbled for now.
+#if 0
 static int pm_notifier_call(struct notifier_block *this,
 			    unsigned long event, void *ptr)
 {

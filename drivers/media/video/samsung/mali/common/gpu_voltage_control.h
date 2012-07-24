@@ -14,4 +14,3 @@
  */
 
 void gpu_voltage_control_start(void);
-void update_mali_dvfs_table(unsigned int asv_group);

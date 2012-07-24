@@ -914,7 +914,7 @@ cciss_map_one(struct pci_dev *pdev,
 	  (__u32) ((addr64 >> 32) & (__u64) 0x00000000FFFFFFFF);
 	c->SG[0].Len = buflen;
 	c->Header.SGList = (__u8) 1;   /* no. SGs contig in this cmd */
-	c->Header.SGTotal = (u16) request_nsgs + chained;
+	c->Header.SGTotal = (__u16) 1; /* total sgs in this cmd list */
 }
 
 static int
@@ -1411,7 +1411,7 @@ static void cciss_scatter_gather(ctlr_info_t *h, CommandList_struct *c,
 	/* track how many SG entries we are using */
 	if (request_nsgs > h->maxSG)
 		h->maxSG = request_nsgs;
-	c->Header.SGTotal = (__u8) request_nsgs + chained;
+	c->Header.SGTotal = (u16) request_nsgs + chained;
 	if (request_nsgs > h->max_cmd_sgentries)
 		c->Header.SGList = h->max_cmd_sgentries;
 	else

@@ -95,7 +95,9 @@ static _mali_osk_errcode_t maligp_subsystem_startup(mali_kernel_subsystem_identi
 #if USING_MMU
 static _mali_osk_errcode_t maligp_subsystem_mmu_connect(mali_kernel_subsystem_identifier id);
 #endif
-//static void maligp_subsystem_terminate(mali_kernel_subsystem_identifier id);
+#if 0
+static void maligp_subsystem_terminate(mali_kernel_subsystem_identifier id);
+#endif
 static _mali_osk_errcode_t maligp_subsystem_session_begin(struct mali_session_data * mali_session_data, mali_kernel_subsystem_session_slot * slot, _mali_osk_notification_queue_t * queue);
 static void maligp_subsystem_session_end(struct mali_session_data * mali_session_data, mali_kernel_subsystem_session_slot * slot);
 static _mali_osk_errcode_t maligp_subsystem_core_system_info_fill(_mali_system_info* info);

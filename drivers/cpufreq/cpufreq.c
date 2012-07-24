@@ -33,8 +33,6 @@
 
 #include <trace/events/power.h>
 
-#define SafeBootSpeed 1200000
-
 #ifndef CONFIG_CPU_EXYNOS4210
 unsigned int exynos4x12_volt_table[14];
 #endif
@@ -75,7 +73,7 @@ static DEFINE_PER_CPU(int, cpufreq_policy_cpu);
 static DEFINE_PER_CPU(struct rw_semaphore, cpu_policy_rwsem);
 
 #define lock_policy_rwsem(mode, cpu)					\
-int lock_policy_rwsem_##mode					\
+static int lock_policy_rwsem_##mode					\
 (int cpu)								\
 {									\
 	int policy_cpu = per_cpu(cpufreq_policy_cpu, cpu);		\
@@ -100,7 +98,7 @@ static void unlock_policy_rwsem_read(int cpu)
 	up_read(&per_cpu(cpu_policy_rwsem, policy_cpu));
 }
 
-void unlock_policy_rwsem_write(int cpu)
+static void unlock_policy_rwsem_write(int cpu)
 {
 	int policy_cpu = per_cpu(cpufreq_policy_cpu, cpu);
 	BUG_ON(policy_cpu == -1);
@@ -1082,10 +1080,6 @@ static int cpufreq_add_dev(struct sys_device *sys_dev)
 
 	init_completion(&policy->kobj_unregister);
 	INIT_WORK(&policy->update, handle_update);
-
-	// Set max speed at boot to 1.2Mhz since is the safest speed to boot
-	if (policy->max != SafeBootSpeed)
-		policy->max = SafeBootSpeed;
 
 	/* Set governor before ->init, so that driver could check it */
 #ifdef CONFIG_HOTPLUG_CPU

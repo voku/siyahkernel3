@@ -638,7 +638,7 @@ _mali_osk_errcode_t malipmm_powerup( u32 cores )
         _mali_pmm_internal_state_t *pmm = GET_PMM_STATE_PTR;
 
 	/* If all the cores are powered down, power up the MALI */
-	if (pmm->cores_powered == 0) {
+        if (pmm->cores_powered == 0) {
 		mali_platform_power_mode_change(MALI_POWER_MODE_ON);
 #if MALI_PMM_RUNTIME_JOB_CONTROL_ON
 		/* Initiate the power up */

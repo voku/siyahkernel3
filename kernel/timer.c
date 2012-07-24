@@ -1768,11 +1768,12 @@ EXPORT_SYMBOL(msleep_interruptible);
 static unsigned long __sched do_usleep_range(unsigned long min, unsigned long max)
 {
 	ktime_t kmin;
-	unsigned long delta;
+	unsigned long elapsed, delta;
 
 	kmin = ktime_set(0, min * NSEC_PER_USEC);
 	delta = (max - min) * NSEC_PER_USEC;
-	return schedule_hrtimeout_range(&kmin, delta, HRTIMER_MODE_REL);
+	return schedule_hrtimeout_range(&kmin, delta, HRTIMER_MODE_REL,
+					&elapsed) ? 0 : elapsed;
 }
 
 /**

@@ -60,7 +60,7 @@ if [ -d $INITRAMFS_TMP ]; then
 	rm -rf $INITRAMFS_TMP
 fi
 
-if [ -f /tmp/cpio* ]; then
+if [ -f "/tmp/cpio*" ]; then
 	echo "removing old temp iniramfs_tmp.cpio"
 	rm -rf /tmp/cpio*
 fi

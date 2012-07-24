@@ -22,7 +22,8 @@
 #include <asm/io.h>
 #include <asm/page.h>
 #include <mach/irqs.h>
-#if defined(CONFIG_CPU_S5PV210) || defined(CONFIG_TARGET_LOCALE_EUR)
+#include <mach/gpio.h>
+#if defined(CONFIG_CPU_S5PV210) || defined(CONFIG_TARGET_LOCALE_NTT)
 #include <mach/map.h>
 #include <mach/regs-clock.h>
 #include <mach/regs-tsi.h>
@@ -31,8 +32,9 @@
 #include <plat/regs-clock.h>
 #include <plat/regs-tsi.h>
 #endif
+#include <plat/gpio-cfg.h>
 
-#if defined(CONFIG_CPU_S5PV210) || defined(CONFIG_TARGET_LOCALE_EUR)
+#if defined(CONFIG_CPU_S5PV210) || defined(CONFIG_TARGET_LOCALE_NTT)
 #include <linux/sched.h>
 #include <linux/wait.h>
 #include <linux/poll.h>
@@ -159,6 +161,39 @@ void list_debug(struct list_head *head)
 	}
 }
 #endif
+
+/*This should be done in platform*/
+void s3c_tsi_set_gpio(void)
+{
+	/*  CLK */
+	s3c_gpio_cfgpin(EXYNOS4210_GPE0(0), S3C_GPIO_SFN(4));
+	s3c_gpio_setpull(EXYNOS4210_GPE0(0), S3C_GPIO_PULL_NONE);
+
+	/*  DTEN */
+	s3c_gpio_cfgpin(EXYNOS4210_GPE0(2), S3C_GPIO_SFN(4));
+	s3c_gpio_setpull(EXYNOS4210_GPE0(2), S3C_GPIO_PULL_NONE);
+
+#if defined(CONFIG_TARGET_LOCALE_NTT)
+	printk(" %s : system_rev %d\n", __func__, system_rev);
+
+	if (system_rev >= 11) {
+		/*  DATA */
+		s3c_gpio_cfgpin(EXYNOS4210_GPE0(3), S3C_GPIO_SFN(4));
+		s3c_gpio_setpull(EXYNOS4210_GPE0(3), S3C_GPIO_PULL_NONE);
+	}
+#else
+	/*  DATA */
+	s3c_gpio_cfgpin(S5PV310_GPE0(3), S3C_GPIO_SFN(4));
+	s3c_gpio_setpull(S5PV310_GPE0(3), S3C_GPIO_PULL_NONE);
+#endif
+
+#if !defined(CONFIG_TARGET_LOCALE_NTT)
+	/*  SYNC */
+	s3c_gpio_cfgpin(S5PV310_GPE0(1), S3C_GPIO_SFN(4));
+	s3c_gpio_setpull(S5PV310_GPE0(1), S3C_GPIO_PULL_NONE);
+#endif
+}
+
 
 void s3c_tsi_reset(tsi_dev *tsi)
 {
@@ -784,6 +819,7 @@ static int s3c_tsi_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, tsi_priv);
+	s3c_tsi_set_gpio();
 	s3c_tsi_setup(tsi_priv);
 	s3c_tsi_dev = pdev;
 	ret = misc_register(&s3c_tsi_miscdev);
@@ -863,6 +899,7 @@ static int s3c_tsi_resume(struct platform_device *pdev)
 	tsi_dev *tsi = platform_get_drvdata(s3c_tsi_dev);
 
 	clk_enable(tsi_priv->tsi_clk);
+	s3c_tsi_set_gpio();
 	s3c_tsi_setup(tsi_priv);
 
 	if (tsi->last_running_state) {

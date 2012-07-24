@@ -143,7 +143,7 @@ INCLUDES = \
 		-I$(MALI_FILE_PREFIX)\
 		-I$(MALI_FILE_PREFIX)/platform\
 		-I$(MALI_FILE_PREFIX)/common \
-		-I$(MALI_FILE_PREFIX)/linux
+		-I$(MALI_FILE_PREFIX)/linux 
 
 EXTRA_CFLAGS += $(INCLUDES)\
 		$(DEFINES) 

@@ -53,9 +53,9 @@ static void *brcm_wlan_mem_prealloc(int section, unsigned long size)
 	if (section == PREALLOC_WLAN_SEC_NUM)
 		return wlan_static_skb;
 	if (section == WLAN_STATIC_SCAN_BUF0)
-		return wlan_static_scan_buf0;
+		return wlan_static_scan_buf0;	
 	if (section == WLAN_STATIC_SCAN_BUF1)
-		return wlan_static_scan_buf1;
+		return wlan_static_scan_buf1;	
 	if ((section < 0) || (section > PREALLOC_WLAN_SEC_NUM))
 		return NULL;
 

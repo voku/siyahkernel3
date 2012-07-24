@@ -315,6 +315,7 @@ static irqreturn_t s3c_csis_irq(int irq, void *dev_id)
 #endif
 	if(s3c_csis[pdev->id]->pktdata_enable) {
 		if (unlikely(cfg & S3C_CSIS_INTSRC_NON_IMAGE_DATA)) {
+			/* printk(KERN_INFO "%s NON Image Data bufnum = %d 0x%x\n", __func__, bufnum, cfg); */
 
 			if (cfg & S3C_CSIS_INTSRC_EVEN_BEFORE) {
 				/* printk(KERN_INFO "S3C_CSIS_INTSRC_EVEN_BEFORE\n"); */

@@ -1104,7 +1104,7 @@ static unsigned long vma_dump_size(struct vm_area_struct *vma,
 #define FILTER(type)	(mm_flags & (1UL << MMF_DUMP_##type))
 
 	/* The vma can be set up to tell us the answer directly.  */
-	if (vma->vm_flags & VM_NODUMP)
+	if (vma->vm_flags & VM_ALWAYSDUMP)
 		goto whole;
 
 	/* Hugetlb memory check */

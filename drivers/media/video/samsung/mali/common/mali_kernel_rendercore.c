@@ -47,7 +47,9 @@ int mali_boot_profiling = 0;
 
 /* Subsystem entrypoints: */
 static _mali_osk_errcode_t rendercore_subsystem_startup(mali_kernel_subsystem_identifier id);
-//static void rendercore_subsystem_terminate(mali_kernel_subsystem_identifier id);
+#if 0
+static void rendercore_subsystem_terminate(mali_kernel_subsystem_identifier id);
+#endif
 #if USING_MMU
 static void rendercore_subsystem_broadcast_notification(mali_core_notification_message message, u32 data);
 #endif

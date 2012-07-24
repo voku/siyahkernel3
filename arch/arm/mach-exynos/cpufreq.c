@@ -220,23 +220,17 @@ int exynos_cpufreq_lock(unsigned int nId,
 	struct cpufreq_policy *policy;
 	struct cpufreq_frequency_table *freq_table;
 
-//	pr_info("[CPUFREQ] %s nId=%d level=%d", __func__, nId, cpufreq_level);
-
 	if (!exynos_cpufreq_init_done)
 		return -EPERM;
 
 	if (!exynos_info)
 		return -EPERM;
 
-	if (cpufreq_level < exynos_info->max_support_idx
+	if (cpufreq_level < min(exynos_info->max_current_idx, exynos_info->pm_lock_idx)
 			|| cpufreq_level > exynos_info->min_support_idx) {
 		pr_warn("%s: invalid cpufreq_level(%d:%d)\n", __func__, nId,
 				cpufreq_level);
 		return -EINVAL;
-	}
-
-	if (DVFS_LOCK_ID_USER == nId) {
-		cpufreq_level += 4;
 	}
 
 	policy = cpufreq_cpu_get(0);
@@ -285,15 +279,6 @@ int exynos_cpufreq_lock(unsigned int nId,
 			if (freq_old == freq_table[i].frequency) {
 				old_idx = freq_table[i].index;
 				break;
-			}
-		}
-		if (old_idx == -EINVAL) {
-			/* Find out freq_new level index since current level index was not found*/
-			for (i = 0; freq_table[i].frequency != CPUFREQ_TABLE_END; i++) {
-				if (freq_new == freq_table[i].frequency) {
-					old_idx = freq_table[i].index;
-					break;
-				}
 			}
 		}
 		if (old_idx == -EINVAL) {
@@ -354,8 +339,6 @@ int exynos_cpufreq_upper_limit(unsigned int nId,
 	struct cpufreq_policy *policy;
 	struct cpufreq_frequency_table *freq_table;
 
-//		pr_info("[CPUFREQ] %s nId=%d level=%d", __func__, nId, cpufreq_level);
-
 	if (!exynos_cpufreq_init_done)
 		return -EPERM;
 
@@ -367,7 +350,7 @@ int exynos_cpufreq_upper_limit(unsigned int nId,
 		return -EPERM;
 	}
 
-	if (cpufreq_level < exynos_info->max_support_idx
+	if (cpufreq_level < min(exynos_info->max_current_idx, exynos_info->pm_lock_idx) 
 			|| cpufreq_level > exynos_info->min_support_idx) {
 		pr_warn("%s: invalid cpufreq_level(%d:%d)\n", __func__, nId,
 				cpufreq_level);
@@ -649,10 +632,11 @@ static int exynos_cpufreq_cpu_init(struct cpufreq_policy *policy)
 	ret = cpufreq_frequency_table_cpuinfo(policy, exynos_info->freq_table);
 
 	/* Safe default startup limits */
-	policy->max = CPU_SAFE_MAX_FREQ;
 	policy->max_suspend = CPU_MAX_SUSPEND_FREQ;
-	policy->min = CPU_SAFE_MIN_FREQ;
 	policy->min_suspend = CPU_MIN_SUSPEND_FREQ;
+	/* set safe default min and max speeds - netarchy */
+	policy->max = exynos_info->freq_table[exynos_info->max_current_idx].frequency;
+	policy->min = exynos_info->freq_table[exynos_info->min_current_idx].frequency;
 	return ret;
 }
 

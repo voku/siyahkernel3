@@ -127,7 +127,6 @@ extern struct cred init_cred;
 #endif
 
 #define TIMER_SLACK_NS_DEFAULT 50000
-#define INIT_TASK_COMM "swapper"
 
 /*
  *  INIT_TASK is used to set up the first task table, touch at
@@ -165,7 +164,7 @@ extern struct cred init_cred;
 	.group_leader	= &tsk,						\
 	RCU_INIT_POINTER(.real_cred, &init_cred),			\
 	RCU_INIT_POINTER(.cred, &init_cred),				\
-	.comm		= INIT_TASK_COMM,					\
+	.comm		= "swapper",					\
 	.thread		= INIT_THREAD,					\
 	.fs		= &init_fs,					\
 	.files		= &init_files,					\

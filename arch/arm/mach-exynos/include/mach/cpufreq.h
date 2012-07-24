@@ -43,7 +43,6 @@ enum cpufreq_lock_ID {
 	DVFS_LOCK_ID_PEN,	/* E-PEN */
 	DVFS_LOCK_ID_G3D,	/* G3D */
 	DVFS_LOCK_ID_IR_LED,	/* IR_LED */
-	DVFS_LOCK_ID_SND,  	/* SND */
 	DVFS_LOCK_ID_END,
 };
 

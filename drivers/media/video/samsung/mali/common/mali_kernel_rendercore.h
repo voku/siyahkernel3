@@ -309,6 +309,7 @@ MALI_STATIC_INLINE struct mali_core_job *mali_job_queue_abort_job(mali_core_sess
 	return job;
 }
 
+
 /*
  * The rendercode subsystem is included in the subsystems[] array.
  */

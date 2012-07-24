@@ -128,7 +128,7 @@ struct pending_cmd {
 	void *user_data;
 };
 
-#if 0 //Unused
+#if 0
 /* HCI to MGMT error code conversion table */
 static u8 mgmt_status_table[] = {
 	MGMT_STATUS_SUCCESS,

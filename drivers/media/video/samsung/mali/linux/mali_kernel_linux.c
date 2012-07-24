@@ -418,18 +418,21 @@ static int mali_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, 
 	MALI_DEBUG_PRINT(7, ("Ioctl received 0x%08X 0x%08lX\n", cmd, arg));
 
 	session_data = (struct mali_session_data *)filp->private_data;
-	if (NULL == session_data) {
+	if (NULL == session_data)
+	{
 		MALI_DEBUG_PRINT(7, ("filp->private_data was NULL\n"));
 		return -ENOTTY;
 	}
 
-	if (NULL == (void *)arg) {
+	if (NULL == (void *)arg)
+	{
 		MALI_DEBUG_PRINT(7, ("arg was NULL\n"));
 		return -ENOTTY;
 	}
 
-	if (_MALI_DEVICE_SHUTDOWN == mali_dvfs_device_state) {
-		MALI_DEBUG_PRINT(7, ("system is shutdown\n"));
+	if (_MALI_DEVICE_SHUTDOWN == mali_dvfs_device_state)
+	{
+		MALI_DEBUG_PRINT(7, ("system is shutdown \n"));
 		return 0;
 	}
 

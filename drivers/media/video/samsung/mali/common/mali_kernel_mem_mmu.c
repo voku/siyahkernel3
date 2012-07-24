@@ -258,7 +258,7 @@ typedef struct external_mem_allocation
  */
 static _mali_osk_errcode_t mali_memory_core_initialize(mali_kernel_subsystem_identifier id);
 
-#if 0 //declared 'static' but never defined
+#if 0
 /**
  * Fixed block memory subsystem shutdown function.
  * Called by the driver core when the driver is unloaded.
@@ -445,7 +445,7 @@ static _mali_osk_errcode_t fill_page(mali_io_address mapping, u32 data);
 
 static _mali_osk_errcode_t mali_allocate_fault_flush_pages(void);
 
-#if 0 //declared 'static' but never defined
+#if 0
 static void mali_free_fault_flush_pages(void);
 #endif
 
@@ -560,7 +560,7 @@ static _mali_osk_errcode_t mali_memory_core_initialize(mali_kernel_subsystem_ide
 	MALI_SUCCESS;
 }
 
-#if 0 //defined but not used
+#if 0
 /* called if/when our module is unloaded */
 static void mali_memory_core_terminate(mali_kernel_subsystem_identifier id)
 {
@@ -890,7 +890,7 @@ static _mali_osk_errcode_t mali_allocate_fault_flush_pages(void)
 	MALI_ERROR(err);
 }
 
-#if 0 //defined but not used 
+#if 0
 static void mali_free_fault_flush_pages(void)
 {
 	if (MALI_INVALID_PAGE != mali_page_fault_flush_page_directory)
@@ -1218,6 +1218,7 @@ static _mali_osk_errcode_t mali_kernel_memory_mmu_interrupt_handler_upper_half(v
 	{
 		MALI_SUCCESS;
 	}
+
 
 	/* check if it was our device which caused the interrupt (we could be sharing the IRQ line) */
 	int_stat = mali_mmu_register_read(mmu, MALI_MMU_REGISTER_INT_STATUS);
