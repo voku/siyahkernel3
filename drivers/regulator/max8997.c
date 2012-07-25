@@ -398,7 +398,7 @@ static int max8997_set_voltage_ldo(struct regulator_dev *rdev,
 	const struct vol_cur_map_desc *desc;
 	int ldo = max8997_get_ldo(rdev);
 	int reg, shift = 0, mask, ret;
-	int i = 0;
+	int i;
 
 	if (ldo >= ARRAY_SIZE(ldo_vol_cur_map))
 		return -EINVAL;
@@ -410,9 +410,10 @@ static int max8997_set_voltage_ldo(struct regulator_dev *rdev,
 	if (max_vol < desc->min || min_vol > desc->max)
 		return -EINVAL;
 
-	while (desc->min + desc->step*i < min_vol &&
-	       desc->min + desc->step*i < desc->max)
-		i++;
+	if (min_vol < desc->min)
+		min_vol = desc->min;
+
+	i = DIV_ROUND_UP(min_vol - desc->min, desc->step);
 
 	if (desc->min + desc->step*i > max_vol)
 		return -EINVAL;
@@ -458,7 +459,7 @@ static int max8997_set_voltage_buck(struct regulator_dev *rdev,
 {
 	struct max8997_data *max8997 = rdev_get_drvdata(rdev);
 	struct i2c_client *i2c = max8997->iodev->i2c;
-	int i = 0, j, k;
+	int i, j, k;
 	int min_vol = min_uV / 1000, max_vol = max_uV / 1000;
 	const struct vol_cur_map_desc *desc;
 	int buck = max8997_get_ldo(rdev);
@@ -485,9 +486,10 @@ static int max8997_set_voltage_buck(struct regulator_dev *rdev,
 		goto out;
 	}
 
-	while (desc->min + desc->step*i < min_vol &&
-	       desc->min + desc->step*i < desc->max)
-		i++;
+	if (min_vol < desc->min)
+		min_vol = desc->min;
+
+	i = DIV_ROUND_UP(min_vol - desc->min, desc->step);
 
 	*selector = i;
 
@@ -728,7 +730,7 @@ static int max8997_flash_set_current(struct regulator_dev *rdev,
 	const struct vol_cur_map_desc *desc;
 	int co = max8997_get_ldo(rdev);
 	int ret;
-	int i = 0;
+	int i;
 
 	if (co >= ARRAY_SIZE(ldo_vol_cur_map))
 		return -EINVAL;
@@ -740,9 +742,10 @@ static int max8997_flash_set_current(struct regulator_dev *rdev,
 	if (max_amp < desc->min || min_amp > desc->max)
 		return -EINVAL;
 
-	while (desc->min + desc->step*i < min_amp &&
-	       desc->min + desc->step*i < desc->max)
-		i++;
+	if (min_amp < desc->min)
+		min_amp = desc->min;
+
+	i = DIV_ROUND_UP(min_amp - desc->min, desc->step);
 
 	if (desc->min + desc->step*i > max_amp)
 		return -EINVAL;
