@@ -1198,16 +1198,15 @@ static __devinit int max8997_pmic_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	max8997 = kzalloc(sizeof(struct max8997_data), GFP_KERNEL);
+	max8997 = devm_kzalloc(&pdev->dev, sizeof(struct max8997_data),
+		GFP_KERNEL);
 	if (!max8997)
 		return -ENOMEM;
 
 	size = sizeof(struct regulator_dev *) * pdata->num_regulators;
-	max8997->rdev = kzalloc(size, GFP_KERNEL);
-	if (!max8997->rdev) {
+	max8997->rdev = devm_kzalloc(&pdev->dev, size, GFP_KERNEL);
+	if (!max8997->rdev)
 		ret = -ENOMEM;
-		goto err3;
-	}
 
 	mutex_init(&max8997->dvs_lock);
 
@@ -1355,14 +1354,9 @@ static __devinit int max8997_pmic_probe(struct platform_device *pdev)
 
 	return 0;
 err1:
-	for (i = 0; i < max8997->num_regulators; i++)
-		if (rdev[i])
-			regulator_unregister(rdev[i]);
+	while (--i >= 0)
+		regulator_unregister(rdev[i]);
 err2:
-	kfree(max8997->rdev);
-err3:
-	kfree(max8997);
-
 	return ret;
 }
 
@@ -1373,12 +1367,7 @@ static int __devexit max8997_pmic_remove(struct platform_device *pdev)
 	int i;
 
 	for (i = 0; i < max8997->num_regulators; i++)
-		if (rdev[i])
-			regulator_unregister(rdev[i]);
-
-	kfree(max8997->rdev);
-	kfree(max8997);
-
+		regulator_unregister(rdev[i]);
 	return 0;
 }
 MODULE_DEVICE_TABLE(platform, max8997_pmic_id);
