@@ -44,8 +44,9 @@ void user_enter(void)
 	local_irq_save(flags);
 	if (__this_cpu_read(context_tracking.active) &&
 	    __this_cpu_read(context_tracking.state) != IN_USER) {
-		__this_cpu_write(context_tracking.state, IN_USER);
+		vtime_user_enter(current);
 		rcu_user_enter();
+		__this_cpu_write(context_tracking.state, IN_USER);
 	}
 	local_irq_restore(flags);
 }
@@ -67,8 +68,9 @@ void user_exit(void)
 
 	local_irq_save(flags);
 	if (__this_cpu_read(context_tracking.state) == IN_USER) {
-		__this_cpu_write(context_tracking.state, IN_KERNEL);
 		rcu_user_exit();
+		vtime_user_exit(current);
+		__this_cpu_write(context_tracking.state, IN_KERNEL);
 	}
 	local_irq_restore(flags);
 }

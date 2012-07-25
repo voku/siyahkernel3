@@ -80,7 +80,7 @@ static struct clocksource clocksource_itc = {
 };
 static struct clocksource *itc_clocksource;
 
-#ifdef CONFIG_VIRT_CPU_ACCOUNTING
+#ifdef CONFIG_VIRT_CPU_ACCOUNTING_NATIVE
 
 #include <linux/kernel_stat.h>
 
@@ -142,6 +142,7 @@ void vtime_account_idle(struct task_struct *tsk)
 	account_idle_time(vtime_delta(tsk));
 }
 
+<<<<<<< HEAD
 /*
  * Called from the timer interrupt handler to charge accumulated user time
  * to the current process.  Must be called with interrupts disabled.
@@ -159,6 +160,9 @@ void account_process_tick(struct task_struct *p, int user_tick)
 }
 
 #endif /* CONFIG_VIRT_CPU_ACCOUNTING */
+=======
+#endif /* CONFIG_VIRT_CPU_ACCOUNTING_NATIVE */
+>>>>>>> abf917c... cputime: Generic on-demand virtual cputime accounting
 
 static irqreturn_t
 timer_interrupt (int irq, void *dev_id)
