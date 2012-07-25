@@ -518,12 +518,6 @@ void clear_inode(struct inode *inode)
 }
 EXPORT_SYMBOL(clear_inode);
 
-void end_writeback(struct inode *inode)
-{
-	clear_inode(inode);
-}
-EXPORT_SYMBOL(end_writeback);
-
 /*
  * Free the inode passed in, removing it from the lists it is still connected
  * to. We remove any pages still attached to the inode and wait for any IO that
