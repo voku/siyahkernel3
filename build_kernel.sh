@@ -18,7 +18,27 @@ export CROSS_COMPILE=/media/Source-Code/android/system/prebuilt/linux-x86/toolch
 # gcc 4.7 (Linaro 12.04)
 #export CROSS_COMPILE=$PARENT_DIR/linaro/bin/arm-eabi-
 # gcc 4.6 (Linaro 12.06)
-#export CROSS_COMPILE=android-toolchain/bin/arm-eabi-
+#export CROSS_COMPILE=$KERNELDIR/android-toolchain/bin/arm-eabi-
+
+
+# Importing PATCH for GCC depend on GCC version.
+GCCVERSION_OLD=`${CROSS_COMPILE}gcc --version | cut -d " " -f3 | cut -c3-5 | grep -v 09 | grep -v ee | grep -v en`
+GCCVERSION_NEW=`${CROSS_COMPILE}gcc --version | cut -d " " -f4 | cut -c1-3 | grep -v Fre | grep -v sof | grep -v for`
+
+if [ $GCCVERSION_OLD == 4.3 ]; then
+	cp $KERNELDIR/arch/arm/boot/compressed/Makefile_old_gcc $KERNELDIR/arch/arm/boot/compressed/Makefile
+elif [ $GCCVERSION_OLD == 4.4 ]; then
+	cp $KERNELDIR/arch/arm/boot/compressed/Makefile_old_gcc $KERNELDIR/arch/arm/boot/compressed/Makefile
+elif [ $GCCVERSION_OLD == 4.5 ]; then
+	cp $KERNELDIR/arch/arm/boot/compressed/Makefile_old_gcc $KERNELDIR/arch/arm/boot/compressed/Makefile
+elif [ $GCCVERSION_OLD == 4.6 ]; then
+	cp $KERNELDIR/arch/arm/boot/compressed/Makefile_linaro $KERNELDIR/arch/arm/boot/compressed/Makefile
+elif [ $GCCVERSION_OLD == 4.7 ]; then
+	cp $KERNELDIR/arch/arm/boot/compressed/Makefile_linaro $KERNELDIR/arch/arm/boot/compressed/Makefile
+else
+	echo "Compiler not recognized! please fix the CUT function to match your compiler."
+	exit 0
+fi;
 
 # build script
 export USER=`whoami`
@@ -29,41 +49,41 @@ INITRAMFS_TMP="/tmp/initramfs-source"
 if [ "${1}" != "" ];
 then
 	export KERNELDIR=`readlink -f ${1}`
-fi
+fi;
 
 if [ ! -f $KERNELDIR/.config ]; then
 	cp $KERNELDIR/arch/arm/configs/dorimanx_defconfig .config
 	make dorimanx_defconfig
-fi
+fi;
 
 . $KERNELDIR/.config
 
 # remove previous zImage files
 if [ -e $KERNELDIR/zImage ]; then
 	rm $KERNELDIR/zImage
-fi
+fi;
 
 if [ -e $KERNELDIR/arch/arm/boot/zImage ]; then
 	rm $KERNELDIR/arch/arm/boot/zImage
-fi
+fi;
 
 # remove all old modules before compile
 cd $KERNELDIR
 OLDMODULES=`find -name *.ko`
 for i in $OLDMODULES; do
 	rm -f $i
-done
+done;
 
 # remove previous initramfs files
 if [ -d $INITRAMFS_TMP ]; then
 	echo "removing old temp iniramfs"
 	rm -rf $INITRAMFS_TMP
-fi
+fi;
 
 if [ -f "/tmp/cpio*" ]; then
 	echo "removing old temp iniramfs_tmp.cpio"
 	rm -rf /tmp/cpio*
-fi
+fi;
 
 # clean initramfs old compile data
 rm -f usr/initramfs_data.cpio
@@ -74,25 +94,25 @@ if [ $USER != "root" ]; then
 	make -j$NAMBEROFCPUS modules || exit 1
 else
 	nice -n 10 make -j$NAMBEROFCPUS modules || exit 1
-fi
+fi;
 
 # copy initramfs files to tmp directory
 cp -ax $INITRAMFS_SOURCE $INITRAMFS_TMP
 # clear git repositories in initramfs
 if [ -e $INITRAMFS_TMP/.git ]; then
 	rm -rf /tmp/initramfs-source/.git
-fi
+fi;
 # remove empty directory placeholders
 find $INITRAMFS_TMP -name EMPTY_DIRECTORY -exec rm -rf {} \;
 # remove mercurial repository
 if [ -d $INITRAMFS_TMP/.hg ]; then
 	rm -rf $INITRAMFS_TMP/.hg
-fi
+fi;
 
 #For now remove the VLM binary from initramfs till it's will be used for something.
 if [ -e $INITRAMFS_TMP/sbin/lvm ]; then
 	rm -f $INITRAMFS_TMP/sbin/lvm
-fi
+fi;
 
 # copy modules into initramfs
 mkdir -p $INITRAMFS/lib/modules
@@ -104,10 +124,13 @@ if [ $USER != "root" ]; then
 	make -j$NAMBEROFCPUS zImage CONFIG_INITRAMFS_SOURCE="$INITRAMFS_TMP" || exit 1
 else
 	nice -n 10 make -j$NAMBEROFCPUS zImage CONFIG_INITRAMFS_SOURCE="$INITRAMFS_TMP" || exit 1
-fi
+fi;
 
 if [ -e $KERNELDIR/arch/arm/boot/zImage ]; then
 	$KERNELDIR/mkshbootimg.py $KERNELDIR/zImage $KERNELDIR/arch/arm/boot/zImage $KERNELDIR/payload.tar $KERNELDIR/recovery.tar.xz
+
+	# restore clean arch/arm/boot/compressed/Makefile_clean till next time.
+	cp $KERNELDIR/arch/arm/boot/compressed/Makefile_clean $KERNELDIR/arch/arm/boot/compressed/Makefile
 
 	# copy all needed to ready kernel folder.
 	cp $KERNELDIR/.config $KERNELDIR/arch/arm/configs/dorimanx_defconfig
@@ -121,4 +144,4 @@ if [ -e $KERNELDIR/arch/arm/boot/zImage ]; then
 	zip -r Kernel_Dorimanx-SGII-ICS-$GETVER-`date +"T-%H-%M-D-%d-%m"`.zip .
 else
 	echo "Kernel STUCK in BUILD! no zImage exist"
-fi
+fi;

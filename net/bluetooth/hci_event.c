@@ -1404,6 +1404,10 @@ static inline void hci_conn_complete_evt(struct hci_dev *hdev, struct sk_buff *s
 
 		conn->type = SCO_LINK;
 	}
+	if (!conn->ssp_mode || !conn->hdev->ssp_mode) {
+		__u8 auth = AUTH_DISABLED;
+		hci_send_cmd(hdev, HCI_OP_WRITE_AUTH_ENABLE, 1, &auth);
+	}
 
 	if (!ev->status) {
 		conn->handle = __le16_to_cpu(ev->handle);
