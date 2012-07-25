@@ -25,7 +25,6 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/fixed.h>
 #include <linux/gpio.h>
-#include <linux/delay.h>
 #include <linux/slab.h>
 
 struct fixed_voltage_data {
