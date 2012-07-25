@@ -40,6 +40,7 @@ static struct platform_device *dummy_pdev;
 
 void __init regulator_dummy_init(void)
 {
+	struct regulator_config config = { };
 	int ret;
 
 	dummy_pdev = platform_device_alloc("reg-dummy", -1);
@@ -55,8 +56,9 @@ void __init regulator_dummy_init(void)
 		return;
 	}
 
-	dummy_regulator_rdev = regulator_register(&dummy_desc, NULL,
-						  &dummy_initdata, NULL);
+	config.init_data = &dummy_initdata;
+
+	dummy_regulator_rdev = regulator_register(&dummy_desc, &config);
 	if (IS_ERR(dummy_regulator_rdev)) {
 		ret = PTR_ERR(dummy_regulator_rdev);
 		pr_err("Failed to register regulator: %d\n", ret);

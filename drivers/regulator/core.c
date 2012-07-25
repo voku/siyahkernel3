@@ -27,6 +27,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
+#include <linux/module.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/regulator.h>
@@ -634,17 +635,14 @@ static int suspend_set_state(struct regulator_dev *rdev,
 	struct regulator_state *rstate)
 {
 	int ret = 0;
-	bool can_set_state;
-
-	can_set_state = rdev->desc->ops->set_suspend_enable &&
-		rdev->desc->ops->set_suspend_disable;
 
 	/* If we have no suspend mode configration don't set anything;
-	 * only warn if the driver actually makes the suspend mode
-	 * configurable.
+	 * only warn if the driver implements set_suspend_voltage or
+	 * set_suspend_mode callback.
 	 */
 	if (!rstate->enabled && !rstate->disabled) {
-		if (can_set_state)
+		if (rdev->desc->ops->set_suspend_voltage ||
+		    rdev->desc->ops->set_suspend_mode)
 			rdev_warn(rdev, "No configuration\n");
 		return 0;
 	}
@@ -654,15 +652,13 @@ static int suspend_set_state(struct regulator_dev *rdev,
 		return -EINVAL;
 	}
 
-	if (!can_set_state) {
-		rdev_err(rdev, "no way to set suspend state\n");
-		return -EINVAL;
-	}
-
-	if (rstate->enabled)
+	if (rstate->enabled && rdev->desc->ops->set_suspend_enable)
 		ret = rdev->desc->ops->set_suspend_enable(rdev);
-	else
+	else if (rstate->disabled && rdev->desc->ops->set_suspend_disable)
 		ret = rdev->desc->ops->set_suspend_disable(rdev);
+	else /* OK if set_suspend_enable or set_suspend_disable is NULL */
+		ret = 0;
+
 	if (ret < 0) {
 		rdev_err(rdev, "failed to enabled/disable\n");
 		return ret;
@@ -2467,10 +2463,6 @@ static int add_regulator_attributes(struct regulator_dev *rdev)
 			return status;
 	}
 
-	/* suspend mode constraints need multiple supporting methods */
-	if (!(ops->set_suspend_enable && ops->set_suspend_disable))
-		return status;
-
 	status = device_create_file(dev, &dev_attr_suspend_standby_state);
 	if (status < 0)
 		return status;
@@ -2534,22 +2526,21 @@ static void rdev_init_debugfs(struct regulator_dev *rdev)
 /**
  * regulator_register - register regulator
  * @regulator_desc: regulator to register
- * @dev: struct device for the regulator
- * @init_data: platform provided init data, passed through by driver
- * @driver_data: private regulator data
+ * @config: runtime configuration for regulator
  *
  * Called by regulator drivers to register a regulator.
  * Returns 0 on success.
  */
 struct regulator_dev *regulator_register(struct regulator_desc *regulator_desc,
-	struct device *dev, const struct regulator_init_data *init_data,
-	void *driver_data)
+					const struct regulator_config *config)
 {
 	static atomic_t regulator_no = ATOMIC_INIT(0);
+	const struct regulator_init_data *init_data;
 	struct regulator_dev *rdev;
+	struct device *dev = config->dev;
 	int ret, i;
 
-	if (regulator_desc == NULL)
+	if (regulator_desc == NULL || config == NULL)
 		return ERR_PTR(-EINVAL);
 
 	if (regulator_desc->name == NULL || regulator_desc->ops == NULL)
@@ -2578,6 +2569,8 @@ struct regulator_dev *regulator_register(struct regulator_desc *regulator_desc,
 		return ERR_PTR(-EINVAL);
 	}
 
+	init_data = config->init_data;
+
 	rdev = kzalloc(sizeof(struct regulator_dev), GFP_KERNEL);
 	if (rdev == NULL)
 		return ERR_PTR(-ENOMEM);
@@ -2585,7 +2578,7 @@ struct regulator_dev *regulator_register(struct regulator_desc *regulator_desc,
 	mutex_lock(&regulator_list_mutex);
 
 	mutex_init(&rdev->mutex);
-	rdev->reg_data = driver_data;
+	rdev->reg_data = config->driver_data;
 	rdev->owner = regulator_desc->owner;
 	rdev->desc = regulator_desc;
 	INIT_LIST_HEAD(&rdev->consumer_list);
@@ -2603,6 +2596,7 @@ struct regulator_dev *regulator_register(struct regulator_desc *regulator_desc,
 
 	/* register with sysfs */
 	rdev->dev.class = &regulator_class;
+	rdev->dev.of_node = config->of_node;
 	rdev->dev.parent = dev;
 	dev_set_name(&rdev->dev, "regulator.%d",
 		     atomic_inc_return(&regulator_no) - 1);

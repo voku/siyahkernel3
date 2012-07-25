@@ -29,6 +29,7 @@
 #include <linux/interrupt.h>
 #include <linux/mutex.h>
 #include <linux/delay.h>
+#include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/driver.h>
 #include <linux/mfd/max8997.h>
@@ -39,6 +40,7 @@ struct max8997_data {
 	struct max8997_dev	*iodev;
 	int			num_regulators;
 	struct regulator_dev	**rdev;
+	int 			ramp_delay; /* in mV/us */
 	bool			buck1_gpiodvs;
 	int			buck_set1;
 	int			buck_set2;
@@ -396,7 +398,7 @@ static int max8997_set_voltage_ldo(struct regulator_dev *rdev,
 	const struct vol_cur_map_desc *desc;
 	int ldo = max8997_get_ldo(rdev);
 	int reg, shift = 0, mask, ret;
-	int i = 0;
+	int i;
 
 	if (ldo >= ARRAY_SIZE(ldo_vol_cur_map))
 		return -EINVAL;
@@ -408,9 +410,10 @@ static int max8997_set_voltage_ldo(struct regulator_dev *rdev,
 	if (max_vol < desc->min || min_vol > desc->max)
 		return -EINVAL;
 
-	while (desc->min + desc->step*i < min_vol &&
-	       desc->min + desc->step*i < desc->max)
-		i++;
+	if (min_vol < desc->min)
+		min_vol = desc->min;
+
+	i = DIV_ROUND_UP(min_vol - desc->min, desc->step);
 
 	if (desc->min + desc->step*i > max_vol)
 		return -EINVAL;
@@ -456,7 +459,7 @@ static int max8997_set_voltage_buck(struct regulator_dev *rdev,
 {
 	struct max8997_data *max8997 = rdev_get_drvdata(rdev);
 	struct i2c_client *i2c = max8997->iodev->i2c;
-	int i = 0, j, k;
+	int i, j, k;
 	int min_vol = min_uV / 1000, max_vol = max_uV / 1000;
 	const struct vol_cur_map_desc *desc;
 	int buck = max8997_get_ldo(rdev);
@@ -483,9 +486,10 @@ static int max8997_set_voltage_buck(struct regulator_dev *rdev,
 		goto out;
 	}
 
-	while (desc->min + desc->step*i < min_vol &&
-	       desc->min + desc->step*i < desc->max)
-		i++;
+	if (min_vol < desc->min)
+		min_vol = desc->min;
+
+	i = DIV_ROUND_UP(min_vol - desc->min, desc->step);
 
 	*selector = i;
 
@@ -726,7 +730,7 @@ static int max8997_flash_set_current(struct regulator_dev *rdev,
 	const struct vol_cur_map_desc *desc;
 	int co = max8997_get_ldo(rdev);
 	int ret;
-	int i = 0;
+	int i;
 
 	if (co >= ARRAY_SIZE(ldo_vol_cur_map))
 		return -EINVAL;
@@ -738,9 +742,10 @@ static int max8997_flash_set_current(struct regulator_dev *rdev,
 	if (max_amp < desc->min || min_amp > desc->max)
 		return -EINVAL;
 
-	while (desc->min + desc->step*i < min_amp &&
-	       desc->min + desc->step*i < desc->max)
-		i++;
+	if (min_amp < desc->min)
+		min_amp = desc->min;
+
+	i = DIV_ROUND_UP(min_amp - desc->min, desc->step);
 
 	if (desc->min + desc->step*i > max_amp)
 		return -EINVAL;
@@ -1182,6 +1187,7 @@ static __devinit int max8997_pmic_probe(struct platform_device *pdev)
 {
 	struct max8997_dev *iodev = dev_get_drvdata(pdev->dev.parent);
 	struct max8997_platform_data *pdata = dev_get_platdata(iodev->dev);
+	struct regulator_config config = { };
 	struct regulator_dev **rdev;
 	struct max8997_data *max8997;
 	struct i2c_client *i2c;
@@ -1192,16 +1198,15 @@ static __devinit int max8997_pmic_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	max8997 = kzalloc(sizeof(struct max8997_data), GFP_KERNEL);
+	max8997 = devm_kzalloc(&pdev->dev, sizeof(struct max8997_data),
+		GFP_KERNEL);
 	if (!max8997)
 		return -ENOMEM;
 
 	size = sizeof(struct regulator_dev *) * pdata->num_regulators;
-	max8997->rdev = kzalloc(size, GFP_KERNEL);
-	if (!max8997->rdev) {
+	max8997->rdev = devm_kzalloc(&pdev->dev, size, GFP_KERNEL);
+	if (!max8997->rdev)
 		ret = -ENOMEM;
-		goto err3;
-	}
 
 	mutex_init(&max8997->dvs_lock);
 
@@ -1313,6 +1318,10 @@ static __devinit int max8997_pmic_probe(struct platform_device *pdev)
 		}
 	}
 
+	/* Misc Settings */
+	max8997->ramp_delay = 10; /* set 10mV/us, which is the default */
+	max8997_write_reg(i2c, MAX8997_REG_BUCKRAMP, (0xf << 4) | 0x9);
+
 	for (i = 0; i < pdata->num_regulators; i++) {
 		const struct vol_cur_map_desc *desc;
 		int id = pdata->regulators[i].id;
@@ -1329,8 +1338,12 @@ static __devinit int max8997_pmic_probe(struct platform_device *pdev)
 			int count = (desc->max - desc->min) / desc->step + 1;
 			regulators[index].n_voltages = count;
 		}
-		rdev[i] = regulator_register(&regulators[index], max8997->dev,
-				pdata->regulators[i].initdata, max8997);
+
+		config.dev = max8997->dev;
+		config.init_data = pdata->regulators[i].initdata;
+		config.driver_data = max8997;
+
+		rdev[i] = regulator_register(&regulators[id], &config);
 		if (IS_ERR(rdev[i])) {
 			ret = PTR_ERR(rdev[i]);
 			dev_err(max8997->dev, "regulator init failed\n");
@@ -1341,14 +1354,9 @@ static __devinit int max8997_pmic_probe(struct platform_device *pdev)
 
 	return 0;
 err1:
-	for (i = 0; i < max8997->num_regulators; i++)
-		if (rdev[i])
-			regulator_unregister(rdev[i]);
+	while (--i >= 0)
+		regulator_unregister(rdev[i]);
 err2:
-	kfree(max8997->rdev);
-err3:
-	kfree(max8997);
-
 	return ret;
 }
 
@@ -1359,14 +1367,10 @@ static int __devexit max8997_pmic_remove(struct platform_device *pdev)
 	int i;
 
 	for (i = 0; i < max8997->num_regulators; i++)
-		if (rdev[i])
-			regulator_unregister(rdev[i]);
-
-	kfree(max8997->rdev);
-	kfree(max8997);
-
+		regulator_unregister(rdev[i]);
 	return 0;
 }
+MODULE_DEVICE_TABLE(platform, max8997_pmic_id);
 
 static struct platform_driver max8997_pmic_driver = {
 	.driver = {
