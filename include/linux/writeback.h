@@ -115,7 +115,6 @@ static inline void inode_sync_wait(struct inode *inode)
 							TASK_UNINTERRUPTIBLE);
 }
 
-
 /*
  * mm/page-writeback.c
  */
