@@ -26,21 +26,58 @@ export CROSS_COMPILE=$PARENT_DIR/linaro/bin/arm-eabi-
 # Importing PATCH for GCC depend on GCC version.
 GCCVERSION_OLD=`${CROSS_COMPILE}gcc --version | cut -d " " -f3 | cut -c3-5 | grep -iv "09" | grep -iv "ee" | grep -iv "en"`
 GCCVERSION_NEW=`${CROSS_COMPILE}gcc --version | cut -d " " -f4 | cut -c1-3 | grep -iv "Fre" | grep -iv "sof" | grep -iv "for" | grep -iv "auc"`
+GCCVERSION_NEWER=`${CROSS_COMPILE}gcc --version | cut -d " " -f3 | cut -c1-3 | grep -iv "Fre" | grep -iv "sof" | grep -iv "for" | grep -iv "auc" | grep -iv "201" | grep -iv "eve"`
 
-if [ "a$GCCVERSION_OLD" == "a4.3" ]; then
-	cp $KERNELDIR/arch/arm/boot/compressed/Makefile_old_gcc $KERNELDIR/arch/arm/boot/compressed/Makefile
-elif [ "a$GCCVERSION_OLD" == "a4.4" ]; then
-	cp $KERNELDIR/arch/arm/boot/compressed/Makefile_old_gcc $KERNELDIR/arch/arm/boot/compressed/Makefile
-elif [ "a$GCCVERSION_OLD" == "a4.5" ]; then
-	cp $KERNELDIR/arch/arm/boot/compressed/Makefile_old_gcc $KERNELDIR/arch/arm/boot/compressed/Makefile
-elif [ "a$GCCVERSION_OLD" == "a4.6" ]; then
-	cp $KERNELDIR/arch/arm/boot/compressed/Makefile_linaro $KERNELDIR/arch/arm/boot/compressed/Makefile
-elif [ "a$GCCVERSION_OLD" == "a4.7" ]; then
-	cp $KERNELDIR/arch/arm/boot/compressed/Makefile_linaro $KERNELDIR/arch/arm/boot/compressed/Makefile
+if [ "a$GCCVERSION_OLD" = "a4.3" ]; then
+	cp $KERNELDIR/arch/arm/boot/compressed/Makefile_old_gcc $KERNELDIR/arch/arm/boot/compressed/Makefile;
+	USED_GCC=$GCCVERSION_OLD;
+elif [ "a$GCCVERSION_OLD" = "a4.4" ]; then
+	cp $KERNELDIR/arch/arm/boot/compressed/Makefile_old_gcc $KERNELDIR/arch/arm/boot/compressed/Makefile;
+	USED_GCC=$GCCVERSION_OLD;
+elif [ "a$GCCVERSION_OLD" = "a4.5" ]; then
+	cp $KERNELDIR/arch/arm/boot/compressed/Makefile_old_gcc $KERNELDIR/arch/arm/boot/compressed/Makefile;
+	USED_GCC=$GCCVERSION_OLD;
+elif [ "a$GCCVERSION_OLD" = "a4.6" ]; then
+	cp $KERNELDIR/arch/arm/boot/compressed/Makefile_linaro $KERNELDIR/arch/arm/boot/compressed/Makefile;
+	USED_GCC=$GCCVERSION_OLD;
+elif [ "a$GCCVERSION_OLD" = "a4.7" ]; then
+	cp $KERNELDIR/arch/arm/boot/compressed/Makefile_linaro $KERNELDIR/arch/arm/boot/compressed/Makefile;
+	USED_GCC=$GCCVERSION_OLD;
+elif [ "a$GCCVERSION_NEW" = "a4.3" ]; then
+    cp $KERNELDIR/arch/arm/boot/compressed/Makefile_old_gcc $KERNELDIR/arch/arm/boot/compressed/Makefile;
+	USED_GCC=$GCCVERSION_NEW;
+elif [ "a$GCCVERSION_NEW" = "a4.4" ]; then
+    cp $KERNELDIR/arch/arm/boot/compressed/Makefile_old_gcc $KERNELDIR/arch/arm/boot/compressed/Makefile;
+	USED_GCC=$GCCVERSION_NEW;
+elif [ "a$GCCVERSION_NEW" = "a4.5" ]; then
+    cp $KERNELDIR/arch/arm/boot/compressed/Makefile_old_gcc $KERNELDIR/arch/arm/boot/compressed/Makefile;
+	USED_GCC=$GCCVERSION_NEW;
+elif [ "a$GCCVERSION_NEW" = "a4.6" ]; then
+    cp $KERNELDIR/arch/arm/boot/compressed/Makefile_linaro $KERNELDIR/arch/arm/boot/compressed/Makefile;
+	USED_GCC=$GCCVERSION_NEW;
+elif [ "a$GCCVERSION_NEW" = "a4.7" ]; then
+    cp $KERNELDIR/arch/arm/boot/compressed/Makefile_linaro $KERNELDIR/arch/arm/boot/compressed/Makefile;
+	USED_GCC=$GCCVERSION_NEW;
+elif [ "a$GCCVERSION_NEWER" = "a4.3" ]; then
+    cp $KERNELDIR/arch/arm/boot/compressed/Makefile_old_gcc $KERNELDIR/arch/arm/boot/compressed/Makefile;
+	USED_GCC=$GCCVERSION_NEWER;
+elif [ "a$GCCVERSION_NEWER" = "a4.4" ]; then
+    cp $KERNELDIR/arch/arm/boot/compressed/Makefile_old_gcc $KERNELDIR/arch/arm/boot/compressed/Makefile;
+	USED_GCC=$GCCVERSION_NEWER;
+elif [ "a$GCCVERSION_NEWER" = "a4.5" ]; then
+    cp $KERNELDIR/arch/arm/boot/compressed/Makefile_old_gcc $KERNELDIR/arch/arm/boot/compressed/Makefile;
+	USED_GCC=$GCCVERSION_NEWER;
+elif [ "a$GCCVERSION_NEWER" = "a4.6" ]; then
+    cp $KERNELDIR/arch/arm/boot/compressed/Makefile_linaro $KERNELDIR/arch/arm/boot/compressed/Makefile;
+	USED_GCC=$GCCVERSION_NEWER;
+elif [ "a$GCCVERSION_NEWER" = "a4.7" ]; then
+    cp $KERNELDIR/arch/arm/boot/compressed/Makefile_linaro $KERNELDIR/arch/arm/boot/compressed/Makefile;
+	USED_GCC=$GCCVERSION_NEWER;
 else
-	echo "Compiler not recognized! please fix the CUT function to match your compiler."
-	exit 0
+	echo "Compiler not recognized! please fix the CUT function to match your compiler.";
+	exit 0;
 fi;
+echo "build with gcc ${USED_GCC} ...";
 
 # build script
 export USER=`whoami`
