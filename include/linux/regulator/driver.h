@@ -147,12 +147,10 @@ enum regulator_type {
 };
 
 /**
- * struct regulator_desc - Static regulator descriptor
+ * struct regulator_desc - Regulator descriptor
  *
- * Each regulator registered with the core is described with a
- * structure of this type and a struct regulator_config.  This
- * structure contains the non-varying parts of the regulator
- * description.
+ * Each regulator registered with the core is described with a structure of
+ * this type.
  *
  * @name: Identifying name for the regulator.
  * @id: Numerical identifier for the regulator.
@@ -170,26 +168,6 @@ struct regulator_desc {
 	int irq;
 	enum regulator_type type;
 	struct module *owner;
-};
-
-/**
- * struct regulator_config - Dynamic regulator descriptor
- *
- * Each regulator registered with the core is described with a
- * structure of this type and a struct regulator_desc.  This structure
- * contains the runtime variable parts of the regulator description.
- *
- * @dev: struct device for the regulator
- * @init_data: platform provided init data, passed through by driver
- * @driver_data: private regulator data
- * @of_node: OpenFirmware node to parse for device tree bindings (may be
- *           NULL).
- */
-struct regulator_config {
-	struct device *dev;
-	const struct regulator_init_data *init_data;
-	void *driver_data;
-	struct device_node *of_node;
 };
 
 /*
@@ -231,7 +209,8 @@ struct regulator_dev {
 };
 
 struct regulator_dev *regulator_register(struct regulator_desc *regulator_desc,
-				 const struct regulator_config *config);
+	struct device *dev, const struct regulator_init_data *init_data,
+	void *driver_data, struct device_node *of_node);
 void regulator_unregister(struct regulator_dev *rdev);
 
 int regulator_notifier_call_chain(struct regulator_dev *rdev,
