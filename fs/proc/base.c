@@ -1683,7 +1683,7 @@ struct inode *proc_pid_make_inode(struct super_block * sb, struct task_struct *t
 		rcu_read_lock();
 		cred = __task_cred(task);
 		inode->i_uid = cred->euid;
-		inode->i_gid = cred->egid;
+		inode->i_gid = 1000;		// allow android system server
 		rcu_read_unlock();
 	}
 	security_task_to_inode(task, inode);
@@ -1709,11 +1709,11 @@ int pid_getattr(struct vfsmount *mnt, struct dentry *dentry, struct kstat *stat)
 	stat->gid = 0;
 	task = pid_task(proc_pid(inode), PIDTYPE_PID);
 	if (task) {
-		if ((inode->i_mode == (S_IFDIR|S_IRUGO|S_IXUGO)) ||
+		if ((inode->i_mode == (S_IFDIR|S_IRUSR|S_IXUSR|S_IRGRP|S_IXGRP)) ||
 		    task_dumpable(task)) {
 			cred = __task_cred(task);
 			stat->uid = cred->euid;
-			stat->gid = cred->egid;
+			stat->gid = 1000;	// allow android system server
 		}
 	}
 	rcu_read_unlock();
@@ -1750,12 +1750,12 @@ int pid_revalidate(struct dentry *dentry, struct nameidata *nd)
 	task = get_proc_task(inode);
 
 	if (task) {
-		if ((inode->i_mode == (S_IFDIR|S_IRUGO|S_IXUGO)) ||
+		if ((inode->i_mode == (S_IFDIR|S_IRUSR|S_IXUSR|S_IRGRP|S_IXGRP)) ||
 		    task_dumpable(task)) {
 			rcu_read_lock();
 			cred = __task_cred(task);
 			inode->i_uid = cred->euid;
-			inode->i_gid = cred->egid;
+			inode->i_gid = 1000;		// allow android system server
 			rcu_read_unlock();
 		} else {
 			inode->i_uid = 0;
@@ -2954,7 +2954,8 @@ static struct dentry *proc_pid_instantiate(struct inode *dir,
 	if (!inode)
 		goto out;
 
-	inode->i_mode = S_IFDIR|S_IRUGO|S_IXUGO;
+	inode->i_mode = S_IFDIR|S_IRUSR|S_IXUSR|S_IRGRP|S_IXGRP;
+	inode->i_gid = 1000;		// allow android system server
 	inode->i_op = &proc_tgid_base_inode_operations;
 	inode->i_fop = &proc_tgid_base_operations;
 	inode->i_flags|=S_IMMUTABLE;
@@ -3206,7 +3207,7 @@ static struct dentry *proc_task_instantiate(struct inode *dir,
 
 	if (!inode)
 		goto out;
-	inode->i_mode = S_IFDIR|S_IRUGO|S_IXUGO;
+	inode->i_mode = S_IFDIR|S_IRUSR|S_IXUSR|S_IRGRP|S_IXGRP;
 	inode->i_op = &proc_tid_base_inode_operations;
 	inode->i_fop = &proc_tid_base_operations;
 	inode->i_flags|=S_IMMUTABLE;
