@@ -251,6 +251,8 @@ struct proc_ns_operations {
 extern const struct proc_ns_operations netns_operations;
 extern const struct proc_ns_operations utsns_operations;
 extern const struct proc_ns_operations ipcns_operations;
+extern const struct proc_ns_operations pidns_operations;
+extern const struct proc_ns_operations userns_operations;
 
 union proc_op {
 	int (*proc_get_link)(struct inode *, struct path *);
