@@ -184,3 +184,4 @@ if [ -e $KERNELDIR/arch/arm/boot/zImage ]; then
 else
 	echo "Kernel STUCK in BUILD! no zImage exist"
 fi;
+

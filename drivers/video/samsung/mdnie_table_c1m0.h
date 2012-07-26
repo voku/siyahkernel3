@@ -280,7 +280,7 @@ static const unsigned short tune_standard_ui[] = {
 	0x00b0, 0x1010, /*CS hg ry*/
 	0x00b1, 0x1010, /*CS hg gc*/
 	0x00b2, 0x1010, /*CS hg bm*/
-	0x00b3, 0x1604, /*CS weight grayTH*/
+	0x00b3, 0x1204, /*CS weight grayTH*/
 	0x0000, 0x0001, /*BANK 1*/
 	0x001f, 0x0080, /*CC chsel strength*/
 	0x0020, 0x0000, /*CC lut r	 0*/
@@ -343,7 +343,7 @@ static const unsigned short tune_standard_vtcall[] = {
 	0x00b0, 0x1010, /*CS hg ry*/
 	0x00b1, 0x1010, /*CS hg gc*/
 	0x00b2, 0x1010, /*CS hg bm*/
-	0x00b3, 0x1804, /*CS weight grayTH*/
+	0x00b3, 0x1404, /*CS weight grayTH*/
 	0x0000, 0x0001, /*BANK 1*/
 	0x001f, 0x0080, /*CC chsel strength*/
 	0x0020, 0x0000, /*CC lut r	 0*/
