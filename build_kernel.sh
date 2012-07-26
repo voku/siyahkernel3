@@ -22,18 +22,18 @@ export CROSS_COMPILE=/media/Source-Code/android/system/prebuilt/linux-x86/toolch
 
 
 # Importing PATCH for GCC depend on GCC version.
-GCCVERSION_OLD=`${CROSS_COMPILE}gcc --version | cut -d " " -f3 | cut -c3-5 | grep -v 09 | grep -v ee | grep -v en`
-GCCVERSION_NEW=`${CROSS_COMPILE}gcc --version | cut -d " " -f4 | cut -c1-3 | grep -v Fre | grep -v sof | grep -v for`
+GCCVERSION_OLD=`${CROSS_COMPILE}gcc --version | cut -d " " -f3 | cut -c3-5 | grep -iv "09" | grep -iv "ee" | grep -iv "en"`
+GCCVERSION_NEW=`${CROSS_COMPILE}gcc --version | cut -d " " -f4 | cut -c1-3 | grep -iv "Fre" | grep -iv "sof" | grep -iv "for" | grep -iv "auc"`
 
-if [ $GCCVERSION_OLD == 4.3 ]; then
+if [ "a$GCCVERSION_OLD" == "a4.3" ]; then
 	cp $KERNELDIR/arch/arm/boot/compressed/Makefile_old_gcc $KERNELDIR/arch/arm/boot/compressed/Makefile
-elif [ $GCCVERSION_OLD == 4.4 ]; then
+elif [ "a$GCCVERSION_OLD" == "a4.4" ]; then
 	cp $KERNELDIR/arch/arm/boot/compressed/Makefile_old_gcc $KERNELDIR/arch/arm/boot/compressed/Makefile
-elif [ $GCCVERSION_OLD == 4.5 ]; then
+elif [ "a$GCCVERSION_OLD" == "a4.5" ]; then
 	cp $KERNELDIR/arch/arm/boot/compressed/Makefile_old_gcc $KERNELDIR/arch/arm/boot/compressed/Makefile
-elif [ $GCCVERSION_OLD == 4.6 ]; then
+elif [ "a$GCCVERSION_OLD" == "a4.6" ]; then
 	cp $KERNELDIR/arch/arm/boot/compressed/Makefile_linaro $KERNELDIR/arch/arm/boot/compressed/Makefile
-elif [ $GCCVERSION_OLD == 4.7 ]; then
+elif [ "a$GCCVERSION_OLD" == "a4.7" ]; then
 	cp $KERNELDIR/arch/arm/boot/compressed/Makefile_linaro $KERNELDIR/arch/arm/boot/compressed/Makefile
 else
 	echo "Compiler not recognized! please fix the CUT function to match your compiler."
