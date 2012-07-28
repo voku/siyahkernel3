@@ -17,7 +17,7 @@
 #include <linux/const.h>
 #include <linux/types.h>
 #include <mach/memory.h>
-#include <asm/sizes.h>
+#include <linux/sizes.h>
 
 /*
  * Allow for constants defined here to be used from assembly code

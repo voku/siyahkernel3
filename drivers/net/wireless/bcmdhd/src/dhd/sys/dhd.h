@@ -257,6 +257,7 @@ typedef struct dhd_pub {
 	int   wlfc_enabled;
 	void* wlfc_state;
 #endif
+	bool	roam_env_detection;
 	bool	dongle_isolation;
 	bool	dongle_trap_occured;
 	int   hang_was_sent;
@@ -288,7 +289,7 @@ typedef struct dhd_pub {
 #ifdef CUSTOMER_HW_SAMSUNG
 	#define DHD_PM_RESUME_WAIT(a)		_DHD_PM_RESUME_WAIT(a, 500)
 #else
-	#define DHD_PM_RESUME_WAIT(a) 		_DHD_PM_RESUME_WAIT(a, 200)
+	#define DHD_PM_RESUME_WAIT(a)		_DHD_PM_RESUME_WAIT(a, 200)
 #endif /* CUSTOMER_HW_SAMSUNG */
 	#define DHD_PM_RESUME_WAIT_FOREVER(a)	_DHD_PM_RESUME_WAIT(a, ~0)
 	#define DHD_PM_RESUME_RETURN_ERROR(a)	do { \
@@ -583,7 +584,7 @@ extern uint dhd_bus_status(dhd_pub_t *dhdp);
 extern int  dhd_bus_start(dhd_pub_t *dhdp);
 extern int dhd_bus_membytes(dhd_pub_t *dhdp, bool set, uint32 address, uint8 *data, uint size);
 extern void dhd_print_buf(void *pbuf, int len, int bytes_per_line);
-extern bool dhd_is_associated(dhd_pub_t *dhd, void *bss_buf);
+extern bool dhd_is_associated(dhd_pub_t *dhd, void *bss_buf, int *retval);
 extern uint dhd_bus_chip_id(dhd_pub_t *dhdp);
 
 #if defined(KEEP_ALIVE)
@@ -705,6 +706,8 @@ extern char fw_down_path[MOD_PARAM_PATHLEN];
 #define DHD_MAX_IFS	16
 #define DHD_DEL_IF	-0xe
 #define DHD_BAD_IF	-0xf
+
+#define WL_AUTO_ROAM_TRIGGER -75
 
 #ifdef PROP_TXSTATUS
 /* Please be mindful that total pkttag space is 32 octets only */

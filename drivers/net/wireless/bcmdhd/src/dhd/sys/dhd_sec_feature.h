@@ -48,6 +48,20 @@
 #define WRITE_MACADDR
 #endif
 
+#ifdef CONFIG_ARCH_MSM7X30
+#define HW_OOB
+#define READ_MACADDR
+#endif
+
+#ifdef CONFIG_MACH_GC1
+#undef USE_CID_CHECK
+#define READ_MACADDR
+#endif
+
+#ifdef CONFIG_MACH_P10
+#define READ_MACADDR
+#endif
+
 /* REGION CODE */
 
 #if (WLAN_REGION_CODE >= 100) && (WLAN_REGION_CODE < 200) /*EUR*/
@@ -83,7 +97,7 @@
 #undef WRITE_MACADDR
 #undef READ_MACADDR
 #ifdef CONFIG_BCM4334
-#define RDWR_KORICS_MACADDR
+#define READ_MACADDR
 #else
 #define RDWR_MACADDR
 #endif
@@ -104,5 +118,9 @@
 #if (WLAN_REGION_CODE >= 300) && (WLAN_REGION_CODE < 400) /* CHN */
 #define BCMWAPI_WPI
 #define BCMWAPI_WAI
+#endif
+
+#if !defined(READ_MACADDR) && !defined(WRITE_MACADDR) && !defined(RDWR_KORICS_MACADDR) && !defined(RDWR_MACADDR)
+#define GET_MAC_FROM_OTP
 #endif
 
