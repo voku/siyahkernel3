@@ -458,6 +458,9 @@ do_cache_op(unsigned long start, unsigned long end, int flags)
 		flush_cache_user_range(start, end);
 		return;
 <<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> 4657f99... Restored arch/arm/kernel/traps.c NO BOOT, now OK.
+=======
 >>>>>>> 4657f99... Restored arch/arm/kernel/traps.c NO BOOT, now OK.
 =======
 >>>>>>> 4657f99... Restored arch/arm/kernel/traps.c NO BOOT, now OK.
