@@ -41,7 +41,14 @@ void s3cfb_check_line_count(struct s3cfb_global *ctrl)
 
 int s3cfb_check_vsync_status(struct s3cfb_global *ctrl)
 {
-	u32 cfg = (readl(ctrl->regs + S3C_VIDCON1) & S3C_VIDCON1_VSTATUS_MASK);
+	u32 cfg;
+
+	if (unlikely(!ctrl->regs)) {
+		dev_err(ctrl->dev, "reg is zero\n");
+		return 0;
+	}
+
+	cfg = (readl(ctrl->regs + S3C_VIDCON1) & S3C_VIDCON1_VSTATUS_MASK);
 
 	if (cfg != S3C_VIDCON1_VSTATUS_ACTIVE && cfg != S3C_VIDCON1_VSTATUS_BACK)
 		return 1;
@@ -200,7 +207,7 @@ int s3cfb_set_clock(struct s3cfb_global *ctrl)
 		cfg &= ~(S3C_VIDCON0_CLKVALUP_MASK |
 			S3C_VIDCON0_VCLKEN_MASK);
 		cfg |= (S3C_VIDCON0_CLKVALUP_ALWAYS |
-			S3C_VIDCON0_VCLKEN_NORMAL);
+			S3C_VIDCON0_VCLKEN_FREERUN);
 
 		src_clk = clk_get_rate(ctrl->clock);
 		printk(KERN_DEBUG "FIMD src sclk = %d\n", src_clk);
@@ -289,7 +296,6 @@ int s3cfb_set_polarity_only(struct s3cfb_global *ctrl)
 	u32 cfg = 0;
 
 	pol = &ctrl->lcd->polarity;
-	cfg |= S3C_VIDCON1_FIXVCLK_VCLK_RUN_VDEN_DIS;
 
 	if (pol->rise_vclk)
 		cfg |= S3C_VIDCON1_IVCLK_RISING_EDGE;
@@ -666,7 +672,7 @@ int s3cfb_get_win_cur_buf_addr(struct s3cfb_global *ctrl, int id)
 
 	start_addr = readl(ctrl->regs + S3C_VIDADDR_START0(id) + S3C_SHD_WIN_BASE);
 
-    dev_dbg(ctrl->dev, "[fb%d] start_addr: 0x%08x\n", id, start_addr);
+	dev_dbg(ctrl->dev, "[fb%d] start_addr: 0x%08x\n", id, start_addr);
 
 	return start_addr;
 }
@@ -711,6 +717,31 @@ int s3cfb_set_buffer_address(struct s3cfb_global *ctrl, int id)
 int s3cfb_set_alpha_value(struct s3cfb_global *ctrl, int value)
 {
 	writel(value, ctrl->regs + S3C_BLENDCON);
+
+	return 0;
+}
+
+int s3cfb_set_alpha_mode(struct s3cfb_global *ctrl, int id, unsigned int mode)
+{
+	if (id <= 0 || id > 5)
+		return 0;
+
+	if (mode == BLENDING_PREMULT)
+		writel(0xc1, ctrl->regs + S3C_BLENDEQ1 + 4 * (id - 1));
+	else
+		writel(0xc2, ctrl->regs + S3C_BLENDEQ1 + 4 * (id - 1));
+
+	return 0;
+}
+
+int s3cfb_set_alpha_value_width(struct s3cfb_global *ctrl, int id)
+{
+	struct fb_var_screeninfo *var = &ctrl->fb[id]->var;
+
+	if (var->bits_per_pixel == 32 && var->transp.length > 4)
+		writel(1, ctrl->regs + S3C_BLENDCON);
+	else
+		writel(0, ctrl->regs + S3C_BLENDCON);
 
 	return 0;
 }
@@ -761,6 +792,76 @@ int s3cfb_set_alpha_blending(struct s3cfb_global *ctrl, int id)
 	writel(cfg, ctrl->regs + S3C_WINCON(id));
 	writel(avalue, ctrl->regs + S3C_VIDOSD_C(id));
 
+	if ((pdata->hw_ver == 0x62) || (pdata->hw_ver == 0x70)) {
+		shw = readl(ctrl->regs + S3C_WINSHMAP);
+		shw &= ~(S3C_WINSHMAP_PROTECT(id));
+		writel(shw, ctrl->regs + S3C_WINSHMAP);
+	}
+
+	return 0;
+}
+
+int s3cfb_set_oneshot(struct s3cfb_global *ctrl, int id)
+{
+	struct s3c_platform_fb *pdata = to_fb_plat(ctrl->dev);
+	struct fb_var_screeninfo *var = &ctrl->fb[id]->var;
+	struct fb_fix_screeninfo *fix = &ctrl->fb[id]->fix;
+	struct s3cfb_window *win = ctrl->fb[id]->par;
+	u32 cfg, shw;
+	u32 offset = (var->xres_virtual - var->xres) * var->bits_per_pixel / 8;
+	dma_addr_t start_addr = 0, end_addr = 0;
+
+	/*  Shadow Register Protection */
+	if ((pdata->hw_ver == 0x62) || (pdata->hw_ver == 0x70)) {
+		shw = readl(ctrl->regs + S3C_WINSHMAP);
+		shw |= S3C_WINSHMAP_PROTECT(id);
+		writel(shw, ctrl->regs + S3C_WINSHMAP);
+	}
+
+	/*  s3cfb_set_window_position */
+	cfg = S3C_VIDOSD_LEFT_X(win->x) | S3C_VIDOSD_TOP_Y(win->y);
+	writel(cfg, ctrl->regs + S3C_VIDOSD_A(id));
+
+	cfg = S3C_VIDOSD_RIGHT_X(win->x + var->xres - 1) |
+		S3C_VIDOSD_BOTTOM_Y(win->y + var->yres - 1);
+	writel(cfg, ctrl->regs + S3C_VIDOSD_B(id));
+
+	dev_dbg(ctrl->dev, "[fb%d] offset: (%d, %d, %d, %d)\n", id,
+			win->x, win->y, win->x + var->xres - 1, win->y + var->yres - 1);
+
+	/* s3cfb_set_buffer_address */
+	if (fix->smem_start) {
+		start_addr = fix->smem_start + ((var->xres_virtual *
+				var->yoffset + var->xoffset) *
+				(var->bits_per_pixel / 8));
+
+		end_addr = start_addr + fix->line_length * var->yres;
+	}
+
+	writel(start_addr, ctrl->regs + S3C_VIDADDR_START0(id));
+	writel(end_addr, ctrl->regs + S3C_VIDADDR_END0(id));
+
+	dev_dbg(ctrl->dev, "[fb%d] start_addr: 0x%08x, end_addr: 0x%08x\n",
+		id, start_addr, end_addr);
+
+	/*  s3cfb_set_window_size */
+	if (id <= 2) {
+		cfg = S3C_VIDOSD_SIZE(var->xres * var->yres);
+		if (id == 0)
+			writel(cfg, ctrl->regs + S3C_VIDOSD_C(id));
+		else
+			writel(cfg, ctrl->regs + S3C_VIDOSD_D(id));
+
+		dev_dbg(ctrl->dev, "[fb%d] resolution: %d x %d\n", id,
+				var->xres, var->yres);
+	}
+
+	/*  s3cfb_set_buffer_size */
+	cfg = S3C_VIDADDR_PAGEWIDTH(var->xres * var->bits_per_pixel / 8);
+	cfg |= S3C_VIDADDR_OFFSIZE(offset);
+	writel(cfg, ctrl->regs + S3C_VIDADDR_SIZE(id));
+
+	/*  Shadow Register Un-Protection */
 	if ((pdata->hw_ver == 0x62) || (pdata->hw_ver == 0x70)) {
 		shw = readl(ctrl->regs + S3C_WINSHMAP);
 		shw &= ~(S3C_WINSHMAP_PROTECT(id));
@@ -884,6 +985,13 @@ int s3cfb_set_chroma_key(struct s3cfb_global *ctrl, int id)
 
 	dev_dbg(ctrl->dev, "[fb%d] chroma key: 0x%08x, %s\n", id, cfg,
 		chroma->enabled ? "enabled" : "disabled");
+
+	return 0;
+}
+
+int s3cfb_set_dualrgb(struct s3cfb_global *ctrl, int mode)
+{
+	writel(mode, ctrl->regs + S3C_DUALRGB);
 
 	return 0;
 }

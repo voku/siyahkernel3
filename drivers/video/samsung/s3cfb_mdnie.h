@@ -1,4 +1,3 @@
-
 /* linux/drivers/video/samsung/s3cfb_mdnie.h
  *
  * Header file for Samsung (MDNIE) driver
@@ -326,9 +325,9 @@
 
 int s3c_mdnie_setup(void);
 int s3c_mdnie_init_global(struct s3cfb_global *s3cfb_ctrl);
-int s3c_mdnie_start(struct s3cfb_global *ctrl);
+int s3c_mdnie_display_on(struct s3cfb_global *ctrl);
+int s3c_mdnie_display_off(void);
 int s3c_mdnie_off(void);
-int s3c_mdnie_stop(void);
 
 int mdnie_write(unsigned int addr, unsigned int val);
 int s3c_mdnie_mask(void);

@@ -1620,7 +1620,7 @@ static void mshci_cmd_irq(struct mshci_host *host, u32 intmask)
 	if (host->cmd->error) {
 		/* to notify an error happend */
 		host->error_state = 1;
-#if defined(CONFIG_MACH_M0) || defined(CONFIG_MACH_P4NOTE) /* dh0421.hwang */
+#if defined(CONFIG_MACH_M0) || defined(CONFIG_MACH_P4NOTE)
 		if (host->mmc && host->mmc->card)
 			mshci_dumpregs(host);
 #endif
@@ -1702,7 +1702,7 @@ static void mshci_data_irq(struct mshci_host *host, u32 intmask, u8 intr_src)
 	if (host->data->error) {
 		/* to notify an error happend */
 		host->error_state = 1;
-#if defined(CONFIG_MACH_M0) || defined(CONFIG_MACH_P4NOTE) /* dh0421.hwang */
+#if defined(CONFIG_MACH_M0) || defined(CONFIG_MACH_P4NOTE) 
 		if (host->mmc && host->mmc->card)
 			mshci_dumpregs(host);
 #endif

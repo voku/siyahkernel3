@@ -1016,10 +1016,10 @@ static int mmc_blk_err_check(struct mmc_card *card,
 	    brq->data.error) {
 #if defined(CONFIG_MACH_M0) || defined(CONFIG_MACH_P4NOTE) /* dh0421.hwang */
 		if (mmc_card_mmc(card)) {
-			printk(KERN_ERR "[TEST] brq->sbc.opcode=%d,"
+			pr_err("brq->sbc.opcode=%d,"	
 					"brq->cmd.opcode=%d.\n",
 					brq->sbc.opcode, brq->cmd.opcode);
-			printk(KERN_ERR "[TEST] brq->sbc.error=%d,"
+			pr_err("brq->sbc.error=%d,"
 					"brq->cmd.error=%d, brq->stop.error=%d,"
 					"brq->data.error=%d.\n", brq->sbc.error,
 					brq->cmd.error, brq->stop.error,
