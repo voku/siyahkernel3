@@ -500,6 +500,7 @@ extern void dhd_os_sdunlock_eventq(dhd_pub_t * pub);
 extern bool dhd_os_check_hang(dhd_pub_t *dhdp, int ifidx, int ret);
 extern int dhd_os_send_hang_message(dhd_pub_t *dhdp);
 extern int net_os_send_hang_message(struct net_device *dev);
+extern void dhd_set_version_info(dhd_pub_t *pub, char *fw);
 
 #ifdef PNO_SUPPORT
 extern int dhd_pno_enable(dhd_pub_t *dhd, int pfn_enabled);
@@ -587,6 +588,8 @@ extern int dhd_bus_membytes(dhd_pub_t *dhdp, bool set, uint32 address, uint8 *da
 extern void dhd_print_buf(void *pbuf, int len, int bytes_per_line);
 extern bool dhd_is_associated(dhd_pub_t *dhd, void *bss_buf, int *retval);
 extern uint dhd_bus_chip_id(dhd_pub_t *dhdp);
+extern uint dhd_bus_chiprev_id(dhd_pub_t *dhdp);
+extern uint dhd_bus_chippkg_id(dhd_pub_t *dhdp);
 
 #if defined(KEEP_ALIVE)
 extern int dhd_keep_alive_onoff(dhd_pub_t *dhd);
@@ -672,7 +675,7 @@ extern uint dhd_pktgen;
 
 /* Echo packet len (0 => sawtooth, max 1800) */
 extern uint dhd_pktgen_len;
-#define MAX_PKTGEN_LEN 1800
+#define MAX_PKTGEN_LEN	1800
 #endif
 
 
@@ -680,6 +683,8 @@ extern uint dhd_pktgen_len;
 #define MOD_PARAM_PATHLEN	2048
 extern char fw_path[MOD_PARAM_PATHLEN];
 extern char nv_path[MOD_PARAM_PATHLEN];
+
+#define MOD_PARAM_INFOLEN	512
 
 #ifdef SOFTAP
 extern char fw_path2[MOD_PARAM_PATHLEN];
