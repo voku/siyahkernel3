@@ -1,5 +1,5 @@
 #
-# Automatically generated file; DO NOT EDIT.
+# Automatically generated make config: don't edit
 # Linux/arm 3.0.43-rc1 Kernel Configuration
 #
 CONFIG_ARM=y
@@ -36,7 +36,7 @@ CONFIG_HAVE_IRQ_WORK=y
 CONFIG_EXPERIMENTAL=y
 CONFIG_INIT_ENV_ARG_LIMIT=32
 CONFIG_CROSS_COMPILE=""
-CONFIG_LOCALVERSION="-Siyah-Dorimanx-V5.78-SGII-PWR-CORE"
+CONFIG_LOCALVERSION="-Siyah-Dorimanx-V5.77C-SGII-PWR-CORE"
 # CONFIG_LOCALVERSION_AUTO is not set
 CONFIG_HAVE_KERNEL_GZIP=y
 CONFIG_HAVE_KERNEL_LZMA=y
