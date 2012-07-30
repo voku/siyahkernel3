@@ -7,6 +7,32 @@
 extern const char linux_banner[];
 extern const char linux_proc_banner[];
 
+static inline int printk_get_level(const char *buffer)
+{
+	if (buffer[0] == KERN_SOH_ASCII && buffer[1]) {
+		switch (buffer[1]) {
+		case '0' ... '7':
+		case 'd':	/* KERN_DEFAULT */
+		case 'c':	/* KERN_CONT */
+			return buffer[1];
+		}
+	}
+	return 0;
+}
+
+static inline const char *printk_skip_level(const char *buffer)
+{
+	if (printk_get_level(buffer)) {
+		switch (buffer[1]) {
+		case '0' ... '7':
+		case 'd':	/* KERN_DEFAULT */
+		case 'c':	/* KERN_CONT */
+			return buffer + 2;
+		}
+	}
+	return buffer;
+}
+
 extern int console_printk[];
 
 #define console_loglevel (console_printk[0])
