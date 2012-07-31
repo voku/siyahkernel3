@@ -360,7 +360,7 @@ void __meminit pgdat_page_cgroup_init(struct pglist_data *pgdat)
 #endif
 
 
-#ifdef CONFIG_CGROUP_MEM_RES_CTLR_SWAP
+#ifdef CONFIG_MEMCG_SWAP
 
 static DEFINE_MUTEX(swap_cgroup_mutex);
 struct swap_cgroup_ctrl {
