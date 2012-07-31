@@ -20,7 +20,8 @@ else
 ifdef CONFIG_DMA_CMA
 	obj-y		+= page_alloc-cma.o page_isolation-cma.o
 else
-	obj-y		+= page_alloc.o page_isolation.o
+	obj-y		+= page_alloc.o
+	obj-$(CONFIG_MEMORY_ISOLATION) += page_isolation.o
 endif
 endif
 
