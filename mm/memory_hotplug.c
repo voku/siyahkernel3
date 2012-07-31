@@ -982,6 +982,9 @@ repeat:
 
 	init_per_zone_wmark_min();
 
+	if (!populated_zone(zone))
+		zone_pcp_reset(zone);
+
 	if (!node_present_pages(node)) {
 		node_clear_state(node, N_HIGH_MEMORY);
 		kswapd_stop(node);
