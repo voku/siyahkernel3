@@ -221,7 +221,7 @@ int exynos_cpufreq_lock(unsigned int nId,
 	if (!exynos_info)
 		return -EPERM;
 
-	if (cpufreq_level < min(exynos_info->max_current_idx, exynos_info->pm_lock_idx)	
+	if (cpufreq_level < min(exynos_info->max_current_idx, exynos_info->pm_lock_idx)
 			|| cpufreq_level > exynos_info->min_support_idx) {
 		pr_warn("%s: invalid cpufreq_level(%d:%d)\n", __func__, nId,
 				cpufreq_level);
