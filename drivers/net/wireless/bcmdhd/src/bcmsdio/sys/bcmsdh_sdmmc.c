@@ -143,7 +143,7 @@ sdioh_attach(osl_t *osh, void *bar0, uint irq)
 	bzero((char *)sd, sizeof(sdioh_info_t));
 	sd->osh = osh;
 	if (sdioh_sdmmc_osinit(sd) != 0) {
-		sd_err(("%s:sdioh_sdmmc_osinit() failed\n", __func__));
+		sd_err(("%s:sdioh_sdmmc_osinit() failed\n", __FUNCTION__));
 		MFREE(sd->osh, sd, sizeof(sdioh_info_t));
 		return NULL;
 	}
@@ -168,8 +168,8 @@ sdioh_attach(osl_t *osh, void *bar0, uint irq)
 
 		/* Release host controller F1 */
 		sdio_release_host(gInstance->func[1]);
-	} else {
-		sd_err(("%s:gInstance->func[1] is null\n", __func__));
+	}else {
+		sd_err(("%s:gInstance->func[1] is null\n", __FUNCTION__));
 		MFREE(sd->osh, sd, sizeof(sdioh_info_t));
 		return NULL;
 	}
@@ -706,9 +706,14 @@ sdioh_enable_hw_oob_intr(sdioh_info_t *sd, bool enable)
 	uint8 data;
 
 	if (enable)
-		data = SDIO_SEPINT_MASK | SDIO_SEPINT_OE | SDIO_SEPINT_ACT_HI;
+		data = SDIO_SEPINT_MASK | SDIO_SEPINT_OE;	/* enable hw oob interrupt */
 	else
-		data = SDIO_SEPINT_ACT_HI;
+		data = SDIO_SEPINT_ACT_HI;	/* disable hw oob interrupt */
+
+#if 1 && LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 35)
+	/* Needed for Android Linux Kernel 2.6.35 */
+	data |= SDIO_SEPINT_ACT_HI;		/* Active HIGH */
+#endif /* OEM_ANDROID */
 
 	status = sdioh_request_byte(sd, SDIOH_WRITE, 0, SDIOD_CCCR_BRCM_SEPINT, &data);
 	return status;
@@ -1049,7 +1054,7 @@ sdioh_request_packet(sdioh_info_t *sd, uint fix_inc, uint write, uint func,
 			/* Align Patch */
 			if (write == 0 || pkt_len < 32) // read or small packet(ex-BDC header) skip 32 byte align
 				pkt_len = (pkt_len + 3) & 0xFFFFFFFC;
-			else if (pkt_len % DHD_SDALIGN) // write
+			else if(pkt_len % DHD_SDALIGN) // write
 				pkt_len += DHD_SDALIGN - (pkt_len % DHD_SDALIGN);
 
 #ifdef VSDB_DYNAMIC_F2_BLKSIZE
@@ -1360,7 +1365,7 @@ sdioh_start(sdioh_info_t *si, int stage)
 		   patch for it
 		*/
 		if ((ret = sdio_reset_comm(gInstance->func[0]->card))) {
-			sd_err(("%s Failed, error = %d\n", __func__, ret));
+			sd_err(("%s Failed, error = %d\n", __FUNCTION__, ret));
 			return ret;
 		}
 		else {
@@ -1369,7 +1374,7 @@ sdioh_start(sdioh_info_t *si, int stage)
 			sd->use_client_ints = TRUE;
 			sd->client_block_size[0] = 64;
 
-			if (gInstance->func[1]) {
+			if(gInstance->func[1]) {
 				/* Claim host controller */
 				sdio_claim_host(gInstance->func[1]);
 
@@ -1415,7 +1420,7 @@ sdioh_start(sdioh_info_t *si, int stage)
 		}
 	}
 	else
-		sd_err(("%s Failed\n", __func__));
+		sd_err(("%s Failed\n", __FUNCTION__));
 
 	return (0);
 }
@@ -1445,7 +1450,7 @@ sdioh_stop(sdioh_info_t *si)
 #endif /* !defined(OOB_INTR_ONLY) */
 	}
 	else
-		sd_err(("%s Failed\n", __func__));
+		sd_err(("%s Failed\n", __FUNCTION__));
 	return (0);
 }
 

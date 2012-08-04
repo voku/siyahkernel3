@@ -267,9 +267,6 @@ typedef struct dhd_bus {
 	bool		activity;		/* Activity flag for clock down */
 	int32		idletime;		/* Control for activity timeout */
 	int32		idlecount;		/* Activity timeout counter */
-#ifdef DHD_USE_IDLECOUNT
-	int32		dhd_idlecount;		/* DHD idle count */
-#endif /* DHD_USE_IDLECOUNT */
 	int32		idleclock;		/* How to set bus driver when idle */
 	int32		sd_divisor;		/* Speed control to bus driver */
 	int32		sd_mode;		/* Mode control to bus driver */
@@ -932,8 +929,6 @@ dhdsdio_clk_devsleep_iovar(dhd_bus_t *bus, bool on)
 static int
 dhdsdio_htclk(dhd_bus_t *bus, bool on, bool pendok)
 {
-#define HT_AVAIL_ERROR_MAX  10
-	static int ht_avail_error = 0;
 	int err;
 	uint8 clkctl, clkreq, devctl;
 	bcmsdh_info_t *sdh;
@@ -958,20 +953,10 @@ dhdsdio_htclk(dhd_bus_t *bus, bool on, bool pendok)
 	if (on) {
 		/* Request HT Avail */
 		clkreq = bus->alp_only ? SBSDIO_ALP_AVAIL_REQ : SBSDIO_HT_AVAIL_REQ;
-
-
 		bcmsdh_cfg_write(sdh, SDIO_FUNC_1, SBSDIO_FUNC1_CHIPCLKCSR, clkreq, &err);
 		if (err) {
-			ht_avail_error++;
-			if (ht_avail_error < HT_AVAIL_ERROR_MAX) {
-				DHD_ERROR(("%s: HT Avail request error: %d\n", __FUNCTION__, err));
-			} else {
-				if (ht_avail_error == HT_AVAIL_ERROR_MAX)
-					dhd_os_send_hang_message(bus->dhd);
-			}
+			DHD_ERROR(("%s: HT Avail request error: %d\n", __FUNCTION__, err));
 			return BCME_ERROR;
-		} else {
-			ht_avail_error = 0;
 		}
 
 		if (pendok &&
@@ -1047,7 +1032,7 @@ dhdsdio_htclk(dhd_bus_t *bus, bool on, bool pendok)
 
 		bus->activity = TRUE;
 #ifdef DHD_USE_IDLECOUNT
-		bus->dhd_idlecount = 0;
+		bus->idlecount = 0;
 #endif /* DHD_USE_IDLECOUNT */
 	} else {
 		clkreq = 0;
@@ -1167,8 +1152,7 @@ dhdsdio_clkctl(dhd_bus_t *bus, uint target, bool pendok)
 	uint oldstate = bus->clkstate;
 #endif /* DHD_DEBUG */
 
-	DHD_TRACE(("%s: Enter bus->clkstate %u target %u\n", __FUNCTION__,
-			bus->clkstate, target));	
+	DHD_TRACE(("%s: Enter\n", __FUNCTION__));
 
 	/* Early exit if we're already there */
 	if (bus->clkstate == target) {
@@ -1176,7 +1160,7 @@ dhdsdio_clkctl(dhd_bus_t *bus, uint target, bool pendok)
 			dhd_os_wd_timer(bus->dhd, dhd_watchdog_ms);
 			bus->activity = TRUE;
 #ifdef DHD_USE_IDLECOUNT
-			bus->dhd_idlecount = 0;
+			bus->idlecount = 0;
 #endif /* DHD_USE_IDLECOUNT */
 		}
 		return ret;
@@ -1193,7 +1177,7 @@ dhdsdio_clkctl(dhd_bus_t *bus, uint target, bool pendok)
 			dhd_os_wd_timer(bus->dhd, dhd_watchdog_ms);
 			bus->activity = TRUE;
 #ifdef DHD_USE_IDLECOUNT
-			bus->dhd_idlecount = 0;
+			bus->idlecount = 0;
 #endif /* DHD_USE_IDLECOUNT */
 		}
 		break;
@@ -1874,8 +1858,13 @@ dhd_bus_txctl(struct dhd_bus *bus, uchar *msg, uint msglen)
 		/* Send from dpc */
 		bus->ctrl_frame_buf = frame;
 		bus->ctrl_frame_len = len;
-
-		dhd_wait_for_event(bus->dhd, &bus->ctrl_frame_stat);
+		if(!bus->dpc_sched) {
+			bus->dpc_sched = TRUE;
+			dhd_sched_dpc(bus->dhd);
+		}
+		if (bus->ctrl_frame_stat) {
+			dhd_wait_for_event(bus->dhd, &bus->ctrl_frame_stat);
+		}
 
 		if (bus->ctrl_frame_stat == FALSE) {
 			DHD_INFO(("%s: ctrl_frame_stat == FALSE\n", __FUNCTION__));
@@ -3757,9 +3746,8 @@ dhd_bus_init(dhd_pub_t *dhdp, bool enforce_mutex)
 	dhd_timeout_start(&tmo, DHD_WAIT_F2RDY * 1000);
 
 	ready = 0;
-	do {
-		ready = bcmsdh_cfg_read(bus->sdh, SDIO_FUNC_0, SDIOD_CCCR_IORDY, NULL);
-	} while (ready != enable && !dhd_timeout_expired(&tmo));
+	while (ready != enable && !dhd_timeout_expired(&tmo))
+	        ready = bcmsdh_cfg_read(bus->sdh, SDIO_FUNC_0, SDIOD_CCCR_IORDY, NULL);
 
 	DHD_INFO(("%s: enable 0x%02x, ready 0x%02x (waited %uus)\n",
 	          __FUNCTION__, enable, ready, tmo.elapsed));
@@ -4223,7 +4211,7 @@ dhdsdio_rxglom(dhd_bus_t *bus, uint8 rxseq)
 		/* Check window for sanity */
 		if ((uint8)(txmax - bus->tx_seq) > 0x40) {
 			DHD_ERROR(("%s: got unlikely tx max %d with tx_seq %d\n",
-					__func__, txmax, bus->tx_seq));
+			           __FUNCTION__, txmax, bus->tx_seq));
 			txmax = bus->tx_max;
 		}
 		bus->tx_max = txmax;
@@ -4710,21 +4698,11 @@ dhdsdio_readframes(dhd_bus_t *bus, uint maxframes, bool *finished)
 			}
 
 			/* Check window for sanity */
-#ifdef BCM4334_CHIP			
-			if ((uint8)(txmax - bus->tx_seq) > 0x40) {
-					DHD_ERROR(("%s: got unlikely tx max %d with tx_seq %d\n",
-						__FUNCTION__, txmax, bus->tx_seq));
-					txmax = bus->tx_max;
-					bus->dhd->tx_seq_badcnt++;
-			} else
-				bus->dhd->tx_seq_badcnt = 0;
-#else
 			if ((uint8)(txmax - bus->tx_seq) > 0x40) {
 					DHD_ERROR(("%s: got unlikely tx max %d with tx_seq %d\n",
 						__FUNCTION__, txmax, bus->tx_seq));
 					txmax = bus->tx_max;
 			}
-#endif
 			bus->tx_max = txmax;
 
 #ifdef DHD_DEBUG
@@ -4877,21 +4855,11 @@ dhdsdio_readframes(dhd_bus_t *bus, uint maxframes, bool *finished)
 		}
 
 		/* Check window for sanity */
-#ifdef BCM4334_CHIP			
-		if ((uint8)(txmax - bus->tx_seq) > 0x40) {
-			DHD_ERROR(("%s: got unlikely tx max %d with tx_seq %d\n",
-			           __FUNCTION__, txmax, bus->tx_seq));
-			txmax = bus->tx_max;
-			bus->dhd->tx_seq_badcnt++;
-		} else
-			bus->dhd->tx_seq_badcnt = 0;
-#else
 		if ((uint8)(txmax - bus->tx_seq) > 0x40) {
 			DHD_ERROR(("%s: got unlikely tx max %d with tx_seq %d\n",
 			           __FUNCTION__, txmax, bus->tx_seq));
 			txmax = bus->tx_max;
 		}
-#endif
 		bus->tx_max = txmax;
 
 		/* Call a separate function for control frames */
@@ -5360,10 +5328,8 @@ clkwait:
 	if (TXCTLOK(bus) && bus->ctrl_frame_stat && (bus->clkstate == CLK_AVAIL))  {
 		int ret, i;
 		uint8* frame_seq = bus->ctrl_frame_buf + SDPCM_FRAMETAG_LEN;
-
-		if (((bus->sih->chip == BCM4329_CHIP_ID) ||   /* limit to 4329 & 4330 for now  */
-				(bus->sih->chip == BCM4330_CHIP_ID)) && (*frame_seq != bus->tx_seq)) {
-			DHD_ERROR(("%s IOCTL frame seq lag detected!"
+		if (*frame_seq != bus->tx_seq) {
+			DHD_INFO(("%s IOCTL frame seq lag detected!"
 				" frm_seq:%d != bus->tx_seq:%d, corrected\n",
 				__FUNCTION__, *frame_seq, bus->tx_seq));
 			*frame_seq = bus->tx_seq;
@@ -5536,7 +5502,7 @@ dhdsdio_pktgen_init(dhd_bus_t *bus)
 
 	/* Default to per-watchdog burst with 10s print time */
 	bus->pktgen_freq = 1;
-	bus->pktgen_print = dhd_watchdog_ms ? 10000 / dhd_watchdog_ms : 0;	
+	bus->pktgen_print = 10000 / dhd_watchdog_ms;
 	bus->pktgen_count = (dhd_pktgen * dhd_watchdog_ms + 999) / 1000;
 
 	/* Default to echo mode */
@@ -5792,9 +5758,6 @@ dhd_disable_intr(dhd_pub_t *dhdp)
 	bcmsdh_intr_disable(bus->sdh);
 }
 
-#ifdef DHD_USE_IDLECOUNT
-#define DHD_IDLE_TIMEOUT_MS (50)
-#endif /* DHD_USE_IDLECOUNT */
 
 extern bool
 dhd_bus_watchdog(dhd_pub_t *dhdp)
@@ -5877,30 +5840,27 @@ dhd_bus_watchdog(dhd_pub_t *dhdp)
 #endif
 
 	/* On idle timeout clear activity flag and/or turn off clock */
-	if ((bus->idletime > 0) && (bus->clkstate == CLK_AVAIL)) {
 #ifdef DHD_USE_IDLECOUNT
-		if (++bus->idlecount >= bus->idletime) {
-			bus->idlecount = 0;
 
 			if (bus->activity)
 				bus->activity = FALSE;
 			else {
-				bus->dhd_idlecount++;
+		bus->idlecount++;
 
-				if (bus->dhd_idlecount >= (DHD_IDLE_TIMEOUT_MS/dhd_watchdog_ms)) {
+		if (bus->idlecount >= bus->idletime) {
 					DHD_TIMER(("%s: DHD Idle state!!\n", __FUNCTION__));
 
 					if (SLPAUTO_ENAB(bus)) {
 						if (dhdsdio_bussleep(bus, TRUE) != BCME_BUSY)
 							dhd_os_wd_timer(bus->dhd, 0);
-					} else
+			} else
 						dhdsdio_clkctl(bus, CLK_NONE, FALSE);
 
 			bus->idlecount = 0;
 				}
 			}
-		}
 #else
+	if ((bus->idletime > 0) && (bus->clkstate == CLK_AVAIL)) {
 		if (++bus->idlecount >= bus->idletime) {
 			bus->idlecount = 0;
 			if (bus->activity) {
@@ -5911,8 +5871,8 @@ dhd_bus_watchdog(dhd_pub_t *dhdp)
 					dhdsdio_clkctl(bus, CLK_NONE, FALSE);
 			}
 		}
-#endif /* DHD_USE_IDLECOUNT */
 	}
+#endif /* DHD_USE_IDLECOUNT */
 
 	return bus->ipend;
 }

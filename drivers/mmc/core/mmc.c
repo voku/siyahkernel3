@@ -107,7 +107,6 @@ static int mmc_decode_cid(struct mmc_card *card)
 		card->cid.prod_name[3]	= UNSTUFF_BITS(resp, 72, 8);
 		card->cid.prod_name[4]	= UNSTUFF_BITS(resp, 64, 8);
 		card->cid.prod_name[5]	= UNSTUFF_BITS(resp, 56, 8);
-		card->cid.fwrev    	= UNSTUFF_BITS(resp, 48, 8);
 		card->cid.serial	= UNSTUFF_BITS(resp, 16, 32);
 		card->cid.month		= UNSTUFF_BITS(resp, 12, 4);
 		card->cid.year		= UNSTUFF_BITS(resp, 8, 4) + 1997;
@@ -219,7 +218,7 @@ static void mmc_error_ext_csd(struct mmc_card *card, u8 *ext_csd,
 		} else {
 			err = mmc_send_ext_csd(card, ext_csd_new);
 			if (err)
-				pr_err("Fail to get new EXT_CSD.\n");	
+				pr_err("Fail to get new EXT_CSD.\n");
 			else
 				available_new = 1;
 		}
@@ -424,16 +423,16 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 			break;
 		default:
 #if defined(MMC_CHECK_EXT_CSD)
-		/* For debugging about ext_csd register value */
-		mmc_error_ext_csd(card, ext_csd, 0, EXT_CSD_CARD_TYPE);
+			/* For debugging about ext_csd register value */
+			mmc_error_ext_csd(card, ext_csd, 0, EXT_CSD_CARD_TYPE);
 #endif
-		/* MMC v4 spec says this cannot happen */
-		printk(KERN_WARNING "%s: card is mmc v4 but doesn't "
-			"support any high-speed modes.\n",
-			mmc_hostname(card->host));
+			/* MMC v4 spec says this cannot happen */
+			printk(KERN_WARNING "%s: card is mmc v4 but doesn't "
+					"support any high-speed modes.\n",
+					mmc_hostname(card->host));
 #if defined(MMC_RETRY_READ_EXT_CSD)
-		err = -EINVAL;
-		goto out;
+			err = -EINVAL;
+			goto out;
 #endif
 		}
 	} else {
@@ -572,6 +571,9 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 	}
 
 	if (card->ext_csd.rev >= 5) {
+		/* enable discard feature if emmc is 4.41 */
+		card->ext_csd.feature_support |= MMC_DISCARD_FEATURE;
+
 		/* check whether the eMMC card supports HPI */
 		if (ext_csd[EXT_CSD_HPI_FEATURES] & 0x1) {
 			card->ext_csd.hpi = 1;
@@ -732,27 +734,6 @@ static const struct attribute_group *mmc_attr_groups[] = {
 
 static struct device_type mmc_type = {
 	.groups = mmc_attr_groups,
-};
-
-static const struct mmc_fixup mmc_fixups[] = {
-  /*
-   * There is a bug in some Samsung emmc chips where the wear leveling
-   * code can insert 32 Kbytes of zeros into the storage.  We can patch
-   * the firmware in such chips each time they are powered on to prevent
-   * the bug from occurring.  Only apply this patch to a particular
-   * revision of the firmware of the specified chips.  Date doesn't
-   * matter, so include all possible dates in min and max fields.
-   */
-   MMC_FIXUP_REV("VYL00M", 0x15, CID_OEMID_ANY,
-           cid_rev(0, 0x25, 1997, 1), cid_rev(0, 0x25, 2012, 12),
-           add_quirk_mmc, MMC_QUIRK_SAMSUNG_WL_PATCH),
-   MMC_FIXUP_REV("KYL00M", 0x15, CID_OEMID_ANY,
-           cid_rev(0, 0x25, 1997, 1), cid_rev(0, 0x25, 2012, 12),
-           add_quirk_mmc, MMC_QUIRK_SAMSUNG_WL_PATCH),
-   MMC_FIXUP_REV("MAG4FA", 0x15, CID_OEMID_ANY,
-           cid_rev(0, 0x25, 1997, 1), cid_rev(0, 0x25, 2012, 12),
-           add_quirk_mmc, MMC_QUIRK_SAMSUNG_WL_PATCH),
-   END_FIXUP
 };
 
 /*
@@ -932,7 +913,6 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	 * need to tell some cards to go back to the idle
 	 * state.  We wait 1ms to give cards time to
 	 * respond.
-	 * mmc_go_idle is needed for eMMC that are asleep
 	 */
 	mmc_go_idle(host);
 
@@ -1007,10 +987,6 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		err = mmc_decode_cid(card);
 		if (err)
 			goto free_card;
-	       /* Detect on first access quirky cards that need help when
-		* powered-on
-		*/
-		mmc_fixup_device(card, mmc_fixups);
 	}
 
 	/*
@@ -1414,14 +1390,6 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		host->card = card;
 
 	mmc_free_ext_csd(ext_csd);
-
-       /*
-    	* Patch the firmware in certain Samsung emmc chips to fix a
-    	* wear leveling bug.
-    	*/
-	if (card->quirks & MMC_QUIRK_SAMSUNG_WL_PATCH)
-		mmc_fixup_samsung_fw(card);
-
 	return 0;
 
 free_card:
@@ -1487,22 +1455,16 @@ static void mmc_detect(struct mmc_host *host)
  */
 static int mmc_suspend(struct mmc_host *host)
 {
-	int err = 0;
-
 	BUG_ON(!host);
 	BUG_ON(!host->card);
 
 	mmc_claim_host(host);
-	if (mmc_card_can_sleep(host)) {
-		err = mmc_card_sleep(host);
-		if (!err)
-			mmc_card_set_sleep(host->card);
-	} else if (!mmc_host_is_spi(host))
-		err = mmc_deselect_cards(host);
-	host->card->state &= ~(MMC_STATE_HIGHSPEED | MMC_STATE_HIGHSPEED_200);
+	if (!mmc_host_is_spi(host))
+		mmc_deselect_cards(host);
+	host->card->state &= ~MMC_STATE_HIGHSPEED;
 	mmc_release_host(host);
 
-	return err;
+	return 0;
 }
 
 /*
@@ -1519,11 +1481,7 @@ static int mmc_resume(struct mmc_host *host)
 	BUG_ON(!host->card);
 
 	mmc_claim_host(host);
-	if (mmc_card_is_sleep(host->card)) {
-		err = mmc_card_awake(host);
-		mmc_card_clr_sleep(host->card);
-	} else
-		err = mmc_init_card(host, host->ocr, host->card);
+	err = mmc_init_card(host, host->ocr, host->card);
 	mmc_release_host(host);
 
 	return err;
@@ -1533,8 +1491,7 @@ static int mmc_power_restore(struct mmc_host *host)
 {
 	int ret;
 
-	host->card->state &= ~(MMC_STATE_HIGHSPEED | MMC_STATE_HIGHSPEED_200);
-	mmc_card_clr_sleep(host->card);
+	host->card->state &= ~MMC_STATE_HIGHSPEED;
 	mmc_claim_host(host);
 	ret = mmc_init_card(host, host->ocr, host->card);
 	mmc_release_host(host);

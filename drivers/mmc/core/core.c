@@ -394,27 +394,6 @@ struct mmc_async_req *mmc_start_req(struct mmc_host *host,
 				mmc_post_req(host, areq->mrq, -EINVAL);
 
 			host->areq = NULL;
-#if defined(CONFIG_MACH_M0) || defined(CONFIG_MACH_P4NOTE)
-			/* dh0421.hwang */
-			/*
-			 * dh0421.hwang
-			 * It's for Engineering DEBUGGING only
-			 * This has to be removed before PVR(guessing)
-			 * Please refer mshci reg dumps
-			 */
-			if (mmc_card_mmc(host->card) &&
-					err != 3) {
-				printk(KERN_ERR "[TEST] err means...\n");
-				printk(KERN_ERR "\t1: MMC_BLK_PARTIAL.\n");
-				printk(KERN_ERR "\t2: MMC_BLK_CMD_ERR.\n");
-				printk(KERN_ERR "\t3: MMC_BLK_RETRY.\n");
-				printk(KERN_ERR "\t4: MMC_BLK_ABORT.\n");
-				printk(KERN_ERR "\t5: MMC_BLK_DATA_ERR.\n");
-				printk(KERN_ERR "\t6: MMC_BLK_ECC_ERR.\n");
-				panic("[TEST] mmc%d, err_check returns %d.\n",
-						host->index, err);
-			}
-#endif
 			goto out;
 		}
 	}
@@ -589,7 +568,7 @@ void mmc_set_data_timeout(struct mmc_data *data, const struct mmc_card *card)
 			 */
 			limit_us = 800000;
 		else
-			limit_us = 100000;
+			limit_us = 200000;
 
 		/*
 		 * SDHC cards always use these fixed values.
@@ -1299,8 +1278,6 @@ static void mmc_poweroff_notify(struct mmc_host *host)
 
 	card = host->card;
 
-	mmc_claim_host(host);
-
 	/*
 	 * Send power notify command only if card
 	 * is mmc and notify state is powered ON
@@ -1330,7 +1307,6 @@ static void mmc_poweroff_notify(struct mmc_host *host)
 		/* Set the card state to no notification after the poweroff */
 		card->poweroff_notify_state = MMC_NO_POWER_NOTIFICATION;
 	}
-	mmc_release_host(host);
 }
 
 /*
@@ -1391,28 +1367,12 @@ static void mmc_power_up(struct mmc_host *host)
 
 void mmc_power_off(struct mmc_host *host)
 {
-	int err = 0;
 	mmc_host_clk_hold(host);
 
 	host->ios.clock = 0;
 	host->ios.vdd = 0;
 
-	/*
-	 * For eMMC 4.5 device send AWAKE command before
-	 * POWER_OFF_NOTIFY command, because in sleep state
-	 * eMMC 4.5 devices respond to only RESET and AWAKE cmd
-	 */
-	if (host->card && mmc_card_is_sleep(host->card) &&
-	    host->bus_ops->resume) {
-		err = host->bus_ops->resume(host);
-
-		if (!err)
-			mmc_poweroff_notify(host);
-		else
-			pr_warning("%s: error %d during resume "
-				   "(continue with poweroff sequence)\n",
-				   mmc_hostname(host), err);
-	}
+	mmc_poweroff_notify(host);
 
 	/*
 	 * Reset ocr mask to be the highest possible voltage supported for
@@ -1491,7 +1451,7 @@ int mmc_resume_bus(struct mmc_host *host)
 		host->bus_ops->resume(host);
 	}
 
-	if (host->bus_ops && host->bus_ops->detect && !host->bus_dead)
+	if (host->bus_ops->detect && !host->bus_dead)
 		host->bus_ops->detect(host);
 
 	mmc_bus_put(host);
@@ -1718,109 +1678,6 @@ static unsigned int mmc_erase_timeout(struct mmc_card *card,
 		return mmc_mmc_erase_timeout(card, arg, qty);
 }
 
-#if 0 //unused function, may brick our device.
-static int mmc_do_erase(struct mmc_card *card, unsigned int from,
-			unsigned int to, unsigned int arg)
-{
-	struct mmc_command cmd = {0};
-	unsigned int qty = 0;
-	int err;
-
-	/*
-	 * qty is used to calculate the erase timeout which depends on how many
-	 * erase groups (or allocation units in SD terminology) are affected.
-	 * We count erasing part of an erase group as one erase group.
-	 * For SD, the allocation units are always a power of 2.  For MMC, the
-	 * erase group size is almost certainly also power of 2, but it does not
-	 * seem to insist on that in the JEDEC standard, so we fall back to
-	 * division in that case.  SD may not specify an allocation unit size,
-	 * in which case the timeout is based on the number of write blocks.
-	 *
-	 * Note that the timeout for secure trim 2 will only be correct if the
-	 * number of erase groups specified is the same as the total of all
-	 * preceding secure trim 1 commands.  Since the power may have been
-	 * lost since the secure trim 1 commands occurred, it is generally
-	 * impossible to calculate the secure trim 2 timeout correctly.
-	 */
-	if (card->erase_shift)
-		qty += ((to >> card->erase_shift) -
-			(from >> card->erase_shift)) + 1;
-	else if (mmc_card_sd(card))
-		qty += to - from + 1;
-	else
-		qty += ((to / card->erase_size) -
-			(from / card->erase_size)) + 1;
-
-	if (!mmc_card_blockaddr(card)) {
-		from <<= 9;
-		to <<= 9;
-	}
-
-	if (mmc_card_sd(card))
-		cmd.opcode = SD_ERASE_WR_BLK_START;
-	else
-		cmd.opcode = MMC_ERASE_GROUP_START;
-	cmd.arg = from;
-	cmd.flags = MMC_RSP_SPI_R1 | MMC_RSP_R1 | MMC_CMD_AC;
-	err = mmc_wait_for_cmd(card->host, &cmd, 0);
-	if (err) {
-		printk(KERN_ERR "mmc_erase: group start error %d, "
-		       "status %#x\n", err, cmd.resp[0]);
-		err = -EIO;
-		goto out;
-	}
-
-	memset(&cmd, 0, sizeof(struct mmc_command));
-	if (mmc_card_sd(card))
-		cmd.opcode = SD_ERASE_WR_BLK_END;
-	else
-		cmd.opcode = MMC_ERASE_GROUP_END;
-	cmd.arg = to;
-	cmd.flags = MMC_RSP_SPI_R1 | MMC_RSP_R1 | MMC_CMD_AC;
-	err = mmc_wait_for_cmd(card->host, &cmd, 0);
-	if (err) {
-		printk(KERN_ERR "mmc_erase: group end error %d, status %#x\n",
-		       err, cmd.resp[0]);
-		err = -EIO;
-		goto out;
-	}
-
-	memset(&cmd, 0, sizeof(struct mmc_command));
-	cmd.opcode = MMC_ERASE;
-	cmd.arg = arg;
-	cmd.flags = MMC_RSP_SPI_R1B | MMC_RSP_R1B | MMC_CMD_AC;
-	cmd.cmd_timeout_ms = mmc_erase_timeout(card, arg, qty);
-	err = mmc_wait_for_cmd(card->host, &cmd, 0);
-	if (err) {
-		printk(KERN_ERR "mmc_erase: erase error %d, status %#x\n",
-		       err, cmd.resp[0]);
-		err = -EIO;
-		goto out;
-	}
-
-	if (mmc_host_is_spi(card->host))
-		goto out;
-
-	do {
-		memset(&cmd, 0, sizeof(struct mmc_command));
-		cmd.opcode = MMC_SEND_STATUS;
-		cmd.arg = card->rca << 16;
-		cmd.flags = MMC_RSP_R1 | MMC_CMD_AC;
-		/* Do not retry else we can't see errors */
-		err = mmc_wait_for_cmd(card->host, &cmd, 0);
-		if (err || (cmd.resp[0] & 0xFDF92000)) {
-			printk(KERN_ERR "error %d requesting status %#x\n",
-				err, cmd.resp[0]);
-			err = -EIO;
-			goto out;
-		}
-	} while (!(cmd.resp[0] & R1_READY_FOR_DATA) ||
-		 R1_CURRENT_STATE(cmd.resp[0]) == 7);
-out:
-	return err;
-}
-#endif
-
 /**
  * mmc_erase - erase sectors.
  * @card: card to erase
@@ -1834,7 +1691,7 @@ int mmc_erase(struct mmc_card *card, unsigned int from, unsigned int nr,
 	      unsigned int arg)
 {
 	printk("%s: mmc_erase() disabled for protection. from = %u, nr = %u, arg = %u\n",
-			__func__,from,nr,arg);
+		__func__,from,nr,arg);
 	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(mmc_erase);
@@ -2434,7 +2291,7 @@ int mmc_suspend_host(struct mmc_host *host)
 	mmc_flush_scheduled_work();
 	if (mmc_try_claim_host(host)) {
 		u32 status;
-		u32 count = 300000; /* up to 300ms */
+		u32 count=300000; /* up to 300ms */
 
 		/* if a sdmmc card exists and the card is mmc */
 		if (((host->card) && mmc_card_mmc(host->card))) {
@@ -2444,7 +2301,7 @@ int mmc_suspend_host(struct mmc_host *host)
 			if (ret)
 				pr_err("%s: there is error %d while "
 				       "flushing emmc's cache\n",
-					mmc_hostname(host), ret);
+					mmc_hostname(host),ret);
 		}
 		err = mmc_cache_ctrl(host, 0);
 
@@ -2480,8 +2337,15 @@ int mmc_suspend_host(struct mmc_host *host)
 		 * pre-claim the host.
 		 */
 		if (mmc_try_claim_host(host)) {
-			if (host->bus_ops->suspend)
+			if (host->bus_ops->suspend) {
+				/*
+				 * For eMMC 4.5 device send notify command
+				 * before sleep, because in sleep state eMMC 4.5
+				 * devices respond to only RESET and AWAKE cmd
+				 */
+				mmc_poweroff_notify(host);
 				err = host->bus_ops->suspend(host);
+			}
 			if (err == -ENOSYS || !host->bus_ops->resume) {
 				/*
 				 * We simply "remove" the card in this case.

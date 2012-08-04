@@ -933,11 +933,14 @@ static int mmc_sdio_suspend(struct mmc_host *host)
 		}
 	}
 
+#ifdef CONFIG_MACH_PX
+#else
 	if (!err && mmc_card_keep_power(host) && mmc_card_wake_sdio_irq(host)) {
 		mmc_claim_host(host);
 		sdio_disable_wide(host->card);
 		mmc_release_host(host);
 	}
+#endif
 
 	return err;
 }
@@ -1054,7 +1057,6 @@ static const struct mmc_bus_ops mmc_sdio_ops = {
 	.power_restore = mmc_sdio_power_restore,
 	.alive = mmc_sdio_alive,
 };
-
 
 /*
  * Starting point for SDIO card init.

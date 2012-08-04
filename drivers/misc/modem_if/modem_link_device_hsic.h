@@ -94,8 +94,14 @@ struct link_pm_data {
 	struct wake_lock l2_wake;
 	struct wake_lock boot_wake;
 	struct wake_lock rpm_wake;
+	struct wake_lock tx_async_wake;
 	struct notifier_block pm_notifier;
 	bool dpm_suspending;
+
+	/* Host wakeup toggle debugging */
+	unsigned ipc_debug_cnt;
+	unsigned long tx_cnt;
+	unsigned long rx_cnt;
 };
 
 struct if_usb_devdata {
@@ -124,10 +130,19 @@ struct usb_link_device {
 	unsigned int		suspended;
 	int if_usb_connected;
 
+	/*It is same with if_usb_connected, but we need to check the side-effect
+	 * from timming changed, it will merge with if_usb_connect variable.*/
+	int if_usb_connected_last;
+
 	bool if_usb_is_main; /* boot,down(false) or main(true) */
 
 	/* LINK PM DEVICE DATA */
 	struct link_pm_data *link_pm_data;
+
+	/*RX retry work by -ENOMEM*/
+	struct delayed_work rx_retry_work;
+	struct urb *retry_urb;
+	unsigned rx_retry_cnt;
 };
 /* converts from struct link_device* to struct xxx_link_device* */
 #define to_usb_link_device(linkdev) \

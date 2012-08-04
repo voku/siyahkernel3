@@ -32,7 +32,20 @@
 #include <linux/bootmem.h>
 #include "s3cfb.h"
 #define NOT_DEFAULT_WINDOW 99
-#define CMA_REGION_FIMD 	"fimd"
+extern struct s3cfb_fimd_desc    *fbfimd;
+inline struct s3cfb_global *get_fimd_global(int id)
+{
+        struct s3cfb_global *fbdev;
+
+        if (id < 5)
+                fbdev = fbfimd->fbdev[0];
+        else
+                fbdev = fbfimd->fbdev[1];
+
+        return fbdev;
+}
+
+#define CMA_REGION_FIMD		"fimd"
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 #define CMA_REGION_VIDEO	"video"
 #else
@@ -1096,14 +1109,14 @@ int s3cfb_wait_for_vsync(struct s3cfb_global *fbdev)
 
 	prev_timestamp = fbdev->vsync_timestamp;
 
-	ret = wait_event_interruptible_timeout(fbdev->wq, 
-        s3cfb_vsync_timestamp_changed(fbdev, prev_timestamp),
-        msecs_to_jiffies(100));
+	ret = wait_event_interruptible_timeout(fbdev->wq,
+		s3cfb_vsync_timestamp_changed(fbdev, prev_timestamp),
+		msecs_to_jiffies(100));
 
 	if (ret == 0)
-	  return -ETIMEDOUT;
+		return -ETIMEDOUT;
 	if (ret < 0)
-	  return ret;
+		return ret;
 
 	dev_dbg(fbdev->dev, "got a VSYNC interrupt\n");
 

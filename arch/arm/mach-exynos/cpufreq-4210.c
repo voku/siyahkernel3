@@ -25,7 +25,6 @@
 #include <plat/clock.h>
 
 #define CPUFREQ_LEVEL_END	L18
-#define DEFAULT_ASV_GROUP	3
 
 static int max_support_idx;
 static int min_support_idx = (CPUFREQ_LEVEL_END - 1);
@@ -184,9 +183,9 @@ static const unsigned int asv_voltage_A[CPUFREQ_LEVEL_END][8] = {
          * @25   :
          */
 	/*ASV=0    ASV=1    ASV=2    ASV=3    ASV=4    ASV=5    ASV=6    ASV=7 */
-	{ 1500000, 1475000, 1450000, 1425000, 1400000, 1375000, 1350000, 1325000 },	//1600MHz
-	{ 1450000, 1425000, 1400000, 1375000, 1350000, 1325000, 1300000, 1275000 },	//1500MHz
-	{ 1400000, 1375000, 1350000, 1325000, 1300000, 1275000, 1250000, 1225000 },	//1400MHz
+	{ 1450000, 1450000, 1425000, 1400000, 1400000, 1350000, 1350000, 1350000 },	//1600MHz
+	{ 1425000, 1425000, 1400000, 1375000, 1375000, 1325000, 1325000, 1325000 },	//1500MHz
+	{ 1400000, 1400000, 1350000, 1325000, 1300000, 1275000, 1250000, 1225000 },	//1400MHz
 	{ 1350000, 1325000, 1325000, 1300000, 1250000, 1225000, 1200000, 1175000 },	//1300MHz
 	{ 1300000, 1275000, 1275000, 1250000, 1200000, 1175000, 1150000, 1125000 },	//1200MHz
 	{ 1275000, 1250000, 1250000, 1225000, 1175000, 1150000, 1125000, 1100000 },	//1100MHz
@@ -205,7 +204,6 @@ static const unsigned int asv_voltage_A[CPUFREQ_LEVEL_END][8] = {
 
 };
 
-#ifndef CONFIG_CPU_EXYNOS4210
 static const unsigned int asv_voltage_B[CPUFREQ_LEVEL_END][5] = {
 	/*
 	 *	   S, A, B, C, D
@@ -216,27 +214,13 @@ static const unsigned int asv_voltage_B[CPUFREQ_LEVEL_END][5] = {
 	 * @500	 :
 	 * @200	 :
 	 */
-	{ 1450000, 1450000, 1450000, 1450000, 1450000 },
-	{ 1400000, 1400000, 1350000, 1300000, 1275000 },
 	{ 1350000, 1350000, 1300000, 1250000, 1225000 },
-	{ 1350000, 1300000, 1250000, 1200000, 1175000 },
 	{ 1325000, 1275000, 1225000, 1175000, 1150000 },
-	{ 1275000, 1250000, 1225000, 1150000, 1100000 },
 	{ 1225000, 1175000, 1125000, 1075000, 1050000 },
-	{ 1200000, 1150000, 1100000, 1050000, 1025000 },
 	{ 1150000, 1100000, 1050000, 1000000,  975000 },
-	{ 1125000, 1075000, 1050000, 1025000,  975000 },
-	{ 1100000, 1050000, 1025000, 1000000,  975000 },
-	{ 1050000, 1000000,  950000,  950000,  950000 },
-	{ 1050000, 1000000,  950000,  950000,  950000 },
 	{ 1050000, 1000000,  950000,  950000,  950000 },
 	{ 1025000,  975000,  950000,  950000,  950000 },
-	{ 1025000,  975000,  950000,  950000,  950000 },
-	{ 1000000,  975000,  950000,  925000,  900000 },
-	{ 1000000,  975000,  950000,  925000,  900000 },
-
 };
-#endif
 
 static void set_clkdiv(unsigned int div_index)
 {
@@ -363,49 +347,52 @@ static void exynos4210_set_frequency(unsigned int old_index,
 	}
 }
 
-static void __init set_volt_table(unsigned int asv_group)
+static void __init set_volt_table(void)
 {
+	unsigned int asv_group = 0;
+	bool for_1400 = false, for_1200 = false, for_1000 = false;
+	unsigned int tmp;
 	unsigned int i;
+
+	tmp = exynos_result_of_asv;
+
+	asv_group = (tmp & 0xF);
+
+	switch (tmp  & (SUPPORT_FREQ_MASK << SUPPORT_FREQ_SHIFT)) {
+	case SUPPORT_1400MHZ:
+		for_1400 = true;
+		max_support_idx = L0;
+		break;
+	case SUPPORT_1200MHZ:
+		for_1200 = true;
+		max_support_idx = L0; //gm L1;
+		break;
+	case SUPPORT_1000MHZ:
+		for_1000 = true;
+		max_support_idx = L6;
+		break;
+	default:
+		for_1000 = true;
+		max_support_idx = L6;
+		break;
+	}
+
+	if (for_1000)
+		exynos4210_freq_table[L4].frequency = CPUFREQ_ENTRY_INVALID;
 
 	printk(KERN_INFO "DVFS : VDD_ARM Voltage table set with %d Group\n", asv_group);
 
-	for (i = 0 ; i < CPUFREQ_LEVEL_END ; i++) {
+	if (for_1400) {
+		for (i = 0 ; i < CPUFREQ_LEVEL_END ; i++) {
 			exynos4210_volt_table[i] =
-				asv_voltage_A[i][asv_group];
+				asv_voltage_B[i][asv_group];
+		}
+	} else {
+		for (i = 0 ; i < CPUFREQ_LEVEL_END ; i++) {
+				exynos4210_volt_table[i] =
+					asv_voltage_A[i][asv_group];
+		}
 	}
-}
-
-static unsigned int asv_group = DEFAULT_ASV_GROUP;
-
-void update_volt_table(unsigned int asv_group)
-{
-	unsigned int i;
-
-	printk(KERN_INFO "DVFS : VDD_ARM Voltage table updated with %d Group\n", asv_group);
-
-	for (i = 0 ; i < CPUFREQ_LEVEL_END ; i++) {
-			exynos4210_volt_table[i] =
-				asv_voltage_A[i][asv_group];
-	}
-}
-
-ssize_t show_asv_group(struct cpufreq_policy *policy, char *buf)
-{
-	return sprintf(buf, "asv_group: %d\n", asv_group);
-}
-
-ssize_t store_asv_group(struct cpufreq_policy *policy,
-				const char *buf, size_t count)
-{
-	unsigned int ret;
-	ret = sscanf(buf, "%d", &asv_group);
-
-	if (ret != 1 || asv_group < 0 || asv_group > 7)
-		return -EINVAL;
-	else
-		update_volt_table(asv_group);
-
-	return count;
 }
 
 #if defined(CONFIG_REGULATOR_MAX8997)
@@ -435,7 +422,7 @@ int exynos4210_cpufreq_init(struct exynos_dvfs_info *info)
 	unsigned int tmp;
 	unsigned long rate;
 
-	set_volt_table(asv_group);
+	set_volt_table();
 	exynos4210_cpufreq_set_pmic_vol_table();
 
 	cpu_clk = clk_get(NULL, "armclk");

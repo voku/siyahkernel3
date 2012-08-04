@@ -1,15 +1,13 @@
 # bcmdhd
 DHDCFLAGS = -Wall -Wstrict-prototypes -Dlinux -DBCMDRIVER                     \
         -DBCMDONGLEHOST -DUNRELEASEDCHIP -DBCMDMA32 -DWLBTAMP -DBCMFILEIMAGE  \
-        -DDHDTHREAD -DDHD_GPL -DDHD_SCHED -DDHD_DEBUG -DBDC -DTOE    \
+        -DDHDTHREAD -DDHD_GPL -DDHD_SCHED -DDHD_DEBUG -DBDC                   \
         -DDHD_BCMEVENTS -DSHOW_EVENTS -DDONGLEOVERLAYS -DBCMDBG               \
         -DCUSTOMER_HW_SAMSUNG -DOOB_INTR_ONLY                                 \
         -DMMC_SDIO_ABORT -DBCMSDIO -DBCMLXSDMMC -DBCMPLATFORM_BUS -DWLP2P     \
         -DNEW_COMPAT_WIRELESS -DWIFI_ACT_FRAME -DARP_OFFLOAD_SUPPORT          \
         -DKEEP_ALIVE -DCSCAN -DPKT_FILTER_SUPPORT                             \
         -DEMBEDDED_PLATFORM -DPNO_SUPPORT
-#Removed
-#-DDHD_USE_EARLYSUSPEND
 
 # distinguish between the 43xx chip
 ifeq ($(CONFIG_BCM4334),m)
@@ -96,7 +94,7 @@ endif
 
 # For SLP feature
 ifeq ($(CONFIG_SLP),y)
-DHDCFLAGS += -DSLP_PATH -DWRITE_MACADDR
+DHDCFLAGS += -DSLP_PATH -DWRITE_MACADDR -DCUSTOMER_HW_SLP
 endif
 
 # 5GHz channels setting

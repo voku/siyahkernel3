@@ -681,8 +681,11 @@ static u8 sdhci_calc_timeout(struct sdhci_host *host, struct mmc_command *cmd)
 			count = 0xE;
 	}
 
-	if (count >= 0xF)
+	if (count >= 0xF) {
+		printk(KERN_WARNING "%s: Too large timeout requested for CMD%d!\n",
+		       mmc_hostname(host->mmc), cmd->opcode);
 		count = 0xE;
+	}
 
 	return count;
 }
@@ -2381,11 +2384,6 @@ int sdhci_resume_host(struct sdhci_host *host)
 		/* enable sdio interrupt */
 		sdhci_enable_sdio_irq(host->mmc, 1);
 	}
-	/* if sdio intterrupt is already set then
-	 * call mmc_signal_sdio_irq to handle sdio irq
-	 */
-	if (sdhci_readl(host, SDHCI_INT_STATUS) & SDHCI_INT_CARD_INT)
-		mmc_signal_sdio_irq(host->mmc);
 #endif
 	return ret;
 }

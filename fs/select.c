@@ -345,10 +345,10 @@ static int max_select_fd(unsigned long n, fd_set_bits *fds)
 	struct fdtable *fdt;
 
 	/* handle last in-complete long-word first */
-	set = ~(~0UL << (n & (BITS_PER_LONG-1)));
-	n /= BITS_PER_LONG;
+	set = ~(~0UL << (n & (__NFDBITS-1)));
+	n /= __NFDBITS;
 	fdt = files_fdtable(current->files);
-	open_fds = fdt->open_fds->fds_bits+n;
+	open_fds = fdt->open_fds + n;
 	max = 0;
 	if (set) {
 		set &= BITS(fds, n);
@@ -373,7 +373,7 @@ get_max:
 			max++;
 			set >>= 1;
 		} while (set);
-		max += n * BITS_PER_LONG;
+		max += n * __NFDBITS;
 	}
 
 	return max;

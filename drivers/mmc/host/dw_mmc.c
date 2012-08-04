@@ -862,7 +862,7 @@ static void dw_mci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 			timeout--;
 		} else
 			break;
-	} while (1);
+	} while(1);
 
 	/* We don't support multiple blocks of weird lengths. */
 	dw_mci_queue_request(host, slot, mrq);
@@ -981,7 +981,7 @@ static void dw_mci_enable_sdio_irq(struct mmc_host *mmc, int enb)
 	}
 }
 
-static u8 dw_mci_tuning_sampling(struct dw_mci *host)
+static u8 dw_mci_tuning_sampling(struct dw_mci * host)
 {
 	u32 clksel;
 	u8 sample;
@@ -995,7 +995,7 @@ static u8 dw_mci_tuning_sampling(struct dw_mci *host)
 	return sample;
 }
 
-static void dw_mci_set_sampling(struct dw_mci *host, u8 sample)
+static void dw_mci_set_sampling(struct dw_mci * host, u8 sample)
 {
 	u32 clksel;
 
@@ -1004,7 +1004,7 @@ static void dw_mci_set_sampling(struct dw_mci *host, u8 sample)
 	mci_writel(host, CLKSEL, clksel);
 }
 
-static u8 dw_mci_get_sampling(struct dw_mci *host)
+static u8 dw_mci_get_sampling(struct dw_mci * host)
 {
 	u32 clksel;
 	u8 sample;
@@ -1035,7 +1035,7 @@ static u8 get_median_sample(u8 map)
 		if ((map >> pos) & 0x1)
 			break;
 
-	} while (pos != max);
+	} while(pos != max);
 
 	return pos;
 }
@@ -1073,14 +1073,19 @@ static int dw_mci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	start_tune = dw_mci_get_sampling(host);
 
 	do {
-		struct mmc_command cmd = {0};
 		struct mmc_request mrq = {NULL};
+		struct mmc_command cmd = {0};
+		struct mmc_command stop = {0};
 		struct mmc_data data = {0};
 		struct scatterlist sg;
 
 		cmd.opcode = opcode;
 		cmd.arg = 0;
 		cmd.flags = MMC_RSP_R1 | MMC_CMD_ADTC;
+
+		stop.opcode = MMC_STOP_TRANSMISSION;
+		stop.arg = 0;
+		stop.flags = MMC_RSP_R1B | MMC_CMD_AC;
 
 		data.blksz = blksz;
 		data.blocks = 1;
@@ -1092,6 +1097,7 @@ static int dw_mci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 		dw_mci_set_timeout(host);
 
 		mrq.cmd = &cmd;
+		mrq.stop = &stop;
 		mrq.data = &data;
 		host->mrq = &mrq;
 
@@ -1119,7 +1125,7 @@ static int dw_mci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 			break;
 		}
 
-	} while (--tuning_loop);
+	} while(--tuning_loop);
 
 	kfree(tuning_blk);
 
@@ -1598,6 +1604,8 @@ static irqreturn_t dw_mci_interrupt(int irq, void *dev_id)
 			host->cmd_status = status;
 			smp_wmb();
 			set_bit(EVENT_CMD_COMPLETE, &host->pending_events);
+			if (!(pending & SDMMC_INT_RTO))
+				tasklet_schedule(&host->tasklet);
 		}
 
 		if (pending & DW_MCI_DATA_ERROR_FLAGS) {
@@ -1606,8 +1614,7 @@ static irqreturn_t dw_mci_interrupt(int irq, void *dev_id)
 			host->data_status = status;
 			smp_wmb();
 			set_bit(EVENT_DATA_ERROR, &host->pending_events);
-			if (!(pending & (SDMMC_INT_DTO | SDMMC_INT_DCRC |
-							SDMMC_INT_SBE | SDMMC_INT_EBE)))
+			if (!(pending & SDMMC_INT_DTO))
 				tasklet_schedule(&host->tasklet);
 		}
 
@@ -2241,8 +2248,9 @@ static int __exit dw_mci_remove(struct platform_device *pdev)
 	mci_writel(host, RINTSTS, 0xFFFFFFFF);
 	mci_writel(host, INTMASK, 0); /* disable all mmc interrupt first */
 
-	if (host->pdata->cd_type == DW_MCI_CD_EXTERNAL)
+	if (host->pdata->cd_type == DW_MCI_CD_EXTERNAL) {
 		host->pdata->ext_cd_cleanup(&dw_mci_notify_change);
+	}
 
 	platform_set_drvdata(pdev, NULL);
 

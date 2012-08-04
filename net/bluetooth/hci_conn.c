@@ -416,8 +416,11 @@ int hci_conn_del(struct hci_conn *conn)
 
 	/* Make sure no timers are running */
 	del_timer(&conn->idle_timer);
+
 	wake_lock_destroy(&conn->idle_lock);
+
 	del_timer(&conn->disc_timer);
+
 	del_timer(&conn->auto_accept_timer);
 
 	if (conn->type == ACL_LINK) {
@@ -547,11 +550,6 @@ struct hci_conn *hci_connect(struct hci_dev *hdev, int type,
 	hci_conn_hold(acl);
 
 	if (acl->state == BT_OPEN || acl->state == BT_CLOSED) {
-		ie = hci_inquiry_cache_lookup(acl->hdev, &acl->dst);
-		if (ie && (!ie->data.ssp_mode || !acl->hdev->ssp_mode)) {
-			__u8 auth = AUTH_ENABLED;
-			hci_send_cmd(hdev, HCI_OP_WRITE_AUTH_ENABLE, 1, &auth);
-		}
 		acl->sec_level = BT_SECURITY_LOW;
 		acl->pending_sec_level = sec_level;
 		acl->auth_type = auth_type;

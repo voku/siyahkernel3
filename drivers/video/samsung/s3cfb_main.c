@@ -65,7 +65,7 @@ extern int s3cfb_vsync_timestamp_changed(struct s3cfb_global *fbdev, ktime_t pre
 
 struct s3cfb_fimd_desc		*fbfimd;
 
-inline struct s3cfb_global *get_fimd_global(int id)
+/*inline struct s3cfb_global *get_fimd_global(int id)
 {
 	struct s3cfb_global *fbdev;
 
@@ -75,7 +75,7 @@ inline struct s3cfb_global *get_fimd_global(int id)
 		fbdev = fbfimd->fbdev[1];
 
 	return fbdev;
-}
+}*/
 
 int s3cfb_vsync_status_check(void)
 {
@@ -330,28 +330,28 @@ EXPORT_SYMBOL(s3cfb_trigger);
 
 static int s3cfb_wait_for_vsync_thread(void *data)
 {
-    struct s3cfb_global *fbdev = data;
+	struct s3cfb_global *fbdev = data;
 
-    while (!kthread_should_stop()) {
-        ktime_t prev_timestamp = fbdev->vsync_timestamp;
+	while (!kthread_should_stop()) {
+		ktime_t prev_timestamp = fbdev->vsync_timestamp;
 
-        int ret = wait_event_interruptible_timeout(fbdev->wq,
-                        s3cfb_vsync_timestamp_changed(fbdev, prev_timestamp),
-                        msecs_to_jiffies(100));
+		int ret = wait_event_interruptible_timeout(fbdev->wq,
+				s3cfb_vsync_timestamp_changed(fbdev, prev_timestamp),
+				msecs_to_jiffies(100));
 
-        if (ret > 0) {
-            char *envp[2];
-            char buf[64];
+		if (ret > 0) {
+			char *envp[2];
+			char buf[64];
 
-            snprintf(buf, sizeof(buf), "VSYNC=%llu",
-            ktime_to_ns(fbdev->vsync_timestamp));
-            envp[0] = buf;
-            envp[1] = NULL;
-            kobject_uevent_env(&fbdev->dev->kobj, KOBJ_CHANGE, envp);
-        }
-    }
+			snprintf(buf, sizeof(buf), "VSYNC=%llu",
+			ktime_to_ns(fbdev->vsync_timestamp));
+			envp[0] = buf;
+			envp[1] = NULL;
+			kobject_uevent_env(&fbdev->dev->kobj, KOBJ_CHANGE, envp);
+		}
+	}
 
-    return 0;
+	return 0;
 }
 
 static int s3cfb_probe(struct platform_device *pdev)
@@ -532,8 +532,8 @@ static int s3cfb_probe(struct platform_device *pdev)
 
 	fbdev[0]->vsync_thread = kthread_run(s3cfb_wait_for_vsync_thread, fbdev[0], "s3cfb-vsync");
 	if (fbdev[0]->vsync_thread == ERR_PTR(-ENOMEM)) {
-	  dev_err(fbdev[0]->dev, "failed to run vsync thread\n");
-	  fbdev[0]->vsync_thread = NULL;
+		dev_err(fbdev[0]->dev, "failed to run vsync thread\n");
+		fbdev[0]->vsync_thread = NULL;
 	}
 
 	ret = device_create_file(&(pdev->dev), &dev_attr_win_power);
@@ -611,7 +611,7 @@ static int s3cfb_remove(struct platform_device *pdev)
 		}
 
 		if (fbdev[i]->vsync_thread)
-		  kthread_stop(fbdev[i]->vsync_thread);
+			kthread_stop(fbdev[i]->vsync_thread);
 
 		kfree(fbdev[i]->fb);
 		kfree(fbdev[i]);

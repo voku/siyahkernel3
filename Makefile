@@ -1,6 +1,6 @@
 VERSION = 3
 PATCHLEVEL = 0
-SUBLEVEL = 38
+SUBLEVEL = 39
 EXTRAVERSION =
 NAME = Sneaky Weasel
 
@@ -348,65 +348,7 @@ CHECK		= sparse
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
 
-GCCVERSION  := $(shell $(CC) --version | grep ^gcc | sed 's/^.* //g' | cut -c1-3)
-
-CFLAGS_COMPILE  = -pipe
-
-CFLAGS_ARM      = -marm \
-		  -mtune=cortex-a9 \
-		  -march=armv7-a \
-		  -mfpu=neon \
-		  -mfloat-abi=softfp \
-		  -fsingle-precision-constant \
-		  -mvectorize-with-neon-quad \
-		  --param l2-cache-size=1024 \
-		  --param l1-cache-size=64 \
-		  --param simultaneous-prefetches=8 \
-		  --param prefetch-latency=400 
-
-CFLAGS_DISABLE  = -fno-delete-null-pointer-checks \
-		  -fno-ident
-
-CFLAGS_MODULO   = -fmodulo-sched \
-		  -fmodulo-sched-allow-regmoves
-
-#LOOP FLAGS for GCC 4.3 (default)
-CFLAGS_LOOPS_DEFAULT = -ftree-vectorize \
-		  -ftree-loop-linear \
-		  -ftree-loop-distribution
-
-#LOOP FLAGS for GCC 4.6
-CFLAGS_LOOPS_GCC_4_6 = -floop-interchange \
-		  -floop-strip-mine \
-		  -floop-block
-
-#LOOP FLAGS for GCC 4.7.1 LINARO
-CFLAGS_LOOPS_GCC_4_7 = -floop-interchange \
-		  -floop-strip-mine \
-		  -floop-block \
-		  -fgraphiee-identity
-
-CFLAGS_ADDONS = -fpredictive-commoning \
-		  -funswitch-loops \
-		  -ffast-math
-
-KERNELFLAGS = $(CFLAGS_COMPILE) \
-		  $(CFLAGS_ARM) \
-		  $(CFLAGS_DISABLE) \
-		  $(CFLAGS_MODULO) \
-		  $(CFLAGS_LOOPS_DEFAULT) \
-		  $(CFLAGS_ADDONS)
-
-ifeq ($(GCCVERSION),4.6)
-KERNELFLAGS  +=  $(CLFAGS_LOOPS_GCC_4_6)
-endif
-
-ifeq ($(GCCVERSION),4.7)
-KERNELFLAGS  +=  $(CLFAGS_LOOPS_GCC_4_7)
-endif
-
-#FLAGSPOOL = -fprofile-correction -fno-inline-functions -fno-ipa-cp-clone -fno-gcse -funroll-loops
-
+ARM_FLAGS	= -marm -march=armv7-a -mtune=cortex-a9 -mfpu=neon -mfloat-abi=softfp
 CFLAGS_MODULE   =
 AFLAGS_MODULE   =
 LDFLAGS_MODULE  =
@@ -429,7 +371,7 @@ KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -Werror-implicit-function-declaration \
 		   -Wno-format-security \
 		   -fno-delete-null-pointer-checks \
-		   $(KERNELFLAGS)
+		   $(ARM_FLAGS)
 		   
 KBUILD_AFLAGS_KERNEL :=
 KBUILD_CFLAGS_KERNEL :=

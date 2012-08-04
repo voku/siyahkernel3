@@ -49,7 +49,7 @@
 
 MODULE_ALIAS("mmc:block");
 
-#if defined(CONFIG_TARGET_LOCALE_NTT)
+#if defined(CONFIG_MMC_CPRM)
 #define MMC_ENABLE_CPRM
 #endif
 
@@ -1014,9 +1014,10 @@ static int mmc_blk_err_check(struct mmc_card *card,
 	 */
 	if (brq->sbc.error || brq->cmd.error || brq->stop.error ||
 	    brq->data.error) {
-#if defined(CONFIG_MACH_M0) || defined(CONFIG_MACH_P4NOTE) /* dh0421.hwang */
+#if defined(CONFIG_MACH_M0) || defined(CONFIG_MACH_P4NOTE) || \
+		defined(CONFIG_MACH_C1_USA_ATT)
 		if (mmc_card_mmc(card)) {
-			pr_err("brq->sbc.opcode=%d,"	
+			pr_err("brq->sbc.opcode=%d,"
 					"brq->cmd.opcode=%d.\n",
 					brq->sbc.opcode, brq->cmd.opcode);
 			pr_err("brq->sbc.error=%d,"
@@ -1057,6 +1058,12 @@ static int mmc_blk_err_check(struct mmc_card *card,
 	if ((!mmc_host_is_spi(card->host) && rq_data_dir(req) != READ) ||
 			(mq_mrq->packed_cmd == MMC_PACKED_WR_HDR)) {
 		u32 status;
+		/* timeout value set 0x30000 : It works just SDcard case.
+		 * It means send CMD sequencially about 7.8sec.
+		 * If SDcard's data line stays low, timeout is about 4sec.
+		 * max timeout is up to 300ms
+		 */
+		u32 timeout = 0x30000;
 		do {
 			int err = get_card_status(card, &status, 5);
 			if (err) {
@@ -1069,8 +1076,20 @@ static int mmc_blk_err_check(struct mmc_card *card,
 			 * so make sure to check both the busy
 			 * indication and the card state.
 			 */
-		} while (!(status & R1_READY_FOR_DATA) ||
-			 (R1_CURRENT_STATE(status) == R1_STATE_PRG));
+			/* Just SDcard case, decrease timeout */
+			if (mmc_card_sd(card))
+				timeout--;
+		} while ((!(status & R1_READY_FOR_DATA) ||
+			 (R1_CURRENT_STATE(status) == R1_STATE_PRG)) &&
+			 timeout);
+
+		/* If SDcard stays busy status, timeout is to be zero */
+		if (!timeout) {
+			pr_err("%s: card state has been never changed "
+					"to trans.!\n",
+					req->rq_disk->disk_name);
+			return MMC_BLK_DATA_ERR;
+		}
 	}
 
 	if (brq->data.error) {
@@ -1630,8 +1649,9 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 		struct mmc_command cmd;
 #endif
 		if (rqc) {
-			if (reqs >= packed_num)
+			if (reqs >= packed_num) {
 				mmc_blk_packed_hdr_wrq_prep(mq->mqrq_cur, card, mq);
+			}
 			else
 				mmc_blk_rw_rq_prep(mq->mqrq_cur, card, 0, mq);
 			areq = &mq->mqrq_cur->mmc_active;
@@ -1918,6 +1938,26 @@ snd_packed_rd:
 			spin_unlock_irq(&md->lock);
 		}
 	}
+#if defined(CONFIG_MACH_M0) || defined(CONFIG_MACH_P4NOTE) || \
+		defined(CONFIG_MACH_C1_USA_ATT)
+	/*
+	 * It's for Engineering DEBUGGING only
+	 * This has to be removed before PVR(guessing)
+	 * Please refer mshci reg dumps
+	 */
+	if (mmc_card_mmc(card) && status != 3) {
+		pr_err("CMD aborting case in "
+				"MMC's block layer ret %d.\n", ret);
+		pr_err("%s: CMD%d, ARG=0x%x.\n",
+				req->rq_disk->disk_name,
+				brq->cmd.opcode,
+				brq->cmd.arg);
+		pr_err("packed CMD type = %d.\n",
+				mq_rq ?	mq_rq->packed_cmd : -1);
+		pr_err("mmc%d, request returns %d.\n",
+				card->host->index, status);
+	}
+#endif
 
  start_new_req:
 	if (rqc) {

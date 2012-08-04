@@ -80,7 +80,7 @@ wf_chspec_ntoa(chanspec_t chspec, char *buf)
 
 
 	snprintf(buf, 6, "%d%s%s%s", channel, band, bw, sb);
-	return buf;
+	return (buf);
 }
 
 
@@ -143,7 +143,7 @@ wf_chspec_aton(const char *a)
 	}
 
 done:
-	return channel | band | bw | ctl_sb;
+	return (channel | band | bw | ctl_sb);
 }
 
 
@@ -207,11 +207,11 @@ wf_chspec_ctlchspec(chanspec_t chspec)
 	if (CHSPEC_CTL_SB(chspec) == WL_CHANSPEC_CTL_SB_NONE) {
 		return chspec;
 	} else {
-		if (CHSPEC_CTL_SB(chspec) == WL_CHANSPEC_CTL_SB_UPPER)
+		if (CHSPEC_CTL_SB(chspec) == WL_CHANSPEC_CTL_SB_UPPER) {
 			channel = UPPER_20_SB(CHSPEC_CHANNEL(chspec));
-		else
+		} else {
 			channel = LOWER_20_SB(CHSPEC_CHANNEL(chspec));
-
+		}
 		ctl_chspec = channel | WL_CHANSPEC_BW_20 | WL_CHANSPEC_CTL_SB_NONE;
 		ctl_chspec |= CHSPEC_BAND(chspec);
 	}
@@ -220,8 +220,8 @@ wf_chspec_ctlchspec(chanspec_t chspec)
 
 #else
 
-static const char *wf_chspec_bw_str[] = {
-
+static const char *wf_chspec_bw_str[] =
+{
 	"5",
 	"10",
 	"20",
@@ -232,27 +232,27 @@ static const char *wf_chspec_bw_str[] = {
 	"na"
 };
 
-static const uint8 wf_chspec_bw_mhz[] = {
-5, 10, 20, 40, 80, 160, 160};
+static const uint8 wf_chspec_bw_mhz[] =
+{5, 10, 20, 40, 80, 160, 160};
 
 #define WF_NUM_BW \
 	(sizeof(wf_chspec_bw_mhz)/sizeof(uint8))
 
 
-static const uint8 wf_5g_40m_chans[] = {
-38, 46, 54, 62, 102, 110, 118, 126, 134, 142, 151, 159};
+static const uint8 wf_5g_40m_chans[] =
+{38, 46, 54, 62, 102, 110, 118, 126, 134, 142, 151, 159};
 #define WF_NUM_5G_40M_CHANS \
 	(sizeof(wf_5g_40m_chans)/sizeof(uint8))
 
 
-static const uint8 wf_5g_80m_chans[] = {
-42, 58, 106, 122, 138, 155};
+static const uint8 wf_5g_80m_chans[] =
+{42, 58, 106, 122, 138, 155};
 #define WF_NUM_5G_80M_CHANS \
 	(sizeof(wf_5g_80m_chans)/sizeof(uint8))
 
 
-static const uint8 wf_5g_160m_chans[] = {
-50, 114};
+static const uint8 wf_5g_160m_chans[] =
+{50, 114};
 #define WF_NUM_5G_160M_CHANS \
 	(sizeof(wf_5g_160m_chans)/sizeof(uint8))
 
@@ -287,13 +287,18 @@ channel_to_sb(uint center_ch, uint ctl_ch, uint bw)
 	uint lowest = channel_low_edge(center_ch, bw);
 	uint sb;
 
-	if ((ctl_ch - lowest) % 4)
+	if ((ctl_ch - lowest) % 4) {
+
 		return -1;
+	}
 
 	sb = ((ctl_ch - lowest) / 4);
 
-	if (sb >= (bw / 20))
+
+	if (sb >= (bw / 20)) {
+
 		return -1;
+	}
 
 	return sb;
 }
@@ -310,7 +315,7 @@ static int
 channel_80mhz_to_id(uint ch)
 {
 	uint i;
-	for (i = 0; i < WF_NUM_5G_80M_CHANS; i++) {
+	for (i = 0; i < WF_NUM_5G_80M_CHANS; i ++) {
 		if (ch == wf_5g_80m_chans[i])
 			return i;
 	}
@@ -349,8 +354,9 @@ wf_chspec_ntoa(chanspec_t chspec, char *buf)
 
 #ifdef CHANSPEC_NEW_40MHZ_FORMAT
 
-		if (CHSPEC_IS40(chspec) && CHSPEC_IS2G(chspec))
+		if (CHSPEC_IS40(chspec) && CHSPEC_IS2G(chspec)) {
 			sb = CHSPEC_SB_UPPER(chspec) ? "u" : "l";
+		}
 
 		snprintf(buf, CHANSPEC_STR_LEN, "%s%d/%s%s", band, ctl_chan, bw, sb);
 #else
@@ -376,7 +382,7 @@ wf_chspec_ntoa(chanspec_t chspec, char *buf)
 		snprintf(buf, CHANSPEC_STR_LEN, "%d/80+80/%d-%d", ctl_chan, chan1, chan2);
 	}
 
-	return buf;
+	return (buf);
 }
 
 static int
@@ -420,7 +426,7 @@ wf_chspec_aton(const char *a)
 
 	c = tolower(a[0]);
 	if (c == 'g') {
-		a++;
+		a ++;
 
 
 		if (num == 2)
@@ -435,7 +441,9 @@ wf_chspec_aton(const char *a)
 			return 0;
 
 		c = tolower(a[0]);
-	} else {
+	}
+	else {
+
 		ctl_ch = num;
 		chspec_band = ((ctl_ch <= CH_MAX_2G_CHANNEL) ?
 		               WL_CHANSPEC_BAND_2G : WL_CHANSPEC_BAND_5G);
@@ -447,7 +455,8 @@ wf_chspec_aton(const char *a)
 		goto done_read;
 	}
 
-	a++;
+	a ++;
+
 
 	if (c == 'u' || c == 'l') {
 		sb_ul = c;
@@ -455,28 +464,32 @@ wf_chspec_aton(const char *a)
 		goto done_read;
 	}
 
+
 	if (c != '/')
 		return 0;
+
 
 	if (!read_uint(&a, &bw))
 		return 0;
 
-	if (bw == 20)
+
+	if (bw == 20) {
 		chspec_bw = WL_CHANSPEC_BW_20;
-	else if (bw == 40)
+	} else if (bw == 40) {
 		chspec_bw = WL_CHANSPEC_BW_40;
-	else if (bw == 80)
+	} else if (bw == 80) {
 		chspec_bw = WL_CHANSPEC_BW_80;
-	else if (bw == 160)
+	} else if (bw == 160) {
 		chspec_bw = WL_CHANSPEC_BW_160;
-	else
+	} else {
 		return 0;
+	}
 
 	c = tolower(a[0]);
 
 	if (chspec_band == WL_CHANSPEC_BAND_2G && bw == 40) {
 		if (c == 'u' || c == 'l') {
-			a++;
+			a ++;
 			sb_ul = c;
 			goto done_read;
 		}
@@ -485,13 +498,16 @@ wf_chspec_aton(const char *a)
 	if (c == '+') {
 		static const char *plus80 = "80/";
 
+
 		chspec_bw = WL_CHANSPEC_BW_8080;
 
-		a++;
+		a ++;
+
 
 		for (i = 0; i < 3; i++) {
-			if (*a++ != *plus80++)
+			if (*a++ != *plus80++) {
 				return 0;
+			}
 		}
 
 		if (!read_uint(&a, &ch1))
@@ -499,7 +515,7 @@ wf_chspec_aton(const char *a)
 
 		if (a[0] != '-')
 			return 0;
-		a++;
+		a ++;
 
 		if (!read_uint(&a, &ch2))
 			return 0;
@@ -508,7 +524,7 @@ wf_chspec_aton(const char *a)
 done_read:
 
 	while (a[0] == ' ') {
-		a++;
+		a ++;
 	}
 
 	if (a[0] != '\0')
@@ -548,7 +564,7 @@ done_read:
 			return 0;
 		}
 
-		for (i = 0; i < num_ch; i++) {
+		for (i = 0; i < num_ch; i ++) {
 			sb = channel_to_sb(center_ch[i], ctl_ch, bw);
 			if (sb >= 0) {
 				chspec_ch = center_ch[i];
@@ -557,8 +573,10 @@ done_read:
 			}
 		}
 
-		if (sb < 0)
+
+		if (sb < 0) {
 			return 0;
+		}
 	}
 
 	else {
@@ -625,11 +643,12 @@ wf_chspec_malformed(chanspec_t chanspec)
 
 			if (ch2_id <= ch1_id)
 				return TRUE;
-		} else if (chspec_bw == WL_CHANSPEC_BW_20 || chspec_bw == WL_CHANSPEC_BW_40 || 
-				chspec_bw == WL_CHANSPEC_BW_80 || chspec_bw == WL_CHANSPEC_BW_160) {
+		} else if (chspec_bw == WL_CHANSPEC_BW_20 || chspec_bw == WL_CHANSPEC_BW_40 ||
+		           chspec_bw == WL_CHANSPEC_BW_80 || chspec_bw == WL_CHANSPEC_BW_160) {
 
-			if (chspec_ch > MAXCHANNEL)
+			if (chspec_ch > MAXCHANNEL) {
 				return TRUE;
+			}
 		} else {
 
 			return TRUE;
@@ -704,7 +723,7 @@ wf_chspec_valid(chanspec_t chanspec)
 
 			if (chspec_bw == WL_CHANSPEC_BW_20) {
 
-				for (i = 0; i < num_ch; i++) {
+				for (i = 0; i < num_ch; i ++) {
 					if (chspec_ch == (uint)LOWER_20_SB(center_ch[i]) ||
 					    chspec_ch == (uint)UPPER_20_SB(center_ch[i]))
 						break;
@@ -718,14 +737,15 @@ wf_chspec_valid(chanspec_t chanspec)
 				}
 			} else {
 
-				for (i = 0; i < num_ch; i++) {
+				for (i = 0; i < num_ch; i ++) {
 					if (chspec_ch == center_ch[i])
 						break;
 				}
 			}
 
-			if (i < num_ch)
+			if (i < num_ch) {
 				return TRUE;
+			}
 		}
 	}
 
@@ -753,14 +773,16 @@ wf_chspec_ctlchan(chanspec_t chspec)
 
 			if (sb < 4) {
 				center_chan = CHSPEC_CHAN1(chspec);
-			} else {
+			}
+			else {
 				center_chan = CHSPEC_CHAN2(chspec);
 				sb -= 4;
 			}
 
 
 			center_chan = wf_5g_80m_chans[center_chan];
-		} else {
+		}
+		else {
 			bw_mhz = bw_chspec_to_mhz(chspec);
 			center_chan = CHSPEC_CHANNEL(chspec) >> WL_CHANSPEC_CHAN_SHIFT;
 		}
@@ -815,8 +837,8 @@ extern chanspec_t wf_chspec_primary40_chspec(chanspec_t chspec)
 		}
 
 
-		chspec40 = (WL_CHANSPEC_BAND_5G | WL_CHANSPEC_BW_40 | 
-			sb | center_chan);
+		chspec40 = (WL_CHANSPEC_BAND_5G | WL_CHANSPEC_BW_40 |
+		            sb | center_chan);
 	}
 
 	return chspec40;

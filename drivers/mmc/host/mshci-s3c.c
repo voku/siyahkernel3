@@ -490,9 +490,9 @@ static int __devinit mshci_s3c_probe(struct platform_device *pdev)
 		if (pdata->int_power_gpio) {
 			gpio_set_value(pdata->int_power_gpio, 1);
 			s3c_gpio_cfgpin(pdata->int_power_gpio,
-				S3C_GPIO_OUTPUT);
+					S3C_GPIO_OUTPUT);
 			s3c_gpio_setpull(pdata->int_power_gpio,
-				S3C_GPIO_PULL_NONE);
+					S3C_GPIO_PULL_NONE);
 		}
 	}
 
@@ -591,7 +591,7 @@ static int mshci_s3c_resume(struct platform_device *dev)
 	return 0;
 }
 
-#if 0 //Dead function! we never shutdown
+#if 0
 static void mshci_s3c_shutdown(struct platform_device *dev, pm_message_t pm)
 {
 	struct mshci_host *host = platform_get_drvdata(dev);

@@ -166,6 +166,9 @@ int bcmsdh_probe(struct device *dev)
 	int irq = 0;
 	uint32 vendevid;
 	unsigned long irq_flags = 0;
+#if defined(CONFIG_PM_SLEEP) && defined(CUSTOMER_HW_SLP)
+	int ret = 0;
+#endif /* CONFIG_PM_SLEEP && CUSTOMER_HW_SLP */
 
 #if !defined(BCMLXSDMMC) && defined(BCMPLATFORM_BUS)
 	pdev = to_platform_device(dev);
@@ -275,6 +278,11 @@ int bcmsdh_remove(struct device *dev)
 	osl_t *osh;
 
 	sdhc = sdhcinfo;
+#if defined(CONFIG_PM_SLEEP) && defined(CUSTOMER_HW_SLP)
+	/*SLP_wakelock_alternative_code*/
+	device_init_wakeup(pm_dev, 0);
+	printf("%s : device_init_wakeup(pm_dev) disable\n", __func__);
+#endif /* CONFIG_PM_SLEEP && CUSTOMER_HW_SLP */
 	drvinfo.detach(sdhc->ch);
 	bcmsdh_detach(sdhc->osh, sdhc->sdh);
 

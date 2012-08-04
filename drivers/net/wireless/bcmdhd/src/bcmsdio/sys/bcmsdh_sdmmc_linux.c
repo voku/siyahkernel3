@@ -111,7 +111,7 @@ static int bcmsdh_sdmmc_probe(struct sdio_func *func,
 	static struct sdio_func sdio_func_0;
 
 	if (func) {
-		sd_trace(("bcmsdh_sdmmc: %s Enter\n", __func__));
+		sd_trace(("bcmsdh_sdmmc: %s Enter\n", __FUNCTION__));
 		sd_trace(("sdio_bcmsdh: func->class=%x\n", func->class));
 		sd_trace(("sdio_vendor: 0x%04x\n", func->vendor));
 		sd_trace(("sdio_device: 0x%04x\n", func->device));
@@ -121,7 +121,7 @@ static int bcmsdh_sdmmc_probe(struct sdio_func *func,
 			sdio_func_0.num = 0;
 			sdio_func_0.card = func->card;
 			gInstance->func[0] = &sdio_func_0;
-			if (func->device == 0x4) { /* 4318 */
+			if(func->device == 0x4) { /* 4318 */
 				gInstance->func[2] = NULL;
 				sd_trace(("NIC found, calling bcmsdh_probe...\n"));
 				ret = bcmsdh_probe(&func->dev);
@@ -137,7 +137,7 @@ static int bcmsdh_sdmmc_probe(struct sdio_func *func,
 			sd_trace(("F2 found, calling bcmsdh_probe...\n"));
 			ret = bcmsdh_probe(&func->dev);
 		}
-	} else {
+	}else {
 		ret = -ENODEV;
 	}
 
@@ -147,7 +147,7 @@ static int bcmsdh_sdmmc_probe(struct sdio_func *func,
 static void bcmsdh_sdmmc_remove(struct sdio_func *func)
 {
 	if (func) {
-		sd_err(("bcmsdh_sdmmc: %s Enter\n", __func__));
+		sd_err(("bcmsdh_sdmmc: %s Enter\n", __FUNCTION__));
 		sd_info(("sdio_bcmsdh: func->class=%x\n", func->class));
 		sd_info(("sdio_vendor: 0x%04x\n", func->vendor));
 		sd_info(("sdio_device: 0x%04x\n", func->device));
@@ -190,7 +190,7 @@ static int bcmsdh_sdmmc_suspend(struct device *pdev)
 	if (func->num != 2)
 		return 0;
 
-	sd_err(("%s Enter\n", __func__));
+	sd_err(("%s Enter\n", __FUNCTION__));
 
 	if (dhd_os_check_wakelock(bcmsdh_get_drvdata()))
 		return -EBUSY;
@@ -214,7 +214,7 @@ static int bcmsdh_sdmmc_resume(struct device *pdev)
 	struct sdio_func *func = dev_to_sdio_func(pdev);
 #endif
 	if (func->num == 2)
-		sd_err(("%s Enter\n", __func__));
+		sd_err(("%s Enter\n", __FUNCTION__));
 	dhd_mmc_suspend = FALSE;
 #if !defined(CUSTOMER_HW_SAMSUNG)
 #if defined(OOB_INTR_ONLY)
@@ -296,7 +296,7 @@ sdioh_sdmmc_osinit(sdioh_info_t *sd)
 {
 	struct sdos_info *sdos;
 
-	if (!sd)
+	if(!sd)
 		return BCME_BADARG;
 
 	sdos = (struct sdos_info*)MALLOC(sd->osh, sizeof(struct sdos_info));
@@ -326,7 +326,7 @@ sdioh_interrupt_set(sdioh_info_t *sd, bool enable)
 	ulong flags;
 	struct sdos_info *sdos;
 
-	if (!sd)
+	if(!sd)
 		return BCME_BADARG;
 
 	sd_trace(("%s: %s\n", __FUNCTION__, enable ? "Enabling" : "Disabling"));
@@ -336,7 +336,7 @@ sdioh_interrupt_set(sdioh_info_t *sd, bool enable)
 
 #if !defined(OOB_INTR_ONLY)
 	if (enable && !(sd->intr_handler && sd->intr_handler_arg)) {
-		sd_err(("%s: no handler registered, will not enable\n", __func__));
+		sd_err(("%s: no handler registered, will not enable\n", __FUNCTION__));
 		return SDIOH_API_RC_FAIL;
 	}
 #endif /* !defined(OOB_INTR_ONLY) */
@@ -386,7 +386,7 @@ MODULE_AUTHOR(AUTHOR);
 int sdio_function_init(void)
 {
 	int error = 0;
-	sd_trace(("bcmsdh_sdmmc: %s Enter\n", __func__));
+	sd_trace(("bcmsdh_sdmmc: %s Enter\n", __FUNCTION__));
 
 	gInstance = kzalloc(sizeof(BCMSDH_SDMMC_INSTANCE), GFP_KERNEL);
 	if (!gInstance)
@@ -403,7 +403,7 @@ int sdio_function_init(void)
 extern int bcmsdh_remove(struct device *dev);
 void sdio_function_cleanup(void)
 {
-	sd_trace(("%s Enter\n", __func__));
+	sd_trace(("%s Enter\n", __FUNCTION__));
 
 
 	sdio_unregister_driver(&bcmsdh_sdmmc_driver);
