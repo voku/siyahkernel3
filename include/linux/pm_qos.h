@@ -10,13 +10,6 @@
 #include <linux/device.h>
 #include <linux/workqueue.h>
 
-enum pm_qos_flags_status {
-	PM_QOS_FLAGS_UNDEFINED = -1,
-	PM_QOS_FLAGS_NONE,
-	PM_QOS_FLAGS_SOME,
-	PM_QOS_FLAGS_ALL,
-};
-
 enum {
 	PM_QOS_RESERVED = 0,
 	PM_QOS_CPU_DMA_LATENCY,
@@ -29,6 +22,13 @@ enum {
 
 	/* insert new class ID */
 	PM_QOS_NUM_CLASSES,
+};
+
+enum pm_qos_flags_status {
+	PM_QOS_FLAGS_UNDEFINED = -1,
+	PM_QOS_FLAGS_NONE,
+	PM_QOS_FLAGS_SOME,
+	PM_QOS_FLAGS_ALL,
 };
 
 #define PM_QOS_DEFAULT_VALUE -1
