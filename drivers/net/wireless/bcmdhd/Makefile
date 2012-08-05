@@ -8,7 +8,7 @@ DHDCFLAGS = -Wall -Wstrict-prototypes -Dlinux -DBCMDRIVER                     \
         -DNEW_COMPAT_WIRELESS -DWIFI_ACT_FRAME -DARP_OFFLOAD_SUPPORT          \
         -DKEEP_ALIVE -DCSCAN -DPKT_FILTER_SUPPORT                             \
         -DEMBEDDED_PLATFORM -DPNO_SUPPORT				      \
-	-DSET_RANDOM_MAC_SOFTAP 
+	-DSET_RANDOM_MAC_SOFTAP -DWL_CFG80211_STA_EVENT 
 
 # distinguish between the 43xx chip
 ifeq ($(CONFIG_BCM4334),m)
