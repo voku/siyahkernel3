@@ -540,13 +540,32 @@ static int soc_pcm_open(struct snd_pcm_substream *substream)
 
 	mutex_lock(&pcm_mutex);
 
+	if (rtd->dai_link->pre) {
+		ret = rtd->dai_link->pre(substream);
+		if (ret < 0) {
+			printk(KERN_ERR "asoc: can't setup DAI link %s\n",
+				rtd->dai_link->name);
+			goto out;
+		}
+	}
+
+
+	if (rtd->dai_link->ops && rtd->dai_link->ops->startup) {
+		ret = rtd->dai_link->ops->startup(substream);
+		if (ret < 0) {
+			printk(KERN_ERR "asoc: %s startup failed\n",
+				rtd->dai_link->name);
+			goto machine_err;
+		}
+	}
+
 	/* startup the audio subsystem */
 	if (cpu_dai->driver->ops->startup) {
 		ret = cpu_dai->driver->ops->startup(substream, cpu_dai);
 		if (ret < 0) {
 			printk(KERN_ERR "asoc: can't open interface %s\n",
 				cpu_dai->name);
-			goto out;
+			goto cpu_err;
 		}
 	}
 
@@ -564,14 +583,6 @@ static int soc_pcm_open(struct snd_pcm_substream *substream)
 			printk(KERN_ERR "asoc: can't open codec %s\n",
 				codec_dai->name);
 			goto codec_dai_err;
-		}
-	}
-
-	if (rtd->dai_link->ops && rtd->dai_link->ops->startup) {
-		ret = rtd->dai_link->ops->startup(substream);
-		if (ret < 0) {
-			printk(KERN_ERR "asoc: %s startup failed\n", rtd->dai_link->name);
-			goto machine_err;
 		}
 	}
 
@@ -673,10 +684,6 @@ static int soc_pcm_open(struct snd_pcm_substream *substream)
 	return 0;
 
 config_err:
-	if (rtd->dai_link->ops && rtd->dai_link->ops->shutdown)
-		rtd->dai_link->ops->shutdown(substream);
-
-machine_err:
 	if (codec_dai->driver->ops->shutdown)
 		codec_dai->driver->ops->shutdown(substream, codec_dai);
 
@@ -687,6 +694,13 @@ codec_dai_err:
 platform_err:
 	if (cpu_dai->driver->ops->shutdown)
 		cpu_dai->driver->ops->shutdown(substream, cpu_dai);
+cpu_err:
+	if (rtd->dai_link->ops && rtd->dai_link->ops->shutdown)
+		rtd->dai_link->ops->shutdown(substream);
+
+machine_err:
+	if (rtd->dai_link->post)
+		rtd->dai_link->post(substream);
 out:
 	mutex_unlock(&pcm_mutex);
 	return ret;
@@ -761,11 +775,12 @@ static int soc_codec_close(struct snd_pcm_substream *substream)
 	if (codec_dai->driver->ops->shutdown)
 		codec_dai->driver->ops->shutdown(substream, codec_dai);
 
+	if (platform->driver->ops && platform->driver->ops->close)
+		platform->driver->ops->close(substream);
+
 	if (rtd->dai_link->ops && rtd->dai_link->ops->shutdown)
 		rtd->dai_link->ops->shutdown(substream);
 
-	if (platform->driver->ops && platform->driver->ops->close)
-		platform->driver->ops->close(substream);
 	cpu_dai->runtime = NULL;
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
