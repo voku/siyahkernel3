@@ -50,3 +50,10 @@ config BCMDHD_WIFI_PM
 	  Enable support for changing the WiFi power mode for
 	  screen-off.
 
+config DHD_USE_SCHED_SCAN
+	bool "Use CFG80211 sched scan"
+	depends on BCM4330 && CFG80211
+	default y
+	---help---
+	  Use CFG80211 sched scan
+
