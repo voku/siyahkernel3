@@ -297,6 +297,18 @@ int snd_soc_default_readable_register(struct snd_soc_codec *codec,
 				      unsigned int reg);
 int snd_soc_default_writable_register(struct snd_soc_codec *codec,
 				      unsigned int reg);
+unsigned int snd_soc_platform_read(struct snd_soc_platform *platform,
+					unsigned int reg);
+unsigned int snd_soc_platform_write(struct snd_soc_platform *platform,
+					unsigned int reg, unsigned int val);
+
+struct snd_soc_codec *snd_soc_card_get_codec(struct snd_soc_card *card,
+		const char *codec_name);
+struct snd_pcm_substream *snd_soc_get_dai_substream(struct snd_soc_card *card,
+		const char *dai_link, int stream);
+struct snd_soc_pcm_runtime *snd_soc_get_pcm_runtime(struct snd_soc_card *card,
+		const char *dai_link);
+int snd_soc_card_active_links(struct snd_soc_card *card);
 
 /* Utility functions to get clock rates from various things */
 int snd_soc_calc_frame_size(int sample_size, int channels, int tdm_slots);
@@ -666,12 +678,28 @@ struct snd_soc_dai_link {
 
 	/* Symmetry requirements */
 	unsigned int symmetric_rates:1;
+	/* No PCM created for this DAI link */
+	unsigned int no_pcm:1;
+	/* This DAI link can change CODEC and platform at runtime*/
+	unsigned int dynamic:1;
+	/* This DAI link has no codec side driver*/
+	unsigned int no_codec:1;
+	/* This DAI has a Backend ID */
+	unsigned int be_id;
+	/* This DAI can support no host IO (no pcm data is copied to from host) */
+	unsigned int no_host_mode:2;
+	/* DAI link active */
+	unsigned int active;
 
 	/* codec/machine specific init - e.g. add machine controls */
 	int (*init)(struct snd_soc_pcm_runtime *rtd);
 
 	/* machine stream operations */
 	struct snd_soc_ops *ops;
+
+	/* pre and post DAI link activity */
+	int (*pre)(struct snd_pcm_substream *substream);
+	void (*post)(struct snd_pcm_substream *substream);
 };
 
 struct snd_soc_codec_conf {

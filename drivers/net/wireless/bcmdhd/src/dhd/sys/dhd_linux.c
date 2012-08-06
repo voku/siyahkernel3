@@ -609,11 +609,16 @@ static void dhd_set_packet_filter(int value, dhd_pub_t *dhd)
 }
 
 #if defined(CONFIG_HAS_EARLYSUSPEND)
+#ifdef CONFIG_BCMDHD_WIFI_PM
+static int wifi_pm = 0;
+/* /sys/module/dhd/parameters/wifi_pm */
+module_param(wifi_pm, int, 0664);
+#endif
 static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 {
 	char iovbuf[32];
-#ifndef CUSTOMER_HW_SAMSUNG
 	int power_mode = PM_MAX;
+#ifndef CUSTOMER_HW_SAMSUNG
 	/* wl_pkt_filter_enable_t	enable_parm; */
 	int bcn_li_dtim = 3;
 	uint roamvar = 1;
@@ -628,6 +633,10 @@ static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 	DHD_ERROR(("%s: enter, value = %d in_suspend=%d\n",
 		__FUNCTION__, value, dhd->in_suspend));
 
+#ifdef CONFIG_BCMDHD_WIFI_PM
+	if (wifi_pm == 1)
+		power_mode = PM_FAST;
+#endif
 	if (dhd && dhd->up) {
 		if (value && dhd->in_suspend) {
 			if (wl_cfgp2p_p2p_listen_suspend())
@@ -639,10 +648,8 @@ static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 			/* Kernel suspended */
 			DHD_ERROR(("%s: force extra Suspend setting \n", __FUNCTION__));
 
-#ifndef CUSTOMER_HW_SAMSUNG
 			dhd_wl_ioctl_cmd(dhd, WLC_SET_PM, (char *)&power_mode,
 				sizeof(power_mode), TRUE, 0);
-#endif
 
 			/* Enable packet filter, only allow unicast packet to send up */
 			if (dhd_pkt_filter_enable && !dhd->dhcp_in_progress) {
@@ -687,11 +694,9 @@ static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 			/* Kernel resumed  */
 			DHD_ERROR(("%s: Remove extra suspend setting \n", __FUNCTION__));
 
-#ifndef CUSTOMER_HW_SAMSUNG
 			power_mode = PM_FAST;
 			dhd_wl_ioctl_cmd(dhd, WLC_SET_PM, (char *)&power_mode,
 				sizeof(power_mode), TRUE, 0);
-#endif
 
 			/* disable pkt filter */
 			if (dhd_pkt_filter_enable && !dhd->dhcp_in_progress) {
@@ -2652,7 +2657,7 @@ int sleep_never = 0;
 static int
 dhd_stop(struct net_device *net)
 {
-	int ifidx;
+	int ifidx = 0;
 	dhd_info_t *dhd = *(dhd_info_t **)netdev_priv(net);
 	DHD_OS_WAKE_LOCK(&dhd->pub);
 	DHD_TRACE(("%s: (WAR TRACE)Enter %p\n", __FUNCTION__, net));
@@ -2687,6 +2692,8 @@ dhd_stop(struct net_device *net)
 	/* Stop the protocol module */
 	dhd_prot_stop(&dhd->pub);
 
+	OLD_MOD_DEC_USE_COUNT;
+exit:
 #if defined(WL_CFG80211)
 	if (ifidx == 0) {
 		if (!dhd_download_fw_on_driverload)
@@ -2709,8 +2716,7 @@ dhd_stop(struct net_device *net)
 	dhd->pub.hang_was_sent = 0;
 	dhd->pub.rxcnt_timeout = 0;
 	dhd->pub.txcnt_timeout = 0;
-	OLD_MOD_DEC_USE_COUNT;
-exit:
+
 	DHD_OS_WAKE_UNLOCK(&dhd->pub);
 	return 0;
 }
@@ -2855,6 +2861,9 @@ dhd_open(struct net_device *net)
 
 	OLD_MOD_INC_USE_COUNT;
 exit:
+	if (ret)
+		dhd_stop(net);
+
 	DHD_OS_WAKE_UNLOCK(&dhd->pub);
 	return ret;
 }
@@ -3414,8 +3423,9 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 	int ret = 0;
 	char eventmask[WL_EVENTING_MASK_LEN];
 	char iovbuf[WL_EVENTING_MASK_LEN + 12];	/*  Room for "event_msgs" + '\0' + bitvec  */
-
+#if !defined(WL_CFG80211)
 	uint up = 0;
+#endif
 	uint power_mode = PM_FAST;
 	uint32 dongle_align = DHD_SDALIGN;
 #if defined(BCM4334_CHIP)
@@ -3822,10 +3832,10 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 
 #ifdef PKT_FILTER_SUPPORT
 	/* Setup defintions for pktfilter , enable in suspend */
-	dhd->pktfilter_count = 1;
+	dhd->pktfilter_count = 2;
 	/* Setup filter to allow unicast only */
 	dhd->pktfilter[0] = "100 0 0 0 0x01 0x00";
-
+	dhd->pktfilter[1] = "104 0 0 0 0xFFFFFFFFFFFF 0x01005E0000FB";
 #if defined(SOFTAP)
 	if (ap_fw_loaded) {
 		int i;
@@ -3851,12 +3861,13 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 	if (dhd_customer_set_country(dhd) < 0)
 		DHD_ERROR(("%s: can't set country \n", __FUNCTION__));
 #endif
-
+#if !defined(WL_CFG80211)
 	/* Force STA UP */
 	if ((ret = dhd_wl_ioctl_cmd(dhd, WLC_UP, (char *)&up, sizeof(up), TRUE, 0)) < 0) {
 		DHD_ERROR(("%s Setting WL UP failed %d\n", __FUNCTION__, ret));
 		goto done;
 	}
+#endif
 #ifdef VSDB
 	dhd_wl_ioctl_cmd(dhd, WLC_SET_INTERFERENCE_MODE, (int *)&interference_mode, sizeof(int), TRUE, 0);
 #endif
@@ -4591,13 +4602,10 @@ dhd_os_ioctl_resp_wait(dhd_pub_t *pub, uint *condition, bool *pending)
 	 * Can be changed by another processor.
 	 */
 	smp_mb();
-	while (!(*condition) && (!signal_pending(current) && timeout)) {
+	while (!(*condition) && timeout) {	
 		timeout = schedule_timeout(timeout);
 		smp_mb();
 	}
-
-	if (signal_pending(current))
-		*pending = TRUE;
 
 	set_current_state(TASK_RUNNING);
 	remove_wait_queue(&dhd->ioctl_resp_wait, &wait);
@@ -5041,7 +5049,8 @@ int net_os_rxfilter_add_remove(struct net_device *dev, int add_remove, int num)
 	char *filterp = NULL;
 	int ret = 0;
 
-	if (!dhd || (num == DHD_UNICAST_FILTER_NUM))
+	if (!dhd || (num == DHD_UNICAST_FILTER_NUM) ||
+			(num == DHD_MDNS_FILTER_NUM))
 		return ret;
 	if (num >= dhd->pub.pktfilter_count)
 		return -EINVAL;
@@ -5096,7 +5105,7 @@ int net_os_set_packet_filter(struct net_device *dev, int val)
 }
 
 
-void
+int
 dhd_dev_init_ioctl(struct net_device *dev)
 {
 	dhd_info_t *dhd = *(dhd_info_t **)netdev_priv(dev);
@@ -5104,7 +5113,7 @@ dhd_dev_init_ioctl(struct net_device *dev)
 	 if (_dhd_set_mac_address(dhd, 0, &dhd->pub.mac) == 0)
 		 DHD_INFO(("dhd_bus_start: MAC ID is overwritten\n"));
 
-	dhd_preinit_ioctls(&dhd->pub);
+	return dhd_preinit_ioctls(&dhd->pub);
 }
 
 #ifdef PNO_SUPPORT

@@ -41,3 +41,19 @@ config WLAN_REGION_CODE
 		- 202 : KOR KTT
 		- 203 : KOR LGT
 		- 300 : CHN OPEN
+
+config BCMDHD_WIFI_PM
+	bool "Enable support for changing the WiFi power mode"
+	depends on (BCM4330 || BCM4334 || BCM43241)
+	default y
+	---help---
+	  Enable support for changing the WiFi power mode for
+	  screen-off.
+
+config DHD_USE_SCHED_SCAN
+	bool "Use CFG80211 sched scan"
+	depends on BCM4330 && CFG80211
+	default y
+	---help---
+	  Use CFG80211 sched scan
+

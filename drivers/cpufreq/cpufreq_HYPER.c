@@ -43,26 +43,26 @@
  * It helps to keep variable names smaller, simpler
  */
 
-#define DEF_FREQUENCY_DOWN_DIFFERENTIAL         (25)
+#define DEF_FREQUENCY_DOWN_DIFFERENTIAL         (40)
 #define MIN_FREQUENCY_DOWN_DIFFERENTIAL		(1)
-#define DEF_FREQUENCY_UP_THRESHOLD              (70)
-#define DEF_SAMPLING_DOWN_FACTOR                (2)
+#define DEF_FREQUENCY_UP_THRESHOLD              (80)
+#define DEF_SAMPLING_DOWN_FACTOR                (5)
 #define MAX_SAMPLING_DOWN_FACTOR                (100000)
-#define MICRO_FREQUENCY_DOWN_DIFFERENTIAL       (3)
-#define MICRO_FREQUENCY_UP_THRESHOLD            (50)
+#define MICRO_FREQUENCY_DOWN_DIFFERENTIAL       (10)
+#define MICRO_FREQUENCY_UP_THRESHOLD            (60)
 #define MICRO_FREQUENCY_MIN_SAMPLE_RATE         (10000)
 #define MIN_FREQUENCY_UP_THRESHOLD              (11)
 #define MAX_FREQUENCY_UP_THRESHOLD              (100)
-#define FREQ_STEP                               (35)
-#define UP_THRESHOLD_AT_MIN_FREQ                (40)
-#define FREQ_FOR_RESPONSIVENESS                 (700000)
+#define FREQ_STEP                               (40)
+#define UP_THRESHOLD_AT_MIN_FREQ                (60)
+#define FREQ_FOR_RESPONSIVENESS                 (200000)
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #ifdef SUSPEND_FREQ_ON
-#define DEF_SUSPEND_FREQ			(700000)
+#define DEF_SUSPEND_FREQ			(600000)
 #define FREQ_STEP_SUSPEND                       (40)
-#define SAMPLING_FACTOR_SUSPEND			(3)
-#define DEF_FREQUENCY_UP_THRESHOLD_SUSPEND	(95)
+#define SAMPLING_FACTOR_SUSPEND			(2)
+#define DEF_FREQUENCY_UP_THRESHOLD_SUSPEND	(90)
 #endif
 #endif
 
@@ -193,11 +193,11 @@ static void HYPER_suspend(int suspend)
         }
 }
 
-static void hyper__power_early_suspend(struct early_suspend *handler) {
+static void hyper_power_early_suspend(struct early_suspend *handler) {
        HYPER_suspend(1);
 }
 
-static void hyper__power_late_resume(struct early_suspend *handler) {
+static void hyper_power_late_resume(struct early_suspend *handler) {
        HYPER_suspend(0);
 }
 
@@ -308,7 +308,7 @@ static unsigned int powersave_bias_target(struct cpufreq_policy *policy,
 	return freq_hi;
 }
 
-static void hyper__power_powersave_bias_init_cpu(int cpu)
+static void hyper_power_powersave_bias_init_cpu(int cpu)
 {
 	struct cpu_dbs_info_s *dbs_info = &per_cpu(od_cpu_dbs_info, cpu);
 	dbs_info->freq_table = cpufreq_frequency_get_table(cpu);
@@ -319,7 +319,7 @@ static void HYPER_powersave_bias_init(void)
 {
 	int i;
 	for_each_online_cpu(i) {
-		hyper__power_powersave_bias_init_cpu(i);
+		hyper_power_powersave_bias_init_cpu(i);
 	}
 }
 
@@ -333,7 +333,7 @@ static ssize_t show_sampling_rate_min(struct kobject *kobj,
 
 define_one_global_ro(sampling_rate_min);
 
-/* cpufreq_hyper__power Governor Tunables */
+/* cpufreq_hyper_power Governor Tunables */
 #define show_one(file_name, object)					\
 static ssize_t show_##file_name						\
 (struct kobject *kobj, struct attribute *attr, char *buf)              \
@@ -709,7 +709,9 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 		j_dbs_info = &per_cpu(od_cpu_dbs_info, j);
 
 		cur_idle_time = get_cpu_idle_time(j, &cur_wall_time);
-		cur_iowait_time = get_cpu_iowait_time(j, &cur_wall_time);
+
+		if (dbs_tuners_ins.io_is_busy)
+			cur_iowait_time = get_cpu_iowait_time(j, &cur_wall_time);
 
 		wall_time = (unsigned int) cputime64_sub(cur_wall_time,
 				j_dbs_info->prev_cpu_wall);
@@ -719,9 +721,11 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 				j_dbs_info->prev_cpu_idle);
 		j_dbs_info->prev_cpu_idle = cur_idle_time;
 
-		iowait_time = (unsigned int) cputime64_sub(cur_iowait_time,
+		if (dbs_tuners_ins.io_is_busy) {
+			iowait_time = (unsigned int) cputime64_sub(cur_iowait_time,	
 				j_dbs_info->prev_cpu_iowait);
-		j_dbs_info->prev_cpu_iowait = cur_iowait_time;
+			j_dbs_info->prev_cpu_iowait = cur_iowait_time;
+		}
 
 		if (dbs_tuners_ins.ignore_nice) {
 			cputime64_t cur_nice;
@@ -980,7 +984,7 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 		}
 		this_dbs_info->cpu = cpu;
 		this_dbs_info->rate_mult = 1;
-		hyper__power_powersave_bias_init_cpu(cpu);
+		hyper_power_powersave_bias_init_cpu(cpu);
 		/*
 		 * Start the timerschedule work, when this governor
 		 * is used for first time

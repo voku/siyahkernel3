@@ -468,7 +468,7 @@ dhd_wlfc_dump(dhd_pub_t *dhdp, struct bcmstrbuf *strbuf)
 				ea[0], ea[1], ea[2], ea[3], ea[4], ea[5],
 				interfaces[i].interface_id,
 				iftype_desc, ((wlfc->hostif_flow_state[i] == OFF)
-				? " OFF" : " ON"));
+				? " OFF":" ON"));
 
 			bcm_bprintf(strbuf, "INTERFACE[%d].DELAYQ(len,state,credit)"
 				"= (%d,%s,%d)\n",
@@ -1631,9 +1631,9 @@ dhd_wlfc_commit_packets(void* state, f_commitpkt_t fcommit, void* commit_ctx)
 
 		for (credit = 0; credit < ctx->FIFO_credit[ac];) {
 			commit_info.p = _dhd_wlfc_deque_delayedq(ctx, ac,
-							&(commit_info.ac_fifo_credit_spent),
-							&(commit_info.needs_hdr),
-							&(commit_info.mac_entry));
+			                &(commit_info.ac_fifo_credit_spent),
+			                &(commit_info.needs_hdr),
+			                &(commit_info.mac_entry));
 
 			if (commit_info.p == NULL)
 				break;
@@ -1716,9 +1716,9 @@ dhd_wlfc_commit_packets(void* state, f_commitpkt_t fcommit, void* commit_ctx)
 	for (; (credit_count > 0);) {
 
 		commit_info.p = _dhd_wlfc_deque_delayedq(ctx, ac,
-						&(commit_info.ac_fifo_credit_spent),
-						&(commit_info.needs_hdr),
-						&(commit_info.mac_entry));
+		                &(commit_info.ac_fifo_credit_spent),
+		                &(commit_info.needs_hdr),
+		                &(commit_info.mac_entry));
 		if (commit_info.p == NULL)
 			break;
 

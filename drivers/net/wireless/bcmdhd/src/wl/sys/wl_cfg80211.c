@@ -646,10 +646,10 @@ static const u32 __wl_cipher_suites[] = {
 	WLAN_CIPHER_SUITE_WEP104,
 	WLAN_CIPHER_SUITE_TKIP,
 	WLAN_CIPHER_SUITE_CCMP,
-	WLAN_CIPHER_SUITE_AES_CMAC,
 #ifdef BCMWAPI_WPI
-	WLAN_CIPHER_SUITE_SMS4
+	WLAN_CIPHER_SUITE_SMS4,
 #endif
+	WLAN_CIPHER_SUITE_AES_CMAC
 };
 
 #ifdef WL_CFG80211_GON_COLLISION
@@ -1154,6 +1154,8 @@ wl_cfg80211_add_virtual_iface(struct wiphy *wiphy, char *name,
 			wl_set_drv_status(wl, READY, _ndev);
 			wl->p2p->vif_created = true;
 			wl_set_mode_by_netdev(wl, _ndev, mode);
+			WL_DBG((" virtual interface(%s) wl->wdev %p wl->wdev->netdev %p vwdev %p vwdev->netdev %p\n",
+				wl->p2p->vir_ifname, wl->wdev, wl->wdev->netdev, vwdev, vwdev->netdev));
 			net_attach =  wl_to_p2p_bss_private(wl, P2PAPI_BSSCFG_CONNECTION);
 			if (rtnl_is_locked()) {
 				rtnl_unlock();
@@ -1258,7 +1260,9 @@ wl_cfg80211_del_virtual_iface(struct wiphy *wiphy, struct net_device *dev)
 					"HANG Notification sent to %s\n", ret, ndev->name));
 				wl_cfg80211_hang(ndev, WLAN_REASON_UNSPECIFIED);
 			}
-
+			else {
+				WL_ERR(("Firmware success from p2p_ifdel dev %p wdev %p ndev %p", dev, wl->wdev, wl_to_prmry_ndev(wl)));
+			}
 			/* Wait for any pending scan req to get aborted from the sysioc context */
 			timeout = wait_event_interruptible_timeout(wl->netif_change_event,
 				(wl_get_p2p_status(wl, IF_DELETING) == false),
@@ -2903,6 +2907,8 @@ wl_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
 			 */
 			WL_DBG(("ASSOC2 p2p index : %d sme->ie_len %d\n",
 				wl_cfgp2p_find_idx(wl, dev), sme->ie_len));
+			wl_cfgp2p_set_management_ie(wl, dev, wl_cfgp2p_find_idx(wl, dev),
+				VNDR_IE_PRBREQ_FLAG, sme->ie, sme->ie_len);
 			wl_cfgp2p_set_management_ie(wl, dev, wl_cfgp2p_find_idx(wl, dev),
 				VNDR_IE_ASSOCREQ_FLAG, sme->ie, sme->ie_len);
 		}
@@ -5696,13 +5702,21 @@ static s32 wl_inform_single_bss(struct wl_priv *wl, struct wl_bss_info *bi, u8 i
 		return EINVAL;
 	}
 
-	WL_DBG(("SSID : \"%s\", rssi %d, channel %d, capability : 0x04%x, bssid %pM"
+	WL_DBG(("SSID : \"%s\", rssi %d, channel %d, capability : 0x04%x, bssid %pM "
 			"mgmt_type %d frame_len %d\n", bi->SSID,
 			notif_bss_info->rssi, notif_bss_info->channel,
 			mgmt->u.beacon.capab_info, &bi->BSSID, mgmt_type,
 			notif_bss_info->frame_len));
 
 	signal = notif_bss_info->rssi * 100;
+
+	if (!mgmt->u.probe_resp.timestamp) {
+		struct timeval tv;
+
+		do_gettimeofday(&tv);
+		mgmt->u.probe_resp.timestamp = ((u64)tv.tv_sec * 1000000)
+			+ tv.tv_usec;
+	}
 
 	cbss = cfg80211_inform_bss_frame(wiphy, channel, mgmt,
 		le16_to_cpu(notif_bss_info->frame_len), signal, GFP_KERNEL);
@@ -7357,7 +7371,7 @@ static s32 wl_escan_handler(struct wl_priv *wl,
 			int cur_len = 0;
 			list = (wl_scan_results_t *)wl->escan_info.escan_buf[wl->escan_info.cur_sync_id%2];
 #if defined(WLP2P) && defined(WL_ENABLE_P2P_IF)
-			if (wl->p2p_net && wl->scan_request &&
+			if (wl->p2p && wl->p2p_net && wl->scan_request &&
 					wl->scan_request->dev == wl->p2p_net) {
 #else
 			if (p2p_is_on(wl) && p2p_scan(wl)) {

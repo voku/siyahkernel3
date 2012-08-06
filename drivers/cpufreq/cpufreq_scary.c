@@ -28,19 +28,20 @@
  * It helps to keep variable names smaller, simpler
  */
 
-#define DEF_FREQUENCY_UP_THRESHOLD		(85)
-#define DEF_FREQUENCY_DOWN_THRESHOLD		(50)
+#define DEF_FREQUENCY_UP_THRESHOLD		(95)
+#define DEF_FREQUENCY_DOWN_THRESHOLD		(70)
 #define DEFAULT_FREQ_STEP			(10)
 #define DEF_SAMPLING_DOWN_FACTOR                (2)
 #define MAX_SAMPLING_DOWN_FACTOR                (100000)
-#define DEFAULT_SLEEP_MIN_FREQ                  700000
-#define DEFAULT_SLEEP_MAX_FREQ			800000
+#define DEF_SMOOTH_UI				(0)
+#define DEFAULT_SLEEP_MIN_FREQ                  100000
+#define DEFAULT_SLEEP_MAX_FREQ			600000
 
 /* This is so that if there are any issues resulting in sleep_prev_freq getting set,
  * there will be a backup freq
  */
-#define DEFAULT_SLEEP_PREV_FREQ			700000
-#define DEFAULT_PREV_MAX			800000
+#define DEFAULT_SLEEP_PREV_FREQ			100000
+#define DEFAULT_PREV_MAX			600000
 static unsigned int suspended;
 static unsigned int sleep_max_freq=DEFAULT_SLEEP_MAX_FREQ;
 static unsigned int sleep_min_freq=DEFAULT_SLEEP_MIN_FREQ;
@@ -57,9 +58,11 @@ static unsigned int sleep_prev_max=DEFAULT_PREV_MAX;
  * this governor will not work.
  * All times here are in uS.
  */
-#define MIN_SAMPLING_RATE_RATIO			(1)
+#define MIN_SAMPLING_RATE_RATIO			(2)
 
 static unsigned int min_sampling_rate;
+
+extern unsigned int touch_is_pressed;
 
 #define LATENCY_MULTIPLIER			(1000)
 #define MIN_LATENCY_MULTIPLIER			(100)
@@ -104,12 +107,14 @@ static struct dbs_tuners {
 	unsigned int down_threshold;
 	unsigned int ignore_nice;
 	unsigned int freq_step;
+	unsigned int smooth_ui;
 } dbs_tuners_ins = {
 	.up_threshold = DEF_FREQUENCY_UP_THRESHOLD,
 	.down_threshold = DEF_FREQUENCY_DOWN_THRESHOLD,
 	.sampling_down_factor = DEF_SAMPLING_DOWN_FACTOR,
 	.ignore_nice = 0,
 	.freq_step = DEFAULT_FREQ_STEP,
+	.smooth_ui = DEF_SMOOTH_UI,
 };
 
 static inline cputime64_t get_cpu_idle_time_jiffy(unsigned int cpu,
@@ -212,6 +217,7 @@ show_one(up_threshold, up_threshold);
 show_one(down_threshold, down_threshold);
 show_one(ignore_nice_load, ignore_nice);
 show_one(freq_step, freq_step);
+show_one(smooth_ui, smooth_ui);
 
 static ssize_t store_sampling_down_factor(struct cpufreq_policy *unused,
 		const char *buf, size_t count)
@@ -346,6 +352,23 @@ static ssize_t store_freq_step(struct cpufreq_policy *policy,
 	return count;
 }
 
+static ssize_t store_smooth_ui(struct cpufreq_policy *unused,
+		const char *buf, size_t count)
+{
+	unsigned int input;
+	int ret;
+	ret = sscanf(buf, "%u", &input);
+
+	if (ret != 1)
+		return -EINVAL;
+
+	mutex_lock(&dbs_mutex);
+	dbs_tuners_ins.smooth_ui = !!input;
+	mutex_unlock(&dbs_mutex);
+
+	return count;
+}
+
 #define define_one_rw(_name) \
 static struct freq_attr _name = \
 __ATTR(_name, 0644, show_##_name, store_##_name)
@@ -356,6 +379,7 @@ define_one_rw(up_threshold);
 define_one_rw(down_threshold);
 define_one_rw(ignore_nice_load);
 define_one_rw(freq_step);
+define_one_rw(smooth_ui);
 
 static struct attribute *dbs_attributes[] = {
 	&sampling_rate_max.attr,
@@ -366,6 +390,7 @@ static struct attribute *dbs_attributes[] = {
 	&down_threshold.attr,
 	&ignore_nice_load.attr,
 	&freq_step.attr,
+	&smooth_ui.attr,
 	NULL
 };
 
@@ -515,8 +540,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 		return;
 
 	/* Check for frequency increase */
-	if (load > dbs_tuners_ins.up_threshold) 
-    {
+	if ((dbs_tuners_ins.smooth_ui && touch_is_pressed) || load > dbs_tuners_ins.up_threshold) {
 		this_dbs_info->down_skip = 0;
 
 		/* if we are already at full speed then break out early */

@@ -1122,7 +1122,9 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 		prev_iowait_time = j_dbs_info->prev_cpu_iowait;
 
 		cur_idle_time = get_cpu_idle_time(j, &cur_wall_time);
-		cur_iowait_time = get_cpu_iowait_time(j, &cur_wall_time);
+
+		if (dbs_tuners_ins.io_is_busy)
+			cur_iowait_time = get_cpu_iowait_time(j, &cur_wall_time);
 
 		wall_time = (unsigned int) cputime64_sub(cur_wall_time,
 							 prev_wall_time);
@@ -1132,9 +1134,11 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 							 prev_idle_time);
 		j_dbs_info->prev_cpu_idle = cur_idle_time;
 
-		iowait_time = (unsigned int) cputime64_sub(cur_iowait_time,
-							   prev_iowait_time);
-		j_dbs_info->prev_cpu_iowait = cur_iowait_time;
+		if (dbs_tuners_ins.io_is_busy) {
+			iowait_time = (unsigned int) cputime64_sub(cur_iowait_time,
+				j_dbs_info->prev_cpu_iowait);
+			j_dbs_info->prev_cpu_iowait = cur_iowait_time;
+		}
 
 		if (dbs_tuners_ins.ignore_nice) {
 			cputime64_t cur_nice;

@@ -1137,8 +1137,7 @@ wl_cfgp2p_has_ie(u8 *ie, u8 **tlvs, u32 *tlvs_len, const u8 *oui, u32 oui_len, u
 
 	/* If the contents match the SAMSUNG OUI */
 	if (ie[TLV_LEN_OFF] >= oui_len + 1 &&
-		!bcmp(&ie[TLV_BODY_OFF], oui, oui_len) &&
-		!bcmp(oui, SAMSUNG_OUI, SAMSUNG_OUI_LEN)) {
+		!bcmp(&ie[TLV_BODY_OFF], oui, oui_len)) { 
 		return TRUE;
 	}
 
