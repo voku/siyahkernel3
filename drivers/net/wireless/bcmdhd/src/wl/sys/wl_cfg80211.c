@@ -5702,7 +5702,7 @@ static s32 wl_inform_single_bss(struct wl_priv *wl, struct wl_bss_info *bi, u8 i
 		return EINVAL;
 	}
 
-	WL_DBG(("SSID : \"%s\", rssi %d, channel %d, capability : 0x04%x, bssid %pM"
+	WL_DBG(("SSID : \"%s\", rssi %d, channel %d, capability : 0x04%x, bssid %pM "
 			"mgmt_type %d frame_len %d\n", bi->SSID,
 			notif_bss_info->rssi, notif_bss_info->channel,
 			mgmt->u.beacon.capab_info, &bi->BSSID, mgmt_type,
@@ -7371,7 +7371,7 @@ static s32 wl_escan_handler(struct wl_priv *wl,
 			int cur_len = 0;
 			list = (wl_scan_results_t *)wl->escan_info.escan_buf[wl->escan_info.cur_sync_id%2];
 #if defined(WLP2P) && defined(WL_ENABLE_P2P_IF)
-			if (wl->p2p_net && wl->scan_request &&
+			if (wl->p2p && wl->p2p_net && wl->scan_request &&
 					wl->scan_request->dev == wl->p2p_net) {
 #else
 			if (p2p_is_on(wl) && p2p_scan(wl)) {
