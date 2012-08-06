@@ -346,7 +346,7 @@ declare_show(min_bl) {
 	return sprintf(buf, "%d\n", min_bl);
 }
 
-declare_store(min_gamma) {	
+declare_store(min_gamma) {
 	int val;
 	if (sscanf(buf, "%d", &val) == 1) {
 		if (val > 23) val = 23;
@@ -589,8 +589,7 @@ static int ld9040_ldi_disable(struct lcd_info *lcd)
 static int update_brightness(struct lcd_info *lcd, u8 force)
 {
 	int ret = 0, brightness;
-	struct ld9040_panel_data; 
-//	struct *pdata = lcd->lcd_pd->pdata;
+	struct ld9040_panel_data *pdata = lcd->lcd_pd->pdata;
 
 	mutex_lock(&lcd->bl_lock);
 
@@ -611,14 +610,13 @@ static int update_brightness(struct lcd_info *lcd, u8 force)
 
 		lcd->current_bl = lcd->bl;
 
-		//dev_info(&lcd->ld->dev, "id=%d brightness=%d, bl=%d, candela=%d\n", pdata->lcdtype, brightness, lcd->bl, candela_table[lcd->bl]);
+		dev_info(&lcd->ld->dev, "id=%d brightness=%d, bl=%d, candela=%d\n", pdata->lcdtype, brightness, lcd->bl, candela_table[lcd->bl]);
 	}
 
 	mutex_unlock(&lcd->bl_lock);
 
 	return ret;
 }
-
 
 static int ld9040_power_on(struct lcd_info *lcd)
 {
