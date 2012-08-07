@@ -7,7 +7,6 @@ export INITRAMFS_SOURCE=`readlink -f $KERNELDIR/../initramfs3`
 
 # kernel
 export ARCH=arm
-export EXTRA_AFLAGS=-mfpu=neon
 export USE_SEC_FIPS_MODE=true
 
 # compiler
