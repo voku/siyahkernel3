@@ -17,7 +17,7 @@ export CROSS_COMPILE=/media/Source-Code/android/system/prebuilt/linux-x86/toolch
 # gcc 4.7 (Linaro 12.04)
 #export CROSS_COMPILE=$PARENT_DIR/linaro/bin/arm-eabi-
 # gcc 4.6 (Linaro 12.06)
-#export CROSS_COMPILE=$KERNELDIR/android-toolchain/bin/arm-eabi-
+# export CROSS_COMPILE=$KERNELDIR/android-toolchain/bin/arm-eabi-
 
 
 # Importing PATCH for GCC depend on GCC version.
@@ -30,9 +30,9 @@ elif [ "a$GCCVERSION_OLD" == "a4.4" ]; then
 	cp $KERNELDIR/arch/arm/boot/compressed/Makefile_old_gcc $KERNELDIR/arch/arm/boot/compressed/Makefile
 elif [ "a$GCCVERSION_OLD" == "a4.5" ]; then
 	cp $KERNELDIR/arch/arm/boot/compressed/Makefile_old_gcc $KERNELDIR/arch/arm/boot/compressed/Makefile
-elif [ "a$GCCVERSION_OLD" == "a4.6" ]; then
+elif [ "a$GCCVERSION_NEW" == "a4.6" ]; then
 	cp $KERNELDIR/arch/arm/boot/compressed/Makefile_linaro $KERNELDIR/arch/arm/boot/compressed/Makefile
-elif [ "a$GCCVERSION_OLD" == "a4.7" ]; then
+elif [ "a$GCCVERSION_NEW" == "a4.7" ]; then
 	cp $KERNELDIR/arch/arm/boot/compressed/Makefile_linaro $KERNELDIR/arch/arm/boot/compressed/Makefile
 else
 	echo "Compiler not recognized! please fix the CUT function to match your compiler."

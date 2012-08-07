@@ -17,8 +17,6 @@
  * GNU General Public License for more details.
  */
 
-#define pr_fmt(fmt) "logger: " fmt
-
 #include <linux/sched.h>
 #include <linux/module.h>
 #include <linux/fs.h>
@@ -27,10 +25,10 @@
 #include <linux/poll.h>
 #include <linux/slab.h>
 #include <linux/time.h>
-#include <linux/vmalloc.h>
 #include "logger.h"
 
 #include <asm/ioctls.h>
+#include <mach/sec_debug.h>
 
 /*
  * struct logger_log - represents a specific log, such as 'main' or 'radio'
@@ -40,7 +38,7 @@
  * mutex 'mutex'.
  */
 struct logger_log {
-	unsigned char		*buffer;/* the ring buffer itself */
+	unsigned char 		*buffer;/* the ring buffer itself */
 	struct miscdevice	misc;	/* misc device representing the log */
 	wait_queue_head_t	wq;	/* wait queue for readers */
 	struct list_head	readers; /* this log's readers */
@@ -48,11 +46,7 @@ struct logger_log {
 	size_t			w_off;	/* current write head offset */
 	size_t			head;	/* new readers start here */
 	size_t			size;	/* size of the log */
-	struct list_head	logs;	/* list of log channels (myself)*/
 };
-
-static LIST_HEAD(log_list);
-
 
 /*
  * struct logger_reader - a logging device open for reading
@@ -67,20 +61,16 @@ struct logger_reader {
 };
 
 /* logger_offset - returns index 'n' into the log via (optimized) modulus */
-static size_t logger_offset(struct logger_log *log, size_t n)
-{
-	return n & (log->size - 1);
-}
-
+#define logger_offset(n)	((n) & (log->size - 1))
 
 /*
  * file_get_log - Given a file structure, return the associated log
  *
  * This isn't aesthetic. We have several goals:
  *
- *	1) Need to quickly obtain the associated log during an I/O operation
- *	2) Readers need to maintain state (logger_reader)
- *	3) Writers need to be very fast (open() should be a near no-op)
+ * 	1) Need to quickly obtain the associated log during an I/O operation
+ * 	2) Readers need to maintain state (logger_reader)
+ * 	3) Writers need to be very fast (open() should be a near no-op)
  *
  * In the reader case, we can trivially go file->logger_reader->logger_log.
  * For a writer, we don't want to maintain a logger_reader, so we just go
@@ -100,24 +90,20 @@ static inline struct logger_log *file_get_log(struct file *file)
  * get_entry_len - Grabs the length of the payload of the next entry starting
  * from 'off'.
  *
- * An entry length is 2 bytes (16 bits) in host endian order.
- * In the log, the length does not include the size of the log entry structure.
- * This function returns the size including the log entry structure.
- *
  * Caller needs to hold log->mutex.
  */
 static __u32 get_entry_len(struct logger_log *log, size_t off)
 {
 	__u16 val;
 
-	/* copy 2 bytes from buffer, in memcpy order, */
-	/* handling possible wrap at end of buffer */
-
-	((__u8 *)&val)[0] = log->buffer[off];
-	if (likely(off+1 < log->size))
-		((__u8 *)&val)[1] = log->buffer[off+1];
-	else
-		((__u8 *)&val)[1] = log->buffer[0];
+	switch (log->size - off) {
+	case 1:
+		memcpy(&val, log->buffer + off, 1);
+		memcpy(((char *) &val) + 1, log->buffer, 1);
+		break;
+	default:
+		memcpy(&val, log->buffer + off, 2);
+	}
 
 	return sizeof(struct logger_entry) + val;
 }
@@ -152,7 +138,7 @@ static ssize_t do_read_log_to_user(struct logger_log *log,
 		if (copy_to_user(buf + len, log->buffer, count - len))
 			return -EFAULT;
 
-	reader->r_off = logger_offset(log, reader->r_off + count);
+	reader->r_off = logger_offset(reader->r_off + count);
 
 	return count;
 }
@@ -162,9 +148,9 @@ static ssize_t do_read_log_to_user(struct logger_log *log,
  *
  * Behavior:
  *
- *	- O_NONBLOCK works
- *	- If there are no log entries to read, blocks until log is written to
- *	- Atomically reads exactly one log entry
+ * 	- O_NONBLOCK works
+ * 	- If there are no log entries to read, blocks until log is written to
+ * 	- Atomically reads exactly one log entry
  *
  * Optimal read size is LOGGER_ENTRY_MAX_LEN. Will set errno to EINVAL if read
  * buffer is insufficient to hold next entry.
@@ -179,10 +165,9 @@ static ssize_t logger_read(struct file *file, char __user *buf,
 
 start:
 	while (1) {
-		mutex_lock(&log->mutex);
-
 		prepare_to_wait(&log->wq, &wait, TASK_INTERRUPTIBLE);
 
+		mutex_lock(&log->mutex);
 		ret = (log->w_off == reader->r_off);
 		mutex_unlock(&log->mutex);
 		if (!ret)
@@ -241,7 +226,7 @@ static size_t get_next_entry(struct logger_log *log, size_t off, size_t len)
 
 	do {
 		size_t nr = get_entry_len(log, off);
-		off = logger_offset(log, off + nr);
+		off = logger_offset(off + nr);
 		count += nr;
 	} while (count < len);
 
@@ -249,28 +234,16 @@ static size_t get_next_entry(struct logger_log *log, size_t off, size_t len)
 }
 
 /*
- * is_between - is a < c < b, accounting for wrapping of a, b, and c
- *    positions in the buffer
- *
- * That is, if a<b, check for c between a and b
- * and if a>b, check for c outside (not between) a and b
- *
- * |------- a xxxxxxxx b --------|
- *               c^
- *
- * |xxxxx b --------- a xxxxxxxxx|
- *    c^
- *  or                    c^
+ * clock_interval - is a < c < b in mod-space? Put another way, does the line
+ * from a to b cross c?
  */
-static inline int is_between(size_t a, size_t b, size_t c)
+static inline int clock_interval(size_t a, size_t b, size_t c)
 {
-	if (a < b) {
-		/* is c between a and b? */
-		if (a < c && c <= b)
+	if (b < a) {
+		if (a < c || b >= c)
 			return 1;
 	} else {
-		/* is c outside of b through a? */
-		if (c <= b || a < c)
+		if (a < c && b >= c)
 			return 1;
 	}
 
@@ -288,14 +261,14 @@ static inline int is_between(size_t a, size_t b, size_t c)
 static void fix_up_readers(struct logger_log *log, size_t len)
 {
 	size_t old = log->w_off;
-	size_t new = logger_offset(log, old + len);
+	size_t new = logger_offset(old + len);
 	struct logger_reader *reader;
 
-	if (is_between(old, new, log->head))
+	if (clock_interval(old, new, log->head))
 		log->head = get_next_entry(log, log->head, len);
 
 	list_for_each_entry(reader, &log->readers, list)
-		if (is_between(old, new, reader->r_off))
+		if (clock_interval(old, new, reader->r_off))
 			reader->r_off = get_next_entry(log, reader->r_off, len);
 }
 
@@ -314,7 +287,7 @@ static void do_write_log(struct logger_log *log, const void *buf, size_t count)
 	if (count != len)
 		memcpy(log->buffer, buf + len, count - len);
 
-	log->w_off = logger_offset(log, log->w_off + count);
+	log->w_off = logger_offset(log->w_off + count);
 
 }
 
@@ -337,15 +310,23 @@ static ssize_t do_write_log_from_user(struct logger_log *log,
 
 	if (count != len)
 		if (copy_from_user(log->buffer, buf + len, count - len))
-			/*
-			 * Note that by not updating w_off, this abandons the
-			 * portion of the new entry that *was* successfully
-			 * copied, just above.  This is intentional to avoid
-			 * message corruption from missing fragments.
-			 */
 			return -EFAULT;
 
-	log->w_off = logger_offset(log, log->w_off + count);
+	/* print as kernel log if the log string starts with "!@" */
+	if (count >= 2) {
+		if (log->buffer[log->w_off] == '!'
+		    && log->buffer[logger_offset(log->w_off + 1)] == '@') {
+			char tmp[256];
+			int i;
+			for (i = 0; i < min(count, sizeof(tmp) - 1); i++)
+				tmp[i] =
+				    log->buffer[logger_offset(log->w_off + i)];
+			tmp[i] = '\0';
+			printk("%s\n", tmp);
+		}
+	}
+
+	log->w_off = logger_offset(log->w_off + count);
 
 	return count;
 }
@@ -355,7 +336,7 @@ static ssize_t do_write_log_from_user(struct logger_log *log,
  * writev(), and aio_write(). Writes are our fast path, and we try to optimize
  * them above all else.
  */
-static ssize_t logger_aio_write(struct kiocb *iocb, const struct iovec *iov,
+ssize_t logger_aio_write(struct kiocb *iocb, const struct iovec *iov,
 			 unsigned long nr_segs, loff_t ppos)
 {
 	struct logger_log *log = file_get_log(iocb->ki_filp);
@@ -415,15 +396,7 @@ static ssize_t logger_aio_write(struct kiocb *iocb, const struct iovec *iov,
 	return ret;
 }
 
-static struct logger_log *get_log_from_minor(int minor)
-{
-	struct logger_log *log;
-
-	list_for_each_entry(log, &log_list, logs)
-		if (log->misc.minor == minor)
-			return log;
-	return NULL;
-}
+static struct logger_log *get_log_from_minor(int);
 
 /*
  * logger_open - the log's open() file operation
@@ -470,17 +443,19 @@ static int logger_open(struct inode *inode, struct file *file)
  *
  * Note this is a total no-op in the write-only case. Keep it that way!
  */
-static int logger_release(struct inode *ignored, struct file *file)
+static int logger_release(struct inode *inode, struct file *file)
 {
 	if (file->f_mode & FMODE_READ) {
 		struct logger_reader *reader = file->private_data;
-		struct logger_log *log = reader->log;
-
+		struct logger_log *log;
+		unsigned long start = jiffies;
+		log = get_log_from_minor(MINOR(inode->i_rdev));
 		mutex_lock(&log->mutex);
 		list_del(&reader->list);
 		mutex_unlock(&log->mutex);
-
 		kfree(reader);
+		pr_info("%s: took %d msec\n", __func__,
+			jiffies_to_msecs(jiffies - start));
 	}
 
 	return 0;
@@ -580,87 +555,92 @@ static const struct file_operations logger_fops = {
 };
 
 /*
- * Log size must be a power of two, greater than LOGGER_ENTRY_MAX_LEN,
- * and less than LONG_MAX minus LOGGER_ENTRY_MAX_LEN.
+ * Defines a log structure with name 'NAME' and a size of 'SIZE' bytes, which
+ * must be a power of two, greater than LOGGER_ENTRY_MAX_LEN, and less than
+ * LONG_MAX minus LOGGER_ENTRY_MAX_LEN.
  */
-static int __init create_log(char *log_name, int size)
+#define DEFINE_LOGGER_DEVICE(VAR, NAME, SIZE) \
+static unsigned char _buf_ ## VAR[SIZE]; \
+static struct logger_log VAR = { \
+	.buffer = _buf_ ## VAR, \
+	.misc = { \
+		.minor = MISC_DYNAMIC_MINOR, \
+		.name = NAME, \
+		.fops = &logger_fops, \
+		.parent = NULL, \
+	}, \
+	.wq = __WAIT_QUEUE_HEAD_INITIALIZER(VAR .wq), \
+	.readers = LIST_HEAD_INIT(VAR .readers), \
+	.mutex = __MUTEX_INITIALIZER(VAR .mutex), \
+	.w_off = 0, \
+	.head = 0, \
+	.size = SIZE, \
+};
+
+DEFINE_LOGGER_DEVICE(log_main, LOGGER_LOG_MAIN, 2048*1024)
+DEFINE_LOGGER_DEVICE(log_events, LOGGER_LOG_EVENTS, 256*1024)
+DEFINE_LOGGER_DEVICE(log_radio, LOGGER_LOG_RADIO, 512*1024)
+DEFINE_LOGGER_DEVICE(log_system, LOGGER_LOG_SYSTEM, 256*1024)
+DEFINE_LOGGER_DEVICE(log_sf, LOGGER_LOG_SF, 256*1024)
+
+static struct logger_log *get_log_from_minor(int minor)
 {
-	int ret = 0;
-	struct logger_log *log;
-	unsigned char *buffer;
+	if (log_main.misc.minor == minor)
+		return &log_main;
+	if (log_events.misc.minor == minor)
+		return &log_events;
+	if (log_radio.misc.minor == minor)
+		return &log_radio;
+	if (log_system.misc.minor == minor)
+		return &log_system;
+	if (log_sf.misc.minor == minor)
+		return &log_sf;
+	return NULL;
+}
 
-	buffer = vmalloc(size);
-	if (buffer == NULL)
-		return -ENOMEM;
+static int __init init_log(struct logger_log *log)
+{
+	int ret;
 
-	log = kzalloc(sizeof(struct logger_log), GFP_KERNEL);
-	if (log == NULL) {
-		ret = -ENOMEM;
-		goto out_free_buffer;
-	}
-	log->buffer = buffer;
-
-	log->misc.minor = MISC_DYNAMIC_MINOR;
-	log->misc.name = kstrdup(log_name, GFP_KERNEL);
-	if (log->misc.name == NULL) {
-		ret = -ENOMEM;
-		goto out_free_log;
-	}
-
-	log->misc.fops = &logger_fops;
-	log->misc.parent = NULL;
-
-	init_waitqueue_head(&log->wq);
-	INIT_LIST_HEAD(&log->readers);
-	mutex_init(&log->mutex);
-	log->w_off = 0;
-	log->head = 0;
-	log->size = size;
-
-	INIT_LIST_HEAD(&log->logs);
-	list_add_tail(&log->logs, &log_list);
-
-	/* finally, initialize the misc device for this log */
 	ret = misc_register(&log->misc);
 	if (unlikely(ret)) {
-		pr_err("failed to register misc device for log '%s'!\n",
-				log->misc.name);
-		goto out_free_log;
+		printk(KERN_ERR "logger: failed to register misc "
+		       "device for log '%s'!\n", log->misc.name);
+		return ret;
 	}
 
-	pr_info("created %luK log '%s'\n",
-		(unsigned long) log->size >> 10, log->misc.name);
+	printk(KERN_INFO "logger: created %luK log '%s'\n",
+	       (unsigned long) log->size >> 10, log->misc.name);
 
 	return 0;
-
-out_free_log:
-	kfree(log);
-
-out_free_buffer:
-	vfree(buffer);
-	return ret;
 }
 
 static int __init logger_init(void)
 {
 	int ret;
 
-	ret = create_log(LOGGER_LOG_MAIN, 256*1024);
+	ret = init_log(&log_main);
 	if (unlikely(ret))
 		goto out;
 
-	ret = create_log(LOGGER_LOG_EVENTS, 256*1024);
+	ret = init_log(&log_events);
 	if (unlikely(ret))
 		goto out;
 
-	ret = create_log(LOGGER_LOG_RADIO, 256*1024);
+	ret = init_log(&log_radio);
 	if (unlikely(ret))
 		goto out;
 
-	ret = create_log(LOGGER_LOG_SYSTEM, 256*1024);
+	ret = init_log(&log_system);
 	if (unlikely(ret))
 		goto out;
 
+	ret = init_log(&log_sf);
+	if (unlikely(ret))
+		goto out;
+
+	sec_getlog_supply_loggerinfo(_buf_log_main, _buf_log_radio,
+				     _buf_log_events, _buf_log_system);
 out:
 	return ret;
 }
