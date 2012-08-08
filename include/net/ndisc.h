@@ -46,6 +46,7 @@ enum {
 #include <linux/icmpv6.h>
 #include <linux/in6.h>
 #include <linux/types.h>
+#include <linux/hash.h>
 
 #include <net/neighbour.h>
 
@@ -78,7 +79,6 @@ struct nd_opt_hdr {
 	__u8		nd_opt_type;
 	__u8		nd_opt_len;
 } __packed;
-
 
 extern int			ndisc_init(void);
 
