@@ -116,7 +116,6 @@ static inline struct timespec timespec_sub(struct timespec lhs,
 extern void read_persistent_clock(struct timespec *ts);
 extern void read_boot_clock(struct timespec *ts);
 extern int update_persistent_clock(struct timespec now);
-extern int no_sync_cmos_clock __read_mostly;
 void timekeeping_init(void);
 extern int timekeeping_suspended;
 
@@ -168,7 +167,6 @@ extern void get_monotonic_boottime(struct timespec *ts);
 extern struct timespec timespec_trunc(struct timespec t, unsigned gran);
 extern int timekeeping_valid_for_hres(void);
 extern u64 timekeeping_max_deferment(void);
-extern void timekeeping_leap_insert(int leapsecond);
 extern int timekeeping_inject_offset(struct timespec *ts);
 
 struct tms;
@@ -256,11 +254,8 @@ static __always_inline void timespec_add_ns(struct timespec *a, u64 ns)
 	a->tv_sec += __iter_div_u64_rem(a->tv_nsec + ns, NSEC_PER_SEC, &ns);
 	a->tv_nsec = ns;
 }
-#endif /* __KERNEL__ */
 
-#define FD_SET(fd,fdsetp)  __FD_SET(fd,fdsetp)
-#define FD_CLR(fd,fdsetp)  __FD_CLR(fd,fdsetp)
-#define FD_ISSET(fd,fdsetp)  __FD_ISSET(fd,fdsetp)
+#endif /* __KERNEL__ */
 
 /*
  * Names of the interval timers, and structure

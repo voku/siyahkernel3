@@ -174,10 +174,6 @@ module_param(gpu_power_state, int, S_IRUSR | S_IRGRP | S_IROTH); /* r--r--r-- */
 MODULE_PARM_DESC(gpu_power_state, "Mali Power State");
 extern _mali_device_power_states mali_dvfs_device_state;
 
-int mali_resume_freq_enabled;
-module_param(mali_resume_freq_enabled, int, S_IRUSR | S_IWUSR | S_IWGRP | S_IRGRP | S_IROTH); /* rw--rw--r-- */
-MODULE_PARM_DESC(mali_resume_freq_enabled, "Mali Resume Frequency enable/disable");
-
 static char mali_dev_name[] = "mali"; /* should be const, but the functions we call requires non-cost */
 
 /* the mali device */
