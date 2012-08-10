@@ -24,9 +24,7 @@
 #include "idma.h"
 #include "dma.h"
 
-#define ENABLE_REG_LOG
 /*#define ENABLE_REG_LOG*/
-#define ENABLE_TRNCNT_WA
 
 #define ST_RUNNING		(1<<0)
 #define ST_OPENED		(1<<1)
@@ -47,7 +45,7 @@ static const struct snd_pcm_hardware idma_hardware = {
 	.channels_min = 1,
 	.channels_max = 2,
 	.buffer_bytes_max = LP_TXBUFF_MAX,
-	.period_bytes_min = PAGE_SIZE,
+	.period_bytes_min = 1024,
 	.period_bytes_max = PAGE_SIZE * 2,
 	.periods_min = 2,
 	.periods_max = 128,
@@ -70,9 +68,6 @@ static struct idma_info {
 	spinlock_t	lock;
 	void		__iomem	*regs;
 	int		trigger_stat;
-#ifdef ENABLE_TRNCNT_WA
-	bool		trncnt_wa_enabled;
-#endif
 } idma;
 
 static void idma_getpos(dma_addr_t *src, struct snd_pcm_substream *substream)
@@ -81,14 +76,6 @@ static void idma_getpos(dma_addr_t *src, struct snd_pcm_substream *substream)
 	struct idma_ctrl *prtd = runtime->private_data;
 
 	*src = prtd->start + (readl(idma.regs + I2STRNCNT) & 0xffffff) * 4;
-
-#ifdef ENABLE_TRNCNT_WA
-	if (idma.trncnt_wa_enabled && (idma.trigger_stat == LPAM_DMA_START)) {
-		*src -= 4;
-		if (*src < prtd->start)
-			*src = prtd->end - 4;
-	}
-#endif
 }
 
 static int idma_enqueue(struct snd_pcm_substream *substream)
@@ -516,12 +503,6 @@ void idma_init(void *regs)
 {
 	spin_lock_init(&idma.lock);
 	idma.regs = regs;
-#if defined(ENABLE_TRNCNT_WA) && defined(CONFIG_ARCH_EXYNOS4)
-	idma.trncnt_wa_enabled = (soc_is_exynos4412() || soc_is_exynos4212()) ?
-				true : false;
-#else
-	idma.trncnt_wa_enabled = false;
-#endif
 }
 
 #ifdef CONFIG_SND_SAMSUNG_RP

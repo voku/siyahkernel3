@@ -92,8 +92,8 @@
 #define MAX_USING_FINGER_NUM 10
 
 #define MXT224_AUTOCAL_WAIT_TIME		2000
-#define TOUCH_LOCK_FREQ			1000000
 #define printk(arg, ...)
+#define TOUCH_LOCK_FREQ			500000
 
 #if defined(U1_EUR_TARGET)
 static bool gbfilter;
@@ -206,6 +206,7 @@ unsigned int lock_freq = TOUCH_LOCK_FREQ;
 
 #define CLEAR_MEDIAN_FILTER_ERROR
 struct mxt224_data *copy_data;
+struct mxt224_platform_data *copy_pdata;
 int touch_is_pressed;
 EXPORT_SYMBOL(touch_is_pressed);
 
@@ -531,6 +532,7 @@ static void mxt224_ta_probe(bool ta_status)
 		ret =
 		    get_object_info(copy_data, PROCG_NOISESUPPRESSION_T48,
 				    &size_one, &obj_address);
+#ifndef CONFIG_TARGET_LOCALE_NAATT_TEMP
 		value = calcfg_dis;
 		register_address = 2;
 		size_one = 1;
@@ -540,16 +542,16 @@ static void mxt224_ta_probe(bool ta_status)
 			 (u8) size_one, &val);
 		printk(KERN_ERR "[TSP]TA_probe MXT224E T%d Byte%d is %d\n", 48,
 		       register_address, val);
-
+#endif
 		if (ta_status)
 			write_config(copy_data, PROCG_NOISESUPPRESSION_T48,
 				     copy_data->noise_suppression_cfg_ta);
 		else
 			write_config(copy_data, PROCG_NOISESUPPRESSION_T48,
 				     copy_data->noise_suppression_cfg);
-#if defined(CONFIG_TARGET_LOCALE_NAATT)
+#if defined(CONFIG_TARGET_LOCALE_NAATT_TEMP)
 		if ((ta_status) && (copy_data->gain_change_flag == 1)) {
-			value = copy_data->gain_ta;
+			value = copy_data->blen_charging_e;
 			write_mem(copy_data, obj_address + 34, size_one,
 				  &value);
 			read_mem(copy_data, obj_address + 34, (u8) size_one,
@@ -592,6 +594,7 @@ static void mxt224_ta_probe(bool ta_status)
 				 &val);
 		}
 #endif
+#ifndef CONFIG_TARGET_LOCALE_NAATT_TEMP
 		value = calcfg_en;
 		write_mem(copy_data, obj_address + (u16) register_address,
 			  size_one, &value);
@@ -599,6 +602,7 @@ static void mxt224_ta_probe(bool ta_status)
 			 (u8) size_one, &val);
 		printk(KERN_ERR "[TSP]TA_probe MXT224E T%d Byte%d is %d\n", 48,
 		       register_address, val);
+#endif
 	} else {
 		if (copy_data->freq_table.fherr_setting >= 1) {
 			ret = get_object_info(copy_data, GEN_POWERCONFIG_T7,
@@ -652,7 +656,7 @@ static void mxt224_ta_probe(bool ta_status)
 			  size_one, &value);
 		read_mem(copy_data, obj_address + (u16) register_address, (u8) size_one, &val);
 		printk(KERN_ERR "[TSP] TA_probe MXT224 T%d Byte%d is %d\n", 9, register_address, val);
-
+		
 		// if 255, it's not modified. by tegrak
 		if (mov_hysti != 255) {
 			value = (u8)mov_hysti;
@@ -783,7 +787,7 @@ void check_chip_calibration(unsigned char one_touch_input_flag)
 			}
 		}
 
-		printk(KERN_ERR "[TSP] t: %d, a: %d\n", tch_ch, atch_ch);
+		pr_debug("[TSP] t: %d, a: %d\n", tch_ch, atch_ch);
 
 		/* send page up command so we can detect
 		when data updates next time, page byte will sit at 1
@@ -1230,8 +1234,10 @@ static int __devinit mxt224_init_touch_driver(struct mxt224_data *data)
 #ifdef CONFIG_KEYBOARD_CYPRESS_SAMMY_CM9
 void (*mxt224_touch_cb)(void) = NULL;
 #endif
+#ifdef CONFIG_KEYBOARD_CYPRESS_AOKP
 extern void flash_led_buttons(unsigned int flash_timeout);
 static unsigned int flash_timeout = 0;
+#endif
 
 static void report_input_data(struct mxt224_data *data)
 {
@@ -1260,10 +1266,10 @@ static void report_input_data(struct mxt224_data *data)
 			data->fingers[i].z = TSP_STATE_INACTIVE;
 		/* logging */
 #ifdef __TSP_DEBUG
-			//printk(KERN_ERR "[TSP] Up[%d] %4d,%4d\n", i,
-			//       data->fingers[i].x, data->fingers[i].y);
+			printk(KERN_ERR "[TSP] Up[%d] %4d,%4d\n", i,
+			       data->fingers[i].x, data->fingers[i].y);
 #else
-			//printk(KERN_ERR "[TSP] Up[%d]\n", i);
+			pr_debug("[TSP] Up[%d]\n", i);
 #endif
 			continue;
 		}
@@ -1299,14 +1305,14 @@ static void report_input_data(struct mxt224_data *data)
 		/* logging */
 #ifdef __TSP_DEBUG
 		if (copy_data->touch_is_pressed_arr[i] == 1)
-			//printk(KERN_ERR "[TSP] Dn[%d] %4d,%4d\n", i,
-			//       data->fingers[i].x, data->fingers[i].y);
+			printk(KERN_ERR "[TSP] Dn[%d] %4d,%4d\n", i,
+			       data->fingers[i].x, data->fingers[i].y);
 		if (copy_data->touch_is_pressed_arr[i] == 2)
-			//printk(KERN_ERR "[TSP] Mv[%d] %4d,%4d\n", i,
-			//       data->fingers[i].x, data->fingers[i].y);
+			printk(KERN_ERR "[TSP] Mv[%d] %4d,%4d\n", i,
+			       data->fingers[i].x, data->fingers[i].y);
 #else
 		if (copy_data->touch_is_pressed_arr[i] == 1) {
-			//printk(KERN_ERR "[TSP] Dn[%d]\n", i);
+			pr_debug("[TSP] Dn[%d]\n", i);
 			copy_data->touch_is_pressed_arr[i] = 2;
 		}
 #endif
@@ -1359,11 +1365,13 @@ static void report_input_data(struct mxt224_data *data)
 			copy_data->lock_status = 1;
 			level = ~0;
 		}
-#ifdef CONFIG_KEYBOARD_CYPRESS_SAMMY_CM9
-		if(mxt224_touch_cb!=NULL) (*mxt224_touch_cb)();
-#endif
+#ifdef CONFIG_KEYBOARD_CYPRESS_AOKP
 		if (flash_timeout)
 			flash_led_buttons(flash_timeout);
+#endif
+#ifdef CONFIG_KEYBOARD_CYPRESS_SAMMY_CM9
+		if (mxt224_touch_cb!=NULL) (*mxt224_touch_cb)();
+#endif
 	}
 }
 
@@ -1525,12 +1533,52 @@ static void median_err_setting(void)
 	bool ta_status_check;
 	int ret = 0;
 
+	if (cal_check_flag == 1) {
+		printk(KERN_ERR"[TSP] calibration was forcely good\n");
+		cal_check_flag = 0;
+		good_check_flag = 0;
+		qt_timer_state = 0;
+		qt_time_point = jiffies_to_msecs(jiffies);
+		copy_data->palm_chk_flag = 2;
+
+		ret = get_object_info(copy_data,
+			GEN_ACQUISITIONCONFIG_T8,
+			&size_one, &obj_address);
+		write_mem(copy_data,
+		  obj_address + 6, 1,
+		  &copy_data->atchcalst_e);
+		write_mem(copy_data,
+		  obj_address + 7, 1,
+		  &copy_data->atchcalsthr_e);
+		write_mem(copy_data,
+		  obj_address + 8, 1,
+		  &copy_data->atchfrccalthr_e);
+		write_mem(copy_data,
+		  obj_address + 9, 1,
+		  &copy_data->atchfrccalratio_e);
+	}
+
 	copy_data->read_ta_status(&ta_status_check);
 	if (!ta_status_check) {
 		copy_data->gErrCondition = Check_Err_Condition();
 		switch (copy_data->gErrCondition) {
 		case ERR_RTN_CONDITION_T9:
 			{
+#ifdef CONFIG_TARGET_LOCALE_NAATT_TEMP
+				ret =
+				get_object_info(copy_data,
+				PROCG_NOISESUPPRESSION_T48,
+				&size_one, &obj_address);
+				value = 100;
+				write_mem(copy_data, obj_address+22, 1,
+				&value);
+				value = 100;
+				write_mem(copy_data, obj_address+25, 1,
+				&value);
+				value = 81;
+				write_mem(copy_data, obj_address+39, 1,
+				&value);
+#else
 				ret =
 				    get_object_info(copy_data,
 						    TOUCH_MULTITOUCHSCREEN_T9,
@@ -1585,6 +1633,7 @@ static void median_err_setting(void)
 				value = 80;
 				write_mem(copy_data, obj_address + 39, 1,
 					  &value);
+#endif
 			}
 			break;
 
@@ -2077,7 +2126,7 @@ static ssize_t qt602240_object_setting(struct device *dev,
 
 }
 
-/*
+/* 
  * write MOVHYSTI of TOUCH_MULTITOUCHSCREEN_T9
  * by tegrak, found by vitalij@XDA
  */
@@ -2086,17 +2135,33 @@ static ssize_t mov_hysti_store(struct device *dev,
 					const char *buf, size_t count)
 {
 	unsigned int register_value;
+	u8 **tsp_config;
 	char buff[50];
 	int i;
-
+	
+	//struct i2c_client *client = to_i2c_client(dev);
+//	struct mxt224_data *data = dev_get_drvdata(dev);
+	//struct mxt224_platform_data *pdata = data->client->dev.platform_data;
+	
 	sscanf(buf, "%u", &register_value);
 	
 	// store value in global variable
 	mov_hysti = register_value;
 	
+	/*
+	tsp_config = pdata->config;
+	for (i = 0; tsp_config[i][0] != RESERVED_T255; i++) {
+		if (tsp_config[i][0] == TOUCH_MULTITOUCHSCREEN_T9) {
+			printk(KERN_ERR "[TSP] T9[12]=%u\n", tsp_config[i][12]);
+			tsp_config[i][12] = (u8)register_value;
+			break;
+		}
+	}
+	*/
+	
 	//do not apply if the screen is not active,
 	//it will be applied after turning on the screen anyway -gm
-	if (copy_data->mxt224_enabled == 1)
+	if( copy_data->mxt224_enabled == 1)
 	{
 		i = sprintf(buff, "%u %u %u", TOUCH_MULTITOUCHSCREEN_T9, 11, register_value);
 		qt602240_object_setting(dev, attr, buff, i);
@@ -2108,9 +2173,10 @@ static ssize_t mov_hysti_store(struct device *dev,
  * read MOVHYSTI of TOUCH_MULTITOUCHSCREEN_T9
  * by tegrak, found by vitalij@XDA
  */
+ 
 static ssize_t mov_hysti_show(struct device* dev, 
-					struct device_attribute *attr,
-					char *buf)
+							 struct device_attribute *attr,
+							 char *buf)
 {
 	struct mxt224_data *data = dev_get_drvdata(dev);
 	unsigned int object_type = TOUCH_MULTITOUCHSCREEN_T9;
@@ -2118,13 +2184,14 @@ static ssize_t mov_hysti_show(struct device* dev,
 	int ret;
 	u16 address;
 	u16 size;
-
+	
 	ret = get_object_info(data, (u8)object_type, &size, &address);
 	if (ret || size <= 11) {
 		printk(KERN_ERR "[TSP] fail to get object_info\n");
+//		sprintf(buf, "-1\n");
 		return -EINVAL;
 	}
-
+	
 	read_mem(data, address+11, 1, &val);
 	return sprintf(buf, "%u\n", val);
 }
@@ -2465,7 +2532,7 @@ static void mxt224_optical_gain(uint16_t dbg_mode)
 			    ((uint16_t) data_buffer[1] << 8) +
 			    (uint16_t) data_buffer[0];
 
-#if defined(CONFIG_TARGET_LOCALE_NAATT)
+#if defined(CONFIG_TARGET_LOCALE_NAATT_TEMP)
 			if (copy_data->family_id == 0x81) {
 				if (qt_refrence != 0)
 					qt_refrence = qt_refrence - 16384;
@@ -2493,7 +2560,7 @@ static void mxt224_optical_gain(uint16_t dbg_mode)
 		msleep(20);
 	}
 
-#if defined(CONFIG_TARGET_LOCALE_NAATT)
+#if defined(CONFIG_TARGET_LOCALE_NAATT_TEMP)
 	if (reference_over)
 		copy_data->gain_ta = 0;
 #else
@@ -3024,12 +3091,12 @@ static ssize_t tsp_threshold_store(struct device *dev,
 	else
 		threshold = copy_data->threshold_e;
 
-	if (sscanf(buf, "%d", &threshold) == 1) {	
+	if (sscanf(buf, "%d", &threshold) == 1) {
 		printk(KERN_ERR "[TSP] threshold value %d\n",
 			threshold);
 		ret =
-			get_object_info(copy_data, TOUCH_MULTITOUCHSCREEN_T9,
-				&size_one, &address);
+		    get_object_info(copy_data, TOUCH_MULTITOUCHSCREEN_T9,
+				    &size_one, &address);
 		size_one = 1;
 		value = (u8) threshold;
 		write_mem(copy_data, address + (u16) object_register, size_one,
@@ -3038,7 +3105,7 @@ static ssize_t tsp_threshold_store(struct device *dev,
 			 (u8) size_one, &val);
 
 		printk(KERN_ERR "[TSP] T%d Byte%d is %d\n",
-			TOUCH_MULTITOUCHSCREEN_T9, object_register, val);
+		       TOUCH_MULTITOUCHSCREEN_T9, object_register, val);
 	}
 
 	return size;
@@ -3065,7 +3132,7 @@ static ssize_t touch_config_store(struct device *dev,
 	unsigned int value[6];
 	bool ta_status = 0;
 
-	ret = sscanf(buf, "%d %d %d %d %d %d",
+	ret = sscanf(buf, "%d %d %d %d %d %d\n",
 		&value[0], &value[1], &value[2],
 			&value[3], &value[4], &value[5]);
 
@@ -3097,12 +3164,12 @@ void tsp_touch_config_update(int status)
 
 	if (status > 0) {
 		touch_threshold = copy_data->tchthr_charging;
-		mov_filter = copy_data->movfilter_charging;
 		noise_threshold = copy_data->noisethr_charging;
+		mov_filter = copy_data->movfilter_charging;
 	} else {
 		touch_threshold = copy_data->tchthr_batt;
-		mov_filter = copy_data->movfilter_batt;
 		noise_threshold = copy_data->noisethr_batt;
+		mov_filter = copy_data->movfilter_batt;
 	}
 
 	if (copy_data->read_ta_status) {
@@ -3262,7 +3329,7 @@ static ssize_t touch_lock_freq_store(struct device *dev,
 	int ret;
 	unsigned int value;
 
-	ret = sscanf(buf, "%d", &value);
+	ret = sscanf(buf, "%d\n", &value);
 
 	if (ret != 1)
 		return -EINVAL;
@@ -3363,8 +3430,8 @@ static DEVICE_ATTR(object_write, S_IRUGO | S_IWUSR | S_IWGRP, NULL,
 		   qt602240_object_setting);
 static DEVICE_ATTR(dbg_switch, S_IRUGO | S_IWUSR | S_IWGRP, NULL,
 		   mxt224_debug_setting);
-
-static DEVICE_ATTR(mov_hysti, 0666, mov_hysti_show, mov_hysti_store);
+static DEVICE_ATTR(mov_hysti, S_IRUGO | S_IWUSR | S_IWGRP, 
+		mov_hysti_show, mov_hysti_store);
 
 static DEVICE_ATTR(tsp_touch_config, S_IRUGO | S_IWUSR | S_IWGRP,
 	touch_config_show, touch_config_store);
@@ -3459,7 +3526,7 @@ static int __devinit mxt224_probe(struct i2c_client *client,
 	u8 user_info_value;
 	u16 obj_address = 0;
 
-#if defined(CONFIG_TARGET_LOCALE_NAATT)
+#if defined(CONFIG_TARGET_LOCALE_NAATT_TEMP)
 	int gain_ta_pre;
 #endif
 
@@ -3530,7 +3597,9 @@ static int __devinit mxt224_probe(struct i2c_client *client,
 	data->gpio_read_done = pdata->gpio_read_done;
 
 	data->power_on();
-
+#if defined(CONFIG_MACH_M0_GRANDECTC)
+	msleep(100);
+#endif
 	ret = mxt224_init_touch_driver(data);
 	if (ret) {
 		dev_err(&client->dev, "chip initialization failed\n");
@@ -3548,6 +3617,7 @@ static int __devinit mxt224_probe(struct i2c_client *client,
 	data->tsp_config_version = "20111215";
 
 	copy_data = data;
+	copy_pdata = pdata;
 
 	if (data->family_id == 0x80) {	/*MXT-224 */
 		tsp_config = pdata->config;
@@ -3569,8 +3639,8 @@ static int __devinit mxt224_probe(struct i2c_client *client,
 		data->atchcalsthr_e = pdata->atchcalsthr_e;
 		data->noise_suppression_cfg = pdata->t48_config_batt_e + 1;
 		data->noise_suppression_cfg_ta = pdata->t48_config_chrg_e + 1;
-		data->tchthr_batt_e= pdata->tchthr_batt_e;
-		data->tchthr_charging_e= pdata->tchthr_charging_e;
+		data->tchthr_batt_e = pdata->tchthr_batt_e;
+		data->tchthr_charging_e = pdata->tchthr_charging_e;
 		data->calcfg_batt_e = pdata->calcfg_batt_e;
 		data->calcfg_charging_e = pdata->calcfg_charging_e;
 		data->atchfrccalthr_e = pdata->atchfrccalthr_e;
@@ -3661,25 +3731,6 @@ static int __devinit mxt224_probe(struct i2c_client *client,
 
 	msleep(60);
 	copy_data->mxt224_enabled = 1;
-
-#if defined(CONFIG_TARGET_LOCALE_NAATT)
-	mxt224_ta_probe(1);
-	ret =
-	    get_object_info(data, PROCG_NOISESUPPRESSION_T48, &size_one,
-			    &obj_address);
-	read_mem(data, obj_address + 34, 1, &copy_data->gain_ta);
-	printk(KERN_DEBUG "[TSP]TA_probe MXT224E T%d Byte%d is %d\n", 48, 34,
-	       copy_data->gain_ta);
-	gain_ta_pre = copy_data->gain_ta;
-	mxt224_optical_gain(QT_REFERENCE_MODE);
-	if (gain_ta_pre != copy_data->gain_ta) {
-		printk(KERN_DEBUG
-			"[TSP] change gain value to %d for TA mode\n",
-		       copy_data->gain_ta);
-		copy_data->gain_change_flag = 1;
-	}
-	mxt224_ta_probe(0);
-#endif
 
 	if (data->read_ta_status) {
 		data->read_ta_status(&ta_status);
@@ -3781,7 +3832,7 @@ static int __devinit mxt224_probe(struct i2c_client *client,
 
 	if (device_create_file(sec_touchscreen, &dev_attr_tsp_flash_timeout) < 0)
 		printk(KERN_ERR "Failed to create device file(%s)!\n",
-		       dev_attr_tsp_flash_timeout.attr.name);
+			dev_attr_tsp_flash_timeout.attr.name);
 
 	if (device_create_file
 	    (sec_touchscreen, &dev_attr_tsp_firm_version_phone) < 0)
@@ -3900,8 +3951,10 @@ static int __devinit mxt224_probe(struct i2c_client *client,
 #endif
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
-#if defined(CONFIG_TARGET_LOCALE_NA) || defined(CONFIG_TARGET_LOCALE_NAATT)
+#if defined(CONFIG_TARGET_LOCALE_NA) || defined(CONFIG_TARGET_LOCALE_NAATT_TEMP)
 	data->early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB + 1;
+#elif defined(CONFIG_TARGET_LOCALE_KOR)
+	data->early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB + 3;
 #else
 	data->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
 #endif

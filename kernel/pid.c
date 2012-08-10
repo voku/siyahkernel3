@@ -405,6 +405,7 @@ struct task_struct *pid_task(struct pid *pid, enum pid_type type)
 	if (pid) {
 		struct hlist_node *first;
 		first = rcu_dereference_check(hlist_first_rcu(&pid->tasks[type]),
+					      rcu_read_lock_held() ||
 					      lockdep_tasklist_lock_is_held());
 		if (first)
 			result = hlist_entry(first, struct task_struct, pids[(type)].node);
@@ -418,9 +419,7 @@ EXPORT_SYMBOL(pid_task);
  */
 struct task_struct *find_task_by_pid_ns(pid_t nr, struct pid_namespace *ns)
 {
-	rcu_lockdep_assert(rcu_read_lock_held(),
-			   "find_task_by_pid_ns() needs rcu_read_lock()"
-			   " protection");
+	rcu_lockdep_assert(rcu_read_lock_held());
 	return pid_task(find_pid_ns(nr, ns), PIDTYPE_PID);
 }
 

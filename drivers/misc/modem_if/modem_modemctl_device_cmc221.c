@@ -30,7 +30,6 @@
 #define PIF_TIMEOUT		(180 * HZ)
 #define DPRAM_INIT_TIMEOUT	(30 * HZ)
 
-
 static void mc_state_fsm(struct modem_ctl *mc)
 {
 	int cp_on = gpio_get_value(mc->gpio_cp_on);
@@ -73,36 +72,45 @@ static irqreturn_t phone_active_handler(int irq, void *arg)
 	return IRQ_HANDLED;
 }
 
+/* TX dynamic switching between DPRAM and USB in one modem */
 static irqreturn_t dynamic_switching_handler(int irq, void *arg)
 {
 	struct modem_ctl *mc = (struct modem_ctl *)arg;
 	int txpath = gpio_get_value(mc->gpio_dynamic_switching);
+	bool enumerated = usb_is_enumerated(mc->msd);
 
-	rawdevs_set_tx_link(&mc->commons, txpath ? LINKDEV_USB : LINKDEV_DPRAM);
+	mif_err("txpath=%d, enumeration=%d\n", txpath, enumerated);
+
+	/* do not switch to USB, when USB is not enumerated. */
+	if (!enumerated && txpath) {
+		mc->need_switch_to_usb = true;
+		return IRQ_HANDLED;
+	}
+
+	mc->need_switch_to_usb = false;
+	rawdevs_set_tx_link(mc->msd, txpath ? LINKDEV_USB : LINKDEV_DPRAM);
 
 	return IRQ_HANDLED;
 }
 
 static int cmc221_on(struct modem_ctl *mc)
 {
-	struct link_device *ld = get_current_link(mc->bootd);
+	mc->phone_state = STATE_OFFLINE;
 
 	mif_err("%s\n", mc->bootd->name);
 
 	disable_irq_nosync(mc->irq_phone_active);
 
-	gpio_set_value(mc->gpio_cp_reset, 0);
 	gpio_set_value(mc->gpio_cp_on, 0);
+	msleep(100);
 
+	gpio_set_value(mc->gpio_cp_reset, 0);
 	msleep(500);
 
 	gpio_set_value(mc->gpio_cp_on, 1);
-
 	msleep(100);
 
 	gpio_set_value(mc->gpio_cp_reset, 1);
-
-	mc->phone_state = STATE_OFFLINE;
 
 	return 0;
 }
@@ -115,10 +123,6 @@ static int cmc221_off(struct modem_ctl *mc)
 		return 0;
 
 	mif_err("%s\n", mc->bootd->name);
-
-	if (mc->log_fp)
-		mif_close_log_file(mc);
-
 	gpio_set_value(mc->gpio_cp_on, 0);
 
 	return 0;
@@ -140,8 +144,9 @@ static int cmc221_dump_reset(struct modem_ctl *mc)
 {
 	mif_err("%s\n", mc->bootd->name);
 
-	if (mc->log_fp)
-		mif_close_log_file(mc);
+	if (!wake_lock_active(&mc->mc_wake_lock))
+		wake_lock(&mc->mc_wake_lock);
+	set_sromc_access(true);
 
 	gpio_set_value(mc->gpio_host_active, 0);
 	gpio_set_value(mc->gpio_cp_reset, 0);
@@ -174,10 +179,12 @@ static int cmc221_boot_on(struct modem_ctl *mc)
 {
 	mif_err("%s\n", mc->bootd->name);
 
+	if (!wake_lock_active(&mc->mc_wake_lock))
+		wake_lock(&mc->mc_wake_lock);
+	set_sromc_access(true);
+
 	mc->bootd->modem_state_changed(mc->bootd, STATE_BOOTING);
 	mc->iod->modem_state_changed(mc->iod, STATE_BOOTING);
-
-	mif_set_log_level(mc);
 
 	return 0;
 }
@@ -198,14 +205,10 @@ static int cmc221_boot_off(struct modem_ctl *mc)
 		return -ENXIO;
 	}
 
-	if (!mc->fs_ready)
-		mc->fs_ready = true;
-
-	if (mc->use_mif_log && mc->log_level && !mc->fs_failed &&
-	    mc->fs_ready && !mc->log_fp)
-		mif_open_log_file(mc);
-
 	enable_irq(mc->irq_phone_active);
+
+	set_sromc_access(false);
+	wake_unlock(&mc->mc_wake_lock);
 
 	return 0;
 }
@@ -240,6 +243,7 @@ int cmc221_init_modemctl_device(struct modem_ctl *mc, struct modem_data *pdata)
 	mc->gpio_host_wakeup  = pdata->gpio_host_wakeup;
 #endif
 	mc->gpio_dynamic_switching = pdata->gpio_dynamic_switching;
+	mc->need_switch_to_usb = false;
 
 	if (!mc->gpio_cp_on || !mc->gpio_cp_reset || !mc->gpio_phone_active) {
 		mif_err("%s: ERR! no GPIO data\n", mc->name);
@@ -259,6 +263,8 @@ int cmc221_init_modemctl_device(struct modem_ctl *mc, struct modem_data *pdata)
 		return -1;
 	}
 	mif_err("%s: PHONE_ACTIVE IRQ# = %d\n", mc->name, mc->irq_phone_active);
+
+	wake_lock_init(&mc->mc_wake_lock, WAKE_LOCK_SUSPEND, "cmc_wake_lock");
 
 	flag = IRQF_TRIGGER_FALLING | IRQF_NO_SUSPEND;
 	irq = mc->irq_phone_active;

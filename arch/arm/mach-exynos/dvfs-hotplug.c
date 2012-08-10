@@ -18,7 +18,6 @@
 #include <linux/reboot.h>
 #include <linux/suspend.h>
 #include <linux/io.h>
-#include <linux/earlysuspend.h>
 
 #include <plat/cpu.h>
 
@@ -31,19 +30,11 @@ static unsigned int freq_in_trg;
 static unsigned int freq_min = -1UL;
 
 static unsigned int can_hotplug;
-static unsigned int hotplug_enabled;
-
-static bool screen_off;
 
 static void exynos4_integrated_dvfs_hotplug(unsigned int freq_old,
 					unsigned int freq_new)
 {
 	total_num_target_freq++;
-
-	if (screen_off) 
-		if (!cpu_online(1))
-			return; // if screen off and 1-core then don't hotplug
-
 	freq_in_trg = 800000;
 
 	if ((freq_old >= freq_in_trg) && (freq_new >= freq_in_trg)) {
@@ -115,54 +106,11 @@ static int hotplug_cpufreq_transition(struct notifier_block *nb,
 {
 	struct cpufreq_freqs *freqs = (struct cpufreq_freqs *)data;
 
-	if ((val == CPUFREQ_POSTCHANGE) && can_hotplug && hotplug_enabled)
+	if ((val == CPUFREQ_POSTCHANGE) && can_hotplug)
 		exynos4_integrated_dvfs_hotplug(freqs->old, freqs->new);
 
 	return 0;
 }
-
-static int hotplug_cpufreq_policy_notifier_call(struct notifier_block *this,
-				unsigned long code, void *data)
-{
-	struct cpufreq_policy *policy = data;
-
-	switch (code) {
-	case CPUFREQ_ADJUST:
-		if (
-			(!strnicmp(policy->governor->name, "pegasusq", CPUFREQ_NAME_LEN)) ||
-			(!strnicmp(policy->governor->name, "hotplug", CPUFREQ_NAME_LEN))
-			) 
-		{
-			if(hotplug_enabled)
-			{
-				printk(KERN_DEBUG "Hotplug is disabled: governor=%s\n",
-								policy->governor->name);
-				hotplug_enabled = false;
-			}
-		} 
-		else
-		{
-			if(!hotplug_enabled)
-			{
-				printk(KERN_DEBUG "Hotplug is enabled: governor=%s\n",
-								policy->governor->name);
-				consecutv_highestlevel_cnt = 0;
-				consecutv_lowestlevel_cnt = 0;
-				hotplug_enabled = true;
-			}
-		}
-		break;
-	case CPUFREQ_INCOMPATIBLE:
-	case CPUFREQ_NOTIFY:
-	default:
-		break;
-	}
-
-	return NOTIFY_DONE;
-}
-static struct notifier_block hotplug_cpufreq_policy_notifier = {
-	.notifier_call = hotplug_cpufreq_policy_notifier_call,
-};
 
 static struct notifier_block dvfs_hotplug = {
 	.notifier_call = hotplug_cpufreq_transition,
@@ -190,22 +138,6 @@ static struct notifier_block pm_hotplug = {
 	.notifier_call = hotplug_pm_transition,
 };
 
-static void hotplug_early_suspend(struct early_suspend *handler)
-{
-	screen_off = true;
-}
-
-static void hotplug_late_resume(struct early_suspend *handler)
-{
-	screen_off = false;
-}
-
-static struct early_suspend hotplug_early_suspend_notifier = {
-	.suspend = hotplug_early_suspend,
-	.resume = hotplug_late_resume,
-	.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN,
-};
-
 /*
  * Note : This function should be called after intialization of CPUFreq
  * driver for exynos4. The cpufreq_frequency_table for exynos4 should be
@@ -221,11 +153,7 @@ static int __init exynos4_integrated_dvfs_hotplug_init(void)
 	consecutv_highestlevel_cnt = 0;
 	consecutv_lowestlevel_cnt = 0;
 	can_hotplug = 1;
-#if defined(CPU_FREQ_DEFAULT_GOV_HOTPLUG) || defined(CPU_FREQ_DEFAULT_GOV_PEGASUSQ)
-	hotplug_enabled = false;
-#else
-	hotplug_enabled = true;
-#endif
+
 	table = cpufreq_frequency_get_table(0);
 	if (IS_ERR(table)) {
 		printk(KERN_ERR "%s: Check loading cpufreq before\n", __func__);
@@ -245,10 +173,6 @@ static int __init exynos4_integrated_dvfs_hotplug_init(void)
 
 	register_pm_notifier(&pm_hotplug);
 
-	register_early_suspend(&hotplug_early_suspend_notifier);
-
-	cpufreq_register_notifier(&hotplug_cpufreq_policy_notifier,
-						CPUFREQ_POLICY_NOTIFIER);
 	return cpufreq_register_notifier(&dvfs_hotplug,
 					 CPUFREQ_TRANSITION_NOTIFIER);
 }

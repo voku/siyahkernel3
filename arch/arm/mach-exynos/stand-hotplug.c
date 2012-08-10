@@ -30,7 +30,6 @@
 #include <linux/cpufreq.h>
 #include <linux/device.h>       //for second_core by tegrak
 #include <linux/miscdevice.h>   //for second_core by tegrak
-#include <linux/earlysuspend.h>
 
 #include <plat/map-base.h>
 #include <plat/gpio-cfg.h>
@@ -40,48 +39,62 @@
 #include <mach/regs-gpio.h>
 #include <mach/regs-irq.h>
 
-#if defined(CONFIG_MACH_P11) || defined(CONFIG_MACH_P10)
-#define TRANS_LOAD_H0 30
-#define TRANS_LOAD_L1 20
+#if defined(CONFIG_MACH_P10)
+#define TRANS_LOAD_H0 5
+#define TRANS_LOAD_L1 2
 #define TRANS_LOAD_H1 100
+
+#define BOOT_DELAY	30
+#define CHECK_DELAY_ON	(.5*HZ * 8)
+#define CHECK_DELAY_OFF	(.5*HZ)
+
 #endif
 
-#if defined(CONFIG_MACH_U1) || defined(CONFIG_MACH_PX)
+#if defined(CONFIG_MACH_U1) || defined(CONFIG_MACH_PX) || \
+	defined(CONFIG_MACH_TRATS)
 #define TRANS_LOAD_H0 30
 #define TRANS_LOAD_L1 20
 #define TRANS_LOAD_H1 100
+
+#define BOOT_DELAY	60
+#define CHECK_DELAY_ON	(.5*HZ * 4)
+#define CHECK_DELAY_OFF	(.5*HZ)
 #endif
 
-#if defined(CONFIG_MACH_MIDAS) || defined(CONFIG_MACH_SMDK4X12)
-#ifdef CONFIG_MACH_S2PLUS
-#define TRANS_LOAD_H0 30
-#define TRANS_LOAD_L1 20
-#define TRANS_LOAD_H1 100
-#else
+#if defined(CONFIG_MACH_MIDAS) || defined(CONFIG_MACH_SMDK4X12) \
+	|| defined(CONFIG_MACH_SLP_PQ)
 #define TRANS_LOAD_H0 20
 #define TRANS_LOAD_L1 10
 #define TRANS_LOAD_H1 35
-#endif
 #define TRANS_LOAD_L2 15
 #define TRANS_LOAD_H2 45
 #define TRANS_LOAD_L3 20
+
+#define BOOT_DELAY	60
+
+#if defined(CONFIG_MACH_SLP_PQ)
+#define CHECK_DELAY_ON	(.3*HZ * 4)
+#define CHECK_DELAY_OFF	(.3*HZ)
+#else
+#define CHECK_DELAY_ON	(.5*HZ * 4)
+#define CHECK_DELAY_OFF	(.5*HZ)
+#endif
 #endif
 
 #define TRANS_RQ 2
 #define TRANS_LOAD_RQ 20
-#define CHECK_DELAY	(.5*HZ)
 
 #define CPU_OFF 0
 #define CPU_ON  1
 
 #define HOTPLUG_UNLOCKED 0
 #define HOTPLUG_LOCKED 1
-#define PM_HOTPLUG_DEBUG 0
+#define PM_HOTPLUG_DEBUG 1
 #define NUM_CPUS num_possible_cpus()
 #define CPULOAD_TABLE (NR_CPUS + 1)
 
 #define DBG_PRINT(fmt, ...)\
-	if (PM_HOTPLUG_DEBUG)			\
+	if(PM_HOTPLUG_DEBUG)			\
 		printk(KERN_INFO pr_fmt(fmt), ##__VA_ARGS__)
 
 static struct workqueue_struct *hotplug_wq;
@@ -91,7 +104,7 @@ static unsigned int max_performance;
 static unsigned int freq_min = -1UL;
 module_param_named(freq_min, freq_min, uint, 0644);
 
-static unsigned int hotpluging_rate = CHECK_DELAY;
+static unsigned int hotpluging_rate = CHECK_DELAY_OFF;
 module_param_named(rate, hotpluging_rate, uint, 0644);
 static unsigned int user_lock;
 module_param_named(lock, user_lock, uint, 0644);
@@ -145,6 +158,20 @@ static DEFINE_MUTEX(hotplug_lock);
 int second_core_on = 1;
 int hotplug_on = 1;
 
+bool hotplug_out_chk(unsigned int nr_online_cpu, unsigned int threshold_up,
+		unsigned int avg_load, unsigned int cur_freq)
+{
+#if defined(CONFIG_MACH_P10)
+	return ((nr_online_cpu > 1) &&
+		(avg_load < threshold_up &&
+		cur_freq <= freq_min));
+#else
+	return ((nr_online_cpu > 1) &&
+		(avg_load < threshold_up ||
+		cur_freq <= freq_min));
+#endif
+}
+
 static inline enum flag
 standalone_hotplug(unsigned int load, unsigned long nr_rq_min, unsigned int cpu_rq_min)
 {
@@ -162,6 +189,8 @@ standalone_hotplug(unsigned int load, unsigned long nr_rq_min, unsigned int cpu_
 		{0, 0}
 	};
 
+	static void __iomem *clk_fimc;
+	unsigned char fimc_stat;
 
 	cur_freq = clk_get_rate(clk_get(NULL, "armclk")) / 1000;
 
@@ -169,16 +198,23 @@ standalone_hotplug(unsigned int load, unsigned long nr_rq_min, unsigned int cpu_
 
 	avg_load = (unsigned int)((cur_freq * load) / max_performance);
 
-	if (nr_online_cpu > 1 && (avg_load < threshold[nr_online_cpu - 1][0] ||
-				  cur_freq <= freq_min)) {
+	clk_fimc = ioremap(0x10020000, SZ_4K);
+	fimc_stat = __raw_readl(clk_fimc + 0x0920);
+	iounmap(clk_fimc);
 
+	if ((fimc_stat>>4 & 0x1) == 1)
+		return HOTPLUG_IN;
+
+	if (hotplug_out_chk(nr_online_cpu, threshold[nr_online_cpu - 1][0],
+			    avg_load, cur_freq)) {
 		return HOTPLUG_OUT;
 		/* If total nr_running is less than cpu(on-state) number, hotplug do not hotplug-in */
 	} else if (nr_running() > nr_online_cpu &&
 		   avg_load > threshold[nr_online_cpu - 1][1] && cur_freq > freq_min) {
 
 		return HOTPLUG_IN;
-
+#if defined(CONFIG_MACH_P10)
+#else
 	} else if (nr_online_cpu > 1 && nr_rq_min < trans_rq) {
 
 		struct cpu_time_info *tmp_info;
@@ -187,6 +223,7 @@ standalone_hotplug(unsigned int load, unsigned long nr_rq_min, unsigned int cpu_
 		/*If CPU(cpu_rq_min) load is less than trans_load_rq, hotplug-out*/
 		if (tmp_info->load < trans_load_rq)
 			return HOTPLUG_OUT;
+#endif
 	}
 
 	return HOTPLUG_NOP;
@@ -204,7 +241,7 @@ static void hotplug_timer(struct work_struct *work)
 
 	mutex_lock(&hotplug_lock);
 
-	if (!standhotplug_enabled) {
+	if(!standhotplug_enabled) {
 		printk(KERN_INFO "pm-hotplug: disable cpu auto-hotplug\n");
 		goto off_hotplug;
 	}
@@ -240,6 +277,11 @@ static void hotplug_timer(struct work_struct *work)
 		if (wall_time < idle_time)
 			goto no_hotplug;
 
+#ifdef CONFIG_TARGET_LOCALE_P2TMO_TEMP
+		/*For once Divide-by-Zero issue*/
+		if (wall_time == 0)
+			wall_time++;
+#endif
 		tmp_info->load = 100 * (wall_time - idle_time) / wall_time;
 
 		load += tmp_info->load;
@@ -264,7 +306,7 @@ static void hotplug_timer(struct work_struct *work)
 	flag_hotplug = standalone_hotplug(load, nr_rq_min, cpu_rq_min);
 
 	/*do not ever hotplug out CPU 0*/
-	if ((cpu_rq_min == 0) && (flag_hotplug == HOTPLUG_OUT))
+	if((cpu_rq_min == 0) && (flag_hotplug == HOTPLUG_OUT))
 		goto no_hotplug;
 
 	/*cpu hotplug*/
@@ -272,12 +314,12 @@ static void hotplug_timer(struct work_struct *work)
 		DBG_PRINT("cpu%d turning on!\n", select_off_cpu);
 		cpu_up(select_off_cpu);
 		DBG_PRINT("cpu%d on\n", select_off_cpu);
-		hotpluging_rate = CHECK_DELAY * 4;
+		hotpluging_rate = CHECK_DELAY_ON;
 	} else if (flag_hotplug == HOTPLUG_OUT && cpu_online(cpu_rq_min) == CPU_ON) {
 		DBG_PRINT("cpu%d turnning off!\n", cpu_rq_min);
 		cpu_down(cpu_rq_min);
 		DBG_PRINT("cpu%d off!\n", cpu_rq_min);
-		hotpluging_rate = CHECK_DELAY;
+		hotpluging_rate = CHECK_DELAY_OFF;
 	} 
 
 no_hotplug:
@@ -369,7 +411,7 @@ declare_store(hotplug_on) {
 	if (!hotplug_on && strcmp(buf, "on\n") == 0) {
 		hotplug_on = 1;
 		// restart worker thread.
-		hotpluging_rate = CHECK_DELAY;
+		hotpluging_rate = CHECK_DELAY_ON;
 		queue_delayed_work_on(0, hotplug_wq, &hotplug_work, hotpluging_rate);
 		printk("second_core: hotplug is on!\n");
 	}
@@ -469,7 +511,7 @@ static int __init exynos4_pm_hotplug_init(void)
 
 	INIT_DELAYED_WORK(&hotplug_work, hotplug_timer);
 
-	queue_delayed_work_on(0, hotplug_wq, &hotplug_work, 60 * HZ);
+	queue_delayed_work_on(0, hotplug_wq, &hotplug_work, BOOT_DELAY * HZ);
 #ifdef CONFIG_CPU_FREQ
 	table = cpufreq_frequency_get_table(0);
 
@@ -521,21 +563,25 @@ static int standhotplug_cpufreq_policy_notifier_call(struct notifier_block *this
 
 	switch (code) {
 	case CPUFREQ_ADJUST:
-		if 	(
+		if (
 			(!strnicmp(policy->governor->name, "pegasusq", CPUFREQ_NAME_LEN)) ||
-			(!strnicmp(policy->governor->name, "abyssplug", CPUFREQ_NAME_LEN)) ||
-			(!strnicmp(policy->governor->name, "hotplug", CPUFREQ_NAME_LEN))
+			(!strnicmp(policy->governor->name, "hotplug", CPUFREQ_NAME_LEN)) ||
+			(!strnicmp(policy->governor->name, "assplug", CPUFREQ_NAME_LEN))
 			) 
-		{ 
-			if (standhotplug_enabled) {
+		{
+			if(standhotplug_enabled)
+			{
 				DBG_PRINT("Stand-hotplug is disabled: governor=%s\n",
 								policy->governor->name);
 				mutex_lock(&hotplug_lock);
 				standhotplug_enabled = false;
 				mutex_unlock(&hotplug_lock);
 			}
-		} else {
-			if (!standhotplug_enabled) {
+		} 
+		else
+		{
+			if(!standhotplug_enabled)
+			{
 				DBG_PRINT("Stand-hotplug is enabled: governor=%s\n",
 								policy->governor->name);
 				mutex_lock(&hotplug_lock);

@@ -573,48 +573,51 @@ static ssize_t store_vdd_levels(struct cpufreq_policy *policy, const char *buf, 
 	if (count < 1)
 		return 0;
 
-		if (buf[0] == '-') {
-			sign = -1;
-			i++;
-		} else if (buf[0] == '+') {
-			sign = 1;
-			i++;
-		}
+	if (buf[0] == '-') {
+		sign = -1;
+		i++;
+	} else if (buf[0] == '+') {
+		sign = 1;
+		i++;
+	}
 
 	for (j = 0; i < count; i++) {
 		char c = buf[i];
 		if ((c >= '0') && (c <= '9')) {
 			pair[j] *= 10;
 			pair[j] += (c - '0');
-		} else if ((c == ' ') || (c == '\t')) {
+		}
+		else if ((c == ' ') || (c == '\t')) {
 			if (pair[j] != 0) {
 				j++;
 				if ((sign != 0) || (j > 1))
 					break;
 			}
 		} else
-	break;
+		break;
 	}
 
 	if (sign != 0) {
 		if (pair[0] > 0)
-			acpuclk_set_vdd(0, sign * pair[0]);
+		acpuclk_set_vdd(0, sign * pair[0]);
 	} else {
 		if ((pair[0] > 0) && (pair[1] > 0))
 			acpuclk_set_vdd((unsigned)pair[0], pair[1]);
 		else
 			return -EINVAL;
-	}
+		}
+
 	return count;
 }
+
 extern ssize_t show_smooth_level(struct cpufreq_policy *policy, char *buf);
 extern ssize_t store_smooth_level(struct cpufreq_policy *policy, 
 					const char *buf, size_t count);
 
 /* sysfs interface for UV control */
 extern ssize_t show_UV_mV_table(struct cpufreq_policy *policy, char *buf);
-extern ssize_t store_UV_mV_table(struct cpufreq_policy *policy, 
-					const char *buf, size_t count);
+extern ssize_t store_UV_mV_table(struct cpufreq_policy *policy,
+                                      const char *buf, size_t count);
 
 /**
  * show_scaling_driver - show the current cpufreq HW/BIOS limitation
@@ -1001,8 +1004,8 @@ static int cpufreq_add_dev(struct sys_device *sys_dev)
 		    (cpumask_test_cpu(cpu, cp->related_cpus))) {
 			policy->governor = cp->governor;
 			policy->min = cp->min;
-			policy->max = cp->max;
 			policy->min_suspend = cp->min_suspend;
+			policy->max = cp->max;
 			policy->max_suspend = cp->max_suspend;
 			found = 1;
 			break;
@@ -1019,7 +1022,6 @@ static int cpufreq_add_dev(struct sys_device *sys_dev)
 		pr_debug("initialization failed\n");
 		goto err_unlock_policy;
 	}
-
 	policy->user_policy.min = policy->min;
 	policy->user_policy.min_suspend = policy->min_suspend;
 	policy->user_policy.max = policy->max;

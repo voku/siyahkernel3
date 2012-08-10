@@ -27,7 +27,6 @@
 #include <linux/regulator/consumer.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
-#include <linux/module.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/regulator.h>
@@ -635,14 +634,17 @@ static int suspend_set_state(struct regulator_dev *rdev,
 	struct regulator_state *rstate)
 {
 	int ret = 0;
+	bool can_set_state;
+
+	can_set_state = rdev->desc->ops->set_suspend_enable &&
+		rdev->desc->ops->set_suspend_disable;
 
 	/* If we have no suspend mode configration don't set anything;
-	 * only warn if the driver implements set_suspend_voltage or
-	 * set_suspend_mode callback.
+	 * only warn if the driver actually makes the suspend mode
+	 * configurable.
 	 */
 	if (!rstate->enabled && !rstate->disabled) {
-		if (rdev->desc->ops->set_suspend_voltage ||
-		    rdev->desc->ops->set_suspend_mode)
+		if (can_set_state)
 			rdev_warn(rdev, "No configuration\n");
 		return 0;
 	}
@@ -652,13 +654,15 @@ static int suspend_set_state(struct regulator_dev *rdev,
 		return -EINVAL;
 	}
 
-	if (rstate->enabled && rdev->desc->ops->set_suspend_enable)
-		ret = rdev->desc->ops->set_suspend_enable(rdev);
-	else if (rstate->disabled && rdev->desc->ops->set_suspend_disable)
-		ret = rdev->desc->ops->set_suspend_disable(rdev);
-	else /* OK if set_suspend_enable or set_suspend_disable is NULL */
-		ret = 0;
+	if (!can_set_state) {
+		rdev_err(rdev, "no way to set suspend state\n");
+		return -EINVAL;
+	}
 
+	if (rstate->enabled)
+		ret = rdev->desc->ops->set_suspend_enable(rdev);
+	else
+		ret = rdev->desc->ops->set_suspend_disable(rdev);
 	if (ret < 0) {
 		rdev_err(rdev, "failed to enabled/disable\n");
 		return ret;
@@ -2463,6 +2467,10 @@ static int add_regulator_attributes(struct regulator_dev *rdev)
 			return status;
 	}
 
+	/* suspend mode constraints need multiple supporting methods */
+	if (!(ops->set_suspend_enable && ops->set_suspend_disable))
+		return status;
+
 	status = device_create_file(dev, &dev_attr_suspend_standby_state);
 	if (status < 0)
 		return status;
@@ -2535,7 +2543,7 @@ static void rdev_init_debugfs(struct regulator_dev *rdev)
  */
 struct regulator_dev *regulator_register(struct regulator_desc *regulator_desc,
 	struct device *dev, const struct regulator_init_data *init_data,
-	void *driver_data, struct device_node *of_node)
+	void *driver_data)
 {
 	static atomic_t regulator_no = ATOMIC_INIT(0);
 	struct regulator_dev *rdev;
@@ -2595,7 +2603,6 @@ struct regulator_dev *regulator_register(struct regulator_desc *regulator_desc,
 
 	/* register with sysfs */
 	rdev->dev.class = &regulator_class;
-	rdev->dev.of_node = of_node;
 	rdev->dev.parent = dev;
 	dev_set_name(&rdev->dev, "regulator.%d",
 		     atomic_inc_return(&regulator_no) - 1);

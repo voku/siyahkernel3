@@ -1633,11 +1633,6 @@ bytes respectively. Such letter suffixes can also be entirely omitted.
 			debugging driver suspend/resume hooks).  This may
 			not work reliably with all consoles, but is known
 			to work with serial and VGA consoles.
-			To facilitate more flexible debugging, we also add
-			console_suspend, a printk module parameter to control
-			it. Users could use console_suspend (usually
-			/sys/module/printk/parameters/console_suspend) to
-			turn on/off it dynamically.
 
 	noaliencache	[MM, NUMA, SLAB] Disables the allocation of alien
 			caches in the slab allocator.  Saves per-node memory,
@@ -2193,10 +2188,6 @@ bytes respectively. Such letter suffixes can also be entirely omitted.
 			Run specified binary instead of /init from the ramdisk,
 			used for early userspace startup. See initrd.
 
-	readahead=nn[KM]
-			Default max readahead size for block devices.
-			Range: 0; 4k - 128m
-
 	reboot=		[BUGS=X86-32,BUGS=ARM,BUGS=IA-64] Rebooting mode
 			Format: <reboot_mode>[,<reboot_mode2>[,...]]
 			See arch/*/kernel/reboot.c or arch/*/kernel/process.c
@@ -2222,12 +2213,18 @@ bytes respectively. Such letter suffixes can also be entirely omitted.
 
 	resume=		[SWSUSP]
 			Specify the partition device for software suspend
+			Format:
+			{/dev/<dev> | PARTUUID=<uuid> | <int>:<int> | <hex>}
 
 	resume_offset=	[SWSUSP]
 			Specify the offset from the beginning of the partition
 			given by "resume=" at which the swap header is located,
 			in <PAGE_SIZE> units (needed only for swap files).
 			See  Documentation/power/swsusp-and-swap-files.txt
+
+	resumewait	[HIBERNATION] Wait (indefinitely) for resume device to show up.
+			Useful for devices that are detected asynchronously
+			(e.g. USB and MMC devices).
 
 	hibernate=	[HIBERNATION]
 		noresume	Don't check if there's a hibernation image

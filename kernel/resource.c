@@ -427,9 +427,8 @@ static int __find_resource(struct resource *root, struct resource *old,
 		avail.start = ALIGN(tmp.start, constraint->align);
 		avail.end = tmp.end;
 		if (avail.start >= tmp.start) {
-			alloc.start = constraint->alignf
-					(constraint->alignf_data, &avail,
-						size, constraint->align);
+			alloc.start = constraint->alignf(constraint->alignf_data, &avail,
+					size, constraint->align);
 			alloc.end = alloc.start + size - 1;
 			if (resource_contains(&avail, &alloc)) {
 				new->start = alloc.start;
@@ -470,7 +469,7 @@ int reallocate_resource(struct resource *root, struct resource *old,
 			resource_size_t newsize,
 			struct resource_constraint  *constraint)
 {
-	int err = 0;
+	int err=0;
 	struct resource new = *old;
 	struct resource *conflict;
 
@@ -507,7 +506,7 @@ out:
 
 /**
  * allocate_resource - allocate empty slot in the resource tree given range & alignment.
- * The resource will be reallocated with a new size if it was already allocated
+ * 	The resource will be reallocated with a new size if it was already allocated
  * @root: root resource descriptor
  * @new: resource descriptor desired by caller
  * @size: requested resource region size
@@ -538,7 +537,7 @@ int allocate_resource(struct resource *root, struct resource *new,
 	constraint.alignf = alignf;
 	constraint.alignf_data = alignf_data;
 
-	if (new->parent) {
+	if ( new->parent ) {
 		/* resource is already allocated, try reallocating with
 		   the new constraints */
 		return reallocate_resource(root, new, size, &constraint);

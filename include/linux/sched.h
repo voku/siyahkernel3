@@ -90,7 +90,6 @@ struct sched_param {
 #include <linux/task_io_accounting.h>
 #include <linux/latencytop.h>
 #include <linux/cred.h>
-#include <linux/llist.h>
 
 #include <asm/processor.h>
 
@@ -123,7 +122,7 @@ extern void get_avenrun(unsigned long *loads, unsigned long offset, int shift);
 
 #define FSHIFT		11		/* nr of bits of precision */
 #define FIXED_1		(1<<FSHIFT)	/* 1.0 as fixed-point */
-#define LOAD_FREQ  	(5*HZ+1)  	/* 5 sec intervals */
+#define LOAD_FREQ	(5*HZ+1)	/* 5 sec intervals */
 #define EXP_1		1884		/* 1/exp(5sec/1min) as fixed-point */
 #define EXP_5		2014		/* 1/exp(5sec/5min) */
 #define EXP_15		2037		/* 1/exp(5sec/15min) */
@@ -146,7 +145,7 @@ extern unsigned long this_cpu_load(void);
 
 
 extern void calc_global_load(unsigned long ticks);
-extern void prepare_calc_load(void);
+
 extern unsigned long get_parent_ip(unsigned long addr);
 
 struct seq_file;
@@ -903,6 +902,7 @@ struct sched_group_power {
 	 * single CPU.
 	 */
 	unsigned int power, power_orig;
+	unsigned long next_update;
 };
 
 struct sched_group {
@@ -1210,12 +1210,6 @@ struct sched_rt_entity {
 #endif
 };
 
-/*
- * default timeslice is 100 msecs (used only for SCHED_RR tasks).
- * Timeslices get refilled after they expire.
- */
-#define DEF_TIMESLICE    (100 * HZ / 1000)
-
 struct rcu_node;
 
 enum perf_event_task_context {
@@ -1233,7 +1227,7 @@ struct task_struct {
 	unsigned int ptrace;
 
 #ifdef CONFIG_SMP
-	struct llist_node wake_entry;
+	struct task_struct *wake_entry;
 	int on_cpu;
 #endif
 	int on_rq;
@@ -1268,6 +1262,9 @@ struct task_struct {
 #ifdef CONFIG_PREEMPT_RCU
 	int rcu_read_lock_nesting;
 	char rcu_read_unlock_special;
+#if defined(CONFIG_RCU_BOOST) && defined(CONFIG_TREE_PREEMPT_RCU)
+	int rcu_boosted;
+#endif /* #if defined(CONFIG_RCU_BOOST) && defined(CONFIG_TREE_PREEMPT_RCU) */
 	struct list_head rcu_node_entry;
 #endif /* #ifdef CONFIG_PREEMPT_RCU */
 #ifdef CONFIG_TREE_PREEMPT_RCU
@@ -1531,13 +1528,6 @@ struct task_struct {
 	int make_it_fail;
 #endif
 	struct prop_local_single dirties;
-	/*
-	 * when (nr_dirtied >= nr_dirtied_pause), it's time to call
-	 * balance_dirty_pages() for some dirty throttling pause
-	 */
-	int nr_dirtied;
-	int nr_dirtied_pause;
-
 #ifdef CONFIG_LATENCYTOP
 	int latency_record_count;
 	struct latency_record latency_record[LT_SAVECOUNT];
@@ -1841,7 +1831,8 @@ extern void task_clear_group_stop_pending(struct task_struct *task);
 #ifdef CONFIG_PREEMPT_RCU
 
 #define RCU_READ_UNLOCK_BLOCKED (1 << 0) /* blocked while in RCU read-side. */
-#define RCU_READ_UNLOCK_NEED_QS (1 << 1) /* RCU core needs CPU response. */
+#define RCU_READ_UNLOCK_BOOSTED (1 << 1) /* boosted while in RCU read-side. */
+#define RCU_READ_UNLOCK_NEED_QS (1 << 2) /* RCU core needs CPU response. */
 
 static inline void rcu_copy_process(struct task_struct *p)
 {
@@ -1883,14 +1874,6 @@ static inline int set_cpus_allowed_ptr(struct task_struct *p,
 	return 0;
 }
 #endif
-
-#ifdef CONFIG_NO_HZ
-void calc_load_enter_idle(void);
-void calc_load_exit_idle(void);
-#else
-static inline void calc_load_enter_idle(void) { }
-static inline void calc_load_exit_idle(void) { }
-#endif /* CONFIG_NO_HZ */
 
 #ifndef CONFIG_CPUMASK_OFFSTACK
 static inline int set_cpus_allowed(struct task_struct *p, cpumask_t new_mask)
@@ -2067,7 +2050,6 @@ extern int sched_setscheduler(struct task_struct *, int,
 extern int sched_setscheduler_nocheck(struct task_struct *, int,
 				      const struct sched_param *);
 extern struct task_struct *idle_task(int cpu);
-extern int is_idle_task(struct task_struct *p);
 extern struct task_struct *curr_task(int cpu);
 extern void set_curr_task(int cpu, struct task_struct *p);
 
@@ -2232,12 +2214,6 @@ static inline void mmdrop(struct mm_struct * mm)
 extern void mmput(struct mm_struct *);
 /* Grab a reference to a task's mm, if it is not already going away */
 extern struct mm_struct *get_task_mm(struct task_struct *task);
-/*
- * Grab a reference to a task's mm, if it is not already going away
- * and ptrace_may_access with the mode parameter passed to it
- * succeeds.
- */
-extern struct mm_struct *mm_access(struct task_struct *task, unsigned int mode);
 /* Remove the current tasks stale references to the old mm_struct */
 extern void mm_release(struct task_struct *, struct mm_struct *);
 /* Allocate a new mm structure and copy contents from tsk->mm */

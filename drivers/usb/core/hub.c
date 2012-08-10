@@ -1648,19 +1648,22 @@ void usb_disconnect(struct usb_device **pdev)
 {
 	struct usb_device	*udev = *pdev;
 	int			i;
+	struct usb_hcd		*hcd;
 
 	if (!udev) {
 		pr_debug ("%s nodev\n", __func__);
 		return;
 	}
 
+	hcd = bus_to_hcd(udev->bus);
+
 	/* mark the device as inactive, so any further urb submissions for
 	 * this device (and any of its children) will fail immediately.
 	 * this quiesces everything except pending urbs.
 	 */
 	usb_set_device_state(udev, USB_STATE_NOTATTACHED);
-	dev_info(&udev->dev, "USB disconnect, device number %d\n",
-			udev->devnum);
+	dev_info(&udev->dev, "USB disconnect, device number %d by %pF\n",
+			udev->devnum, __builtin_return_address(0));
 
 	usb_lock_device(udev);
 
@@ -2130,11 +2133,7 @@ static int hub_port_reset(struct usb_hub *hub, int port1,
 		switch (status) {
 		case 0:
 			/* TRSTRCY = 10 ms; plus some extra */
-#if defined(CONFIG_LINK_DEVICE_HSIC) || defined(CONFIG_LINK_DEVICE_USB)
-			msleep(10 + 10);
-#else
 			msleep(10 + 40);
-#endif
 			update_devnum(udev, 0);
 			if (hcd->driver->reset_device) {
 				status = hcd->driver->reset_device(hcd, udev);
@@ -2543,12 +2542,12 @@ int usb_port_resume(struct usb_device *udev, pm_message_t msg)
 		/* drive resume for at least 20 msec */
 		dev_dbg(&udev->dev, "usb %sresume\n",
 				(msg.event & PM_EVENT_AUTO ? "auto-" : ""));
-#if defined(CONFIG_LINK_DEVICE_HSIC) || defined(CONFIG_LINK_DEVICE_USB)
+
 		/* Add the 5msec delay for XMM6260 resume fail case*/
-		msleep(30);
-#else
-		msleep(25);
-#endif
+		if (udev->quirks & USB_QUIRK_HSIC_TUNE)
+			msleep(30);
+		else
+			msleep(25);
 
 		/* Virtual root hubs can trigger on GET_PORT_STATUS to
 		 * stop resume signaling.  Then finish the resume
@@ -2570,7 +2569,7 @@ int usb_port_resume(struct usb_device *udev, pm_message_t msg)
 
  SuspendCleared:
 #if defined(CONFIG_LINK_DEVICE_HSIC) || defined(CONFIG_LINK_DEVICE_USB)
-	pr_debug("mif: %s: %d, %d\n", __func__, portstatus, portchange);
+	pr_info("mif: %s: %d, %d\n", __func__, portstatus, portchange);
 #endif
 	if (status == 0) {
 		if (hub_is_superspeed(hub->hdev)) {

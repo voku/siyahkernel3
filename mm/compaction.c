@@ -81,11 +81,6 @@ static unsigned long isolate_freepages_block(struct zone *zone,
 
 		if (!pfn_valid_within(blockpfn))
 			continue;
-
-		/* Watch for unexpected holes punched in the memmap */
-		if (!memmap_valid_within(blockpfn, page, zone))
-			continue;
-
 		nr_scanned++;
 
 		if (!PageBuddy(page))
@@ -180,11 +175,6 @@ static void isolate_freepages(struct zone *zone,
 		 * pages do not belong to a single zone.
 		 */
 		page = pfn_to_page(pfn);
-
-		/* Watch for unexpected holes punched in the memmap */
-		if (!memmap_valid_within(pfn, page, zone))
-			continue;
-
 		if (page_zone(page) != zone)
 			continue;
 
@@ -323,17 +313,34 @@ static isolate_migrate_t isolate_migratepages(struct zone *zone,
 		} else if (!locked)
 			spin_lock_irq(&zone->lru_lock);
 
+		/*
+		 * migrate_pfn does not necessarily start aligned to a
+		 * pageblock. Ensure that pfn_valid is called when moving
+		 * into a new MAX_ORDER_NR_PAGES range in case of large
+		 * memory holes within the zone
+		 */
+		if ((low_pfn & (MAX_ORDER_NR_PAGES - 1)) == 0) {
+			if (!pfn_valid(low_pfn)) {
+				low_pfn += MAX_ORDER_NR_PAGES - 1;
+				continue;
+			}
+		}
+
 		if (!pfn_valid_within(low_pfn))
 			continue;
 		nr_scanned++;
 
-		/* Get the page and skip if free */
+		/*
+		 * Get the page and ensure the page is within the same zone.
+		 * See the comment in isolate_freepages about overlapping
+		 * nodes. It is deliberate that the new zone lock is not taken
+		 * as memory compaction should not move pages between nodes.
+		 */
 		page = pfn_to_page(low_pfn);
-
-		/* Watch for unexpected holes punched in the memmap */
-		if (!memmap_valid_within(low_pfn, page, zone))
+		if (page_zone(page) != zone)
 			continue;
 
+		/* Skip if free */
 		if (PageBuddy(page))
 			continue;
 
@@ -367,9 +374,6 @@ static isolate_migrate_t isolate_migratepages(struct zone *zone,
 		if (!cc->sync)
 			mode |= ISOLATE_ASYNC_MIGRATE;
 
-		if (!cc->sync)
-			mode |= ISOLATE_ASYNC_MIGRATE;
-
 		/* Try isolate the page */
 		if (__isolate_lru_page(page, mode, 0) != 0)
 			continue;
@@ -383,10 +387,8 @@ static isolate_migrate_t isolate_migratepages(struct zone *zone,
 		nr_isolated++;
 
 		/* Avoid isolating too much */
-		if (cc->nr_migratepages == COMPACT_CLUSTER_MAX) {
-			++low_pfn;
+		if (cc->nr_migratepages == COMPACT_CLUSTER_MAX)
 			break;
-		}
 	}
 
 	acct_isolated(zone, cc);
@@ -605,7 +607,7 @@ out:
 	return ret;
 }
 
-static unsigned long compact_zone_order(struct zone *zone,
+unsigned long compact_zone_order(struct zone *zone,
 				 int order, gfp_t gfp_mask,
 				 bool sync)
 {
@@ -654,6 +656,10 @@ unsigned long try_to_compact_pages(struct zonelist *zonelist,
 	if (!order || !may_enter_fs || !may_perform_io)
 		return rc;
 
+#ifdef CONFIG_MACH_Q1_BD
+	/* Temporary log to get information whether the compaction works well */
+	printk(KERN_NOTICE "%s, order=%d, sync=%d\n", __func__, order, sync);
+#endif
 	count_vm_event(COMPACTSTALL);
 
 	/* Compact each zone in the list */
@@ -692,7 +698,6 @@ static int compact_node(int nid)
 			.nr_freepages = 0,
 			.nr_migratepages = 0,
 			.order = -1,
-			.sync = true,
 		};
 
 		zone = &pgdat->node_zones[zoneid];

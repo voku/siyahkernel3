@@ -29,7 +29,6 @@
 #include <linux/mutex.h>
 #include <linux/shmem_fs.h>
 #include <linux/ashmem.h>
-#include <asm/cacheflush.h>
 
 #define ASHMEM_NAME_PREFIX "dev/ashmem/"
 #define ASHMEM_NAME_PREFIX_LEN (sizeof(ASHMEM_NAME_PREFIX) - 1)
@@ -46,8 +45,6 @@ struct ashmem_area {
 	struct list_head unpinned_list;	/* list of all ashmem areas */
 	struct file *file;		/* the shmem-based backing file */
 	size_t size;			/* size of the mapping, in bytes */
-	unsigned long vm_start;    /* Start address of vm_area
-								* which maps this ashmem */
 	unsigned long prot_mask;	/* allowed prot bits, as vm_flags */
 };
 
@@ -202,8 +199,7 @@ static int ashmem_release(struct inode *ignored, struct file *file)
 	struct ashmem_area *asma = file->private_data;
 	struct ashmem_range *range, *next;
 
-	if (!mutex_trylock(&ashmem_mutex))
-		return -1;
+	mutex_lock(&ashmem_mutex);
 	list_for_each_entry_safe(range, next, &asma->unpinned_list, unpinned)
 		range_del(range);
 	mutex_unlock(&ashmem_mutex);
@@ -330,7 +326,6 @@ static int ashmem_mmap(struct file *file, struct vm_area_struct *vma)
 		vma->vm_file = asma->file;
 	}
 	vma->vm_flags |= VM_CAN_NONLINEAR;
-	asma->vm_start = vma->vm_start;
 
 out:
 	mutex_unlock(&ashmem_mutex);
@@ -362,10 +357,8 @@ static int ashmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	if (!sc->nr_to_scan)
 		return lru_count;
 
-	/* If our mutex is held, we are recursing into ourselves, so bail out */
 	if (!mutex_trylock(&ashmem_mutex))
-		return -1;
-
+		return lru_count;
 	list_for_each_entry_safe(range, next, &ashmem_lru_list, lru) {
 		struct inode *inode = range->asma->file->f_dentry->d_inode;
 		loff_t start = range->pgstart * PAGE_SIZE;
@@ -634,81 +627,6 @@ static int ashmem_pin_unpin(struct ashmem_area *asma, unsigned long cmd,
 	return ret;
 }
 
-#ifdef CONFIG_OUTER_CACHE
-static unsigned int kgsl_virtaddr_to_physaddr(unsigned int virtaddr)
-{
-	unsigned int physaddr = 0;
-	pgd_t *pgd_ptr = NULL;
-	pmd_t *pmd_ptr = NULL;
-	pte_t *pte_ptr = NULL, pte;
-	
-	pgd_ptr = pgd_offset(current->mm, virtaddr);
-	if (pgd_none(*pgd) || pgd_bad(*pgd)) {
-		pr_info
-			("Invalid pgd entry found while trying to convert virtual "
-			 "address to physical\n");
-		return 0;
-	}
-	
-	pmd_ptr = pmd_offset(pgd_ptr, virtaddr);
-	if (pmd_none(*pmd_ptr) || pmd_bad(*pmd_ptr)) {
-		pr_info
-			("Invalid pmd entry found while trying to convert virtual "
-			 "address to physical\n");
-		return 0;
-	}
-	
-	pte_ptr = pte_offset_map(pmd_ptr, virtaddr);
-	if (!pte_ptr) {
-		pr_info
-			("Unable to map pte entry while trying to convert virtual "
-			 "address to physical\n");
-		return 0;
-	}
-	pte = *pte_ptr;
-	physaddr = pte_pfn(pte);
-	pte_unmap(pte_ptr);
-	physaddr <<= PAGE_SHIFT;
-	return physaddr;
-}
-#endif
-
-static int ashmem_flush_cache_range(struct ashmem_area *asma)
-{
-#ifdef CONFIG_OUTER_CACHE
-	unsigned long end;
-#endif
-	unsigned long addr;
-	unsigned int size, result = 0;
-	
-	mutex_lock(&ashmem_mutex);
-	
-	size = asma->size;
-	addr = asma->vm_start;
-	if (!addr || (addr & (PAGE_SIZE - 1)) || !size ||
-		(size & (PAGE_SIZE - 1))) {
-		result =  -EINVAL;
-		goto done;
-	}
-	
-	flush_cache_user_range(addr, addr + size);
-#ifdef CONFIG_OUTER_CACHE
-	for (end = addr; end < (addr + size); end += PAGE_SIZE) {
-		unsigned long physaddr;
-		physaddr = kgsl_virtaddr_to_physaddr(end);
-		if (!physaddr) {
-			result =  -EINVAL;
-			goto done;
-		}
-		
-		outer_flush_range(physaddr, physaddr + PAGE_SIZE);
-	}
-#endif
-done:
-	mutex_unlock(&ashmem_mutex);
-	return 0;
-}
-
 static long ashmem_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	struct ashmem_area *asma = file->private_data;
@@ -753,9 +671,6 @@ static long ashmem_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			sc.nr_to_scan = ret;
 			ashmem_shrink(&ashmem_shrinker, &sc);
 		}
-		break;
-	case ASHMEM_CACHE_FLUSH_RANGE:
-		ret = ashmem_flush_cache_range(asma);
 		break;
 	}
 

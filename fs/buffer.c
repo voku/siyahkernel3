@@ -285,7 +285,7 @@ static void free_more_memory(void)
 	struct zone *zone;
 	int nid;
 
-	wakeup_flusher_threads(1024, WB_REASON_FREE_MORE_MEM);
+	wakeup_flusher_threads(1024);
 	yield();
 
 	for_each_online_node(nid) {
@@ -1084,7 +1084,6 @@ grow_buffers(struct block_device *bdev, sector_t block, int size)
 static struct buffer_head *
 __getblk_slow(struct block_device *bdev, sector_t block, int size)
 {
-
 	int ret;
 	struct buffer_head *bh;
 
@@ -1101,19 +1100,18 @@ __getblk_slow(struct block_device *bdev, sector_t block, int size)
 	}
 
 retry:
+	bh = __find_get_block(bdev, block, size);
+	if (bh)
+		return bh;
+
+	ret = grow_buffers(bdev, block, size);
+	if (ret == 0) {
+		free_more_memory();
+		goto retry;
+	} else if (ret > 0) {
 		bh = __find_get_block(bdev, block, size);
 		if (bh)
 			return bh;
-
-		ret = grow_buffers(bdev, block, size);
-		if (ret == 0) {
-			free_more_memory();
-			goto retry;
-		} else if (ret > 0) {
-		bh = __find_get_block(bdev, block, size);
-		if (bh)
-			return bh;
-
 	}
 	return NULL;
 }

@@ -167,7 +167,6 @@ struct s3cfb_global {
 	void __iomem		*ielcd_regs;
 	void			*data;
 	struct mutex		lock;
-	spinlock_t		slock;
 	struct device		*dev;
 #ifdef CONFIG_BUSFREQ_OPP
 	struct device           *bus_dev;
@@ -259,8 +258,7 @@ struct s3cfb_user_chroma {
 #define S3CFB_SET_ALPHA_MODE		_IOW('F', 313, unsigned int)
 
 extern struct fb_ops			s3cfb_ops;
-//extern inline struct s3cfb_global	*get_fimd_global(int id);
-extern struct s3cfb_global     	*get_fimd_global(int id);
+extern inline struct s3cfb_global	*get_fimd_global(int id);
 
 /* S3CFB */
 extern struct s3c_platform_fb *to_fb_plat(struct device *dev);
@@ -329,7 +327,6 @@ extern int s3cfb_set_window_control(struct s3cfb_global *ctrl, int id);
 extern int s3cfb_set_alpha_mode(struct s3cfb_global *ctrl, int id, unsigned int mode);
 extern int s3cfb_set_alpha_value_width(struct s3cfb_global *ctrl, int id);
 extern int s3cfb_set_alpha_blending(struct s3cfb_global *ctrl, int id);
-extern int s3cfb_set_oneshot(struct s3cfb_global *ctrl, int value);
 extern int s3cfb_set_alpha_value(struct s3cfb_global *ctrl, int value);
 extern int s3cfb_set_window_position(struct s3cfb_global *ctrl, int id);
 extern int s3cfb_set_window_size(struct s3cfb_global *ctrl, int id);

@@ -27,12 +27,9 @@
 
 #define TOKEN_AGING_INTERVAL	(0xFF)
 
-#ifndef CONFIG_ZRAM
 static DEFINE_SPINLOCK(swap_token_lock);
-#endif
 struct mm_struct *swap_token_mm;
 struct mem_cgroup *swap_token_memcg;
-#ifndef CONFIG_ZRAM
 static unsigned int global_faults;
 static unsigned int last_aging;
 
@@ -53,11 +50,9 @@ static struct mem_cgroup *swap_token_memcg_from_mm(struct mm_struct *mm)
 	return NULL;
 }
 #endif
-#endif /* ZRAM */
 
 void grab_swap_token(struct mm_struct *mm)
 {
-#ifndef CONFIG_ZRAM
 	int current_interval;
 	unsigned int old_prio = mm->token_priority;
 
@@ -109,13 +104,11 @@ replace_token:
 	swap_token_memcg = swap_token_memcg_from_mm(mm);
 	last_aging = global_faults;
 	goto out;
-#endif
 }
 
 /* Called on process exit. */
 void __put_swap_token(struct mm_struct *mm)
 {
-#ifndef CONFIG_ZRAM
 	spin_lock(&swap_token_lock);
 	if (likely(mm == swap_token_mm)) {
 		trace_put_swap_token(swap_token_mm);
@@ -123,10 +116,8 @@ void __put_swap_token(struct mm_struct *mm)
 		swap_token_memcg = NULL;
 	}
 	spin_unlock(&swap_token_lock);
-#endif
 }
 
-#ifndef CONFIG_ZRAM
 static bool match_memcg(struct mem_cgroup *a, struct mem_cgroup *b)
 {
 	if (!a)
@@ -137,11 +128,9 @@ static bool match_memcg(struct mem_cgroup *a, struct mem_cgroup *b)
 		return true;
 	return false;
 }
-#endif
 
 void disable_swap_token(struct mem_cgroup *memcg)
 {
-#ifndef CONFIG_ZRAM
 	/* memcg reclaim don't disable unrelated mm token. */
 	if (match_memcg(memcg, swap_token_memcg)) {
 		spin_lock(&swap_token_lock);
@@ -152,5 +141,4 @@ void disable_swap_token(struct mem_cgroup *memcg)
 		}
 		spin_unlock(&swap_token_lock);
 	}
-#endif
 }

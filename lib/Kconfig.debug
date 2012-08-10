@@ -10,6 +10,23 @@ config PRINTK_TIME
 	  in kernel startup.  Or add printk.time=1 at boot-time.
 	  See Documentation/kernel-parameters.txt
 
+config PRINTK_CPU_ID
+	bool "Show cpu id on printks"
+	depends on PRINTK
+	help
+	  Selecting this option causes current printk cpu id to be
+	  included in printk output. Or add printk.cpu=1 at boot-time.
+	  See Documentation/kernel-parameters.txt
+
+config PRINTK_PID
+        bool "Show pid on printks"
+        depends on PRINTK
+        help
+          Selecting this option causes current task's pid to be
+          included in printk output. Or add printk.pid=1 at boot-time.
+          This allows you to see the running process with kernel log.
+          See Documentation/kernel-parameters.txt
+
 config DEFAULT_MESSAGE_LOGLEVEL
 	int "Default message log level (1-7)"
 	range 1 7
@@ -433,7 +450,7 @@ config SLQB_STATS
 
 config DEBUG_KMEMLEAK
 	bool "Kernel memory leak detector"
-	depends on DEBUG_KERNEL && EXPERIMENTAL && \
+	depends on DEBUG_KERNEL && EXPERIMENTAL && !MEMORY_HOTPLUG && \
 		(X86 || ARM || PPC || MIPS || S390 || SPARC64 || SUPERH || MICROBLAZE || TILE)
 
 	select DEBUG_FS
@@ -920,20 +937,6 @@ config RCU_TORTURE_TEST_RUNNABLE
 	  boot (you probably don't).
 	  Say N here if you want the RCU torture tests to start only
 	  after being manually enabled via /proc.
-
-config RCU_CPU_STALL_INFO
-	bool "Print additional diagnostics on RCU CPU stall"
-	depends on (TREE_RCU || TREE_PREEMPT_RCU) && DEBUG_KERNEL
-	default n
-	help
-	  For each stalled CPU that is aware of the current RCU grace
-	  period, print out additional per-CPU diagnostic information
-	  regarding scheduling-clock ticks, idle state, and,
-	  for RCU_FAST_NO_HZ kernels, idle-entry state.
-
-	  Say N if you are unsure.
-
-	  Say Y if you want to enable such diagnostics.
 
 config RCU_CPU_STALL_TIMEOUT
 	int "RCU CPU stall timeout in seconds"

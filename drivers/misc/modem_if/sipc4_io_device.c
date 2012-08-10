@@ -795,7 +795,6 @@ exit:
 	return err;
 }
 
-#ifdef CONFIG_IPC_CMC22x_OLD_RFS
 static int rx_rfs_packet(struct io_device *iod, struct link_device *ld,
 					const char *data, unsigned size)
 {
@@ -844,7 +843,6 @@ static int rx_rfs_packet(struct io_device *iod, struct link_device *ld,
 
 	return err;
 }
-#endif
 
 /* called from link device when a packet arrives for this io device */
 static int io_dev_recv_data_from_link_dev(struct io_device *iod,
@@ -852,6 +850,9 @@ static int io_dev_recv_data_from_link_dev(struct io_device *iod,
 {
 	struct sk_buff *skb;
 	int err;
+	unsigned int alloc_size, rest_len;
+	char *cur;
+
 
 	/* check the iod(except IODEV_DUMMY) is open?
 	 * if the iod is MULTIPDP, check this data on rx_iodev_skb_raw()
@@ -890,17 +891,38 @@ static int io_dev_recv_data_from_link_dev(struct io_device *iod,
 	case IPC_RAMDUMP:
 		/* save packet to sk_buff */
 		skb = rx_alloc_skb(len, GFP_ATOMIC, iod, ld);
-		if (!skb) {
-			mif_err("fail alloc skb (%d)\n", __LINE__);
-			return -ENOMEM;
+		if (skb) {
+			mif_debug("boot len : %d\n", len);
+
+			memcpy(skb_put(skb, len), data, len);
+			skb_queue_tail(&iod->sk_rx_q, skb);
+			mif_debug("skb len : %d\n", skb->len);
+
+			wake_up(&iod->wq);
+			return len;
 		}
+		/* 32KB page alloc fail case, alloc 3.5K a page.. */
+		mif_info("(%d)page fail, alloc fragment pages\n", len);
 
-		mif_debug("boot len : %d\n", len);
+		rest_len = len;
+		cur = (char *)data;
+		while (rest_len) {
+			alloc_size = min_t(unsigned int, MAX_RXDATA_SIZE,
+				rest_len);
+			skb = rx_alloc_skb(alloc_size, GFP_ATOMIC, iod, ld);
+			if (!skb) {
+				mif_err("fail alloc skb (%d)\n", __LINE__);
+				return -ENOMEM;
+			}
+			mif_debug("boot len : %d\n", alloc_size);
 
-		memcpy(skb_put(skb, len), data, len);
-		skb_queue_tail(&iod->sk_rx_q, skb);
-		mif_debug("skb len : %d\n", skb->len);
+			memcpy(skb_put(skb, alloc_size), cur, alloc_size);
+			skb_queue_tail(&iod->sk_rx_q, skb);
+			mif_debug("skb len : %d\n", skb->len);
 
+			rest_len -= alloc_size;
+			cur += alloc_size;
+		}
 		wake_up(&iod->wq);
 		return len;
 
@@ -952,7 +974,7 @@ static void io_dev_sim_state_changed(struct io_device *iod, bool sim_online)
 static int misc_open(struct inode *inode, struct file *filp)
 {
 	struct io_device *iod = to_io_device(filp->private_data);
-	struct mif_common *commons = &iod->mc->commons;
+	struct modem_shared *msd = iod->msd;
 	struct link_device *ld;
 	int ret;
 	filp->private_data = (void *)iod;
@@ -960,7 +982,7 @@ static int misc_open(struct inode *inode, struct file *filp)
 	mif_err("iod = %s\n", iod->name);
 	atomic_inc(&iod->opened);
 
-	list_for_each_entry(ld, &commons->link_dev_list, list) {
+	list_for_each_entry(ld, &msd->link_dev_list, list) {
 		if (IS_CONNECTED(iod, ld) && ld->init_comm) {
 			ret = ld->init_comm(ld, iod);
 			if (ret < 0) {
@@ -977,14 +999,14 @@ static int misc_open(struct inode *inode, struct file *filp)
 static int misc_release(struct inode *inode, struct file *filp)
 {
 	struct io_device *iod = (struct io_device *)filp->private_data;
-	struct mif_common *commons = &iod->mc->commons;
+	struct modem_shared *msd = iod->msd;
 	struct link_device *ld;
 
 	mif_err("iod = %s\n", iod->name);
 	atomic_dec(&iod->opened);
 	skb_queue_purge(&iod->sk_rx_q);
 
-	list_for_each_entry(ld, &commons->link_dev_list, list) {
+	list_for_each_entry(ld, &msd->link_dev_list, list) {
 		if (IS_CONNECTED(iod, ld) && ld->terminate_comm)
 			ld->terminate_comm(ld, iod);
 	}
@@ -1076,7 +1098,7 @@ static long misc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		if (iod->format != IPC_MULTI_RAW)
 			return -EINVAL;
 
-		iodevs_for_each(&iod->mc->commons, iodev_netif_stop, 0);
+		iodevs_for_each(iod->msd, iodev_netif_stop, 0);
 		return 0;
 
 	case IOCTL_MODEM_PROTOCOL_RESUME:
@@ -1085,7 +1107,7 @@ static long misc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		if (iod->format != IPC_MULTI_RAW)
 			return -EINVAL;
 
-		iodevs_for_each(&iod->mc->commons, iodev_netif_wake, 0);
+		iodevs_for_each(iod->msd, iodev_netif_wake, 0);
 		return 0;
 
 	case IOCTL_MODEM_DUMP_START:
@@ -1248,6 +1270,8 @@ static ssize_t misc_read(struct file *filp, char *buf, size_t count,
 	struct io_device *iod = (struct io_device *)filp->private_data;
 	struct sk_buff *skb = NULL;
 	int pktsize = 0;
+	unsigned int rest_len, copy_len;
+	char *cur = buf;
 
 	skb = skb_dequeue(&iod->sk_rx_q);
 	if (!skb) {
@@ -1256,43 +1280,67 @@ static ssize_t misc_read(struct file *filp, char *buf, size_t count,
 	}
 	mif_debug("<%s> skb->len : %d\n", iod->name, skb->len);
 
-	if (skb->len > count) {
-		/* BOOT device receviced rx data as serial stream, return data
-		 by User requested size */
-		if (iod->format == IPC_BOOT) {
-			mif_err("skb->len %d > count %d\n", skb->len,
-				count);
-			pr_skb("BOOT-wRX", skb);
-			if (copy_to_user(buf, skb->data, count) != 0) {
+	if (iod->format == IPC_BOOT) {
+		pktsize = rest_len = count;
+		while (rest_len) {
+			if (skb->len > rest_len) {
+				/* BOOT device receviced rx data as serial
+				  stream, return data by User requested size */
+				mif_err("skb->len %d > count %d\n", skb->len,
+					rest_len);
+				pr_skb("BOOT-wRX", skb);
+				if (copy_to_user(cur, skb->data, rest_len)
+									!= 0) {
+					dev_kfree_skb_any(skb);
+					return -EFAULT;
+				}
+				cur += rest_len;
+				skb_pull(skb, rest_len);
+				if (skb->len) {
+					mif_info("queue-head, skb->len = %d\n",
+						skb->len);
+					skb_queue_head(&iod->sk_rx_q, skb);
+				}
+				mif_debug("return %u\n", rest_len);
+				return rest_len;
+			}
+
+			copy_len = min(rest_len, skb->len);
+			if (copy_to_user(cur, skb->data, copy_len) != 0) {
 				dev_kfree_skb_any(skb);
 				return -EFAULT;
 			}
-			skb_pull(skb, count);
-			if (skb->len) {
-				mif_info("queue-head, skb->len = %d\n",
-					skb->len);
-				skb_queue_head(&iod->sk_rx_q, skb);
-			}
+			cur += skb->len;
+			dev_kfree_skb_any(skb);
+			rest_len -= copy_len;
 
-			return count;
-		} else {
-			mif_err("<%s> skb->len %d > count %d\n",
-					iod->name, skb->len, count);
+			if (!rest_len)
+				break;
+
+			skb = skb_dequeue(&iod->sk_rx_q);
+			if (!skb) {
+				mif_err("<%s> %d / %d sk_rx_q\n", iod->name,
+					(count - rest_len), count);
+				return count - rest_len;
+			}
+		}
+	} else {
+		if (skb->len > count) {
+			mif_err("<%s> skb->len %d > count %d\n", iod->name,
+				skb->len, count);
 			dev_kfree_skb_any(skb);
 			return -EFAULT;
 		}
-	}
+		pktsize = skb->len;
+		if (copy_to_user(buf, skb->data, pktsize) != 0) {
+			dev_kfree_skb_any(skb);
+			return -EFAULT;
+		}
+		if (iod->format == IPC_FMT)
+			mif_debug("copied %d bytes to user\n", pktsize);
 
-	pktsize = skb->len;
-	if (copy_to_user(buf, skb->data, pktsize) != 0) {
 		dev_kfree_skb_any(skb);
-		return -EFAULT;
 	}
-	if (iod->format == IPC_FMT)
-		mif_debug("copied %d bytes to user\n", pktsize);
-
-	dev_kfree_skb_any(skb);
-
 	return pktsize;
 }
 

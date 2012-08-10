@@ -348,7 +348,7 @@ static int max_select_fd(unsigned long n, fd_set_bits *fds)
 	set = ~(~0UL << (n & (__NFDBITS-1)));
 	n /= __NFDBITS;
 	fdt = files_fdtable(current->files);
-	open_fds = fdt->open_fds + n;
+	open_fds = fdt->open_fds->fds_bits+n;
 	max = 0;
 	if (set) {
 		set &= BITS(fds, n);
@@ -437,11 +437,11 @@ int do_select(int n, fd_set_bits *fds, struct timespec *end_time)
 			in = *inp++; out = *outp++; ex = *exp++;
 			all_bits = in | out | ex;
 			if (all_bits == 0) {
-				i += BITS_PER_LONG;
+				i += __NFDBITS;
 				continue;
 			}
 
-			for (j = 0; j < BITS_PER_LONG; ++j, ++i, bit <<= 1) {
+			for (j = 0; j < __NFDBITS; ++j, ++i, bit <<= 1) {
 				int fput_needed;
 				if (i >= n)
 					break;

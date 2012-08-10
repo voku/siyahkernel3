@@ -2414,8 +2414,8 @@ static int pch_gbe_probe(struct pci_dev *pdev,
 		 * prevent the interface from being brought up until a valid MAC
 		 * is set.
 		 */
-		dev_err(&pdev->dev, "Invalid MAC address," 
-					"interface disabled.\n");
+		dev_err(&pdev->dev, "Invalid MAC address, "
+		                    "interface disabled.\n");
 	}
 	setup_timer(&adapter->watchdog_timer, pch_gbe_watchdog,
 		    (unsigned long)adapter);

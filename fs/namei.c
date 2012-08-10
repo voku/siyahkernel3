@@ -1351,35 +1351,6 @@ static inline int nested_symlink(struct path *path, struct nameidata *nd)
 }
 
 /*
- * We know there's a real path component here of at least
- * one character.
- */
-
-static inline unsigned long hash_name(const char *name, unsigned int *hashp)
-{
-	unsigned long hash = init_name_hash();
-	unsigned long len = 0, c;
-
-	c = (unsigned char)*name;
-	do {
-		len++;
-		hash = partial_name_hash(c, hash);
-		c = (unsigned char)name[len];
-	} while (c && c != '/');
-	*hashp = end_name_hash(hash);
-	return len;
-}
-
-unsigned int full_name_hash(const unsigned char *name, unsigned int len)
-{
-	unsigned long hash = init_name_hash();
-	while (len--)
-		hash = partial_name_hash(*name++, hash);
-	return end_name_hash(hash);
-}
-EXPORT_SYMBOL(full_name_hash);
-
-/*
  * Name resolution.
  * This is the basic name resolution function, turning a pathname into
  * the final dentry. We expect 'base' to be positive and a directory.
@@ -1400,8 +1371,9 @@ static int link_path_walk(const char *name, struct nameidata *nd)
 
 	/* At this point we know we have a real path component. */
 	for(;;) {
+		unsigned long hash;
 		struct qstr this;
-		long len;
+		unsigned int c;
 		int type;
 
 		nd->flags |= LOOKUP_CONTINUE;
@@ -1410,14 +1382,22 @@ static int link_path_walk(const char *name, struct nameidata *nd)
  		if (err)
 			break;
 
-		len = hash_name(name, &this.hash);
 		this.name = name;
-		this.len = len;
+		c = *(const unsigned char *)name;
+
+		hash = init_name_hash();
+		do {
+			name++;
+			hash = partial_name_hash(c, hash);
+			c = *(const unsigned char *)name;
+		} while (c && (c != '/'));
+		this.len = name - (const char *) this.name;
+		this.hash = end_name_hash(hash);
 
 		type = LAST_NORM;
-		if (name[0] == '.') switch (len) {
+		if (this.name[0] == '.') switch (this.len) {
 			case 2:
-				if (name[1] == '.') {
+				if (this.name[1] == '.') {
 					type = LAST_DOTDOT;
 					nd->flags |= LOOKUP_JUMPED;
 				}
@@ -1436,18 +1416,12 @@ static int link_path_walk(const char *name, struct nameidata *nd)
 			}
 		}
 
-		if (!name[len])
+		/* remove trailing slashes? */
+		if (!c)
 			goto last_component;
-	/*
-	 * If it wasn't NUL, we know it was '/'. Skip that
-	 * slash, and continue until no more slashes.
-	 */
-	do {
-		len++;
-	} while (unlikely(name[len] == '/'));
-		if (!name[len])
+		while (*++name == '/');
+		if (!*name)
 			goto last_component;
-		name += len;
 
 		err = walk_component(nd, &next, &this, type, LOOKUP_FOLLOW);
 		if (err < 0)
@@ -1750,21 +1724,24 @@ static struct dentry *lookup_hash(struct nameidata *nd)
 struct dentry *lookup_one_len(const char *name, struct dentry *base, int len)
 {
 	struct qstr this;
+	unsigned long hash;
 	unsigned int c;
 
 	WARN_ON_ONCE(!mutex_is_locked(&base->d_inode->i_mutex));
 
 	this.name = name;
 	this.len = len;
-	this.hash = full_name_hash(name, len);
 	if (!len)
 		return ERR_PTR(-EACCES);
 
+	hash = init_name_hash();
 	while (len--) {
 		c = *(const unsigned char *)name++;
 		if (c == '/' || c == '\0')
 			return ERR_PTR(-EACCES);
+		hash = partial_name_hash(c, hash);
 	}
+	this.hash = end_name_hash(hash);
 	/*
 	 * See if the low-level filesystem might want
 	 * to use its own hash..
@@ -2477,7 +2454,7 @@ SYSCALL_DEFINE4(mknodat, int, dfd, const char __user *, filename, int, mode,
 		unsigned, dev)
 {
 	int error;
-	char *tmp = 0;
+	char *tmp;
 	struct dentry *dentry;
 	struct nameidata nd;
 
@@ -2557,7 +2534,7 @@ int vfs_mkdir(struct inode *dir, struct dentry *dentry, int mode)
 SYSCALL_DEFINE3(mkdirat, int, dfd, const char __user *, pathname, int, mode)
 {
 	int error = 0;
-	char *tmp = 0;
+	char * tmp;
 	struct dentry *dentry;
 	struct nameidata nd;
 
@@ -2660,7 +2637,7 @@ out:
 static long do_rmdir(int dfd, const char __user *pathname)
 {
 	int error = 0;
-	char *name = 0;
+	char * name;
 	struct dentry *dentry;
 	struct nameidata nd;
 
@@ -2756,7 +2733,7 @@ int vfs_unlink(struct inode *dir, struct dentry *dentry)
 static long do_unlinkat(int dfd, const char __user *pathname)
 {
 	int error;
-	char *name = 0;
+	char *name;
 	struct dentry *dentry;
 	struct nameidata nd;
 	struct inode *inode = NULL;
@@ -2849,7 +2826,7 @@ SYSCALL_DEFINE3(symlinkat, const char __user *, oldname,
 {
 	int error;
 	char *from;
-	char *to = 0;
+	char *to;
 	struct dentry *dentry;
 	struct nameidata nd;
 
@@ -2949,7 +2926,7 @@ SYSCALL_DEFINE5(linkat, int, olddfd, const char __user *, oldname,
 	struct path old_path;
 	int how = 0;
 	int error;
-	char *to = 0;
+	char *to;
 
 	if ((flags & ~(AT_SYMLINK_FOLLOW | AT_EMPTY_PATH)) != 0)
 		return -EINVAL;
@@ -3161,8 +3138,8 @@ SYSCALL_DEFINE4(renameat, int, olddfd, const char __user *, oldname,
 	struct dentry *old_dentry, *new_dentry;
 	struct dentry *trap;
 	struct nameidata oldnd, newnd;
-	char *from = 0;
-	char *to = 0;
+	char *from;
+	char *to;
 	int error;
 
 	error = user_path_parent(olddfd, oldname, &oldnd, &from);

@@ -143,13 +143,8 @@ void set_dsim_hs_clk_toggle_count(u8 count)
 	struct dsim_global *dsim = g_dsim;
 
 	dsim->dsim_toggle_per_frame_count = count;
-	if (dsim->dsim_lcd_info->lcd_enabled) {
-		if (dsim->dsim_info->hs_toggle) {
-			s5p_dsim_frame_done_interrupt_enable(dsim, 1);
-			schedule_delayed_work(&dsim->check_hs_toggle_work, msecs_to_jiffies(60000));
-		} else
-			s5p_dsim_frame_done_interrupt_enable(dsim, count ? 1 : 0);
-	}
+	if (dsim->dsim_lcd_info->lcd_enabled)
+		s5p_dsim_frame_done_interrupt_enable(dsim, count ? 1 : 0);
 }
 
 static void dsim_work_q_handler(struct work_struct *work)
@@ -167,7 +162,7 @@ static void dsim_check_hs_toggle_work_q_handler(struct work_struct *work)
 
 	if (dsim->dsim_info->hs_toggle) {
 		dev_info(dsim->dev, "check_hs_toggle\n");
-		schedule_delayed_work(&dsim->check_hs_toggle_work, msecs_to_jiffies(60000));
+		schedule_delayed_work(&dsim->check_hs_toggle_work, msecs_to_jiffies(120000));
 	}
 }
 
@@ -444,7 +439,7 @@ static irqreturn_t s5p_dsim_isr(int irq, void *dev_id)
 							s5p_dsim_toggle_hs_clock(dsim->reg_base);
 							if (!dsim->dsim_toggle_per_frame_count) {
 								s5p_dsim_frame_done_interrupt_enable(dsim, 0);
-								if (likely(dsim->dsim_info->hs_toggle))
+								if (likely(dsim->dsim_info->hs_toggle - 1))
 									schedule_delayed_work(&dsim->dsim_work, dsim->dsim_info->hs_toggle);
 							}
 							if (dsim->dsim_toggle_per_frame_count)
@@ -1224,10 +1219,15 @@ static int hs_toggle_store(struct device *dev,
 	else {
 		dev_info(dev, "%s - %d, %d\n", __func__, jiffies_to_msecs(dsim->dsim_info->hs_toggle), value);
 
-		if (value == 1)
+		if (value == 1) {
 			dsim->dsim_info->hs_toggle = msecs_to_jiffies(3000);
-		else
+			s5p_dsim_frame_done_interrupt_enable(dsim, 1);
+			schedule_delayed_work(&dsim->check_hs_toggle_work, msecs_to_jiffies(120000));
+		} else {
 			dsim->dsim_info->hs_toggle = 0;
+			s5p_dsim_frame_done_interrupt_enable(dsim, 0);
+			cancel_delayed_work(&dsim->check_hs_toggle_work);
+		}
 	}
 	return size;
 }

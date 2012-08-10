@@ -24,7 +24,6 @@
 
 #include <plat/regs-serial.h>
 #include <plat/exynos4.h>
-#include <plat/clock.h>
 #include <plat/cpu.h>
 #include <plat/devs.h>
 #include <plat/iic.h>
@@ -621,7 +620,6 @@ static struct platform_device *universal_devices[] __initdata = {
 
 static void __init universal_map_io(void)
 {
-	clk_xusbxti.rate = 24000000;
 	s5p_init_io(NULL, 0, S5P_VA_CHIPID);
 	s3c24xx_init_clocks(24000000);
 	s3c24xx_init_uarts(universal_uartcfgs, ARRAY_SIZE(universal_uartcfgs));

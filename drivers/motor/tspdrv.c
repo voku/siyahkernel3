@@ -46,7 +46,11 @@
 #include <linux/io.h>
 #include <mach/map.h>
 #include "tspdrv.h"
+#ifdef CONFIG_MOTOR_DRV_ISA1200
+#include "ImmVibeSPI_isa1200.c"
+#else
 #include "ImmVibeSPI.c"
+#endif
 #if defined(VIBE_DEBUG) && defined(VIBE_RECORD)
 #include <tspdrvRecorder.c>
 #endif
@@ -106,8 +110,8 @@ static int g_nMajor;
 #include "VibeOSKernelLinuxTime.c"
 #endif
 
-#define VIBRATOR_LEVEL_DEFAULT  3
-#define VIBRATOR_DUTY_DEFAULT  38000
+#define VIBRATOR_LEVEL_DEFAULT	6
+#define VIBRATOR_DUTY_DEFAULT	38000
 static const int vibrator_duty_levels[] = { 26000, 28000, 30000, 32000, 34000, 36000, VIBRATOR_DUTY_DEFAULT };
 static int vibrator_level = VIBRATOR_LEVEL_DEFAULT;
 int vibrator_duty = VIBRATOR_DUTY_DEFAULT;
@@ -131,20 +135,20 @@ static const struct file_operations fops = {
 };
 
 static ssize_t show_vibrator_level_max(struct device *dev,
-              struct device_attribute *attr, char *buf)
+				      struct device_attribute *attr, char *buf)
 {
 	return sprintf(buf,"%d\n", (ARRAY_SIZE(vibrator_duty_levels) - 1));
 }
 
 static ssize_t show_vibrator_level(struct device *dev,
-               struct device_attribute *attr, char *buf)
+				      struct device_attribute *attr, char *buf)
 {
 	return sprintf(buf,"%d\n", vibrator_level);
 }
 
 static ssize_t store_vibrator_level(struct device *dev,
-                struct device_attribute *attr,
-                const char *buf, size_t len)
+				       struct device_attribute *attr,
+				       const char *buf, size_t len)
 {
 	int data = 0;
 	if (sscanf(buf, "%u\n", &data) == 1) {

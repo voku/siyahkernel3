@@ -39,6 +39,8 @@
 #define IOCTL_LINK_PORT_ON		_IO('o', 0x35)
 #define IOCTL_LINK_PORT_OFF		_IO('o', 0x36)
 
+#define IOCTL_LINK_BLOCK_AUTOSUSPEND	_IO('o', 0x37)
+
 enum RESUME_STATUS {
 	CP_INITIATED_RESUME,
 	AP_INITIATED_RESUME,
@@ -52,7 +54,6 @@ enum IPC_INIT_STATUS {
 enum hub_status {
 	HUB_STATE_OFF,		/* usb3503 0ff*/
 	HUB_STATE_RESUMMING,	/* usb3503 on, but enummerattion was not yet*/
-	HUB_STATE_PREACTIVE,
 	HUB_STATE_ACTIVE,	/* hub and CMC221 enumerate */
 };
 
@@ -128,5 +129,6 @@ do {								\
 #define has_hub(usb_ld) ((usb_ld)->link_pm_data->has_usbhub)
 
 irqreturn_t usb_resume_irq(int irq, void *data);
+bool usb_is_enumerated(struct modem_shared *msd);
 
 #endif

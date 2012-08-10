@@ -1155,6 +1155,7 @@ static int __split_huge_page_splitting(struct page *page,
 static void __split_huge_page_refcount(struct page *page)
 {
 	int i;
+	unsigned long head_index = page->index;
 	struct zone *zone = page_zone(page);
 	int zonestat;
 	int tail_count = 0;
@@ -1162,10 +1163,8 @@ static void __split_huge_page_refcount(struct page *page)
 	/* prevent PageLRU to go away from under us, and freeze lru stats */
 	spin_lock_irq(&zone->lru_lock);
 	compound_lock(page);
-	/* complete memcg works before add pages to LRU */
-	mem_cgroup_split_huge_fixup(page);
 
-	for (i = HPAGE_PMD_NR - 1; i >= 1; i--) {
+	for (i = 1; i < HPAGE_PMD_NR; i++) {
 		struct page *page_tail = page + i;
 
 		/* tail_page->_mapcount cannot change */
@@ -1228,12 +1227,14 @@ static void __split_huge_page_refcount(struct page *page)
 		BUG_ON(page_tail->mapping);
 		page_tail->mapping = page->mapping;
 
-		page_tail->index = page->index + i;
+		page_tail->index = ++head_index;
 
 		BUG_ON(!PageAnon(page_tail));
 		BUG_ON(!PageUptodate(page_tail));
 		BUG_ON(!PageDirty(page_tail));
 		BUG_ON(!PageSwapBacked(page_tail));
+
+		mem_cgroup_split_huge_fixup(page, page_tail);
 
 		lru_add_page_tail(zone, page, page_tail);
 	}

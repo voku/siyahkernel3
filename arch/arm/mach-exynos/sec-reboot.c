@@ -2,14 +2,12 @@
 #include <linux/pm.h>
 #include <asm/io.h>
 #include <asm/cacheflush.h>
+#include <mach/system.h>
 #include <mach/regs-pmu.h>
 #include <mach/gpio.h>
-#include <plat/system-reset.h>
 
 /* charger cable state */
 extern bool is_cable_attached;
-extern void mc1n2_reboot(void);
-
 static void sec_power_off(void)
 {
 	int poweroff_try = 0;
@@ -64,7 +62,8 @@ static void sec_power_off(void)
 #define REBOOT_MODE_UPLOAD	2
 #define REBOOT_MODE_CHARGING	3
 #define REBOOT_MODE_RECOVERY	4
-#define REBOOT_MODE_ARM11_FOTA	5
+#define REBOOT_MODE_FOTA	5
+#define REBOOT_MODE_FOTA_BL	6	/* update bootloader */
 
 #define REBOOT_SET_PREFIX	0xabc00000
 #define REBOOT_SET_DEBUG	0x000d0000
@@ -73,8 +72,6 @@ static void sec_power_off(void)
 
 static void sec_reboot(char str, const char *cmd)
 {
-	mc1n2_reboot();
-
 	local_irq_disable();
 
 	pr_emerg("%s (%d, %s)\n", __func__, str, cmd ? cmd : "(null)");
@@ -86,7 +83,10 @@ static void sec_reboot(char str, const char *cmd)
 	} else {
 		unsigned long value;
 		if (!strcmp(cmd, "fota"))
-			writel(REBOOT_MODE_PREFIX | REBOOT_MODE_ARM11_FOTA,
+			writel(REBOOT_MODE_PREFIX | REBOOT_MODE_FOTA,
+			       S5P_INFORM3);
+		else if (!strcmp(cmd, "fota_bl"))
+			writel(REBOOT_MODE_PREFIX | REBOOT_MODE_FOTA_BL,
 			       S5P_INFORM3);
 		else if (!strcmp(cmd, "recovery"))
 			writel(REBOOT_MODE_PREFIX | REBOOT_MODE_RECOVERY,
@@ -94,7 +94,7 @@ static void sec_reboot(char str, const char *cmd)
         else if (!strcmp(cmd, "bootloader"))
 			writel(REBOOT_MODE_PREFIX | REBOOT_MODE_DOWNLOAD,
 			       S5P_INFORM3);
-		else if (!strcmp(cmd, "download") || !strcmp(cmd, "bootloader"))
+		else if (!strcmp(cmd, "download"))
 			writel(REBOOT_MODE_PREFIX | REBOOT_MODE_DOWNLOAD,
 			       S5P_INFORM3);
 		else if (!strcmp(cmd, "upload"))

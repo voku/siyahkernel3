@@ -32,20 +32,7 @@
 #include <linux/bootmem.h>
 #include "s3cfb.h"
 #define NOT_DEFAULT_WINDOW 99
-extern struct s3cfb_fimd_desc    *fbfimd;
-inline struct s3cfb_global *get_fimd_global(int id)
-{
-        struct s3cfb_global *fbdev;
-
-        if (id < 5)
-                fbdev = fbfimd->fbdev[0];
-        else
-                fbdev = fbfimd->fbdev[1];
-
-        return fbdev;
-}
-
-#define CMA_REGION_FIMD		"fimd"
+#define CMA_REGION_FIMD 	"fimd"
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 #define CMA_REGION_VIDEO	"video"
 #else
@@ -563,14 +550,10 @@ int s3cfb_check_var(struct fb_var_screeninfo *var, struct fb_info *fb)
 void s3cfb_set_win_params(struct s3cfb_global *fbdev, int id)
 {
 	s3cfb_set_window_control(fbdev, id);
-#if defined(CONFIG_CPU_EXYNOS4212) || defined(CONFIG_CPU_EXYNOS4412)
-	s3cfb_set_oneshot(fbdev, id);
-#else
 	s3cfb_set_window_position(fbdev, id);
 	s3cfb_set_window_size(fbdev, id);
 	s3cfb_set_buffer_address(fbdev, id);
 	s3cfb_set_buffer_size(fbdev, id);
-#endif
 
 	if (id > 0) {
 		s3cfb_set_alpha_blending(fbdev, id);
@@ -1046,32 +1029,22 @@ int s3cfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *fb)
 {
 	struct s3cfb_window *win = fb->par;
 	struct s3cfb_global *fbdev = get_fimd_global(win->id);
-	struct s3c_platform_fb *pdata = to_fb_plat(fbdev->dev);
-
-	if (win->id == pdata->default_win)
-		spin_lock(&fbdev->slock);
 
 #ifdef CONFIG_EXYNOS_DEV_PD
 	if (unlikely(fbdev->system_state == POWER_OFF) || fbdev->regs == 0) {
 		dev_err(fbdev->dev, "%s::system_state is POWER_OFF, fb%d\n", __func__, win->id);
-		if (win->id == pdata->default_win)
-			spin_unlock(&fbdev->slock);
-		return -EINVAL;
+		return 0;
 	}
 #endif
 
 	if (var->yoffset + var->yres > var->yres_virtual) {
 		dev_err(fbdev->dev, "invalid yoffset value\n");
-		if (win->id == pdata->default_win)
-			spin_unlock(&fbdev->slock);
 		return -EINVAL;
 	}
 
 #if defined(CONFIG_CPU_EXYNOS4210)
 	if (unlikely(var->xoffset + var->xres > var->xres_virtual)) {
 		dev_err(fbdev->dev, "invalid xoffset value\n");
-		if (win->id == pdata->default_win)
-			spin_unlock(&fbdev->slock);
 		return -EINVAL;
 	}
 	fb->var.xoffset = var->xoffset;
@@ -1084,8 +1057,6 @@ int s3cfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *fb)
 
 	s3cfb_set_buffer_address(fbdev, win->id);
 
-	if (win->id == pdata->default_win)
-		spin_unlock(&fbdev->slock);
 	return 0;
 }
 
@@ -1170,10 +1141,6 @@ int s3cfb_ioctl(struct fb_info *fb, unsigned int cmd, unsigned long arg)
 				   sizeof(p.user_window)))
 			ret = -EFAULT;
 		else {
-#if defined(CONFIG_CPU_EXYNOS4212) || defined(CONFIG_CPU_EXYNOS4412)
-			win->x = p.user_window.x;
-			win->y = p.user_window.y;
-#else
 			if (p.user_window.x < 0)
 				p.user_window.x = 0;
 
@@ -1191,7 +1158,6 @@ int s3cfb_ioctl(struct fb_info *fb, unsigned int cmd, unsigned long arg)
 				win->y = p.user_window.y;
 
 			s3cfb_set_window_position(fbdev, win->id);
-#endif
 		}
 		break;
 

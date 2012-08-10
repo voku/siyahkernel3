@@ -33,8 +33,7 @@
 #include <linux/vmalloc.h>
 #ifdef CONFIG_ZRAM_FOR_ANDROID
 #include <linux/swap.h>
-#endif /* CONFIG_ZRAM_FOR_ANDROID */
-
+#endif
 
 #include "zram_drv.h"
 
@@ -208,6 +207,7 @@ static void zram_set_disksize(struct zram *zram, u64 size_bytes)
  * given ramzswap device so that swapon can identify it as a
  * swap partition.
  */
+
 static void setup_swap_header(struct zram *zram, union swap_header *s)
 {
 	s->info.version = 1;
@@ -716,6 +716,7 @@ int zram_init_device(struct zram *zram)
 {
 	int ret;
 	size_t num_pages;
+
 #ifdef CONFIG_ZRAM_FOR_ANDROID
 	struct page *page;
 	union swap_header *swap_header;
@@ -764,7 +765,6 @@ int zram_init_device(struct zram *zram)
 	setup_swap_header(zram, swap_header);
 	kunmap(page);
 #endif /* CONFIG_ZRAM_FOR_ANDROID */
-	set_capacity(zram->disk, zram->disksize >> SECTOR_SHIFT);
 
 	/* zram devices sort of resembles non-rotational disks */
 	queue_flag_set_unlocked(QUEUE_FLAG_NONROT, zram->disk->queue);
@@ -923,8 +923,7 @@ static int __init zram_init(void)
 	pr_info("Creating %u devices ...\n", zram_num_devices);
 	zram_devices = kzalloc(zram_num_devices * sizeof(struct zram),
 				GFP_KERNEL);
-	if (!zram_devices)
-	{
+	if (!zram_devices) {
 		ret = -ENOMEM;
 		goto unregister;
 	}

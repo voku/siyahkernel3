@@ -199,23 +199,23 @@ void __init init_alloc_remap(int nid, u64 start, u64 end)
 
 	/* allocate node memory and the lowmem remap area */
 	node_pa = memblock_find_in_range(start, end, size, LARGE_PAGE_BYTES);
-	if (!node_pa) {
+	if (node_pa == MEMBLOCK_ERROR) {
 		pr_warning("remap_alloc: failed to allocate %lu bytes for node %d\n",
 			   size, nid);
 		return;
 	}
-	memblock_reserve(node_pa, size);
+	memblock_x86_reserve_range(node_pa, node_pa + size, "KVA RAM");
 
 	remap_pa = memblock_find_in_range(min_low_pfn << PAGE_SHIFT,
 					  max_low_pfn << PAGE_SHIFT,
 					  size, LARGE_PAGE_BYTES);
-	if (!remap_pa) {
+	if (remap_pa == MEMBLOCK_ERROR) {
 		pr_warning("remap_alloc: failed to allocate %lu bytes remap area for node %d\n",
 			   size, nid);
-		memblock_free(node_pa, size);
+		memblock_x86_free_range(node_pa, node_pa + size);
 		return;
 	}
-	memblock_reserve(remap_pa, size);
+	memblock_x86_reserve_range(remap_pa, remap_pa + size, "KVA PG");
 	remap_va = phys_to_virt(remap_pa);
 
 	/* perform actual remap */

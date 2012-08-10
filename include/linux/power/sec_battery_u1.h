@@ -27,6 +27,8 @@
 #define HWREV_FOR_BATTERY	0x06
 #elif defined(CONFIG_MACH_Q1_BD)
 #define HWREV_FOR_BATTERY	0x02
+#elif defined(CONFIG_MACH_U1CAMERA_BD)
+#define HWREV_FOR_BATTERY	0x00
 #else	/*U1 EUR OPEN */
 #define HWREV_FOR_BATTERY	0x08
 #endif
@@ -83,7 +85,6 @@ struct sec_bat_platform_data {
 #ifdef CONFIG_KEYBOARD_CYPRESS_AOKP
 extern void enable_bln_charging(int status);
 #endif
-
 extern void tsp_touch_config_update(int status);
 
 #endif /* __MACH_SEC_BATTERY_H */

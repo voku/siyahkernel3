@@ -582,10 +582,10 @@
 	cmpiclr,=	0x01,\tmp,%r0
 	ldi		(_PAGE_DIRTY|_PAGE_READ|_PAGE_WRITE),\prot
 .ifc \patype,20
-        depd,z          \prot,8,7,\prot
+	depd,z		\prot,8,7,\prot
 .else
 .ifc \patype,11
-        depw,z          \prot,8,7,\prot
+	depw,z		\prot,8,7,\prot
 .else
 	.error "undefined PA type to do_alias"
 .endif

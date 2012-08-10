@@ -1417,7 +1417,8 @@ int hci_remove_ltk(struct hci_dev *hdev, bdaddr_t *bdaddr)
 static void hci_cmd_timer(unsigned long arg)
 {
 	struct hci_dev *hdev = (void *) arg;
-#ifdef CONFIG_MACH_M0
+#if defined(CONFIG_MACH_M0) || defined(CONFIG_MACH_GRANDE) \
+	|| defined(CONFIG_MACH_IRON)
 	int rx_pin = gpio_get_value(GPIO_BT_RXD);
 	int tx_pin = gpio_get_value(GPIO_BT_TXD);
 	int cts_pin = gpio_get_value(GPIO_BT_CTS);
@@ -2297,6 +2298,21 @@ int hci_send_cmd(struct hci_dev *hdev, __u16 opcode, __u32 plen, void *param)
 void *hci_sent_cmd_data(struct hci_dev *hdev, __u16 opcode)
 {
 	struct hci_command_hdr *hdr;
+
+	/* SS_BLUETOOTH(is80.hwang) 2012.05.16 */
+	/*Check null pointer and opcode */
+	#if defined(CONFIG_BT_CSR8811)
+	if (hdev == NULL) {
+		BT_ERR("hci_sent_cmd_opcode:: hdev=NULL, opcode=0x%x", opcode);
+		return NULL;
+	}
+
+	if (hdev->sent_cmd->data == NULL) {
+		BT_ERR("hci_sent_cmd_opcode:: hdev->sent_cmd->data=NULL opcode=0x%x", opcode);
+		return NULL;
+	}
+	#endif
+	/* SS_BLUEZ_BT(is80.hwang) End */
 
 	if (!hdev->sent_cmd)
 		return NULL;

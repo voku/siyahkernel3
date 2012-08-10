@@ -17,7 +17,7 @@
 #include <linux/const.h>
 #include <linux/types.h>
 #include <mach/memory.h>
-#include <linux/sizes.h>
+#include <asm/sizes.h>
 
 /*
  * Allow for constants defined here to be used from assembly code
@@ -246,6 +246,7 @@ static inline void *phys_to_virt(phys_addr_t x)
  */
 #define __pa(x)			__virt_to_phys((unsigned long)(x))
 #define __va(x)			((void *)__phys_to_virt((unsigned long)(x)))
+#define __pa_symbol(x)		__pa(RELOC_HIDE((unsigned long)(x), 0))
 #define pfn_to_kaddr(pfn)	__va((pfn) << PAGE_SHIFT)
 
 /*

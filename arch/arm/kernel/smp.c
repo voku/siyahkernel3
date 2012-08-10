@@ -59,8 +59,6 @@ enum ipi_msg_type {
 	IPI_CPU_BACKTRACE,
 };
 
-static DECLARE_COMPLETION(cpu_running);
-
 int __cpuinit __cpu_up(unsigned int cpu)
 {
 	struct cpuinfo_arm *ci = &per_cpu(cpu_data, cpu);
@@ -120,12 +118,20 @@ int __cpuinit __cpu_up(unsigned int cpu)
 	 */
 	ret = boot_secondary(cpu, idle);
 	if (ret == 0) {
+		unsigned long timeout;
+
 		/*
 		 * CPU was successfully started, wait for it
 		 * to come online or time out.
 		 */
-		wait_for_completion_timeout(&cpu_running,
-						 msecs_to_jiffies(1000));
+		timeout = jiffies + HZ;
+		while (time_before(jiffies, timeout)) {
+			if (cpu_online(cpu))
+				break;
+
+			udelay(10);
+			barrier();
+		}
 
 		if (!cpu_online(cpu)) {
 			pr_crit("CPU%u: failed to come online\n", cpu);
@@ -236,7 +242,7 @@ void __ref cpu_die(void)
 	mb();
 
 	/* Tell __cpu_die() that this CPU is now safe to dispose of */
-	RCU_NONIDLE(complete(&cpu_died));	
+	complete(&cpu_died);
 
 	/*
 	 * actual CPU shutdown procedure is at least platform (if not
@@ -304,7 +310,7 @@ asmlinkage void __cpuinit secondary_start_kernel(void)
 	enter_lazy_tlb(mm, current);
 	local_flush_tlb_all();
 
-	printk(KERN_INFO "CPU%u: Booted secondary processor\n", cpu);
+	printk("CPU%u: Booted secondary processor\n", cpu);
 
 	cpu_init();
 	preempt_disable();
@@ -325,10 +331,9 @@ asmlinkage void __cpuinit secondary_start_kernel(void)
 	/*
 	 * OK, now it's safe to let the boot CPU continue.  Wait for
 	 * the CPU migration code to notice that the CPU is online
-	 * before we continue - which happens after __cpu_up returns.
+	 * before we continue.
 	 */
 	set_cpu_online(cpu, true);
-	complete(&cpu_running);
 
 	/*
 	 * Setup the percpu timer for this CPU.
@@ -471,13 +476,13 @@ asmlinkage void __exception_irq_entry do_local_timer(struct pt_regs *regs)
 
 	if (local_timer_ack()) {
 		__inc_irq_stat(cpu, local_timer_irqs);
-		sec_debug_irq_sched_log(0, do_local_timer, 1);
+		sec_debug_irq_log(0, do_local_timer, 1);
 		irq_enter();
 		ipi_timer();
 		irq_exit();
-		sec_debug_irq_sched_log(0, do_local_timer, 2);
+		sec_debug_irq_log(0, do_local_timer, 2);
 	} else
-		sec_debug_irq_sched_log(0, do_local_timer, 3);
+		sec_debug_irq_log(0, do_local_timer, 3);
 
 	set_irq_regs(old_regs);
 }
@@ -639,7 +644,7 @@ asmlinkage void __exception_irq_entry do_IPI(int ipinr, struct pt_regs *regs)
 	if (ipinr >= IPI_TIMER && ipinr < IPI_TIMER + NR_IPI)
 		__inc_irq_stat(cpu, ipi_irqs[ipinr - IPI_TIMER]);
 
-	sec_debug_irq_sched_log(ipinr, do_IPI, 1);
+	sec_debug_irq_log(ipinr, do_IPI, 1);
 
 	switch (ipinr) {
 	case IPI_TIMER:
@@ -671,9 +676,7 @@ asmlinkage void __exception_irq_entry do_IPI(int ipinr, struct pt_regs *regs)
 		break;
 
 	case IPI_CPU_BACKTRACE:
-		irq_enter();
 		ipi_cpu_backtrace(cpu, regs);
-		irq_exit();
 		break;
 
 	default:
@@ -682,7 +685,7 @@ asmlinkage void __exception_irq_entry do_IPI(int ipinr, struct pt_regs *regs)
 		break;
 	}
 
-	sec_debug_irq_sched_log(ipinr, do_IPI, 2);
+	sec_debug_irq_log(ipinr, do_IPI, 2);
 
 	set_irq_regs(old_regs);
 }

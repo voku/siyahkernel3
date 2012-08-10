@@ -128,6 +128,7 @@ if [ $USER != "root" ]; then
 	make -j$NAMBEROFCPUS zImage CONFIG_INITRAMFS_SOURCE="$INITRAMFS_TMP" || exit 1
 else
 	nice -n 10 make -j$NAMBEROFCPUS zImage CONFIG_INITRAMFS_SOURCE="$INITRAMFS_TMP" || exit 1
+#	nice -n 10 make CONFIG_DEBUG_SECTION_MISMATCH=y -j$NAMBEROFCPUS zImage CONFIG_INITRAMFS_SOURCE="$INITRAMFS_TMP" || exit 1
 fi;
 
 if [ -e $KERNELDIR/arch/arm/boot/zImage ]; then

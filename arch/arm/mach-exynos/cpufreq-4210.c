@@ -15,12 +15,12 @@
 #include <linux/clk.h>
 #include <linux/io.h>
 #include <linux/cpufreq.h>
-#include <linux/regulator/consumer.h>
 
 #include <mach/map.h>
 #include <mach/regs-clock.h>
 #include <mach/cpufreq.h>
 #include <mach/asv.h>
+#include <mach/sec_debug.h>
 
 #include <plat/clock.h>
 
@@ -38,7 +38,6 @@ struct cpufreq_clkdiv {
 	unsigned int	clkdiv;
 };
 
-static struct regulator *arm_regulator;
 static unsigned int exynos4210_volt_table[CPUFREQ_LEVEL_END];
 
 static struct cpufreq_frequency_table exynos4210_freq_table[] = {
@@ -49,31 +48,31 @@ static struct cpufreq_frequency_table exynos4210_freq_table[] = {
 	{L4, 1200*1000},
 	{L5, 1100*1000},
 	{L6, 1000*1000},
-	{L7, 900*1000},
-	{L8, 800*1000},
-	{L9, 700*1000},
+	{L7,  900*1000},
+	{L8,  800*1000},
+	{L9,  700*1000},
 	{L10, 600*1000},
 	{L11, 500*1000},
 	{L12, 400*1000},
 	{L13, 300*1000},
 	{L14, 200*1000},
 	{L15, 100*1000},
-	{L16, 50*1000},
-	{L17, 25*1000},
+	{L16,  50*1000},
+	{L17,  25*1000},
 	{0, CPUFREQ_TABLE_END},
 };
 
 static struct cpufreq_clkdiv exynos4210_clkdiv_table[] = {
-	{L0, 0},
-	{L1, 0},
-	{L2, 0},
-	{L3, 0},
-	{L4, 0},
-	{L5, 0},
-	{L6, 0},
-	{L7, 0},
-	{L8, 0},
-	{L9, 0},
+	{L0,  0},
+	{L1,  0},
+	{L2,  0},
+	{L3,  0},
+	{L4,  0},
+	{L5,  0},
+	{L6,  0},
+	{L7,  0},
+	{L8,  0},
+	{L9,  0},
 	{L10, 0},
 	{L11, 0},
 	{L12, 0},
@@ -104,10 +103,10 @@ static unsigned int clkdiv_cpu0[CPUFREQ_LEVEL_END][7] = {
 	{ 0, 3, 7, 3, 3, 1, 7 },  /* ARM L11: 500MHz */
 	{ 0, 3, 7, 3, 3, 1, 7 },  /* ARM L12: 400MHz */
 	{ 0, 3, 7, 3, 3, 1, 7 },  /* ARM L13: 300MHz */
-	{ 0, 1, 3, 1, 3, 1, 7 },  /* ARM L14: 200MHz */
-	{ 0, 1, 3, 1, 3, 1, 7 },  /* ARM L15: 100MHz */
-	{ 0, 1, 3, 1, 3, 1, 7 },  /* ARM L16: 50MHz */
-	{ 0, 1, 3, 1, 3, 1, 7 },  /* ARM L17: 25MHz */
+	{ 0, 1, 3, 1, 3, 1, 0 },  /* ARM L14: 200MHz */
+	{ 0, 1, 3, 1, 3, 1, 0 },  /* ARM L15: 100MHz */
+	{ 0, 1, 3, 1, 3, 1, 0 },  /* ARM L16: 50MHz */
+	{ 0, 1, 3, 1, 3, 1, 0 },  /* ARM L17: 25MHz */
 };
 
 static unsigned int clkdiv_cpu1[CPUFREQ_LEVEL_END][2] = {
@@ -162,45 +161,31 @@ static unsigned int exynos4_apll_pms_table[CPUFREQ_LEVEL_END] = {
 static const unsigned int asv_voltage_A[CPUFREQ_LEVEL_END][8] = {
 	/*
 	 *	   SS, A1, A2, B1, B2, C1, C2, D
-         * @Dummy:
-         * @1600 :
-         * @1500 :
-         * @1400 :
-         * @1300 :
-         * @1200 :
-         * @1100 :
-         * @1000 :
-         * @900  :
-         * @800  :      ASV_VOLTAGE_TABLE
-         * @700  :
-         * @600  :
-         * @500  :
-         * @400  :
-         * @300  :
-         * @200  :
-         * @100  :
-         * @50   :
-         * @25   :
-         */
-	/*ASV=0    ASV=1    ASV=2    ASV=3    ASV=4    ASV=5    ASV=6    ASV=7 */
-	{ 1450000, 1450000, 1425000, 1400000, 1400000, 1350000, 1350000, 1350000 },	//1600MHz
-	{ 1425000, 1425000, 1400000, 1375000, 1375000, 1325000, 1325000, 1325000 },	//1500MHz
-	{ 1400000, 1400000, 1350000, 1325000, 1300000, 1275000, 1250000, 1225000 },	//1400MHz
-	{ 1350000, 1325000, 1325000, 1300000, 1250000, 1225000, 1200000, 1175000 },	//1300MHz
-	{ 1300000, 1275000, 1275000, 1250000, 1200000, 1175000, 1150000, 1125000 },	//1200MHz
-	{ 1275000, 1250000, 1250000, 1225000, 1175000, 1150000, 1125000, 1100000 },	//1100MHz
-	{ 1250000, 1225000, 1225000, 1200000, 1150000, 1125000, 1100000, 1075000 },	//1000MHz
-	{ 1225000, 1200000, 1200000, 1175000, 1125000, 1100000, 1075000, 1050000 },	// 900MHz
-	{ 1200000, 1175000, 1150000, 1125000, 1100000, 1075000, 1050000, 1025000 },	// 800MHz
-	{ 1175000, 1150000, 1125000, 1100000, 1075000, 1050000, 1025000, 1000000 },	// 700MHz
-	{ 1150000, 1125000, 1100000, 1075000, 1050000, 1025000, 1000000,  975000 },	// 600MHz
-	{ 1125000, 1100000, 1075000, 1050000, 1025000, 1000000,  975000,  950000 },	// 500MHz
-	{ 1100000, 1075000, 1050000, 1025000, 1000000,  975000,  950000,  925000 },	// 400MHz
-	{ 1075000, 1050000, 1025000, 1000000,  975000,  950000,  925000,  900000 },	// 300MHz
-	{ 1050000, 1025000, 1000000,  975000,  950000,  925000,  900000,  875000 },	// 200MHz
-	{ 1025000, 1000000,  975000,  950000,  925000,  900000,  875000,  850000 },	// 100MHz
-	{ 1000000,  950000,  925000,  900000,  900000,  875000,  875000,  850000 },	//  50MHz
-	{  975000,  925000,  900000,  875000,  875000,  850000,  850000,  850000 },	//  25MHz
+	 * @Dummy:
+	 * @1200 :
+	 * @1000 :
+	 * @800	 :	ASV_VOLTAGE_TABLE
+	 * @500  :
+	 * @200  :
+	 */
+	{ 1450000, 1450000, 1425000, 1400000, 1400000, 1350000, 1350000, 1350000 }, //1600MHz
+	{ 1425000, 1425000, 1400000, 1375000, 1375000, 1325000, 1325000, 1325000 }, //1500MHz
+	{ 1400000, 1400000, 1350000, 1325000, 1300000, 1275000, 1250000, 1225000 }, //1400MHz
+	{ 1375000, 1375000, 1325000, 1300000, 1275000, 1250000, 1225000, 1200000 }, //1300MHz
+	{ 1350000, 1350000, 1300000, 1275000, 1250000, 1225000, 1200000, 1175000 }, //1200MHz
+	{ 1325000, 1325000, 1250000, 1225000, 1200000, 1175000, 1150000, 1125000 }, //1100MHz
+	{ 1300000, 1250000, 1200000, 1175000, 1150000, 1125000, 1100000, 1075000 }, //1000MHz
+	{ 1250000, 1200000, 1150000, 1125000, 1100000, 1075000, 1050000, 1025000 }, // 900MHz
+	{ 1200000, 1150000, 1100000, 1075000, 1050000, 1025000, 1000000,  975000 }, // 800MHz
+	{ 1150000, 1100000, 1075000, 1025000, 1025000, 1000000,  975000,  950000 }, // 700MHz
+	{ 1125000, 1075000, 1025000, 1000000, 1000000,  975000,  950000,  950000 }, // 600MHz
+	{ 1100000, 1050000, 1000000,  975000,  975000,  950000,  925000,  925000 }, // 500MHz
+	{ 1075000, 1025000, 1000000,  975000,  975000,  950000,  925000,  925000 }, // 400MHz
+	{ 1075000, 1025000, 1000000,  975000,  975000,  950000,  925000,  925000 }, // 300MHz
+	{ 1050000, 1000000,  975000,  950000,  950000,  925000,  925000,  925000 }, // 200MHz
+	{ 1025000,  975000,  950000,  925000,  925000,  900000,  900000,  900000 }, // 100MHz
+	{ 1000000,  950000,  925000,  900000,  900000,  875000,  875000,  875000 }, //  50MHz
+	{  975000,  925000,  900000,  875000,  875000,  850000,  850000,  850000 }, //  25MHz
 
 };
 
@@ -220,6 +205,7 @@ static const unsigned int asv_voltage_B[CPUFREQ_LEVEL_END][5] = {
 	{ 1150000, 1100000, 1050000, 1000000,  975000 },
 	{ 1050000, 1000000,  950000,  950000,  950000 },
 	{ 1025000,  975000,  950000,  950000,  950000 },
+
 };
 
 static void set_clkdiv(unsigned int div_index)
@@ -301,15 +287,15 @@ bool exynos4210_pms_change(unsigned int old_index, unsigned int new_index)
 	return (old_pm == new_pm) ? 0 : 1;
 }
 
-static void exynos4210_set_arm_volt(unsigned int arm_volt)
-{
-	regulator_set_voltage(arm_regulator, arm_volt, arm_volt + 25000);
-}
-
 static void exynos4210_set_frequency(unsigned int old_index,
 				  unsigned int new_index)
 {
 	unsigned int tmp;
+
+	sec_debug_aux_log(SEC_DEBUG_AUXLOG_CPU_BUS_CLOCK_CHANGE,
+			"%s: old_index=%d, new_index=%d(%ps)",
+			__func__, old_index, new_index,
+			__builtin_return_address(0));
 
 	if (old_index > new_index) {
 		if (!exynos4210_pms_change(old_index, new_index)) {
@@ -360,8 +346,13 @@ static void __init set_volt_table(void)
 
 	switch (tmp  & (SUPPORT_FREQ_MASK << SUPPORT_FREQ_SHIFT)) {
 	case SUPPORT_1400MHZ:
+#if defined(CONFIG_EXYNOS4210_1200MHZ_SUPPORT)
+		for_1200 = true;
+		max_support_idx = L1;
+#else
 		for_1400 = true;
 		max_support_idx = L0;
+#endif
 		break;
 	case SUPPORT_1200MHZ:
 		for_1200 = true;
@@ -377,6 +368,13 @@ static void __init set_volt_table(void)
 		break;
 	}
 
+	/*
+	 * If ASV group is S, can not support 1.4GHz
+	 * Disabling table entry
+	 */
+//	if ((asv_group == 0) || !for_1400)
+//		exynos4210_freq_table[L0].frequency = CPUFREQ_ENTRY_INVALID;
+
 	if (for_1000)
 		exynos4210_freq_table[L4].frequency = CPUFREQ_ENTRY_INVALID;
 
@@ -384,8 +382,8 @@ static void __init set_volt_table(void)
 
 	if (for_1400) {
 		for (i = 0 ; i < CPUFREQ_LEVEL_END ; i++) {
-			exynos4210_volt_table[i] =
-				asv_voltage_B[i][asv_group];
+				exynos4210_volt_table[i] =
+					asv_voltage_B[i][asv_group];
 		}
 	} else {
 		for (i = 0 ; i < CPUFREQ_LEVEL_END ; i++) {
@@ -472,18 +470,11 @@ int exynos4210_cpufreq_init(struct exynos_dvfs_info *info)
 	info->min_support_idx = min_support_idx;
 	info->cpu_clk = cpu_clk;
 	info->volt_table = exynos4210_volt_table;
-	info->set_volt = exynos4210_set_arm_volt;
 	info->freq_table = exynos4210_freq_table;
 	info->set_freq = exynos4210_set_frequency;
 	info->need_apll_change = exynos4210_pms_change;
 	info->max_current_idx = L4;
 	info->min_current_idx = L14;
-	
-	arm_regulator = regulator_get(NULL, "vdd_arm");
-	if (IS_ERR(arm_regulator)) {
-		printk(KERN_ERR "failed to get resource %s\n", "vdd_arm");
-		goto err_mout_apll;
-	}
 
 	return 0;
 

@@ -100,7 +100,6 @@
 
 #include <linux/kmemcheck.h>
 #include <linux/kmemleak.h>
-#include <linux/memory_hotplug.h>
 
 /*
  * Kmemleak configuration and common defines.
@@ -795,13 +794,9 @@ static void __init log_early(int op_type, const void *ptr, size_t size,
 	unsigned long flags;
 	struct early_log *log;
 
-	if (atomic_read(&kmemleak_error)) {
-		/* kmemleak stopped recording, just count the requests */
-		crt_early_log++;
-		return;
-	}
-
 	if (crt_early_log >= ARRAY_SIZE(early_log)) {
+		pr_warning("Early log buffer exceeded, "
+			   "please increase DEBUG_KMEMLEAK_EARLY_LOG_SIZE\n");
 		kmemleak_disable();
 		return;
 	}
@@ -968,7 +963,7 @@ void __ref kmemleak_scan_area(const void *ptr, size_t size, gfp_t gfp)
 {
 	pr_debug("%s(0x%p)\n", __func__, ptr);
 
-	if (atomic_read(&kmemleak_enabled) && ptr && size && !IS_ERR(ptr))
+	if (atomic_read(&kmemleak_enabled) && ptr && !IS_ERR(ptr))
 		add_scan_area((unsigned long)ptr, size, gfp);
 	else if (atomic_read(&kmemleak_early_log))
 		log_early(KMEMLEAK_SCAN_AREA, ptr, size, 0);
@@ -1225,9 +1220,9 @@ static void kmemleak_scan(void)
 #endif
 
 	/*
-	 * Struct page scanning for each node.
+	 * Struct page scanning for each node. The code below is not yet safe
+	 * with MEMORY_HOTPLUG.
 	 */
-	lock_memory_hotplug();
 	for_each_online_node(i) {
 		pg_data_t *pgdat = NODE_DATA(i);
 		unsigned long start_pfn = pgdat->node_start_pfn;
@@ -1246,7 +1241,6 @@ static void kmemleak_scan(void)
 			scan_block(page, page + 1, NULL, 1);
 		}
 	}
-	unlock_memory_hotplug();
 
 	/*
 	 * Scanning the task stacks (may introduce false negatives).
@@ -1638,6 +1632,7 @@ static void kmemleak_disable(void)
 		return;
 
 	/* stop any memory operation tracing */
+	atomic_set(&kmemleak_early_log, 0);
 	atomic_set(&kmemleak_enabled, 0);
 
 	/* check whether it is too early for a kernel thread */
@@ -1674,7 +1669,6 @@ void __init kmemleak_init(void)
 
 #ifdef CONFIG_DEBUG_KMEMLEAK_DEFAULT_OFF
 	if (!kmemleak_skip_disable) {
-		atomic_set(&kmemleak_early_log, 0);
 		kmemleak_disable();
 		return;
 	}
@@ -1687,18 +1681,12 @@ void __init kmemleak_init(void)
 	scan_area_cache = KMEM_CACHE(kmemleak_scan_area, SLAB_NOLEAKTRACE);
 	INIT_PRIO_TREE_ROOT(&object_tree_root);
 
-	if (crt_early_log >= ARRAY_SIZE(early_log))
-		pr_warning("Early log buffer exceeded (%d), please increase "
-			"DEBUG_KMEMLEAK_EARLY_LOG_SIZE\n", crt_early_log);
-
 	/* the kernel is still in UP mode, so disabling the IRQs is enough */
 	local_irq_save(flags);
-	atomic_set(&kmemleak_early_log, 0);
-	if (atomic_read(&kmemleak_error)) {
-		local_irq_restore(flags);
-		return;
-	} else
+	if (!atomic_read(&kmemleak_error)) {
 		atomic_set(&kmemleak_enabled, 1);
+		atomic_set(&kmemleak_early_log, 0);
+	}
 	local_irq_restore(flags);
 
 	/*

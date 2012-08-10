@@ -91,6 +91,8 @@ unsigned int __read_mostly sysctl_sched_shares_window = 10000000UL;
 
 static const struct sched_class fair_sched_class;
 
+static unsigned long __read_mostly max_load_balance_interval = HZ/10;
+
 /**************************************************************
  * CFS operations on generic schedulable entities:
  */
@@ -673,21 +675,9 @@ add_cfs_task_weight(struct cfs_rq *cfs_rq, unsigned long weight)
 {
 	cfs_rq->task_weight += weight;
 }
-
-static void
-sub_add_cfs_task_weight(struct cfs_rq *cfs_rq, unsigned long sub, unsigned long add)
-{
-	cfs_rq->task_weight -= sub;
-	cfs_rq->task_weight += add;
-}
 #else
 static inline void
 add_cfs_task_weight(struct cfs_rq *cfs_rq, unsigned long weight)
-{
-}
-
-static void
-sub_add_cfs_task_weight(struct cfs_rq *cfs_rq, unsigned long sub, unsigned long add)
 {
 }
 #endif
@@ -826,25 +816,20 @@ static inline void update_entity_shares_tick(struct cfs_rq *cfs_rq)
 {
 }
 # endif /* CONFIG_SMP */
-
 static void reweight_entity(struct cfs_rq *cfs_rq, struct sched_entity *se,
 			    unsigned long weight)
 {
-	/* commit outstanding execution time */
-	if (cfs_rq->curr == se)
-		update_curr(cfs_rq);
-
 	if (se->on_rq) {
-		update_load_sub_add(&cfs_rq->load, se->load.weight, weight);
-		if (!parent_entity(se)) {
-			update_load_sub_add(&rq_of(cfs_rq)->load, se->load.weight, weight);
-		}
-		if (entity_is_task(se)) {
-			sub_add_cfs_task_weight(cfs_rq, se->load.weight, weight);
-		}
+		/* commit outstanding execution time */
+		if (cfs_rq->curr == se)
+			update_curr(cfs_rq);
+		account_entity_dequeue(cfs_rq, se);
 	}
 
 	update_load_set(&se->load, weight);
+
+	if (se->on_rq)
+		account_entity_enqueue(cfs_rq, se);
 }
 
 static void update_cfs_shares(struct cfs_rq *cfs_rq)
@@ -1667,6 +1652,7 @@ static int select_idle_sibling(struct task_struct *p, int target)
 	/*
 	 * Otherwise, iterate the domains and find an elegible idle cpu.
 	 */
+	rcu_read_lock();
 	for_each_domain(target, sd) {
 		if (!(sd->flags & SD_SHARE_PKG_RESOURCES))
 			break;
@@ -1686,6 +1672,7 @@ static int select_idle_sibling(struct task_struct *p, int target)
 		    cpumask_test_cpu(prev_cpu, sched_domain_span(sd)))
 			break;
 	}
+	rcu_read_unlock();
 
 	return target;
 }
@@ -2670,6 +2657,11 @@ static void update_group_power(struct sched_domain *sd, int cpu)
 	struct sched_domain *child = sd->child;
 	struct sched_group *group, *sdg = sd->groups;
 	unsigned long power;
+	unsigned long interval;
+
+	interval = msecs_to_jiffies(sd->balance_interval);
+	interval = clamp(interval, 1UL, max_load_balance_interval);
+	sdg->sgp->next_update = jiffies + interval;
 
 	if (!child) {
 		update_cpu_power(sd, cpu);
@@ -2730,8 +2722,7 @@ static inline void update_sg_lb_stats(struct sched_domain *sd,
 			int local_group, const struct cpumask *cpus,
 			int *balance, struct sg_lb_stats *sgs)
 {
-	unsigned long nr_running, max_nr_running, min_nr_running;
-	unsigned long load, max_cpu_load, min_cpu_load;
+	unsigned long load, max_cpu_load, min_cpu_load, max_nr_running;
 	int i;
 	unsigned int balance_cpu = -1, first_idle_cpu = 0;
 	unsigned long avg_load_per_task = 0;
@@ -2743,12 +2734,9 @@ static inline void update_sg_lb_stats(struct sched_domain *sd,
 	max_cpu_load = 0;
 	min_cpu_load = ~0UL;
 	max_nr_running = 0;
-	min_nr_running = ~0UL;
 
 	for_each_cpu_and(i, sched_group_cpus(group), cpus) {
 		struct rq *rq = cpu_rq(i);
-
-	nr_running = rq->nr_running;
 
 		/* Bias balancing toward cpus of our domain */
 		if (local_group) {
@@ -2760,19 +2748,16 @@ static inline void update_sg_lb_stats(struct sched_domain *sd,
 			load = target_load(i, load_idx);
 		} else {
 			load = source_load(i, load_idx);
-			if (load > max_cpu_load)
+			if (load > max_cpu_load) {
 				max_cpu_load = load;
+				max_nr_running = rq->nr_running;
+			}
 			if (min_cpu_load > load)
 				min_cpu_load = load;
-
-			if (nr_running > max_nr_running)
-				max_nr_running = nr_running;
-			if (min_nr_running > nr_running)
-				min_nr_running = nr_running;
 		}
 
 		sgs->group_load += load;
-		sgs->sum_nr_running += nr_running;
+		sgs->sum_nr_running += rq->nr_running;
 		sgs->sum_weighted_load += weighted_cpuload(i);
 		if (idle_cpu(i))
 			sgs->idle_cpus++;
@@ -2784,12 +2769,15 @@ static inline void update_sg_lb_stats(struct sched_domain *sd,
 	 * domains. In the newly idle case, we will allow all the cpu's
 	 * to do the newly idle load balance.
 	 */
-	if (idle != CPU_NEWLY_IDLE && local_group) {
-		if (balance_cpu != this_cpu) {
-			*balance = 0;
-			return;
-		}
-		update_group_power(sd, this_cpu);
+	if (local_group) {
+		if (idle != CPU_NEWLY_IDLE) {
+			if (balance_cpu != this_cpu) {
+				*balance = 0;
+				return;
+			}
+			update_group_power(sd, this_cpu);
+		} else if (time_after_eq(jiffies, group->sgp->next_update))
+			update_group_power(sd, this_cpu);
 	}
 
 	/* Adjust by relative CPU power of the group */
@@ -2807,8 +2795,7 @@ static inline void update_sg_lb_stats(struct sched_domain *sd,
 	if (sgs->sum_nr_running)
 		avg_load_per_task = sgs->sum_weighted_load / sgs->sum_nr_running;
 
-	if ((max_cpu_load - min_cpu_load) >= avg_load_per_task &&
-	    (max_nr_running - min_nr_running) > 1)
+	if ((max_cpu_load - min_cpu_load) >= avg_load_per_task && max_nr_running > 1)
 		sgs->group_imb = 1;
 
 	sgs->group_capacity = DIV_ROUND_CLOSEST(group->sgp->power,
@@ -3623,6 +3610,22 @@ out_unlock:
 }
 
 #ifdef CONFIG_NO_HZ
+
+static DEFINE_PER_CPU(struct call_single_data, remote_sched_softirq_cb);
+
+static void trigger_sched_softirq(void *data)
+{
+	raise_softirq_irqoff(SCHED_SOFTIRQ);
+}
+
+static inline void init_sched_softirq_csd(struct call_single_data *csd)
+{
+	csd->func = trigger_sched_softirq;
+	csd->info = NULL;
+	csd->flags = 0;
+	csd->priv = 0;
+}
+
 /*
  * idle load balancing details
  * - One of the idle CPUs nominates itself as idle load_balancer, while
@@ -3640,7 +3643,6 @@ static struct {
 	cpumask_var_t idle_cpus_mask;
 	cpumask_var_t grp_idle_mask;
 	unsigned long next_balance;     /* in jiffy units */
-	spinlock_t next_balance_lock;   /* Serialize update to 'next_balance' */
 } nohz ____cacheline_aligned;
 
 int get_nohz_load_balancer(void)
@@ -3782,41 +3784,20 @@ static void nohz_balancer_kick(int cpu)
 
 	ilb_cpu = get_nohz_load_balancer();
 
-	/*
-	 * ilb_cpu itself can be attempting to kick another idle cpu. Pick
-	 * another idle cpu in that case.
-	 */
-	if (ilb_cpu >= nr_cpu_ids || ilb_cpu == cpu) {
-		ilb_cpu = cpumask_any_but(nohz.idle_cpus_mask, cpu);
+	if (ilb_cpu >= nr_cpu_ids) {
+		ilb_cpu = cpumask_first(nohz.idle_cpus_mask);
 		if (ilb_cpu >= nr_cpu_ids)
 			return;
 	}
 
 	if (!cpu_rq(ilb_cpu)->nohz_balance_kick) {
-		cpu_rq(ilb_cpu)->nohz_balance_kick = 1;
+		struct call_single_data *cp;
 
-		smp_mb();
-		/*
-		 * Use smp_send_reschedule() instead of resched_cpu().
-		 * This way we generate a sched IPI on the target cpu which
-		 * is idle. And the softirq performing nohz idle load balance
-		 * will be run before returning from the IPI.
-		 */
-		smp_send_reschedule(ilb_cpu);
+		cpu_rq(ilb_cpu)->nohz_balance_kick = 1;
+		cp = &per_cpu(remote_sched_softirq_cb, cpu);
+		__smp_call_function_single(ilb_cpu, cp, 0);
 	}
 	return;
-}
-
-/* Update nohz.next_balance with a new minimum value */
-static inline void set_nohz_next_balance(unsigned long next_balance)
-{
-	if (time_after(next_balance, nohz.next_balance))
-		return;
-
-	spin_lock(&nohz.next_balance_lock);
-	if (time_before(next_balance, nohz.next_balance))
-		nohz.next_balance = next_balance;
-	spin_unlock(&nohz.next_balance_lock);
 }
 
 /*
@@ -3877,10 +3858,8 @@ void select_nohz_load_balancer(int stop_tick)
 				resched_cpu(new_ilb);
 				return;
 			}
-			set_nohz_next_balance(cpu_rq(cpu)->next_balance);
 			return;
 		}
-		set_nohz_next_balance(cpu_rq(cpu)->next_balance);
 	} else {
 		if (!cpumask_test_cpu(cpu, nohz.idle_cpus_mask))
 			return;
@@ -3897,8 +3876,6 @@ void select_nohz_load_balancer(int stop_tick)
 #endif
 
 static DEFINE_SPINLOCK(balancing);
-
-static unsigned long __read_mostly max_load_balance_interval = HZ/10;
 
 /*
  * Scale the max load_balance interval with the number of CPUs in the system.
@@ -3986,8 +3963,6 @@ out:
 }
 
 #ifdef CONFIG_NO_HZ
-extern void update_idle_cpu_load(struct rq *this_rq);
-
 /*
  * In CONFIG_NO_HZ case, the idle balance kickee will do the
  * rebalancing for all the cpus for whom scheduler ticks are stopped.
@@ -3998,15 +3973,8 @@ static void nohz_idle_balance(int this_cpu, enum cpu_idle_type idle)
 	struct rq *rq;
 	int balance_cpu;
 
-	if (!this_rq->nohz_balance_kick)
+	if (idle != CPU_IDLE || !this_rq->nohz_balance_kick)
 		return;
-
-	/* Wakeup another idle cpu to do idle load balance if we got busy */
-	if (idle != CPU_IDLE) {
-		nohz_balancer_kick(this_cpu);
-		this_rq->nohz_balance_kick = 0;
-		return;
-	}
 
 	for_each_cpu(balance_cpu, nohz.idle_cpus_mask) {
 		if (balance_cpu == this_cpu)
@@ -4017,12 +3985,14 @@ static void nohz_idle_balance(int this_cpu, enum cpu_idle_type idle)
 		 * work being done for other cpus. Next load
 		 * balancing owner will pick it up.
 		 */
-		if (need_resched())
+		if (need_resched()) {
+			this_rq->nohz_balance_kick = 0;
 			break;
+		}
 
 		raw_spin_lock_irq(&this_rq->lock);
 		update_rq_clock(this_rq);
-		update_idle_cpu_load(this_rq);
+		update_cpu_load(this_rq);
 		raw_spin_unlock_irq(&this_rq->lock);
 
 		rebalance_domains(balance_cpu, CPU_IDLE);
@@ -4031,7 +4001,7 @@ static void nohz_idle_balance(int this_cpu, enum cpu_idle_type idle)
 		if (time_after(this_rq->next_balance, rq->next_balance))
 			this_rq->next_balance = rq->next_balance;
 	}
-	set_nohz_next_balance(this_rq->next_balance);
+	nohz.next_balance = this_rq->next_balance;
 	this_rq->nohz_balance_kick = 0;
 }
 
@@ -4056,18 +4026,15 @@ static inline int nohz_kick_needed(struct rq *rq, int cpu)
 	if (time_before(now, nohz.next_balance))
 		return 0;
 
-	if (idle_cpu(cpu))
+	if (rq->idle_at_tick)
 		return 0;
 
 	first_pick_cpu = atomic_read(&nohz.first_pick_cpu);
 	second_pick_cpu = atomic_read(&nohz.second_pick_cpu);
 
 	if (first_pick_cpu < nr_cpu_ids && first_pick_cpu != cpu &&
-	    second_pick_cpu < nr_cpu_ids && second_pick_cpu != cpu) {
-		if (rq->nr_running > 1)
-			return 1;
+	    second_pick_cpu < nr_cpu_ids && second_pick_cpu != cpu)
 		return 0;
-	}
 
 	ret = atomic_cmpxchg(&nohz.first_pick_cpu, nr_cpu_ids, cpu);
 	if (ret == nr_cpu_ids || ret == cpu) {
@@ -4095,7 +4062,7 @@ static void run_rebalance_domains(struct softirq_action *h)
 {
 	int this_cpu = smp_processor_id();
 	struct rq *this_rq = cpu_rq(this_cpu);
-	enum cpu_idle_type idle = this_rq->idle_balance ?
+	enum cpu_idle_type idle = this_rq->idle_at_tick ?
 						CPU_IDLE : CPU_NOT_IDLE;
 
 	rebalance_domains(this_cpu, idle);
@@ -4123,7 +4090,7 @@ static inline void trigger_load_balance(struct rq *rq, int cpu)
 	    likely(!on_null_domain(cpu)))
 		raise_softirq(SCHED_SOFTIRQ);
 #ifdef CONFIG_NO_HZ
-	if (nohz_kick_needed(rq, cpu) && likely(!on_null_domain(cpu)))
+	else if (nohz_kick_needed(rq, cpu) && likely(!on_null_domain(cpu)))
 		nohz_balancer_kick(cpu);
 #endif
 }

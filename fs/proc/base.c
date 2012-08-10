@@ -200,6 +200,27 @@ static int proc_root_link(struct inode *inode, struct path *path)
 	return result;
 }
 
+static struct mm_struct *mm_access(struct task_struct *task, unsigned int mode)
+{
+	struct mm_struct *mm;
+	int err;
+
+	err =  mutex_lock_killable(&task->signal->cred_guard_mutex);
+	if (err)
+		return ERR_PTR(err);
+
+	mm = get_task_mm(task);
+	if (mm && mm != current->mm &&
+			!ptrace_may_access(task, mode) &&
+			!capable(CAP_SYS_RESOURCE)) {
+		mmput(mm);
+		mm = ERR_PTR(-EACCES);
+	}
+	mutex_unlock(&task->signal->cred_guard_mutex);
+
+	return mm;
+}
+
 struct mm_struct *mm_for_maps(struct task_struct *task)
 {
 	return mm_access(task, PTRACE_MODE_READ);
@@ -606,7 +627,7 @@ static int mounts_open_common(struct inode *inode, struct file *file,
 	p->m.private = p;
 	p->ns = ns;
 	p->root = root;
-	p->m.poll_event = ns->event;
+	p->event = ns->event;
 
 	return 0;
 
@@ -863,7 +884,6 @@ loff_t mem_lseek(struct file *file, loff_t offset, int orig)
 static int mem_release(struct inode *inode, struct file *file)
 {
 	struct mm_struct *mm = file->private_data;
-
 	if (mm)
 		mmdrop(mm);
 	return 0;
@@ -1018,6 +1038,13 @@ static ssize_t oom_adjust_write(struct file *file, const char __user *buf,
 		goto err_sighand;
 	}
 
+	if (oom_adjust != task->signal->oom_adj) {
+		if (oom_adjust == OOM_DISABLE)
+			atomic_inc(&task->mm->oom_disable_count);
+		if (task->signal->oom_adj == OOM_DISABLE)
+			atomic_dec(&task->mm->oom_disable_count);
+	}
+
 	/*
 	 * Warn that /proc/pid/oom_adj is deprecated, see
 	 * Documentation/feature-removal-schedule.txt.
@@ -1153,6 +1180,12 @@ static ssize_t oom_score_adj_write(struct file *file, const char __user *buf,
 		goto err_sighand;
 	}
 
+	if (oom_score_adj != task->signal->oom_score_adj) {
+		if (oom_score_adj == OOM_SCORE_ADJ_MIN)
+			atomic_inc(&task->mm->oom_disable_count);
+		if (task->signal->oom_score_adj == OOM_SCORE_ADJ_MIN)
+			atomic_dec(&task->mm->oom_disable_count);
+	}
 	task->signal->oom_score_adj = oom_score_adj;
 	if (has_capability_noaudit(current, CAP_SYS_RESOURCE))
 		task->signal->oom_score_adj_min = oom_score_adj;
@@ -1856,7 +1889,7 @@ static int proc_fd_info(struct inode *inode, struct path *path, char *info)
 
 			fdt = files_fdtable(files);
 			f_flags = file->f_flags & ~O_CLOEXEC;
-			if (close_on_exec(fd, fdt))	
+			if (FD_ISSET(fd, fdt->close_on_exec))
 				f_flags |= O_CLOEXEC;
 
 			if (path) {

@@ -11,7 +11,6 @@
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/cpu.h>
-#include <linux/cpu_pm.h>
 #include <linux/kernel.h>
 #include <linux/notifier.h>
 #include <linux/signal.h>
@@ -414,15 +413,21 @@ static int vfp_pm_suspend(void)
 
 	/* if vfp is on, then save state for resumption */
 	if (fpexc & FPEXC_EN) {
-		pr_debug("%s: saving vfp state\n", __func__);
+		printk(KERN_DEBUG "%s: saving vfp state\n", __func__);
 		vfp_save_state(&ti->vfpstate, fpexc);
 
 		/* disable, just in case */
 		fmxr(FPEXC, fmrx(FPEXC) & ~FPEXC_EN);
+	} else if (vfp_current_hw_state[ti->cpu]) {
+#ifndef CONFIG_SMP
+		fmxr(FPEXC, fpexc | FPEXC_EN);
+		vfp_save_state(vfp_current_hw_state[ti->cpu], fpexc);
+		fmxr(FPEXC, fpexc);
+#endif
 	}
 
 	/* clear any information we had about last context state */
-	vfp_current_hw_state[ti->cpu] = NULL;	
+	memset(vfp_current_hw_state, 0, sizeof(vfp_current_hw_state));
 
 	return 0;
 }
@@ -436,28 +441,14 @@ static void vfp_pm_resume(void)
 	fmxr(FPEXC, fmrx(FPEXC) & ~FPEXC_EN);
 }
 
-static int vfp_cpu_pm_notifier(struct notifier_block *self, unsigned long cmd,
-	void *v)
-{
-	switch (cmd) {
-	case CPU_PM_ENTER:
-		vfp_pm_suspend();
-		break;
-	case CPU_PM_ENTER_FAILED:
-	case CPU_PM_EXIT:
-		vfp_pm_resume();
-		break;
-	}
-	return NOTIFY_OK;
-}
-
-static struct notifier_block vfp_cpu_pm_notifier_block = {
-	.notifier_call = vfp_cpu_pm_notifier,
+static struct syscore_ops vfp_pm_syscore_ops = {
+	.suspend	= vfp_pm_suspend,
+	.resume		= vfp_pm_resume,
 };
 
 static void vfp_pm_init(void)
 {
-	cpu_pm_register_notifier(&vfp_cpu_pm_notifier_block);
+	register_syscore_ops(&vfp_pm_syscore_ops);
 }
 
 #else

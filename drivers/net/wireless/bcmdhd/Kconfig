@@ -25,8 +25,8 @@ config BROADCOM_WIFI_RESERVED_MEM
 
 config WLAN_COUNTRY_CODE
 	tristate "---Broadcom WiFi Driver for 5GH channel setting"
-	depends on WLAN
-	default	n
+   	depends on WLAN
+   	default	n
 
 config WLAN_REGION_CODE
 	int "---Region codes for Broadcom WiFi Driver"
@@ -49,11 +49,4 @@ config BCMDHD_WIFI_PM
 	---help---
 	  Enable support for changing the WiFi power mode for
 	  screen-off.
-
-config DHD_USE_SCHED_SCAN
-	bool "Use CFG80211 sched scan"
-	depends on BCM4330 && CFG80211
-	default y
-	---help---
-	  Use CFG80211 sched scan
 

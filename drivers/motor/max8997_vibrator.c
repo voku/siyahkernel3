@@ -74,7 +74,11 @@ static void i2c_max8997_hapticmotor(struct vibrator_drvdata *data, bool en)
 
 	/* the setting of reg2 should be set */
 	if (0 == value)
+#if defined(CONFIG_MACH_P2)
+		value = MOTOR_LRA | EXT_PWM | DIVIDER_128;
+#else
 		value = MOTOR_LRA | EXT_PWM | DIVIDER_256;
+#endif
 
 	if (en)
 		value |= MOTOR_EN;
@@ -101,7 +105,7 @@ static void vibrator_work(struct work_struct *_work)
 	struct vibrator_drvdata *data =
 		container_of(_work, struct vibrator_drvdata, work);
 
-	pr_debug("[VIB] time = %dms\n", data->timeout);
+	printk(KERN_DEBUG "[VIB] time = %dms\n", data->timeout);
 
 	if (0 == data->timeout) {
 		if (!data->running)

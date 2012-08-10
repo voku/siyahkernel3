@@ -993,6 +993,19 @@ static ssize_t check_battery_write( struct device *dev, struct device_attribute 
 static DEVICE_ATTR(led, S_IRUGO | S_IWUGO, led_status_read, led_status_write );
 static DEVICE_ATTR(led_timeout, S_IRUGO | S_IWUGO, led_timeout_read, led_timeout_write );
 static DEVICE_ATTR(notification_enabled, S_IRUGO | S_IWUGO, notification_enabled_read, notification_enabled_write );
+static DEVICE_ATTR(enabled, S_IRUGO | S_IWUGO, notification_enabled_read, notification_enabled_write );
+static void enable_touchkey_backlights(void)
+{
+	int status = 1;
+	i2c_touchkey_write((u8 *)&status, 1);
+}
+
+static void disable_touchkey_backlights(void)
+{
+	int status = 2;
+	i2c_touchkey_write((u8 *)&status, 1);
+}
+
 #else
 static void enable_touchkey_backlights(void)
 {
@@ -1056,6 +1069,7 @@ static struct attribute *bl_led_attributes[] = {
 	&dev_attr_led.attr,
 	&dev_attr_led_timeout.attr,
 	&dev_attr_notification_enabled.attr,
+	&dev_attr_enabled.attr,
 #else
         &dev_attr_blink_control.attr,
         &dev_attr_enabled.attr,

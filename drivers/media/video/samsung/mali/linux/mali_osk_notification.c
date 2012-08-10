@@ -44,8 +44,8 @@ struct _mali_osk_notification_queue_t_struct
 
 typedef struct _mali_osk_notification_wrapper_t_struct
 {
-	struct list_head list;           /**< Internal linked list variable */
-	_mali_osk_notification_t data;   /**< Notification data */
+    struct list_head list;           /**< Internal linked list variable */
+    _mali_osk_notification_t data;   /**< Notification data */
 } _mali_osk_notification_wrapper_t;
 
 _mali_osk_notification_queue_t *_mali_osk_notification_queue_init( void )
@@ -65,7 +65,7 @@ _mali_osk_notification_queue_t *_mali_osk_notification_queue_init( void )
 _mali_osk_notification_t *_mali_osk_notification_create( u32 type, u32 size )
 {
 	/* OPT Recycling of notification objects */
-	_mali_osk_notification_wrapper_t *notification;
+    _mali_osk_notification_wrapper_t *notification;
 
 	if (MALI_PMM_NOTIFICATION_TYPE == type) {
 		if (size != sizeof(mali_pmm_message_t))

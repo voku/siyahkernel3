@@ -193,7 +193,7 @@ void set_mdnie_value(struct mdnie_info *mdnie, u8 force)
 	}
 #endif
 
-	if (SCENARIO_IS_COLOR(mdnie->scenario)) {
+	if (SCENARIO_IS_COLOR((enum SCENARIO_COLOR_TONE)mdnie->scenario)) {
 		idx = mdnie->scenario - COLOR_TONE_1;
 		mdnie_send_sequence(mdnie, tune_color_tone[idx].seq);
 		dev_info(mdnie->dev, "mode=%d, scenario=%d, outdoor=%d, cabc=%d, %s\n",
@@ -221,8 +221,7 @@ void set_mdnie_value(struct mdnie_info *mdnie, u8 force)
 #if defined(CONFIG_TDMB) || defined(CONFIG_TARGET_LOCALE_NTT)
 etc:
 #endif
-	if (!IS_ERR_OR_NULL(etc_table[mdnie->cabc][mdnie->outdoor == OUTDOOR_OFF][mdnie->tone].seq)) {
-		dev_info(mdnie->dev, "%s\n", etc_table[mdnie->cabc][mdnie->outdoor][mdnie->tone].name);
+	if (!IS_ERR_OR_NULL(etc_table[mdnie->cabc][mdnie->outdoor][mdnie->tone].seq)) {
 		mdnie_send_sequence(mdnie, etc_table[mdnie->cabc][mdnie->outdoor][mdnie->tone].seq);
 		dev_info(mdnie->dev, "%s\n", etc_table[mdnie->cabc][mdnie->outdoor][mdnie->tone].name);
 	}
@@ -818,7 +817,7 @@ void mdnie_late_resume(struct early_suspend *h)
 #endif
 #endif
 
-/* Tweak by GM */
+//gm
 void mdnie_toggle_negative(void)
 {
 	mutex_lock(&g_mdnie->lock);
@@ -1020,3 +1019,4 @@ module_exit(mdnie_exit);
 
 MODULE_DESCRIPTION("mDNIe Driver");
 MODULE_LICENSE("GPL");
+

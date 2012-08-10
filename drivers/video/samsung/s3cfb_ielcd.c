@@ -161,3 +161,4 @@ int s3c_ielcd_init_global(struct s3cfb_global *ctrl)
 
 	return 0;
 }
+

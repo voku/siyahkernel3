@@ -235,14 +235,15 @@ rom_feature_set_sysctl(struct ctl_table *table, int write,
                      loff_t *ppos)
 {
 	int error;
-	static int rom_feature_set_save;
+	static int rom_feature_set_save = 0;
 
 	error = proc_dointvec(table, write, buffer, lenp, ppos);
 	if (error)
 		return error;
 
 	if (write) {
-		if ((rom_feature_set & 0x10) == 0x10) {
+		if( (rom_feature_set & 0x10) == 0x10)
+		{
 			rom_feature_set = rom_feature_set_save;
 			u1_gps_ntt_init();
 			return 0;

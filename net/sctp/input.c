@@ -742,7 +742,7 @@ static void __sctp_unhash_endpoint(struct sctp_endpoint *ep)
 	head = &sctp_ep_hashtable[epb->hashent];
 
 	sctp_write_lock(&head->lock);
-	hlist_del_init(&epb->node);	
+	hlist_del_init(&epb->node);
 	sctp_write_unlock(&head->lock);
 }
 

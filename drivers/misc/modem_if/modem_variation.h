@@ -73,6 +73,12 @@ DECLARE_MODEM_INIT(mdm6600);
 DECLARE_MODEM_INIT_DUMMY(mdm6600)
 #endif
 
+#ifdef CONFIG_GSM_MODEM_ESC6270
+DECLARE_MODEM_INIT(esc6270);
+#else
+DECLARE_MODEM_INIT_DUMMY(esc6270)
+#endif
+
 /* link device support */
 DECLARE_LINK_INIT_DUMMY(undefined)
 
@@ -120,6 +126,7 @@ static modem_init_call modem_init_func[] = {
 	MODEM_INIT_CALL(cbp72),
 	MODEM_INIT_CALL(cmc221),
 	MODEM_INIT_CALL(mdm6600),
+	MODEM_INIT_CALL(esc6270),
 	MODEM_INIT_CALL(dummy),
 };
 

@@ -99,22 +99,6 @@ config USB_GADGET_VBUS_DRAW
 config	USB_GADGET_SELECTED
 	boolean
 
-config USB_GADGET_STORAGE_NUM_BUFFERS
-	int "Number of storage pipeline buffers"
-	range 2 4
-	default 2
-	help
-	   Usually 2 buffers are enough to establish a good buffering
-	   pipeline. The number may be increased in order to compensate
-	   for a bursty VFS behaviour. For instance there may be CPU wake up
-	   latencies that makes the VFS to appear bursty in a system with
-	   an CPU on-demand governor. Especially if DMA is doing IO to
-	   offload the CPU. In this case the CPU will go into power
-	   save often and spin up occasionally to move data within VFS.
-	   If selecting USB_GADGET_DEBUG_FILES this value may be set by
-	   a module parameter as well.
-	   If unsure, say 2.
-
 #
 # USB Peripheral Controller Support
 #
@@ -335,7 +319,8 @@ config USB_GADGET_EXYNOS_SS_UDC
         depends on EXYNOS_DEV_SS_UDC
         select USB_GADGET_DUALSPEED
         help
-          DWC SuperSpeed USB 3.0 Device controller.
+	  The Samsung Exynos SuperSpeed USB 3.0 device controller
+	  integrated into the Exynos5 series SoC.
 
 config USB_EXYNOS_SS_UDC
         tristate
@@ -695,7 +680,7 @@ config USB_S3C_OTGD
 choice
 	prompt "EXYNOS SS UDC speed mode (temporarily)"
 	depends on USB_GADGET_EXYNOS_SS_UDC
-	default USB_GADGET_EXYNOS_SS_UDC_HSMODE
+	default USB_GADGET_EXYNOS_SS_UDC_SSMODE
 	help
 	   For the present moment gadget layer doesn't support SuperSpeed.
 	   This option allows to select speed mode for EXYNOS SS UDC driver.

@@ -1162,9 +1162,9 @@ out_free:
 			  asoc, kaddrs, err);
 	if (asoc) {
 		/* sctp_primitive_ASSOCIATE may have added this association
-		* To the hash table, try to unhash it, just in case, its a noop
-		* if it wasn't hashed so we're safe
-		*/
+		 * To the hash table, try to unhash it, just in case, its a noop
+		 * if it wasn't hashed so we're safe
+		 */
 		sctp_unhash_established(asoc);
 		sctp_association_free(asoc);
 	}

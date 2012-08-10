@@ -571,8 +571,10 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 	}
 
 	if (card->ext_csd.rev >= 5) {
-		/* enable discard feature if emmc is 4.41 */
-		card->ext_csd.feature_support |= MMC_DISCARD_FEATURE;
+		/* enable discard feature if emmc is 4.41+ */
+		if ((ext_csd[EXT_CSD_VENDOR_SPECIFIC_FIELD + 0] & 0x1) &&
+			(card->cid.manfid == 0x15))
+			card->ext_csd.feature_support |= MMC_DISCARD_FEATURE;
 
 		/* check whether the eMMC card supports HPI */
 		if (ext_csd[EXT_CSD_HPI_FEATURES] & 0x1) {

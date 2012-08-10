@@ -1015,7 +1015,8 @@ static int mmc_blk_err_check(struct mmc_card *card,
 	if (brq->sbc.error || brq->cmd.error || brq->stop.error ||
 	    brq->data.error) {
 #if defined(CONFIG_MACH_M0) || defined(CONFIG_MACH_P4NOTE) || \
-		defined(CONFIG_MACH_C1_USA_ATT)
+		defined(CONFIG_MACH_C1_USA_ATT) \
+		|| defined(CONFIG_MACH_GRANDE) || defined(CONFIG_MACH_IRON)
 		if (mmc_card_mmc(card)) {
 			pr_err("brq->sbc.opcode=%d,"
 					"brq->cmd.opcode=%d.\n",
@@ -1939,7 +1940,8 @@ snd_packed_rd:
 		}
 	}
 #if defined(CONFIG_MACH_M0) || defined(CONFIG_MACH_P4NOTE) || \
-		defined(CONFIG_MACH_C1_USA_ATT)
+		defined(CONFIG_MACH_C1_USA_ATT) \
+		|| defined(CONFIG_MACH_GRANDE) || defined(CONFIG_MACH_IRON)
 	/*
 	 * It's for Engineering DEBUGGING only
 	 * This has to be removed before PVR(guessing)
@@ -2461,7 +2463,11 @@ static void __exit mmc_blk_exit(void)
 	unregister_blkdev(MMC_BLOCK_MAJOR, "mmc");
 }
 
+#ifdef CONFIG_FAST_RESUME
+beforeresume_initcall(mmc_blk_init);
+#else
 module_init(mmc_blk_init);
+#endif
 module_exit(mmc_blk_exit);
 
 MODULE_LICENSE("GPL");

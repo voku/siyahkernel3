@@ -438,7 +438,6 @@ extern int j4fs_permission(struct inode *inode, int mask);
 extern int j4fs_permission(struct inode *inode, int mask, struct nameidata *nd);
 #endif
 
-extern DWORD valid_offset[128][2];
 extern int j4fs_readpage_unlock(struct file *f, struct page *page);
 extern int j4fs_readpage_nolock(struct file *f, struct page *page);
 extern int j4fs_file_write(struct file *f, const char *buf, size_t n,loff_t *pos);

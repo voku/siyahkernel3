@@ -33,7 +33,7 @@
 #if defined(CONFIG_TARGET_LOCALE_NA) || defined(CONFIG_TARGET_LOCALE_NAATT)
 #define POLLING_INTERVAL	(10 * 1000)
 #else
-#define POLLING_INTERVAL	(60 * 1000)
+#define POLLING_INTERVAL	(40 * 1000)
 #endif				/* CONFIG_TARGET_LOCALE_NA */
 
 #ifdef SEC_BATTERY_INDEPEDENT_VF_CHECK
@@ -172,12 +172,12 @@
 #endif				/* CONFIG_MACH_U1_NA_SPR_EPIC2_REV00 */
 #elif defined(CONFIG_MACH_Q1_BD)
 #ifdef SEC_BATTERY_1ST_2ND_TOPOFF
+#if 0
 #define CURRENT_1ST_FULL_CHG		1000	/* 360mA */
 #define CURRENT_2ND_FULL_CHG		650	/* 220mA */
-#if 0
-#define CURRENT_1ST_FULL_CHG          550             /* 195mA */
-#define CURRENT_2ND_FULL_CHG          400             /* 170mA */
 #endif
+#define CURRENT_1ST_FULL_CHG		580		/* 190mA */
+#define CURRENT_2ND_FULL_CHG		540		/* 170mA */
 #else
 #define CURRENT_OF_FULL_CHG			850
 #endif
@@ -560,6 +560,12 @@ static int sec_bat_set_property(struct power_supply *ps,
 	struct power_supply *psy = get_power_supply_by_name(info->charger_name);
 	union power_supply_propval value;
 
+	if (!psy) {
+		dev_err(info->dev, "%s: fail to get %s ps\n",
+			__func__, info->charger_name);
+		return -EINVAL;
+	}
+
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
 		dev_info(info->dev, "%s: topoff intr\n", __func__);
@@ -626,13 +632,14 @@ static int sec_bat_set_property(struct power_supply *ps,
 		/* cable is attached or detached. called by USB switch(MUIC) */
 		dev_info(info->dev, "%s: cable was changed(%d)\n", __func__,
 			 val->intval);
-		/* trigger touchscreen config update */
-		tsp_touch_config_update(val->intval);
 
 #ifdef CONFIG_KEYBOARD_CYPRESS_AOKP
 		/* trigger cypress bln */
 		enable_bln_charging(val->intval);
 #endif
+		/* trigger touchscreen config update */
+		tsp_touch_config_update(val->intval);
+
 		switch (val->intval) {
 		case POWER_SUPPLY_TYPE_BATTERY:
 			info->cable_type = CABLE_TYPE_NONE;
@@ -1077,7 +1084,7 @@ static int sec_bat_check_temper(struct sec_bat_info *info)
 		}
 	}
 
-	dev_dbg(info->dev, "%s: temp=%d, adc=%d\n", __func__, temp, temp_adc);
+	dev_info(info->dev, "%s: temp=%d, adc=%d\n", __func__, temp, temp_adc);
 
 	return temp;
 }
@@ -1086,6 +1093,12 @@ static void sec_bat_get_dcinovp(struct sec_bat_info *info)
 {
 	struct power_supply *psy = get_power_supply_by_name(info->charger_name);
 	union power_supply_propval value;
+
+	if (!psy) {
+		dev_err(info->dev, "%s: fail to get %s ps\n",
+			__func__, info->charger_name);
+		return;
+	}
 
 	if (info->slate_test_mode) {
 		info->charging_status = POWER_SUPPLY_STATUS_DISCHARGING;
@@ -1379,7 +1392,7 @@ static bool sec_check_chgcurrent(struct sec_bat_info *info)
 	case POWER_SUPPLY_STATUS_CHARGING:
 		check_chgcurrent(info);
 
-		if (info->batt_vcell >= FULL_CHARGE_COND_VOLTAGE) {
+		if (info->batt_vfocv >= FULL_CHARGE_COND_VOLTAGE / 1000) {
 
 #ifdef SEC_BATTERY_1ST_2ND_TOPOFF
 			if (((info->charging_status ==
@@ -1781,6 +1794,12 @@ static void sec_bat_check_vf(struct sec_bat_info *info)
 	union power_supply_propval value;
 	int ret;
 
+	if (!psy) {
+		dev_err(info->dev, "%s: fail to get %s ps\n",
+			__func__, info->charger_name);
+		return;
+	}
+
 #if defined(CONFIG_MACH_Q1_BD)
 	if (system_rev <= HWREV_FOR_BATTERY) {
 		int adc;
@@ -1839,6 +1858,12 @@ static void sec_bat_check_ovp(struct sec_bat_info *info)
 	union power_supply_propval value;
 	int ret;
 
+	if (!psy) {
+		dev_err(info->dev, "%s: fail to get %s ps\n",
+			__func__, info->sub_charger_name);
+		return;
+	}
+
 	ret = psy->get_property(psy, POWER_SUPPLY_PROP_HEALTH, &value);
 
 	if (ret < 0) {
@@ -1860,6 +1885,12 @@ static bool sec_bat_check_ing_level_trigger(struct sec_bat_info *info)
 
 	if (info->use_sub_charger && info->sub_charger_name) {
 		psy = get_power_supply_by_name(info->sub_charger_name);
+
+		if (!psy) {
+			dev_err(info->dev, "%s: fail to get %s ps\n",
+				__func__, info->sub_charger_name);
+			return false;
+		}
 
 		ret = psy->get_property(psy, POWER_SUPPLY_PROP_STATUS, &value);
 
@@ -1990,6 +2021,12 @@ static bool sec_bat_check_ing_level_trigger(struct sec_bat_info *info)
 	} else {
 		psy = get_power_supply_by_name(info->charger_name);
 
+		if (!psy) {
+			dev_err(info->dev, "%s: fail to get %s ps\n",
+				__func__, info->charger_name);
+			return false;
+		}
+
 		ret = psy->get_property(psy, POWER_SUPPLY_PROP_STATUS, &value);
 
 		if (ret < 0) {
@@ -2059,11 +2096,11 @@ static void sec_bat_monitor_work(struct work_struct *work)
 						 monitor_work);
 
 #ifdef CONFIG_KEYBOARD_CYPRESS_AOKP
-	/* Broadcast battery level */
-	batt_status = info->batt_soc;
+        /* Broadcast battery level */
+        batt_status = info->batt_soc;
 
-	/* Broadcast charging status */
-	charging_status = info->charging_status;
+        /* Broadcast charging status */
+        charging_status = info->charging_status;
 #endif
 
 	sec_bat_check_temper(info);
@@ -2753,13 +2790,11 @@ static ssize_t sec_bat_store(struct device *dev,
 				} else {
 					switch (info->cable_type) {
 					case CABLE_TYPE_USB:
-						value.intval = charge_current_usb;  /* mA */
-						break;
 					case CABLE_TYPE_MISC:
-						value.intval = charge_current_misc;	/* mA */
+						value.intval = 450;	/* mA */
 						break;
 					case CABLE_TYPE_AC:
-						value.intval = charge_current_ac;	/* mA */
+						value.intval = 650;	/* mA */
 						break;
 					default:
 						dev_err(info->dev,

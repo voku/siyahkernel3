@@ -20,12 +20,12 @@
 #include <linux/gfp.h>
 #include <linux/memblock.h>
 #include <linux/sort.h>
-#include <linux/sizes.h>
 
 #include <asm/mach-types.h>
 #include <asm/prom.h>
 #include <asm/sections.h>
 #include <asm/setup.h>
+#include <asm/sizes.h>
 #include <asm/tlb.h>
 #include <asm/fixmap.h>
 
@@ -292,11 +292,11 @@ EXPORT_SYMBOL(pfn_valid);
 #endif
 
 #ifndef CONFIG_SPARSEMEM
-static void __init arm_memory_present(void)
+static void arm_memory_present(void)
 {
 }
 #else
-static void __init arm_memory_present(void)
+static void arm_memory_present(void)
 {
 	struct memblock_region *reg;
 
@@ -319,6 +319,7 @@ void __init arm_memblock_init(struct meminfo *mi, struct machine_desc *mdesc)
 
 	sort(&meminfo.bank, meminfo.nr_banks, sizeof(meminfo.bank[0]), meminfo_cmp, NULL);
 
+	memblock_init();
 	for (i = 0; i < mi->nr_banks; i++)
 		memblock_add(mi->bank[i].start, mi->bank[i].size);
 
@@ -357,7 +358,7 @@ void __init arm_memblock_init(struct meminfo *mi, struct machine_desc *mdesc)
 	if (mdesc->reserve)
 		mdesc->reserve();
 
-	memblock_allow_resize();
+	memblock_analyze();
 	memblock_dump_all();
 }
 

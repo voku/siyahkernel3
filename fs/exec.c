@@ -848,6 +848,10 @@ static int exec_mmap(struct mm_struct *mm)
 	tsk->mm = mm;
 	tsk->active_mm = mm;
 	activate_mm(active_mm, mm);
+	if (old_mm && tsk->signal->oom_score_adj == OOM_SCORE_ADJ_MIN) {
+		atomic_dec(&old_mm->oom_disable_count);
+		atomic_inc(&tsk->mm->oom_disable_count);
+	}
 	task_unlock(tsk);
 	arch_pick_mmap_layout(mm);
 	if (old_mm) {
@@ -1018,14 +1022,14 @@ static void flush_old_files(struct files_struct * files)
 		unsigned long set, i;
 
 		j++;
-		i = j * __NFDBITS; 
+		i = j * __NFDBITS;
 		fdt = files_fdtable(files);
 		if (i >= fdt->max_fds)
 			break;
-		set = fdt->close_on_exec[j];
+		set = fdt->close_on_exec->fds_bits[j];
 		if (!set)
 			continue;
-		fdt->close_on_exec[j] = 0;
+		fdt->close_on_exec->fds_bits[j] = 0;
 		spin_unlock(&files->file_lock);
 		for ( ; set ; i++,set >>= 1) {
 			if (set & 1) {
@@ -1618,26 +1622,15 @@ expand_fail:
 	return ret;
 }
 
-static void cn_escape(char *str)
-{
-	for (; *str; str++)
-		if (*str == '/')
-			*str = '!';
-}
-
 static int cn_print_exe_file(struct core_name *cn)
 {
 	struct file *exe_file;
-	char *pathbuf, *path;
+	char *pathbuf, *path, *p;
 	int ret;
 
 	exe_file = get_mm_exe_file(current->mm);
-	if (!exe_file) {
-		char *commstart = cn->corename + cn->used;
-		ret = cn_printf(cn, "%s (path unknown)", current->comm);
-		cn_escape(commstart);
-		return ret;
-	}
+	if (!exe_file)
+		return cn_printf(cn, "(unknown)");
 
 	pathbuf = kmalloc(PATH_MAX, GFP_TEMPORARY);
 	if (!pathbuf) {
@@ -1651,7 +1644,9 @@ static int cn_print_exe_file(struct core_name *cn)
 		goto free_buf;
 	}
 
-	cn_escape(path);
+	for (p = path; *p; p++)
+		if (*p == '/')
+			*p = '!';
 
 	ret = cn_printf(cn, "%s", path);
 
@@ -1723,22 +1718,16 @@ static int format_corename(struct core_name *cn, long signr)
 				break;
 			}
 			/* hostname */
-			case 'h': {
-				char *namestart = cn->corename + cn->used;
+			case 'h':
 				down_read(&uts_sem);
 				err = cn_printf(cn, "%s",
 					      utsname()->nodename);
 				up_read(&uts_sem);
-				cn_escape(namestart);
 				break;
-			}
 			/* executable */
-			case 'e': {
-				char *commstart = cn->corename + cn->used;
+			case 'e':
 				err = cn_printf(cn, "%s", current->comm);
-				cn_escape(commstart);
 				break;
-			}
 			case 'E':
 				err = cn_print_exe_file(cn);
 				break;
@@ -2032,8 +2021,8 @@ static int umh_pipe_setup(struct subprocess_info *info, struct cred *new)
 	fd_install(0, rp);
 	spin_lock(&cf->file_lock);
 	fdt = files_fdtable(cf);
-	__set_open_fd(0, fdt);	
-	__clear_close_on_exec(0, fdt);
+	FD_SET(0, fdt->open_fds);
+	FD_CLR(0, fdt->close_on_exec);
 	spin_unlock(&cf->file_lock);
 
 	/* and disallow core files too */

@@ -78,6 +78,8 @@ DEFINE_PER_CPU(int, _numa_mem_);		/* Kernel "local memory" node */
 EXPORT_PER_CPU_SYMBOL(_numa_mem_);
 #endif
 
+struct rw_semaphore page_alloc_slow_rwsem;
+
 /*
  * Array of node states.
  */
@@ -98,6 +100,14 @@ unsigned long totalram_pages __read_mostly;
 unsigned long totalreserve_pages __read_mostly;
 int percpu_pagelist_fraction;
 gfp_t gfp_allowed_mask __read_mostly = GFP_BOOT_MASK;
+
+#ifdef CONFIG_COMPACTION_RETRY_DEBUG
+static inline void show_buddy_info(void);
+#else
+static inline void show_buddy_info(void)
+{
+}
+#endif
 
 #ifdef CONFIG_PM_SLEEP
 /*
@@ -1225,19 +1235,6 @@ out:
 }
 
 /*
- * Free a list of 0-order pages
- */
-void free_hot_cold_page_list(struct list_head *list, int cold)
-{
-	struct page *page, *next;
-
-	list_for_each_entry_safe(page, next, list, lru) {
-		trace_mm_pagevec_free(page, cold);
-		free_hot_cold_page(page, cold);
-	}
-}
-
-/*
  * split_page takes a non-compound higher-order page, and splits it into
  * n (1<<order) sub-pages: page[0..n]
  * Each sub-page must be freed individually.
@@ -1799,6 +1796,7 @@ static DEFINE_RATELIMIT_STATE(nopage_rs,
 
 void warn_alloc_failed(gfp_t gfp_mask, int order, const char *fmt, ...)
 {
+	va_list args;
 	unsigned int filter = SHOW_MEM_FILTER_NODES;
 
 	if ((gfp_mask & __GFP_NOWARN) || !__ratelimit(&nopage_rs))
@@ -1817,21 +1815,14 @@ void warn_alloc_failed(gfp_t gfp_mask, int order, const char *fmt, ...)
 		filter &= ~SHOW_MEM_FILTER_NODES;
 
 	if (fmt) {
-		struct va_format vaf;
-		va_list args;
-
+		printk(KERN_WARNING);
 		va_start(args, fmt);
-
-		vaf.fmt = fmt;
-		vaf.va = &args;
-
-		pr_warn("%pV", &vaf);
-
+		vprintk(fmt, args);
 		va_end(args);
 	}
 
-	pr_warn("%s: page allocation failure: order:%d, mode:0x%x\n",
-		current->comm, order, gfp_mask);
+	pr_warning("%s: page allocation failure: order:%d, mode:0x%x\n",
+		   current->comm, order, gfp_mask);
 
 	dump_stack();
 	if (!should_suppress_show_mem())
@@ -1881,6 +1872,10 @@ __alloc_pages_may_oom(gfp_t gfp_mask, unsigned int order,
 	int migratetype)
 {
 	struct page *page;
+#ifdef CONFIG_COMPACTION_RETRY
+	struct zoneref *z;
+	struct zone *zone;
+#endif
 
 	/* Acquire the OOM killer lock for the zones in zonelist */
 	if (!try_set_zonelist_oom(zonelist, gfp_mask)) {
@@ -1899,6 +1894,32 @@ __alloc_pages_may_oom(gfp_t gfp_mask, unsigned int order,
 		preferred_zone, migratetype);
 	if (page)
 		goto out;
+
+#ifdef CONFIG_COMPACTION_RETRY
+	/*
+	 * When we reach here, we already tried direct reclaim.
+	 * Therefore it might be possible that we have enough
+	 * free memory but extremely fragmented.
+	 * So we give it a last chance to try memory compaction and get pages.
+	 */
+	if (order) {
+		pr_info("reclaim before oom : retry compaction.\n");
+		show_buddy_info();
+
+		for_each_zone_zonelist_nodemask(zone, z, zonelist,
+					high_zoneidx, nodemask)
+			compact_zone_order(zone, -1, gfp_mask, true);
+
+		show_buddy_info();
+		pr_info("reclaim :end\n");
+		page = get_page_from_freelist(gfp_mask|__GFP_HARDWALL,
+			nodemask, order, zonelist, high_zoneidx,
+			ALLOC_WMARK_HIGH|ALLOC_CPUSET,
+			preferred_zone, migratetype);
+		if (page)
+			goto out;
+	}
+#endif
 
 	if (!(gfp_mask & __GFP_NOFAIL)) {
 		/* The OOM killer will not help higher order allocs */
@@ -2142,6 +2163,9 @@ __alloc_pages_slowpath(gfp_t gfp_mask, unsigned int order,
 	unsigned long pages_reclaimed = 0;
 	unsigned long did_some_progress;
 	bool sync_migration = false;
+#ifdef CONFIG_ANDROID_WIP
+	unsigned long start_tick = jiffies;
+#endif
 	bool deferred_compaction = false;
 
 	/*
@@ -2154,6 +2178,9 @@ __alloc_pages_slowpath(gfp_t gfp_mask, unsigned int order,
 		WARN_ON_ONCE(!(gfp_mask & __GFP_NOWARN));
 		return NULL;
 	}
+
+	if (gfp_mask & __GFP_WAIT)
+		down_read(&page_alloc_slow_rwsem);
 
 	/*
 	 * GFP_THISNODE (meaning __GFP_THISNODE, __GFP_NORETRY and
@@ -2251,11 +2278,22 @@ rebalance:
 	/*
 	 * If we failed to make any progress reclaiming, then we are
 	 * running out of options and have to consider going OOM
+	 * ANDROID_WIP: If we are looping more than 1 second, consider OOM
 	 */
-	if (!did_some_progress) {
+#ifdef CONFIG_ANDROID_WIP
+#define SHOULD_CONSIDER_OOM !did_some_progress || time_after(jiffies, start_tick + HZ)
+#else
+#define SHOULD_CONSIDER_OOM !did_some_progress
+#endif
+	if (SHOULD_CONSIDER_OOM) {
 		if ((gfp_mask & __GFP_FS) && !(gfp_mask & __GFP_NORETRY)) {
 			if (oom_killer_disabled)
 				goto nopage;
+#ifdef CONFIG_ANDROID_WIP
+			if (did_some_progress)
+				pr_info("time's up : calling "
+						"__alloc_pages_may_oom\n");
+#endif
 			page = __alloc_pages_may_oom(gfp_mask, order,
 					zonelist, high_zoneidx,
 					nodemask, preferred_zone,
@@ -2318,10 +2356,14 @@ rebalance:
 
 nopage:
 	warn_alloc_failed(gfp_mask, order, NULL);
+	if (gfp_mask & __GFP_WAIT)
+		up_read(&page_alloc_slow_rwsem);
 	return page;
 got_pg:
 	if (kmemcheck_enabled)
 		kmemcheck_pagealloc_alloc(page, order, gfp_mask);
+	if (gfp_mask & __GFP_WAIT)
+		up_read(&page_alloc_slow_rwsem);
 	return page;
 
 }
@@ -2770,6 +2812,37 @@ void show_free_areas(unsigned int filter)
 
 	show_swap_cache_info();
 }
+
+#ifdef CONFIG_COMPACTION_RETRY_DEBUG
+void show_buddy_info(void)
+{
+	struct zone *zone;
+	unsigned long nr[MAX_ORDER], flags, order, total = 0;
+	char buf[256];
+	int len;
+
+	for_each_populated_zone(zone) {
+
+		if (skip_free_areas_node(SHOW_MEM_FILTER_NODES,
+					zone_to_nid(zone)))
+			continue;
+		show_node(zone);
+		len = sprintf(buf, "%s: ", zone->name);
+
+		spin_lock_irqsave(&zone->lock, flags);
+		for (order = 0; order < MAX_ORDER; order++) {
+			nr[order] = zone->free_area[order].nr_free;
+			total += nr[order] << order;
+		}
+		spin_unlock_irqrestore(&zone->lock, flags);
+		for (order = 0; order < MAX_ORDER; order++)
+			len += sprintf(buf + len, "%lu*%lukB ",
+					nr[order], K(1UL) << order);
+		len += sprintf(buf + len, "= %lukB", K(total));
+		pr_err("%s\n", buf);
+	}
+}
+#endif
 
 static void zoneref_set_zone(struct zone *zone, struct zoneref *zoneref)
 {
@@ -4446,7 +4519,7 @@ static void __paginginit free_area_init_core(struct pglist_data *pgdat,
 
 		zone_pcp_init(zone);
 		for_each_lru(l)
-			INIT_LIST_HEAD(&zone->lruvec.lists[l]);
+			INIT_LIST_HEAD(&zone->lru[l].list);
 		zone->reclaim_stat.recent_rotated[0] = 0;
 		zone->reclaim_stat.recent_rotated[1] = 0;
 		zone->reclaim_stat.recent_scanned[0] = 0;
@@ -4914,10 +4987,8 @@ static void check_for_regular_memory(pg_data_t *pgdat)
 
 	for (zone_type = 0; zone_type <= ZONE_NORMAL; zone_type++) {
 		struct zone *zone = &pgdat->node_zones[zone_type];
-		if (zone->present_pages) {
+		if (zone->present_pages)
 			node_set_state(zone_to_nid(zone), N_NORMAL_MEMORY);
-			break;
-		}
 	}
 #endif
 }
@@ -5100,6 +5171,7 @@ static int page_alloc_cpu_notify(struct notifier_block *self,
 void __init page_alloc_init(void)
 {
 	hotcpu_notifier(page_alloc_cpu_notify, 0);
+	init_rwsem(&page_alloc_slow_rwsem);
 }
 
 /*
@@ -5654,22 +5726,15 @@ __count_immobile_pages(struct zone *zone, struct page *page, int count)
 
 bool is_pageblock_removable_nolock(struct page *page)
 {
-	struct zone *zone;
-	unsigned long pfn;
+	struct zone *zone = page_zone(page);
+	unsigned long pfn = page_to_pfn(page);
 
 	/*
 	 * We have to be careful here because we are iterating over memory
 	 * sections which are not zone aware so we might end up outside of
 	 * the zone but still within the section.
-	 * We have to take care about the node as well. If the node is offline
-	 * its NODE_DATA will be NULL - see page_zone.
 	 */
-	if (!node_online(page_to_nid(page)))
-		return false;
-
-	zone = page_zone(page);
-	pfn = page_to_pfn(page);
-	if (zone->zone_start_pfn > pfn ||
+	if (!zone || zone->zone_start_pfn > pfn ||
 			zone->zone_start_pfn + zone->spanned_pages <= pfn)
 		return false;
 

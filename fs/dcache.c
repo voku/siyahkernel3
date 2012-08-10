@@ -76,7 +76,7 @@
  *   dentry1->d_lock
  *     dentry2->d_lock
  */
-int sysctl_vfs_cache_pressure __read_mostly = CONFIG_VFS_CACHE_PRESSURE;
+int sysctl_vfs_cache_pressure __read_mostly = 100;
 EXPORT_SYMBOL_GPL(sysctl_vfs_cache_pressure);
 
 static __cacheline_aligned_in_smp DEFINE_SPINLOCK(dcache_lru_lock);
@@ -102,7 +102,7 @@ static unsigned int d_hash_shift __read_mostly;
 
 static struct hlist_bl_head *dentry_hashtable __read_mostly;
 
-static inline struct hlist_bl_head *d_hash(const struct dentry *parent,
+static inline struct hlist_bl_head *d_hash(struct dentry *parent,
 					unsigned long hash)
 {
 	hash += ((unsigned long) parent ^ GOLDEN_RATIO_PRIME) / L1_CACHE_BYTES;
@@ -1771,9 +1771,8 @@ EXPORT_SYMBOL(d_add_ci);
  * child is looked up. Thus, an interlocking stepping of sequence lock checks
  * is formed, giving integrity down the path walk.
  */
-struct dentry *__d_lookup_rcu(const struct dentry *parent,
-			const struct qstr *name,
-			unsigned *seqp, struct inode **inode)
+struct dentry *__d_lookup_rcu(struct dentry *parent, struct qstr *name,
+				unsigned *seq, struct inode **inode)
 {
 	unsigned int len = name->len;
 	unsigned int hash = name->hash;
@@ -1803,7 +1802,6 @@ struct dentry *__d_lookup_rcu(const struct dentry *parent,
 	 * See Documentation/filesystems/path-lookup.txt for more details.
 	 */
 	hlist_bl_for_each_entry_rcu(dentry, node, b, d_hash) {
-		unsigned seq;
 		struct inode *i;
 		const char *tname;
 		int tlen;
@@ -1812,7 +1810,7 @@ struct dentry *__d_lookup_rcu(const struct dentry *parent,
 			continue;
 
 seqretry:
-		seq = read_seqcount_begin(&dentry->d_seq);
+		*seq = read_seqcount_begin(&dentry->d_seq);
 		if (dentry->d_parent != parent)
 			continue;
 		if (d_unhashed(dentry))
@@ -1827,7 +1825,7 @@ seqretry:
 		 * edge of memory when walking. If we could load this
 		 * atomically some other way, we could drop this check.
 		 */
-		if (read_seqcount_retry(&dentry->d_seq, seq))
+		if (read_seqcount_retry(&dentry->d_seq, *seq))
 			goto seqretry;
 		if (parent->d_flags & DCACHE_OP_COMPARE) {
 			if (parent->d_op->d_compare(parent, *inode,
@@ -1844,7 +1842,6 @@ seqretry:
 		 * order to do anything useful with the returned dentry
 		 * anyway.
 		 */
-		*seqp = seq;
 		*inode = i;
 		return dentry;
 	}

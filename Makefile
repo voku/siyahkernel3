@@ -1,6 +1,6 @@
 VERSION = 3
 PATCHLEVEL = 0
-SUBLEVEL = 39
+SUBLEVEL = 40
 EXTRAVERSION =
 NAME = Sneaky Weasel
 
@@ -348,7 +348,9 @@ CHECK		= sparse
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
 
-ARM_FLAGS	= -marm -march=armv7-a -mtune=cortex-a9 
+ARM_FLAGS       = -marm -march=armv7-a -mtune=cortex-a9 -mfpu=neon -mfloat-abi=softfp
+LOOPS		= -funswitch-loops -fpredictive-commoning
+MODULES		= -fmodulo-sched -fmodulo-sched-allow-regmoves
 CFLAGS_MODULE   =
 AFLAGS_MODULE   =
 LDFLAGS_MODULE  =
@@ -356,6 +358,7 @@ CFLAGS_KERNEL	=
 AFLAGS_KERNEL	=
 CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage
 
+KERNEL_MODS	= $(ARM_FLAGS) $(LOOPS) $(MODULES)
 
 # Use LINUXINCLUDE when you must reference the include/ directory.
 # Needed to be compatible with the O= option
@@ -371,8 +374,8 @@ KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -Werror-implicit-function-declaration \
 		   -Wno-format-security \
 		   -fno-delete-null-pointer-checks \
-		   $(ARM_FLAGS)
-		   
+		   $(KERNEL_MODS)
+
 KBUILD_AFLAGS_KERNEL :=
 KBUILD_CFLAGS_KERNEL :=
 KBUILD_AFLAGS   := -D__ASSEMBLY__
@@ -564,15 +567,8 @@ all: vmlinux
 
 ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
 KBUILD_CFLAGS	+= -Os
-endif
-ifdef CONFIG_CC_OPTIMIZE_DEFAULT
+else
 KBUILD_CFLAGS	+= -O2
-endif
-ifdef CONFIG_CC_OPTIMIZE_ALOT
-KBUILD_CFLAGS   += -O3
-endif
-ifdef CONFIG_CC_OPTIMIZE_FAST
-KBUILD_CFLAGS   += -Ofast
 endif
 
 ifdef CONFIG_CC_CHECK_WARNING_STRICTLY
@@ -601,6 +597,10 @@ endif
 # Use make W=1 to enable this warning (see scripts/Makefile.build)
 KBUILD_CFLAGS += $(call cc-disable-warning, unused-but-set-variable)
 KBUILD_CFLAGS += $(call cc-disable-warning, uninitialized)
+KBUILD_CFLAGS += $(call cc-disable-warning, unused-function)
+KBUILD_CFLAGS += $(call cc-disable-warning, unused-variable)
+KBUILD_CFLAGS += $(call cc-disable-warning, unused-value)
+KBUILD_CFLAGS += $(call cc-disable-warning, unused-label)
 
 ifdef CONFIG_FRAME_POINTER
 KBUILD_CFLAGS	+= -fno-omit-frame-pointer -fno-optimize-sibling-calls

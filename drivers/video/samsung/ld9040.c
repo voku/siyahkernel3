@@ -317,8 +317,11 @@ static int get_backlight_level_from_brightness(unsigned int brightness)
 	} else {
 		gamma_value = min_gamma;
 	}
-	if (gamma_value > MAX_GAMMA) gamma_value = MAX_GAMMA;
-	else if (gamma_value < min_gamma) gamma_value = min_gamma;
+	if (gamma_value > MAX_GAMMA) 
+		gamma_value = MAX_GAMMA;
+	else if (gamma_value < min_gamma) 
+		gamma_value = min_gamma;
+
 	return gamma_value;
 }
 
@@ -343,16 +346,16 @@ declare_show(min_bl) {
 	return sprintf(buf, "%d\n", min_bl);
 }
 
-declare_store(min_gamma) {
+declare_store(min_gamma) {	
 	int val;
-	if (sscanf(buf, "%d", &val) == 1) {
-		if (val > 23) val = 23;
-		else if (val < 0) val = 0;
+	if(sscanf(buf,"%d",&val)==1) {
+		if(val>23) val=23;
+		else if(val<0) val=0;
 		min_gamma = val;
 	}
 	return size;
 }
-declare_store(max_gamma) {
+declare_store(max_gamma) {	
 	int val;
 	if (sscanf(buf, "%d", &val) == 1) {
 		if (val > MAX_GAMMA - 1) val = MAX_GAMMA - 1;
@@ -363,9 +366,9 @@ declare_store(max_gamma) {
 }
 declare_store(min_bl) {
 	int val;
-	if (sscanf(buf, "%d", &val) == 1) {
-		if (val > 200) val = 200;
-		else if (val < 0) val = 0;
+	if(sscanf(buf,"%d",&val)==1) {
+		if(val>200) val=200;
+		else if(val<0) val=0;
 		min_bl = val;
 	}
 	return size;
@@ -417,11 +420,11 @@ static int ld9040_gamma_ctl(struct lcd_info *lcd)
 		memcpy(gamma_adjust, gamma, GAMMA_DATA_SIZE);
 		for (i = 0; i < ARRAY_SIZE(gamma_adjust_map); i++) {
 			if (gamma_adjust_map[i] != 0) {
-				signed short value = gamma_adjust[(i + 1) * 2 + 1];
+				signed short value = gamma_adjust[(i+1)*2+1];
 				value += lcd->user_gamma_adjust / gamma_adjust_map[i];
 				if (value > 0xFF) value = 0xFF;
 				else if (value < 0) value = 0x00;
-				gamma_adjust[(i + 1)* 2 + 1] = (unsigned short)value;
+				gamma_adjust[(i+1)*2+1] = (unsigned short)value;
 			}
 		}
 		ret = ld9040_panel_send_sequence(lcd, gamma_adjust);
@@ -616,6 +619,7 @@ static int update_brightness(struct lcd_info *lcd, u8 force)
 	return ret;
 }
 
+
 static int ld9040_power_on(struct lcd_info *lcd)
 {
 	int ret = 0;
@@ -743,7 +747,9 @@ static int ld9040_get_power(struct lcd_device *ld)
 
 static int ld9040_get_brightness(struct backlight_device *bd)
 {
-	return bd->props.brightness;
+	struct lcd_info *lcd = bl_get_data(bd);
+
+	return candela_table[lcd->bl];
 }
 
 static int ld9040_set_brightness(struct backlight_device *bd)
@@ -1108,7 +1114,7 @@ static ssize_t ld9040_sysfs_store_user_gamma_adjust(struct device *dev,
 
 	if (lcd->ldi_enable)
 	{
-		if (lcd->current_user_gamma_adjust == lcd->user_gamma_adjust)
+		if(lcd->current_user_gamma_adjust == lcd->user_gamma_adjust)
 			printk("there is no gamma shift & brightness changed\n");	
 		else
 		{
@@ -1457,3 +1463,4 @@ module_exit(ld9040_exit);
 
 MODULE_DESCRIPTION("LD9040 AMOLED LCD Driver");
 MODULE_LICENSE("GPL");
+

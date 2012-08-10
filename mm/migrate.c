@@ -830,11 +830,32 @@ out:
 	return rc;
 }
 
-move_newpage:
-	mem_cgroup_reset_owner(newpage);
+/*
+ * Obtain the lock on page, remove all ptes and migrate the page
+ * to the newly allocated page in newpage.
+ */
+static int unmap_and_move(new_page_t get_new_page, unsigned long private,
+			struct page *page, int force, bool offlining,
+			enum migrate_mode mode)
+{
+	int rc = 0;
+	int *result = NULL;
+	struct page *newpage = get_new_page(page, private, &result);
 
-	mem_cgroup_reset_owner(newpage);
+	if (!newpage)
+		return -ENOMEM;
 
+	if (page_count(page) == 1) {
+		/* page was freed from under us. So we are done. */
+		goto out;
+	}
+
+	if (unlikely(PageTransHuge(page)))
+		if (unlikely(split_huge_page(page)))
+			goto out;
+
+	rc = __unmap_and_move(page, newpage, force, offlining, mode);
+out:
 	if (rc != -EAGAIN) {
 		/*
 		 * A page that has been migrated has all references

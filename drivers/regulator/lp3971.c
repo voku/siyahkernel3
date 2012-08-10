@@ -16,7 +16,6 @@
 #include <linux/err.h>
 #include <linux/i2c.h>
 #include <linux/kernel.h>
-#include <linux/module.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/lp3971.h>
 #include <linux/slab.h>

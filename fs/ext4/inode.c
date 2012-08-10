@@ -1134,6 +1134,15 @@ void ext4_da_update_reserve_space(struct inode *inode,
 		used = ei->i_reserved_data_blocks;
 	}
 
+	if (unlikely(ei->i_allocated_meta_blocks > ei->i_reserved_meta_blocks)) {
+		ext4_msg(inode->i_sb, KERN_NOTICE, "%s: ino %lu, allocated %d "
+			 "with only %d reserved metadata blocks\n", __func__,
+			 inode->i_ino, ei->i_allocated_meta_blocks,
+			 ei->i_reserved_meta_blocks);
+		WARN_ON(1);
+		ei->i_allocated_meta_blocks = ei->i_reserved_meta_blocks;
+	}
+
 	/* Update per-inode reservations */
 	ei->i_reserved_data_blocks -= used;
 	ei->i_reserved_meta_blocks -= ei->i_allocated_meta_blocks;
@@ -2678,12 +2687,8 @@ static int ext4_writepage(struct page *page,
 		 * We don't want to do block allocation, so redirty
 		 * the page and return.  We may reach here when we do
 		 * a journal commit via journal_submit_inode_data_buffers.
-		 * We can also reach here via shrink_page_list but it
-		 * should never be for direct reclaim so warn if that
-		 * happens
+		 * We can also reach here via shrink_page_list
 		 */
-		WARN_ON_ONCE((current->flags & (PF_MEMALLOC|PF_KSWAPD)) ==
-					PF_MEMALLOC);
 		goto redirty_page;
 	}
 	if (commit_write)
@@ -3116,7 +3121,7 @@ static int ext4_nonda_switch(struct super_block *sb)
 	 * start pushing delalloc when 1/2 of free blocks are dirty.
 	 */
 	if (free_blocks < 2 * dirty_blocks)
-		writeback_inodes_sb_if_idle(sb, WB_REASON_FS_FREE_SPACE);
+		writeback_inodes_sb_if_idle(sb);
 
 	return 0;
 }
@@ -3617,12 +3622,11 @@ static void ext4_end_io_dio(struct kiocb *iocb, loff_t offset,
 		  "for inode %lu, iocb 0x%p, offset %llu, size %llu\n",
  		  iocb->private, io_end->inode->i_ino, iocb, offset,
 		  size);
-      
-        	iocb->private = NULL;
 
 	/* if not aio dio with unwritten extents, just free io and return */
 	if (!(io_end->flag & EXT4_IO_END_UNWRITTEN)) {
 		ext4_free_io_end(io_end);
+		iocb->private = NULL;
 out:
 		if (is_async)
 			aio_complete(iocb, ret, 0);

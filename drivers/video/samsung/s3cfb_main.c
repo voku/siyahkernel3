@@ -62,7 +62,7 @@ bool s3cfb_mdnie_suspended;
 
 struct s3cfb_fimd_desc		*fbfimd;
 
-/*inline struct s3cfb_global *get_fimd_global(int id)
+inline struct s3cfb_global *get_fimd_global(int id)
 {
 	struct s3cfb_global *fbdev;
 
@@ -72,7 +72,7 @@ struct s3cfb_fimd_desc		*fbfimd;
 		fbdev = fbfimd->fbdev[1];
 
 	return fbdev;
-}*/
+}
 
 int s3cfb_vsync_status_check(void)
 {
@@ -427,8 +427,6 @@ static int s3cfb_probe(struct platform_device *pdev)
 
 		fbdev[i]->system_state = POWER_ON;
 
-		spin_lock_init(&fbdev[i]->slock);
-
 		/* alloc fb_info */
 		if (s3cfb_alloc_framebuffer(fbdev[i], i)) {
 			dev_err(fbdev[i]->dev, "alloc error fimd[%d]\n", i);
@@ -674,7 +672,7 @@ void s3cfb_early_suspend(struct early_suspend *h)
 
 	printk(KERN_INFO "+%s\n", __func__);
 
-	s3cfb_mdnie_suspended = true;
+s3cfb_mdnie_suspended = true;
 
 #ifdef CONFIG_FB_S5P_MIPI_DSIM
 #if defined(CONFIG_FB_S5P_S6E63M0)
@@ -715,9 +713,7 @@ void s3cfb_early_suspend(struct early_suspend *h)
 
 		if (fbdev[i]->regs) {
 			fbdev[i]->regs_org = fbdev[i]->regs;
-			spin_lock(&fbdev[i]->slock);
 			fbdev[i]->regs = 0;
-			spin_unlock(&fbdev[i]->slock);
 		}
 
 		if (pdata->clk_off)
@@ -793,11 +789,9 @@ void s3cfb_late_resume(struct early_suspend *h)
 
 		if (pdata->set_display_path)
 			pdata->set_display_path();
-
 #ifdef CONFIG_FB_S5P_MDNIE
 		s3cfb_set_dualrgb(fbdev[i], S3C_DUALRGB_MDNIE);
 #endif
-
 		info->system_state = POWER_ON;
 
 		s3cfb_init_global(fbdev[i]);
@@ -813,6 +807,9 @@ void s3cfb_late_resume(struct early_suspend *h)
 #endif
 		s3c_mdnie_init_global(fbdev[i]);
 		set_mdnie_value(g_mdnie, 1);
+#if defined(CONFIG_FB_MDNIE_PWM)
+		set_mdnie_pwm_value(g_mdnie, 0);
+#endif
 		s3c_mdnie_display_on(fbdev[i]);
 #endif
 		s3cfb_display_on(fbdev[i]);
@@ -851,7 +848,6 @@ void s3cfb_late_resume(struct early_suspend *h)
 #endif
 #endif
 	s3cfb_mdnie_suspended = false;
-
 	printk(KERN_INFO "-%s\n", __func__);
 
 	return;

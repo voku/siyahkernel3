@@ -20,11 +20,11 @@
 
 #include <linux/err.h>
 #include <linux/mutex.h>
-#include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/fixed.h>
 #include <linux/gpio.h>
+#include <linux/delay.h>
 #include <linux/slab.h>
 
 struct fixed_voltage_data {
@@ -179,7 +179,7 @@ static int __devinit reg_fixed_voltage_probe(struct platform_device *pdev)
 	}
 
 	drvdata->dev = regulator_register(&drvdata->desc, &pdev->dev,
-					  config->init_data, drvdata, NULL);
+					  config->init_data, drvdata);
 	if (IS_ERR(drvdata->dev)) {
 		ret = PTR_ERR(drvdata->dev);
 		dev_err(&pdev->dev, "Failed to register regulator: %d\n", ret);
@@ -229,7 +229,11 @@ static int __init regulator_fixed_voltage_init(void)
 {
 	return platform_driver_register(&regulator_fixed_voltage_driver);
 }
+#ifdef CONFIG_FAST_RESUME
+beforeresume_initcall(regulator_fixed_voltage_init);
+#else
 subsys_initcall(regulator_fixed_voltage_init);
+#endif
 
 static void __exit regulator_fixed_voltage_exit(void)
 {

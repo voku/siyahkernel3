@@ -177,7 +177,12 @@ unsigned long get_mm_counter(struct mm_struct *mm, int member)
 		return 0;
 	return (unsigned long)val;
 }
+
+#if defined(CONFIG_VMWARE_MVP)
+EXPORT_SYMBOL_GPL(get_mm_counter);
+#else
 EXPORT_SYMBOL(get_mm_counter);
+#endif
 
 void sync_mm_rss(struct task_struct *task, struct mm_struct *mm)
 {
@@ -879,24 +884,15 @@ copy_one_pte(struct mm_struct *dst_mm, struct mm_struct *src_mm,
 			}
 			if (likely(!non_swap_entry(entry)))
 				rss[MM_SWAPENTS]++;
-			else if (is_migration_entry(entry)) {
-				page = migration_entry_to_page(entry);
-
-				if (PageAnon(page))
-					rss[MM_ANONPAGES]++;
-				else
-					rss[MM_FILEPAGES]++;
-
-				if (is_write_migration_entry(entry) &&
-				    is_cow_mapping(vm_flags)) {
-					/*
-					 * COW mappings require pages in both
-					 * parent and child to be set to read.
-					 */
-					make_migration_entry_read(&entry);
-					pte = swp_entry_to_pte(entry);
-					set_pte_at(src_mm, addr, src_pte, pte);
-				}
+			else if (is_write_migration_entry(entry) &&
+					is_cow_mapping(vm_flags)) {
+				/*
+				 * COW mappings require pages in both parent
+				 * and child to be set to read.
+				 */
+				make_migration_entry_read(&entry);
+				pte = swp_entry_to_pte(entry);
+				set_pte_at(src_mm, addr, src_pte, pte);
 			}
 		}
 		goto out_set_pte;
@@ -1201,16 +1197,6 @@ again:
 
 			if (!non_swap_entry(entry))
 				rss[MM_SWAPENTS]--;
-			else if (is_migration_entry(entry)) {
-				struct page *page;
-
-				page = migration_entry_to_page(entry);
-
-				if (PageAnon(page))
-					rss[MM_ANONPAGES]--;
-				else
-					rss[MM_FILEPAGES]--;
-			}
 			if (unlikely(!free_swap_and_cache(entry)))
 				print_bad_pte(vma, addr, ptent, NULL);
 		}
@@ -1424,7 +1410,6 @@ unsigned long zap_page_range(struct vm_area_struct *vma, unsigned long address,
 	tlb_finish_mmu(&tlb, address, end);
 	return end;
 }
-EXPORT_SYMBOL_GPL(zap_page_range);
 
 /**
  * zap_vma_ptes - remove ptes mapping the vma

@@ -18,6 +18,7 @@
 #include <linux/tick.h>
 #include <linux/ktime.h>
 #include <linux/sched.h>
+#include <linux/pm_qos_params.h>
 #include <linux/earlysuspend.h>
 #include <asm/cputime.h>
 #include <linux/cpumask.h>
@@ -29,9 +30,9 @@
  */
 
 #define DEF_FREQUENCY_UP_THRESHOLD		(95)
-#define DEF_FREQUENCY_DOWN_THRESHOLD		(70)
+#define DEF_FREQUENCY_DOWN_THRESHOLD		(80)
 #define DEFAULT_FREQ_STEP			(10)
-#define DEF_SAMPLING_DOWN_FACTOR                (2)
+#define DEF_SAMPLING_DOWN_FACTOR                (1)
 #define MAX_SAMPLING_DOWN_FACTOR                (100000)
 #define DEF_SMOOTH_UI				(0)
 #define DEFAULT_SLEEP_MIN_FREQ                  100000
@@ -77,6 +78,7 @@ struct cpu_dbs_info_s {
 	cputime64_t prev_cpu_nice;
 	struct cpufreq_policy *cur_policy;
 	struct delayed_work work;
+	struct cpufreq_frequency_table *freq_table;
 	unsigned int down_skip;
 	unsigned int requested_freq;
 	int cpu;
@@ -87,6 +89,7 @@ struct cpu_dbs_info_s {
 	 * when user is changing the governor or limits.
 	 */
 	struct mutex timer_mutex;
+	bool activated; /* dbs_timer_init is in effect */
 };
 static DEFINE_PER_CPU(struct cpu_dbs_info_s, cs_cpu_dbs_info);
 
@@ -108,6 +111,8 @@ static struct dbs_tuners {
 	unsigned int ignore_nice;
 	unsigned int freq_step;
 	unsigned int smooth_ui;
+	struct notifier_block dvfs_lat_qos_db;
+	unsigned int dvfs_lat_qos_wants;
 } dbs_tuners_ins = {
 	.up_threshold = DEF_FREQUENCY_UP_THRESHOLD,
 	.down_threshold = DEF_FREQUENCY_DOWN_THRESHOLD,
@@ -142,14 +147,29 @@ static inline cputime64_t get_cpu_idle_time_jiffy(unsigned int cpu,
 
 static inline cputime64_t get_cpu_idle_time(unsigned int cpu, cputime64_t *wall)
 {
-	u64 idle_time = get_cpu_idle_time_us(cpu, NULL);
+	u64 idle_time = get_cpu_idle_time_us(cpu, wall);
 
 	if (idle_time == -1ULL)
 		return get_cpu_idle_time_jiffy(cpu, wall);
-	else
-		idle_time += get_cpu_iowait_time_us(cpu, wall);
 
 	return idle_time;
+}
+
+/*
+ * Find right sampling rate based on sampling_rate and
+ * QoS requests on dvfs latency.
+ */
+static unsigned int effective_sampling_rate(void)
+{
+	unsigned int effective;
+
+	if (dbs_tuners_ins.dvfs_lat_qos_wants)
+		effective = min(dbs_tuners_ins.dvfs_lat_qos_wants,
+				dbs_tuners_ins.sampling_rate);
+	else
+		effective = dbs_tuners_ins.sampling_rate;
+
+	return max(effective, min_sampling_rate);
 }
 
 /* keep track of frequency transitions */
@@ -218,6 +238,93 @@ show_one(down_threshold, down_threshold);
 show_one(ignore_nice_load, ignore_nice);
 show_one(freq_step, freq_step);
 show_one(smooth_ui, smooth_ui);
+
+/**
+ * update_sampling_rate - update sampling rate effective immediately if needed.
+ * @new_rate: new sampling rate. If it is 0, regard sampling rate is not
+ *		changed and assume that qos request value is changed.
+ *
+ * If new rate is smaller than the old, simply updaing
+ * dbs_tuners_int.sampling_rate might not be appropriate. For example,
+ * if the original sampling_rate was 1 second and the requested new sampling
+ * rate is 10 ms because the user needs immediate reaction from ondemand
+ * governor, but not sure if higher frequency will be required or not,
+ * then, the governor may change the sampling rate too late; up to 1 second
+ * later. Thus, if we are reducing the sampling rate, we need to make the
+ * new value effective immediately.
+ */
+static void update_sampling_rate(unsigned int new_rate)
+{
+	int cpu;
+	unsigned int effective;
+
+	if (new_rate)
+		dbs_tuners_ins.sampling_rate = max(new_rate, min_sampling_rate);
+
+	effective = effective_sampling_rate();
+
+	for_each_online_cpu(cpu) {
+		struct cpufreq_policy *policy;
+		struct cpu_dbs_info_s *dbs_info;
+		unsigned long next_sampling, appointed_at;
+
+		/*
+		 * mutex_destory(&dbs_info->timer_mutex) should not happen
+		 * in this context. dbs_mutex is locked/unlocked at GOV_START
+		 * and GOV_STOP context only other than here.
+		 */
+		mutex_lock(&dbs_mutex);
+
+		policy = cpufreq_cpu_get(cpu);
+		if (!policy) {
+			mutex_unlock(&dbs_mutex);
+			continue;
+		}
+		dbs_info = &per_cpu(cs_cpu_dbs_info, policy->cpu);
+		cpufreq_cpu_put(policy);
+
+		/* timer_mutex is destroyed or will be destroyed soon */
+		if (!dbs_info->activated) {
+			mutex_unlock(&dbs_mutex);
+			continue;
+		}
+
+		mutex_lock(&dbs_info->timer_mutex);
+
+		if (!delayed_work_pending(&dbs_info->work)) {
+			mutex_unlock(&dbs_info->timer_mutex);
+			mutex_unlock(&dbs_mutex);
+			continue;
+		}
+
+		next_sampling = jiffies + usecs_to_jiffies(new_rate);
+		appointed_at = dbs_info->work.timer.expires;
+
+		if (time_before(next_sampling, appointed_at)) {
+			mutex_unlock(&dbs_info->timer_mutex);
+			cancel_delayed_work_sync(&dbs_info->work);
+			mutex_lock(&dbs_info->timer_mutex);
+
+			schedule_delayed_work_on(dbs_info->cpu, &dbs_info->work,
+						 usecs_to_jiffies(effective));
+		}
+		mutex_unlock(&dbs_info->timer_mutex);
+
+		/*
+		 * For the little possiblity that dbs_timer_exit() has been
+		 * called after checking dbs_info->activated above.
+		 * If cancel_delayed_work_syn() has been calld by
+		 * dbs_timer_exit() before schedule_delayed_work_on() of this
+		 * function, it should be revoked by calling cancel again
+		 * before releasing dbs_mutex, which will trigger mutex_destroy
+		 * to be called.
+		 */
+		if (!dbs_info->activated)
+			cancel_delayed_work_sync(&dbs_info->work);
+
+		mutex_unlock(&dbs_mutex);
+	}
+}
 
 static ssize_t store_sampling_down_factor(struct cpufreq_policy *unused,
 		const char *buf, size_t count)
@@ -606,18 +713,21 @@ static void do_dbs_timer(struct work_struct *work)
 static inline void dbs_timer_init(struct cpu_dbs_info_s *dbs_info)
 {
 	/* We want all CPUs to do sampling nearly on same jiffy */
-	int delay = usecs_to_jiffies(dbs_tuners_ins.sampling_rate);
-	delay -= jiffies % delay;
+	int delay = usecs_to_jiffies(effective_sampling_rate());
+
+	if (num_online_cpus() > 1)
+		delay -= jiffies % delay;
 
 	dbs_info->enable = 1;
 	INIT_DELAYED_WORK_DEFERRABLE(&dbs_info->work, do_dbs_timer);
 	queue_delayed_work_on(dbs_info->cpu, kconservative_wq, &dbs_info->work,
 				delay);
+	dbs_info->activated = true;
 }
 
 static inline void dbs_timer_exit(struct cpu_dbs_info_s *dbs_info)
 {
-	dbs_info->enable = 0;
+	dbs_info->activated = false;
 	cancel_delayed_work_sync(&dbs_info->work);
 }
 
@@ -763,25 +873,67 @@ struct cpufreq_governor cpufreq_gov_scary = {
 	.owner			= THIS_MODULE,
 };
 
+/**
+ * qos_dvfs_lat_notify - PM QoS Notifier for DVFS_LATENCY QoS Request
+ * @nb		notifier block struct
+ * @value	QoS value
+ * @dummy
+ */
+static int qos_dvfs_lat_notify(struct notifier_block *nb, unsigned long value,
+			       void *dummy)
+{
+	/*
+	 * In the worst case, with a continuous up-treshold + e cpu load
+	 * from up-threshold - e load, the ondemand governor will react
+	 * sampling_rate * 2.
+	 *
+	 * Thus, based on the worst case scenario, we use value / 2;
+	 */
+	dbs_tuners_ins.dvfs_lat_qos_wants = value / 2;
+
+	/* Update sampling rate */
+	update_sampling_rate(0);
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block scary_qos_dvfs_lat_nb = {
+	.notifier_call = qos_dvfs_lat_notify,
+};
+
 static int __init cpufreq_gov_dbs_init(void)
 {
-	int err;
+	int err = 0;
 
 	kconservative_wq = create_workqueue("kconservative");
 	if (!kconservative_wq) {
 		printk(KERN_ERR "Creation of kconservative failed\n");
 		return -EFAULT;
 	}
-    register_early_suspend(&smartass_power_suspend);
-	err = cpufreq_register_governor(&cpufreq_gov_scary);
+
+	register_early_suspend(&smartass_power_suspend);
+
+	err = pm_qos_add_notifier(PM_QOS_DVFS_RESPONSE_LATENCY,
+			    &scary_qos_dvfs_lat_nb);
+
 	if (err)
+		return err;
+
+	err = cpufreq_register_governor(&cpufreq_gov_scary);
+	if (err) {
+		pm_qos_remove_notifier(PM_QOS_DVFS_RESPONSE_LATENCY,
+				       &scary_qos_dvfs_lat_nb);
 		destroy_workqueue(kconservative_wq);
+	}
 
 	return err;
 }
 
 static void __exit cpufreq_gov_dbs_exit(void)
 {
+	pm_qos_remove_notifier(PM_QOS_DVFS_RESPONSE_LATENCY,
+			       &scary_qos_dvfs_lat_nb);
+
 	cpufreq_unregister_governor(&cpufreq_gov_scary);
 	destroy_workqueue(kconservative_wq);
 }

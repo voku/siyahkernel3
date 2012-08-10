@@ -129,9 +129,6 @@ struct input_keymap_entry {
 
 #define EVIOCGRAB		_IOW('E', 0x90, int)			/* Grab/Release device */
 
-#define EVIOCGSUSPENDBLOCK	_IOR('E', 0x91, int)			/* get suspend block enable */
-#define EVIOCSSUSPENDBLOCK	_IOW('E', 0x91, int)			/* set suspend block enable */
-
 /*
  * Device properties and quirks
  */
@@ -440,6 +437,13 @@ struct input_keymap_entry {
 
 #define KEY_WIMAX		246
 #define KEY_RFKILL		247	/* Key that controls all radios */
+
+#define KEY_POUND		248
+#define KEY_STAR		249
+#define KEY_NETWORK		250
+
+#define KEY_FOLDER_OPEN		251
+#define KEY_FOLDER_CLOSE	252
 
 /* Code 255 is reserved for special needs of AT keyboard driver */
 

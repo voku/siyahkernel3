@@ -16,12 +16,6 @@ config BITREVERSE
 config RATIONAL
 	boolean
 
-config GENERIC_STRNCPY_FROM_USER
-	bool
-
-config GENERIC_STRNLEN_USER
-	bool
-
 config GENERIC_FIND_FIRST_BIT
 	bool
 
@@ -129,13 +123,6 @@ config LIBCRC32C
 	  kernel tree does. Such modules that use library CRC32c functions
 	  require M here.  See Castagnoli93.
 	  Module will be libcrc32c.
-
-config CRC8
-	tristate "CRC8 function"
-	help
-	  This option provides CRC8 function. Drivers may select this
-	  when they need to do cyclic redundancy check according CRC8
-	  algorithm. Module will be called crc8.
 
 config AUDIT_GENERIC
 	bool

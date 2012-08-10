@@ -161,18 +161,21 @@ ecryptfs_create_underlying_file(struct inode *lower_dir_inode,
 {
 	struct dentry *lower_dentry = ecryptfs_dentry_to_lower(dentry);
 	struct vfsmount *lower_mnt = ecryptfs_dentry_to_lower_mnt(dentry);
-	int rc = -EIO;
+	struct dentry *dentry_save;
+	struct vfsmount *vfsmount_save;
+	unsigned int flags_save;
+	int rc;
 
 	if (nd) {
-                struct dentry *dentry_save = nd->path.dentry;
-                struct vfsmount *vfsmount_save = nd->path.mnt;
-                unsigned int flags_save = nd->flags;
+		dentry_save = nd->path.dentry;
+		vfsmount_save = nd->path.mnt;
+		flags_save = nd->flags;
 		nd->path.dentry = lower_dentry;
 		nd->path.mnt = lower_mnt;
 		nd->flags &= ~LOOKUP_OPEN;
-
-                rc = vfs_create(lower_dir_inode, lower_dentry, mode, nd);
-
+	}
+	rc = vfs_create(lower_dir_inode, lower_dentry, mode, nd);
+	if (nd) {
 		nd->path.dentry = dentry_save;
 		nd->path.mnt = vfsmount_save;
 		nd->flags = flags_save;
@@ -275,8 +278,11 @@ static int ecryptfs_initialize_file(struct dentry *ecryptfs_dentry)
 		struct ecryptfs_mount_crypt_stat *mount_crypt_stat =
 			&ecryptfs_superblock_to_private(ecryptfs_dentry->d_sb)
 			->mount_crypt_stat;
-		char filename[256];
-		strcpy(filename, fp_dentry->d_name.name);
+		char filename[NAME_MAX+1] = {0};
+		if (fp_dentry->d_name.len <= NAME_MAX)
+			memcpy(filename, fp_dentry->d_name.name,
+					fp_dentry->d_name.len + 1);
+
 		if ((mount_crypt_stat->flags & ECRYPTFS_ENABLE_NEW_PASSTHROUGH)
 		    || ((mount_crypt_stat->flags & ECRYPTFS_ENABLE_FILTERING) &&
 			(is_file_name_match(mount_crypt_stat, fp_dentry) ||

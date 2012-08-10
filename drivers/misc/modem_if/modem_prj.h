@@ -68,6 +68,10 @@
 #define IOCTL_DPRAM_PHONE_UPLOAD_STEP1	_IO('o', 0xde)
 #define IOCTL_DPRAM_PHONE_UPLOAD_STEP2	_IO('o', 0xdf)
 
+/* ioctl command for IPC Logger */
+#define IOCTL_MIF_LOG_DUMP		_IO('o', 0x51)
+#define IOCTL_MIF_DPRAM_DUMP		_IO('o', 0x52)
+
 /* modem status */
 #define MODEM_OFF		0
 #define MODEM_CRASHED		1
@@ -129,6 +133,7 @@ struct dpram_irq_buff {
 	unsigned int2cp;
 };
 
+/* Not use */
 struct mif_event_buff {
 	char time[MAX_MIF_TIME_LEN];
 
@@ -428,6 +433,7 @@ struct io_device {
 	void (*sim_state_changed)(struct io_device *iod, bool sim_online);
 
 	struct modem_ctl *mc;
+	struct modem_shared *msd;
 
 	struct wake_lock wakelock;
 	long waketime;
@@ -462,6 +468,9 @@ struct link_device {
 
 	/* Modem control */
 	struct modem_ctl *mc;
+
+	/* Modem shared data */
+	struct modem_shared *msd;
 
 	/* Operation mode of the link device */
 	enum link_mode mode;
@@ -528,16 +537,26 @@ struct modemctl_ops {
 	int (*modem_dump_reset) (struct modem_ctl *);
 };
 
-/* mif_common - common data for all io devices and link devices and a modem ctl
- * commons : mc : iod : ld = 1 : 1 : M : N
+/* for IPC Logger */
+struct mif_storage {
+	char *addr;
+	unsigned int cnt;
+};
+
+/* modem_shared - shared data for all io/link devices and a modem ctl
+ * msd : mc : iod : ld = 1 : 1 : M : N
  */
-struct mif_common {
+struct modem_shared {
 	/* list of link devices */
 	struct list_head link_dev_list;
 
 	/* rb_tree root of io devices. */
 	struct rb_root iodevs_tree_chan; /* group by channel */
 	struct rb_root iodevs_tree_fmt; /* group by dev_format */
+
+	/* for IPC Logger */
+	struct mif_storage storage;
+	spinlock_t lock;
 };
 
 struct modem_ctl {
@@ -545,7 +564,7 @@ struct modem_ctl {
 	char *name;
 	struct modem_data *mdm_data;
 
-	struct mif_common commons;
+	struct modem_shared *msd;
 
 	enum modem_state phone_state;
 	struct sim_state sim_state;
@@ -593,42 +612,17 @@ struct modem_ctl {
 	struct io_device *iod;
 	struct io_device *bootd;
 
+	/* Wakelock for modem_ctl */
+	struct wake_lock mc_wake_lock;
+
 	void (*gpio_revers_bias_clear)(void);
 	void (*gpio_revers_bias_restore)(void);
 
-	/* TODO this will be move to struct mif_common */
-	/* For debugging log */
-	bool use_mif_log;
-	enum mif_event_id log_level;
-	atomic_t log_open;
-
-	struct workqueue_struct *evt_wq;
-	struct work_struct evt_work;
-	struct sk_buff_head evtq;
-
-	char log_path[MAX_MIF_LOG_PATH_LEN];
-	struct file *log_fp;
-
-	bool fs_ready;
-	bool fs_failed;
-
-	char *buff;
+	bool need_switch_to_usb;
 };
-#define to_modem_ctl(mif_common) \
-		container_of(mif_common, struct modem_ctl, commons)
 
 int sipc4_init_io_device(struct io_device *iod);
 int sipc5_init_io_device(struct io_device *iod);
 
-int mif_init_log(struct modem_ctl *mc);
-void mif_set_log_level(struct modem_ctl *mc);
-int mif_open_log_file(struct modem_ctl *mc);
-void mif_close_log_file(struct modem_ctl *mc);
-
-void mif_irq_log(struct modem_ctl *mc, struct sk_buff *skb);
-void mif_ipc_log(struct modem_ctl *mc, enum mif_event_id evt,
-		struct io_device *iod, struct link_device *ld,
-		u8 *data, unsigned size);
-void mif_flush_logs(struct modem_ctl *mc);
-
+extern void set_sromc_access(bool access);
 #endif

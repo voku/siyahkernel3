@@ -384,7 +384,7 @@ static void wl_cfg80211_bt_handler(struct work_struct *work)
 				__FUNCTION__));
 			btcx_inf->bt_state = BT_DHCP_OPPR_WIN;
 			mod_timer(&btcx_inf->timer,
-				jiffies + msecs_to_jiffies(BT_DHCP_OPPR_WIN_TIME));
+				jiffies + BT_DHCP_OPPR_WIN_TIME*HZ/1000);
 			btcx_inf->timer_on = 1;
 			break;
 
@@ -404,7 +404,7 @@ static void wl_cfg80211_bt_handler(struct work_struct *work)
 				wl_cfg80211_bt_setflag(btcx_inf->dev, TRUE);
 			btcx_inf->bt_state = BT_DHCP_FLAG_FORCE_TIMEOUT;
 			mod_timer(&btcx_inf->timer,
-				jiffies + msecs_to_jiffies(BT_DHCP_FLAG_FORCE_TIME));
+				jiffies + BT_DHCP_FLAG_FORCE_TIME*HZ/1000);
 			btcx_inf->timer_on = 1;
 			break;
 
@@ -507,6 +507,11 @@ int wl_cfg80211_set_btcoex_dhcp(struct net_device *dev, char *command)
 	int i;
 #endif
 
+#ifdef PASS_ALL_MCAST_PKTS
+		char iovbuf[20];
+		uint32 allmultivar = 0;
+#endif
+
 	/* Figure out powermode 1 or o command */
 	strncpy((char *)&powermode_val, command + strlen("BTCOEXMODE") +1, 1);
 	WL_ERR(("%s: DHCP session Enter\n", __FUNCTION__));
@@ -525,6 +530,13 @@ int wl_cfg80211_set_btcoex_dhcp(struct net_device *dev, char *command)
 				dhd_pktfilter_offload_enable(dhd, dhd->pktfilter[i],
 					0, dhd_master_mode);
 			}
+			
+#ifdef PASS_ALL_MCAST_PKTS
+						allmultivar = 1;
+						bcm_mkiovar("allmulti", (char *)&allmultivar, 4, iovbuf, sizeof(iovbuf));
+						dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf, sizeof(iovbuf), TRUE, 0);
+						WL_ERR(("DHCP is progressing , allmulti value = %d \n", allmultivar));
+#endif /* PASS_ALL_MCAST_PKTS */
 		}
 #endif
 
@@ -582,6 +594,13 @@ int wl_cfg80211_set_btcoex_dhcp(struct net_device *dev, char *command)
 				dhd_pktfilter_offload_enable(dhd, dhd->pktfilter[i],
 					1, dhd_master_mode);
 			}
+
+#ifdef PASS_ALL_MCAST_PKTS
+			allmultivar = 0;
+			bcm_mkiovar("allmulti", (char *)&allmultivar, 4, iovbuf, sizeof(iovbuf));
+			dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf, sizeof(iovbuf), TRUE, 0);
+			WL_ERR(("DHCP is complete , allmulti value = %d \n", allmultivar));
+#endif /* PASS_ALL_MCAST_PKTS */
 		}
 #endif
 

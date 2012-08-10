@@ -170,7 +170,6 @@ static inline ssize_t initstate_store(struct device *dev,
 }
 #endif /* CONFIG_ZRAM_FOR_ANDROID */
 
-
 static ssize_t reset_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t len)
 {

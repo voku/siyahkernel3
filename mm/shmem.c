@@ -1599,12 +1599,6 @@ int shmem_lock(struct file *file, int lock, struct user_struct *user)
 		user_shm_unlock(inode->i_size, user);
 		info->flags &= ~VM_LOCKED;
 		mapping_clear_unevictable(file->f_mapping);
-		/*
-		 * Ensure that a racing putback_lru_page() can see
-		 * the pages of this mapping are evictable when we
-		 * skip them due to !PageLRU during the scan.
-		 */
-		smp_mb__after_clear_bit();
 		scan_mapping_unevictable_pages(file->f_mapping);
 	}
 	retval = 0;
@@ -1623,7 +1617,7 @@ static int shmem_mmap(struct file *file, struct vm_area_struct *vma)
 }
 
 static struct inode *shmem_get_inode(struct super_block *sb, const struct inode *dir,
-					 umode_t mode, dev_t dev, unsigned long flags)
+				     int mode, dev_t dev, unsigned long flags)
 {
 	struct inode *inode;
 	struct shmem_inode_info *info;
@@ -2556,7 +2550,7 @@ static int shmem_show_options(struct seq_file *seq, struct vfsmount *vfs)
 	if (sbinfo->max_inodes != shmem_default_max_inodes())
 		seq_printf(seq, ",nr_inodes=%lu", sbinfo->max_inodes);
 	if (sbinfo->mode != (S_IRWXUGO | S_ISVTX))
-		seq_printf(seq, ",mode=%03ho", sbinfo->mode);
+		seq_printf(seq, ",mode=%03o", sbinfo->mode);
 	if (sbinfo->uid != 0)
 		seq_printf(seq, ",uid=%u", sbinfo->uid);
 	if (sbinfo->gid != 0)
@@ -2668,7 +2662,7 @@ static void shmem_i_callback(struct rcu_head *head)
 
 static void shmem_destroy_inode(struct inode *inode)
 {
-	if (S_ISREG(inode->i_mode)) {
+	if ((inode->i_mode & S_IFMT) == S_IFREG) {
 		/* only struct inode is valid if it's an inline symlink */
 		mpol_free_shared_policy(&SHMEM_I(inode)->policy);
 	}
@@ -3038,7 +3032,6 @@ void shmem_set_file(struct vm_area_struct *vma, struct file *file)
 	vma->vm_ops = &shmem_vm_ops;
 	vma->vm_flags |= VM_CAN_NONLINEAR;
 }
-EXPORT_SYMBOL_GPL(shmem_set_file);
 
 /**
  * shmem_zero_setup - setup a shared anonymous mapping

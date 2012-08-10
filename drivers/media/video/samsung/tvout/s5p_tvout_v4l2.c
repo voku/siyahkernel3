@@ -15,7 +15,7 @@
 #include <media/v4l2-common.h>
 #include <media/v4l2-ioctl.h>
 
-#include <linux/videodev2_samsung.h>
+#include <linux/videodev2_exynos_camera.h>
 #include <linux/io.h>
 #include <asm/cacheflush.h>
 
@@ -740,7 +740,7 @@ const struct v4l2_ioctl_ops s5p_tvout_tvif_ioctl_ops = {
 #define VIDIOC_G_VP_BUFF_INFO		_IOR('V', 108, unsigned int)
 #define VIDIOC_S_VP_BUFF_INFO		_IOR('V', 109, unsigned int)
 #define VIDIOC_S_AUDIO_CHANNEL		_IOR('V', 110, unsigned int)
-
+#define VIDIOC_S_Q_COLOR_RANGE		_IOR('V', 111, unsigned int)
 
 long s5p_tvout_tvif_ioctl(
 		struct file *file, unsigned int cmd, unsigned long arg)
@@ -902,6 +902,16 @@ long s5p_tvout_tvif_ioctl(
 		break;
 	}
 
+	case VIDIOC_S_Q_COLOR_RANGE: {
+		if ((int)arg != 0 && (int)arg != 1) {
+			printk(KERN_ERR "Quantaization range has wrong value!\n");
+			goto end_tvif_ioctl;
+		}
+
+		s5p_tvif_q_color_range((int)arg);
+		break;
+	}
+
 	default:
 		break;
 	}
@@ -943,11 +953,8 @@ static int s5p_tvout_tvif_release(struct file *file)
 	tvout_dbg("on_stop_process(%d)\n", on_stop_process);
 	atomic_dec(&s5p_tvout_v4l2_private.tvif_use);
 
-	if (atomic_read(&s5p_tvout_v4l2_private.tvif_use) == 0) {
-		s5p_tvout_mutex_lock();
+	if (atomic_read(&s5p_tvout_v4l2_private.tvif_use) == 0)
 		s5p_tvif_ctrl_stop();
-		s5p_tvout_mutex_unlock();
-	}
 
 	on_stop_process = false;
 	tvout_dbg("on_stop_process(%d)\n", on_stop_process);

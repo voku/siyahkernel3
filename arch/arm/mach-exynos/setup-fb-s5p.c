@@ -962,3 +962,4 @@ void s3cfb_get_clk_name(char *clk_name)
 {
 	strcpy(clk_name, "sclk_fimd");
 }
+

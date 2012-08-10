@@ -58,21 +58,33 @@ static struct modem_io_t umts_io_devices[] = {
 		.links = LINKTYPE(LINKDEV_HSIC),
 	},
 	[4] = {
+#ifdef CONFIG_SLP
+		.name = "pdp0",
+#else
 		.name = "rmnet0",
+#endif
 		.id = 0x2A,
 		.format = IPC_RAW,
 		.io_type = IODEV_NET,
 		.links = LINKTYPE(LINKDEV_HSIC),
 	},
 	[5] = {
+#ifdef CONFIG_SLP
+		.name = "pdp1",
+#else
 		.name = "rmnet1",
+#endif
 		.id = 0x2B,
 		.format = IPC_RAW,
 		.io_type = IODEV_NET,
 		.links = LINKTYPE(LINKDEV_HSIC),
 	},
 	[6] = {
+#ifdef CONFIG_SLP
+		.name = "pdp2",
+#else
 		.name = "rmnet2",
+#endif
 		.id = 0x2C,
 		.format = IPC_RAW,
 		.io_type = IODEV_NET,
@@ -230,7 +242,7 @@ static void xmm_gpio_revers_bias_restore(void)
 /* HSIC specific function */
 void set_slave_wake(void)
 {
-//	int spin = 20;
+	int spin = 20;
 	if (gpio_get_value(modem_link_pm_data.gpio_link_hostwake)) {
 		pr_info("[MODEM_IF]Slave Wake\n");
 		if (gpio_get_value(modem_link_pm_data.gpio_link_slavewake)) {
@@ -289,8 +301,7 @@ void set_hsic_lpa_states(int states)
 			break;
 		case STATE_HSIC_LPA_PHY_INIT:
 			gpio_set_value(umts_modem_data.gpio_pda_active, 1);
-			gpio_set_value(modem_link_pm_data.gpio_link_slavewake,
-				1);
+			set_slave_wake();
 			pr_info(LOG_TAG "set hsic lpa phy init: "
 				"slave wake-up (%d)\n",
 				gpio_get_value(

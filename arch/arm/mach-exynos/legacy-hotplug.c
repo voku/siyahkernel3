@@ -61,8 +61,7 @@ static struct delayed_work hotplug_work;
 static unsigned int hotpluging_rate = CHECK_DELAY;
 static unsigned int check_rate = CHECK_DELAY;
 module_param_named(rate, check_rate, uint, 0644);
-// x = y << 2 -> x = y * 4
-static unsigned int check_rate_cpuon = CHECK_DELAY << 2;
+static unsigned int check_rate_cpuon = CHECK_DELAY << 1;
 module_param_named(rate_cpuon, check_rate_cpuon, uint, 0644);
 static unsigned int check_rate_scroff = CHECK_DELAY << 2;
 module_param_named(rate_scroff, check_rate_scroff, uint, 0644);
@@ -106,7 +105,7 @@ static void hotplug_timer(struct work_struct *work)
 
 	mutex_lock(&hotplug_lock);
 
-	if (!legacyhotplug_enabled) {
+	if(!legacyhotplug_enabled) {
 		printk(KERN_INFO "pm-hotplug: disable cpu auto-hotplug\n");
 		goto off_hotplug;
 	}
@@ -281,7 +280,7 @@ declare_show(hotplug_on) {
 	return sprintf(buf, "%s\n", (hotplug_on) ? ("on") : ("off"));
 }
 
-declare_store(hotplug_on) {
+declare_store(hotplug_on) {	
 	mutex_lock(&hotplug_lock);
 	
 	if (user_lock) {
@@ -356,7 +355,7 @@ declare_attr_rw(hotplug_on, 0666);
 declare_attr_rw(second_core_on, 0666);
 
 static struct attribute *second_core_attributes[] = {
-	&dev_attr_hotplug_on.attr,
+	&dev_attr_hotplug_on.attr, 
 	&dev_attr_second_core_on.attr,
 	&dev_attr_version.attr,
 	&dev_attr_author.attr,
@@ -393,7 +392,7 @@ static int __init s5pv310_pm_hotplug_init(void)
 	// register second_core device by tegrak
 	ret = misc_register(&second_core_device);
 	if (ret) {
-		printk(KERN_ERR "failed at(%d)\n", __LINE__);
+	   printk(KERN_ERR "failed at(%d)\n", __LINE__);
 		return ret;
 	}
 
@@ -421,23 +420,25 @@ static int legacyhotplug_cpufreq_policy_notifier_call(struct notifier_block *thi
 
 	switch (code) {
 	case CPUFREQ_ADJUST:
-		if 	(
+		if (
 			(!strnicmp(policy->governor->name, "pegasusq", CPUFREQ_NAME_LEN)) ||
 			(!strnicmp(policy->governor->name, "hotplug", CPUFREQ_NAME_LEN))
 			) 
 		{
-			if (legacyhotplug_enabled) {
-
-				printk(KERN_INFO "Legacy-hotplug is disabled: governor=%s\n",  
+			if(legacyhotplug_enabled)
+			{
+				printk("Legacy-hotplug is disabled: governor=%s\n",
 								policy->governor->name);
 				mutex_lock(&hotplug_lock);
 				legacyhotplug_enabled = false;
 				mutex_unlock(&hotplug_lock);
 			}
-		} else {
-			if (!legacyhotplug_enabled) {
-
-				printk(KERN_INFO "Legacy-hotplug is enabled: governor=%s\n",
+		} 
+		else
+		{
+			if(!legacyhotplug_enabled)
+			{
+				printk("Legacy-hotplug is enabled: governor=%s\n",
 								policy->governor->name);
 				mutex_lock(&hotplug_lock);
 				legacyhotplug_enabled = true;

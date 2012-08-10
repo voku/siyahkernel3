@@ -848,13 +848,12 @@ unsigned int count_swap_pages(int type, int free)
 static int unuse_pte(struct vm_area_struct *vma, pmd_t *pmd,
 		unsigned long addr, swp_entry_t entry, struct page *page)
 {
-	struct mem_cgroup *memcg;
+	struct mem_cgroup *ptr;
 	spinlock_t *ptl;
 	pte_t *pte;
 	int ret = 1;
 
-	if (mem_cgroup_try_charge_swapin(vma->vm_mm, page,
-			    GFP_KERNEL, &memcg)) {
+	if (mem_cgroup_try_charge_swapin(vma->vm_mm, page, GFP_KERNEL, &ptr)) {
 		ret = -ENOMEM;
 		goto out_nolock;
 	}
@@ -862,7 +861,7 @@ static int unuse_pte(struct vm_area_struct *vma, pmd_t *pmd,
 	pte = pte_offset_map_lock(vma->vm_mm, pmd, addr, &ptl);
 	if (unlikely(!pte_same(*pte, swp_entry_to_pte(entry)))) {
 		if (ret > 0)
-			mem_cgroup_cancel_charge_swapin(memcg);
+			mem_cgroup_cancel_charge_swapin(ptr);
 		ret = 0;
 		goto out;
 	}
@@ -873,7 +872,7 @@ static int unuse_pte(struct vm_area_struct *vma, pmd_t *pmd,
 	set_pte_at(vma->vm_mm, addr, pte,
 		   pte_mkold(mk_pte(page, vma->vm_page_prot)));
 	page_add_anon_rmap(page, vma, addr);
-	mem_cgroup_commit_charge_swapin(page, memcg);
+	mem_cgroup_commit_charge_swapin(page, ptr);
 	swap_free(entry);
 	/*
 	 * Move the page to the active list so it is not
@@ -1680,15 +1679,19 @@ out:
 }
 
 #ifdef CONFIG_PROC_FS
+struct proc_swaps {
+	struct seq_file seq;
+	int event;
+};
 
 static unsigned swaps_poll(struct file *file, poll_table *wait)
 {
-	struct seq_file *seq = file->private_data;
+	struct proc_swaps *s = file->private_data;
 
 	poll_wait(file, &proc_poll_wait, wait);
 
-	if (seq->poll_event != atomic_read(&proc_poll_event)) {
-		seq->poll_event = atomic_read(&proc_poll_event);
+	if (s->event != atomic_read(&proc_poll_event)) {
+		s->event = atomic_read(&proc_poll_event);
 		return POLLIN | POLLRDNORM | POLLERR | POLLPRI;
 	}
 
@@ -1778,16 +1781,24 @@ static const struct seq_operations swaps_op = {
 
 static int swaps_open(struct inode *inode, struct file *file)
 {
-	struct seq_file *seq;
+	struct proc_swaps *s;
 	int ret;
 
-	ret = seq_open(file, &swaps_op);
-	if (ret)
-		return ret;
+	s = kmalloc(sizeof(struct proc_swaps), GFP_KERNEL);
+	if (!s)
+		return -ENOMEM;
 
-	seq = file->private_data;
-	seq->poll_event = atomic_read(&proc_poll_event);
-	return 0;
+	file->private_data = s;
+
+	ret = seq_open(file, &swaps_op);
+	if (ret) {
+		kfree(s);
+		return ret;
+	}
+
+	s->seq.private = s;
+	s->event = atomic_read(&proc_poll_event);
+	return ret;
 }
 
 static const struct file_operations proc_swaps_operations = {

@@ -340,6 +340,7 @@ static int sipc5_recv_misc(struct sk_buff *skb)
 static int sipc5_recv_pdp(struct sk_buff *skb)
 {
 	struct io_device *iod = skbpriv(skb)->iod; /* same with real_iod */
+	struct link_device *ld = skbpriv(skb)->ld;
 	struct net_device *ndev;
 	struct iphdr *iphdr;
 	struct ethhdr *ehdr;
@@ -373,6 +374,12 @@ static int sipc5_recv_pdp(struct sk_buff *skb)
 		skb_reset_mac_header(skb);
 
 		skb_pull(skb, sizeof(struct ethhdr));
+	}
+
+	if (unlikely(is_dns_packet(skb->data))) {
+		u8 str[64];
+		snprintf(str, 64, "%s: %s: DNS", __func__, ld->name);
+		pr_ipc(str, skb->data, 20);
 	}
 
 	if (in_interrupt())
@@ -645,8 +652,13 @@ static int sipc5_recv_ipc_from_dpram(struct io_device *iod,
 			return -EBADMSG;
 
 		rest -= done;
-		if (rest < 0)
+		if (rest < 0) {
+			mif_info("%s: ERR! recv_header -> rest %d\n",
+				ld->name, rest);
+			if (skb)
+				dev_kfree_skb_any(skb);
 			return -ERANGE;
+		}
 		buff += done;
 
 		/* Prepare an akb */
@@ -658,16 +670,26 @@ static int sipc5_recv_ipc_from_dpram(struct io_device *iod,
 			ld->name, done, rest, len);
 		done = sipc5_recv_payload_from_dpram(skb, buff, len);
 		rest -= done;
-		if (rest < 0)
+		if (rest < 0) {
+			mif_info("%s: ERR! recv_payload -> rest %d\n",
+				ld->name, rest);
+			if (skb)
+				dev_kfree_skb_any(skb);
 			return -ERANGE;
+		}
 		buff += done;
 
 		/* A padding size is applied to access the next IPC frame. */
 		if (frm->padding) {
 			done = sipc5_calc_padding_size(frm->len);
 			rest -= done;
-			if (rest < 0)
+			if (rest < 0) {
+				mif_info("%s: ERR! calc_padding -> rest %d\n",
+					ld->name, rest);
+				if (skb)
+					dev_kfree_skb_any(skb);
 				return -ERANGE;
+			}
 			buff += done;
 		}
 
@@ -858,10 +880,18 @@ static void io_dev_sim_state_changed(struct io_device *iod, bool sim_online)
 	}
 }
 
+static void iodev_dump_status(struct io_device *iod, void *args)
+{
+	if (iod->format == IPC_RAW && iod->io_typ == IODEV_NET) {
+		struct link_device *ld = get_current_link(iod);
+		mif_com_log(iod->mc->msd, "%s: %s\n", iod->name, ld->name);
+	}
+}
+
 static int misc_open(struct inode *inode, struct file *filp)
 {
 	struct io_device *iod = to_io_device(filp->private_data);
-	struct mif_common *commons = &iod->mc->commons;
+	struct modem_shared *msd = iod->msd;
 	struct link_device *ld;
 	int ret;
 	filp->private_data = (void *)iod;
@@ -869,7 +899,7 @@ static int misc_open(struct inode *inode, struct file *filp)
 	mif_info("%s\n", iod->name);
 	atomic_inc(&iod->opened);
 
-	list_for_each_entry(ld, &commons->link_dev_list, list) {
+	list_for_each_entry(ld, &msd->link_dev_list, list) {
 		if (IS_CONNECTED(iod, ld) && ld->init_comm) {
 			ret = ld->init_comm(ld, iod);
 			if (ret < 0) {
@@ -886,14 +916,14 @@ static int misc_open(struct inode *inode, struct file *filp)
 static int misc_release(struct inode *inode, struct file *filp)
 {
 	struct io_device *iod = (struct io_device *)filp->private_data;
-	struct mif_common *commons = &iod->mc->commons;
+	struct modem_shared *msd = iod->msd;
 	struct link_device *ld;
 
 	mif_info("%s\n", iod->name);
 	atomic_dec(&iod->opened);
 	skb_queue_purge(&iod->sk_rx_q);
 
-	list_for_each_entry(ld, &commons->link_dev_list, list) {
+	list_for_each_entry(ld, &msd->link_dev_list, list) {
 		if (IS_CONNECTED(iod, ld) && ld->terminate_comm)
 			ld->terminate_comm(ld, iod);
 	}
@@ -930,6 +960,8 @@ static long misc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	struct io_device *iod = (struct io_device *)filp->private_data;
 	struct link_device *ld = get_current_link(iod);
 	char cpinfo_buf[530] = "CP Crash ";
+	unsigned long size;
+	int ret;
 
 	switch (cmd) {
 	case IOCTL_MODEM_ON:
@@ -983,7 +1015,7 @@ static long misc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		if (iod->format != IPC_MULTI_RAW)
 			return -EINVAL;
 
-		iodevs_for_each(&iod->mc->commons, iodev_netif_stop, 0);
+		iodevs_for_each(iod->msd, iodev_netif_stop, 0);
 		return 0;
 
 	case IOCTL_MODEM_PROTOCOL_RESUME:
@@ -993,7 +1025,7 @@ static long misc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		if (iod->format != IPC_MULTI_RAW)
 			return -EINVAL;
 
-		iodevs_for_each(&iod->mc->commons, iodev_netif_wake, 0);
+		iodevs_for_each(iod->msd, iodev_netif_wake, 0);
 		return 0;
 
 	case IOCTL_MODEM_DUMP_START:
@@ -1022,6 +1054,31 @@ static long misc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		mif_info("%s: IOCTL_MODEM_DUMP_RESET\n", iod->name);
 		return iod->mc->ops.modem_dump_reset(iod->mc);
 
+	case IOCTL_MIF_LOG_DUMP:
+		iodevs_for_each(iod->msd, iodev_dump_status, 0);
+		size = MAX_MIF_BUFF_SIZE;
+		ret = copy_to_user((void __user *)arg, &size,
+			sizeof(unsigned long));
+		if (ret < 0)
+			return -EFAULT;
+
+		mif_dump_log(iod->mc->msd, iod);
+		return 0;
+
+	case IOCTL_MIF_DPRAM_DUMP:
+#ifdef CONFIG_LINK_DEVICE_DPRAM
+		if (iod->mc->mdm_data->link_types & LINKTYPE(LINKDEV_DPRAM)) {
+			size = iod->mc->mdm_data->dpram_ctl->dp_size;
+			ret = copy_to_user((void __user *)arg, &size,
+				sizeof(unsigned long));
+			if (ret < 0)
+				return -EFAULT;
+			mif_dump_dpram(iod);
+			return 0;
+		}
+#endif
+		return -EINVAL;
+
 	default:
 		 /* If you need to handle the ioctl for specific link device,
 		  * then assign the link ioctl handler to ld->ioctl
@@ -1047,6 +1104,7 @@ static ssize_t misc_write(struct file *filp, const char __user *data,
 	unsigned tailroom = 0;
 	size_t tx_size;
 	int ret;
+	struct timespec epoch;
 
 	if (iod->format <= IPC_RFS && iod->id == 0)
 		return -EINVAL;
@@ -1078,8 +1136,9 @@ static ssize_t misc_write(struct file *filp, const char __user *data,
 	}
 
 	if (iod->id == SIPC5_CH_ID_FMT_0) {
-		mif_ipc_log(iod->mc, MIF_IOD_TX_EVT, iod, ld, buff, count);
-		mif_flush_logs(ld->mc);
+		getnstimeofday(&epoch);
+		mif_time_log(iod->mc->msd, epoch, NULL, 0);
+		mif_ipc_log(MIF_IPC_RL2AP, iod->mc->msd, skb->data, skb->len);
 	}
 
 	/* store padding */
@@ -1112,6 +1171,7 @@ static ssize_t misc_read(struct file *filp, char *buf, size_t count,
 	struct sk_buff_head *rxq = &iod->sk_rx_q;
 	struct sk_buff *skb;
 	int copied = 0;
+	struct timespec epoch;
 
 	skb = skb_dequeue(rxq);
 	if (!skb) {
@@ -1120,9 +1180,14 @@ static ssize_t misc_read(struct file *filp, char *buf, size_t count,
 	}
 
 	if (iod->id == SIPC5_CH_ID_FMT_0) {
-		mif_ipc_log(iod->mc, MIF_IOD_RX_EVT, iod, NULL, skb->data,
-				skb->len);
-		mif_flush_logs(iod->mc);
+		getnstimeofday(&epoch);
+		mif_time_log(iod->mc->msd, epoch, NULL, 0);
+		mif_ipc_log(MIF_IPC_AP2RL, iod->mc->msd, skb->data, skb->len);
+		/*
+		u8 str[32];
+		snprintf(str, 32, "%s: %s", __func__, iod->name);
+		pr_ipc(str, skb->data, (skb->len > 16 ? 16 : skb->len));
+		*/
 	}
 
 	copied = skb->len > count ? count : skb->len;
@@ -1225,14 +1290,10 @@ static int vnet_xmit(struct sk_buff *skb, struct net_device *ndev)
 	struct link_device *ld = get_current_link(iod);
 	struct sipc5_frame_data *frm = &iod->meta_frame;
 	struct sk_buff *skb_new;
-	unsigned headroom;
+	unsigned headroom = 0;
 	unsigned tailroom = 0;
+	unsigned long tx_bytes = skb->len;
 	int ret;
-
-#if 0
-	mif_ipc_log(iod->mc, MIF_IOD_TX_EVT, iod, ld, skb->data, skb->len);
-	mif_flush_logs(ld->mc);
-#endif
 
 	/* When use `handover' with Network Bridge,
 	 * user -> TCP/IP(kernel) -> bridge device -> TCP/IP(kernel) -> this.
@@ -1278,7 +1339,7 @@ static int vnet_xmit(struct sk_buff *skb, struct net_device *ndev)
 	}
 
 	ndev->stats.tx_packets++;
-	ndev->stats.tx_bytes += skb->len;
+	ndev->stats.tx_bytes += tx_bytes;
 
 	return NETDEV_TX_OK;
 }

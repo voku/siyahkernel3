@@ -378,7 +378,6 @@ static struct platform_device *nuri_devices[] __initdata = {
 
 static void __init nuri_map_io(void)
 {
-	clk_xusbxti.rate = 24000000;
 	s5p_init_io(NULL, 0, S5P_VA_CHIPID);
 	s3c24xx_init_clocks(24000000);
 	s3c24xx_init_uarts(nuri_uartcfgs, ARRAY_SIZE(nuri_uartcfgs));
@@ -395,6 +394,7 @@ static void __init nuri_machine_init(void)
 	i2c_register_board_info(5, i2c5_devs, ARRAY_SIZE(i2c5_devs));
 
 	nuri_ehci_init();
+	clk_xusbxti.rate = 24000000;
 
 	/* Last */
 	platform_add_devices(nuri_devices, ARRAY_SIZE(nuri_devices));

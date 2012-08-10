@@ -1360,7 +1360,6 @@ out:
 	spin_unlock_irqrestore(&host->lock, host->sl_flags);
 }
 
-#ifdef CONFIG_MMC_MSHCI_ASYNC_OPS
 static void mshci_pre_req(struct mmc_host *mmc, struct mmc_request *mrq,
 							bool is_first_req)
 {
@@ -1467,7 +1466,6 @@ out:
 	spin_unlock_irqrestore(&host->lock, host->sl_flags);
 	return;
 }
-#endif
 
 static struct mmc_host_ops mshci_ops = {
 	.request	= mshci_request,
@@ -1621,7 +1619,8 @@ static void mshci_cmd_irq(struct mshci_host *host, u32 intmask)
 		/* to notify an error happend */
 		host->error_state = 1;
 #if defined(CONFIG_MACH_M0) || defined(CONFIG_MACH_P4NOTE) || \
-		defined(CONFIG_MACH_C1_USA_ATT)
+		defined(CONFIG_MACH_C1_USA_ATT) \
+		|| defined(CONFIG_MACH_GRANDE) || defined(CONFIG_MACH_IRON)
 		if (host->mmc && host->mmc->card)
 			mshci_dumpregs(host);
 #endif
@@ -1706,7 +1705,8 @@ static void mshci_data_irq(struct mshci_host *host, u32 intmask, u8 intr_src)
 		/* to notify an error happend */
 		host->error_state = 1;
 #if defined(CONFIG_MACH_M0) || defined(CONFIG_MACH_P4NOTE) || \
-		defined(CONFIG_MACH_C1_USA_ATT)
+		defined(CONFIG_MACH_C1_USA_ATT) \
+		|| defined(CONFIG_MACH_GRANDE) || defined(CONFIG_MACH_IRON)
 		if (host->mmc && host->mmc->card)
 			mshci_dumpregs(host);
 #endif
@@ -2045,11 +2045,7 @@ int mshci_add_host(struct mshci_host *host)
 	mmc->ops = &mshci_ops;
 	mmc->f_min = 400000;
 	mmc->f_max = host->max_clk;
-#ifdef CONFIG_MACH_U1
 	mmc->caps |= MMC_CAP_SDIO_IRQ;
-#else
-	mmc->caps |= MMC_CAP_SDIO_IRQ | MMC_CAP_ERASE;
-#endif
 
 	mmc->caps |= MMC_CAP_4_BIT_DATA;
 

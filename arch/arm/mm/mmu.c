@@ -15,12 +15,12 @@
 #include <linux/nodemask.h>
 #include <linux/memblock.h>
 #include <linux/fs.h>
-#include <linux/sizes.h>
 
 #include <asm/cputype.h>
 #include <asm/sections.h>
 #include <asm/cachetype.h>
 #include <asm/setup.h>
+#include <asm/sizes.h>
 #include <asm/smp_plat.h>
 #include <asm/tlb.h>
 #include <asm/highmem.h>
@@ -402,6 +402,12 @@ static void __init build_mem_type_table(void)
 	vecs_pgprot = kern_pgprot = user_pgprot = cp->pte;
 
 	/*
+	 * Only use write-through for non-SMP systems
+	 */
+	if (!is_smp() && cpu_arch >= CPU_ARCH_ARMv5 && cachepolicy > CPOLICY_WRITETHROUGH)
+		vecs_pgprot = cache_policies[CPOLICY_WRITETHROUGH].pte;
+
+	/*
 	 * Enable CPU-specific coherency if supported.
 	 * (Only available on XSC3 at the moment.)
 	 */
@@ -576,8 +582,8 @@ static void __init alloc_init_section(pud_t *pud, unsigned long addr,
 	}
 }
 
-static void __init alloc_init_pud(pgd_t *pgd, unsigned long addr,
-		unsigned long end, unsigned long phys, const struct mem_type *type)
+static void alloc_init_pud(pgd_t *pgd, unsigned long addr, unsigned long end,
+	unsigned long phys, const struct mem_type *type)
 {
 	pud_t *pud = pud_offset(pgd, addr);
 	unsigned long next;

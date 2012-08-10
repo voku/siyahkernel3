@@ -257,12 +257,14 @@ typedef struct dhd_pub {
 	int   wlfc_enabled;
 	void* wlfc_state;
 #endif
-	bool	roam_env_detection;
 	bool	dongle_isolation;
 	bool	dongle_trap_occured;
 	int   hang_was_sent;
 	int   rxcnt_timeout;		/* counter rxcnt timeout to send HANG */
 	int   txcnt_timeout;		/* counter txcnt timeout to send HANG */
+#ifdef BCM4334_CHIP
+	int tx_seqerr_cnt;
+#endif
 #ifdef WLMEDIA_HTSF
 	uint8 htsfdlystat_sz; /* Size of delay stats, max 255B */
 #endif
@@ -280,7 +282,7 @@ typedef struct dhd_pub {
 			SMP_RD_BARRIER_DEPENDS(); \
 			while (dhd_mmc_suspend && retry++ != b) { \
 				SMP_RD_BARRIER_DEPENDS(); \
-				wait_event_interruptible_timeout(a, !dhd_mmc_suspend, 1); \
+				wait_event_interruptible_timeout(a, !dhd_mmc_suspend, HZ/100); \
 			} \
 		}	while (0)
 #ifdef CUSTOMER_HW_SAMSUNG
@@ -302,7 +304,7 @@ typedef struct dhd_pub {
 	#define SPINWAIT_SLEEP(a, exp, us) do { \
 		uint countdown = (us) + 9999; \
 		while ((exp) && (countdown >= 10000)) { \
-			wait_event_interruptible_timeout(a, FALSE, 1); \
+			wait_event_interruptible_timeout(a, FALSE, HZ/100); \
 			countdown -= 10000; \
 		} \
 	} while (0)
@@ -513,7 +515,6 @@ extern int dhd_dev_get_pno_status(struct net_device *dev);
 #define DHD_BROADCAST_FILTER_NUM	1
 #define DHD_MULTICAST4_FILTER_NUM	2
 #define DHD_MULTICAST6_FILTER_NUM	3
-#define DHD_MDNS_FILTER_NUM		4
 extern int net_os_set_packet_filter(struct net_device *dev, int val);
 extern int net_os_rxfilter_add_remove(struct net_device *dev, int val, int num);
 
@@ -641,11 +642,7 @@ extern uint dhd_radio_up;
 
 /* Initial idletime ticks (may be -1 for immediate idle, 0 for no idle) */
 extern int dhd_idletime;
-#ifdef DHD_USE_IDLECOUNT
-#define DHD_IDLETIME_TICKS 5
-#else
 #define DHD_IDLETIME_TICKS 1
-#endif /* DHD_USE_IDLECOUNT */
 
 /* SDIO Drive Strength */
 extern uint dhd_sdiod_drive_strength;
@@ -701,8 +698,6 @@ extern char fw_down_path[MOD_PARAM_PATHLEN];
 #define DHD_MAX_IFS	16
 #define DHD_DEL_IF	-0xe
 #define DHD_BAD_IF	-0xf
-
-#define WL_AUTO_ROAM_TRIGGER -75
 
 #ifdef PROP_TXSTATUS
 /* Please be mindful that total pkttag space is 32 octets only */

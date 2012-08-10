@@ -8,7 +8,6 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/bitops.h>
-#include <linux/cryptohash.h>
 #include <asm/unaligned.h>
 
 /*
@@ -52,9 +51,9 @@
 #define SHA_MIX(t) rol32(W(t+13) ^ W(t+8) ^ W(t+2) ^ W(t), 1)
 
 #define SHA_ROUND(t, input, fn, constant, A, B, C, D, E) do { \
-  __u32 TEMP = input(t); setW(t, TEMP); \
-  E += TEMP + rol32(A,5) + (fn) + (constant); \
-  B = ror32(B, 2); } while (0)
+	__u32 TEMP = input(t); setW(t, TEMP); \
+	E += TEMP + rol32(A,5) + (fn) + (constant); \
+	B = ror32(B, 2); } while (0)
 
 #define T_0_15(t, A, B, C, D, E)  SHA_ROUND(t, SHA_SRC, (((C^D)&B)^D) , 0x5a827999, A, B, C, D, E )
 #define T_16_19(t, A, B, C, D, E) SHA_ROUND(t, SHA_MIX, (((C^D)&B)^D) , 0x5a827999, A, B, C, D, E )
@@ -198,5 +197,3 @@ void sha_init(__u32 *buf)
 	buf[3] = 0x10325476;
 	buf[4] = 0xc3d2e1f0;
 }
-
-

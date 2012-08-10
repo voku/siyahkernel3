@@ -355,7 +355,7 @@ config AUDIT
 
 config AUDITSYSCALL
 	bool "Enable system-call auditing support"
-	depends on AUDIT && (X86 || PPC || S390 || IA64 || UML || SPARC64 || SUPERH || (ARM && AEABI && !OABI_COMPAT))
+	depends on AUDIT && (X86 || PPC || S390 || IA64 || UML || SPARC64 || SUPERH)
 	default y if SECURITY_SELINUX
 	help
 	  Enable low-overhead system-call auditing infrastructure that
@@ -372,13 +372,6 @@ config AUDIT_TREE
 	depends on AUDITSYSCALL
 	select FSNOTIFY
 
-config TARGET_CM_KERNEL
-	bool "Enable settings for CyanogenMod ROM"
-	help
-	  This option configures a kernel that works with
-	  CyanogenMod ROM settings and options.
-	  also effect the BLN for CM9/AOKP
-
 source "kernel/irq/Kconfig"
 
 menu "RCU Subsystem"
@@ -389,7 +382,7 @@ choice
 
 config TREE_RCU
 	bool "Tree-based hierarchical RCU"
-	depends on SMP
+	depends on !PREEMPT && SMP
 	help
 	  This option selects the RCU implementation that is
 	  designed for very large SMP system with hundreds or
@@ -908,28 +901,13 @@ source "usr/Kconfig"
 
 endif
 
-choice
-  prompt "Optimization level"
-  default CC_OPTIMIZE_DEFAULT
-
 config CC_OPTIMIZE_FOR_SIZE
-	bool "Use -Os may not boot!"
+	bool "Optimize for size"
 	help
-	  in this kernel, using this will not boot kernel.
-	  use and see.
+	  Enabling this option will pass "-Os" instead of "-O2" to gcc
+	  resulting in a smaller kernel.
 
-config CC_OPTIMIZE_DEFAULT
-	bool "Use -O2"
-
-config CC_OPTIMIZE_ALOT
-	bool "Use -O3"
-
-config CC_OPTIMIZE_FAST
-        bool "Use -Ofast"
-	help
-	  You need linaro 12.4 toolchain to use this.
-
-endchoice
+	  If unsure, say Y.
 
 config CC_CHECK_WARNING_STRICTLY
 	bool "Check warnings more strictly"
@@ -990,7 +968,7 @@ config KALLSYMS
 
 config KALLSYMS_ALL
 	bool "Include all symbols in kallsyms"
-	depends on KALLSYMS
+	depends on DEBUG_KERNEL && KALLSYMS
 	help
 	   Normally kallsyms only contains the symbols of functions for nicer
 	   OOPS messages and backtraces (i.e., symbols from the text and inittext
@@ -1103,36 +1081,16 @@ config EVENTFD
 
 	  If unsure, say Y.
 
-choice
-	prompt "Default shmem filesystem implementation" if EMBEDDED
-	depends on MMU
-	default SHMEM
-	help
-	  Choose the default shmem filesystem implementation to manage shared
-	  memory.
-
-	  If in doubt, select 'Full shmem filesystem'.
-
 config SHMEM
-	bool "Full shmem filesystem"
+	bool "Use full shmem filesystem" if EXPERT
+	default y
+	depends on MMU
 	help
 	  The shmem is an internal filesystem used to manage shared memory.
 	  It is backed by swap and manages resource limits. It is also exported
-	  to userspace as tmpfs if TMPFS is enabled. Choosing 'Tiny shmem
-	  filesystem' option replaces shmem and tmpfs with the much simpler
-	  ramfs code, which may be appropriate on small systems without swap.
-
-config TINY_SHMEM
-	bool "Tiny shmem filesystem" if !SWAP
-	help
-	  Tiny shmem is a simple shmemfs and tmpfs using ramfs code.
-
-	  This is intended for small system where the benefits of the full
-	  shmem code (swap-backed and resource-limited) are outweighed by
- 	  their complexity. On systems without swap this code should be
-	  effectively equivalent, but much lighter weight.
-
-endchoice
+	  to userspace as tmpfs if TMPFS is enabled. Disabling this
+	  option replaces shmem and tmpfs with the much simpler ramfs code,
+	  which may be appropriate on small systems without swap.
 
 config ASHMEM
 	bool "Enable the Anonymous Shared Memory Subsystem"

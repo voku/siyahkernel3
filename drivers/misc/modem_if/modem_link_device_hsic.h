@@ -130,10 +130,6 @@ struct usb_link_device {
 	unsigned int		suspended;
 	int if_usb_connected;
 
-	/*It is same with if_usb_connected, but we need to check the side-effect
-	 * from timming changed, it will merge with if_usb_connect variable.*/
-	int if_usb_connected_last;
-
 	bool if_usb_is_main; /* boot,down(false) or main(true) */
 
 	/* LINK PM DEVICE DATA */

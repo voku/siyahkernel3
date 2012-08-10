@@ -21,3 +21,10 @@ config TOUCHKEY_BLN
 	---help---
 	  BLN support.
 
+config TARGET_CM_KERNEL
+	bool "Enable settings for CyanogenMod ROM"
+	depends on KEYBOARD_CYPRESS_AOKP
+	---help---
+	  This option configures BLN that works with
+	  CyanogenMod ROM settings and options.
+

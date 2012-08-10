@@ -56,7 +56,7 @@ void __init regulator_dummy_init(void)
 	}
 
 	dummy_regulator_rdev = regulator_register(&dummy_desc, NULL,
-						  &dummy_initdata, NULL, NULL);
+						  &dummy_initdata, NULL);
 	if (IS_ERR(dummy_regulator_rdev)) {
 		ret = PTR_ERR(dummy_regulator_rdev);
 		pr_err("Failed to register regulator: %d\n", ret);

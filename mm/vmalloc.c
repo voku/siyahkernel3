@@ -452,6 +452,13 @@ overflow:
 	return ERR_PTR(-EBUSY);
 }
 
+static void rcu_free_va(struct rcu_head *head)
+{
+	struct vmap_area *va = container_of(head, struct vmap_area, rcu_head);
+
+	kfree(va);
+}
+
 static void __free_vmap_area(struct vmap_area *va)
 {
 	BUG_ON(RB_EMPTY_NODE(&va->rb_node));
@@ -484,7 +491,7 @@ static void __free_vmap_area(struct vmap_area *va)
 	if (va->va_end > VMALLOC_START && va->va_end <= VMALLOC_END)
 		vmap_area_pcpu_hole = max(vmap_area_pcpu_hole, va->va_end);
 
-	kfree_rcu(va, rcu_head);
+	call_rcu(&va->rcu_head, rcu_free_va);
 }
 
 /*
@@ -831,6 +838,13 @@ static struct vmap_block *new_vmap_block(gfp_t gfp_mask)
 	return vb;
 }
 
+static void rcu_free_vb(struct rcu_head *head)
+{
+	struct vmap_block *vb = container_of(head, struct vmap_block, rcu_head);
+
+	kfree(vb);
+}
+
 static void free_vmap_block(struct vmap_block *vb)
 {
 	struct vmap_block *tmp;
@@ -843,7 +857,7 @@ static void free_vmap_block(struct vmap_block *vb)
 	BUG_ON(tmp != vb);
 
 	free_vmap_area_noflush(vb->va);
-	kfree_rcu(vb, rcu_head);
+	call_rcu(&vb->rcu_head, rcu_free_vb);
 }
 
 static void purge_fragmented_blocks(int cpu)
@@ -1118,32 +1132,6 @@ void *vm_map_ram(struct page **pages, unsigned int count, int node, pgprot_t pro
 EXPORT_SYMBOL(vm_map_ram);
 
 /**
- * vm_area_add_early - add vmap area early during boot
- * @vm: vm_struct to add
- *
- * This function is used to add fixed kernel vm area to vmlist before
- * vmalloc_init() is called.  @vm->addr, @vm->size, and @vm->flags
- * should contain proper values and the other fields should be zero.
- *
- * DO NOT USE THIS FUNCTION UNLESS YOU KNOW WHAT YOU'RE DOING.
- */
-void __init vm_area_add_early(struct vm_struct *vm)
-{
-	struct vm_struct *tmp, **p;
-
-	BUG_ON(vmap_initialized);
-	for (p = &vmlist; (tmp = *p) != NULL; p = &tmp->next) {
-		if (tmp->addr >= vm->addr) {
-			BUG_ON(tmp->addr < vm->addr + vm->size);
-			break;
-		} else
-			BUG_ON(tmp->addr + tmp->size > vm->addr);
-	}
-	vm->next = *p;
-	*p = vm;
-}
-
-/**
  * vm_area_register_early - register vmap area early during boot
  * @vm: vm_struct to register
  * @align: requested alignment
@@ -1165,7 +1153,8 @@ void __init vm_area_register_early(struct vm_struct *vm, size_t align)
 
 	vm->addr = (void *)addr;
 
-	vm_area_add_early(vm);
+	vm->next = vmlist;
+	vmlist = vm;
 }
 
 void __init vmalloc_init(void)
@@ -1619,8 +1608,8 @@ static void *__vmalloc_area_node(struct vm_struct *area, gfp_t gfp_mask,
 	return area->addr;
 
 fail:
-	warn_alloc_failed(gfp_mask, order,
-			  "vmalloc: allocation failure, allocated %ld of %ld bytes\n",
+	warn_alloc_failed(gfp_mask, order, "vmalloc: allocation failure, "
+			  "allocated %ld of %ld bytes\n",
 			  (area->nr_pages*PAGE_SIZE), area->size);
 	vfree(area->addr);
 	return NULL;
@@ -1651,12 +1640,13 @@ void *__vmalloc_node_range(unsigned long size, unsigned long align,
 
 	size = PAGE_ALIGN(size);
 	if (!size || (size >> PAGE_SHIFT) > totalram_pages)
-		goto fail;
+		return NULL;
 
 	area = __get_vm_area_node(size, align, VM_ALLOC | VM_UNLIST,
 				  start, end, node, gfp_mask, caller);
+
 	if (!area)
-		goto fail;
+		return NULL;
 
 	addr = __vmalloc_area_node(area, gfp_mask, prot, node, caller);
 	if (!addr)
@@ -1676,12 +1666,6 @@ void *__vmalloc_node_range(unsigned long size, unsigned long align,
 	kmemleak_alloc(addr, real_size, 3, gfp_mask);
 
 	return addr;
-
-fail:
-	warn_alloc_failed(gfp_mask, 0,
-			  "vmalloc: allocation failure: %lu bytes\n",
-			  real_size);
-	return NULL;
 }
 
 /**
@@ -2478,8 +2462,10 @@ found:
 
 err_free:
 	for (area = 0; area < nr_vms; area++) {
-		kfree(vas[area]);
-		kfree(vms[area]);
+		if (vas)
+			kfree(vas[area]);
+		if (vms)
+			kfree(vms[area]);
 	}
 	kfree(vas);
 	kfree(vms);

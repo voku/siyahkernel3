@@ -56,9 +56,9 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 static
 #endif
 struct cpufreq_governor cpufreq_gov_hotplug = {
-	.name 			= "hotplug",
-	.governor 		= cpufreq_governor_dbs,
-	.owner 			= THIS_MODULE,
+       .name                   = "hotplug",
+       .governor               = cpufreq_governor_dbs,
+       .owner                  = THIS_MODULE,
 };
 
 struct cpu_dbs_info_s {
@@ -122,21 +122,21 @@ static struct dbs_tuners {
  */
 static inline cputime64_t get_cpu_idle_time(unsigned int cpu, cputime64_t *wall)
 {
-	u64 idle_time;
-	u64 iowait_time;
+        u64 idle_time;
+        u64 iowait_time;
 
         /* cpufreq-hotplug always assumes CONFIG_NO_HZ */
-	idle_time = get_cpu_idle_time_us(cpu, wall);
+        idle_time = get_cpu_idle_time_us(cpu, wall);
 
 	/* add time spent doing I/O to idle time */
-	if (dbs_tuners_ins.io_is_busy) {
-		iowait_time = get_cpu_iowait_time_us(cpu, wall);
-		/* cpufreq-hotplug always assumes CONFIG_NO_HZ */
-		if (iowait_time != -1ULL && idle_time >= iowait_time)
-			idle_time -= iowait_time;
-	}
+        if (dbs_tuners_ins.io_is_busy) {
+                iowait_time = get_cpu_iowait_time_us(cpu, wall);
+                /* cpufreq-hotplug always assumes CONFIG_NO_HZ */
+                if (iowait_time != -1ULL && idle_time >= iowait_time)
+                        idle_time -= iowait_time;
+        }
 
-	return idle_time;
+        return idle_time;
 }
 
 /************************** sysfs interface ************************/
