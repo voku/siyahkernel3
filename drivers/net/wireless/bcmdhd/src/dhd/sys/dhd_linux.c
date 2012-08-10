@@ -5046,7 +5046,7 @@ int net_os_set_packet_filter(struct net_device *dev, int val)
 }
 
 
-int
+void
 dhd_dev_init_ioctl(struct net_device *dev)
 {
 	dhd_info_t *dhd = *(dhd_info_t **)netdev_priv(dev);
@@ -5054,7 +5054,7 @@ dhd_dev_init_ioctl(struct net_device *dev)
 	 if (_dhd_set_mac_address(dhd, 0, &dhd->pub.mac) == 0)
 		 DHD_INFO(("dhd_bus_start: MAC ID is overwritten\n"));
 
-	return dhd_preinit_ioctls(&dhd->pub);
+	dhd_preinit_ioctls(&dhd->pub);
 }
 
 #ifdef PNO_SUPPORT

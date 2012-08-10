@@ -9,11 +9,11 @@
  */
 #include <linux/linkage.h>
 #include <asm/assembler.h>
-#include <asm/delay.h>
+#include <asm/param.h>
 		.text
 
 .LC0:		.word	loops_per_jiffy
-.LC1:		.word	UDELAY_MULT
+.LC1:		.word	(2199023*HZ)>>11
 
 /*
  * r0  <= 2000
@@ -21,10 +21,10 @@
  * HZ  <= 1000
  */
 
-ENTRY(__loop_udelay)
+ENTRY(__udelay)
 		ldr	r2, .LC1
 		mul	r0, r2, r0
-ENTRY(__loop_const_udelay)				@ 0 <= r0 <= 0x7fffff06
+ENTRY(__const_udelay)				@ 0 <= r0 <= 0x7fffff06
 		mov	r1, #-1
 		ldr	r2, .LC0
 		ldr	r2, [r2]		@ max = 0x01ffffff
@@ -39,10 +39,12 @@ ENTRY(__loop_const_udelay)				@ 0 <= r0 <= 0x7fffff06
 
 /*
  * loops = r0 * HZ * loops_per_jiffy / 1000000
+ *
+ * Oh, if only we had a cycle counter...
  */
 
 @ Delay routine
-ENTRY(__loop_delay)
+ENTRY(__delay)
 		subs	r0, r0, #1
 #if 0
 		movls	pc, lr
@@ -60,8 +62,8 @@ ENTRY(__loop_delay)
 		movls	pc, lr
 		subs	r0, r0, #1
 #endif
-		bhi  __loop_delay
+		bhi	__delay
 		mov	pc, lr
-ENDPROC(__loop_udelay)
-ENDPROC(__loop_const_udelay)
-ENDPROC(__loop_delay)
+ENDPROC(__udelay)
+ENDPROC(__const_udelay)
+ENDPROC(__delay)

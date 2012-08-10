@@ -149,7 +149,6 @@ struct mc1n2_data {
 	MCDRV_PDM_INFO pdm_store;
 	UINT32 hdmicount;
 	UINT32 delay_mic1in;
-	UINT32 lineoutenable;
 };
 
 struct mc1n2_info_store {
@@ -667,12 +666,6 @@ static int mc1n2_i2s_hw_params(struct snd_pcm_substream *substream,
 	}
 #endif
 
-	/* Because of line out pop up noise issue, i2s port already opend */
-	if ((mc1n2->lineoutenable == 1) && (port->stream & (1 << dir))) {
-		err = 0;
-		goto error;
-	}
-
 	port->rate = rate;
 	port->channels = params_channels(params);
 
@@ -745,12 +738,6 @@ static int mc1n2_hw_free(struct snd_pcm_substream *substream,
 		goto error;
 	}
 #endif
-
-	/* Because of line out pop up noise, leave codec opened */
-	if (mc1n2->lineoutenable == 1) {
-		err = 0;
-		goto error;
-	}
 
 	if (dir == SNDRV_PCM_STREAM_PLAYBACK) {
 		err = mc1n2_control_dir(mc1n2, get_port_id(dai->id), 0);
@@ -3790,12 +3777,6 @@ static int mc1n2_hwdep_ioctl_notify(struct snd_soc_codec *codec,
 			(mc1n2->hdmicount)--;
 		}
 		break;
-	case MCDRV_NOTIFY_LINEOUT_START:
-		mc1n2->lineoutenable = 1;
-		break;
-	case MCDRV_NOTIFY_LINEOUT_STOP:
-		mc1n2->lineoutenable = 0;
-		break;
 	case MCDRV_NOTIFY_RECOVER:
 		{
 			int err, i;
@@ -4354,7 +4335,7 @@ static int mc1n2_i2c_probe(struct i2c_client *client,
 #endif
 
 	mc1n2->hdmicount = 0;
-	mc1n2->lineoutenable = 0;
+
 	mc1n2->pdata = client->dev.platform_data;
 
 	/* setup i2c client data */

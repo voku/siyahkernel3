@@ -51,13 +51,6 @@
 #define CLK_DIV_STAT_G3D 	0x1003C62C
 #define CLK_DESC 		"clk-divider-status"
 
-typedef struct mali_runtime_resumeTag{
-	int clk;
-	int vol;
-}mali_runtime_resume_table;
-
-mali_runtime_resume_table mali_runtime_resume = {267, 1050000};
-
 static struct clk               *ext_xtal_clock = 0;
 static struct clk               *vpll_src_clock = 0;
 static struct clk               *fout_vpll_clock = 0;
@@ -475,6 +468,7 @@ static mali_bool deinit_mali_clock(void)
 	return MALI_TRUE;
 }
 
+
 static _mali_osk_errcode_t enable_mali_clocks(void)
 {
 	int err;
@@ -482,14 +476,7 @@ static _mali_osk_errcode_t enable_mali_clocks(void)
 	MALI_DEBUG_PRINT(3,("enable_mali_clocks mali_clock %p error %d \n", mali_clock, err));
 
 	// set clock rate
-	if (get_mali_dvfs_control_status() != 0 || mali_gpu_clk >= mali_runtime_resume.clk)
-		mali_clk_set_rate(mali_gpu_clk, GPU_MHZ);
-	else {
-		mali_regulator_set_voltage(mali_runtime_resume.vol, mali_runtime_resume.vol);
-		mali_clk_set_rate(mali_runtime_resume.clk, GPU_MHZ);
-		if (mali_gpu_clk <= mali_runtime_resume.clk)
-			set_mali_dvfs_current_step(5);
-	}
+	mali_clk_set_rate(mali_gpu_clk, GPU_MHZ);
 	
 	MALI_SUCCESS;
 }

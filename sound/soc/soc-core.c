@@ -543,32 +543,13 @@ static int soc_pcm_open(struct snd_pcm_substream *substream)
 
 	mutex_lock(&pcm_mutex);
 
-	if (rtd->dai_link->pre) {
-		ret = rtd->dai_link->pre(substream);
-		if (ret < 0) {
-			printk(KERN_ERR "asoc: can't setup DAI link %s\n",
-				rtd->dai_link->name);
-			goto out;
-		}
-	}
-
-
-	if (rtd->dai_link->ops && rtd->dai_link->ops->startup) {
-		ret = rtd->dai_link->ops->startup(substream);
-		if (ret < 0) {
-			printk(KERN_ERR "asoc: %s startup failed\n",
-				rtd->dai_link->name);
-			goto machine_err;
-		}
-	}
-
 	/* startup the audio subsystem */
 	if (cpu_dai->driver->ops->startup) {
 		ret = cpu_dai->driver->ops->startup(substream, cpu_dai);
 		if (ret < 0) {
 			printk(KERN_ERR "asoc: can't open interface %s\n",
 				cpu_dai->name);
-			goto cpu_err;
+			goto out;
 		}
 	}
 
@@ -586,6 +567,14 @@ static int soc_pcm_open(struct snd_pcm_substream *substream)
 			printk(KERN_ERR "asoc: can't open codec %s\n",
 				codec_dai->name);
 			goto codec_dai_err;
+		}
+	}
+
+	if (rtd->dai_link->ops && rtd->dai_link->ops->startup) {
+		ret = rtd->dai_link->ops->startup(substream);
+		if (ret < 0) {
+			printk(KERN_ERR "asoc: %s startup failed\n", rtd->dai_link->name);
+			goto machine_err;
 		}
 	}
 
@@ -682,11 +671,14 @@ static int soc_pcm_open(struct snd_pcm_substream *substream)
 	cpu_dai->active++;
 	codec_dai->active++;
 	rtd->codec->active++;
-	rtd->dai_link->active++;
 	mutex_unlock(&pcm_mutex);
 	return 0;
 
 config_err:
+	if (rtd->dai_link->ops && rtd->dai_link->ops->shutdown)
+		rtd->dai_link->ops->shutdown(substream);
+
+machine_err:
 	if (codec_dai->driver->ops->shutdown)
 		codec_dai->driver->ops->shutdown(substream, codec_dai);
 
@@ -697,13 +689,6 @@ codec_dai_err:
 platform_err:
 	if (cpu_dai->driver->ops->shutdown)
 		cpu_dai->driver->ops->shutdown(substream, cpu_dai);
-cpu_err:
-	if (rtd->dai_link->ops && rtd->dai_link->ops->shutdown)
-		rtd->dai_link->ops->shutdown(substream);
-
-machine_err:
-	if (rtd->dai_link->post)
-		rtd->dai_link->post(substream);
 out:
 	mutex_unlock(&pcm_mutex);
 	return ret;
@@ -764,7 +749,6 @@ static int soc_codec_close(struct snd_pcm_substream *substream)
 	cpu_dai->active--;
 	codec_dai->active--;
 	codec->active--;
-	rtd->dai_link->active--;
 
 	/* Muting the DAC suppresses artifacts caused during digital
 	 * shutdown, for example from stopping clocks.
@@ -778,12 +762,11 @@ static int soc_codec_close(struct snd_pcm_substream *substream)
 	if (codec_dai->driver->ops->shutdown)
 		codec_dai->driver->ops->shutdown(substream, codec_dai);
 
-	if (platform->driver->ops && platform->driver->ops->close)
-		platform->driver->ops->close(substream);
-
 	if (rtd->dai_link->ops && rtd->dai_link->ops->shutdown)
 		rtd->dai_link->ops->shutdown(substream);
 
+	if (platform->driver->ops && platform->driver->ops->close)
+		platform->driver->ops->close(substream);
 	cpu_dai->runtime = NULL;
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
@@ -1040,75 +1023,6 @@ static snd_pcm_uframes_t soc_pcm_pointer(struct snd_pcm_substream *substream)
 
 	return offset;
 }
-
-static int soc_pcm_ioctl(struct snd_pcm_substream *substream,
-		     unsigned int cmd, void *arg)
-{
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_platform *platform = rtd->platform;
-
-	if (platform->driver->ops->ioctl)
-		return platform->driver->ops->ioctl(substream, cmd, arg);
-	return snd_pcm_lib_ioctl(substream, cmd, arg);
-}
-
-struct snd_soc_codec *snd_soc_card_get_codec(struct snd_soc_card *card,
-					const char *codec_name)
-{
-	struct snd_soc_codec *codec = NULL;
-
-	list_for_each_entry(codec, &card->codec_dev_list, card_list) {
-		if (!strcmp(codec->name, codec_name))
-			return codec;
-	}
-
-	return codec;
-}
-EXPORT_SYMBOL(snd_soc_card_get_codec);
-
-int snd_soc_card_active_links(struct snd_soc_card *card)
-{
-	int i;
-	int count = 0;
-
-	for (i = 0; i < card->num_rtd; i++) {
-		/* count FEs: dynamic and legacy */
-		if (!card->rtd[i].dai_link->no_pcm)
-			count += card->rtd[i].dai_link->active;
-	}
-
-	return count;
-}
-EXPORT_SYMBOL(snd_soc_card_active_links);
-
-struct snd_pcm_substream *snd_soc_get_dai_substream(struct snd_soc_card *card,
-		const char *dai_link, int stream)
-{
-	int i;
-
-	for (i = 0; i < card->num_links; i++) {
-		if (card->rtd[i].dai_link->no_pcm &&
-			!strcmp(card->rtd[i].dai_link->name, dai_link))
-			return card->rtd[i].pcm->streams[stream].substream;
-	}
-	dev_dbg(card->dev, "failed to find dai link %s\n", dai_link);
-	return NULL;
-}
-EXPORT_SYMBOL_GPL(snd_soc_get_dai_substream);
-
-struct snd_soc_pcm_runtime *snd_soc_get_pcm_runtime(struct snd_soc_card *card,
-		const char *dai_link)
-{
-	int i;
-
-	for (i = 0; i < card->num_links; i++) {
-		if (!strcmp(card->rtd[i].dai_link->name, dai_link))
-			return &card->rtd[i];
-	}
-	dev_dbg(card->dev, "failed to find rtd %s\n", dai_link);
-	return NULL;
-}
-EXPORT_SYMBOL_GPL(snd_soc_get_pcm_runtime);
 
 #ifdef CONFIG_PM_SLEEP
 /* powers down audio subsystem for suspend */
@@ -2223,7 +2137,6 @@ static int soc_new_pcm(struct snd_soc_pcm_runtime *rtd, int num)
 	soc_pcm_ops->prepare	= soc_pcm_prepare;
 	soc_pcm_ops->trigger	= soc_pcm_trigger;
 	soc_pcm_ops->pointer	= soc_pcm_pointer;
-	rtd->ops.ioctl		= soc_pcm_ioctl;
 
 	/* check client and interface hw capabilities */
 	snprintf(new_name, sizeof(new_name), "%s %s-%d",

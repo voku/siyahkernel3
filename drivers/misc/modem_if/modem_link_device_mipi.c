@@ -88,7 +88,6 @@ static int mipi_hsi_send(struct link_device *ld, struct io_device *iod,
 	struct mipi_link_device *mipi_ld = to_mipi_link_device(ld);
 
 	struct sk_buff_head *txq;
-	size_t tx_size;
 
 	switch (iod->format) {
 	case IPC_RAW:
@@ -128,17 +127,13 @@ static int mipi_hsi_send(struct link_device *ld, struct io_device *iod,
 		break;
 	}
 
-	/* store the tx size before run the tx_work, tx_delayed_work*/
-	tx_size = skb->len;
-
 	/* save io device */
 	skbpriv(skb)->iod = iod;
 	/* en queue skb data */
 	skb_queue_tail(txq, skb);
 
 	queue_work(ld->tx_wq, &ld->tx_work);
-
-	return tx_size;
+	return skb->len;
 }
 
 static void mipi_hsi_tx_work(struct work_struct *work)
