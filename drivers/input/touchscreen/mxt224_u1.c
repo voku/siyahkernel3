@@ -1370,7 +1370,8 @@ static void report_input_data(struct mxt224_data *data)
 			flash_led_buttons(flash_timeout);
 #endif
 #ifdef CONFIG_KEYBOARD_CYPRESS_SAMMY_CM9
-		if (mxt224_touch_cb!=NULL) (*mxt224_touch_cb)();
+		if (touch_is_pressed && mxt224_touch_cb != NULL)
+			(*mxt224_touch_cb)();
 #endif
 	}
 }

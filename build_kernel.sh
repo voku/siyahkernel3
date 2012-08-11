@@ -109,11 +109,6 @@ if [ -d $INITRAMFS_TMP/.hg ]; then
 	rm -rf $INITRAMFS_TMP/.hg
 fi;
 
-#For now remove the VLM binary from initramfs till it's will be used for something.
-if [ -e $INITRAMFS_TMP/sbin/lvm ]; then
-	rm -f $INITRAMFS_TMP/sbin/lvm
-fi;
-
 #For now remove the STweaks.apk from recovery, till GM release full ver with all the needed for it.
 if [ -e $INITRAMFS_TMP/res/STweaks.apk ]; then
 	rm -f  $INITRAMFS_TMP/res/STweaks.apk
