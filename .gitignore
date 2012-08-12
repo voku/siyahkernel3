@@ -26,9 +26,9 @@ modules.builtin
 !drivers/mfd/cg2900/modules.order
 *.elf
 *.bin
+*.gz
 *.bz2
 *.lzma
-*.xz
 *.lzo
 *.patch
 *.gcno
