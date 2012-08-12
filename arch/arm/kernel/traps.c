@@ -452,18 +452,8 @@ do_cache_op(unsigned long start, unsigned long end, int flags)
 			end = vma->vm_end;
 
 		up_read(&mm->mmap_sem);
-<<<<<<< HEAD
-		return flush_cache_user_range(start, end);
-=======
 		flush_cache_user_range(start, end);
 		return;
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> 4657f99... Restored arch/arm/kernel/traps.c NO BOOT, now OK.
-=======
->>>>>>> 4657f99... Restored arch/arm/kernel/traps.c NO BOOT, now OK.
-=======
->>>>>>> 4657f99... Restored arch/arm/kernel/traps.c NO BOOT, now OK.
 	}
 	up_read(&mm->mmap_sem);
 }
