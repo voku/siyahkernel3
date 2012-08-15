@@ -401,9 +401,6 @@ extern unsigned long __must_check __clear_user_std(void __user *addr, unsigned l
 #define __clear_user(addr,n)		(memset((void __force *)addr, 0, n), 0)
 #endif
 
-extern unsigned long __must_check __strncpy_from_user(char *to, const char __user *from, unsigned long count);
-extern unsigned long __must_check __strnlen_user(const char __user *s, long n);
-
 static inline unsigned long __must_check copy_from_user(void *to, const void __user *from, unsigned long n)
 {
 	if (access_ok(VERIFY_READ, from, n))
