@@ -132,25 +132,49 @@ static inline int rcu_preempt_depth(void)
 /* Internal to kernel */
 extern void rcu_sched_qs(int cpu);
 extern void rcu_bh_qs(int cpu);
+extern void rcu_preempt_note_context_switch(void);
 extern void rcu_check_callbacks(int cpu, int user);
 struct notifier_block;
+extern void rcu_idle_enter(void);
+extern void rcu_idle_exit(void);
+extern void rcu_irq_enter(void);
+extern void rcu_irq_exit(void);
 
-#ifdef CONFIG_NO_HZ
+/**
+ * RCU_NONIDLE - Indicate idle-loop code that needs RCU readers
+ * @a: Code that RCU needs to pay attention to.
+ *
+ * RCU, RCU-bh, and RCU-sched read-side critical sections are forbidden
+ * in the inner idle loop, that is, between the rcu_idle_enter() and
+ * the rcu_idle_exit() -- RCU will happily ignore any such read-side
+ * critical sections.  However, things like powertop need tracepoints
+ * in the inner idle loop.
+ *
+ * This macro provides the way out:  RCU_NONIDLE(do_something_with_RCU())
+ * will tell RCU that it needs to pay attending, invoke its argument
+ * (in this example, a call to the do_something_with_RCU() function),
+ * and then tell RCU to go back to ignoring this CPU.  It is permissible
+ * to nest RCU_NONIDLE() wrappers, but the nesting level is currently
+ * quite limited.  If deeper nesting is required, it will be necessary
+ * to adjust DYNTICK_TASK_NESTING_VALUE accordingly.
+ *
+ * This macro may be used from process-level code only.
+ */
+#define RCU_NONIDLE(a) \
+	do { \
+		rcu_idle_exit(); \
+		do { a; } while (0); \
+		rcu_idle_enter(); \
+	} while (0)
 
-extern void rcu_enter_nohz(void);
-extern void rcu_exit_nohz(void);
+/*
+ * Infrastructure to implement the synchronize_() primitives in
+ * TREE_RCU and rcu_barrier_() primitives in TINY_RCU.
+ */
 
-#else /* #ifdef CONFIG_NO_HZ */
-
-static inline void rcu_enter_nohz(void)
-{
-}
-
-static inline void rcu_exit_nohz(void)
-{
-}
-
-#endif /* #else #ifdef CONFIG_NO_HZ */
+typedef void call_rcu_func_t(struct rcu_head *head,
+			     void (*func)(struct rcu_head *head));
+void wait_rcu_gp(call_rcu_func_t crf);
 
 #if defined(CONFIG_TREE_RCU) || defined(CONFIG_TREE_PREEMPT_RCU)
 #include <linux/rcutree.h>
@@ -179,7 +203,25 @@ static inline void destroy_rcu_head_on_stack(struct rcu_head *head)
 }
 #endif	/* #else !CONFIG_DEBUG_OBJECTS_RCU_HEAD */
 
+#if defined(CONFIG_HOTPLUG_CPU) && defined(CONFIG_PROVE_RCU)
+bool rcu_lockdep_current_cpu_online(void);
+#else /* #if defined(CONFIG_HOTPLUG_CPU) && defined(CONFIG_PROVE_RCU) */
+static inline bool rcu_lockdep_current_cpu_online(void)
+{
+	return 1;
+}
+#endif /* #else #if defined(CONFIG_HOTPLUG_CPU) && defined(CONFIG_PROVE_RCU) */
+
 #ifdef CONFIG_DEBUG_LOCK_ALLOC
+
+#ifdef CONFIG_PROVE_RCU
+extern int rcu_is_cpu_idle(void);
+#else /* !CONFIG_PROVE_RCU */
+static inline int rcu_is_cpu_idle(void)
+{
+	return 0;
+}
+#endif /* else !CONFIG_PROVE_RCU */
 
 extern struct lockdep_map rcu_lock_map;
 # define rcu_read_acquire() \
@@ -210,11 +252,23 @@ extern int debug_lockdep_rcu_enabled(void);
  *
  * Checks debug_lockdep_rcu_enabled() to prevent false positives during boot
  * and while lockdep is disabled.
+ *
+ * Note that rcu_read_lock() and the matching rcu_read_unlock() must
+ * occur in the same context, for example, it is illegal to invoke
+ * rcu_read_unlock() in process context if the matching rcu_read_lock()
+ * was invoked from within an irq handler.
+ *
+ * Note that rcu_read_lock() is disallowed if the CPU is either idle or
+ * offline from an RCU perspective, so check for those as well.
  */
 static inline int rcu_read_lock_held(void)
 {
 	if (!debug_lockdep_rcu_enabled())
 		return 1;
+	if (rcu_is_cpu_idle())
+		return 0;
+	if (!rcu_lockdep_current_cpu_online())
+		return 0;
 	return lock_is_held(&rcu_lock_map);
 }
 
@@ -238,6 +292,22 @@ extern int rcu_read_lock_bh_held(void);
  *
  * Check debug_lockdep_rcu_enabled() to prevent false positives during boot
  * and while lockdep is disabled.
+ *
+ * Note that if the CPU is in the idle loop from an RCU point of
+ * view (ie: that we are in the section between rcu_idle_enter() and
+ * rcu_idle_exit()) then rcu_read_lock_held() returns false even if the CPU
+ * did an rcu_read_lock().  The reason for this is that RCU ignores CPUs
+ * that are in such a section, considering these as in extended quiescent
+ * state, so such a CPU is effectively never in an RCU read-side critical
+ * section regardless of what RCU primitives it invokes.  This state of
+ * affairs is required --- we need to keep an RCU-free window in idle
+ * where the CPU may possibly enter into low power mode. This way we can
+ * notice an extended quiescent state to other CPUs that started a grace
+ * period. Otherwise we would delay any grace period as long as we run in
+ * the idle task.
+ *
+ * Similarly, we avoid claiming an SRCU read lock held if the current
+ * CPU is offline.
  */
 #ifdef CONFIG_PREEMPT
 static inline int rcu_read_lock_sched_held(void)
@@ -246,6 +316,10 @@ static inline int rcu_read_lock_sched_held(void)
 
 	if (!debug_lockdep_rcu_enabled())
 		return 1;
+	if (rcu_is_cpu_idle())
+		return 0;
+	if (!rcu_lockdep_current_cpu_online())
+		return 0;
 	if (debug_locks)
 		lockdep_opinion = lock_is_held(&rcu_sched_lock_map);
 	return lockdep_opinion || preempt_count() != 0 || irqs_disabled();
@@ -297,19 +371,30 @@ extern int rcu_my_thread_group_empty(void);
 /**
  * rcu_lockdep_assert - emit lockdep splat if specified condition not met
  * @c: condition to check
+ * @s: informative message
  */
-#define rcu_lockdep_assert(c)						\
+#define rcu_lockdep_assert(c, s)					\
 	do {								\
 		static bool __warned;					\
 		if (debug_lockdep_rcu_enabled() && !__warned && !(c)) {	\
 			__warned = true;				\
-			lockdep_rcu_dereference(__FILE__, __LINE__);	\
+			lockdep_rcu_suspicious(__FILE__, __LINE__, s);	\
 		}							\
+	} while (0)
+
+#define rcu_sleep_check()						\
+	do {								\
+		rcu_lockdep_assert(!lock_is_held(&rcu_bh_lock_map),	\
+				   "Illegal context switch in RCU-bh"	\
+				   " read-side critical section");	\
+		rcu_lockdep_assert(!lock_is_held(&rcu_sched_lock_map),	\
+				   "Illegal context switch in RCU-sched"\
+				   " read-side critical section");	\
 	} while (0)
 
 #else /* #ifdef CONFIG_PROVE_RCU */
 
-#define rcu_lockdep_assert(c) do { } while (0)
+#define rcu_lockdep_assert(c, s) do { } while (0)
 
 #endif /* #else #ifdef CONFIG_PROVE_RCU */
 
@@ -338,14 +423,16 @@ extern int rcu_my_thread_group_empty(void);
 #define __rcu_dereference_check(p, c, space) \
 	({ \
 		typeof(*p) *_________p1 = (typeof(*p)*__force )ACCESS_ONCE(p); \
-		rcu_lockdep_assert(c); \
+		rcu_lockdep_assert(c, "suspicious rcu_dereference_check()" \
+				      " usage"); \
 		rcu_dereference_sparse(p, space); \
 		smp_read_barrier_depends(); \
 		((typeof(*p) __force __kernel *)(_________p1)); \
 	})
 #define __rcu_dereference_protected(p, c, space) \
 	({ \
-		rcu_lockdep_assert(c); \
+		rcu_lockdep_assert(c, "suspicious rcu_dereference_protected()" \
+				      " usage"); \
 		rcu_dereference_sparse(p, space); \
 		((typeof(*p) __force __kernel *)(p)); \
 	})
@@ -359,7 +446,9 @@ extern int rcu_my_thread_group_empty(void);
 #define __rcu_dereference_index_check(p, c) \
 	({ \
 		typeof(p) _________p1 = ACCESS_ONCE(p); \
-		rcu_lockdep_assert(c); \
+		rcu_lockdep_assert(c, \
+				   "suspicious rcu_dereference_index_check()" \
+				   " usage"); \
 		smp_read_barrier_depends(); \
 		(_________p1); \
 	})
@@ -777,44 +866,6 @@ extern void call_rcu(struct rcu_head *head,
 extern void call_rcu_bh(struct rcu_head *head,
 			void (*func)(struct rcu_head *head));
 
-/*
- * debug_rcu_head_queue()/debug_rcu_head_unqueue() are used internally
- * by call_rcu() and rcu callback execution, and are therefore not part of the
- * RCU API. Leaving in rcupdate.h because they are used by all RCU flavors.
- */
-
-#ifdef CONFIG_DEBUG_OBJECTS_RCU_HEAD
-# define STATE_RCU_HEAD_READY	0
-# define STATE_RCU_HEAD_QUEUED	1
-
-extern struct debug_obj_descr rcuhead_debug_descr;
-
-static inline void debug_rcu_head_queue(struct rcu_head *head)
-{
-	WARN_ON_ONCE((unsigned long)head & 0x3);
-	debug_object_activate(head, &rcuhead_debug_descr);
-	debug_object_active_state(head, &rcuhead_debug_descr,
-				  STATE_RCU_HEAD_READY,
-				  STATE_RCU_HEAD_QUEUED);
-}
-
-static inline void debug_rcu_head_unqueue(struct rcu_head *head)
-{
-	debug_object_active_state(head, &rcuhead_debug_descr,
-				  STATE_RCU_HEAD_QUEUED,
-				  STATE_RCU_HEAD_READY);
-	debug_object_deactivate(head, &rcuhead_debug_descr);
-}
-#else	/* !CONFIG_DEBUG_OBJECTS_RCU_HEAD */
-static inline void debug_rcu_head_queue(struct rcu_head *head)
-{
-}
-
-static inline void debug_rcu_head_unqueue(struct rcu_head *head)
-{
-}
-#endif	/* #else !CONFIG_DEBUG_OBJECTS_RCU_HEAD */
-
 static __always_inline bool __is_kfree_rcu_offset(unsigned long offset)
 {
 	return offset < 4096;
@@ -830,19 +881,7 @@ void __kfree_rcu(struct rcu_head *head, unsigned long offset)
 	/* See the kfree_rcu() header comment. */
 	BUILD_BUG_ON(!__is_kfree_rcu_offset(offset));
 
-	call_rcu(head, (rcu_callback)offset);
-}
-
-extern void kfree(const void *);
-
-static inline void __rcu_reclaim(struct rcu_head *head)
-{
-	unsigned long offset = (unsigned long)head->func;
-
-	if (__is_kfree_rcu_offset(offset))
-		kfree((void *)head - offset);
-	else
-		head->func(head);
+	kfree_call_rcu(head, (rcu_callback)offset);
 }
 
 /**

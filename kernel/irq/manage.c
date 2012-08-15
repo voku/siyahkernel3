@@ -1435,3 +1435,24 @@ int request_any_context_irq(unsigned int irq, irq_handler_t handler,
 	return !ret ? IRQC_IS_HARDIRQ : ret;
 }
 EXPORT_SYMBOL_GPL(request_any_context_irq);
+
+/**
+ *	setup_percpu_irq - setup a per-cpu interrupt
+ *	@irq: Interrupt line to setup
+ *	@act: irqaction for the interrupt
+ *
+ * Used to statically setup per-cpu interrupts in the early boot process.
+ */
+int setup_percpu_irq(unsigned int irq, struct irqaction *act)
+{
+	struct irq_desc *desc = irq_to_desc(irq);
+	int retval;
+
+	if (!desc || !irq_settings_is_per_cpu_devid(desc))
+		return -EINVAL;
+	chip_bus_lock(desc);
+	retval = __setup_irq(irq, desc, act);
+	chip_bus_sync_unlock(desc);
+
+	return retval;
+}

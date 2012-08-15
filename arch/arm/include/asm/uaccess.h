@@ -190,7 +190,7 @@ static inline void set_fs(mm_segment_t fs)
 #define access_ok(type,addr,size)	(__range_ok(addr,size) == 0)
 
 #define user_addr_max() \
-	(segment_eq(get_fs(), USER_DS) ? TASK_SIZE : ~0UL)
+    (segment_eq(get_fs(), USER_DS) ? TASK_SIZE : ~0UL)
 
 /*
  * The "__xxx" versions of the user access functions do not verify the
@@ -400,6 +400,9 @@ extern unsigned long __must_check __clear_user_std(void __user *addr, unsigned l
 #define __copy_to_user(to,from,n)	(memcpy((void __force *)to, from, n), 0)
 #define __clear_user(addr,n)		(memset((void __force *)addr, 0, n), 0)
 #endif
+
+extern unsigned long __must_check __strncpy_from_user(char *to, const char __user *from, unsigned long count);
+extern unsigned long __must_check __strnlen_user(const char __user *s, long n);
 
 static inline unsigned long __must_check copy_from_user(void *to, const void __user *from, unsigned long n)
 {

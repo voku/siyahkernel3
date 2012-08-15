@@ -430,6 +430,25 @@ void __irq_put_desc_unlock(struct irq_desc *desc, unsigned long flags, bool bus)
 		chip_bus_sync_unlock(desc);
 }
 
+int irq_set_percpu_devid(unsigned int irq)
+{
+	struct irq_desc *desc = irq_to_desc(irq);
+
+	if (!desc)
+		return -EINVAL;
+
+	if (desc->percpu_enabled)
+		return -EINVAL;
+
+	desc->percpu_enabled = kzalloc(sizeof(*desc->percpu_enabled), GFP_KERNEL);
+
+	if (!desc->percpu_enabled)
+		return -ENOMEM;
+
+	irq_set_percpu_devid_flags(irq);
+	return 0;
+}
+
 /**
  * dynamic_irq_cleanup - cleanup a dynamically allocated irq
  * @irq:	irq number to initialize

@@ -102,7 +102,7 @@ int __kprobes __arch_disarm_kprobe(void *p)
 
 void __kprobes arch_disarm_kprobe(struct kprobe *p)
 {
-	stop_machine(__arch_disarm_kprobe, p, &cpu_online_map);
+	stop_machine(__arch_disarm_kprobe, p, cpu_online_mask);
 }
 
 void __kprobes arch_remove_kprobe(struct kprobe *p)

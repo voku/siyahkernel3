@@ -65,11 +65,13 @@ static inline void synchronize_sched_expedited(void)
 	synchronize_sched();
 }
 
-#ifdef CONFIG_TINY_RCU
-
-static inline void rcu_preempt_note_context_switch(void)
+static inline void kfree_call_rcu(struct rcu_head *head,
+				  void (*func)(struct rcu_head *rcu))
 {
+	call_rcu(head, func);
 }
+
+#ifdef CONFIG_TINY_RCU
 
 static inline void exit_rcu(void)
 {
@@ -82,7 +84,6 @@ static inline int rcu_needs_cpu(int cpu)
 
 #else /* #ifdef CONFIG_TINY_RCU */
 
-void rcu_preempt_note_context_switch(void);
 extern void exit_rcu(void);
 int rcu_preempt_needs_cpu(void);
 
@@ -96,7 +97,6 @@ static inline int rcu_needs_cpu(int cpu)
 static inline void rcu_note_context_switch(int cpu)
 {
 	rcu_sched_qs(cpu);
-	rcu_preempt_note_context_switch();
 }
 
 /*

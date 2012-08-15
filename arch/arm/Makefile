@@ -11,7 +11,7 @@
 # Copyright (C) 1995-2001 by Russell King
 
 # Ensure linker flags are correct
-LDFLAGS    :=
+LDFLAGS	:=
 
 LDFLAGS_vmlinux	:=-p --no-undefined -X
 ifeq ($(CONFIG_CPU_ENDIAN_BE8),y)
@@ -256,6 +256,7 @@ core-$(CONFIG_VMWARE_MVP)	+= arch/arm/mvp/
 
 # If we have a machine-specific directory, then include it in the build.
 core-y				+= arch/arm/kernel/ arch/arm/mm/ arch/arm/common/
+core-y				+= arch/arm/crypto/
 core-y				+= $(machdirs) $(platdirs)
 
 drivers-$(CONFIG_OPROFILE)      += arch/arm/oprofile/

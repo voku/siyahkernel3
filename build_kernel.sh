@@ -90,6 +90,7 @@ rm -f usr/initramfs_data.cpio
 rm -f usr/initramfs_data.o
 
 cd $KERNELDIR/
+cp .config arch/arm/configs/dorimanx_defconfig
 if [ $USER != "root" ]; then
 	make -j$NAMBEROFCPUS modules || exit 1
 else

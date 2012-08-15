@@ -46,6 +46,11 @@
 #include <linux/module.h>
 #include <linux/hardirq.h>
 
+#define CREATE_TRACE_POINTS
+#include <trace/events/rcu.h>
+
+#include "rcu.h"
+
 #ifdef CONFIG_DEBUG_LOCK_ALLOC
 static struct lock_class_key rcu_lock_key;
 struct lockdep_map rcu_lock_map =
@@ -83,11 +88,18 @@ EXPORT_SYMBOL_GPL(debug_lockdep_rcu_enabled);
  * section.
  *
  * Check debug_lockdep_rcu_enabled() to prevent false positives during boot.
+ *
+ * Note that rcu_read_lock() is disallowed if the CPU is either idle or
+ * offline from an RCU perspective, so check for those as well.
  */
 int rcu_read_lock_bh_held(void)
 {
 	if (!debug_lockdep_rcu_enabled())
 		return 1;
+	if (rcu_is_cpu_idle())
+		return 0;
+	if (!rcu_lockdep_current_cpu_online())
+		return 0;
 	return in_softirq() || irqs_disabled();
 }
 EXPORT_SYMBOL_GPL(rcu_read_lock_bh_held);

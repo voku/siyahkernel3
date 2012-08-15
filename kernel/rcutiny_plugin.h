@@ -26,29 +26,26 @@
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
 
-#ifdef CONFIG_RCU_TRACE
-#define RCU_TRACE(stmt)	stmt
-#else /* #ifdef CONFIG_RCU_TRACE */
-#define RCU_TRACE(stmt)
-#endif /* #else #ifdef CONFIG_RCU_TRACE */
-
 /* Global control variables for rcupdate callback mechanism. */
 struct rcu_ctrlblk {
 	struct rcu_head *rcucblist;	/* List of pending callbacks (CBs). */
 	struct rcu_head **donetail;	/* ->next pointer of last "done" CB. */
 	struct rcu_head **curtail;	/* ->next pointer of last CB. */
 	RCU_TRACE(long qlen);		/* Number of pending CBs. */
+	RCU_TRACE(char *name);		/* Name of RCU type. */
 };
 
 /* Definition for rcupdate control block. */
 static struct rcu_ctrlblk rcu_sched_ctrlblk = {
 	.donetail	= &rcu_sched_ctrlblk.rcucblist,
 	.curtail	= &rcu_sched_ctrlblk.rcucblist,
+	RCU_TRACE(.name = "rcu_sched")
 };
 
 static struct rcu_ctrlblk rcu_bh_ctrlblk = {
 	.donetail	= &rcu_bh_ctrlblk.rcucblist,
 	.curtail	= &rcu_bh_ctrlblk.rcucblist,
+	RCU_TRACE(.name = "rcu_bh")
 };
 
 #ifdef CONFIG_DEBUG_LOCK_ALLOC
@@ -131,6 +128,7 @@ static struct rcu_preempt_ctrlblk rcu_preempt_ctrlblk = {
 	.rcb.curtail = &rcu_preempt_ctrlblk.rcb.rcucblist,
 	.nexttail = &rcu_preempt_ctrlblk.rcb.rcucblist,
 	.blkd_tasks = LIST_HEAD_INIT(rcu_preempt_ctrlblk.blkd_tasks),
+	RCU_TRACE(.rcb.name = "rcu_preempt")
 };
 
 static int rcu_preempted_readers_exp(void);
@@ -722,6 +720,11 @@ EXPORT_SYMBOL_GPL(rcu_barrier);
  */
 void synchronize_rcu(void)
 {
+	rcu_lockdep_assert(!lock_is_held(&rcu_bh_lock_map) &&
+			   !lock_is_held(&rcu_lock_map) &&
+			   !lock_is_held(&rcu_sched_lock_map),
+			   "Illegal synchronize_rcu() in RCU read-side critical section");
+
 #ifdef CONFIG_DEBUG_LOCK_ALLOC
 	if (!rcu_scheduler_active)
 		return;
@@ -897,6 +900,103 @@ static void rcu_preempt_process_callbacks(void)
 }
 
 #endif /* #else #ifdef CONFIG_TINY_PREEMPT_RCU */
+
+#ifdef CONFIG_RCU_BOOST
+
+/*
+ * Wake up rcu_kthread() to process callbacks now eligible for invocation
+ * or to boost readers.
+ */
+static void invoke_rcu_callbacks(void)
+{
+	have_rcu_kthread_work = 1;
+	wake_up(&rcu_kthread_wq);
+}
+
+#ifdef CONFIG_RCU_TRACE
+
+/*
+ * Is the current CPU running the RCU-callbacks kthread?
+ * Caller must have preemption disabled.
+ */
+static bool rcu_is_callbacks_kthread(void)
+{
+	return rcu_kthread_task == current;
+}
+
+#endif /* #ifdef CONFIG_RCU_TRACE */
+
+/*
+ * This kthread invokes RCU callbacks whose grace periods have
+ * elapsed.  It is awakened as needed, and takes the place of the
+ * RCU_SOFTIRQ that is used for this purpose when boosting is disabled.
+ * This is a kthread, but it is never stopped, at least not until
+ * the system goes down.
+ */
+static int rcu_kthread(void *arg)
+{
+	unsigned long work;
+	unsigned long morework;
+	unsigned long flags;
+
+	for (;;) {
+		wait_event_interruptible(rcu_kthread_wq,
+					 have_rcu_kthread_work != 0);
+		morework = rcu_boost();
+		local_irq_save(flags);
+		work = have_rcu_kthread_work;
+		have_rcu_kthread_work = morework;
+		local_irq_restore(flags);
+		if (work)
+			rcu_process_callbacks(NULL);
+		schedule_timeout_interruptible(1); /* Leave CPU for others. */
+	}
+
+	return 0;  /* Not reached, but needed to shut gcc up. */
+}
+
+/*
+ * Spawn the kthread that invokes RCU callbacks.
+ */
+static int __init rcu_spawn_kthreads(void)
+{
+	struct sched_param sp;
+
+	rcu_kthread_task = kthread_run(rcu_kthread, NULL, "rcu_kthread");
+	sp.sched_priority = RCU_BOOST_PRIO;
+	sched_setscheduler_nocheck(rcu_kthread_task, SCHED_FIFO, &sp);
+	return 0;
+}
+early_initcall(rcu_spawn_kthreads);
+
+#else /* #ifdef CONFIG_RCU_BOOST */
+
+/*
+ * Start up softirq processing of callbacks.
+ */
+void invoke_rcu_callbacks(void)
+{
+	raise_softirq(RCU_SOFTIRQ);
+}
+
+#ifdef CONFIG_RCU_TRACE
+
+/*
+ * There is no callback kthread, so this thread is never it.
+ */
+static bool rcu_is_callbacks_kthread(void)
+{
+	return false;
+}
+
+#endif /* #ifdef CONFIG_RCU_TRACE */
+
+void rcu_init(void)
+{
+	open_softirq(RCU_SOFTIRQ, rcu_process_callbacks);
+}
+
+#endif /* #else #ifdef CONFIG_RCU_BOOST */
 
 #ifdef CONFIG_DEBUG_LOCK_ALLOC
 #include <linux/kernel_stat.h>

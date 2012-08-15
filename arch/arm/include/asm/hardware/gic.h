@@ -40,7 +40,6 @@ void gic_init(unsigned int, unsigned int, void __iomem *, void __iomem *);
 void gic_secondary_init_base(unsigned int, void __iomem *, void __iomem *);
 void gic_cascade_irq(unsigned int gic_nr, unsigned int irq);
 void gic_raise_softirq(const struct cpumask *mask, unsigned int irq);
-void gic_enable_ppi(unsigned int);
 
 #define gic_secondary_init(n)	gic_secondary_init_base((n), NULL, NULL)
 
