@@ -48,13 +48,11 @@ checking of rcu_dereference() primitives:
 		value of the pointer itself, for example, against NULL.
 
 The rcu_dereference_check() check expression can be any boolean
-expression, but would normally include one of the rcu_read_lock_held()
-family of functions and a lockdep expression.  However, any boolean
-expression can be used.  For a moderately ornate example, consider
+expression, but would normally include a lockdep expression. However, any
+boolean expression can be used. For a moderately ornate example, consider
 the following:
 
 	file = rcu_dereference_check(fdt->fd[fd],
-				     rcu_read_lock_held() ||
 				     lockdep_is_held(&files->file_lock) ||
 				     atomic_read(&files->count) == 1);
 
