@@ -18,6 +18,7 @@
 #include <linux/reboot.h>
 #include <linux/suspend.h>
 #include <linux/io.h>
+#include <linux/earlysuspend.h>
 
 #include <plat/cpu.h>
 
@@ -31,9 +32,15 @@ static unsigned int freq_min = -1UL;
 
 static unsigned int can_hotplug;
 
+static bool screen_off;
+
 static void exynos4_integrated_dvfs_hotplug(unsigned int freq_old,
 					unsigned int freq_new)
 {
+	if (screen_off)
+		if (!cpu_online(1))
+			return; // if screen off and only 1-core then don't hotplug
+		
 	total_num_target_freq++;
 	freq_in_trg = 800000;
 
@@ -138,6 +145,22 @@ static struct notifier_block pm_hotplug = {
 	.notifier_call = hotplug_pm_transition,
 };
 
+static void hotplug_early_suspend(struct early_suspend *handler)
+{
+	screen_off = true;
+}
+
+static void hotplug_late_resume(struct early_suspend *handler)
+{
+	screen_off = false;
+}
+
+static struct early_suspend hotplug_early_suspend_notifier = {
+	.suspend = hotplug_early_suspend,
+	.resume = hotplug_late_resume,
+	.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN,
+};
+
 /*
  * Note : This function should be called after intialization of CPUFreq
  * driver for exynos4. The cpufreq_frequency_table for exynos4 should be
@@ -172,6 +195,8 @@ static int __init exynos4_integrated_dvfs_hotplug_init(void)
 	printk(KERN_INFO "%s, max(%d),min(%d)\n", __func__, freq_max, freq_min);
 
 	register_pm_notifier(&pm_hotplug);
+
+	register_early_suspend(&hotplug_early_suspend_notifier);
 
 	return cpufreq_register_notifier(&dvfs_hotplug,
 					 CPUFREQ_TRANSITION_NOTIFIER);
