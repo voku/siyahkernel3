@@ -29,6 +29,8 @@
 #include <linux/crc32.h>
 #include <linux/module.h>
 #include <linux/types.h>
+#include <linux/init.h>
+#include <linux/atomic.h>
 #include "crc32defs.h"
 
 #if CRC_LE_BITS > 8

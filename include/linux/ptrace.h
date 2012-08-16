@@ -98,7 +98,8 @@
 
 #include <linux/compiler.h>		/* For unlikely.  */
 #include <linux/sched.h>		/* For struct task_struct.  */
-
+#include <linux/err.h>			/* for IS_ERR_VALUE */
+#include <linux/bug.h>			/* For BUG_ON.  */
 
 extern long arch_ptrace(struct task_struct *child, long request,
 			unsigned long addr, unsigned long data);

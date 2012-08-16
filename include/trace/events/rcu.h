@@ -13,6 +13,9 @@
  * "Start <activity>" -- Mark the start of the specified activity,
  *			 such as "context switch".  Nesting is permitted.
  * "End <activity>" -- Mark the end of the specified activity.
+ *
+ * An "@" character within "<activity>" is a comment character: Data
+ * reduction scripts will ignore the "@" and the remainder of the line.
  */
 TRACE_EVENT(rcu_utilization,
 
@@ -238,8 +241,16 @@ TRACE_EVENT(rcu_fqs,
 
 /*
  * Tracepoint for dyntick-idle entry/exit events.  These take a string
- * as argument: "Start" for entering dyntick-idle mode and "End" for
- * leaving it.
+ * as argument: "Start" for entering dyntick-idle mode, "End" for
+ * leaving it, "--=" for events moving towards idle, and "++=" for events
+ * moving away from idle.  "Error on entry: not idle task" and "Error on
+ * exit: not idle task" indicate that a non-idle task is erroneously
+ * toying with the idle loop.
+ *
+ * These events also take a pair of numbers, which indicate the nesting
+ * depth before and after the event of interest.  Note that task-related
+ * events use the upper bits of each number, while interrupt-related
+ * events use the lower bits.
  */
 TRACE_EVENT(rcu_dyntick,
 
@@ -278,9 +289,12 @@ TRACE_EVENT(rcu_dyntick,
  *	"In holdoff": Nothing to do, holding off after unsuccessful attempt.
  *	"Begin holdoff": Attempt failed, don't retry until next jiffy.
  *	"Dyntick with callbacks": Entering dyntick-idle despite callbacks.
+ *	"Dyntick with lazy callbacks": Entering dyntick-idle w/lazy callbacks.
  *	"More callbacks": Still more callbacks, try again to clear them out.
  *	"Callbacks drained": All callbacks processed, off to dyntick idle!
  *	"Timer": Timer fired to cause CPU to continue processing callbacks.
+ *	"Demigrate": Timer fired on wrong CPU, woke up correct CPU.
+ *	"Cleanup after idle": Idle exited, timer canceled.
  */
 TRACE_EVENT(rcu_prep_idle,
 
@@ -502,6 +516,75 @@ TRACE_EVENT(rcu_batch_end,
 		  __entry->risk ? 'R' : '.')
 );
 
+/*
+ * Tracepoint for rcutorture readers.  The first argument is the name
+ * of the RCU flavor from rcutorture's viewpoint and the second argument
+ * is the callback address.
+ */
+TRACE_EVENT(rcu_torture_read,
+
+	TP_PROTO(char *rcutorturename, struct rcu_head *rhp),
+
+	TP_ARGS(rcutorturename, rhp),
+
+	TP_STRUCT__entry(
+		__field(char *, rcutorturename)
+		__field(struct rcu_head *, rhp)
+	),
+
+	TP_fast_assign(
+		__entry->rcutorturename = rcutorturename;
+		__entry->rhp = rhp;
+	),
+
+	TP_printk("%s torture read %p",
+		  __entry->rcutorturename, __entry->rhp)
+);
+
+/*
+ * Tracepoint for _rcu_barrier() execution.  The string "s" describes
+ * the _rcu_barrier phase:
+ *	"Begin": rcu_barrier_callback() started.
+ *	"Check": rcu_barrier_callback() checking for piggybacking.
+ *	"EarlyExit": rcu_barrier_callback() piggybacked, thus early exit.
+ *	"Inc1": rcu_barrier_callback() piggyback check counter incremented.
+ *	"Offline": rcu_barrier_callback() found offline CPU
+ *	"OnlineQ": rcu_barrier_callback() found online CPU with callbacks.
+ *	"OnlineNQ": rcu_barrier_callback() found online CPU, no callbacks.
+ *	"IRQ": An rcu_barrier_callback() callback posted on remote CPU.
+ *	"CB": An rcu_barrier_callback() invoked a callback, not the last.
+ *	"LastCB": An rcu_barrier_callback() invoked the last callback.
+ *	"Inc2": rcu_barrier_callback() piggyback check counter incremented.
+ * The "cpu" argument is the CPU or -1 if meaningless, the "cnt" argument
+ * is the count of remaining callbacks, and "done" is the piggybacking count.
+ */
+TRACE_EVENT(rcu_barrier,
+
+	TP_PROTO(char *rcuname, char *s, int cpu, int cnt, unsigned long done),
+
+	TP_ARGS(rcuname, s, cpu, cnt, done),
+
+	TP_STRUCT__entry(
+		__field(char *, rcuname)
+		__field(char *, s)
+		__field(int, cpu)
+		__field(int, cnt)
+		__field(unsigned long, done)
+	),
+
+	TP_fast_assign(
+		__entry->rcuname = rcuname;
+		__entry->s = s;
+		__entry->cpu = cpu;
+		__entry->cnt = cnt;
+		__entry->done = done;
+	),
+
+	TP_printk("%s %s cpu %d remaining %d # %lu",
+		  __entry->rcuname, __entry->s, __entry->cpu, __entry->cnt,
+		  __entry->done)
+);
+
 #else /* #ifdef CONFIG_RCU_TRACE */
 
 #define trace_rcu_grace_period(rcuname, gpnum, gpevent) do { } while (0)
@@ -525,6 +608,7 @@ TRACE_EVENT(rcu_batch_end,
 #define trace_rcu_batch_end(rcuname, callbacks_invoked, cb, nr, iit, risk) \
 	do { } while (0)
 #define trace_rcu_torture_read(rcutorturename, rhp) do { } while (0)
+#define trace_rcu_barrier(name, s, cpu, cnt, done) do { } while (0)
 
 #endif /* #else #ifdef CONFIG_RCU_TRACE */
 

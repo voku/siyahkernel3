@@ -23,6 +23,7 @@
  */
 
 #include <linux/kthread.h>
+#include <linux/module.h>
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
 
@@ -145,6 +146,16 @@ static int rcu_cpu_blocking_cur_gp(void)
 /*
  * Check for a running RCU reader.  Because there is only one CPU,
  * there can be but one running RCU reader at a time.  ;-)
+ *
+ * Returns zero if there are no running readers.  Returns a positive
+ * number if there is at least one reader within its RCU read-side
+ * critical section.  Returns a negative number if an outermost reader
+ * is in the midst of exiting from its RCU read-side critical section
+ *
+ * Returns zero if there are no running readers.  Returns a positive
+ * number if there is at least one reader within its RCU read-side
+ * critical section.  Returns a negative number if an outermost reader
+ * is in the midst of exiting from its RCU read-side critical section.
  */
 static int rcu_preempt_running_reader(void)
 {
@@ -245,6 +256,13 @@ static void show_tiny_preempt_stats(struct seq_file *m)
 
 #include "rtmutex_common.h"
 
+#define RCU_BOOST_PRIO CONFIG_RCU_BOOST_PRIO
+
+/* Controls for rcu_kthread() kthread. */
+static struct task_struct *rcu_kthread_task;
+static DECLARE_WAIT_QUEUE_HEAD(rcu_kthread_wq);
+static unsigned long have_rcu_kthread_work;
+
 /*
  * Carry out RCU priority boosting on the task indicated by ->boost_tasks,
  * and advance ->boost_tasks to the next task in the ->blkd_tasks list.
@@ -299,13 +317,12 @@ static int rcu_boost(void)
 	t = container_of(tb, struct task_struct, rcu_node_entry);
 	rt_mutex_init_proxy_locked(&mtx, t);
 	t->rcu_boost_mutex = &mtx;
-	t->rcu_read_unlock_special |= RCU_READ_UNLOCK_BOOSTED;
 	raw_local_irq_restore(flags);
 	rt_mutex_lock(&mtx);
 	rt_mutex_unlock(&mtx);  /* Keep lockdep happy. */
 
-	return rcu_preempt_ctrlblk.boost_tasks != NULL ||
-	       rcu_preempt_ctrlblk.exp_tasks != NULL;
+	return ACCESS_ONCE(rcu_preempt_ctrlblk.boost_tasks) != NULL ||
+	       ACCESS_ONCE(rcu_preempt_ctrlblk.exp_tasks) != NULL;
 }
 
 /*
@@ -332,9 +349,10 @@ static int rcu_initiate_boost(void)
 		if (rcu_preempt_ctrlblk.exp_tasks == NULL)
 			rcu_preempt_ctrlblk.boost_tasks =
 				rcu_preempt_ctrlblk.gp_tasks;
-		invoke_rcu_kthread();
-	} else
+		invoke_rcu_callbacks();
+	} else {
 		RCU_TRACE(rcu_initiate_boost_trace());
+	}
 	return 1;
 }
 
@@ -349,14 +367,6 @@ static void rcu_preempt_boost_start_gp(void)
 }
 
 #else /* #ifdef CONFIG_RCU_BOOST */
-
-/*
- * If there is no RCU priority boosting, we don't boost.
- */
-static int rcu_boost(void)
-{
-	return 0;
-}
 
 /*
  * If there is no RCU priority boosting, we don't initiate boosting,
@@ -425,7 +435,7 @@ static void rcu_preempt_cpu_qs(void)
 
 	/* If there are done callbacks, cause them to be invoked. */
 	if (*rcu_preempt_ctrlblk.rcb.donetail != NULL)
-		invoke_rcu_kthread();
+		invoke_rcu_callbacks();
 }
 
 /*
@@ -475,7 +485,7 @@ void rcu_preempt_note_context_switch(void)
 	unsigned long flags;
 
 	local_irq_save(flags); /* must exclude scheduler_tick(). */
-	if (rcu_preempt_running_reader() &&
+	if (rcu_preempt_running_reader() > 0 &&
 	    (t->rcu_read_unlock_special & RCU_READ_UNLOCK_BLOCKED) == 0) {
 
 		/* Possibly blocking in an RCU read-side critical section. */
@@ -494,6 +504,13 @@ void rcu_preempt_note_context_switch(void)
 		list_add(&t->rcu_node_entry, &rcu_preempt_ctrlblk.blkd_tasks);
 		if (rcu_cpu_blocking_cur_gp())
 			rcu_preempt_ctrlblk.gp_tasks = &t->rcu_node_entry;
+	} else if (rcu_preempt_running_reader() < 0 &&
+		   t->rcu_read_unlock_special) {
+		/*
+		 * Complete exit from RCU read-side critical section on
+		 * behalf of preempted instance of __rcu_read_unlock().
+		 */
+		rcu_read_unlock_special(t);
 	}
 
 	/*
@@ -510,28 +527,19 @@ void rcu_preempt_note_context_switch(void)
 }
 
 /*
- * Tiny-preemptible RCU implementation for rcu_read_lock().
- * Just increment ->rcu_read_lock_nesting, shared state will be updated
- * if we block.
- */
-void __rcu_read_lock(void)
-{
-	current->rcu_read_lock_nesting++;
-	barrier();  /* needed if we ever invoke rcu_read_lock in rcutiny.c */
-}
-EXPORT_SYMBOL_GPL(__rcu_read_lock);
-
-/*
  * Handle special cases during rcu_read_unlock(), such as needing to
  * notify RCU core processing or task having blocked during the RCU
  * read-side critical section.
  */
-static void rcu_read_unlock_special(struct task_struct *t)
+void rcu_read_unlock_special(struct task_struct *t)
 {
 	int empty;
 	int empty_exp;
 	unsigned long flags;
 	struct list_head *np;
+#ifdef CONFIG_RCU_BOOST
+	struct rt_mutex *rbmp = NULL;
+#endif /* #ifdef CONFIG_RCU_BOOST */
 	int special;
 
 	/*
@@ -552,7 +560,7 @@ static void rcu_read_unlock_special(struct task_struct *t)
 		rcu_preempt_cpu_qs();
 
 	/* Hardware IRQ handlers cannot block. */
-	if (in_irq()) {
+	if (in_irq() || in_serving_softirq()) {
 		local_irq_restore(flags);
 		return;
 	}
@@ -597,37 +605,14 @@ static void rcu_read_unlock_special(struct task_struct *t)
 	}
 #ifdef CONFIG_RCU_BOOST
 	/* Unboost self if was boosted. */
-	if (special & RCU_READ_UNLOCK_BOOSTED) {
-		t->rcu_read_unlock_special &= ~RCU_READ_UNLOCK_BOOSTED;
-		rt_mutex_unlock(t->rcu_boost_mutex);
+	if (t->rcu_boost_mutex != NULL) {
+		rbmp = t->rcu_boost_mutex;
 		t->rcu_boost_mutex = NULL;
+		rt_mutex_unlock(rbmp);
 	}
 #endif /* #ifdef CONFIG_RCU_BOOST */
 	local_irq_restore(flags);
 }
-
-/*
- * Tiny-preemptible RCU implementation for rcu_read_unlock().
- * Decrement ->rcu_read_lock_nesting.  If the result is zero (outermost
- * rcu_read_unlock()) and ->rcu_read_unlock_special is non-zero, then
- * invoke rcu_read_unlock_special() to clean up after a context switch
- * in an RCU read-side critical section and other special cases.
- */
-void __rcu_read_unlock(void)
-{
-	struct task_struct *t = current;
-
-	barrier();  /* needed if we ever invoke rcu_read_unlock in rcutiny.c */
-	--t->rcu_read_lock_nesting;
-	barrier();  /* decrement before load of ->rcu_read_unlock_special */
-	if (t->rcu_read_lock_nesting == 0 &&
-	    unlikely(ACCESS_ONCE(t->rcu_read_unlock_special)))
-		rcu_read_unlock_special(t);
-#ifdef CONFIG_PROVE_LOCKING
-	WARN_ON_ONCE(t->rcu_read_lock_nesting < 0);
-#endif /* #ifdef CONFIG_PROVE_LOCKING */
-}
-EXPORT_SYMBOL_GPL(__rcu_read_unlock);
 
 /*
  * Check for a quiescent state from the current CPU.  When a task blocks,
@@ -646,10 +631,10 @@ static void rcu_preempt_check_callbacks(void)
 		rcu_preempt_cpu_qs();
 	if (&rcu_preempt_ctrlblk.rcb.rcucblist !=
 	    rcu_preempt_ctrlblk.rcb.donetail)
-		invoke_rcu_kthread();
+		invoke_rcu_callbacks();
 	if (rcu_preempt_gp_in_progress() &&
 	    rcu_cpu_blocking_cur_gp() &&
-	    rcu_preempt_running_reader())
+	    rcu_preempt_running_reader() > 0)
 		t->rcu_read_unlock_special |= RCU_READ_UNLOCK_NEED_QS;
 }
 
@@ -672,7 +657,7 @@ static void rcu_preempt_remove_callbacks(struct rcu_ctrlblk *rcp)
  */
 static void rcu_preempt_process_callbacks(void)
 {
-	rcu_process_callbacks(&rcu_preempt_ctrlblk.rcb);
+	__rcu_process_callbacks(&rcu_preempt_ctrlblk.rcb);
 }
 
 /*
@@ -694,20 +679,6 @@ void call_rcu(struct rcu_head *head, void (*func)(struct rcu_head *rcu))
 	local_irq_restore(flags);
 }
 EXPORT_SYMBOL_GPL(call_rcu);
-
-void rcu_barrier(void)
-{
-	struct rcu_synchronize rcu;
-
-	init_rcu_head_on_stack(&rcu.head);
-	init_completion(&rcu.completion);
-	/* Will wake me after RCU finished. */
-	call_rcu(&rcu.head, wakeme_after_rcu);
-	/* Wait for it. */
-	wait_for_completion(&rcu.completion);
-	destroy_rcu_head_on_stack(&rcu.head);
-}
-EXPORT_SYMBOL_GPL(rcu_barrier);
 
 /*
  * synchronize_rcu - wait until a grace period has elapsed.
@@ -808,9 +779,9 @@ void synchronize_rcu_expedited(void)
 		rpcp->exp_tasks = NULL;
 
 	/* Wait for tail of ->blkd_tasks list to drain. */
-	if (!rcu_preempted_readers_exp())
+	if (!rcu_preempted_readers_exp()) {
 		local_irq_restore(flags);
-	else {
+	} else {
 		rcu_initiate_boost();
 		local_irq_restore(flags);
 		wait_event(sync_rcu_preempt_exp_wq,
@@ -831,25 +802,7 @@ EXPORT_SYMBOL_GPL(synchronize_rcu_expedited);
  */
 int rcu_preempt_needs_cpu(void)
 {
-	if (!rcu_preempt_running_reader())
-		rcu_preempt_cpu_qs();
 	return rcu_preempt_ctrlblk.rcb.rcucblist != NULL;
-}
-
-/*
- * Check for a task exiting while in a preemptible -RCU read-side
- * critical section, clean up if so.  No need to issue warnings,
- * as debug_check_no_locks_held() already does this if lockdep
- * is enabled.
- */
-void exit_rcu(void)
-{
-	struct task_struct *t = current;
-
-	if (t->rcu_read_lock_nesting == 0)
-		return;
-	t->rcu_read_lock_nesting = 1;
-	__rcu_read_unlock();
 }
 
 #else /* #ifdef CONFIG_TINY_PREEMPT_RCU */
@@ -865,15 +818,6 @@ static void show_tiny_preempt_stats(struct seq_file *m)
 }
 
 #endif /* #ifdef CONFIG_RCU_TRACE */
-
-/*
- * Because preemptible RCU does not exist, it is never necessary to
- * boost preempted RCU readers.
- */
-static int rcu_boost(void)
-{
-	return 0;
-}
 
 /*
  * Because preemptible RCU does not exist, it never has any callbacks
@@ -910,7 +854,8 @@ static void rcu_preempt_process_callbacks(void)
 static void invoke_rcu_callbacks(void)
 {
 	have_rcu_kthread_work = 1;
-	wake_up(&rcu_kthread_wq);
+	if (rcu_kthread_task != NULL)
+		wake_up(&rcu_kthread_wq);
 }
 
 #ifdef CONFIG_RCU_TRACE
@@ -971,12 +916,16 @@ early_initcall(rcu_spawn_kthreads);
 
 #else /* #ifdef CONFIG_RCU_BOOST */
 
+/* Hold off callback invocation until early_initcall() time. */
+static int rcu_scheduler_fully_active __read_mostly;
+
 /*
  * Start up softirq processing of callbacks.
  */
 void invoke_rcu_callbacks(void)
 {
-	raise_softirq(RCU_SOFTIRQ);
+	if (rcu_scheduler_fully_active)
+		raise_softirq(RCU_SOFTIRQ);
 }
 
 #ifdef CONFIG_RCU_TRACE
@@ -991,10 +940,14 @@ static bool rcu_is_callbacks_kthread(void)
 
 #endif /* #ifdef CONFIG_RCU_TRACE */
 
-void rcu_init(void)
+static int __init rcu_scheduler_really_started(void)
 {
+	rcu_scheduler_fully_active = 1;
 	open_softirq(RCU_SOFTIRQ, rcu_process_callbacks);
+	raise_softirq(RCU_SOFTIRQ);  /* Invoke any callbacks from early boot. */
+	return 0;
 }
+early_initcall(rcu_scheduler_really_started);
 
 #endif /* #else #ifdef CONFIG_RCU_BOOST */
 
@@ -1012,12 +965,6 @@ void __init rcu_scheduler_starting(void)
 }
 
 #endif /* #ifdef CONFIG_DEBUG_LOCK_ALLOC */
-
-#ifdef CONFIG_RCU_BOOST
-#define RCU_BOOST_PRIO CONFIG_RCU_BOOST_PRIO
-#else /* #ifdef CONFIG_RCU_BOOST */
-#define RCU_BOOST_PRIO 1
-#endif /* #else #ifdef CONFIG_RCU_BOOST */
 
 #ifdef CONFIG_RCU_TRACE
 
