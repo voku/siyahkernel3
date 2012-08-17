@@ -10,28 +10,23 @@
 #include <stdlib.h>
 #include <string.h>
 
-static
-struct rb_node *strlist__node_new(struct rblist *rblist, const void *entry)
+static struct str_node *str_node__new(const char *s, bool dupstr)
 {
-	const char *s = entry;
-	struct rb_node *rc = NULL;
-	struct strlist *strlist = container_of(rblist, struct strlist, rblist);
-	struct str_node *snode = malloc(sizeof(*snode));
+	struct str_node *self = malloc(sizeof(*self));
 
-	if (snode != NULL) {
-		if (strlist->dupstr) {
+	if (self != NULL) {
+		if (dupstr) {
 			s = strdup(s);
 			if (s == NULL)
 				goto out_delete;
 		}
-		snode->s = s;
-		rc = &snode->rb_node;
+		self->s = s;
 	}
 
-	return rc;
+	return self;
 
 out_delete:
-	free(snode);
+	free(self);
 	return NULL;
 }
 
@@ -42,26 +37,36 @@ static void str_node__delete(struct str_node *self, bool dupstr)
 	free(self);
 }
 
-static
-void strlist__node_delete(struct rblist *rblist, struct rb_node *rb_node)
-{
-	struct strlist *slist = container_of(rblist, struct strlist, rblist);
-	struct str_node *snode = container_of(rb_node, struct str_node, rb_node);
-
-	str_node__delete(snode, slist->dupstr);
-}
-
-static int strlist__node_cmp(struct rb_node *rb_node, const void *entry)
-{
-	const char *str = entry;
-	struct str_node *snode = container_of(rb_node, struct str_node, rb_node);
-
-	return strcmp(snode->s, str);
-}
-
 int strlist__add(struct strlist *self, const char *new_entry)
 {
-	return rblist__add_node(&self->rblist, new_entry);
+	struct rb_node **p = &self->entries.rb_node;
+	struct rb_node *parent = NULL;
+	struct str_node *sn;
+
+	while (*p != NULL) {
+		int rc;
+
+		parent = *p;
+		sn = rb_entry(parent, struct str_node, rb_node);
+		rc = strcmp(sn->s, new_entry);
+
+		if (rc > 0)
+			p = &(*p)->rb_left;
+		else if (rc < 0)
+			p = &(*p)->rb_right;
+		else
+			return -EEXIST;
+	}
+
+	sn = str_node__new(new_entry, self->dupstr);
+	if (sn == NULL)
+		return -ENOMEM;
+
+	rb_link_node(&sn->rb_node, parent, p);
+	rb_insert_color(&sn->rb_node, &self->entries);
+	++self->nr_entries;
+
+	return 0;
 }
 
 int strlist__load(struct strlist *self, const char *filename)
@@ -91,20 +96,34 @@ out:
 	return err;
 }
 
-void strlist__remove(struct strlist *slist, struct str_node *snode)
+void strlist__remove(struct strlist *self, struct str_node *sn)
 {
-	str_node__delete(snode, slist->dupstr);
+	rb_erase(&sn->rb_node, &self->entries);
+	str_node__delete(sn, self->dupstr);
 }
 
-struct str_node *strlist__find(struct strlist *slist, const char *entry)
+struct str_node *strlist__find(struct strlist *self, const char *entry)
 {
-	struct str_node *snode = NULL;
-	struct rb_node *rb_node = rblist__find(&slist->rblist, entry);
+	struct rb_node **p = &self->entries.rb_node;
+	struct rb_node *parent = NULL;
 
-	if (rb_node)
-		snode = container_of(rb_node, struct str_node, rb_node);
+	while (*p != NULL) {
+		struct str_node *sn;
+		int rc;
 
-	return snode;
+		parent = *p;
+		sn = rb_entry(parent, struct str_node, rb_node);
+		rc = strcmp(sn->s, entry);
+
+		if (rc > 0)
+			p = &(*p)->rb_left;
+		else if (rc < 0)
+			p = &(*p)->rb_right;
+		else
+			return sn;
+	}
+
+	return NULL;
 }
 
 static int strlist__parse_list_entry(struct strlist *self, const char *s)
@@ -137,12 +156,9 @@ struct strlist *strlist__new(bool dupstr, const char *slist)
 	struct strlist *self = malloc(sizeof(*self));
 
 	if (self != NULL) {
-		rblist__init(&self->rblist);
-		self->rblist.node_cmp    = strlist__node_cmp;
-		self->rblist.node_new    = strlist__node_new;
-		self->rblist.node_delete = strlist__node_delete;
-
+		self->entries	 = RB_ROOT;
 		self->dupstr	 = dupstr;
+		self->nr_entries = 0;
 		if (slist && strlist__parse_list(self, slist) != 0)
 			goto out_error;
 	}
@@ -155,18 +171,30 @@ out_error:
 
 void strlist__delete(struct strlist *self)
 {
-	if (self != NULL)
-		rblist__delete(&self->rblist);
+	if (self != NULL) {
+		struct str_node *pos;
+		struct rb_node *next = rb_first(&self->entries);
+
+		while (next) {
+			pos = rb_entry(next, struct str_node, rb_node);
+			next = rb_next(&pos->rb_node);
+			strlist__remove(self, pos);
+		}
+		self->entries = RB_ROOT;
+		free(self);
+	}
 }
 
-struct str_node *strlist__entry(const struct strlist *slist, unsigned int idx)
+struct str_node *strlist__entry(const struct strlist *self, unsigned int idx)
 {
-	struct str_node *snode = NULL;
-	struct rb_node *rb_node;
+	struct rb_node *nd;
 
-	rb_node = rblist__entry(&slist->rblist, idx);
-	if (rb_node)
-		snode = container_of(rb_node, struct str_node, rb_node);
+	for (nd = rb_first(&self->entries); nd; nd = rb_next(nd)) {
+		struct str_node *pos = rb_entry(nd, struct str_node, rb_node);
 
-	return snode;
+		if (!idx--)
+			return pos;
+	}
+
+	return NULL;
 }

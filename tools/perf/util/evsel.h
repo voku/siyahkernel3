@@ -61,42 +61,17 @@ struct perf_evsel {
 		off_t		id_offset;
 	};
 	struct cgroup_sel	*cgrp;
-	struct {
-		void		*func;
-		void		*data;
-	} handler;
-	unsigned int		sample_size;
-	bool 			supported;
 };
 
 struct cpu_map;
 struct thread_map;
 struct perf_evlist;
-struct perf_record_opts;
 
 struct perf_evsel *perf_evsel__new(struct perf_event_attr *attr, int idx);
 void perf_evsel__init(struct perf_evsel *evsel,
 		      struct perf_event_attr *attr, int idx);
 void perf_evsel__exit(struct perf_evsel *evsel);
 void perf_evsel__delete(struct perf_evsel *evsel);
-
-void perf_evsel__config(struct perf_evsel *evsel,
-			struct perf_record_opts *opts,
-			struct perf_evsel *first);
-
-bool perf_evsel__is_cache_op_valid(u8 type, u8 op);
-
-#define PERF_EVSEL__MAX_ALIASES 8
-
-extern const char *perf_evsel__hw_cache[PERF_COUNT_HW_CACHE_MAX]
-				       [PERF_EVSEL__MAX_ALIASES];
-extern const char *perf_evsel__hw_cache_op[PERF_COUNT_HW_CACHE_OP_MAX]
-					  [PERF_EVSEL__MAX_ALIASES];
-const char *perf_evsel__hw_cache_result[PERF_COUNT_HW_CACHE_RESULT_MAX]
-				       [PERF_EVSEL__MAX_ALIASES];
-int __perf_evsel__hw_cache_type_op_res_name(u8 type, u8 op, u8 result,
-					    char *bf, size_t size);
-const char *perf_evsel__name(struct perf_evsel *evsel);
 
 int perf_evsel__alloc_fd(struct perf_evsel *evsel, int ncpus, int nthreads);
 int perf_evsel__alloc_id(struct perf_evsel *evsel, int ncpus, int nthreads);
@@ -106,15 +81,11 @@ void perf_evsel__free_id(struct perf_evsel *evsel);
 void perf_evsel__close_fd(struct perf_evsel *evsel, int ncpus, int nthreads);
 
 int perf_evsel__open_per_cpu(struct perf_evsel *evsel,
-			     struct cpu_map *cpus, bool group,
-			     struct xyarray *group_fds);
+			     struct cpu_map *cpus, bool group);
 int perf_evsel__open_per_thread(struct perf_evsel *evsel,
-				struct thread_map *threads, bool group,
-				struct xyarray *group_fds);
+				struct thread_map *threads, bool group);
 int perf_evsel__open(struct perf_evsel *evsel, struct cpu_map *cpus,
-		     struct thread_map *threads, bool group,
-		     struct xyarray *group_fds);
-void perf_evsel__close(struct perf_evsel *evsel, int ncpus, int nthreads);
+		     struct thread_map *threads, bool group);
 
 #define perf_evsel__match(evsel, t, c)		\
 	(evsel->attr.type == PERF_TYPE_##t &&	\
@@ -178,8 +149,11 @@ static inline int perf_evsel__read_scaled(struct perf_evsel *evsel,
 	return __perf_evsel__read(evsel, ncpus, nthreads, true);
 }
 
-void hists__init(struct hists *hists);
+int __perf_evsel__sample_size(u64 sample_type);
 
-int perf_evsel__parse_sample(struct perf_evsel *evsel, union perf_event *event,
-			     struct perf_sample *sample, bool swapped);
+static inline int perf_evsel__sample_size(struct perf_evsel *evsel)
+{
+	return __perf_evsel__sample_size(evsel->attr.sample_type);
+}
+
 #endif /* __PERF_EVSEL_H */

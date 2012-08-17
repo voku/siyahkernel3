@@ -33,7 +33,7 @@ struct bench_suite {
 };
 						\
 /* sentinel: easy for help */
-#define suite_all { "all", "Test all benchmark suites", NULL }
+#define suite_all { "all", "test all suite (pseudo suite)", NULL }
 
 static struct bench_suite sched_suites[] = {
 	{ "messaging",
@@ -52,9 +52,6 @@ static struct bench_suite mem_suites[] = {
 	{ "memcpy",
 	  "Simple memory copy in various ways",
 	  bench_mem_memcpy },
-	{ "memset",
-	  "Simple memory set in various ways",
-	  bench_mem_memset },
 	suite_all,
 	{ NULL,
 	  NULL,
@@ -75,7 +72,7 @@ static struct bench_subsys subsystems[] = {
 	  "memory access performance",
 	  mem_suites },
 	{ "all",		/* sentinel: easy for help */
-	  "all benchmark subsystem",
+	  "test all subsystem (pseudo subsystem)",
 	  NULL },
 	{ NULL,
 	  NULL,

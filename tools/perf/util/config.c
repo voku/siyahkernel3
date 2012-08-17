@@ -1,8 +1,5 @@
 /*
- * config.c
- *
- * Helper functions for parsing config items.
- * Originally copied from GIT source.
+ * GIT - The information manager from hell
  *
  * Copyright (C) Linus Torvalds, 2005
  * Copyright (C) Johannes Schindelin, 2005
@@ -120,7 +117,7 @@ static char *parse_value(void)
 
 static inline int iskeychar(int c)
 {
-	return isalnum(c) || c == '-' || c == '_';
+	return isalnum(c) || c == '-';
 }
 
 static int get_value(config_fn_t fn, void *data, char *name, unsigned int len)
@@ -344,7 +341,7 @@ const char *perf_config_dirname(const char *name, const char *value)
 
 static int perf_default_core_config(const char *var __used, const char *value __used)
 {
-	/* Add other config variables here. */
+	/* Add other config variables here and to Documentation/config.txt. */
 	return 0;
 }
 
@@ -353,7 +350,7 @@ int perf_default_config(const char *var, const char *value, void *dummy __used)
 	if (!prefixcmp(var, "core."))
 		return perf_default_core_config(var, value);
 
-	/* Add other config variables here. */
+	/* Add other config variables here and to Documentation/config.txt. */
 	return 0;
 }
 
@@ -416,32 +413,13 @@ int perf_config(config_fn_t fn, void *data)
 	home = getenv("HOME");
 	if (perf_config_global() && home) {
 		char *user_config = strdup(mkpath("%s/.perfconfig", home));
-		struct stat st;
-
-		if (user_config == NULL) {
-			warning("Not enough memory to process %s/.perfconfig, "
-				"ignoring it.", home);
-			goto out;
+		if (!access(user_config, R_OK)) {
+			ret += perf_config_from_file(fn, user_config, data);
+			found += 1;
 		}
-
-		if (stat(user_config, &st) < 0)
-			goto out_free;
-
-		if (st.st_uid && (st.st_uid != geteuid())) {
-			warning("File %s not owned by current user or root, "
-				"ignoring it.", user_config);
-			goto out_free;
-		}
-
-		if (!st.st_size)
-			goto out_free;
-
-		ret += perf_config_from_file(fn, user_config, data);
-		found += 1;
-out_free:
 		free(user_config);
 	}
-out:
+
 	if (found == 0)
 		return -1;
 	return ret;

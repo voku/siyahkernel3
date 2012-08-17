@@ -11,7 +11,6 @@
 #include "event.h"
 #include "debug.h"
 #include "util.h"
-#include "target.h"
 
 int verbose;
 bool dump_trace = false, quiet = false;
@@ -47,21 +46,20 @@ int dump_printf(const char *fmt, ...)
 	return ret;
 }
 
-#if defined(NO_NEWT_SUPPORT) && defined(NO_GTK2_SUPPORT)
-int ui__warning(const char *format, ...)
+#ifdef NO_NEWT_SUPPORT
+void ui__warning(const char *format, ...)
 {
 	va_list args;
 
 	va_start(args, format);
 	vfprintf(stderr, format, args);
 	va_end(args);
-	return 0;
 }
 #endif
 
-int ui__error_paranoid(void)
+void ui__warning_paranoid(void)
 {
-	return ui__error("Permission error - are you root?\n"
+	ui__warning("Permission error - are you root?\n"
 		    "Consider tweaking /proc/sys/kernel/perf_event_paranoid:\n"
 		    " -1 - Not paranoid at all\n"
 		    "  0 - Disallow raw tracepoint access for unpriv\n"
