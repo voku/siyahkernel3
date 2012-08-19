@@ -1478,7 +1478,7 @@ static struct s3c_fb_pd_win smdkc210_fb_win0 = {
 	.width = 48,
 	.height = 80,
 	.max_bpp = 32,
-	.default_bpp = 32,
+	.default_bpp = 24,
 };
 
 static struct s3c_fb_pd_win smdkc210_fb_win1 = {
@@ -1497,7 +1497,7 @@ static struct s3c_fb_pd_win smdkc210_fb_win1 = {
 	.width = 48,
 	.height = 80,
 	.max_bpp = 32,
-	.default_bpp = 32,
+	.default_bpp = 24,
 };
 
 static struct s3c_fb_pd_win smdkc210_fb_win2 = {
@@ -1516,7 +1516,7 @@ static struct s3c_fb_pd_win smdkc210_fb_win2 = {
 	.width = 48,
 	.height = 80,
 	.max_bpp = 32,
-	.default_bpp = 32,
+	.default_bpp = 24,
 };
 
 #elif defined(CONFIG_LCD_WA101S)
@@ -1563,7 +1563,7 @@ static struct s3c_fb_pd_win smdkc210_fb_win0 = {
 	.width = 223,
 	.height = 125,
 	.max_bpp = 32,
-	.default_bpp = 32,
+	.default_bpp = 24,
 };
 
 #ifndef CONFIG_LCD_WA101S	/* temporarily disables window1 */
@@ -1581,7 +1581,7 @@ static struct s3c_fb_pd_win smdkc210_fb_win1 = {
 	.virtual_x = 1366,
 	.virtual_y = 768 * 2,
 	.max_bpp = 32,
-	.default_bpp = 32,
+	.default_bpp = 24,
 };
 #endif
 
@@ -1640,7 +1640,7 @@ static struct s3c_fb_pd_win smdkc210_fb_win0 = {
 	.virtual_x = 800,
 	.virtual_y = 960,
 	.max_bpp = 32,
-	.default_bpp = 32,
+	.default_bpp = 24,
 };
 
 static struct s3c_fb_pd_win smdkc210_fb_win1 = {
@@ -1657,7 +1657,7 @@ static struct s3c_fb_pd_win smdkc210_fb_win1 = {
 	.virtual_x = 800,
 	.virtual_y = 960,
 	.max_bpp = 32,
-	.default_bpp = 32,
+	.default_bpp = 24,
 };
 #endif
 
