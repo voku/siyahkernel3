@@ -643,6 +643,7 @@ static int hfs_file_fsync(struct file *filp, int datasync)
 			hfs_mdb_commit(sb);
 		unlock_super(sb);
 	}
+	flush_delayed_work(&HFS_SB(sb)->mdb_work);
 	/* .. finally sync the buffers to disk */
 	err = sync_blockdev(sb->s_bdev);
 	if (!ret)

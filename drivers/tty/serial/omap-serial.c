@@ -1067,6 +1067,9 @@ serial_omap_suspend(struct platform_device *pdev, pm_message_t state)
 
 	if (up)
 		uart_suspend_port(&serial_omap_reg, &up->port);
+		flush_work(&up->qos_work);
+	}
+
 	return 0;
 }
 

@@ -295,7 +295,7 @@ static struct {
 static int collie_bat_suspend(struct ucb1x00_dev *dev, pm_message_t state)
 {
 	/* flush all pending status updates */
-	flush_work_sync(&bat_work);
+	flush_work(&bat_work);
 	return 0;
 }
 

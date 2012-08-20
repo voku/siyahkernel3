@@ -332,7 +332,7 @@ static struct {
 static int tosa_bat_suspend(struct platform_device *dev, pm_message_t state)
 {
 	/* flush all pending status updates */
-	flush_work_sync(&bat_work);
+	flush_work(&bat_work);
 	return 0;
 }
 
