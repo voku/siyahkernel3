@@ -35,28 +35,53 @@ struct page {
 	unsigned long flags;		/* Atomic flags, some possibly
 					 * updated asynchronously */
 	atomic_t _count;		/* Usage count, see below. */
+	bool pfmemalloc;		/* If set by the page allocator,
+				 	 * ALLOC_PFMEMALLOC was set
+					 * and the low watermark was not
+					 * met implying that the system
+					 * is under some pressure. The
+					 * caller should try ensure
+					 * this page is only used to
+					 * free other pages.
+					 */
 	union {
-		/*
-		 * Count of ptes mapped in
-		 * mms, to show when page is
-		 * mapped & limit reverse map
-		 * searches.
-		 *
-		 * Used also for tail pages
-		 * refcounting instead of
-		 * _count. Tail pages cannot
-		 * be mapped and keeping the
-		 * tail page _count zero at
-		 * all times guarantees
-		 * get_page_unless_zero() will
-		 * never succeed on tail
-		 * pages.
-		 */
-		atomic_t _mapcount;
+#if defined(CONFIG_HAVE_CMPXCHG_DOUBLE) && \
+	defined(CONFIG_HAVE_ALIGNED_STRUCT_PAGE)
+			/* Used for cmpxchg_double in slub */
+			unsigned long counters;
+#else
+			/*
+			 * Keep _count separate from slub cmpxchg_double data.
+			 * As the rest of the double word is protected by
+			 * slab_lock but _count is not.
+			 */
+			unsigned counters;
+#endif
 
-		struct {		/* SLUB */
-			u16 inuse;
-			u16 objects;
+		union {
+			/*
+		 	 * Count of ptes mapped in
+		 	 * mms, to show when page is
+		 	 * mapped & limit reverse map
+		 	 * searches.
+		 	 *
+		 	 * Used also for tail pages
+		 	 * refcounting instead of
+		 	 * _count. Tail pages cannot
+		 	 * be mapped and keeping the
+		 	 * tail page _count zero at
+		 	 * all times guarantees
+		 	 * get_page_unless_zero() will
+		 	 * never succeed on tail
+		 	 * pages.
+		 	 */
+			atomic_t _mapcount;
+
+			struct {		/* SLUB */
+				unsigned inuse:16;
+				unsigned objects:15;
+				unsigned frozen:1;
+			};
 		};
 	};
 	union {
@@ -86,9 +111,23 @@ struct page {
 		pgoff_t index;		/* Our offset within mapping. */
 		void *freelist;		/* SLUB: freelist req. slab lock */
 	};
-	struct list_head lru;		/* Pageout list, eg. active_list
+	/* Third double word block */
+	union {
+		struct list_head lru;	/* Pageout list, eg. active_list
 					 * protected by zone->lru_lock !
 					 */
+		struct {		/* slub per cpu partial pages */
+			struct page *next;	/* Next partial slab */
+#ifdef CONFIG_64BIT
+			int pages;	/* Nr of partial slabs left */
+			int pobjects;	/* Approximate # of objects */
+#else
+			short int pages;
+			short int pobjects;
+#endif
+		};
+	};
+
 	/*
 	 * On machines where all RAM is mapped into kernel address space,
 	 * we can simply calculate the virtual address. On machines with
@@ -114,7 +153,15 @@ struct page {
 	 */
 	void *shadow;
 #endif
-};
+}
+/*
+ * The struct page can be forced to be double word aligned so that atomic ops
+ * on double words work. The SLUB allocator can make use of such a feature.
+ */
+#ifdef CONFIG_HAVE_ALIGNED_STRUCT_PAGE
+	__aligned(2 * sizeof(unsigned long))
+#endif
+;
 
 typedef unsigned long __nocast vm_flags_t;
 

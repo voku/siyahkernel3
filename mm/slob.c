@@ -59,6 +59,8 @@
 
 #include <linux/kernel.h>
 #include <linux/slab.h>
+#include "slab.h"
+
 #include <linux/mm.h>
 #include <linux/swap.h> /* struct reclaim_state */
 #include <linux/cache.h>
@@ -557,14 +559,7 @@ size_t ksize(const void *block)
 }
 EXPORT_SYMBOL(ksize);
 
-struct kmem_cache {
-	unsigned int size, align;
-	unsigned long flags;
-	const char *name;
-	void (*ctor)(void *);
-};
-
-struct kmem_cache *kmem_cache_create(const char *name, size_t size,
+struct kmem_cache *__kmem_cache_create(const char *name, size_t size,
 	size_t align, unsigned long flags, void (*ctor)(void *))
 {
 	struct kmem_cache *c;
@@ -574,7 +569,7 @@ struct kmem_cache *kmem_cache_create(const char *name, size_t size,
 
 	if (c) {
 		c->name = name;
-		c->size = size;
+		c->size = c->object_size;
 		if (flags & SLAB_DESTROY_BY_RCU) {
 			/* leave room for rcu footer at the end of object */
 			c->size += sizeof(struct slob_rcu);
@@ -587,13 +582,12 @@ struct kmem_cache *kmem_cache_create(const char *name, size_t size,
 			c->align = ARCH_SLAB_MINALIGN;
 		if (c->align < align)
 			c->align = align;
-	} else if (flags & SLAB_PANIC)
-		panic("Cannot create slab cache %s\n", name);
 
-	kmemleak_alloc(c, sizeof(struct kmem_cache), 1, GFP_KERNEL);
+		kmemleak_alloc(c, sizeof(struct kmem_cache), 1, GFP_KERNEL);
+		c->refcount = 1;
+	}
 	return c;
 }
-EXPORT_SYMBOL(kmem_cache_create);
 
 void kmem_cache_destroy(struct kmem_cache *c)
 {
@@ -672,19 +666,12 @@ int kmem_cache_shrink(struct kmem_cache *d)
 }
 EXPORT_SYMBOL(kmem_cache_shrink);
 
-static unsigned int slob_ready __read_mostly;
-
-int slab_is_available(void)
-{
-	return slob_ready;
-}
-
 void __init kmem_cache_init(void)
 {
-	slob_ready = 1;
+	slab_state = UP;
 }
 
 void __init kmem_cache_init_late(void)
 {
-	/* Nothing to do */
+	slab_state = FULL;
 }
