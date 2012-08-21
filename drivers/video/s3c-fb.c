@@ -1814,8 +1814,14 @@ static void s3c_fb_clear_win(struct s3c_fb *sfb, int win)
 	writel(0, regs + VIDOSD_A(win, sfb->variant));
 	writel(0, regs + VIDOSD_B(win, sfb->variant));
 	writel(0, regs + VIDOSD_C(win, sfb->variant));
-	reg = readl(regs + SHADOWCON);
-	writel(reg & ~SHADOWCON_WINx_PROTECT(win), regs + SHADOWCON);
+
+	if (sfb->variant.has_shadowcon) {
+		reg = readl(sfb->regs + SHADOWCON);
+		reg &= ~(SHADOWCON_WINx_PROTECT(win) |
+				SHADOWCON_CHx_ENABLE(win) |
+				SHADOWCON_CHx_LOCAL_ENABLE(win));
+		writel(reg, sfb->regs + SHADOWCON);
+	}
 }
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
