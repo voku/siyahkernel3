@@ -3075,13 +3075,13 @@ static int kmem_cache_create_ok(const char *name, size_t size,
 	return 1;
 }
 
-struct kmem_cache *kmem_cache_create(const char *name, size_t size,
+struct kmem_cache *__kmem_cache_create(const char *name, size_t size,
 		size_t align, unsigned long flags, void (*ctor)(void *))
 {
 	struct kmem_cache *s;
 
 	down_write(&slqb_lock);
-	if (!kmem_cache_create_ok(name, size, align, flags))
+	if (!__kmem_cache_create_ok(name, size, align, flags))
 		goto err;
 
 	s = kmem_cache_alloc(&kmem_cache_cache, GFP_KERNEL);
@@ -3102,7 +3102,6 @@ err:
 
 	return NULL;
 }
-EXPORT_SYMBOL(kmem_cache_create);
 
 #ifdef CONFIG_SMP
 /*
