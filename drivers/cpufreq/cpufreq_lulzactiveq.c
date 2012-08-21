@@ -220,7 +220,7 @@ static int __init init_rq_avg(void)
 	}
 	spin_lock_init(&rq_data->lock);
 	rq_data->update_rate = RQ_AVG_TIMER_RATE;
-	INIT_DELAYED_WORK_DEFERRABLE(&rq_data->work, rq_work_fn);
+	INIT_DEFERRABLE_WORK(&rq_data->work, rq_work_fn);
 
 	return 0;
 }
@@ -1759,7 +1759,7 @@ static inline void hotplug_timer_init(struct cpufreq_lulzactive_cpuinfo *dbs_inf
 	if (num_online_cpus() > 1)
 		delay -= jiffies % delay;
 
-	INIT_DELAYED_WORK_DEFERRABLE(&dbs_info->work, do_dbs_timer);
+	INIT_DEFERRABLE_WORK(&dbs_info->work, do_dbs_timer);
 	INIT_WORK(&dbs_info->up_work, cpu_up_work);
 	INIT_WORK(&dbs_info->down_work, cpu_down_work);
 

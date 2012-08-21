@@ -1178,12 +1178,12 @@ static int __devinit s5p_tmu_probe(struct platform_device *pdev)
 
 	/* To support periodic temprature monitoring */
 	if (mask & ENABLE_TEMP_MON) {
-		INIT_DELAYED_WORK_DEFERRABLE(&info->monitor,
+		INIT_DEFERRABLE_WORK(&info->monitor,
 					exynos4_poll_cur_temp);
 		queue_delayed_work_on(0, tmu_monitor_wq, &info->monitor,
 			info->monitor_period);
 	}
-	INIT_DELAYED_WORK_DEFERRABLE(&info->polling, exynos4_handler_tmu_state);
+	INIT_DEFERRABLE_WORK(&info->polling, exynos4_handler_tmu_state);
 
 	info->irq = platform_get_irq(pdev, 0);
 	if (info->irq < 0) {
