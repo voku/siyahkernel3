@@ -15,12 +15,35 @@
 
 #define TRKID_MAX	0xffff
 
+#define INPUT_MT_POINTER	0x0001	/* pointer device, e.g. trackpad */
+#define INPUT_MT_DIRECT		0x0002	/* direct device, e.g. touchscreen */
+#define INPUT_MT_DROP_UNUSED	0x0004	/* drop contacts not seen in frame */
 /**
  * struct input_mt_slot - represents the state of an input MT slot
  * @abs: holds current values of ABS_MT axes for this slot
+ * @frame: last frame at which input_mt_report_slot_state() was called
  */
 struct input_mt_slot {
 	int abs[ABS_MT_LAST - ABS_MT_FIRST + 1];
+	unsigned int frame;
+};
+
+/**
+ * struct input_mt - state of tracked contacts
+ * @trkid: stores MT tracking ID for the next contact
+ * @num_slots: number of MT slots the device uses
+ * @slot: MT slot currently being transmitted
+ * @flags: input_mt operation flags
+ * @frame: increases every time input_mt_sync_frame() is called
+ * @slots: array of slots holding current values of tracked contacts
+ */
+struct input_mt {
+	int trkid;
+	int num_slots;
+	int slot;
+	unsigned int flags;
+	unsigned int frame;
+	struct input_mt_slot slots[];
 };
 
 static inline void input_mt_set_value(struct input_mt_slot *slot,
@@ -35,12 +58,13 @@ static inline int input_mt_get_value(const struct input_mt_slot *slot,
 	return slot->abs[code - ABS_MT_FIRST];
 }
 
-int input_mt_init_slots(struct input_dev *dev, unsigned int num_slots);
+int input_mt_init_slots(struct input_dev *dev, unsigned int num_slots,
+	unsigned int flags);
 void input_mt_destroy_slots(struct input_dev *dev);
 
-static inline int input_mt_new_trkid(struct input_dev *dev)
+static inline int input_mt_new_trkid(struct input_mt *mt)
 {
-	return dev->trkid++ & TRKID_MAX;
+	return mt->trkid++ & TRKID_MAX;
 }
 
 static inline void input_mt_slot(struct input_dev *dev, int slot)
@@ -48,10 +72,14 @@ static inline void input_mt_slot(struct input_dev *dev, int slot)
 	input_event(dev, EV_ABS, ABS_MT_SLOT, slot);
 }
 
+static inline bool input_is_mt_value(int axis)
+{
+	return axis >= ABS_MT_FIRST && axis <= ABS_MT_LAST;
+}
+
 static inline bool input_is_mt_axis(int axis)
 {
-	return axis == ABS_MT_SLOT ||
-		(axis >= ABS_MT_FIRST && axis <= ABS_MT_LAST);
+	return axis == ABS_MT_SLOT || input_is_mt_value(axis);
 }
 
 void input_mt_report_slot_state(struct input_dev *dev,
@@ -59,5 +87,7 @@ void input_mt_report_slot_state(struct input_dev *dev,
 
 void input_mt_report_finger_count(struct input_dev *dev, int count);
 void input_mt_report_pointer_emulation(struct input_dev *dev, bool use_count);
+
+void input_mt_sync_frame(struct input_dev *dev);
 
 #endif
