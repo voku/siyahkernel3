@@ -245,8 +245,8 @@ CONFIG_SHELL := $(shell if [ -x "$$BASH" ]; then echo $$BASH; \
 
 HOSTCC       = gcc
 HOSTCXX      = g++
-HOSTCFLAGS   = -Wall -Wmissing-prototypes -Wstrict-prototypes -O2 -fomit-frame-pointer
-HOSTCXXFLAGS = -O2
+HOSTCFLAGS   = -Wall -Wmissing-prototypes -Wstrict-prototypes -O3 -fomit-frame-pointer
+HOSTCXXFLAGS = -O3
 
 # Decide whether to build built-in, modular, or both.
 # Normally, just do built-in.
@@ -348,15 +348,16 @@ CHECK		= sparse
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
 
-ARM_FLAGS       = -marm -march=armv7-a -mtune=cortex-a9 \
-		  -mfpu=neon -mfloat-abi=softfp \
-		  -fsingle-precision-constant -mvectorize-with-neon-quad
-LOOPS		= -funswitch-loops -fpredictive-commoning
-LOOPS_4_6	= -floop-strip-mine -floop-block -floop-interchange
+ARM_FLAGS       = -marm -march=armv7-a -mtune=cortex-a9 -fpredictive-commoning
+LOOPS			= -funswitch-loops -ftree-vectorize
+MODULES			= -fmodulo-sched -fmodulo-sched-allow-regmoves
 
-MODULES		= -fmodulo-sched -fmodulo-sched-allow-regmoves
-
-DISABLED_STORE	= 
+# -mfpu=neon -mfloat-abi=softfp
+# -fsingle-precision-constant -mvectorize-with-neon-quad
+# -floop-strip-mine -floop-block -floop-interchange -fgraphiee-identity
+# --param l2-cache-size=1024 --param l1-cache-size=64 --param simultaneous-prefetches=8 --param prefetch-latency=400
+# -fno-ident -fno-gcse
+# -ftree-loop-linear -ftree-loop-distribution
 
 CFLAGS_MODULE   =
 AFLAGS_MODULE   =
@@ -365,7 +366,7 @@ CFLAGS_KERNEL	=
 AFLAGS_KERNEL	=
 CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage
 
-KERNEL_MODS	= $(ARM_FLAGS) $(LOOPS) $(LOOPS_4_6) $(MODULES)
+KERNEL_MODS	= $(ARM_FLAGS) $(LOOPS) $(MODULES)
 
 # Use LINUXINCLUDE when you must reference the include/ directory.
 # Needed to be compatible with the O= option
@@ -415,6 +416,7 @@ export MODVERDIR := $(if $(KBUILD_EXTMOD),$(firstword $(KBUILD_EXTMOD))/).tmp_ve
 # Files to ignore in find ... statements
 
 RCS_FIND_IGNORE := \( -name SCCS -o -name BitKeeper -o -name .svn -o -name CVS -o -name .pc -o -name .hg -o -name .git \) -prune -o
+BUILD_FIND_IGNORE := -path ./build -prune -o
 export RCS_TAR_IGNORE := --exclude SCCS --exclude BitKeeper --exclude .svn --exclude CVS --exclude .pc --exclude .hg --exclude .git
 
 # ===========================================================================
@@ -575,7 +577,7 @@ all: vmlinux
 ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
 KBUILD_CFLAGS	+= -Os
 else
-KBUILD_CFLAGS	+= -O2
+KBUILD_CFLAGS	+= -O3
 endif
 
 ifdef CONFIG_CC_CHECK_WARNING_STRICTLY
@@ -603,43 +605,43 @@ endif
 # This warning generated too much noise in a regular build.
 # Use make W=1 to enable this warning (see scripts/Makefile.build)
 KBUILD_CFLAGS += $(call cc-disable-warning, unused-but-set-variable)
-KBUILD_CFLAGS += $(call cc-disable-warning, uninitialized)
-KBUILD_CFLAGS += $(call cc-disable-warning, unused-function)
-KBUILD_CFLAGS += $(call cc-disable-warning, unused-variable)
-KBUILD_CFLAGS += $(call cc-disable-warning, unused-value)
-KBUILD_CFLAGS += $(call cc-disable-warning, unused-label)
+#KBUILD_CFLAGS += $(call cc-disable-warning, uninitialized)
+#KBUILD_CFLAGS += $(call cc-disable-warning, unused-function)
+#KBUILD_CFLAGS += $(call cc-disable-warning, unused-variable)
+#KBUILD_CFLAGS += $(call cc-disable-warning, unused-value)
+#KBUILD_CFLAGS += $(call cc-disable-warning, unused-label)
 
-ifdef CONFIG_FRAME_POINTER
-KBUILD_CFLAGS	+= -fno-omit-frame-pointer -fno-optimize-sibling-calls
-else
+#ifdef CONFIG_FRAME_POINTER
+#KBUILD_CFLAGS	+= -fno-omit-frame-pointer -fno-optimize-sibling-calls
+#else
 # Some targets (ARM with Thumb2, for example), can't be built with frame
 # pointers.  For those, we don't have FUNCTION_TRACER automatically
 # select FRAME_POINTER.  However, FUNCTION_TRACER adds -pg, and this is
 # incompatible with -fomit-frame-pointer with current GCC, so we don't use
 # -fomit-frame-pointer with FUNCTION_TRACER.
-ifndef CONFIG_FUNCTION_TRACER
+#ifndef CONFIG_FUNCTION_TRACER
 KBUILD_CFLAGS	+= -fomit-frame-pointer
-endif
-endif
+#endif
+#endif
 
-ifdef CONFIG_DEBUG_INFO
-KBUILD_CFLAGS	+= -g
-KBUILD_AFLAGS	+= -gdwarf-2
-endif
+#ifdef CONFIG_DEBUG_INFO
+#KBUILD_CFLAGS	+= -g
+#KBUILD_AFLAGS	+= -gdwarf-2
+#endif
 
 ifdef CONFIG_DEBUG_INFO_REDUCED
 KBUILD_CFLAGS 	+= $(call cc-option, -femit-struct-debug-baseonly)
 endif
 
-ifdef CONFIG_FUNCTION_TRACER
-KBUILD_CFLAGS	+= -pg
-ifdef CONFIG_DYNAMIC_FTRACE
-	ifdef CONFIG_HAVE_C_RECORDMCOUNT
-		BUILD_C_RECORDMCOUNT := y
-		export BUILD_C_RECORDMCOUNT
-	endif
-endif
-endif
+#ifdef CONFIG_FUNCTION_TRACER
+#KBUILD_CFLAGS	+= -pg
+#ifdef CONFIG_DYNAMIC_FTRACE
+#	ifdef CONFIG_HAVE_C_RECORDMCOUNT
+#		BUILD_C_RECORDMCOUNT := y
+#		export BUILD_C_RECORDMCOUNT
+#	endif
+#endif
+#endif
 
 # We trigger additional mismatches with less inlining
 ifdef CONFIG_DEBUG_SECTION_MISMATCH
@@ -1226,6 +1228,7 @@ PHONY += distclean
 
 distclean: mrproper
 	@find $(srctree) $(RCS_FIND_IGNORE) \
+		$(BUILD_FIND_IGNORE) \
 		\( -name '*.orig' -o -name '*.rej' -o -name '*~' \
 		-o -name '*.bak' -o -name '#*#' -o -name '.*.orig' \
 		-o -name '.*.rej' -o -size 0 \
@@ -1434,6 +1437,7 @@ clean: $(clean-dirs)
 	$(call cmd,rmdirs)
 	$(call cmd,rmfiles)
 	@find $(if $(KBUILD_EXTMOD), $(KBUILD_EXTMOD), .) $(RCS_FIND_IGNORE) \
+		$(BUILD_FIND_IGNORE) \
 		\( -name '*.[oas]' -o -name '*.ko' -o -name '.*.cmd' \
 		-o -name '.*.d' -o -name '.*.tmp' -o -name '*.mod.c' \
 		-o -name '*.symtypes' -o -name 'modules.order' \
@@ -1455,11 +1459,13 @@ PHONY += includecheck versioncheck coccicheck namespacecheck export_report
 
 includecheck:
 	find $(srctree)/* $(RCS_FIND_IGNORE) \
+		$(BUILD_FIND_IGNORE) \
 		-name '*.[hcS]' -type f -print | sort \
 		| xargs $(PERL) -w $(srctree)/scripts/checkincludes.pl
 
 versioncheck:
 	find $(srctree)/* $(RCS_FIND_IGNORE) \
+		$(BUILD_FIND_IGNORE) \
 		-name '*.[hcS]' -type f -print | sort \
 		| xargs $(PERL) -w $(srctree)/scripts/checkversion.pl
 
