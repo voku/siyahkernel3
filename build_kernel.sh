@@ -126,13 +126,12 @@ if [ $USER != "root" ]; then
 else
 	nice -n 10 make -j$NAMBEROFCPUS zImage CONFIG_INITRAMFS_SOURCE="$INITRAMFS_TMP" || exit 1
 #	nice -n 10 make CONFIG_DEBUG_SECTION_MISMATCH=y -j$NAMBEROFCPUS zImage CONFIG_INITRAMFS_SOURCE="$INITRAMFS_TMP" || exit 1
+	# restore clean arch/arm/boot/compressed/Makefile_clean till next time.
+	cp $KERNELDIR/arch/arm/boot/compressed/Makefile_clean $KERNELDIR/arch/arm/boot/compressed/Makefile
 fi;
 
 if [ -e $KERNELDIR/arch/arm/boot/zImage ]; then
 	$KERNELDIR/mkshbootimg.py $KERNELDIR/zImage $KERNELDIR/arch/arm/boot/zImage $KERNELDIR/payload.tar $KERNELDIR/recovery.tar.xz
-
-	# restore clean arch/arm/boot/compressed/Makefile_clean till next time.
-	cp $KERNELDIR/arch/arm/boot/compressed/Makefile_clean $KERNELDIR/arch/arm/boot/compressed/Makefile
 
 	# copy all needed to ready kernel folder.
 	cp $KERNELDIR/.config $KERNELDIR/arch/arm/configs/dorimanx_defconfig

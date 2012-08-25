@@ -21,6 +21,7 @@ config ARM
 	select HAVE_KERNEL_LZO
 	select HAVE_KERNEL_LZMA
 	select HAVE_KERNEL_XZ
+	select GENERIC_IRQ_PROBE
 	select HAVE_IRQ_WORK
 	select HAVE_PERF_EVENTS
 	select PERF_USE_VMALLOC
@@ -131,11 +132,6 @@ config HARDIRQS_SW_RESEND
 config GENERIC_IRQ_PROBE
 	bool
 	default y
-
-config GENERIC_LOCKBREAK
-	bool
-	default y
-	depends on SMP && PREEMPT
 
 config RWSEM_GENERIC_SPINLOCK
 	bool

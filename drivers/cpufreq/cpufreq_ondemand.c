@@ -644,10 +644,10 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 		 * towards low load and long idle times.
 		 */
 		if (j_dbs_info->prev_cpu_wall_delta >
-			wall_time * deep_sleep_factor ||
-			j_dbs_info->prev_cpu_wall_delta * deep_sleep_factor <
-			wall_time)
-		   deep_sleep_detected = true;
+		    wall_time * deep_sleep_factor ||
+		    j_dbs_info->prev_cpu_wall_delta * deep_sleep_factor <
+		    wall_time)
+			deep_sleep_detected = true;
 		j_dbs_info->prev_cpu_wall_delta =
 			(j_dbs_info->prev_cpu_wall_delta * deep_sleep_backoff
 			 + wall_time) / (deep_sleep_backoff+1);
@@ -676,6 +676,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 			j_dbs_info->prev_cpu_nice = kstat_cpu(j).cpustat.nice;
 			idle_time += jiffies_to_usecs(cur_nice_jiffies);
 		}
+
 		if (deep_sleep_detected)
 			continue;
 

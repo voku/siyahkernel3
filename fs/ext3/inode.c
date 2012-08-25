@@ -22,7 +22,6 @@
  *  Assorted race fixes, rewrite of ext3_get_block() by Al Viro, 2000
  */
 
-#include <linux/module.h>
 #include <linux/fs.h>
 #include <linux/time.h>
 #include <linux/ext3_jbd.h>
@@ -203,6 +202,35 @@ void ext3_evict_inode (struct inode *inode)
 		want_delete = 1;
 	}
 
+	/*
+	 * When journalling data dirty buffers are tracked only in the journal.
+	 * So although mm thinks everything is clean and ready for reaping the
+	 * inode might still have some pages to write in the running
+	 * transaction or waiting to be checkpointed. Thus calling
+	 * journal_invalidatepage() (via truncate_inode_pages()) to discard
+	 * these buffers can cause data loss. Also even if we did not discard
+	 * these buffers, we would have no way to find them after the inode
+	 * is reaped and thus user could see stale data if he tries to read
+	 * them before the transaction is checkpointed. So be careful and
+	 * force everything to disk here... We use ei->i_datasync_tid to
+	 * store the newest transaction containing inode's data.
+	 *
+	 * Note that directories do not have this problem because they don't
+	 * use page cache.
+	 *
+	 * The s_journal check handles the case when ext3_get_journal() fails
+	 * and puts the journal inode.
+	 */
+	if (inode->i_nlink && ext3_should_journal_data(inode) &&
+	    EXT3_SB(inode->i_sb)->s_journal &&
+	    (S_ISLNK(inode->i_mode) || S_ISREG(inode->i_mode))) {
+		tid_t commit_tid = atomic_read(&ei->i_datasync_tid);
+		journal_t *journal = EXT3_SB(inode->i_sb)->s_journal;
+
+		log_start_commit(journal, commit_tid);
+		log_wait_commit(journal, commit_tid);
+		filemap_write_and_wait(&inode->i_data);
+	}
 	truncate_inode_pages(&inode->i_data, 0);
 
 	ext3_discard_reservation(inode);
@@ -1100,9 +1128,11 @@ struct buffer_head *ext3_bread(handle_t *handle, struct inode *inode,
 	bh = ext3_getblk(handle, inode, block, create, err);
 	if (!bh)
 		return bh;
-	if (buffer_uptodate(bh))
+	if (bh_uptodate_or_lock(bh))
 		return bh;
-	ll_rw_block(READ_META, 1, &bh);
+	get_bh(bh);
+	bh->b_end_io = end_buffer_read_sync;
+	submit_bh(READ | REQ_META | REQ_PRIO, bh);
 	wait_on_buffer(bh);
 	if (buffer_uptodate(bh))
 		return bh;
@@ -2014,12 +2044,10 @@ static int ext3_block_truncate_page(handle_t *handle, struct page *page,
 	if (PageUptodate(page))
 		set_buffer_uptodate(bh);
 
-	if (!buffer_uptodate(bh)) {
-		err = -EIO;
-		ll_rw_block(READ, 1, &bh);
-		wait_on_buffer(bh);
+	if (!bh_uptodate_or_lock(bh)) {
+		err = bh_submit_read(bh);
 		/* Uhhuh. Read error. Complain and punt. */
-		if (!buffer_uptodate(bh))
+		if (err)
 			goto unlock;
 	}
 
@@ -2766,7 +2794,7 @@ make_io:
 		 */
 		get_bh(bh);
 		bh->b_end_io = end_buffer_read_sync;
-		submit_bh(READ_META, bh);
+		submit_bh(READ | REQ_META | REQ_PRIO, bh);
 		wait_on_buffer(bh);
 		if (!buffer_uptodate(bh)) {
 			ext3_error(inode->i_sb, "ext3_get_inode_loc",
