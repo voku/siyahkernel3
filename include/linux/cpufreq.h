@@ -391,25 +391,28 @@ extern struct cpufreq_governor cpufreq_gov_hotplug;
 #define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_hotplug)
 #elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_LULZACTIVE)
 extern struct cpufreq_governor cpufreq_gov_lulzactive;
-#define CPUFREQ_DEFAULT_GOVERNOR        (&cpufreq_gov_lulzactive)
+#define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_lulzactive)
 #elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_SMARTASS2)
 extern struct cpufreq_governor cpufreq_gov_smartass2;
-#define CPUFREQ_DEFAULT_GOVERNOR        (&cpufreq_gov_smartass2)
+#define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_smartass2)
 #elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_LAGFREE)
 extern struct cpufreq_governor cpufreq_gov_lagfree;
-#define CPUFREQ_DEFAULT_GOVERNOR        (&cpufreq_gov_lagfree)
+#define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_lagfree)
 #elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_ABYSSPLUG)
 extern struct cpufreq_governor cpufreq_gov_abyssplug;
-#define CPUFREQ_DEFAULT_GOVERNOR        (&cpufreq_gov_abyssplug)
+#define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_abyssplug)
 #elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_HYPER)
 extern struct cpufreq_governor cpufreq_gov_HYPER;
-#define CPUFREQ_DEFAULT_GOVERNOR        (&cpufreq_gov_HYPER)
+#define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_HYPER)
 #elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_SCARY)
 extern struct cpufreq_governor cpufreq_gov_scary;
-#define CPUFREQ_DEFAULT_GOVERNOR        (&cpufreq_gov_scary)
+#define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_scary)
+#elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_SLEEPY)
+extern struct cpufreq_governor cpufreq_gov_sleepy;
+#define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_sleepy)
 #elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_WHEATLEY)
 extern struct cpufreq_governor cpufreq_gov_wheatley;
-#define CPUFREQ_DEFAULT_GOVERNOR        (&cpufreq_gov_wheatley)
+#define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_wheatley)
 #endif
 
 
