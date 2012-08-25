@@ -2362,6 +2362,8 @@ int mmc_suspend_host(struct mmc_host *host)
 				host->pm_flags = 0;
 				err = 0;
 			}
+			/* wait for a dwork to finish executing the last queueing */
+			flush_delayed_work(&host->disable);
 
 			mmc_do_release_host(host);
 		} else {
