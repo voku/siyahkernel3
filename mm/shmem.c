@@ -1240,7 +1240,7 @@ static int shmem_getpage(struct inode *inode, unsigned long idx,
 	struct address_space *mapping = inode->i_mapping;
 	struct shmem_inode_info *info = SHMEM_I(inode);
 	struct shmem_sb_info *sbinfo;
-	struct page *filepage = *pagep;
+	struct page *filepage;
 	struct page *swappage;
 	struct page *prealloc_page = NULL;
 	swp_entry_t *entry;
@@ -1254,17 +1254,8 @@ static int shmem_getpage(struct inode *inode, unsigned long idx,
 	if (type)
 		*type = 0;
 
-	/*
-	 * Normally, filepage is NULL on entry, and either found
-	 * uptodate immediately, or allocated and zeroed, or read
-	 * in under swappage, which is then assigned to filepage.
-	 * But shmem_readpage (required for splice) passes in a locked
-	 * filepage, which may be found not uptodate by other callers
-	 * too, and may need to be copied from the swappage read in.
-	 */
 repeat:
-	if (!filepage)
-		filepage = find_lock_page(mapping, idx);
+	filepage = find_lock_page(mapping, idx);
 	if (filepage && PageUptodate(filepage))
 		goto done;
 	gfp = mapping_gfp_mask(mapping);
@@ -1490,8 +1481,7 @@ nospace:
 	 * Perhaps the page was brought in from swap between find_lock_page
 	 * and taking info->lock?  We allow for that at add_to_page_cache_lru,
 	 * but must also avoid reporting a spurious ENOSPC while working on a
-	 * full tmpfs.  (When filepage has been passed in to shmem_getpage, it
-	 * is already in page cache, which prevents this race from occurring.)
+	 * full tmpfs.
 	 */
 	if (!filepage) {
 		struct page *page = find_get_page(mapping, idx);
@@ -1504,7 +1494,7 @@ nospace:
 	spin_unlock(&info->lock);
 	error = -ENOSPC;
 failed:
-	if (*pagep != filepage) {
+	if (filepage) {
 		unlock_page(filepage);
 		page_cache_release(filepage);
 	}
@@ -1644,19 +1634,6 @@ static struct inode *shmem_get_inode(struct super_block *sb, const struct inode 
 static const struct inode_operations shmem_symlink_inode_operations;
 static const struct inode_operations shmem_symlink_inline_operations;
 
-/*
- * Normally tmpfs avoids the use of shmem_readpage and shmem_write_begin;
- * but providing them allows a tmpfs file to be used for splice, sendfile, and
- * below the loop driver, in the generic fashion that many filesystems support.
- */
-static int shmem_readpage(struct file *file, struct page *page)
-{
-	struct inode *inode = page->mapping->host;
-	int error = shmem_getpage(inode, page->index, &page, SGP_CACHE, NULL);
-	unlock_page(page);
-	return error;
-}
-
 static int
 shmem_write_begin(struct file *file, struct address_space *mapping,
 			loff_t pos, unsigned len, unsigned flags,
@@ -1664,7 +1641,6 @@ shmem_write_begin(struct file *file, struct address_space *mapping,
 {
 	struct inode *inode = mapping->host;
 	pgoff_t index = pos >> PAGE_CACHE_SHIFT;
-	*pagep = NULL;
 	return shmem_getpage(inode, index, pagep, SGP_WRITE, NULL);
 }
 
@@ -1981,7 +1957,7 @@ static int shmem_symlink(struct inode *dir, struct dentry *dentry, const char *s
 	int error;
 	int len;
 	struct inode *inode;
-	struct page *page = NULL;
+	struct page *page;
 	char *kaddr;
 	struct shmem_inode_info *info;
 
@@ -2659,7 +2635,6 @@ static const struct address_space_operations shmem_aops = {
 	.writepage	= shmem_writepage,
 	.set_page_dirty	= __set_page_dirty_no_writeback,
 #ifdef CONFIG_TMPFS
-	.readpage	= shmem_readpage,
 	.write_begin	= shmem_write_begin,
 	.write_end	= shmem_write_end,
 #endif
