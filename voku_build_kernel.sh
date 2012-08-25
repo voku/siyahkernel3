@@ -18,10 +18,9 @@ export USE_SEC_FIPS_MODE=true
 # gcc 4.4.3 (CM9)
 # export CROSS_COMPILE=/media/Source-Code/android/system/prebuilt/linux-x86/toolchain/arm-eabi-4.4.3/bin/arm-eabi-
 # gcc 4.7 (Linaro 12.07)
-export CROSS_COMPILE=$PARENT_DIR/linaro/bin/arm-eabi-
-# gcc 4.6 (Linaro 12.06)
-#export CROSS_COMPILE=$KERNELDIR/android-toolchain/bin/arm-eabi-
-
+#export CROSS_COMPILE=$PARENT_DIR/linaro/bin/arm-eabi-
+# gcc 4.7.2 (Linaro 12.07)
+export CROSS_COMPILE=$KERNELDIR/android-toolchain/bin/arm-eabi-
 
 # Importing PATCH for GCC depend on GCC version.
 GCCVERSION_OLD=`${CROSS_COMPILE}gcc --version | cut -d " " -f3 | cut -c3-5 | grep -iv "09" | grep -iv "ee" | grep -iv "en"`
