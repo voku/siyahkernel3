@@ -9,6 +9,9 @@ export INITRAMFS_SOURCE=`readlink -f $KERNELDIR/../initramfs3`
 export ARCH=arm
 export EXTRA_AFLAGS=-mfpu=neon
 export USE_SEC_FIPS_MODE=true
+export CFLAGS="-static -fstack-protector -fstack-protector-all -mfpu=neon -mcpu=cortex-a9"
+export LDFLAGS="-static -z relro -z now"
+export CPPFLAGS="-static"
 
 # compiler
 # gcc system

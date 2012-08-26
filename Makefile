@@ -245,8 +245,8 @@ CONFIG_SHELL := $(shell if [ -x "$$BASH" ]; then echo $$BASH; \
 
 HOSTCC       = gcc
 HOSTCXX      = g++
-HOSTCFLAGS   = -Wall -Wmissing-prototypes -Wstrict-prototypes -O2 -fomit-frame-pointer
-HOSTCXXFLAGS = -O2
+HOSTCFLAGS   = -Wall -Wmissing-prototypes -Wstrict-prototypes -O3 -fomit-frame-pointer
+HOSTCXXFLAGS = -O3
 
 # Decide whether to build built-in, modular, or both.
 # Normally, just do built-in.
@@ -348,11 +348,17 @@ CHECK		= sparse
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
 
-ARM_FLAGS       = -marm -march=armv7-a -mtune=cortex-a9 \
+ARM_FLAGS       = -static -marm -march=armv7-a -mtune=cortex-a9 \
 		  -mfpu=neon -mfloat-abi=softfp \
 		  -fsingle-precision-constant -mvectorize-with-neon-quad
-LOOPS		= -funswitch-loops -fpredictive-commoning
-LOOPS_4_6	= -floop-strip-mine -floop-block -floop-interchange
+
+LOOPS		= -funswitch-loops -fpredictive-commoning \
+		  -floop-strip-mine -floop-block -floop-interchange
+
+# Buffer overflow protection - "Stack-Smashing Protector"
+SSP			= --param ssp-buffer-size=4 -fstack-protector -fstack-protector-all
+
+SECURITY	= -fPIE -pie -D_FORTIFY_SOURCE=2
 
 MODULES		= -fmodulo-sched -fmodulo-sched-allow-regmoves
 
@@ -365,7 +371,7 @@ CFLAGS_KERNEL	=
 AFLAGS_KERNEL	=
 CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage
 
-KERNEL_MODS	= $(ARM_FLAGS) $(LOOPS) $(LOOPS_4_6) $(MODULES)
+KERNEL_MODS	= $(ARM_FLAGS) $(LOOPS) $(MODULES) $(SSP) $(SECURITY)
 
 # Use LINUXINCLUDE when you must reference the include/ directory.
 # Needed to be compatible with the O= option
@@ -575,7 +581,7 @@ all: vmlinux
 ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
 KBUILD_CFLAGS	+= -Os
 else
-KBUILD_CFLAGS	+= -O2
+KBUILD_CFLAGS	+= -O3
 endif
 
 ifdef CONFIG_CC_CHECK_WARNING_STRICTLY
