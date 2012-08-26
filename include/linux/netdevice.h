@@ -1168,7 +1168,7 @@ struct net_device {
 	spinlock_t		addr_list_lock;
 	struct netdev_hw_addr_list	uc;	/* Unicast mac addresses */
 	struct netdev_hw_addr_list	mc;	/* Multicast mac addresses */
-	bool			uc_promisc;
+	int			uc_promisc;
 	unsigned int		promiscuity;
 	unsigned int		allmulti;
 

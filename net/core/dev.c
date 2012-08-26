@@ -4489,10 +4489,10 @@ void __dev_set_rx_mode(struct net_device *dev)
 		 */
 		if (!netdev_uc_empty(dev) && !dev->uc_promisc) {
 			__dev_set_promiscuity(dev, 1);
-			dev->uc_promisc = true;
+			dev->uc_promisc = 1;
 		} else if (netdev_uc_empty(dev) && dev->uc_promisc) {
 			__dev_set_promiscuity(dev, -1);
-			dev->uc_promisc = false;
+			dev->uc_promisc = 0;
 		}
 
 		if (ops->ndo_set_multicast_list)

@@ -225,8 +225,8 @@ int __meminit online_page_cgroup(unsigned long start_pfn,
 	unsigned long start, end, pfn;
 	int fail = 0;
 
-	start = SECTION_ALIGN_DOWN(start_pfn);
-	end = SECTION_ALIGN_UP(start_pfn + nr_pages);
+	start = start_pfn & ~(PAGES_PER_SECTION - 1);
+	end = ALIGN(start_pfn + nr_pages, PAGES_PER_SECTION);
 
 	if (nid == -1) {
 		/*
@@ -258,8 +258,8 @@ int __meminit offline_page_cgroup(unsigned long start_pfn,
 {
 	unsigned long start, end, pfn;
 
-	start = SECTION_ALIGN_DOWN(start_pfn);
-	end = SECTION_ALIGN_UP(start_pfn + nr_pages);
+	start = start_pfn & ~(PAGES_PER_SECTION - 1);
+	end = ALIGN(start_pfn + nr_pages, PAGES_PER_SECTION);
 
 	for (pfn = start; pfn < end; pfn += PAGES_PER_SECTION)
 		__free_page_cgroup(pfn);

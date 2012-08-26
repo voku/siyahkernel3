@@ -133,7 +133,7 @@ error:
 	return err;
 }
 
-const struct pipe_buf_operations page_cache_pipe_buf_ops = {
+static const struct pipe_buf_operations page_cache_pipe_buf_ops = {
 	.can_merge = 0,
 	.map = generic_pipe_buf_map,
 	.unmap = generic_pipe_buf_unmap,
@@ -265,7 +265,7 @@ ssize_t splice_to_pipe(struct pipe_inode_info *pipe,
 	return ret;
 }
 
-void spd_release_page(struct splice_pipe_desc *spd, unsigned int i)
+static void spd_release_page(struct splice_pipe_desc *spd, unsigned int i)
 {
 	page_cache_release(spd->pages[i]);
 }
