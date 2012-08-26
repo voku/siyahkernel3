@@ -188,7 +188,7 @@ static int acl_permission_check(struct inode *inode, int mask, unsigned int flag
 	if (current_user_ns() != inode_userns(inode))
 		goto other_perms;
 
-	if (current_fsuid() == inode->i_uid)
+	if (likely(current_fsuid() == inode->i_uid))
 		mode >>= 6;
 	else {
 		if (IS_POSIXACL(inode) && (mode & S_IRWXG) && check_acl) {
