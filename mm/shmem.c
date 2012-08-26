@@ -1846,7 +1846,6 @@ static ssize_t shmem_file_splice_read(struct file *in, loff_t *ppos,
 	error = 0;
 
 	while (spd.nr_pages < nr_pages) {
-		page = NULL;
 		error = shmem_getpage(inode, index, &page, SGP_CACHE, NULL);
 		if (error)
 			break;
@@ -1869,7 +1868,6 @@ static ssize_t shmem_file_splice_read(struct file *in, loff_t *ppos,
 		page = spd.pages[page_nr];
 
 		if (!PageUptodate(page) || page->mapping != mapping) {
-			page = NULL;
 			error = shmem_getpage(inode, index, &page,
 					SGP_CACHE, NULL);
 			if (error)
@@ -3132,7 +3130,7 @@ struct page *shmem_read_mapping_page_gfp(struct address_space *mapping,
 {
 #ifdef CONFIG_SHMEM
 	struct inode *inode = mapping->host;
-	struct page *page = NULL;
+	struct page *page;
 	int error;
 
 	BUG_ON(mapping->a_ops != &shmem_aops);
