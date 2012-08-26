@@ -531,7 +531,7 @@ void rcu_preempt_note_context_switch(void)
  * notify RCU core processing or task having blocked during the RCU
  * read-side critical section.
  */
-void rcu_read_unlock_special(struct task_struct *t)
+static noinline void rcu_read_unlock_special(struct task_struct *t)
 {
 	int empty;
 	int empty_exp;
