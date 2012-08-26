@@ -1786,6 +1786,7 @@ static ssize_t shmem_file_splice_read(struct file *in, loff_t *ppos,
 				unsigned int flags)
 {
 	struct address_space *mapping = in->f_mapping;
+	struct inode *inode = mapping->host;
 	unsigned int loff, nr_pages, req_pages;
 	struct page *pages[PIPE_DEF_BUFFERS];
 	struct partial_page partial[PIPE_DEF_BUFFERS];
