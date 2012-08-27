@@ -356,6 +356,8 @@ LOOPS_4_6	= -floop-strip-mine -floop-block -floop-interchange
 
 MODULES		= -fmodulo-sched -fmodulo-sched-allow-regmoves
 
+TEST_FLAGS	= -marm -march=armv7-a -mtune=cortex-a9
+
 DISABLED_STORE	= 
 
 CFLAGS_MODULE   =
@@ -365,7 +367,9 @@ CFLAGS_KERNEL	=
 AFLAGS_KERNEL	=
 CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage
 
-KERNEL_MODS	= $(ARM_FLAGS) $(LOOPS) $(LOOPS_4_6) $(MODULES)
+#KERNEL_MODS	= $(ARM_FLAGS) $(LOOPS) $(LOOPS_4_6) $(MODULES)
+
+KERNEL_MODS	= $(TEST_FLAGS)
 
 # Use LINUXINCLUDE when you must reference the include/ directory.
 # Needed to be compatible with the O= option
