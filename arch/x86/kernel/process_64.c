@@ -131,10 +131,8 @@ void cpu_idle(void)
 			__exit_idle();
 		}
 
-		tick_nohz_idle_exit_norcu();
-		preempt_enable_no_resched();
-		schedule();
-		preempt_disable();
+		tick_nohz_idle_exit();
+		schedule_preempt_disabled();
 	}
 }
 
