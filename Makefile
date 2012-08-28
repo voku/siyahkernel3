@@ -348,7 +348,7 @@ CHECK		= sparse
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
 
-ARM_FLAGS       = -static -marm -march=armv7-a -mtune=cortex-a9 \
+ARM_FLAGS       = -pipe -static -marm -march=armv7-a -mtune=cortex-a9 \
 		  -mfpu=neon -mfloat-abi=softfp \
 		  -fsingle-precision-constant -mvectorize-with-neon-quad
 
@@ -362,8 +362,6 @@ SECURITY	= -fPIE -pie -D_FORTIFY_SOURCE=2
 
 MODULES		= -fmodulo-sched -fmodulo-sched-allow-regmoves
 
-TEST_FLAGS	= -marm -march=armv7-a -mtune=cortex-a9
-
 DISABLED_STORE	= 
 
 CFLAGS_MODULE   =
@@ -373,9 +371,7 @@ CFLAGS_KERNEL	=
 AFLAGS_KERNEL	=
 CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage
 
-#KERNEL_MODS	= $(ARM_FLAGS) $(LOOPS) $(LOOPS_4_6) $(MODULES)
-
-KERNEL_MODS	= $(TEST_FLAGS)
+KERNEL_MODS	= $(ARM_FLAGS) $(LOOPS) $(MODULES) $(SSP) $(SECURITY)
 
 # Use LINUXINCLUDE when you must reference the include/ directory.
 # Needed to be compatible with the O= option
