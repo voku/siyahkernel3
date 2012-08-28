@@ -53,7 +53,9 @@ void __noreturn cpu_idle(void)
 		while (!need_resched())
 			barrier();
 
-		schedule_preempt_disabled();
+		preempt_enable_no_resched();
+		schedule();
+		preempt_disable();
 	}
 }
 

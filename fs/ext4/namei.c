@@ -1741,7 +1741,7 @@ static int ext4_add_nondir(handle_t *handle,
  * If the create succeeds, we fill in the inode information
  * with d_instantiate().
  */
-static int ext4_create(struct inode *dir, struct dentry *dentry, int mode,
+static int ext4_create(struct inode *dir, struct dentry *dentry, umode_t mode,
 		       struct nameidata *nd)
 {
 	handle_t *handle;
@@ -1775,7 +1775,7 @@ retry:
 }
 
 static int ext4_mknod(struct inode *dir, struct dentry *dentry,
-		      int mode, dev_t rdev)
+		      umode_t mode, dev_t rdev)
 {
 	handle_t *handle;
 	struct inode *inode;
@@ -1811,7 +1811,7 @@ retry:
 	return err;
 }
 
-static int ext4_mkdir(struct inode *dir, struct dentry *dentry, int mode)
+static int ext4_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 {
 	handle_t *handle;
 	struct inode *inode;
@@ -2550,7 +2550,7 @@ static int ext4_rename(struct inode *old_dir, struct dentry *old_dentry,
 		if (new_inode) {
 			/* checked empty_dir above, can't have another parent,
 			 * ext4_dec_count() won't work for many-linked dirs */
-			new_inode->i_nlink = 0;
+			clear_nlink(new_inode);
 		} else {
 			ext4_inc_count(handle, new_dir);
 			ext4_update_dx_flag(new_dir);

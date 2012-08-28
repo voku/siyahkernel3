@@ -197,6 +197,7 @@ config LCD_S6E39A0X02
 	help
 	  If you have an S6E39A0X02 MIPI AMOLED LCD Panel, say Y to enable its
 	  LCD control driver.
+
 endif # LCD_CLASS_DEVICE
 
 #

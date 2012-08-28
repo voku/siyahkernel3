@@ -4513,7 +4513,7 @@ need_resched:
 	sec_debug_task_log(cpu, rq->curr);
 	post_schedule(rq);
 
-	sched_preempt_enable_no_resched();	
+	preempt_enable_no_resched();
 	if (need_resched())
 		goto need_resched;
 }
@@ -4538,18 +4538,6 @@ asmlinkage void __sched schedule(void)
 	__schedule();
 }
 EXPORT_SYMBOL(schedule);
-
-/**
- * schedule_preempt_disabled - called with preemption disabled
- *
- * Returns with preemption disabled. Note: preempt_count must be 1
- */
-void __sched schedule_preempt_disabled(void)
-{
-	sched_preempt_enable_no_resched();
-	schedule();
-	preempt_disable();
-}
 
 #ifdef CONFIG_MUTEX_SPIN_ON_OWNER
 
@@ -5760,7 +5748,7 @@ SYSCALL_DEFINE0(sched_yield)
 	__release(rq->lock);
 	spin_release(&rq->lock.dep_map, 1, _THIS_IP_);
 	do_raw_spin_unlock(&rq->lock);
-	sched_preempt_enable_no_resched();	
+	preempt_enable_no_resched();
 
 	schedule();
 

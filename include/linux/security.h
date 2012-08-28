@@ -36,6 +36,7 @@
 #include <linux/key.h>
 #include <linux/xfrm.h>
 #include <linux/slab.h>
+#include <linux/xattr.h>
 #include <net/flow.h>
 
 /* Maximum number of letters for an LSM name string */
@@ -146,6 +147,10 @@ static inline unsigned long round_hint_to_min(unsigned long hint)
 extern int mmap_min_addr_handler(struct ctl_table *table, int write,
 				 void __user *buffer, size_t *lenp, loff_t *ppos);
 #endif
+
+/* security_inode_init_security callback function to write xattrs */
+typedef int (*initxattrs) (struct inode *inode,
+			   const struct xattr *xattr_array, void *fs_data);
 
 #ifdef CONFIG_SECURITY
 
@@ -1442,16 +1447,16 @@ struct security_operations {
 				    const struct qstr *qstr, char **name,
 				    void **value, size_t *len);
 	int (*inode_create) (struct inode *dir,
-			     struct dentry *dentry, int mode);
+			     struct dentry *dentry, umode_t mode);
 	int (*inode_link) (struct dentry *old_dentry,
 			   struct inode *dir, struct dentry *new_dentry);
 	int (*inode_unlink) (struct inode *dir, struct dentry *dentry);
 	int (*inode_symlink) (struct inode *dir,
 			      struct dentry *dentry, const char *old_name);
-	int (*inode_mkdir) (struct inode *dir, struct dentry *dentry, int mode);
+	int (*inode_mkdir) (struct inode *dir, struct dentry *dentry, umode_t mode);
 	int (*inode_rmdir) (struct inode *dir, struct dentry *dentry);
 	int (*inode_mknod) (struct inode *dir, struct dentry *dentry,
-			    int mode, dev_t dev);
+			    umode_t mode, dev_t dev);
 	int (*inode_rename) (struct inode *old_dir, struct dentry *old_dentry,
 			     struct inode *new_dir, struct dentry *new_dentry);
 	int (*inode_readlink) (struct dentry *dentry);
@@ -1677,9 +1682,7 @@ int security_quotactl(int cmds, int type, int id, struct super_block *sb);
 int security_quota_on(struct dentry *dentry);
 int security_syslog(int type);
 int security_settime(const struct timespec *ts, const struct timezone *tz);
-int security_vm_enough_memory(long pages);
 int security_vm_enough_memory_mm(struct mm_struct *mm, long pages);
-int security_vm_enough_memory_kern(long pages);
 int security_bprm_set_creds(struct linux_binprm *bprm);
 int security_bprm_check(struct linux_binprm *bprm);
 void security_bprm_committing_creds(struct linux_binprm *bprm);
@@ -1704,17 +1707,20 @@ int security_sb_parse_opts_str(char *options, struct security_mnt_opts *opts);
 int security_inode_alloc(struct inode *inode);
 void security_inode_free(struct inode *inode);
 int security_inode_init_security(struct inode *inode, struct inode *dir,
-				 const struct qstr *qstr, char **name,
-				 void **value, size_t *len);
-int security_inode_create(struct inode *dir, struct dentry *dentry, int mode);
+				 const struct qstr *qstr,
+				 initxattrs initxattrs, void *fs_data);
+int security_old_inode_init_security(struct inode *inode, struct inode *dir,
+				     const struct qstr *qstr, char **name,
+				     void **value, size_t *len);
+int security_inode_create(struct inode *dir, struct dentry *dentry, umode_t mode);
 int security_inode_link(struct dentry *old_dentry, struct inode *dir,
 			 struct dentry *new_dentry);
 int security_inode_unlink(struct inode *dir, struct dentry *dentry);
 int security_inode_symlink(struct inode *dir, struct dentry *dentry,
 			   const char *old_name);
-int security_inode_mkdir(struct inode *dir, struct dentry *dentry, int mode);
+int security_inode_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode);
 int security_inode_rmdir(struct inode *dir, struct dentry *dentry);
-int security_inode_mknod(struct inode *dir, struct dentry *dentry, int mode, dev_t dev);
+int security_inode_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev);
 int security_inode_rename(struct inode *old_dir, struct dentry *old_dentry,
 			  struct inode *new_dir, struct dentry *new_dentry);
 int security_inode_readlink(struct dentry *dentry);
@@ -1915,23 +1921,9 @@ static inline int security_settime(const struct timespec *ts,
 	return cap_settime(ts, tz);
 }
 
-static inline int security_vm_enough_memory(long pages)
-{
-	WARN_ON(current->mm == NULL);
-	return cap_vm_enough_memory(current->mm, pages);
-}
-
 static inline int security_vm_enough_memory_mm(struct mm_struct *mm, long pages)
 {
-	WARN_ON(mm == NULL);
 	return cap_vm_enough_memory(mm, pages);
-}
-
-static inline int security_vm_enough_memory_kern(long pages)
-{
-	/* If current->mm is a kernel thread then we will pass NULL,
-	   for this specific case that is fine */
-	return cap_vm_enough_memory(current->mm, pages);
 }
 
 static inline int security_bprm_set_creds(struct linux_binprm *bprm)
@@ -2035,16 +2027,15 @@ static inline void security_inode_free(struct inode *inode)
 static inline int security_inode_init_security(struct inode *inode,
 						struct inode *dir,
 						const struct qstr *qstr,
-						char **name,
-						void **value,
-						size_t *len)
+						initxattrs initxattrs,
+						void *fs_data)
 {
 	return -EOPNOTSUPP;
 }
 
 static inline int security_inode_create(struct inode *dir,
 					 struct dentry *dentry,
-					 int mode)
+					 umode_t mode)
 {
 	return 0;
 }

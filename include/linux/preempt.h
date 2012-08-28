@@ -33,13 +33,11 @@ do { \
 	barrier(); \
 } while (0)
 
-#define sched_preempt_enable_no_resched() \
+#define preempt_enable_no_resched() \
 do { \
 	barrier(); \
 	dec_preempt_count(); \
 } while (0)
-
-#define preempt_enable_no_resched()	sched_preempt_enable_no_resched()
 
 #define preempt_check_resched() \
 do { \
@@ -85,7 +83,6 @@ do { \
 #else
 
 #define preempt_disable()		do { } while (0)
-#define sched_preempt_enable_no_resched()	do { } while (0)
 #define preempt_enable_no_resched()	do { } while (0)
 #define preempt_enable()		do { } while (0)
 #define preempt_check_resched()		do { } while (0)

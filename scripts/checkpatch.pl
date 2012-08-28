@@ -2574,8 +2574,7 @@ sub process {
 				} else {
 					$cast = $cast2;
 				}
-				WARN("MINMAX",
-				     "$call() should probably be ${call}_t($cast, $arg1, $arg2)\n" . $herecurr);
+				WARN("$call() should probably be ${call}_t($cast, $arg1, $arg2)\n" . $herecurr);
 			}
 		}
 

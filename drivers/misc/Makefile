@@ -78,3 +78,4 @@ obj-$(CONFIG_MACH_M0_CTC)   += cw_tty.o
 
 # Secure OS Mobicore Interface
 obj-$(CONFIG_MOBICORE_SUPPORT)  += tzic.o
+obj-$(CONFIG_USB_SWITCH_FSA9480) += fsa9480.o

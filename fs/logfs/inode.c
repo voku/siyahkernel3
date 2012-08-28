@@ -93,7 +93,7 @@ static struct inode *__logfs_iget(struct super_block *sb, ino_t ino)
 		/* inode->i_nlink == 0 can be true when called from
 		 * block validator */
 		/* set i_nlink to 0 to prevent caching */
-		inode->i_nlink = 0;
+		clear_nlink(inode);
 		logfs_inode(inode)->li_flags |= LOGFS_IF_ZOMBIE;
 		iget_failed(inode);
 		if (!err)
@@ -144,7 +144,6 @@ struct inode *logfs_safe_iget(struct super_block *sb, ino_t ino, int *is_cached)
 static void logfs_i_callback(struct rcu_head *head)
 {
 	struct inode *inode = container_of(head, struct inode, i_rcu);
-	INIT_LIST_HEAD(&inode->i_dentry);
 	kmem_cache_free(logfs_inode_cache, logfs_inode(inode));
 }
 

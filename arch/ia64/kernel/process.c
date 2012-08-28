@@ -330,7 +330,9 @@ cpu_idle (void)
 			normal_xtp();
 #endif
 		}
-		schedule_preempt_disabled();
+		preempt_enable_no_resched();
+		schedule();
+		preempt_disable();
 		check_pgt_cache();
 		if (cpu_is_offline(cpu))
 			play_dead();

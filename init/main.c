@@ -368,7 +368,9 @@ static noinline void __init_refok rest_init(void)
 	 * at least once to get things moving:
 	 */
 	init_idle_bootup_task(current);
-	schedule_preempt_disabled();
+	preempt_enable_no_resched();
+	schedule();
+	preempt_disable();
 
 	/* Call into cpu_idle with preempt disabled */
 	cpu_idle();
@@ -711,7 +713,7 @@ static void __init do_basic_setup(void)
 {
 	cpuset_init_smp();
 	usermodehelper_init();
-	init_tmpfs();
+	shmem_init();
 	driver_init();
 	init_irq_proc();
 	do_ctors();

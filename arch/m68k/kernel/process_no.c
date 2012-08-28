@@ -73,7 +73,9 @@ void cpu_idle(void)
 	/* endless idle loop with no priority at all */
 	while (1) {
 		idle();
-		schedule_preempt_disabled();
+		preempt_enable_no_resched();
+		schedule();
+		preempt_disable();
 	}
 }
 
@@ -156,7 +158,7 @@ void flush_thread(void)
 #ifdef CONFIG_FPU
 	unsigned long zero = 0;
 #endif
-	set_fs(USER_DS);
+
 	current->thread.fs = __USER_DS;
 #ifdef CONFIG_FPU
 	if (!FPU_IS_EMU)

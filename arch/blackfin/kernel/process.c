@@ -94,7 +94,9 @@ void cpu_idle(void)
 			idle();
 		rcu_idle_exit();
 		tick_nohz_idle_exit();
-		schedule_preempt_disabled();
+		preempt_enable_no_resched();
+		schedule();
+		preempt_disable();
 	}
 }
 

@@ -81,7 +81,9 @@ void cpu_idle(void)
 	while (1) {
 		while (!need_resched())
 			idle();
-		schedule_preempt_disabled();
+		preempt_enable_no_resched();
+		schedule();
+		preempt_disable();
 	}
 }
 

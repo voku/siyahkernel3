@@ -131,6 +131,7 @@ void __delete_from_page_cache(struct page *page)
 
 	radix_tree_delete(&mapping->page_tree, page->index);
 	page->mapping = NULL;
+	/* Leave page->index set: truncation lookup relies upon it */
 	mapping->nrpages--;
 	__dec_zone_page_state(page, NR_FILE_PAGES);
 	if (PageSwapBacked(page))
@@ -472,6 +473,7 @@ int add_to_page_cache_locked(struct page *page, struct address_space *mapping,
 			spin_unlock_irq(&mapping->tree_lock);
 		} else {
 			page->mapping = NULL;
+			/* Leave page->index set: truncation relies upon it */
 			spin_unlock_irq(&mapping->tree_lock);
 			mem_cgroup_uncharge_cache_page(page);
 			page_cache_release(page);
@@ -704,9 +706,16 @@ repeat:
 		page = radix_tree_deref_slot(pagep);
 		if (unlikely(!page))
 			goto out;
-		if (radix_tree_deref_retry(page))
-			goto repeat;
-
+		if (radix_tree_exception(page)) {
+			if (radix_tree_deref_retry(page))
+				goto repeat;
+			/*
+			 * Otherwise, shmem/tmpfs must be storing a swap entry
+			 * here as an exceptional entry: so return it without
+			 * attempting to raise page count.
+			 */
+			goto out;
+		}
 		if (!page_cache_get_speculative(page))
 			goto repeat;
 
@@ -743,7 +752,7 @@ struct page *find_lock_page(struct address_space *mapping, pgoff_t offset)
 
 repeat:
 	page = find_get_page(mapping, offset);
-	if (page) {
+	if (page && !radix_tree_exception(page)) {
 		lock_page(page);
 		/* Has the page been truncated? */
 		if (unlikely(page->mapping != mapping)) {
@@ -830,7 +839,7 @@ unsigned find_get_pages(struct address_space *mapping, pgoff_t start,
 	rcu_read_lock();
 restart:
 	nr_found = radix_tree_gang_lookup_slot(&mapping->page_tree,
-				(void ***)pages, start, nr_pages);
+				(void ***)pages, NULL, start, nr_pages);
 	ret = 0;
 	for (i = 0; i < nr_found; i++) {
 		struct page *page;
@@ -839,13 +848,22 @@ repeat:
 		if (unlikely(!page))
 			continue;
 
-		/*
-		 * This can only trigger when the entry at index 0 moves out
-		 * of or back to the root: none yet gotten, safe to restart.
-		 */
-		if (radix_tree_deref_retry(page)) {
-			WARN_ON(start | i);
-			goto restart;
+		if (radix_tree_exception(page)) {
+			if (radix_tree_deref_retry(page)) {
+				/*
+				 * Transient condition which can only trigger
+				 * when entry at index 0 moves out of or back
+				 * to root: none yet gotten, safe to restart.
+				 */
+				WARN_ON(start | i);
+				goto restart;
+			}
+			/*
+			 * Otherwise, shmem/tmpfs must be storing a swap entry
+			 * here as an exceptional entry: so skip over it -
+			 * we only reach this from invalidate_mapping_pages().
+			 */
+			continue;
 		}
 
 		if (!page_cache_get_speculative(page))
@@ -893,7 +911,7 @@ unsigned find_get_pages_contig(struct address_space *mapping, pgoff_t index,
 	rcu_read_lock();
 restart:
 	nr_found = radix_tree_gang_lookup_slot(&mapping->page_tree,
-				(void ***)pages, index, nr_pages);
+				(void ***)pages, NULL, index, nr_pages);
 	ret = 0;
 	for (i = 0; i < nr_found; i++) {
 		struct page *page;
@@ -902,12 +920,22 @@ repeat:
 		if (unlikely(!page))
 			continue;
 
-		/*
-		 * This can only trigger when the entry at index 0 moves out
-		 * of or back to the root: none yet gotten, safe to restart.
-		 */
-		if (radix_tree_deref_retry(page))
-			goto restart;
+		if (radix_tree_exception(page)) {
+			if (radix_tree_deref_retry(page)) {
+				/*
+				 * Transient condition which can only trigger
+				 * when entry at index 0 moves out of or back
+				 * to root: none yet gotten, safe to restart.
+				 */
+				goto restart;
+			}
+			/*
+			 * Otherwise, shmem/tmpfs must be storing a swap entry
+			 * here as an exceptional entry: so stop looking for
+			 * contiguous pages.
+			 */
+			break;
+		}
 
 		if (!page_cache_get_speculative(page))
 			goto repeat;
@@ -967,12 +995,21 @@ repeat:
 		if (unlikely(!page))
 			continue;
 
-		/*
-		 * This can only trigger when the entry at index 0 moves out
-		 * of or back to the root: none yet gotten, safe to restart.
-		 */
-		if (radix_tree_deref_retry(page))
-			goto restart;
+		if (radix_tree_exception(page)) {
+			if (radix_tree_deref_retry(page)) {
+				/*
+				 * Transient condition which can only trigger
+				 * when entry at index 0 moves out of or back
+				 * to root: none yet gotten, safe to restart.
+				 */
+				goto restart;
+			}
+			/*
+			 * This function is never used on a shmem/tmpfs
+			 * mapping, so a swap entry won't be found here.
+			 */
+			BUG();
+		}
 
 		if (!page_cache_get_speculative(page))
 			goto repeat;
@@ -1300,10 +1337,10 @@ int file_read_actor(read_descriptor_t *desc, struct page *page,
 	 * taking the kmap.
 	 */
 	if (!fault_in_pages_writeable(desc->arg.buf, size)) {
-		kaddr = kmap_atomic(page, KM_USER0);
+		kaddr = kmap_atomic(page);
 		left = __copy_to_user_inatomic(desc->arg.buf,
 						kaddr + offset, size);
-		kunmap_atomic(kaddr, KM_USER0);
+		kunmap_atomic(kaddr);
 		if (left == 0)
 			goto success;
 	}
@@ -2027,7 +2064,7 @@ size_t iov_iter_copy_from_user_atomic(struct page *page,
 	size_t copied;
 
 	BUG_ON(!in_atomic());
-	kaddr = kmap_atomic(page, KM_USER0);
+	kaddr = kmap_atomic(page);
 	if (likely(i->nr_segs == 1)) {
 		int left;
 		char __user *buf = i->iov->iov_base + i->iov_offset;
@@ -2037,7 +2074,7 @@ size_t iov_iter_copy_from_user_atomic(struct page *page,
 		copied = __iovec_copy_from_user_inatomic(kaddr + offset,
 						i->iov, i->iov_offset, bytes);
 	}
-	kunmap_atomic(kaddr, KM_USER0);
+	kunmap_atomic(kaddr);
 
 	return copied;
 }

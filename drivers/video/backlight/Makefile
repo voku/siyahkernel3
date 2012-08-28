@@ -21,6 +21,7 @@ obj-$(CONFIG_LCD_S6E8AA0)	+= s6e8aa0.o
 obj-$(CONFIG_LCD_S6D6AA1)	+= s6d6aa1.o
 obj-$(CONFIG_LCD_S6E39A0X02)	+= s6e39a0x02.o
 obj-$(CONFIG_LCD_LMS501KF03)	   += lms501kf03.o
+obj-$(CONFIG_LCD_AMS369FG06)	+= ams369fg06.o
 
 obj-$(CONFIG_BACKLIGHT_CLASS_DEVICE) += backlight.o
 obj-$(CONFIG_BACKLIGHT_ATMEL_PWM)    += atmel-pwm-bl.o
