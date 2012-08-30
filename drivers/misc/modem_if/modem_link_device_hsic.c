@@ -206,7 +206,7 @@ static void usb_rx_retry_work(struct work_struct *work)
 	switch (pipe_data->format) {
 	case IF_USB_FMT_EP:
 		if (usb_ld->if_usb_is_main) {
-			pr_urb("IPC-RX, retry", urb);
+			//pr_urb("IPC-RX, retry", urb);
 			iod_format = IPC_FMT;
 		} else {
 			iod_format = IPC_BOOT;
@@ -217,7 +217,7 @@ static void usb_rx_retry_work(struct work_struct *work)
 		break;
 	case IF_USB_RFS_EP:
 		iod_format = IPC_RFS;
-		pr_urb("RFS-RX, retry", urb);
+		//pr_urb("RFS-RX, retry", urb);
 		break;
 	case IF_USB_CMD_EP:
 		iod_format = IPC_CMD;
@@ -281,7 +281,7 @@ static void usb_rx_complete(struct urb *urb)
 		switch (pipe_data->format) {
 		case IF_USB_FMT_EP:
 			if (usb_ld->if_usb_is_main) {
-				pr_urb("IPC-RX", urb);
+				//pr_urb("IPC-RX", urb);
 				iod_format = IPC_FMT;
 			} else {
 				iod_format = IPC_BOOT;
