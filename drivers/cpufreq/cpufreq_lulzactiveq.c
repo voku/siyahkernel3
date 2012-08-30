@@ -1713,7 +1713,7 @@ static int cpufreq_governor_lulzactive(struct cpufreq_policy *policy,
         cancel_work_sync(&pcpu->up_work);
         cancel_work_sync(&pcpu->down_work);
 
-        mutex_destroy(&ppcu->timer_mutex);
+        mutex_destroy(&pcpu->timer_mutex);
 
         /* releasing timer */
         for_each_cpu(j, policy->cpus) {
