@@ -14,6 +14,18 @@
  *
  */
 
+// TODO
+/* Reminder to myself -> remove logs from dmesg
+e.g.:
+[...]
+<6>IPC-RX(23): 7f 15 00 00 12 00 ff 17 08 03 02 02 02 04 32 36 ...
+<6>IPC-TX(14): 7f 0c 00 00 09 00 18 00 08 05 02 ff 03 7e
+<6>IPC-RX(23): 7f 15 00 00 12 00 ff 18 08 05 02 04 03 02 01 da ...
+<6>IPC-TX(14): 7f 0c 00 00 09 00 19 00 08 05 02 ff 02 7e
+<6>IPC-RX(23): 7f 15 00 00 12 00 ff 19 08 05 02 04 02 02 01 da ...
+[...]
+*/
+
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/device.h>
