@@ -178,11 +178,11 @@ static void __init squash_mem_tags(struct tag *tag)
 			tag->hdr.tag = ATAG_NONE;
 }
 
-const struct machine_desc * __init
-setup_machine_tags(phys_addr_t __atags_pointer, unsigned int machine_nr)
+struct machine_desc * __init setup_machine_tags(phys_addr_t __atags_pointer,
+						unsigned int machine_nr)
 {
 	struct tag *tags = (struct tag *)&default_tags;
-	const struct machine_desc *mdesc = NULL, *p;
+	struct machine_desc *mdesc = NULL, *p;
 	char *from = default_command_line;
 
 	default_tags.mem.start = PHYS_OFFSET;
@@ -207,6 +207,25 @@ setup_machine_tags(phys_addr_t __atags_pointer, unsigned int machine_nr)
 		tags = phys_to_virt(__atags_pointer);
 	else if (mdesc->atag_offset)
 		tags = (void *)(PAGE_OFFSET + mdesc->atag_offset);
+	else if (mdesc->boot_params) {
+#ifdef CONFIG_MMU
+		/*
+		 * We still are executing with a minimal MMU mapping created
+		 * with the presumption that the machine default for this
+		 * is located in the first MB of RAM.  Anything else will
+		 * fault and silently hang the kernel at this point.
+		 */
+		if (mdesc->boot_params < PHYS_OFFSET ||
+		    mdesc->boot_params >= PHYS_OFFSET + SZ_1M) {
+			printk(KERN_WARNING
+			       "Default boot params at physical 0x%08lx out of reach\n",
+			       mdesc->boot_params);
+		} else
+#endif
+		{
+			tags = phys_to_virt(mdesc->boot_params);
+		}
+	}
 
 #if defined(CONFIG_DEPRECATED_PARAM_STRUCT)
 	/*
