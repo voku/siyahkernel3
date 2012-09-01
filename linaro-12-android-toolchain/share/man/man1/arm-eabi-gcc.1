@@ -124,7 +124,7 @@
 .\" ========================================================================
 .\"
 .IX Title "GCC 1"
-.TH GCC 1 "2012-07-01" "gcc-4.7.2" "GNU"
+.TH GCC 1 "2012-07-31" "gcc-4.7.2" "GNU"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -425,7 +425,8 @@ in the following sections.
 \&\-ftree\-loop\-if\-convert\-stores \-ftree\-loop\-im 
 \&\-ftree\-phiprop \-ftree\-loop\-distribution \-ftree\-loop\-distribute\-patterns 
 \&\-ftree\-loop\-ivcanon \-ftree\-loop\-linear \-ftree\-loop\-optimize 
-\&\-ftree\-parallelize\-loops=\fR\fIn\fR \fB\-ftree\-pre \-ftree\-pta \-ftree\-reassoc 
+\&\-ftree\-parallelize\-loops=\fR\fIn\fR \fB\-ftree\-pre \-ftree\-partial\-pre \-ftree\-pta 
+\&\-ftree\-reassoc 
 \&\-ftree\-sink \-ftree\-sra \-ftree\-switch\-conversion \-ftree\-tail\-merge 
 \&\-ftree\-ter \-ftree\-vect\-loop\-version \-ftree\-vectorize \-ftree\-vrp 
 \&\-funit\-at\-a\-time \-funroll\-all\-loops \-funroll\-loops 
@@ -500,7 +501,8 @@ in the following sections.
 \&\-mcaller\-super\-interworking  \-mcallee\-super\-interworking 
 \&\-mtp=\fR\fIname\fR \fB\-mtls\-dialect=\fR\fIdialect\fR 
 \&\fB\-mword\-relocations 
-\&\-mfix\-cortex\-m3\-ldrd\fR
+\&\-mfix\-cortex\-m3\-ldrd 
+\&\-munaligned\-access\fR
 .Sp
 \&\fI\s-1AVR\s0 Options\fR
 \&\fB\-mmcu=\fR\fImcu\fR \fB\-maccumulate\-args \-mbranch\-cost=\fR\fIcost\fR 
@@ -889,8 +891,8 @@ See \s-1RS/6000\s0 and PowerPC Options.
 \&\-m5\-compact  \-m5\-compact\-nofpu 
 \&\-mb  \-ml  \-mdalign  \-mrelax 
 \&\-mbigtable \-mfmovd \-mhitachi \-mrenesas \-mno\-renesas \-mnomacsave 
-\&\-mieee  \-mbitops  \-misize  \-minline\-ic_invalidate \-mpadstruct  \-mspace 
-\&\-mprefergot  \-musermode \-multcost=\fR\fInumber\fR \fB\-mdiv=\fR\fIstrategy\fR 
+\&\-mieee \-mno\-ieee \-mbitops  \-misize  \-minline\-ic_invalidate \-mpadstruct 
+\&\-mspace \-mprefergot  \-musermode \-multcost=\fR\fInumber\fR \fB\-mdiv=\fR\fIstrategy\fR 
 \&\fB\-mdivsi3_libfunc=\fR\fIname\fR \fB\-mfixed\-range=\fR\fIregister-range\fR 
 \&\fB\-madjust\-unroll \-mindexed\-addressing \-mgettrcost=\fR\fInumber\fR \fB\-mpt\-fixed 
 \&\-maccumulate\-outgoing\-args \-minvalid\-symbols \-msoft\-atomic 
@@ -5622,8 +5624,8 @@ invoking \fB\-O2\fR on programs that use computed gotos.
 Optimize yet more.  \fB\-O3\fR turns on all optimizations specified
 by \fB\-O2\fR and also turns on the \fB\-finline\-functions\fR,
 \&\fB\-funswitch\-loops\fR, \fB\-fpredictive\-commoning\fR,
-\&\fB\-fgcse\-after\-reload\fR, \fB\-ftree\-vectorize\fR and
-\&\fB\-fipa\-cp\-clone\fR options.
+\&\fB\-fgcse\-after\-reload\fR, \fB\-ftree\-vectorize\fR,
+\&\fB\-ftree\-partial\-pre\fR and \fB\-fipa\-cp\-clone\fR options.
 .IP "\fB\-O0\fR" 4
 .IX Item "-O0"
 Reduce compilation time and make debugging produce the expected
@@ -6338,6 +6340,10 @@ at \fB\-O\fR and higher.
 .IX Item "-ftree-pre"
 Perform partial redundancy elimination (\s-1PRE\s0) on trees.  This flag is
 enabled by default at \fB\-O2\fR and \fB\-O3\fR.
+.IP "\fB\-ftree\-partial\-pre\fR" 4
+.IX Item "-ftree-partial-pre"
+Make partial redundancy elimination (\s-1PRE\s0) more aggressive.  This flag is
+enabled by default at \fB\-O3\fR.
 .IP "\fB\-ftree\-forwprop\fR" 4
 .IX Item "-ftree-forwprop"
 Perform forward propagation on trees.  This flag is enabled by default
@@ -10156,6 +10162,24 @@ Some Cortex\-M3 cores can cause data corruption when \f(CW\*(C`ldrd\*(C'\fR inst
 with overlapping destination and base registers are used.  This option avoids
 generating these instructions.  This option is enabled by default when
 \&\fB\-mcpu=cortex\-m3\fR is specified.
+.IP "\fB\-munaligned\-access\fR" 4
+.IX Item "-munaligned-access"
+.PD 0
+.IP "\fB\-mno\-unaligned\-access\fR" 4
+.IX Item "-mno-unaligned-access"
+.PD
+Enables (or disables) reading and writing of 16\- and 32\- bit values
+from addresses that are not 16\- or 32\- bit aligned.  By default
+unaligned access is disabled for all pre\-ARMv6 and all ARMv6\-M
+architectures, and enabled for all other architectures.  If unaligned
+access is not enabled then words in packed data structures will be
+accessed a byte at a time.
+.Sp
+The \s-1ARM\s0 attribute \f(CW\*(C`Tag_CPU_unaligned_access\*(C'\fR will be set in the
+generated object file to either true or false, depending upon the
+setting of this option.  If unaligned access is enabled then the
+preprocessor symbol \f(CW\*(C`_\|_ARM_FEATURE_UNALIGNED\*(C'\fR will also be
+defined.
 .PP
 \fI\s-1AVR\s0 Options\fR
 .IX Subsection "AVR Options"
@@ -16901,12 +16925,16 @@ Mark the \f(CW\*(C`MAC\*(C'\fR register as call-clobbered, even if
 \&\fB\-mhitachi\fR is given.
 .IP "\fB\-mieee\fR" 4
 .IX Item "-mieee"
-Increase \s-1IEEE\s0 compliance of floating-point code.
-At the moment, this is equivalent to \fB\-fno\-finite\-math\-only\fR.
-When generating 16\-bit \s-1SH\s0 opcodes, getting IEEE-conforming results for
-comparisons of NANs / infinities incurs extra overhead in every
-floating-point comparison, therefore the default is set to
-\&\fB\-ffinite\-math\-only\fR.
+.PD 0
+.IP "\fB\-mno\-ieee\fR" 4
+.IX Item "-mno-ieee"
+.PD
+Control the \s-1IEEE\s0 compliance of floating-point comparisons, which affects the
+handling of cases where the result of a comparison is unordered.  By default
+\&\fB\-mieee\fR is implicitly enabled.  If \fB\-ffinite\-math\-only\fR is
+enabled \fB\-mno\-ieee\fR is implicitly set, which results in faster
+floating-point greater-equal and less-equal comparisons.  The implcit settings
+can be overridden by specifying either \fB\-mieee\fR or \fB\-mno\-ieee\fR.
 .IP "\fB\-minline\-ic_invalidate\fR" 4
 .IX Item "-minline-ic_invalidate"
 Inline code to invalidate instruction cache entries after setting up

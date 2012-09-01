@@ -1,5 +1,5 @@
 /* Generated automatically by the program 'build/genpreds'
-   from the machine description file '/mnt/jenkins/workspace/linaro-android_toolchain-4.7-2012.07/build/objdir/temp-src/gcc-linaro-4.7-2012.07/gcc/config/arm/arm.md'.  */
+   from the machine description file '/mnt/jenkins/workspace/linaro-android_toolchain-4.7-2012.08/build/objdir/temp-src/gcc-linaro-4.7-2012.08/gcc/config/arm/arm.md'.  */
 
 #ifndef GCC_TM_PREDS_H
 #define GCC_TM_PREDS_H
@@ -42,6 +42,7 @@ extern int arm_rhsm_operand (rtx, enum machine_mode);
 extern int shift_amount_operand (rtx, enum machine_mode);
 extern int const_neon_scalar_shift_amount_operand (rtx, enum machine_mode);
 extern int arm_add_operand (rtx, enum machine_mode);
+extern int arm_adddi_operand (rtx, enum machine_mode);
 extern int arm_addimm_operand (rtx, enum machine_mode);
 extern int arm_not_operand (rtx, enum machine_mode);
 extern int arm_di_operand (rtx, enum machine_mode);
@@ -150,6 +151,7 @@ enum constraint_num
   CONSTRAINT_Da,
   CONSTRAINT_Db,
   CONSTRAINT_Dc,
+  CONSTRAINT_Dd,
   CONSTRAINT_Di,
   CONSTRAINT_Dn,
   CONSTRAINT_Dl,
