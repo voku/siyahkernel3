@@ -166,7 +166,6 @@ static unsigned int get_nr_run_avg(void)
 #define DEF_CPU_UP_RATE				(30)
 #define DEF_CPU_DOWN_RATE			(20)
 #define DEF_FREQ_STEP				(40)
-#define DEF_START_DELAY				(0)
 
 #define UP_THRESHOLD_AT_MIN_FREQ		(60)
 #define FREQ_FOR_RESPONSIVENESS			(500000)
@@ -264,6 +263,7 @@ static struct dbs_tuners {
 	unsigned int dvfs_debug;
 	unsigned int max_freq;
 	unsigned int min_freq;
+	unsigned int dvfs_lat_qos_wants;
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	int early_suspend;
 #endif
@@ -286,7 +286,7 @@ static struct dbs_tuners {
 	.early_suspend = -1,
 #endif
 	.up_threshold_at_min_freq = UP_THRESHOLD_AT_MIN_FREQ,
-	.freq_for_responsiveness = FREQ_FOR_RESPONSIVENESS,
+	.freq_for_responsiveness = FREQ_FOR_RESPONSIVENESS
 };
 
 
@@ -441,6 +441,23 @@ static inline cputime64_t get_cpu_idle_time(unsigned int cpu, cputime64_t *wall)
 	return idle_time;
 }
 
+/*
+ * Find right sampling rate based on sampling_rate and
+ * QoS requests on dvfs latency.
+ */
+static unsigned int effective_sampling_rate(void)
+{
+	unsigned int effective;
+
+	if (dbs_tuners_ins.dvfs_lat_qos_wants)
+		effective = min(dbs_tuners_ins.dvfs_lat_qos_wants,
+				dbs_tuners_ins.sampling_rate);
+	else
+		effective = dbs_tuners_ins.sampling_rate;
+
+	return max(effective, min_sampling_rate);
+}
+
 static inline cputime64_t get_cpu_iowait_time(unsigned int cpu,
 					      cputime64_t *wall)
 {
@@ -583,9 +600,12 @@ define_one_global_rw(hotplug_rq_4_0);
 static void update_sampling_rate(unsigned int new_rate)
 {
 	int cpu;
+	unsigned int effective;
 
-	dbs_tuners_ins.sampling_rate = new_rate
-				     = max(new_rate, min_sampling_rate);
+	if (new_rate)
+		dbs_tuners_ins.sampling_rate = max(new_rate, min_sampling_rate);
+
+	effective = effective_sampling_rate();
 
 	for_each_online_cpu(cpu) {
 		struct cpufreq_policy *policy;
@@ -610,13 +630,12 @@ static void update_sampling_rate(unsigned int new_rate)
 
 
 		if (time_before(next_sampling, appointed_at)) {
-
 			mutex_unlock(&dbs_info->timer_mutex);
 			cancel_delayed_work_sync(&dbs_info->work);
 			mutex_lock(&dbs_info->timer_mutex);
 
 			schedule_delayed_work_on(dbs_info->cpu, &dbs_info->work,
-						 usecs_to_jiffies(new_rate));
+						 usecs_to_jiffies(effective));
 
 		}
 		mutex_unlock(&dbs_info->timer_mutex);
@@ -1181,7 +1200,9 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 		prev_iowait_time = j_dbs_info->prev_cpu_iowait;
 
 		cur_idle_time = get_cpu_idle_time(j, &cur_wall_time);
-		cur_iowait_time = get_cpu_iowait_time(j, &cur_wall_time);
+
+		if (dbs_tuners_ins.io_is_busy)
+			cur_iowait_time = get_cpu_iowait_time(j, &cur_wall_time);
 
 		wall_time = (unsigned int) cputime64_sub(cur_wall_time,
 							 prev_wall_time);
@@ -1191,9 +1212,11 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 							 prev_idle_time);
 		j_dbs_info->prev_cpu_idle = cur_idle_time;
 
-		iowait_time = (unsigned int) cputime64_sub(cur_iowait_time,
-							   prev_iowait_time);
-		j_dbs_info->prev_cpu_iowait = cur_iowait_time;
+		if (dbs_tuners_ins.io_is_busy) {
+			iowait_time = (unsigned int) cputime64_sub(cur_iowait_time,
+							   	prev_iowait_time);
+			j_dbs_info->prev_cpu_iowait = cur_iowait_time;
+		}
 
 		if (dbs_tuners_ins.ignore_nice) {
 			cputime64_t cur_nice;
@@ -1315,8 +1338,8 @@ static void do_dbs_timer(struct work_struct *work)
 	/* We want all CPUs to do sampling nearly on
 	 * same jiffy
 	 */
-	delay = usecs_to_jiffies(dbs_tuners_ins.sampling_rate
-				 * dbs_info->rate_mult);
+	delay = usecs_to_jiffies(effective_sampling_rate()
+		* dbs_info->rate_mult);
 
 	if (num_online_cpus() > 1)
 		delay -= jiffies % delay;
@@ -1328,17 +1351,19 @@ static void do_dbs_timer(struct work_struct *work)
 static inline void dbs_timer_init(struct cpu_dbs_info_s *dbs_info)
 {
 	/* We want all CPUs to do sampling nearly on same jiffy */
-	int delay = usecs_to_jiffies(DEF_START_DELAY * 1000 * 1000
-				     + dbs_tuners_ins.sampling_rate);
+	int delay = usecs_to_jiffies(effective_sampling_rate());
+
+#if 0
 	if (num_online_cpus() > 1)
 		delay -= jiffies % delay;
+#endif
 
 	INIT_DELAYED_WORK_DEFERRABLE(&dbs_info->work, do_dbs_timer);
 	INIT_WORK(&dbs_info->up_work, cpu_up_work);
 	INIT_WORK(&dbs_info->down_work, cpu_down_work);
 
 	queue_delayed_work_on(dbs_info->cpu, dvfs_workqueue,
-			      &dbs_info->work, delay + 2 * HZ);
+			      &dbs_info->work, 10 * delay);
 }
 
 static inline void dbs_timer_exit(struct cpu_dbs_info_s *dbs_info)

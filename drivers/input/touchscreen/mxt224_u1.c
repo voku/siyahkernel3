@@ -1269,9 +1269,9 @@ static int __devinit mxt224_init_touch_driver(struct mxt224_data *data)
 	kfree(object_table);
 	return ret;
 }
-#ifdef CONFIG_KEYBOARD_CYPRESS_SAMMY_CM9
 extern void gpu_boost_on_touch(void);
 
+#ifdef CONFIG_KEYBOARD_CYPRESS_SAMMY_CM9
 void (*mxt224_touch_cb)(void) = NULL;
 #endif
 #ifdef CONFIG_KEYBOARD_CYPRESS_AOKP
@@ -1543,10 +1543,12 @@ static void report_input_data(struct mxt224_data *data)
 #ifdef CONFIG_KEYBOARD_CYPRESS_AOKP
 		if (flash_timeout)
 			flash_led_buttons(flash_timeout);
+
+		if (touch_is_pressed)
+			gpu_boost_on_touch();
 #endif
 #ifdef CONFIG_KEYBOARD_CYPRESS_SAMMY_CM9
-		if (touch_is_pressed && mxt224_touch_cb != NULL)
-		{
+		if (touch_is_pressed && mxt224_touch_cb != NULL) {
 			(*mxt224_touch_cb)();
 			gpu_boost_on_touch();
 		}

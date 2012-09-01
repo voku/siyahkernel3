@@ -540,8 +540,7 @@ static int __init exynos4_pm_hotplug_init(void)
 	}
 	
 	ret = sysfs_create_group(&second_core_device.this_device->kobj, &second_core_group);
-	if (ret)
-	{
+	if (ret) {
 		printk(KERN_ERR "failed at(%d)\n", __LINE__);
 		return ret;
 	}
@@ -566,23 +565,19 @@ static int standhotplug_cpufreq_policy_notifier_call(struct notifier_block *this
 		if (
 			(!strnicmp(policy->governor->name, "pegasusq", CPUFREQ_NAME_LEN)) ||
 			(!strnicmp(policy->governor->name, "lulzactiveq", CPUFREQ_NAME_LEN)) ||
-			(!strnicmp(policy->governor->name, "hotplug", CPUFREQ_NAME_LEN)) ||
-			(!strnicmp(policy->governor->name, "assplug", CPUFREQ_NAME_LEN))
-			) 
+			(!strnicmp(policy->governor->name, "abussplug", CPUFREQ_NAME_LEN)) ||
+			(!strnicmp(policy->governor->name, "hotplug", CPUFREQ_NAME_LEN))
+			)
 		{
-			if(standhotplug_enabled)
-			{
+			if (standhotplug_enabled) {
 				DBG_PRINT("Stand-hotplug is disabled: governor=%s\n",
 								policy->governor->name);
 				mutex_lock(&hotplug_lock);
 				standhotplug_enabled = false;
 				mutex_unlock(&hotplug_lock);
 			}
-		} 
-		else
-		{
-			if(!standhotplug_enabled)
-			{
+		} else {
+			if (!standhotplug_enabled) {
 				DBG_PRINT("Stand-hotplug is enabled: governor=%s\n",
 								policy->governor->name);
 				mutex_lock(&hotplug_lock);

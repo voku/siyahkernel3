@@ -457,7 +457,7 @@ static void gpio_keys_report_event(struct gpio_button_data *bdata)
 		input_event(input, type, button->code, !!state);
 		if (button->code == KEY_POWER)
 			printk(KERN_DEBUG"[keys]PWR %d\n", !!state);
-		if (!!state) gpu_boost_on_touch();
+		if(!!state) gpu_boost_on_touch();
 	}
 
 	input_sync(input);

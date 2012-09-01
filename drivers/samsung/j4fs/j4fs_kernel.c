@@ -1120,17 +1120,17 @@ int j4fs_add_nondir(struct dentry *dentry, struct inode *inode)
  * If the create succeeds, we fill in the inode information
  * with d_instantiate().
  */
-int j4fs_create (struct inode * dir, struct dentry * dentry, int mode, struct nameidata *nd)
+int j4fs_create (struct inode * dir, struct dentry * dentry, umode_t mode, struct nameidata *nd)
 {
 	struct inode * inode;
-	int err=-1;
+	int err = -1;
 
-	if(j4fs_panic==1) {
-		J4FS_T(J4FS_TRACE_ALWAYS,("%s %d: j4fs panic\n",__FUNCTION__,__LINE__));
+	if (j4fs_panic == 1) {
+		J4FS_T(J4FS_TRACE_ALWAYS, ("%s %d: j4fs panic\n", __FUNCTION__, __LINE__));
 		return err;
 	}
 
-	J4FS_T(J4FS_TRACE_FS,("%s %d\n",__FUNCTION__,__LINE__));
+	J4FS_T(J4FS_TRACE_FS, ("%s %d\n", __FUNCTION__, __LINE__));
 
 	inode = j4fs_new_inode(dir, dentry, mode);
 
