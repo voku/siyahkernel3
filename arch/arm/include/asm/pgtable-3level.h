@@ -77,6 +77,7 @@
 #define L_PTE_XN		(_AT(pteval_t, 1) << 54)	/* XN */
 #define L_PTE_DIRTY		(_AT(pteval_t, 1) << 55)	/* unused */
 #define L_PTE_SPECIAL		(_AT(pteval_t, 1) << 56)	/* unused */
+#define L_PTE_NONE		(_AT(pteval_t, 1) << 57)	/* PROT_NONE */
 
 #define PMD_SECT_VALID		(_AT(pmdval_t, 1) << 0)
 #define PMD_SECT_DIRTY		(_AT(pmdval_t, 1) << 55)
