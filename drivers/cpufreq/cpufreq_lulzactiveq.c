@@ -721,9 +721,14 @@ static void cpufreq_lulzactive_timer(unsigned long data)
         dbs_tuners_ins.dec_cpu_load = dbs_tuners_ins.dec_cpu_load - (dbs_tuners_ins.dec_cpu_load - dbs_tuners_ins.inc_cpu_load) - 1;
     }
 
+#if 0 // FIXME!
+//drivers/cpufreq/cpufreq_lulzactiveq.c: In function 'cpufreq_lulzactive_timer':
+//drivers/cpufreq/cpufreq_lulzactiveq.c:725:8: warning: format '%d' expects argument of type 'int', but argument 2 has type 'long unsigned int' [-Wformat]
+
     if (dbs_tuners_ins.dvfs_debug) {
        printk (KERN_ERR "CPU in function = %d, CPU in struct = %d.\n", data, pcpu->cpu);
     }
+#endif
 
     /*
      * Once pcpu->timer_run_time is updated to >= pcpu->idle_exit_time,

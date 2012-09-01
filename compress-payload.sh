@@ -15,6 +15,7 @@ xz -zekv9 su
 mv Superuser.apk.xz res/misc/payload/
 mv su.xz res/misc/payload/
 
+rm -f ../payload.tar
 tar -cv res > payload.tar 
 stat payload.tar
 mv payload.tar ../
