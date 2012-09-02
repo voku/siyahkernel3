@@ -105,7 +105,7 @@ static int console_locked, console_suspended;
  * It is also used in interesting ways to provide interlocking in
  * console_unlock();.
  */
-static DEFINE_SPINLOCK(logbuf_lock);
+static DEFINE_RAW_SPINLOCK(logbuf_lock);
 
 #define LOG_BUF_MASK (log_buf_len-1)
 #define LOG_BUF(idx) (log_buf[(idx) & LOG_BUF_MASK])
@@ -220,7 +220,7 @@ void __init setup_log_buf(int early)
 	sec_debug_aux_log(SEC_DEBUG_AUXLOG_LOGBUF_LOCK_CHANGE,
 			"+ %s: spin_lock_irqsave logbuf_lock", __func__);
 #endif
-	spin_lock_irqsave(&logbuf_lock, flags);
+	raw_spin_lock_irqsave(&logbuf_lock, flags);
 #ifdef CONFIG_MACH_PX
 	sec_debug_aux_log(SEC_DEBUG_AUXLOG_LOGBUF_LOCK_CHANGE,
 			"- %s: spin_lock_irqsave logbuf_lock", __func__);
@@ -242,7 +242,7 @@ void __init setup_log_buf(int early)
 	log_start -= offset;
 	con_start -= offset;
 	log_end -= offset;
-	spin_unlock_irqrestore(&logbuf_lock, flags);
+	raw_spin_unlock_irqrestore(&logbuf_lock, flags);
 
 	pr_info("log_buf_len: %d\n", log_buf_len);
 	pr_info("early log buf free: %d(%d%%)\n",
@@ -331,7 +331,7 @@ int log_buf_copy(char *dest, int idx, int len)
 		sec_debug_aux_log(SEC_DEBUG_AUXLOG_LOGBUF_LOCK_CHANGE,
 			"+ %s: spin_lock_irq logbuf_lock", __func__);
 #endif
-		spin_lock_irq(&logbuf_lock);
+		raw_spin_lock_irq(&logbuf_lock);
 #ifdef CONFIG_MACH_PX
 		sec_debug_aux_log(SEC_DEBUG_AUXLOG_LOGBUF_LOCK_CHANGE,
 			"- %s: spin_lock_irq logbuf_lock", __func__);
@@ -352,7 +352,7 @@ int log_buf_copy(char *dest, int idx, int len)
 	}
 
 	if (took_lock)
-		spin_unlock_irq(&logbuf_lock);
+		raw_spin_unlock_irq(&logbuf_lock);
 
 	return ret;
 }
@@ -436,7 +436,7 @@ int do_syslog(int type, char __user *buf, int len, bool from_file)
 		sec_debug_aux_log(SEC_DEBUG_AUXLOG_LOGBUF_LOCK_CHANGE,
 			"+ %s: spin_lock_irq logbuf_lock", __func__);
 #endif
-		spin_lock_irq(&logbuf_lock);
+		raw_spin_lock_irq(&logbuf_lock);
 #ifdef CONFIG_MACH_PX
 		sec_debug_aux_log(SEC_DEBUG_AUXLOG_LOGBUF_LOCK_CHANGE,
 			"- %s: spin_lock_irq logbuf_lock", __func__);
@@ -444,7 +444,7 @@ int do_syslog(int type, char __user *buf, int len, bool from_file)
 		while (!error && (log_start != log_end) && i < len) {
 			c = LOG_BUF(log_start);
 			log_start++;
-			spin_unlock_irq(&logbuf_lock);
+			raw_spin_unlock_irq(&logbuf_lock);
 			error = __put_user(c,buf);
 			buf++;
 			i++;
@@ -453,13 +453,13 @@ int do_syslog(int type, char __user *buf, int len, bool from_file)
 			sec_debug_aux_log(SEC_DEBUG_AUXLOG_LOGBUF_LOCK_CHANGE,
 				"+ %s: spin_lock_irq logbuf_lock", __func__);
 #endif
-			spin_lock_irq(&logbuf_lock);
+			raw_spin_lock_irq(&logbuf_lock);
 #ifdef CONFIG_MACH_PX
 			sec_debug_aux_log(SEC_DEBUG_AUXLOG_LOGBUF_LOCK_CHANGE,
 				"- %s: spin_lock_irq logbuf_lock", __func__);
 #endif
 		}
-		spin_unlock_irq(&logbuf_lock);
+		raw_spin_unlock_irq(&logbuf_lock);
 		if (!error)
 			error = i;
 		break;
@@ -486,7 +486,7 @@ int do_syslog(int type, char __user *buf, int len, bool from_file)
 		sec_debug_aux_log(SEC_DEBUG_AUXLOG_LOGBUF_LOCK_CHANGE,
 			"+ %s: spin_lock_irq logbuf_lock", __func__);
 #endif
-		spin_lock_irq(&logbuf_lock);
+		raw_spin_lock_irq(&logbuf_lock);
 #ifdef CONFIG_MACH_PX
 		sec_debug_aux_log(SEC_DEBUG_AUXLOG_LOGBUF_LOCK_CHANGE,
 			"- %s: spin_lock_irq logbuf_lock", __func__);
@@ -507,20 +507,20 @@ int do_syslog(int type, char __user *buf, int len, bool from_file)
 			if (j + log_buf_len < log_end)
 				break;
 			c = LOG_BUF(j);
-			spin_unlock_irq(&logbuf_lock);
+			raw_spin_unlock_irq(&logbuf_lock);
 			error = __put_user(c,&buf[count-1-i]);
 			cond_resched();
 #ifdef CONFIG_MACH_PX
 			sec_debug_aux_log(SEC_DEBUG_AUXLOG_LOGBUF_LOCK_CHANGE,
 				"+ %s: spin_lock_irq logbuf_lock", __func__);
 #endif
-			spin_lock_irq(&logbuf_lock);
+			raw_spin_lock_irq(&logbuf_lock);
 #ifdef CONFIG_MACH_PX
 			sec_debug_aux_log(SEC_DEBUG_AUXLOG_LOGBUF_LOCK_CHANGE,
 				"- %s: spin_lock_irq logbuf_lock", __func__);
 #endif
 		}
-		spin_unlock_irq(&logbuf_lock);
+		raw_spin_unlock_irq(&logbuf_lock);
 		if (error)
 			break;
 		error = i;
@@ -772,7 +772,7 @@ void register_log_char_hook(void (*f) (char c))
 	sec_debug_aux_log(SEC_DEBUG_AUXLOG_LOGBUF_LOCK_CHANGE,
 		"+ %s: spin_lock_irqsave logbuf_lock", __func__);
 #endif
-	spin_lock_irqsave(&logbuf_lock, flags);
+	raw_spin_lock_irqsave(&logbuf_lock, flags);
 #ifdef CONFIG_MACH_PX
 	sec_debug_aux_log(SEC_DEBUG_AUXLOG_LOGBUF_LOCK_CHANGE,
 		"- %s: spin_lock_irqsave logbuf_lock", __func__);
@@ -784,7 +784,7 @@ void register_log_char_hook(void (*f) (char c))
 
 	log_char_hook = f;
 
-	spin_unlock_irqrestore(&logbuf_lock, flags);
+	raw_spin_unlock_irqrestore(&logbuf_lock, flags);
 }
 EXPORT_SYMBOL(register_log_char_hook);
 #endif
@@ -822,7 +822,7 @@ static void zap_locks(void)
 	oops_timestamp = jiffies;
 
 	/* If a crash is occurring, make sure we can't deadlock */
-	spin_lock_init(&logbuf_lock);
+	raw_spin_lock_init(&logbuf_lock);
 	/* And make sure that we print immediately */
 	sema_init(&console_sem, 1);
 }
@@ -950,7 +950,7 @@ static int console_trylock_for_printk(unsigned int cpu)
 		}
 	}
 	printk_cpu = UINT_MAX;
-	spin_unlock(&logbuf_lock);
+	raw_spin_unlock(&logbuf_lock);
 	return retval;
 }
 static const char recursion_bug_msg [] =
@@ -1014,7 +1014,7 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 	sec_debug_aux_log(SEC_DEBUG_AUXLOG_LOGBUF_LOCK_CHANGE,
 		"+ %s: spin_lock logbuf_lock", __func__);
 #endif
-	spin_lock(&logbuf_lock);
+	raw_spin_lock(&logbuf_lock);
 #ifdef CONFIG_MACH_PX
 	sec_debug_aux_log(SEC_DEBUG_AUXLOG_LOGBUF_LOCK_CHANGE,
 		"- %s: spin_lock logbuf_lock", __func__);
@@ -1447,7 +1447,7 @@ void console_unlock(void)
 		sec_debug_aux_log(SEC_DEBUG_AUXLOG_LOGBUF_LOCK_CHANGE,
 			"+ %s: spin_lock_irqsave logbuf_lock", __func__);
 #endif
-		spin_lock_irqsave(&logbuf_lock, flags);
+		raw_spin_lock_irqsave(&logbuf_lock, flags);
 #ifdef CONFIG_MACH_PX
 		sec_debug_aux_log(SEC_DEBUG_AUXLOG_LOGBUF_LOCK_CHANGE,
 			"- %s: spin_lock_irqsave logbuf_lock", __func__);
@@ -1458,7 +1458,7 @@ void console_unlock(void)
 		_con_start = con_start;
 		_log_end = log_end;
 		con_start = log_end;		/* Flush */
-		spin_unlock(&logbuf_lock);
+		raw_spin_unlock(&logbuf_lock);
 		stop_critical_timings();	/* don't trace print latency */
 		call_console_drivers(_con_start, _log_end);
 		start_critical_timings();
@@ -1471,7 +1471,7 @@ void console_unlock(void)
 		exclusive_console = NULL;
 
 	up(&console_sem);
-	spin_unlock_irqrestore(&logbuf_lock, flags);
+	raw_spin_unlock_irqrestore(&logbuf_lock, flags);
 	if (wake_klogd)
 		wake_up_klogd();
 }
@@ -1705,13 +1705,13 @@ void register_console(struct console *newcon)
 		sec_debug_aux_log(SEC_DEBUG_AUXLOG_LOGBUF_LOCK_CHANGE,
 			"+ %s: spin_lock_irqsave logbuf_lock", __func__);
 #endif
-		spin_lock_irqsave(&logbuf_lock, flags);
+		raw_spin_lock_irqsave(&logbuf_lock, flags);
 #ifdef CONFIG_MACH_PX
 		sec_debug_aux_log(SEC_DEBUG_AUXLOG_LOGBUF_LOCK_CHANGE,
 			"- %s: spin_lock_irqsave logbuf_lock", __func__);
 #endif
 		con_start = log_start;
-		spin_unlock_irqrestore(&logbuf_lock, flags);
+		raw_spin_unlock_irqrestore(&logbuf_lock, flags);
 		/*
 		 * We're about to replay the log buffer.  Only do this to the
 		 * just-registered console to avoid excessive message spam to
@@ -1922,14 +1922,14 @@ void kmsg_dump(enum kmsg_dump_reason reason)
 	sec_debug_aux_log(SEC_DEBUG_AUXLOG_LOGBUF_LOCK_CHANGE,
 		"+ %s: spin_lock_irqsave logbuf_lock", __func__);
 #endif
-	spin_lock_irqsave(&logbuf_lock, flags);
+	raw_spin_lock_irqsave(&logbuf_lock, flags);
 #ifdef CONFIG_MACH_PX
 	sec_debug_aux_log(SEC_DEBUG_AUXLOG_LOGBUF_LOCK_CHANGE,
 		"- %s: spin_lock_irqsave logbuf_lock", __func__);
 #endif
 	end = log_end & LOG_BUF_MASK;
 	chars = logged_chars;
-	spin_unlock_irqrestore(&logbuf_lock, flags);
+	raw_spin_unlock_irqrestore(&logbuf_lock, flags);
 
 	if (chars > end) {
 		s1 = log_buf + log_buf_len - chars + end;
