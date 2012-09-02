@@ -16,6 +16,7 @@
 #include <linux/memblock.h>
 #include <linux/fs.h>
 
+#include <asm/cp15.h>
 #include <asm/cputype.h>
 #include <asm/sections.h>
 #include <asm/cachetype.h>

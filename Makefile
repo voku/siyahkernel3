@@ -348,6 +348,8 @@ CHECK		= sparse
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
 
+LOW_ARM_FLAGS	= -march=armv7-a -mtune=cortex-a9
+
 ARM_FLAGS       = -pipe -marm -march=armv7-a -mtune=cortex-a9 \
 		  -mfpu=neon -mfloat-abi=softfp \
 		  -fsingle-precision-constant -mvectorize-with-neon-quad
@@ -365,7 +367,8 @@ CFLAGS_KERNEL	=
 AFLAGS_KERNEL	=
 CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage
 
-KERNEL_MODS	= $(ARM_FLAGS) $(LOOPS) $(LOOPS_4_6) $(MODULES)
+KERNEL_MODS	= $(LOW_ARM_FLAGS) $(MODULES)
+#DISABLED_KERNEL_MODS	= $(ARM_FLAGS) $(LOOPS) $(LOOPS_4_6)
 
 # Use LINUXINCLUDE when you must reference the include/ directory.
 # Needed to be compatible with the O= option
@@ -380,8 +383,8 @@ KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -fno-strict-aliasing -fno-common \
 		   -Werror-implicit-function-declaration \
 		   -Wno-format-security \
-		   -fno-delete-null-pointer-checks
-#		   $(KERNEL_MODS)
+		   -fno-delete-null-pointer-checks \
+		   $(KERNEL_MODS)
 
 KBUILD_AFLAGS_KERNEL :=
 KBUILD_CFLAGS_KERNEL :=
