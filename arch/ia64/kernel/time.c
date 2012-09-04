@@ -449,7 +449,7 @@ void update_vsyscall_tz(void)
 {
 }
 
-void update_vsyscall(struct timespec *wall, struct timespec *wtm,
+void update_vsyscall_old(struct timespec *wall, struct timespec *wtm,
 			struct clocksource *c, u32 mult)
 {
         unsigned long flags;
