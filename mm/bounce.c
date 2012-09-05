@@ -203,9 +203,18 @@ static void __blk_queue_bounce(struct request_queue *q, struct bio **bio_orig,
 	struct bio *bio = NULL;
 	int i, rw = bio_data_dir(*bio_orig);
 	struct bio_vec *to, *from;
+	unsigned i;
 
-	bio_for_each_segment(from, *bio_orig, i) {
-		page = from->bv_page;
+	bio_for_each_segment(from, *bio_orig, i)
+		if (page_to_pfn(from->bv_page) > queue_bounce_pfn(q))
+			goto bounce;
+
+	return;
+bounce:
+	bio = bio_clone_bioset(*bio_orig, GFP_NOIO, fs_bio_set);
+
+	bio_for_each_segment_all(to, bio, i) {
+		struct page *page = to->bv_page;
 
 		/*
 		 * is destination page below bounce pfn?
