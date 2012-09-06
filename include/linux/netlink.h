@@ -164,7 +164,7 @@ static inline struct nlmsghdr *nlmsg_hdr(const struct sk_buff *skb)
 }
 
 struct netlink_skb_parms {
-	struct ucred		creds;		/* Skb credentials	*/
+	struct scm_creds	creds;		/* Skb credentials	*/
 	__u32			pid;
 	__u32			dst_group;
 	struct sock		*ssk;
