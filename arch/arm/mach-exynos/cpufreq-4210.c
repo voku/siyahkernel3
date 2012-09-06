@@ -103,10 +103,10 @@ static unsigned int clkdiv_cpu0[CPUFREQ_LEVEL_END][7] = {
 	{ 0, 3, 7, 3, 3, 1, 7 },  /* ARM L11: 500MHz */
 	{ 0, 3, 7, 3, 3, 1, 7 },  /* ARM L12: 400MHz */
 	{ 0, 3, 7, 3, 3, 1, 7 },  /* ARM L13: 300MHz */
-	{ 0, 1, 3, 1, 3, 1, 0 },  /* ARM L14: 200MHz */
-	{ 0, 1, 3, 1, 3, 1, 0 },  /* ARM L15: 100MHz */
-	{ 0, 1, 3, 1, 3, 1, 0 },  /* ARM L16: 50MHz */
-	{ 0, 1, 3, 1, 3, 1, 0 },  /* ARM L17: 25MHz */
+	{ 0, 1, 3, 1, 3, 1, 7 },  /* ARM L14: 200MHz */
+	{ 0, 1, 3, 1, 3, 1, 7 },  /* ARM L15: 100MHz */
+	{ 0, 1, 3, 1, 3, 1, 7 },  /* ARM L16: 50MHz */
+	{ 0, 1, 3, 1, 3, 1, 7 },  /* ARM L17: 25MHz */
 };
 
 static unsigned int clkdiv_cpu1[CPUFREQ_LEVEL_END][2] = {

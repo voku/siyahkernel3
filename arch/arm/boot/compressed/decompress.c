@@ -1,8 +1,6 @@
-#define _LINUX_STRING_H_
 
 #include <linux/compiler.h>	/* for inline */
-#include <linux/types.h>	/* for size_t */
-#include <linux/stddef.h>	/* for NULL */
+#include <linux/types.h>
 #include <linux/linkage.h>
 #include <asm/string.h>
 

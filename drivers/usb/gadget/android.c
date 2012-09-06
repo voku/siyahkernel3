@@ -209,11 +209,10 @@ static void android_work(struct work_struct *data)
 
 	if (uevent_envp) {
 		kobject_uevent_env(&dev->dev->kobj, KOBJ_CHANGE, uevent_envp);
-		printk(KERN_DEBUG "usb: %s sent uevent %s\n",
-			 __func__, uevent_envp[0]);
+		pr_info("%s: sent uevent %s\n", __func__, uevent_envp[0]);
 	} else {
-		printk(KERN_DEBUG "usb: %s did not send uevent (%d %d %p)\n",
-		 __func__, dev->connected, dev->sw_connected, cdev->config);
+		pr_info("%s: did not send uevent (%d %d %p)\n", __func__,
+			 dev->connected, dev->sw_connected, cdev->config);
 	}
 }
 
@@ -237,7 +236,6 @@ static void android_disable(struct android_dev *dev)
 
 	if (dev->disable_depth++ == 0) {
 		usb_gadget_disconnect(cdev->gadget);
-		msleep(50);
 		/* Cancel pending control requests */
 		usb_ep_dequeue(cdev->gadget->ep0, cdev->req);
 		usb_remove_config(cdev, &android_config_driver);
@@ -796,24 +794,33 @@ static int mass_storage_function_init(struct android_usb_function *f,
 		}
 	} else {
 #endif
-		/* original mainline code */
-		printk(KERN_DEBUG "usb: %s pdata is not available. nluns=1\n",
-				__func__);
-		config->fsg.nluns = 1;
-		config->fsg.luns[0].removable = 1;
+        // default number of luns
+        config->fsg.nluns = 2;
+        for (i = 0; i < config->fsg.nluns; i++) {
+            config->fsg.luns[i].removable = 1;
+            config->fsg.luns[i].nofua = 1;
+        }
 
-		common = fsg_common_init(NULL, cdev, &config->fsg);
-		if (IS_ERR(common)) {
-			kfree(config);
-			return PTR_ERR(common);
-		}
+        common = fsg_common_init(NULL, cdev, &config->fsg);
+        if (IS_ERR(common)) {
+            kfree(config);
+            return PTR_ERR(common);
+        }
 
-		err = sysfs_create_link(&f->dev->kobj,
-				&common->luns[0].dev.kobj,
-				"lun");
-		if (err) {
-			kfree(config);
-			return err;
+        for (i = 0; i < config->fsg.nluns; i++) {
+            char luns[5];
+            err = snprintf(luns, 5, "lun%d", i);
+            if (err == 0) {
+                printk(KERN_ERR "usb: %s snprintf error\n", __func__);
+                return err;
+            }
+            err = sysfs_create_link(&f->dev->kobj,
+                        &common->luns[i].dev.kobj,
+                        luns);
+            if (err) {
+                kfree(config);
+                return err;
+            }
 		}
 #ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
 	}

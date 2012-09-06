@@ -702,14 +702,14 @@ static struct cgroup_subsys_state *bfqio_create(struct cgroup_subsys *subsys,
  * will not be destroyed until the tasks sharing the ioc die.
  */
 static int bfqio_can_attach(struct cgroup_subsys *subsys, struct cgroup *cgroup,
-			    struct task_struct *tsk)
+			    struct cgroup_taskset *tset)
 {
 	struct io_context *ioc;
 	int ret = 0;
 
 	/* task_lock() is needed to avoid races with exit_io_context() */
-	task_lock(tsk);
-	ioc = tsk->io_context;
+	task_lock(cgroup_taskset_first(tset));
+	ioc = cgroup_taskset_first(tset)->io_context;
 	if (ioc != NULL && atomic_read(&ioc->nr_tasks) > 1)
 		/*
 		 * ioc == NULL means that the task is either too young or
@@ -718,25 +718,25 @@ static int bfqio_can_attach(struct cgroup_subsys *subsys, struct cgroup *cgroup,
 		 * matter what we return here.
 		 */
 		ret = -EINVAL;
-	task_unlock(tsk);
+	task_unlock(cgroup_taskset_first(tset));
 
 	return ret;
 }
 
 static void bfqio_attach(struct cgroup_subsys *subsys, struct cgroup *cgroup,
-			 struct cgroup *prev, struct task_struct *tsk)
+			 struct cgroup_taskset *tset)
 {
 	struct io_context *ioc;
 	struct cfq_io_context *cic;
 	struct hlist_node *n;
 
-	task_lock(tsk);
-	ioc = tsk->io_context;
+	task_lock(cgroup_taskset_first(tset));
+	ioc = cgroup_taskset_first(tset)->io_context;
 	if (ioc != NULL) {
 		BUG_ON(atomic_long_read(&ioc->refcount) == 0);
 		atomic_long_inc(&ioc->refcount);
 	}
-	task_unlock(tsk);
+	task_unlock(cgroup_taskset_first(tset));
 
 	if (ioc == NULL)
 		return;

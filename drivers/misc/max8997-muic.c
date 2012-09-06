@@ -1106,6 +1106,7 @@ static int max8997_muic_handle_attach(struct max8997_muic_info *info,
 			ret = max8997_muic_set_charging_type(info, false);
 		}
 		break;
+
 	case ADC_ACA_OTG:
 		if (vbvolt & STATUS2_VBVOLT_MASK) {
 			if (info->cable_type == CABLE_TYPE_OTG_VB) {
@@ -1141,6 +1142,7 @@ static int max8997_muic_handle_attach(struct max8997_muic_info *info,
 			ret = max8997_muic_set_charging_type(info, false);
 		}
 		break;
+
 	case ADC_MHL:
 #if defined(CONFIG_MACH_U1) || defined(CONFIG_MACH_TRATS)
 		/* This is for support old MUIC */

@@ -413,7 +413,7 @@ static void suspend(struct work_struct *work)
 		pr_info("suspend: enter suspend, "
 			"(%d-%02d-%02d %02d:%02d:%02d.%09lu UTC)\n",
 			tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
-			tm.tm_hour, tm.tm_min, tm.tm_sec, ts_exit.tv_nsec);
+			tm.tm_hour, tm.tm_min, tm.tm_sec, ts_entry.tv_nsec);
 	}
 
 	ret = pm_suspend(requested_suspend_state);
@@ -530,11 +530,12 @@ void wake_lock_destroy(struct wake_lock *lock)
 		pr_info("wake_lock_destroy name=%s\n", lock->name);
 	spin_lock_irqsave(&list_lock, irqflags);
 	lock->flags &= ~WAKE_LOCK_INITIALIZED;
-	lock->flags &= ~WAKE_LOCK_ACTIVE;
-	list_del(&lock->link);
 #ifdef CONFIG_WAKELOCK_STAT
 	if (lock->flags & WAKE_LOCK_AWAKE_CULPRIT) {
 		lock->flags &= ~WAKE_LOCK_AWAKE_CULPRIT;
+		lock->flags &= ~(WAKE_LOCK_ACTIVE | WAKE_LOCK_AUTO_EXPIRE);
+		list_del(&lock->link);
+		list_add(&lock->link, &inactive_locks);
 		assign_next_awake_culprit_locked();
 	}
 	if (lock->stat.count) {
@@ -613,6 +614,7 @@ void wake_lock_destroy(struct wake_lock *lock)
 		deleted_wake_lock1.discrete_stat.max_time = ktime_add(zero_time, lock->discrete_stat.max_time);
 	}
 #endif
+	list_del(&lock->link);
 	spin_unlock_irqrestore(&list_lock, irqflags);
 }
 EXPORT_SYMBOL(wake_lock_destroy);

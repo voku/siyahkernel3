@@ -265,9 +265,6 @@ ENDPROC(cpu_v7_do_resume)
 cpu_resume_l1_flags:
 	ALT_SMP(.long PMD_TYPE_SECT | PMD_SECT_AP_WRITE | PMD_FLAGS_SMP)
 	ALT_UP(.long  PMD_TYPE_SECT | PMD_SECT_AP_WRITE | PMD_FLAGS_UP)
-#else
-#define cpu_v7_do_suspend	0
-#define cpu_v7_do_resume	0
 #endif
 
 	__CPUINIT
@@ -512,7 +509,6 @@ __v7_setup_stack:
 #else
 	define_processor_functions v7, dabort=v7_early_abort, pabort=v7_pabort, suspend=0
 #endif
-
 	.section ".rodata"
 
 	string	cpu_arch_name, "armv7"

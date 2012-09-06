@@ -105,7 +105,7 @@ static void vibrator_work(struct work_struct *_work)
 	struct vibrator_drvdata *data =
 		container_of(_work, struct vibrator_drvdata, work);
 
-	printk(KERN_DEBUG "[VIB] time = %dms\n", data->timeout);
+	pr_debug("[VIB] time = %dms\n", data->timeout);	
 
 	if (0 == data->timeout) {
 		if (!data->running)
