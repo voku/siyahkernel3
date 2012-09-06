@@ -3291,9 +3291,9 @@ static ssize_t tsp_threshold_show(struct device *dev,
 				  struct device_attribute *attr, char *buf)
 {
 	if (copy_data->mxt_version_disp == 0x80)
-		return sprintf(buf, "%u\n", copy_data->threshold);
+		return sprintf(buf, "%u\n", copy_data->tchthr_batt);
 	else
-		return sprintf(buf, "%u\n", copy_data->threshold_e);
+		return sprintf(buf, "%u\n", copy_data->tchthr_batt_e);
 }
 
 static ssize_t tsp_threshold_store(struct device *dev,
@@ -3309,11 +3309,6 @@ static ssize_t tsp_threshold_store(struct device *dev,
 	u16 size_one;
 	int threshold;
 
-	if (copy_data->mxt_version_disp == 0x80)
-		threshold = copy_data->threshold;
-	else
-		threshold = copy_data->threshold_e;
-
 	if (sscanf(buf, "%d", &threshold) == 1) {
 		printk(KERN_ERR "[TSP] threshold value %d\n",
 			threshold);
@@ -3322,6 +3317,10 @@ static ssize_t tsp_threshold_store(struct device *dev,
 				    &size_one, &address);
 		size_one = 1;
 		value = (u8) threshold;
+		if (copy_data->mxt_version_disp == 0x80)
+			copy_data->tchthr_batt = threshold;
+		else
+			copy_data->tchthr_batt_e = threshold;
 		write_mem(copy_data, address + (u16) object_register, size_one,
 			  &value);
 		read_mem(copy_data, address + (u16) object_register,
