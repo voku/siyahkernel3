@@ -1206,8 +1206,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 
 		cur_idle_time = get_cpu_idle_time(j, &cur_wall_time);
 
-		if (dbs_tuners_ins.io_is_busy)
-			cur_iowait_time = get_cpu_iowait_time(j, &cur_wall_time);
+		cur_iowait_time = get_cpu_iowait_time(j, &cur_wall_time);
 
 		wall_time = (unsigned int) cputime64_sub(cur_wall_time,
 							 prev_wall_time);
@@ -1243,11 +1242,9 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 							 prev_idle_time);
 		j_dbs_info->prev_cpu_idle = cur_idle_time;
 
-		if (dbs_tuners_ins.io_is_busy) {
-			iowait_time = (unsigned int) cputime64_sub(cur_iowait_time,
-							   	prev_iowait_time);
-			j_dbs_info->prev_cpu_iowait = cur_iowait_time;
-		}
+		iowait_time = (unsigned int) cputime64_sub(cur_iowait_time,
+						   	prev_iowait_time);
+		j_dbs_info->prev_cpu_iowait = cur_iowait_time;
 
 		if (dbs_tuners_ins.ignore_nice) {
 			cputime64_t cur_nice;
@@ -1387,17 +1384,15 @@ static inline void dbs_timer_init(struct cpu_dbs_info_s *dbs_info)
 	/* We want all CPUs to do sampling nearly on same jiffy */
 	int delay = usecs_to_jiffies(effective_sampling_rate());
 
-#if 0
 	if (num_online_cpus() > 1)
 		delay -= jiffies % delay;
-#endif
 
 	INIT_DELAYED_WORK_DEFERRABLE(&dbs_info->work, do_dbs_timer);
 	INIT_WORK(&dbs_info->up_work, cpu_up_work);
 	INIT_WORK(&dbs_info->down_work, cpu_down_work);
 
 	queue_delayed_work_on(dbs_info->cpu, dvfs_workqueue,
-			      &dbs_info->work, 10 * delay);
+				&dbs_info->work, delay + 2 * HZ); 
 }
 
 static inline void dbs_timer_exit(struct cpu_dbs_info_s *dbs_info)
