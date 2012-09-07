@@ -105,7 +105,7 @@ static void vibrator_work(struct work_struct *_work)
 	struct vibrator_drvdata *data =
 		container_of(_work, struct vibrator_drvdata, work);
 
-	pr_debug("[VIB] time = %dms\n", data->timeout);	
+	pr_debug("[VIB] time = %dms\n", data->timeout);
 
 	if (0 == data->timeout) {
 		if (!data->running)
@@ -220,14 +220,6 @@ SAMSUNGROM pwm_duty = pwm_period/2 + ((pwm_period/2 - 2) * nForce)/127;
 		pwm_duty = pwm_period - data->pdata->duty;
 #endif
 
-	pwm_period = data->pdata->period;
-	pwm_duty = pwm_period / 2 + ((pwm_period / 2 - 2) * nForce) / 127;
-
-	if (pwm_duty > data->pdata->duty)
-		pwm_duty = data->pdata->duty;
-	else if (pwm_period - pwm_duty > data->pdata->duty)
-		pwm_duty = pwm_period - data->pdata->duty;
-
 	/* add to avoid the glitch issue */
 	if (prev_duty != pwm_duty) {
 		prev_duty = pwm_duty;
@@ -258,7 +250,7 @@ ssize_t pwm_val_store(struct device *dev,
 	if (kstrtoul(buf, 0, &pwm_val))
 		pr_err("[VIB] %s: error on storing pwm_val\n", __func__); 
 
-	pr_debug("[VIB] %s: pwm_val=%lu\n", __func__, pwm_val);
+	pr_info("[VIB] %s: pwm_val=%lu\n", __func__, pwm_val);
 
 	pwm_duty = (pwm_val * 18820) / 100 + 18820;
 
@@ -267,14 +259,10 @@ ssize_t pwm_val_store(struct device *dev,
 		pwm_duty = 37640;
 	}
 	else if (pwm_duty < 18820) {
-		pwm_duty = 23525;
-	}
-	/* if samsung rom will try to mess with pwm_duty and reduce it lower than 25% then set it to 75% */
-	if (pwm_duty < 23525) {
-		pwm_duty = 32935;
+		pwm_duty = 18820;
 	}
 
-	pr_debug("[VIB] %s: pwm_duty=%d\n", __func__, pwm_duty);
+	pr_info("[VIB] %s: pwm_duty=%d\n", __func__, pwm_duty);
 
 	return size;
 }
