@@ -142,7 +142,6 @@ static struct dbs_tuners {
         unsigned int deep_sleep;
         unsigned int fast_start;
         unsigned int suspend_freq;
-	unsigned int dvfs_lat_qos_wants;
 
 } dbs_tuners_ins = {
         .up_threshold = DEF_FREQUENCY_UP_THRESHOLD,
@@ -225,23 +224,6 @@ static inline cputime64_t get_cpu_idle_time(unsigned int cpu, cputime64_t *wall)
         return idle_time;
 }
 
-/*
- * Find right sampling rate based on sampling_rate and
- * QoS requests on dvfs latency.
- */
-static unsigned int effective_sampling_rate(void)
-{
-	unsigned int effective;
-
-	if (dbs_tuners_ins.dvfs_lat_qos_wants)
-		effective = min(dbs_tuners_ins.dvfs_lat_qos_wants,
-				dbs_tuners_ins.sampling_rate);
-	else
-		effective = dbs_tuners_ins.sampling_rate;
-
-	return max(effective, min_sampling_rate);
-}
-
 static inline cputime64_t get_cpu_iowait_time(unsigned int cpu, cputime64_t *wall)
 {
         u64 iowait_time = get_cpu_iowait_time_us(cpu, wall);
@@ -296,7 +278,7 @@ static unsigned int powersave_bias_target(struct cpufreq_policy *policy,
                 dbs_info->freq_lo_jiffies = 0;
                 return freq_lo;
         }
-        jiffies_total = usecs_to_jiffies(effective_sampling_rate()); 
+        jiffies_total = usecs_to_jiffies(dbs_tuners_ins.sampling_rate); 
         jiffies_hi = (freq_avg - freq_lo) * jiffies_total;
         jiffies_hi += ((freq_hi - freq_lo) / 2);
         jiffies_hi /= (freq_hi - freq_lo);
@@ -779,7 +761,7 @@ static void do_dbs_timer(struct work_struct *work)
                         /* We want all CPUs to do sampling nearly on
                          * same jiffy
                          */
-			delay = usecs_to_jiffies(effective_sampling_rate()
+			delay = usecs_to_jiffies(dbs_tuners_ins.sampling_rate
 				* dbs_info->rate_mult);
 
                         if (num_online_cpus() > 1)
@@ -798,14 +780,14 @@ static void do_dbs_timer(struct work_struct *work)
 static inline void dbs_timer_init(struct cpu_dbs_info_s *dbs_info)
 {
         /* We want all CPUs to do sampling nearly on same jiffy */
-        int delay = usecs_to_jiffies(effective_sampling_rate());
+	int delay = usecs_to_jiffies(dbs_tuners_ins.sampling_rate); 
 
         if (num_online_cpus() > 1)
                 delay -= jiffies % delay;
 
         dbs_info->sample_type = DBS_NORMAL_SAMPLE;
         INIT_DELAYED_WORK_DEFERRABLE(&dbs_info->work, do_dbs_timer);
-        schedule_delayed_work_on(dbs_info->cpu, &dbs_info->work, 10 * delay);
+        schedule_delayed_work_on(dbs_info->cpu, &dbs_info->work, delay);
 }
 
 static inline void dbs_timer_exit(struct cpu_dbs_info_s *dbs_info)
