@@ -353,18 +353,22 @@ LOW_ARM_FLAGS	= -march=armv7-a -mtune=cortex-a9
 ARM_FLAGS       = -pipe -marm -march=armv7-a -mtune=cortex-a9 \
 		  -mfpu=neon -mfloat-abi=softfp \
 		  -fsingle-precision-constant -mvectorize-with-neon-quad
+
 LOOPS		= -funswitch-loops -fpredictive-commoning
+
 LOOPS_4_6	= -floop-strip-mine -floop-block -floop-interchange
 
 MODULES		= -fmodulo-sched -fmodulo-sched-allow-regmoves
 
+MODFLAGS = -DMODULE $(ARM_FLAGS)
+
 DISABLED_STORE	= 
 
-CFLAGS_MODULE   =
-AFLAGS_MODULE   =
+CFLAGS_MODULE   = $(MODFLAGS)
+AFLAGS_MODULE   = $(MODFLAGS)
 LDFLAGS_MODULE  =
-CFLAGS_KERNEL	=
-AFLAGS_KERNEL	=
+CFLAGS_KERNEL	= $(ARM_FLAGS)
+AFLAGS_KERNEL	= $(ARM_FLAGS)
 CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage
 
 KERNEL_MODS	= $(ARM_FLAGS) $(LOOPS) $(LOOPS_4_6) $(MODULES)
