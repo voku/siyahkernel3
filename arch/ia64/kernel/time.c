@@ -91,7 +91,7 @@ extern cputime_t cycle_to_cputime(u64 cyc);
  * accumulated times to the current process, and to prepare accounting on
  * the next process.
  */
-void account_switch_vtime(struct task_struct *prev)
+void vtime_task_switch(struct task_struct *prev)
 {
 	struct thread_info *pi = task_thread_info(prev);
 	struct thread_info *ni = task_thread_info(current);
@@ -119,7 +119,7 @@ void account_switch_vtime(struct task_struct *prev)
  * Account time for a transition between system, hard irq or soft irq state.
  * Note that this function is called with interrupts enabled.
  */
-void account_system_vtime(struct task_struct *tsk)
+void vtime_account(struct task_struct *tsk)
 {
 	struct thread_info *ti = task_thread_info(tsk);
 	unsigned long flags;
@@ -141,7 +141,7 @@ void account_system_vtime(struct task_struct *tsk)
 
 	local_irq_restore(flags);
 }
-EXPORT_SYMBOL_GPL(account_system_vtime);
+EXPORT_SYMBOL_GPL(vtime_account);
 
 /*
  * Called from the timer interrupt handler to charge accumulated user time
