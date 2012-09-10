@@ -141,7 +141,7 @@ if [ -e $KERNELDIR/arch/arm/boot/zImage ]; then
 	GETVER=`grep 'Siyah-Dorimanx-V' arch/arm/configs/dorimanx_defconfig | cut -c 38-42`
 	cp $KERNELDIR/zImage /$KERNELDIR/READY/boot/
 	cd $KERNELDIR/READY/
-	zip -r Kernel_Dorimanx-SGII-ICS-$GETVER-`date +"T-%H-%M-D-%d-%m"`.zip .
+	zip -r Kernel_Dorimanx-$GETVER-`date +"-%H-%M--%d-%m-12-SGII-PWR-CORE"`.zip .
 else
 	echo "Kernel STUCK in BUILD! no zImage exist"
 fi;
