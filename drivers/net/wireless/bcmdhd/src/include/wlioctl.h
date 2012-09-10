@@ -3670,7 +3670,7 @@ typedef struct wl_pfn_cfg {
 
 typedef struct wl_pfn {
 	wlc_ssid_t		ssid;			/* ssid name and its length */
-	int32			bss_type;		/* IBSS or infrastructure */
+	int32			flags;			/* bit2: hidden */
 	int32			infra;			/* BSS Vs IBSS */
 	int32			auth;			/* Open Vs Closed */
 	int32			wpa_auth;		/* WPA type */

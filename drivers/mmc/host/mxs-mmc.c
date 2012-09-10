@@ -360,6 +360,7 @@ static void mxs_mmc_bc(struct mxs_mmc_host *host)
 		goto out;
 
 	dmaengine_submit(desc);
+	dma_async_issue_pending(host->dmach);
 	return;
 
 out:
@@ -399,6 +400,7 @@ static void mxs_mmc_ac(struct mxs_mmc_host *host)
 		goto out;
 
 	dmaengine_submit(desc);
+	dma_async_issue_pending(host->dmach);
 	return;
 
 out:
@@ -522,6 +524,7 @@ static void mxs_mmc_adtc(struct mxs_mmc_host *host)
 		goto out;
 
 	dmaengine_submit(desc);
+	dma_async_issue_pending(host->dmach);
 	return;
 out:
 	dev_warn(mmc_dev(host->mmc),

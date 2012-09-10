@@ -80,7 +80,7 @@ enum dhd_bus_state {
 #define HOSTAPD_MASK			0x0002
 #define WFD_MASK			0x0004
 #define SOFTAP_FW_MASK			0x0008
-#define CONCURRENT_MASK			(STA_MASK | WFD_MASK)
+#define CONCURRENT_FW_MASK  		(STA_MASK | WFD_MASK)
 
 /* max sequential rxcntl timeouts to set HANG event */
 #ifdef BCM4334_CHIP
@@ -93,10 +93,10 @@ enum dhd_bus_state {
 #define DHD_SCAN_PASSIVE_TIME	130 /* ms: Embedded default Passive setting from DHD Driver */
 
 #ifndef POWERUP_MAX_RETRY
-#define POWERUP_MAX_RETRY	(10) /* how many times we retry to power up the chip */
+#define POWERUP_MAX_RETRY	5 /* how many times we retry to power up the chip */
 #endif
 #ifndef POWERUP_WAIT_MS
-#define POWERUP_WAIT_MS		(2000) /* ms: time out in waiting wifi to come up */
+#define POWERUP_WAIT_MS		2000 /* ms: time out in waiting wifi to come up */
 #endif
 
 enum dhd_bus_wake_state {
@@ -282,29 +282,19 @@ typedef struct dhd_pub {
 			SMP_RD_BARRIER_DEPENDS(); \
 			while (dhd_mmc_suspend && retry++ != b) { \
 				SMP_RD_BARRIER_DEPENDS(); \
-				wait_event_interruptible_timeout(a, !dhd_mmc_suspend, HZ/100); \
+				wait_event_interruptible_timeout(a, !dhd_mmc_suspend, 1); \
 			} \
-		}	while (0)
-#ifdef CUSTOMER_HW_SAMSUNG
-	#define DHD_PM_RESUME_WAIT(a)		_DHD_PM_RESUME_WAIT(a, 500)
-#else
-	#define DHD_PM_RESUME_WAIT(a)		_DHD_PM_RESUME_WAIT(a, 200)
-#endif /* CUSTOMER_HW_SAMSUNG */
-	#define DHD_PM_RESUME_WAIT_FOREVER(a)	_DHD_PM_RESUME_WAIT(a, ~0)
-	#define DHD_PM_RESUME_RETURN_ERROR(a)	do { \
-		if (dhd_mmc_suspend) { \
-			printf("mmc in suspend yet!!!: %s %d\n", \
-					__FUNCTION__, __LINE__); \
-			return a; \
-		} \
-	} while (0)
-	#define DHD_PM_RESUME_RETURN		do { if (dhd_mmc_suspend) return; } while (0)
+	}   while (0)
+	#define DHD_PM_RESUME_WAIT(a)     _DHD_PM_RESUME_WAIT(a, 200)
+	#define DHD_PM_RESUME_WAIT_FOREVER(a)   _DHD_PM_RESUME_WAIT(a, ~0)
+	#define DHD_PM_RESUME_RETURN_ERROR(a)  do { if (dhd_mmc_suspend) return a; } while (0)
+	#define DHD_PM_RESUME_RETURN    do { if (dhd_mmc_suspend) return; } while (0)
 
 	#define DHD_SPINWAIT_SLEEP_INIT(a) DECLARE_WAIT_QUEUE_HEAD(a);
 	#define SPINWAIT_SLEEP(a, exp, us) do { \
 		uint countdown = (us) + 9999; \
 		while ((exp) && (countdown >= 10000)) { \
-			wait_event_interruptible_timeout(a, FALSE, HZ/100); \
+			wait_event_interruptible_timeout(a, FALSE, 1); \
 			countdown -= 10000; \
 		} \
 	} while (0)

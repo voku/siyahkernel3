@@ -1226,10 +1226,9 @@ wl_iw_iscan_set_scan(
 	wl_iw_set_event_mask(dev);
 	wl_iw_iscan(iscan, &ssid, WL_SCAN_ACTION_START);
 
-	iscan->timer.expires = jiffies + iscan->timer_ms*HZ/1000;
+	iscan->timer.expires = jiffies + msecs_to_jiffies(iscan->timer_ms); 
 	add_timer(&iscan->timer);
 	iscan->timer_on = 1;
-	DHD_ERROR(("TIMER_TIMER: i scan timer set(%s)\n", __FUNCTION__));
 
 	return 0;
 }
@@ -3474,7 +3473,6 @@ wl_iw_timerfunc(ulong data)
 {
 	iscan_info_t *iscan = (iscan_info_t *)data;
 	iscan->timer_on = 0;
-	DHD_ERROR(("TIMER_TIMER: iscan timer removed(%s)\n", __FUNCTION__));
 	if (iscan->iscan_state != ISCAN_STATE_IDLE) {
 		WL_TRACE(("timer trigger\n"));
 		up(&iscan->sysioc_sem);
@@ -3631,7 +3629,6 @@ _iscan_sysioc_thread(void *data)
 		if (iscan->timer_on) {
 			del_timer(&iscan->timer);
 			iscan->timer_on = 0;
-			DHD_ERROR(("TIMER_TIMER: iscan timer remove(%s)\n", __FUNCTION__));
 		}
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))
@@ -3654,10 +3651,9 @@ _iscan_sysioc_thread(void *data)
 				rtnl_unlock();
 #endif
 
-				iscan->timer.expires = jiffies + iscan->timer_ms*HZ/1000;
+				iscan->timer.expires = jiffies + msecs_to_jiffies(iscan->timer_ms); 
 				add_timer(&iscan->timer);
 				iscan->timer_on = 1;
-				DHD_ERROR(("TIMER_TIMER: iscan timer set(%s)\n", __FUNCTION__));
 				break;
 			case WL_SCAN_RESULTS_SUCCESS:
 				WL_TRACE(("iscanresults complete\n"));
@@ -3667,10 +3663,9 @@ _iscan_sysioc_thread(void *data)
 			case WL_SCAN_RESULTS_PENDING:
 				WL_TRACE(("iscanresults pending\n"));
 
-				iscan->timer.expires = jiffies + iscan->timer_ms*HZ/1000;
+				iscan->timer.expires = jiffies + msecs_to_jiffies(iscan->timer_ms);
 				add_timer(&iscan->timer);
 				iscan->timer_on = 1;
-				DHD_ERROR(("TIMER_TIMER: iscan timer set(%s)\n", __FUNCTION__));
 				break;
 			case WL_SCAN_RESULTS_ABORTED:
 				WL_TRACE(("iscanresults aborted\n"));
