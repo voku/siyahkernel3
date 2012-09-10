@@ -1669,7 +1669,6 @@ wl_run_iscan(struct wl_iscan_ctrl *iscan, struct cfg80211_scan_request *request,
 	}
 
 	wl_scan_prep(&params->params, request, -1);
-
 	params->version = htod32(ISCAN_REQ_VERSION);
 	params->action = htod16(action);
 	params->scan_duration = htod16(0);
@@ -3592,10 +3591,11 @@ wl_cfg80211_get_station(struct wiphy *wiphy, struct net_device *dev,
 #endif
 	} else if (wl_get_mode_by_netdev(wl, dev) == WL_MODE_BSS) {
 		u8 *curmacp = wl_read_prof(wl, dev, WL_PROF_BSSID);
+		err = -ENODEV;
 		if (!wl_get_drv_status(wl, CONNECTED, dev) ||
 		    (dhd_is_associated(dhd, NULL, &err) == FALSE)) {
-			WL_ERR(("NOT assoc\n"));
-			if(err == -ERESTARTSYS)
+			WL_ERR(("NOT assoc: %d\n", err));
+			if (err == -ERESTARTSYS)
 				return err;
 #ifdef ESCAN_RESULT_PATCH
 			return -ENODEV;
@@ -3636,7 +3636,7 @@ wl_cfg80211_get_station(struct wiphy *wiphy, struct net_device *dev,
 get_station_err:
 		if (err && (err != -ERESTARTSYS)) {
 			/* Disconnect due to zero BSSID or error to get RSSI */
-			WL_ERR(("force cfg80211_disconnected\n"));
+			WL_ERR(("force cfg80211_disconnected: %d\n", err));
 			wl_clr_drv_status(wl, CONNECTED, dev);
 			cfg80211_disconnected(dev, 0, NULL, 0, GFP_KERNEL);
 			wl_link_down(wl);
@@ -5565,7 +5565,7 @@ static s32 wl_inform_single_bss(struct wl_priv *wl, struct wl_bss_info *bi)
 	else
 		band = wiphy->bands[IEEE80211_BAND_5GHZ];
 
-	if(band==NULL) {
+	if (band==NULL) {
 		kfree(notif_bss_info);
 		return err;
 	}
@@ -5791,7 +5791,7 @@ wl_notify_connect_status_ap(struct wl_priv *wl, struct net_device *ndev,
 	else
 		band = wiphy->bands[IEEE80211_BAND_5GHZ];
 
-	if(band == NULL) {
+	if (band == NULL) {
 		WL_ERR(("band is null(channel=%d)\n", channel));
 		kfree(body);
 		return WL_INVALID;
@@ -5806,7 +5806,7 @@ wl_notify_connect_status_ap(struct wl_priv *wl, struct net_device *ndev,
 	err = wl_frame_get_mgmt(fc, &da, &e->addr, &bssid,
 	&mgmt_frame, &len, body);
 	if (err < 0)
-			goto exit;
+		goto exit;
 	isfree = true;
 
 	if (event == WLC_E_ASSOC_IND && reason == DOT11_SC_SUCCESS) {
