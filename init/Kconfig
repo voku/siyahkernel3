@@ -382,7 +382,7 @@ choice
 
 config TREE_RCU
 	bool "Tree-based hierarchical RCU"
-	depends on !PREEMPT && SMP
+	depends on SMP
 	help
 	  This option selects the RCU implementation that is
 	  designed for very large SMP system with hundreds or
@@ -497,7 +497,7 @@ config RCU_FANOUT_EXACT
 config RCU_FAST_NO_HZ
 	bool "Accelerate last non-dyntick-idle CPU's grace periods"
 	depends on NO_HZ && SMP
-	default n
+	default y
 	help
 	  This option causes RCU to attempt to accelerate grace periods
 	  in order to allow CPUs to enter dynticks-idle state more
