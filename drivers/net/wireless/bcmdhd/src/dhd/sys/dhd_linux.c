@@ -606,7 +606,8 @@ static void dhd_set_packet_filter(int value, dhd_pub_t *dhd)
 #ifdef CONFIG_BCMDHD_WIFI_PM
 static int wifi_pm = 0;
 /* /sys/module/dhd/parameters/wifi_pm */
-module_param(wifi_pm, int, 0664);
+module_param(wifi_pm, int, 0755);
+EXPORT_SYMBOL(wifi_pm);
 #endif
 static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 {
@@ -627,6 +628,7 @@ static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 #ifdef CONFIG_BCMDHD_WIFI_PM
 	if (wifi_pm == 1)
 		power_mode = PM_FAST;
+		pr_info("[Dorimanx] %p Wi-Fi Power Management policy changed to PM_FAST.", __func__);
 #endif
 	if (dhd && dhd->up) {
 		if (value && dhd->in_suspend) {
