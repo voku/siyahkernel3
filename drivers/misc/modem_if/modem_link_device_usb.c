@@ -809,7 +809,7 @@ irqreturn_t usb_resume_irq(int irq, void *data)
 	wake_status = hwup;
 
 	irq_set_irq_type(irq, hwup ? IRQF_TRIGGER_LOW : IRQF_TRIGGER_HIGH);
-	wake_lock_timeout(&usb_ld->gpiolock, 100);
+	wake_lock_timeout(&usb_ld->gpiolock, HZ / 2);
 
 	mif_err("< H-WUP %d\n", hwup);
 
