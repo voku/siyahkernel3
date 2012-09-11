@@ -114,6 +114,9 @@ if [ -e $INITRAMFS_TMP/res/STweaks.apk ]; then
 	rm -f  $INITRAMFS_TMP/res/STweaks.apk
 fi;
 
+rm -f $INITRAMFS_TMP/compress-sql.sh
+rm -f $INITRAMFS_TMP/update*
+
 # copy modules into initramfs
 mkdir -p $INITRAMFS/lib/modules
 mkdir -p $INITRAMFS_TMP/lib/modules
@@ -136,7 +139,7 @@ if [ -e $KERNELDIR/arch/arm/boot/zImage ]; then
 	cp $KERNELDIR/.config $KERNELDIR/arch/arm/configs/dorimanx_defconfig
 	cp $KERNELDIR/.config $KERNELDIR/READY/
 	rm $KERNELDIR/READY/boot/zImage
-	rm $KERNELDIR/READY/Kernel_Dorimanx-SGII-ICS*
+	rm $KERNELDIR/READY/Kernel_Dorimanx-*
 	stat $KERNELDIR/zImage
 	GETVER=`grep 'Siyah-Dorimanx-V' arch/arm/configs/dorimanx_defconfig | cut -c 38-42`
 	cp $KERNELDIR/zImage /$KERNELDIR/READY/boot/
