@@ -625,7 +625,9 @@ static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 		__FUNCTION__, value, dhd->in_suspend));
 
 #ifdef CONFIG_BCMDHD_WIFI_PM
-	if (wifi_pm == 1)
+	if (wifi_pm == 0)
+		power_mode = PM_MAX;
+	else if (wifi_pm == 1)
 		power_mode = PM_FAST;
 #endif
 	if (dhd && dhd->up) {
