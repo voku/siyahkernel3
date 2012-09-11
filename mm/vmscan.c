@@ -1527,15 +1527,12 @@ shrink_inactive_list(unsigned long nr_to_scan, struct zone *zone,
 	unsigned long nr_taken;
 	unsigned long nr_anon;
 	unsigned long nr_file;
-<<<<<<< HEAD
+	unsigned long nr_dirty = 0;
+	unsigned long nr_writeback = 0;
 #ifdef CONFIG_ZRAM_FOR_ANDROID
 	struct timeval start, end;
 #endif /* CONFIG_ZRAM_FOR_ANDROID */
 	isolate_mode_t reclaim_mode = ISOLATE_INACTIVE;
-=======
-	unsigned long nr_dirty = 0;
-+	unsigned long nr_writeback = 0;
->>>>>>> 5f9367f... I/O-less dirty throttling, reduce filesystem writeback from page reclaim - backport from 3.2 - Part I
 
 	while (unlikely(too_many_isolated(zone, file, sc))) {
 		congestion_wait(BLK_RW_ASYNC, HZ/10);
