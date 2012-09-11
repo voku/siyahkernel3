@@ -22,6 +22,10 @@ config ARCH_CLOCKSOURCE_DATA
 	bool
 
 # Timekeeping vsyscall support
+config GENERIC_TIME_VSYSCALL
+	bool
+
+# Timekeeping vsyscall support
 config GENERIC_TIME_VSYSCALL_OLD
 	bool
 
