@@ -2135,4 +2135,3 @@ module_exit(cpufreq_lulzactive_exit);
 MODULE_AUTHOR("Tegrak <luciferanna@gmail.com>");
 MODULE_DESCRIPTION("'lulzactiveQ' - improved lulzactive governor with hotplug logic");
 MODULE_LICENSE("GPL");
-
