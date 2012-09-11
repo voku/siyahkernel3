@@ -436,8 +436,7 @@ static void bfq_add_rq_rb(struct request *rq)
 	 * Looks a little odd, but the first insert might return an alias,
 	 * if that happens, put the alias on the dispatch list.
 	 */
-	while ((__alias = elv_rb_add(&bfqq->sort_list, rq)) != NULL)
-		bfq_dispatch_insert(bfqd->queue, __alias);
+	elv_rb_add(&bfqq->sort_list, rq);
 
 	/*
 	 * Check if this request is a better next-serve candidate.
