@@ -27,17 +27,6 @@ static struct cgroup_subsys_state *cgrp_create(struct cgroup *cgrp);
 static void cgrp_destroy(struct cgroup *cgrp);
 static int cgrp_populate(struct cgroup_subsys *ss, struct cgroup *cgrp);
 
-struct cgroup_subsys net_prio_subsys = {
-	.name		= "net_prio",
-	.create		= cgrp_create,
-	.destroy	= cgrp_destroy,
-#ifdef CONFIG_NETPRIO_CGROUP
-	.subsys_id	= net_prio_subsys_id,
-#endif
-	.base_cftypes	= ss_files,
-	.module		= THIS_MODULE
-};
-
 #define PRIOIDX_SZ 128
 
 static unsigned long prioidx_map[PRIOIDX_SZ];
@@ -259,6 +248,16 @@ static struct cftype ss_files[] = {
 	{ }	/* terminate */
 };
 
+struct cgroup_subsys net_prio_subsys = {
+	.name		= "net_prio",
+	.create		= cgrp_create,
+	.destroy	= cgrp_destroy,
+	.attach		= net_prio_attach,
+	.subsys_id	= net_prio_subsys_id,
+	.base_cftypes	= ss_files,
+	.module		= THIS_MODULE
+};
+
 static int netprio_device_event(struct notifier_block *unused,
 				unsigned long event, void *ptr)
 {
@@ -298,10 +297,6 @@ static int __init init_cgroup_netprio(void)
 	ret = cgroup_load_subsys(&net_prio_subsys);
 	if (ret)
 		goto out;
-#ifndef CONFIG_NETPRIO_CGROUP
-	smp_wmb();
-	net_prio_subsys_id = net_prio_subsys.subsys_id;
-#endif
 
 	register_netdevice_notifier(&netprio_device_notifier);
 
@@ -317,11 +312,6 @@ static void __exit exit_cgroup_netprio(void)
 	unregister_netdevice_notifier(&netprio_device_notifier);
 
 	cgroup_unload_subsys(&net_prio_subsys);
-
-#ifndef CONFIG_NETPRIO_CGROUP
-	net_prio_subsys_id = -1;
-	synchronize_rcu();
-#endif
 
 	rtnl_lock();
 	for_each_netdev(&init_net, dev) {
