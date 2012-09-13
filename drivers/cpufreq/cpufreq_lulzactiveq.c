@@ -44,8 +44,8 @@
 #define LULZACTIVE_AUTHOR	"tegrak"
 
 // if you changed some codes for optimization, just write your name here.
-#define LULZACTIVE_TUNER "gokhan-robertobsc"
 
+#define LULZACTIVE_TUNER "gokhanmoral-robertobsc"
 
 static atomic_t active_count = ATOMIC_INIT(0);
 
@@ -394,7 +394,6 @@ static void cpufreq_lulzactive_timer(unsigned long data)
 	unsigned int index;
 	cputime64_t cur_nice;
 	unsigned long cur_nice_jiffies;
-
 	unsigned long flags;
 	int ret;
 
@@ -604,31 +603,26 @@ static void cpufreq_lulzactive_timer(unsigned long data)
 	if (new_freq < pcpu->target_freq) {
 		if (cputime64_sub(pcpu->timer_run_time, pcpu->freq_change_down_time)
 		    < down_sample_time) {
-
 			if (dbs_tuners_ins.dvfs_debug) {
 				printk (KERN_ERR "[PUMP REARM DOWN]: CPU %d, (%llu - %llu) < %lu\n",
 				pcpu->cpu, pcpu->timer_run_time, pcpu->freq_change_down_time, down_sample_time);
 			}
-
 			goto rearm;
 		}
 	}
 	else {
 		if (cputime64_sub(pcpu->timer_run_time, pcpu->freq_change_up_time) <
 		    up_sample_time) {
-	
 			if (dbs_tuners_ins.dvfs_debug)  {
 				printk (KERN_ERR "[PUMP REARM UP]: CPU %d, (%llu - %llu) < %lu\n",
 						pcpu->cpu, pcpu->timer_run_time, pcpu->freq_change_up_time, up_sample_time);
 			}
-
 			/* don't reset timer */
 			goto rearm;
 		}
 	}
 
 	if (new_freq < pcpu->target_freq) {
-
         	if (dbs_tuners_ins.dvfs_debug) {
 	            printk (KERN_ERR "[PUMP DOWN NOW] CPU %d, after %u (run: %llu - last down: %llu), last freq change: %lu\n", 
         	            pcpu->cpu, (unsigned int) cputime64_sub(pcpu->timer_run_time, pcpu->freq_change_down_time),
@@ -640,7 +634,6 @@ static void cpufreq_lulzactive_timer(unsigned long data)
 		spin_unlock_irqrestore(&down_cpumask_lock, flags);
 		queue_work(down_wq, &freq_scale_down_work);
 	} else {
-	
 		if (dbs_tuners_ins.dvfs_debug) {
 			printk (KERN_ERR "[PUMP UP NOW] CPU %d, after %u (run: %llu - last up: %llu), last freq change: %lu\n", 
 					pcpu->cpu, (unsigned int) cputime64_sub(pcpu->timer_run_time, pcpu->freq_change_up_time),
@@ -679,10 +672,8 @@ rearm:
 
 		pcpu->time_in_idle = get_cpu_idle_time_us(
 			data, &pcpu->idle_exit_time);
-
 		if (dbs_tuners_ins.ignore_nice)
 			pcpu->idle_prev_cpu_nice = kstat_cpu(data).cpustat.nice;
-
 		mod_timer(&pcpu->cpu_timer,
 			  jiffies + usecs_to_jiffies(timer_rate));
 	}
@@ -718,10 +709,8 @@ static void cpufreq_lulzactive_idle_start(void)
 			pcpu->time_in_idle = get_cpu_idle_time_us(
 				smp_processor_id(), &pcpu->idle_exit_time);
 			pcpu->timer_idlecancel = 0;
-		
 			if (dbs_tuners_ins.ignore_nice)
 				pcpu->idle_prev_cpu_nice = kstat_cpu(smp_processor_id()).cpustat.nice;
-
 			mod_timer(&pcpu->cpu_timer,
 				  jiffies + usecs_to_jiffies(timer_rate));
 		}
@@ -773,10 +762,8 @@ static void cpufreq_lulzactive_idle_end(void)
 			get_cpu_idle_time_us(smp_processor_id(),
 					     &pcpu->idle_exit_time);
 		pcpu->timer_idlecancel = 0;
-
 		if (dbs_tuners_ins.ignore_nice)
 			pcpu->idle_prev_cpu_nice = kstat_cpu(smp_processor_id()).cpustat.nice;
-
 		mod_timer(&pcpu->cpu_timer,
 			  jiffies + usecs_to_jiffies(timer_rate));
 	}
@@ -839,7 +826,6 @@ static int cpufreq_lulzactive_up_task(void *data)
 			pcpu->freq_change_time_in_idle =
 				get_cpu_idle_time_us(cpu,
 						     &pcpu->freq_change_time);
-
 			pcpu->freq_change_prev_cpu_nice = kstat_cpu(cpu).cpustat.nice;
 
 
@@ -898,9 +884,7 @@ static void cpufreq_lulzactive_freq_down(struct work_struct *work)
 		pcpu->freq_change_time_in_idle =
 			get_cpu_idle_time_us(cpu,
 					     &pcpu->freq_change_time);
-
 		pcpu->freq_change_prev_cpu_nice = kstat_cpu(cpu).cpustat.nice;
-
 		/*
 		 *  The pcpu->freq_change_time is shared by scaling up and down,
 		 *  in a way that disrespect theit both sampling.
@@ -1891,7 +1875,6 @@ static int cpufreq_governor_lulzactive(struct cpufreq_policy *policy,
 
 			// fix invalid screen_off_min_step
 			fix_screen_off_min_step(pcpu);
-
 			if (dbs_tuners_ins.ignore_nice) {
 				pcpu->freq_change_prev_cpu_nice =
 					kstat_cpu(j).cpustat.nice;

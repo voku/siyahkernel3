@@ -57,6 +57,7 @@ struct writeback_control {
 	loff_t range_start;
 	loff_t range_end;
 
+	unsigned nonblocking:1;		/* Don't get stuck on request queues */
 	unsigned for_kupdate:1;		/* A kupdate writeback */
 	unsigned for_background:1;	/* A background writeback */
 	unsigned tagged_writepages:1;	/* tag-and-write to avoid livelock */
@@ -143,7 +144,6 @@ unsigned long bdi_dirty_limit(struct backing_dev_info *bdi,
 
 void __bdi_update_bandwidth(struct backing_dev_info *bdi,
 			    unsigned long thresh,
-			    unsigned long bg_thresh,
 			    unsigned long dirty,
 			    unsigned long bdi_thresh,
 			    unsigned long bdi_dirty,

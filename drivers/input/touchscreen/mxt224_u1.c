@@ -245,7 +245,6 @@ unsigned int lock_freq = TOUCH_LOCK_FREQ;
 
 #define CLEAR_MEDIAN_FILTER_ERROR
 struct mxt224_data *copy_data;
-struct mxt224_platform_data *copy_pdata;
 int touch_is_pressed;
 EXPORT_SYMBOL(touch_is_pressed);
 
@@ -3291,9 +3290,9 @@ static ssize_t tsp_threshold_show(struct device *dev,
 				  struct device_attribute *attr, char *buf)
 {
 	if (copy_data->mxt_version_disp == 0x80)
-		return sprintf(buf, "%u\n", copy_data->tchthr_batt);
+		return sprintf(buf, "%u\n", copy_data->threshold);
 	else
-		return sprintf(buf, "%u\n", copy_data->tchthr_batt_e);
+		return sprintf(buf, "%u\n", copy_data->threshold_e);
 }
 
 static ssize_t tsp_threshold_store(struct device *dev,
@@ -3309,6 +3308,11 @@ static ssize_t tsp_threshold_store(struct device *dev,
 	u16 size_one;
 	int threshold;
 
+	if (copy_data->mxt_version_disp == 0x80)
+		threshold = copy_data->threshold;
+	else
+		threshold = copy_data->threshold_e;
+
 	if (sscanf(buf, "%d", &threshold) == 1) {
 		printk(KERN_ERR "[TSP] threshold value %d\n",
 			threshold);
@@ -3317,10 +3321,6 @@ static ssize_t tsp_threshold_store(struct device *dev,
 				    &size_one, &address);
 		size_one = 1;
 		value = (u8) threshold;
-		if (copy_data->mxt_version_disp == 0x80)
-			copy_data->tchthr_batt = threshold;
-		else
-			copy_data->tchthr_batt_e = threshold;
 		write_mem(copy_data, address + (u16) object_register, size_one,
 			  &value);
 		read_mem(copy_data, address + (u16) object_register,
@@ -4072,7 +4072,6 @@ static int __devinit mxt224_probe(struct i2c_client *client,
 	data->tsp_config_version = "20111215";
 
 	copy_data = data;
-	copy_pdata = pdata;
 
 	if (data->family_id == 0x80) {	/*MXT-224 */
 		tsp_config = pdata->config;
