@@ -17,11 +17,10 @@ export USE_SEC_FIPS_MODE=true
 #export CROSS_COMPILE=$PARENT_DIR/toolchain/bin/arm-none-eabi-
 # gcc 4.4.3 (CM9)
 # export CROSS_COMPILE=/media/Source-Code/android/system/prebuilt/linux-x86/toolchain/arm-eabi-4.4.3/bin/arm-eabi-
-# gcc 4.7 (Linaro 12.07)
-export CROSS_COMPILE=$PARENT_DIR/linaro/bin/arm-eabi-
-# gcc 4.6 (Linaro 12.06)
-#export CROSS_COMPILE=$KERNELDIR/android-toolchain/bin/arm-eabi-
-
+# gcc 4.7 (Linaro 12.04)
+# export CROSS_COMPILE=$PARENT_DIR/linaro/bin/arm-eabi-
+# gcc 4.7.2 (Linaro 12.07)
+export CROSS_COMPILE=$KERNELDIR/android-toolchain/bin/arm-eabi-
 
 # Importing PATCH for GCC depend on GCC version.
 GCCVERSION_OLD=`${CROSS_COMPILE}gcc --version | cut -d " " -f3 | cut -c3-5 | grep -iv "09" | grep -iv "ee" | grep -iv "en"`
@@ -175,12 +174,12 @@ if [ -e $KERNELDIR/arch/arm/boot/zImage ]; then
 	cp $KERNELDIR/.config $KERNELDIR/arch/arm/configs/dorimanx_defconfig
 	cp $KERNELDIR/.config $KERNELDIR/READY/
 	rm $KERNELDIR/READY/boot/zImage
-	rm $KERNELDIR/READY/Kernel_Dorimanx-SGII-ICS*
+	rm $KERNELDIR/READY/Kernel_Dorimanx-*
 	stat $KERNELDIR/zImage
 	GETVER=`grep 'Siyah-Dorimanx-V' arch/arm/configs/dorimanx_defconfig | cut -c 38-42`
 	cp $KERNELDIR/zImage /$KERNELDIR/READY/boot/
 	cd $KERNELDIR/READY/
-	zip -r Kernel_Dorimanx-SGII-ICS-$GETVER-`date +"T-%H-%M-D-%d-%m"`.zip .
+	zip -r Kernel_Dorimanx-$GETVER-`date +"-%H-%M--%d-%m-12-SGII-PWR-CORE"`.zip .
 else
 	echo "Kernel STUCK in BUILD! no zImage exist"
 fi;
