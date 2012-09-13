@@ -38,6 +38,7 @@
 #include <linux/rcupdate.h>
 #include <linux/profile.h>
 #include <linux/notifier.h>
+#include <linux/compaction.h>
 #ifdef CONFIG_ZRAM_FOR_ANDROID
 #include <linux/swap.h>
 #include <linux/device.h>
@@ -139,6 +140,8 @@ extern unsigned long clear_active_flags(struct list_head *page_list,
 
 static unsigned long lowmem_deathpending_timeout;
 
+extern int compact_nodes();
+
 #define lowmem_print(level, x...)			\
 	do {						\
 		if (lowmem_debug_level >= (level))	\
@@ -206,6 +209,8 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		    time_before_eq(jiffies, lowmem_deathpending_timeout)) {
 			task_unlock(p);
 			rcu_read_unlock();
+			if (selected)
+				compact_nodes(false);
 			return 0;
 		}
 		oom_score_adj = p->signal->oom_score_adj;
