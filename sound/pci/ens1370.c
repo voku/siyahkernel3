@@ -1258,6 +1258,14 @@ static struct snd_pcm_ops snd_ensoniq_capture_ops = {
 	.pointer =	snd_ensoniq_capture_pointer,
 };
 
+static const struct snd_pcm_chmap_elem surround_map[] = {
+	{ .channels = 1,
+	  .map = { SNDRV_CHMAP_MONO } },
+	{ .channels = 2,
+	  .map = { SNDRV_CHMAP_RL, SNDRV_CHMAP_RR } },
+	{ }
+};
+
 static int __devinit snd_ensoniq_pcm(struct ensoniq * ensoniq, int device,
 				     struct snd_pcm ** rpcm)
 {
