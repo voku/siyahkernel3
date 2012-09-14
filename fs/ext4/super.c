@@ -2881,8 +2881,7 @@ cont_thread:
 		}
 		mutex_unlock(&eli->li_list_mtx);
 
-		if (freezing(current))
-			refrigerator();
+		try_to_freeze();
 
 		cur = jiffies;
 		if ((time_after_eq(cur, next_wakeup)) ||
