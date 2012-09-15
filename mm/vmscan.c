@@ -153,13 +153,6 @@ static unsigned long get_lru_size(struct lruvec *lruvec, enum lru_list lru)
 	return zone_page_state(lruvec_zone(lruvec), NR_LRU_BASE + lru);
 }
 
-#ifdef CONFIG_ZRAM_FOR_ANDROID
-extern int swap_inactive_pagelist(unsigned int page_swap_cluster);
-static unsigned int timer_counter = 0;
-#define COMPCACHE_DELAY_COUNTER 500
-#define COMPCACHE_GOOD_TIME 10000
-#endif /* CONFIG_ZRAM_FOR_ANDROID */
-
 /*
  * Add a shrinker callback to be called from the vm
  */
@@ -678,10 +671,7 @@ static enum page_references page_check_references(struct page *page,
 /*
  * shrink_page_list() returns the number of reclaimed pages
  */
-#ifndef CONFIG_ZRAM_FOR_ANDROID
-static
-#endif /* CONFIG_ZRAM_FOR_ANDROID */
-unsigned long shrink_page_list(struct list_head *page_list,
+static unsigned long shrink_page_list(struct list_head *page_list,
 				      struct zone *zone,
 				      struct scan_control *sc,
 				      unsigned long *ret_nr_dirty,
@@ -1246,9 +1236,6 @@ shrink_inactive_list(unsigned long nr_to_scan, struct lruvec *lruvec,
 	unsigned long nr_scanned;
 	unsigned long nr_reclaimed = 0;
 	unsigned long nr_taken;
-#ifdef CONFIG_ZRAM_FOR_ANDROID
-	struct timeval start, end;
-#endif /* CONFIG_ZRAM_FOR_ANDROID */
 	unsigned long nr_dirty = 0;
 	unsigned long nr_writeback = 0;
 	isolate_mode_t isolate_mode = 0;
@@ -1263,34 +1250,6 @@ shrink_inactive_list(unsigned long nr_to_scan, struct lruvec *lruvec,
 		if (fatal_signal_pending(current))
 			return SWAP_CLUSTER_MAX;
 	}
-
-#ifdef CONFIG_ZRAM_FOR_ANDROID
-	/*
-	  use optimized compcache to swap pages firstly
-	*/
-	if (timer_counter == 0) {
-		long long  swap_time = 0;
-		do_gettimeofday(&start);
-		nr_reclaimed = swap_inactive_pagelist(SWAP_CLUSTER_MAX);
-		do_gettimeofday(&end);
-		swap_time = (long long)
-				((end.tv_sec - start.tv_sec) * USEC_PER_SEC +
-				 (end.tv_usec - start.tv_usec));
-		/*
-		  if the used time of optimized compcache is too long,
-		  delay to use optimzed, use original one for sometime
-		*/
-		if (swap_time > COMPCACHE_GOOD_TIME)
-			timer_counter = COMPCACHE_DELAY_COUNTER;
-		if (nr_reclaimed >= SWAP_CLUSTER_MAX)
-			return nr_reclaimed;
-		/* if there is no background application can be swapped,
-		   use original one for sometime */
-		else
-			timer_counter = COMPCACHE_DELAY_COUNTER;
-	} else
-		timer_counter--;
-#endif /* CONFIG_ZRAM_FOR_ANDROID */
 
 	lru_add_drain();
 
@@ -1378,42 +1337,6 @@ shrink_inactive_list(unsigned long nr_to_scan, struct lruvec *lruvec,
 	return nr_reclaimed;
 }
 
-#ifdef CONFIG_ZRAM_FOR_ANDROID
-unsigned long
-zone_id_shrink_pagelist(struct list_head *page_list,
-					struct lruvec *lruvec,	
-					struct zone *zone,
-					unsigned long *ret_nr_dirty,
-					unsigned long *ret_nr_writeback)
-{
-	unsigned long nr_reclaimed = 0;
-        unsigned long nr_dirty = 0;
-        unsigned long nr_writeback = 0;
-
-	struct scan_control sc = {
-		.gfp_mask = GFP_USER,
-		.may_writepage = 1,
-		.nr_to_reclaim = SWAP_CLUSTER_MAX,
-		.may_unmap = 1,
-		.may_swap = 1,
-		.order = 0,
-		.target_mem_cgroup = NULL,
-		.nodemask = NULL,
-	};
-
-	nr_reclaimed = shrink_page_list(page_list, zone, &sc,
-						&nr_dirty, &nr_writeback);
-
-	__count_zone_vm_events(PGSTEAL_DIRECT, zone, nr_reclaimed);
-
-	putback_inactive_pages(lruvec, page_list);
-
-	return nr_reclaimed;
-}
-
-EXPORT_SYMBOL(zone_id_shrink_pagelist);
-#endif /* CONFIG_ZRAM_FOR_ANDROID */
-
 /*
  * This moves pages from the active list to the inactive list.
  *
@@ -1470,7 +1393,6 @@ static void move_active_pages_to_lru(struct lruvec *lruvec,
 	__mod_zone_page_state(zone, NR_LRU_BASE + lru, pgmoved);
 	if (!is_active_lru(lru))
 		__count_vm_events(PGDEACTIVATE, pgmoved);
-
 }
 
 static void shrink_active_list(unsigned long nr_to_scan,

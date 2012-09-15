@@ -622,9 +622,6 @@ static void object_err(struct kmem_cache *s, struct page *page,
 {
 	slab_bug(s, "%s", reason);
 	print_trailer(s, page, object);
-
-	if(slub_debug)
-		panic("SLUB ERROR: object_err");
 }
 
 static void slab_err(struct kmem_cache *s, struct page *page, char *fmt, ...)
@@ -638,9 +635,6 @@ static void slab_err(struct kmem_cache *s, struct page *page, char *fmt, ...)
 	slab_bug(s, "%s", buf);
 	print_page_info(page);
 	dump_stack();
-
-	if(slub_debug)
-		panic("SLUB ERROR: slab_err");
 }
 
 static void init_object(struct kmem_cache *s, void *object, u8 val)
@@ -684,10 +678,6 @@ static int check_bytes_and_report(struct kmem_cache *s, struct page *page,
 	print_trailer(s, page, object);
 
 	restore_bytes(s, what, value, fault, end);
-
-	if(slub_debug)
-		panic("SLUB ERROR: check_bytes_and_report. Can it be restored?");
-
 	return 0;
 }
 
@@ -1616,7 +1606,7 @@ static void *get_any_partial(struct kmem_cache *s, gfp_t flags,
 
 	do {
 		cpuset_mems_cookie = get_mems_allowed();
-		zonelist = node_zonelist(slab_node(current->mempolicy), flags);
+		zonelist = node_zonelist(slab_node(), flags);
 		for_each_zone_zonelist(zone, z, zonelist, high_zoneidx) {
 			struct kmem_cache_node *n;
 
