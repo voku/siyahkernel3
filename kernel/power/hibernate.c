@@ -15,7 +15,6 @@
 #include <linux/string.h>
 #include <linux/device.h>
 #include <linux/async.h>
-#include <linux/kmod.h>
 #include <linux/delay.h>
 #include <linux/fs.h>
 #include <linux/mount.h>
@@ -786,10 +785,6 @@ static int software_resume(void)
 
 	pm_prepare_console();
 	error = pm_notifier_call_chain(PM_RESTORE_PREPARE);
-	if (error)
-		goto close_finish;
-
-	error = usermodehelper_disable();
 	if (error)
 		goto close_finish;
 
