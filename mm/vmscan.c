@@ -3561,6 +3561,16 @@ void scan_mapping_unevictable_pages(struct address_space *mapping)
 		cond_resched();
 	}
 }
+
+static void warn_scan_unevictable_pages(void)
+{
+	printk_once(KERN_WARNING
+		    "%s: The scan_unevictable_pages sysctl/node-interface has been "
+		    "disabled for lack of a legitimate use case.  If you have "
+		    "one, please send an email to linux-mm@kvack.org.\n",
+		    current->comm);
+}
+
 #else
 void scan_mapping_unevictable_pages(struct address_space *mapping)
 {
@@ -3639,6 +3649,7 @@ int scan_unevictable_handler(struct ctl_table *table, int write,
 			   void __user *buffer,
 			   size_t *length, loff_t *ppos)
 {
+	warn_scan_unevictable_pages();
 	proc_doulongvec_minmax(table, write, buffer, length, ppos);
 
 	if (write && *(unsigned long *)table->data)
@@ -3658,6 +3669,7 @@ static ssize_t read_scan_unevictable_node(struct device *dev,
 					  struct device_attribute *attr,
 					  char *buf)
 {
+	warn_scan_unevictable_pages();
 	return sprintf(buf, "0\n");	/* always zero; should fit... */
 }
 
@@ -3665,6 +3677,7 @@ static ssize_t write_scan_unevictable_node(struct device *dev,
 					   struct device_attribute *attr,
 					const char *buf, size_t count)
 {
+	warn_scan_unevictable_pages();
 	struct zone *node_zones = NODE_DATA(dev->id)->node_zones;
 	struct zone *zone;
 	unsigned long res;
