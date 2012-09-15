@@ -1107,6 +1107,21 @@ void mem_cgroup_move_lists(struct page *page,
 	mem_cgroup_add_lru_list(page, to);
 }
 
+/*
+ * Checks whether given mem is same or in the root_mem's
+ * hierarchy subtree
+ */
+static bool mem_cgroup_same_or_subtree(const struct mem_cgroup *root_mem,
+		struct mem_cgroup *memcg)
+{
+	if (root_mem != memcg) {
+		return (root_mem->use_hierarchy &&
+			css_is_ancestor(&memcg->css, &root_mem->css));
+	}
+
+	return true;
+}
+
 int task_in_mem_cgroup(struct task_struct *task, const struct mem_cgroup *memcg)
 {
 	int ret;
@@ -1126,10 +1141,7 @@ int task_in_mem_cgroup(struct task_struct *task, const struct mem_cgroup *memcg)
 	 * enabled in "curr" and "curr" is a child of "memcg" in *cgroup*
 	 * hierarchy(even if use_hierarchy is disabled in "memcg").
 	 */
-	if (memcg->use_hierarchy)
-		ret = css_is_ancestor(&curr->css, &memcg->css);
-	else
-		ret = (curr == memcg);
+	ret = mem_cgroup_same_or_subtree(memcg, curr);
 	css_put(&curr->css);
 	return ret;
 }
@@ -1369,10 +1381,9 @@ static bool mem_cgroup_under_move(struct mem_cgroup *memcg)
 	to = mc.to;
 	if (!from)
 		goto unlock;
-	if (from == memcg || to == memcg
-	    || (memcg->use_hierarchy && css_is_ancestor(&from->css, &memcg->css))
-	    || (memcg->use_hierarchy && css_is_ancestor(&to->css,	&memcg->css)))
-		ret = true;
+
+	ret = mem_cgroup_same_or_subtree(memcg, from)
+		|| mem_cgroup_same_or_subtree(memcg, to);
 unlock:
 	spin_unlock(&mc.lock);
 	return ret;
@@ -1915,25 +1926,20 @@ struct oom_wait_info {
 static int memcg_oom_wake_function(wait_queue_t *wait,
 	unsigned mode, int sync, void *arg)
 {
-	struct mem_cgroup *wake_mem = (struct mem_cgroup *)arg;
+	struct mem_cgroup *wake_mem = (struct mem_cgroup *)arg,
+			  *oom_wait_mem;
 	struct oom_wait_info *oom_wait_info;
 
 	oom_wait_info = container_of(wait, struct oom_wait_info, wait);
+	oom_wait_mem = oom_wait_info->mem;
 
-	if (oom_wait_info->memcg == wake_mem)
-		goto wakeup;
-	/* if no hierarchy, no match */
-	if (!oom_wait_info->memcg->use_hierarchy || !wake_mem->use_hierarchy)
-		return 0;
 	/*
 	 * Both of oom_wait_info->memcg and wake_mem are stable under us.
 	 * Then we can use css_is_ancestor without taking care of RCU.
 	 */
-	if (!css_is_ancestor(&oom_wait_info->memcg->css, &wake_mem->css) &&
-	    !css_is_ancestor(&wake_mem->css, &oom_wait_info->memcg->css))
+	if (!mem_cgroup_same_or_subtree(oom_wait_mem, wake_mem)
+			&& !mem_cgroup_same_or_subtree(wake_mem, oom_wait_mem))
 		return 0;
-
-wakeup:
 	return autoremove_wake_function(wait, mode, sync, arg);
 }
 
@@ -2178,13 +2184,8 @@ static void drain_all_stock(struct mem_cgroup *root_mem, bool sync)
 		mem = stock->cached;
 		if (!memcg || !stock->nr_pages)
 			continue;
-		if (memcg != root_mem) {
-			if (!root_mem->use_hierarchy)
-				continue;
-			/* check whether "memcg" is under tree of "root_mem" */
-			if (!css_is_ancestor(&memcg->css, &root_mem->css))
-				continue;
-		}
+		if (!mem_cgroup_same_or_subtree(root_mem, memcg))
+			continue;
 		if (!test_and_set_bit(FLUSHING_CACHED_CHARGE, &stock->flags)) {
 			if (cpu == curcpu)
 				drain_local_stock(&stock->work);
