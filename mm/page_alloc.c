@@ -2380,6 +2380,10 @@ rebalance:
 				pr_info("time's up : calling "
 						"__alloc_pages_may_oom\n");
 #endif
+			/* Coredumps can quickly deplete all memory reserves */
+			if ((current->flags & PF_DUMPCORE) &&
+			    !(gfp_mask & __GFP_NOFAIL))
+				goto nopage;
 			page = __alloc_pages_may_oom(gfp_mask, order,
 					zonelist, high_zoneidx,
 					nodemask, preferred_zone,
