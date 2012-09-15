@@ -32,7 +32,7 @@
 #include <linux/sysctl.h>
 #include <linux/cpu.h>
 #include <linux/syscalls.h>
-#include <linux/buffer_head.h>
+#include <linux/buffer_head.h> /* __set_page_dirty_buffers */
 #include <linux/pagevec.h>
 #include <trace/events/writeback.h>
 
@@ -128,7 +128,67 @@ unsigned long global_dirty_limit;
  *
  */
 static struct prop_descriptor vm_completions;
-static struct prop_descriptor vm_dirties;
+
+/*
+ * Work out the current dirty-memory clamping and background writeout
+ * thresholds.
+ *
+ * The main aim here is to lower them aggressively if there is a lot of mapped
+ * memory around.  To avoid stressing page reclaim with lots of unreclaimable
+ * pages.  It is better to clamp down on writers than to start swapping, and
+ * performing lots of scanning.
+ *
+ * We only allow 1/2 of the currently-unmapped memory to be dirtied.
+ *
+ * We don't permit the clamping level to fall below 5% - that is getting rather
+ * excessive.
+ *
+ * We make sure that the background writeout level is below the adjusted
+ * clamping level.
+ */
+static unsigned long highmem_dirtyable_memory(unsigned long total)
+{
+#ifdef CONFIG_HIGHMEM
+	int node;
+	unsigned long x = 0;
+
+	for_each_node_state(node, N_HIGH_MEMORY) {
+		struct zone *z =
+			&NODE_DATA(node)->node_zones[ZONE_HIGHMEM];
+
+		x += zone_page_state(z, NR_FREE_PAGES) +
+		     zone_reclaimable_pages(z) - z->dirty_balance_reserve;
+	}
+	/*
+	 * Make sure that the number of highmem pages is never larger
+	 * than the number of the total dirtyable memory. This can only
+	 * occur in very strange VM situations but we want to make sure
+	 * that this does not occur.
+	 */
+	return min(x, total);
+#else
+	return 0;
+#endif
+}
+
+/**
+ * determine_dirtyable_memory - amount of memory that may be used
+ *
+ * Returns the numebr of pages that can currently be freed and used
+ * by the kernel for direct mappings.
+ */
+static unsigned long determine_dirtyable_memory(void)
+{
+	unsigned long x;
+
+	x = global_page_state(NR_FREE_PAGES) + global_reclaimable_pages() -
+	    dirty_balance_reserve;
+
+	if (!vm_highmem_is_dirtyable)
+		x -= highmem_dirtyable_memory(x);
+
+	return x + 1;	/* Ensure that we never return 0 */
+}
 
 /*
  * couple the period to the dirty_ratio:
@@ -154,7 +214,6 @@ static void update_completion_period(void)
 {
 	int shift = calc_period_shift();
 	prop_change_shift(&vm_completions, shift);
-	prop_change_shift(&vm_dirties, shift);
 
 	writeback_set_ratelimit();
 }
@@ -198,7 +257,6 @@ int dirty_ratio_handler(struct ctl_table *table, int write,
 	return ret;
 }
 
-
 int dirty_bytes_handler(struct ctl_table *table, int write,
 		void __user *buffer, size_t *lenp,
 		loff_t *ppos)
@@ -235,11 +293,6 @@ void bdi_writeout_inc(struct backing_dev_info *bdi)
 }
 EXPORT_SYMBOL_GPL(bdi_writeout_inc);
 
-void task_dirty_inc(struct task_struct *tsk)
-{
-	prop_inc_single(&vm_dirties, &tsk->dirties);
-}
-
 /*
  * Obtain an accurate fraction of the BDI's portion.
  */
@@ -251,7 +304,9 @@ static void bdi_writeout_fraction(struct backing_dev_info *bdi,
 }
 
 /*
- *
+ * bdi_min_ratio keeps the sum of the minimum dirty shares of all
+ * registered backing devices, which, for obvious reasons, can not
+ * exceed 100%.
  */
 static unsigned int bdi_min_ratio;
 
@@ -295,67 +350,6 @@ int bdi_set_max_ratio(struct backing_dev_info *bdi, unsigned max_ratio)
 	return ret;
 }
 EXPORT_SYMBOL(bdi_set_max_ratio);
-
-/*
- * Work out the current dirty-memory clamping and background writeout
- * thresholds.
- *
- * The main aim here is to lower them aggressively if there is a lot of mapped
- * memory around.  To avoid stressing page reclaim with lots of unreclaimable
- * pages.  It is better to clamp down on writers than to start swapping, and
- * performing lots of scanning.
- *
- * We only allow 1/2 of the currently-unmapped memory to be dirtied.
- *
- * We don't permit the clamping level to fall below 5% - that is getting rather
- * excessive.
- *
- * We make sure that the background writeout level is below the adjusted
- * clamping level.
- */
-
-static unsigned long highmem_dirtyable_memory(unsigned long total)
-{
-#ifdef CONFIG_HIGHMEM
-	int node;
-	unsigned long x = 0;
-
-	for_each_node_state(node, N_HIGH_MEMORY) {
-		struct zone *z =
-			&NODE_DATA(node)->node_zones[ZONE_HIGHMEM];
-
-		x += zone_page_state(z, NR_FREE_PAGES) +
-		     zone_reclaimable_pages(z);
-	}
-	/*
-	 * Make sure that the number of highmem pages is never larger
-	 * than the number of the total dirtyable memory. This can only
-	 * occur in very strange VM situations but we want to make sure
-	 * that this does not occur.
-	 */
-	return min(x, total);
-#else
-	return 0;
-#endif
-}
-
-/**
- * determine_dirtyable_memory - amount of memory that may be used
- *
- * Returns the numebr of pages that can currently be freed and used
- * by the kernel for direct mappings.
- */
-unsigned long determine_dirtyable_memory(void)
-{
-	unsigned long x;
-
-	x = global_page_state(NR_FREE_PAGES) + global_reclaimable_pages();
-
-	if (!vm_highmem_is_dirtyable)
-		x -= highmem_dirtyable_memory(x);
-
-	return x + 1;	/* Ensure that we never return 0 */
-}
 
 static unsigned long dirty_freerun_ceiling(unsigned long thresh,
 					   unsigned long bg_thresh)
@@ -416,8 +410,13 @@ void global_dirty_limits(unsigned long *pbackground, unsigned long *pdirty)
  *
  * Returns @bdi's dirty limit in pages. The term "dirty" in the context of
  * dirty balancing includes all PG_dirty, PG_writeback and NFS unstable pages.
- * And the "limit" in the name is not seriously taken as hard limit in
- * balance_dirty_pages().
+ *
+ * Note that balance_dirty_pages() will only seriously take it as a hard limit
+ * when sleeping max_pause per page is not enough to keep the dirty pages under
+ * control. For example, when the device is completely stalled due to some error
+ * conditions, or when there are 1000 dd tasks writing to a slow 10MB/s USB key.
+ * In the other normal situations, it acts more gently by throttling the tasks
+ * more (rather than completely block them) when the bdi dirty pages go high.
  *
  * It allocates high/low dirty limits to fast/slow devices, in order to prevent
  * - starving fast devices
@@ -599,6 +598,13 @@ static unsigned long bdi_position_ratio(struct backing_dev_info *bdi,
 	 */
 	if (unlikely(bdi_thresh > thresh))
 		bdi_thresh = thresh;
+	/*
+	 * It's very possible that bdi_thresh is close to 0 not because the
+	 * device is slow, but that it has remained inactive for long time.
+	 * Honour such devices a reasonable good (hopefully IO efficient)
+	 * threshold, so that the occasional writes won't be blocked and active
+	 * writes can rampup the threshold quickly.
+	 */
 	bdi_thresh = max(bdi_thresh, (limit - dirty) / 8);
 	/*
 	 * scale global setpoint to bdi's:
@@ -982,8 +988,7 @@ static unsigned long bdi_max_pause(struct backing_dev_info *bdi,
 	 *
 	 * 8 serves as the safety ratio.
 	 */
-	if (bdi_dirty)
-		t = min(t, bdi_dirty * HZ / (8 * bw + 1));
+	t = min(t, bdi_dirty * HZ / (8 * bw + 1));
 
 	/*
 	 * The pause time will be settled within range (max_pause/4, max_pause).
@@ -1095,13 +1100,13 @@ static void balance_dirty_pages(struct address_space *mapping,
 		pos_ratio = bdi_position_ratio(bdi, dirty_thresh,
 					       background_thresh, nr_dirty,
 					       bdi_thresh, bdi_dirty);
-		if (unlikely(pos_ratio == 0)) {
+		task_ratelimit = ((u64)dirty_ratelimit * pos_ratio) >>
+							RATELIMIT_CALC_SHIFT;
+		if (unlikely(task_ratelimit == 0)) {
 			pause = max_pause;
 			goto pause;
 		}
-		task_ratelimit = (u64)dirty_ratelimit *
-					pos_ratio >> RATELIMIT_CALC_SHIFT;
-		pause = (HZ * pages_dirtied) / (task_ratelimit | 1);
+		pause = HZ * pages_dirtied / task_ratelimit;
 		if (unlikely(pause <= 0)) {
 			trace_balance_dirty_pages(bdi,
 						  dirty_thresh,
@@ -1131,17 +1136,30 @@ pause:
 					  pages_dirtied,
 					  pause,
 					  start_time);
-		__set_current_state(TASK_UNINTERRUPTIBLE);
+		__set_current_state(TASK_KILLABLE);
 		io_schedule_timeout(pause);
 
-		dirty_thresh = hard_dirty_limit(dirty_thresh);
 		/*
-		 * max-pause area. If dirty exceeded but still within this
-		 * area, no need to sleep for more than 200ms: (a) 8 pages per
-		 * 200ms is typically more than enough to curb heavy dirtiers;
-		 * (b) the pause time limit makes the dirtiers more responsive.
+		 * This is typically equal to (nr_dirty < dirty_thresh) and can
+		 * also keep "1000+ dd on a slow USB stick" under control.
 		 */
-		if (nr_dirty < dirty_thresh)
+		if (task_ratelimit)
+			break;
+
+		/*
+		 * In the case of an unresponding NFS server and the NFS dirty
+		 * pages exceeds dirty_thresh, give the other good bdi's a pipe
+		 * to go through, so that tasks on them still remain responsive.
+		 *
+		 * In theory 1 page is enough to keep the comsumer-producer
+		 * pipe going: the flusher cleans 1 page => the task dirties 1
+		 * more page. However bdi_dirty has accounting errors.  So use
+		 * the larger and more IO friendly bdi_stat_error.
+		 */
+		if (bdi_dirty <= bdi_stat_error(bdi))
+			break;
+
+		if (fatal_signal_pending(current))
 			break;
 	}
 
@@ -1393,7 +1411,6 @@ void __init page_writeback_init(void)
 
 	shift = calc_period_shift();
 	prop_descriptor_init(&vm_completions, shift);
-	prop_descriptor_init(&vm_dirties, shift);
 }
 
 /**
@@ -1722,7 +1739,6 @@ void account_page_dirtied(struct page *page, struct address_space *mapping)
 		__inc_zone_page_state(page, NR_DIRTIED);
 		__inc_bdi_stat(mapping->backing_dev_info, BDI_RECLAIMABLE);
 		__inc_bdi_stat(mapping->backing_dev_info, BDI_DIRTIED);
-		task_dirty_inc(current);
 		task_io_account_write(PAGE_CACHE_SIZE);
 	}
 }
