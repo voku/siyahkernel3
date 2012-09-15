@@ -33,6 +33,7 @@
 #include <linux/bit_spinlock.h>
 #include <linux/rcupdate.h>
 #include <linux/limits.h>
+#include <linux/export.h>
 #include <linux/mutex.h>
 #include <linux/rbtree.h>
 #include <linux/slab.h>
@@ -143,7 +144,7 @@ struct mem_cgroup_per_zone {
 	unsigned long long	usage_in_excess;/* Set to the value by which */
 						/* the soft limit is exceeded*/
 	bool			on_tree;
-	struct mem_cgroup	*memcg;		/* Back pointer, we cannot */
+	struct mem_cgroup	*mem;		/* Back pointer, we cannot */
 						/* use container_of	   */
 };
 /* Macro for accessing counter */
@@ -230,7 +231,7 @@ struct mem_cgroup {
 	 */
 	struct res_counter res;
 	/*
-	 * the counter to account for memcg+swap usage.
+	 * the counter to account for mem+swap usage.
 	 */
 	struct res_counter memsw;
 	/*
@@ -267,7 +268,7 @@ struct mem_cgroup {
 	/* thresholds for memory usage. RCU-protected */
 	struct mem_cgroup_thresholds thresholds;
 
-	/* thresholds for memcg+swap usage. RCU-protected */
+	/* thresholds for mem+swap usage. RCU-protected */
 	struct mem_cgroup_thresholds memsw_thresholds;
 
 	/* For oom notifier event fd */
@@ -490,7 +491,7 @@ __mem_cgroup_insert_exceeded(struct mem_cgroup *memcg,
 		if (mz->usage_in_excess < mz_node->usage_in_excess)
 			p = &(*p)->rb_left;
 		/*
-		 * We can't avoid memcg cgroups that are over their soft
+		 * We can't avoid mem cgroups that are over their soft
 		 * limit by the same amount
 		 */
 		else if (mz->usage_in_excess >= mz_node->usage_in_excess)
@@ -541,7 +542,7 @@ static void mem_cgroup_update_tree(struct mem_cgroup *memcg, struct page *page)
 		excess = res_counter_soft_limit_excess(&memcg->res);
 		/*
 		 * We have to update the tree if mz is on RB-tree or
-		 * memcg is over its softlimit.
+		 * mem is over its softlimit.
 		 */
 		if (excess || mz->on_tree) {
 			spin_lock(&mctz->lock);
@@ -591,9 +592,9 @@ retry:
 	 * we will to add it back at the end of reclaim to its correct
 	 * position in the tree.
 	 */
-	__mem_cgroup_remove_exceeded(mz->memcg, mz, mctz);
-	if (!res_counter_soft_limit_excess(&mz->memcg->res) ||
-		!css_tryget(&mz->memcg->css))
+	__mem_cgroup_remove_exceeded(mz->mem, mz, mctz);
+	if (!res_counter_soft_limit_excess(&mz->mem->res) ||
+		!css_tryget(&mz->mem->css))
 		goto retry;
 done:
 	return mz;
@@ -994,6 +995,27 @@ out:
 }
 EXPORT_SYMBOL(mem_cgroup_count_vm_event);
 
+/**
+ * mem_cgroup_zone_lruvec - get the lru list vector for a zone and memcg
+ * @zone: zone of the wanted lruvec
+ * @mem: memcg of the wanted lruvec
+ *
+ * Returns the lru list vector holding pages for the given @zone and
+ * @mem.  This can be the global zone lruvec, if the memory controller
+ * is disabled.
+ */
+struct lruvec *mem_cgroup_zone_lruvec(struct zone *zone,
+				      struct mem_cgroup *memcg)
+{
+	struct mem_cgroup_per_zone *mz;
+
+	if (mem_cgroup_disabled())
+		return &zone->lruvec;
+
+	mz = mem_cgroup_zoneinfo(memcg, zone_to_nid(zone), zone_idx(zone));
+	return &mz->lruvec;
+}
+
 /*
  * Following LRU functions are allowed to be used without PCG_LOCK.
  * Operations are called by routine of global LRU independently from memcg.
@@ -1008,89 +1030,28 @@ EXPORT_SYMBOL(mem_cgroup_count_vm_event);
  * When moving account, the page is not on LRU. It's isolated.
  */
 
-void mem_cgroup_del_lru_list(struct page *page, enum lru_list lru)
-{
-	struct page_cgroup *pc;
-	struct mem_cgroup_per_zone *mz;
-
-	if (mem_cgroup_disabled())
-		return;
-	pc = lookup_page_cgroup(page);
-	/* can happen while we handle swapcache. */
-	if (!TestClearPageCgroupAcctLRU(pc))
-		return;
-	VM_BUG_ON(!pc->mem_cgroup);
-	/*
-	 * We don't check PCG_USED bit. It's cleared when the "page" is finally
-	 * removed from global LRU.
-	 */
-	mz = page_cgroup_zoneinfo(pc->mem_cgroup, page);
-	/* huge page split is done under lru_lock. so, we have no races. */
-	MEM_CGROUP_ZSTAT(mz, lru) -= 1 << compound_order(page);
-	if (mem_cgroup_is_root(pc->mem_cgroup))
-		return;
-	VM_BUG_ON(list_empty(&pc->lru));
-	list_del_init(&pc->lru);
-}
-
-void mem_cgroup_del_lru(struct page *page)
-{
-	mem_cgroup_del_lru_list(page, page_lru(page));
-}
-
-/*
- * Writeback is about to end against a page which has been marked for immediate
- * reclaim.  If it still appears to be reclaimable, move it to the tail of the
- * inactive list.
+/**
+ * mem_cgroup_lru_add_list - account for adding an lru page and return lruvec
+ * @zone: zone of the page
+ * @page: the page
+ * @lru: current lru
+ *
+ * This function accounts for @page being added to @lru, and returns
+ * the lruvec for the given @zone and the memcg @page is charged to.
+ *
+ * The callsite is then responsible for physically linking the page to
+ * the returned lruvec->lists[@lru].
  */
-void mem_cgroup_rotate_reclaimable_page(struct page *page)
+struct lruvec *mem_cgroup_lru_add_list(struct zone *zone, struct page *page,
+				       enum lru_list lru)
 {
 	struct mem_cgroup_per_zone *mz;
-	struct page_cgroup *pc;
-	enum lru_list lru = page_lru(page);
-
-	if (mem_cgroup_disabled())
-		return;
-
-	pc = lookup_page_cgroup(page);
-	/* unused or root page is not rotated. */
-	if (!PageCgroupUsed(pc))
-		return;
-	/* Ensure pc->mem_cgroup is visible after reading PCG_USED. */
-	smp_rmb();
-	if (mem_cgroup_is_root(pc->mem_cgroup))
-		return;
-	mz = page_cgroup_zoneinfo(pc->mem_cgroup, page);
-	list_move_tail(&pc->lru, &mz->lruvec.lists[lru]);
-}
-
-void mem_cgroup_rotate_lru_list(struct page *page, enum lru_list lru)
-{
-	struct mem_cgroup_per_zone *mz;
+	struct mem_cgroup *memcg;
 	struct page_cgroup *pc;
 
 	if (mem_cgroup_disabled())
-		return;
+		return &zone->lruvec;
 
-	pc = lookup_page_cgroup(page);
-	/* unused or root page is not rotated. */
-	if (!PageCgroupUsed(pc))
-		return;
-	/* Ensure pc->mem_cgroup is visible after reading PCG_USED. */
-	smp_rmb();
-	if (mem_cgroup_is_root(pc->mem_cgroup))
-		return;
-	mz = page_cgroup_zoneinfo(pc->mem_cgroup, page);
-	list_move(&pc->lru, &mz->lruvec.lists[lru]);
-}
-
-void mem_cgroup_add_lru_list(struct page *page, enum lru_list lru)
-{
-	struct page_cgroup *pc;
-	struct mem_cgroup_per_zone *mz;
-
-	if (mem_cgroup_disabled())
-		return;
 	pc = lookup_page_cgroup(page);
 	VM_BUG_ON(PageCgroupAcctLRU(pc));
 	/*
@@ -1103,17 +1064,89 @@ void mem_cgroup_add_lru_list(struct page *page, enum lru_list lru)
 	 * LRU during a race.
 	 */
 	smp_mb();
-	if (!PageCgroupUsed(pc))
-		return;
-	/* Ensure pc->mem_cgroup is visible after reading PCG_USED. */
-	smp_rmb();
-	mz = page_cgroup_zoneinfo(pc->mem_cgroup, page);
-	/* huge page split is done under lru_lock. so, we have no races. */
+	/*
+	 * If the page is uncharged, it may be freed soon, but it
+	 * could also be swap cache (readahead, swapoff) that needs to
+	 * be reclaimable in the future.  root_mem_cgroup will babysit
+	 * it for the time being.
+	 */
+	if (PageCgroupUsed(pc)) {
+		/* Ensure pc->mem_cgroup is visible after reading PCG_USED. */
+		smp_rmb();
+		memcg = pc->mem_cgroup;
+		SetPageCgroupAcctLRU(pc);
+	} else
+		memcg = root_mem_cgroup;
+	mz = page_cgroup_zoneinfo(memcg, page);
+	/* compound_order() is stabilized through lru_lock */
 	MEM_CGROUP_ZSTAT(mz, lru) += 1 << compound_order(page);
-	SetPageCgroupAcctLRU(pc);
-	if (mem_cgroup_is_root(pc->mem_cgroup))
+	return &mz->lruvec;
+}
+
+/**
+ * mem_cgroup_lru_del_list - account for removing an lru page
+ * @page: the page
+ * @lru: target lru
+ *
+ * This function accounts for @page being removed from @lru.
+ *
+ * The callsite is then responsible for physically unlinking
+ * @page->lru.
+ */
+void mem_cgroup_lru_del_list(struct page *page, enum lru_list lru)
+{
+	struct mem_cgroup_per_zone *mz;
+	struct mem_cgroup *memcg;
+	struct page_cgroup *pc;
+
+	if (mem_cgroup_disabled())
 		return;
-	list_add(&pc->lru, &mz->lruvec.lists[lru]);
+
+	pc = lookup_page_cgroup(page);
+	/*
+	 * root_mem_cgroup babysits uncharged LRU pages, but
+	 * PageCgroupUsed is cleared when the page is about to get
+	 * freed.  PageCgroupAcctLRU remembers whether the
+	 * LRU-accounting happened against pc->mem_cgroup or
+	 * root_mem_cgroup.
+	 */
+	if (TestClearPageCgroupAcctLRU(pc)) {
+		VM_BUG_ON(!pc->mem_cgroup);
+		memcg = pc->mem_cgroup;
+	} else
+		memcg = root_mem_cgroup;
+	mz = page_cgroup_zoneinfo(memcg, page);
+	/* huge page split is done under lru_lock. so, we have no races. */
+	MEM_CGROUP_ZSTAT(mz, lru) -= 1 << compound_order(page);
+}
+
+void mem_cgroup_lru_del(struct page *page)
+{
+	mem_cgroup_lru_del_list(page, page_lru(page));
+}
+
+/**
+ * mem_cgroup_lru_move_lists - account for moving a page between lrus
+ * @zone: zone of the page
+ * @page: the page
+ * @from: current lru
+ * @to: target lru
+ *
+ * This function accounts for @page being moved between the lrus @from
+ * and @to, and returns the lruvec for the given @zone and the memcg
+ * @page is charged to.
+ *
+ * The callsite is then responsible for physically relinking
+ * @page->lru to the returned lruvec->lists[@to].
+ */
+struct lruvec *mem_cgroup_lru_move_lists(struct zone *zone,
+					 struct page *page,
+					 enum lru_list from,
+					 enum lru_list to)
+{
+	/* XXX: Optimize this, especially for @from == @to */
+	mem_cgroup_lru_del_list(page, from);
+	return mem_cgroup_lru_add_list(zone, page, to);
 }
 
 /*
@@ -1124,6 +1157,7 @@ void mem_cgroup_add_lru_list(struct page *page, enum lru_list lru)
  */
 static void mem_cgroup_lru_del_before_commit(struct page *page)
 {
+	enum lru_list lru;
 	unsigned long flags;
 	struct zone *zone = page_zone(page);
 	struct page_cgroup *pc = lookup_page_cgroup(page);
@@ -1140,17 +1174,28 @@ static void mem_cgroup_lru_del_before_commit(struct page *page)
 		return;
 
 	spin_lock_irqsave(&zone->lru_lock, flags);
+	lru = page_lru(page);
 	/*
-	 * Forget old LRU when this page_cgroup is *not* used. This Used bit
-	 * is guarded by lock_page() because the page is SwapCache.
+	 * The uncharged page could still be registered to the LRU of
+	 * the stale pc->mem_cgroup.
+	 *
+	 * As pc->mem_cgroup is about to get overwritten, the old LRU
+	 * accounting needs to be taken care of.  Let root_mem_cgroup
+	 * babysit the page until the new memcg is responsible for it.
+	 *
+	 * The PCG_USED bit is guarded by lock_page() as the page is
+	 * swapcache/pagecache.
 	 */
-	if (!PageCgroupUsed(pc))
-		mem_cgroup_del_lru_list(page, page_lru(page));
+	if (PageLRU(page) && PageCgroupAcctLRU(pc) && !PageCgroupUsed(pc)) {
+		del_page_from_lru_list(zone, page, lru);
+		add_page_to_lru_list(zone, page, lru);
+	}
 	spin_unlock_irqrestore(&zone->lru_lock, flags);
 }
 
 static void mem_cgroup_lru_add_after_commit(struct page *page)
 {
+	enum lru_list lru;
 	unsigned long flags;
 	struct zone *zone = page_zone(page);
 	struct page_cgroup *pc = lookup_page_cgroup(page);
@@ -1168,20 +1213,20 @@ static void mem_cgroup_lru_add_after_commit(struct page *page)
 	if (likely(!PageLRU(page)))
 		return;
 	spin_lock_irqsave(&zone->lru_lock, flags);
-	/* link when the page is linked to LRU but page_cgroup isn't */
-	if (PageLRU(page) && !PageCgroupAcctLRU(pc))
-		mem_cgroup_add_lru_list(page, page_lru(page));
+	lru = page_lru(page);
+	/*
+	 * If the page is not on the LRU, someone will soon put it
+	 * there.  If it is, and also already accounted for on the
+	 * memcg-side, it must be on the right lruvec as setting
+	 * pc->mem_cgroup and PageCgroupUsed is properly ordered.
+	 * Otherwise, root_mem_cgroup has been babysitting the page
+	 * during the charge.  Move it to the new memcg now.
+	 */
+	if (PageLRU(page) && !PageCgroupAcctLRU(pc)) {
+		del_page_from_lru_list(zone, page, lru);
+		add_page_to_lru_list(zone, page, lru);
+	}
 	spin_unlock_irqrestore(&zone->lru_lock, flags);
-}
-
-
-void mem_cgroup_move_lists(struct page *page,
-			   enum lru_list from, enum lru_list to)
-{
-	if (mem_cgroup_disabled())
-		return;
-	mem_cgroup_del_lru_list(page, from);
-	mem_cgroup_add_lru_list(page, to);
 }
 
 /*
@@ -1289,68 +1334,6 @@ mem_cgroup_get_reclaim_stat_from_page(struct page *page)
 	return &mz->reclaim_stat;
 }
 
-unsigned long mem_cgroup_isolate_pages(unsigned long nr_to_scan,
-					struct list_head *dst,
-					unsigned long *scanned, int order,
-					isolate_mode_t mode,
-					struct zone *z,
-					struct mem_cgroup *mem_cont,
-					int active, int file)
-{
-	unsigned long nr_taken = 0;
-	struct page *page;
-	unsigned long scan;
-	LIST_HEAD(pc_list);
-	struct list_head *src;
-	struct page_cgroup *pc, *tmp;
-	int nid = zone_to_nid(z);
-	int zid = zone_idx(z);
-	struct mem_cgroup_per_zone *mz;
-	int lru = LRU_FILE * file + active;
-	int ret;
-
-	BUG_ON(!mem_cont);
-	mz = mem_cgroup_zoneinfo(mem_cont, nid, zid);
-	src = &mz->lruvec.lists[lru];
-
-	scan = 0;
-	list_for_each_entry_safe_reverse(pc, tmp, src, lru) {
-		if (scan >= nr_to_scan)
-			break;
-
-		if (unlikely(!PageCgroupUsed(pc)))
-			continue;
-
-		page = lookup_cgroup_page(pc);
-
-		if (unlikely(!PageLRU(page)))
-			continue;
-
-		scan++;
-		ret = __isolate_lru_page(page, mode, file);
-		switch (ret) {
-		case 0:
-			list_move(&page->lru, dst);
-			mem_cgroup_del_lru(page);
-			nr_taken += hpage_nr_pages(page);
-			break;
-		case -EBUSY:
-			/* we don't affect global LRU but rotate in our LRU */
-			mem_cgroup_rotate_lru_list(page, page_lru(page));
-			break;
-		default:
-			break;
-		}
-	}
-
-	*scanned = scan;
-
-	trace_mm_vmscan_memcg_isolate(0, nr_to_scan, scan, nr_taken,
-				      0, 0, 0, mode);
-
-	return nr_taken;
-}
-
 #define mem_cgroup_from_res_counter(counter, member)	\
 	container_of(counter, struct mem_cgroup, member)
 
@@ -1412,7 +1395,7 @@ static void mem_cgroup_end_move(struct mem_cgroup *memcg)
 	put_online_cpus();
 }
 /*
- * 2 routines for checking "memcg" is under move_account() or not.
+ * 2 routines for checking "mem" is under move_account() or not.
  *
  * mem_cgroup_stealed() - checking a cgroup is mc.from or not. This is used
  *			  for avoiding race in accounting. If true,
@@ -1869,7 +1852,7 @@ static DEFINE_SPINLOCK(memcg_oom_lock);
 static DECLARE_WAIT_QUEUE_HEAD(memcg_oom_waitq);
 
 struct oom_wait_info {
-	struct mem_cgroup *memcg;
+	struct mem_cgroup *mem;
 	wait_queue_t	wait;
 };
 
@@ -1884,7 +1867,7 @@ static int memcg_oom_wake_function(wait_queue_t *wait,
 	oom_wait_memcg = oom_wait_info->mem;
 
 	/*
-	 * Both of oom_wait_info->memcg and wake_mem are stable under us.
+	 * Both of oom_wait_info->mem and wake_mem are stable under us.
 	 * Then we can use css_is_ancestor without taking care of RCU.
 	 */
 	if (!mem_cgroup_same_or_subtree(oom_wait_memcg, wake_memcg)
@@ -2910,7 +2893,7 @@ __mem_cgroup_commit_charge_swapin(struct page *page, struct mem_cgroup *ptr,
 	__mem_cgroup_commit_charge_lrucare(page, ptr, ctype);
 	/*
 	 * Now swap is on-memory. This means this page may be
-	 * counted both as memcg and swap....double count.
+	 * counted both as mem and swap....double count.
 	 * Fix it by uncharging from memsw. Basically, this SwapCache is stable
 	 * under lock_page(). But in do_swap_page()::memory.c, reuse_swap_page()
 	 * may call delete_from_swap_cache() before reach here.
@@ -2992,7 +2975,7 @@ static void mem_cgroup_do_uncharge(struct mem_cgroup *memcg,
 		goto direct_uncharge;
 
 	/*
-	 * In typical case, batch->memcg == memcg. This means we can
+	 * In typical case, batch->memcg == mem. This means we can
 	 * merge a series of uncharges to an uncharge of res_counter.
 	 * If not, we uncharge res_counter ony by one.
 	 */
@@ -3683,7 +3666,7 @@ unsigned long mem_cgroup_soft_limit_reclaim(struct zone *zone, int order,
 				 * By the time we get the soft_limit lock
 				 * again, someone might have aded the
 				 * group back on the RB tree. Iterate to
-				 * make sure we get a different memcg.
+				 * make sure we get a different mem.
 				 * mem_cgroup_largest_soft_limit_node returns
 				 * NULL if no other cgroup is present on
 				 * the tree
@@ -3691,13 +3674,13 @@ unsigned long mem_cgroup_soft_limit_reclaim(struct zone *zone, int order,
 				next_mz =
 				__mem_cgroup_largest_soft_limit_node(mctz);
 				if (next_mz == mz)
-					css_put(&next_mz->memcg->css);
+					css_put(&next_mz->mem->css);
 				else /* next_mz == NULL or other memcg */
 					break;
 			} while (1);
 		}
-		__mem_cgroup_remove_exceeded(mz->memcg, mz, mctz);
-		excess = res_counter_soft_limit_excess(&mz->memcg->res);
+		__mem_cgroup_remove_exceeded(mz->mem, mz, mctz);
+		excess = res_counter_soft_limit_excess(&mz->mem->res);
 		/*
 		 * One school of thought says that we should not add
 		 * back the node to the tree if reclaim returns 0.
@@ -3707,13 +3690,13 @@ unsigned long mem_cgroup_soft_limit_reclaim(struct zone *zone, int order,
 		 * term TODO.
 		 */
 		/* If excess == 0, no tree ops */
-		__mem_cgroup_insert_exceeded(mz->memcg, mz, mctz, excess);
+		__mem_cgroup_insert_exceeded(mz->mem, mz, mctz, excess);
 		spin_unlock(&mctz->lock);
-		css_put(&mz->memcg->css);
+		css_put(&mz->mem->css);
 		loop++;
 		/*
 		 * Could not reclaim anything and there are no more
-		 * memcg cgroups to try or we seem to be looping without
+		 * mem cgroups to try or we seem to be looping without
 		 * reclaiming anything.
 		 */
 		if (!nr_reclaimed &&
@@ -3722,7 +3705,7 @@ unsigned long mem_cgroup_soft_limit_reclaim(struct zone *zone, int order,
 			break;
 	} while (!nr_reclaimed);
 	if (next_mz)
-		css_put(&next_mz->memcg->css);
+		css_put(&next_mz->mem->css);
 	return nr_reclaimed;
 }
 
@@ -3733,11 +3716,11 @@ unsigned long mem_cgroup_soft_limit_reclaim(struct zone *zone, int order,
 static int mem_cgroup_force_empty_list(struct mem_cgroup *memcg,
 				int node, int zid, enum lru_list lru)
 {
-	struct zone *zone;
 	struct mem_cgroup_per_zone *mz;
-	struct page_cgroup *pc, *busy;
 	unsigned long flags, loop;
 	struct list_head *list;
+	struct page *busy;
+	struct zone *zone;
 	int ret = 0;
 
 	zone = &NODE_DATA(node)->node_zones[zid];
@@ -3749,6 +3732,7 @@ static int mem_cgroup_force_empty_list(struct mem_cgroup *memcg,
 	loop += 256;
 	busy = NULL;
 	while (loop--) {
+		struct page_cgroup *pc;
 		struct page *page;
 
 		ret = 0;
@@ -3757,16 +3741,16 @@ static int mem_cgroup_force_empty_list(struct mem_cgroup *memcg,
 			spin_unlock_irqrestore(&zone->lru_lock, flags);
 			break;
 		}
-		pc = list_entry(list->prev, struct page_cgroup, lru);
-		if (busy == pc) {
-			list_move(&pc->lru, list);
+		page = list_entry(list->prev, struct page, lru);
+		if (busy == page) {
+			list_move(&page->lru, list);
 			busy = NULL;
 			spin_unlock_irqrestore(&zone->lru_lock, flags);
 			continue;
 		}
 		spin_unlock_irqrestore(&zone->lru_lock, flags);
 
-		page = lookup_cgroup_page(pc);
+		pc = lookup_page_cgroup(page);
 
 		ret = mem_cgroup_move_parent(page, pc, memcg, GFP_KERNEL);
 		if (ret == -ENOMEM)
@@ -3774,7 +3758,7 @@ static int mem_cgroup_force_empty_list(struct mem_cgroup *memcg,
 
 		if (ret == -EBUSY || ret == -EINVAL) {
 			/* found lock contention or "pc" is obsolete. */
-			busy = pc;
+			busy = page;
 			cond_resched();
 		} else
 			busy = NULL;
@@ -4546,9 +4530,6 @@ static void mem_cgroup_usage_unregister_event(struct cgroup *cgrp,
 	 */
 	BUG_ON(!thresholds);
 
-	if (!thresholds->primary)
-		goto unlock;
-
 	usage = mem_cgroup_usage(memcg, type == _MEMSWAP);
 
 	/* Check if a threshold crossed before removing */
@@ -4593,17 +4574,11 @@ static void mem_cgroup_usage_unregister_event(struct cgroup *cgrp,
 swap_buffers:
 	/* Swap primary and spare array */
 	thresholds->spare = thresholds->primary;
-	/* If all events are unregistered, free the spare array */
-	if (!new) {
-		kfree(thresholds->spare);
-		thresholds->spare = NULL;
-	}
-
 	rcu_assign_pointer(thresholds->primary, new);
 
 	/* To be sure that nobody uses thresholds */
 	synchronize_rcu();
-unlock:
+
 	mutex_unlock(&memcg->thresholds_lock);
 }
 
@@ -4893,29 +4868,29 @@ static void free_mem_cgroup_per_zone_info(struct mem_cgroup *memcg, int node)
 
 static struct mem_cgroup *mem_cgroup_alloc(void)
 {
-	struct mem_cgroup *memcg;
+	struct mem_cgroup *mem;
 	int size = sizeof(struct mem_cgroup);
 
 	/* Can be very big if MAX_NUMNODES is very big */
 	if (size < PAGE_SIZE)
-		memcg = kzalloc(size, GFP_KERNEL);
+		mem = kzalloc(size, GFP_KERNEL);
 	else
-		memcg = vzalloc(size);
+		mem = vzalloc(size);
 
-	if (!memcg)
+	if (!mem)
 		return NULL;
 
-	memcg->stat = alloc_percpu(struct mem_cgroup_stat_cpu);
-	if (!memcg->stat)
+	mem->stat = alloc_percpu(struct mem_cgroup_stat_cpu);
+	if (!mem->stat)
 		goto out_free;
-	spin_lock_init(&memcg->pcp_counter_lock);
-	return memcg;
+	spin_lock_init(&mem->pcp_counter_lock);
+	return mem;
 
 out_free:
 	if (size < PAGE_SIZE)
-		kfree(memcg);
+		kfree(mem);
 	else
-		vfree(memcg);
+		vfree(mem);
 	return NULL;
 }
 
@@ -5323,8 +5298,6 @@ static int mem_cgroup_count_precharge_pte_range(pmd_t *pmd,
 	spinlock_t *ptl;
 
 	split_huge_page_pmd(walk->mm, pmd);
-	if (pmd_trans_unstable(pmd))
-		return 0;
 
 	pte = pte_offset_map_lock(vma->vm_mm, pmd, addr, &ptl);
 	for (; addr != end; pte++, addr += PAGE_SIZE)
@@ -5487,8 +5460,6 @@ static int mem_cgroup_move_charge_pte_range(pmd_t *pmd,
 	spinlock_t *ptl;
 
 	split_huge_page_pmd(walk->mm, pmd);
-	if (pmd_trans_unstable(pmd))
-		return 0;
 retry:
 	pte = pte_offset_map_lock(vma->vm_mm, pmd, addr, &ptl);
 	for (; addr != end; addr += PAGE_SIZE) {
