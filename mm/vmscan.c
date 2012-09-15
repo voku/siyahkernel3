@@ -1696,7 +1696,7 @@ zone_id_shrink_pagelist(struct list_head *page_list,
 	nr_reclaimed = shrink_page_list(page_list, mz, &sc, priority,
 						&nr_dirty, &nr_writeback);
 
-	__count_zone_vm_events(PGSTEAL, zone, nr_reclaimed);
+	__count_zone_vm_events(PGSTEAL_DIRECT, zone, nr_reclaimed);
 
 	putback_inactive_pages(mz, page_list);
 
@@ -2440,8 +2440,6 @@ static unsigned long do_try_to_free_pages(struct zonelist *zonelist,
 
 	for (priority = DEF_PRIORITY; priority >= 0; priority--) {
 		sc->nr_scanned = 0;
-		if (!priority)
-			disable_swap_token(sc->target_mem_cgroup);
 		aborted_reclaim = shrink_zones(priority, zonelist, sc);
 
 		/*
@@ -2791,10 +2789,6 @@ loop_again:
 	for (priority = DEF_PRIORITY; priority >= 0; priority--) {
 		unsigned long lru_pages = 0;
 		int has_under_min_watermark_zone = 0;
-
-		/* The swap token gets in the way of swapout... */
-		if (!priority)
-			disable_swap_token(NULL);
 
 		all_zones_ok = 1;
 		balanced = 0;
