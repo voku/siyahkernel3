@@ -815,6 +815,7 @@ int conf_write_autoconf(void)
 		       rootmenu.prompt->text);
 
 	for_all_symbols(i, sym) {
+		int fct_val = 0;
 		sym_calc_value(sym);
 		if (!(sym->flags & SYMBOL_WRITE) || !sym->name)
 			continue;
@@ -841,8 +842,10 @@ int conf_write_autoconf(void)
 					    CONFIG_, sym->name);
 				fprintf(out_h, "#define %s%s 1\n",
 				    CONFIG_, sym->name);
+				fct_val = 1;
 				break;
 			}
+			conf_write_function_autoconf(out_h, CONFIG_, sym->name, fct_val);
 			break;
 		case S_STRING:
 			conf_write_string(true, sym->name, sym_get_string_value(sym), out_h);
