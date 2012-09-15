@@ -636,7 +636,6 @@ enum page_references {
 };
 
 static enum page_references page_check_references(struct page *page,
-						  struct mem_cgroup_zone *mz,
 						  struct scan_control *sc)
 {
 	int referenced_ptes, referenced_page;
@@ -698,7 +697,7 @@ static enum page_references page_check_references(struct page *page,
 static
 #endif /* CONFIG_ZRAM_FOR_ANDROID */
 unsigned long shrink_page_list(struct list_head *page_list,
-				      struct mem_cgroup_zone *mz,
+				      struct zone *zone,
 				      struct scan_control *sc,
 				      unsigned long *ret_nr_dirty,
 				      unsigned long *ret_nr_writeback)
@@ -728,7 +727,7 @@ unsigned long shrink_page_list(struct list_head *page_list,
 			goto keep;
 
 		VM_BUG_ON(PageActive(page));
-		VM_BUG_ON(page_zone(page) != mz->zone);
+		VM_BUG_ON(page_zone(page) != zone);
 
 		sc->nr_scanned++;
 
@@ -751,7 +750,7 @@ unsigned long shrink_page_list(struct list_head *page_list,
 			goto keep;
 		}
 
-		references = page_check_references(page, mz, sc);
+		references = page_check_references(page, sc);
 		switch (references) {
 		case PAGEREF_ACTIVATE:
 			goto activate_locked;
@@ -941,7 +940,7 @@ keep:
 	 * will encounter the same problem
 	 */
 	if (nr_dirty && nr_dirty == nr_congested && global_reclaim(sc))
-		zone_set_flag(mz->zone, ZONE_CONGESTED);
+		zone_set_flag(zone, ZONE_CONGESTED);
 
 	free_hot_cold_page_list(&free_pages, 1);
 
@@ -1350,7 +1349,7 @@ shrink_inactive_list(unsigned long nr_to_scan, struct mem_cgroup_zone *mz,
 
 	update_isolated_counts(mz, &page_list, &nr_anon, &nr_file);
 
-	nr_reclaimed = shrink_page_list(&page_list, mz, sc,
+	nr_reclaimed = shrink_page_list(&page_list, zone, sc,
 						&nr_dirty, &nr_writeback);
 
 	spin_lock_irq(&zone->lru_lock);
@@ -1416,7 +1415,6 @@ unsigned long
 zone_id_shrink_pagelist(struct list_head *page_list,
 					struct mem_cgroup_zone *mz,
 					struct zone *zone,
-					int priority,
 					unsigned long *ret_nr_dirty,
 					unsigned long *ret_nr_writeback)
 {
@@ -1443,7 +1441,7 @@ zone_id_shrink_pagelist(struct list_head *page_list,
 
 	spin_unlock_irq(&zone->lru_lock);
 
-	nr_reclaimed = shrink_page_list(page_list, mz, &sc, priority,
+	nr_reclaimed = shrink_page_list(page_list, zone, &sc,
 						&nr_dirty, &nr_writeback);
 
 	__count_zone_vm_events(PGSTEAL_DIRECT, zone, nr_reclaimed);
