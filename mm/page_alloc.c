@@ -138,7 +138,7 @@ void pm_restrict_gfp_mask(void)
 	gfp_allowed_mask &= ~GFP_IOFS;
 }
 
-static bool pm_suspending(void)
+bool pm_suspended_storage(void)
 {
 	if ((gfp_allowed_mask & GFP_IOFS) == GFP_IOFS)
 		return false;
@@ -147,7 +147,7 @@ static bool pm_suspending(void)
 
 #else
 
-static bool pm_suspending(void)
+static bool pm_suspended_storage(void)
 {
 	return false;
 }
@@ -2380,7 +2380,7 @@ rebalance:
 		 * prevent reclaim making forward progress without
 		 * invoking OOM. Bail if we are suspending
 		 */
-		if (pm_suspending())
+		if (pm_suspended_storage())
 			goto nopage;
 	}
 

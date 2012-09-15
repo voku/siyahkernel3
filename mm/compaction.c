@@ -262,6 +262,7 @@ static isolate_migrate_t isolate_migratepages(struct zone *zone,
 	unsigned long nr_scanned = 0, nr_isolated = 0;
 	struct list_head *migratelist = &cc->migratepages;
 	isolate_mode_t mode = 0;
+	struct lruvec *lruvec;
 
 	/* Do not scan outside zone boundaries */
 	low_pfn = max(cc->migrate_pfn, zone->zone_start_pfn);
@@ -374,6 +375,8 @@ static isolate_migrate_t isolate_migratepages(struct zone *zone,
 		if (!cc->sync)
 			mode |= ISOLATE_ASYNC_MIGRATE;
 
+		lruvec = mem_cgroup_page_lruvec(page, zone);
+
 		/* Try isolate the page */
 		if (__isolate_lru_page(page, mode) != 0)
 			continue;
@@ -381,7 +384,7 @@ static isolate_migrate_t isolate_migratepages(struct zone *zone,
 		VM_BUG_ON(PageTransCompound(page));
 
 		/* Successfully isolated */
-		del_page_from_lru_list(zone, page, page_lru(page));
+		del_page_from_lru_list(page, lruvec, page_lru(page));
 		list_add(&page->lru, migratelist);
 		cc->nr_migratepages++;
 		nr_isolated++;
