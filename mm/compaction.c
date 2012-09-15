@@ -733,7 +733,7 @@ static int compact_node(int nid, bool sync)
 	pg_data_t *pgdat;
 	struct compact_control cc = {
 		.order = -1,
-		.sync = sync,
+		.sync = true,
 	};
 
 	if (nid < 0 || nid >= nr_node_ids || !node_online(nid))

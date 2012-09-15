@@ -101,7 +101,7 @@ extern void compaction_unregister_node(struct node *node);
 
 #else
 
-//#if 0 //not used and declared in mm/compaction.c
+#if 0 //not used and declared in mm/compaction.c
 static inline int compaction_register_node(struct node *node)
 {
 	return 0;
@@ -110,7 +110,7 @@ static inline int compaction_register_node(struct node *node)
 static inline void compaction_unregister_node(struct node *node)
 {
 }
-//#endif
+#endif
 
 #endif /* CONFIG_COMPACTION && CONFIG_SYSFS && CONFIG_NUMA */
 
