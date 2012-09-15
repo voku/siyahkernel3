@@ -526,7 +526,7 @@ phys_addr_t __init memblock_alloc(phys_addr_t size, phys_addr_t align)
 
 phys_addr_t __weak __init memblock_nid_range(phys_addr_t start, phys_addr_t end, int *nid)
 {
-#ifdef CONFIG_ARCH_POPULATES_NODE_MAP
+#ifdef CONFIG_HAVE_MEMBLOCK_NODE_MAP 
 	/*
 	 * This code originates from sparc which really wants use to walk by addresses
 	 * and returns the nid. This is not very convenient for early_pfn_map[] users
