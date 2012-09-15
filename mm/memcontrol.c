@@ -248,7 +248,7 @@ struct mem_cgroup {
 	atomic_t	oom_lock;
 	atomic_t	refcnt;
 
-	unsigned int	swappiness;
+	int	swappiness;
 	/* OOM-Killer disable */
 	int		oom_kill_disable;
 

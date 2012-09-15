@@ -247,11 +247,9 @@ static inline void lru_cache_add_file(struct page *page)
 extern unsigned long try_to_free_pages(struct zonelist *zonelist, int order,
 					gfp_t gfp_mask, nodemask_t *mask);
 extern unsigned long try_to_free_mem_cgroup_pages(struct mem_cgroup *mem,
-						  gfp_t gfp_mask, bool noswap,
-						  unsigned int swappiness);
+						  gfp_t gfp_mask, bool noswap);
 extern unsigned long mem_cgroup_shrink_node_zone(struct mem_cgroup *mem,
 						gfp_t gfp_mask, bool noswap,
-						unsigned int swappiness,
 						struct zone *zone,
 						unsigned long *nr_scanned);
 extern int __isolate_lru_page(struct page *page, isolate_mode_t mode, int file);
@@ -294,7 +292,14 @@ static inline void scan_unevictable_unregister_node(struct node *node)
 
 extern int kswapd_run(int nid);
 extern void kswapd_stop(int nid);
-
+#ifdef CONFIG_CGROUP_MEM_RES_CTLR
+extern int mem_cgroup_swappiness(struct mem_cgroup *mem);
+#else
+static inline int mem_cgroup_swappiness(struct mem_cgroup *mem)
+{
+	return vm_swappiness;
+}
+#endif
 #ifdef CONFIG_SWAP
 /* linux/mm/page_io.c */
 extern int swap_readpage(struct page *);
@@ -360,15 +365,10 @@ static inline void put_swap_token(struct mm_struct *mm)
 extern void
 mem_cgroup_uncharge_swapcache(struct page *page, swp_entry_t ent, bool swapout);
 extern int mem_cgroup_count_swap_user(swp_entry_t ent, struct page **pagep);
-extern int mem_cgroup_swappiness(struct mem_cgroup *mem);
 #else
 static inline void
 mem_cgroup_uncharge_swapcache(struct page *page, swp_entry_t ent, bool swapout)
 {
-}
-static inline int mem_cgroup_swappiness(struct mem_cgroup *mem)
-{
-	return vm_swappiness;
 }
 #endif
 #ifdef CONFIG_CGROUP_MEM_RES_CTLR_SWAP
