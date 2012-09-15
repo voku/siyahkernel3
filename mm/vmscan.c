@@ -1365,7 +1365,7 @@ shrink_inactive_list(unsigned long nr_to_scan, struct mem_cgroup_zone *mz,
 #ifdef CONFIG_ZRAM_FOR_ANDROID
 unsigned long
 zone_id_shrink_pagelist(struct list_head *page_list,
-					struct mem_cgroup_zone *mz,
+					struct lruvec *lruvec,	
 					struct zone *zone,
 					unsigned long *ret_nr_dirty,
 					unsigned long *ret_nr_writeback)
@@ -1390,7 +1390,7 @@ zone_id_shrink_pagelist(struct list_head *page_list,
 
 	__count_zone_vm_events(PGSTEAL_DIRECT, zone, nr_reclaimed);
 
-	putback_inactive_pages(mz, page_list);
+	putback_inactive_pages(lruvec, page_list);
 
 	return nr_reclaimed;
 }
