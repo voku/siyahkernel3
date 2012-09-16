@@ -75,7 +75,7 @@ __cacheline_aligned_in_smp DEFINE_SPINLOCK(inode_sb_list_lock);
  *
  * We don't actually need it to protect anything in the umount path,
  * but only need to cycle through it to make sure any inode that
- * prune_icache took off the LRU list has been fully torn down by the
+ * prune_icache_sb took off the LRU list has been fully torn down by the
  * time we are past evict_inodes.
  */
 static DECLARE_RWSEM(iprune_sem);
@@ -537,7 +537,7 @@ void evict_inodes(struct super_block *sb)
 	dispose_list(&dispose);
 
 	/*
-	 * Cycle through iprune_sem to make sure any inode that prune_icache
+	 * Cycle through iprune_sem to make sure any inode that prune_icache_sb
 	 * moved off the list before we took the lock has been fully torn
 	 * down.
 	 */
@@ -605,8 +605,10 @@ static int can_unuse(struct inode *inode)
 }
 
 /*
- * Scan `goal' inodes on the unused list for freeable ones. They are moved to a
- * temporary list and then are freed outside inode_lru_lock by dispose_list().
+ * Walk the superblock inode LRU for freeable inodes and attempt to free them.
+ * This is called from the superblock shrinker function with a number of inodes
+ * to trim from the LRU. Inodes to be freed are moved to a temporary list and
+ * then are freed outside inode_lock by dispose_list().
  *
  * Any inodes which are pinned purely because of attached pagecache have their
  * pagecache removed.  If the inode has metadata buffers attached to
@@ -620,15 +622,15 @@ static int can_unuse(struct inode *inode)
  * LRU does not have strict ordering. Hence we don't want to reclaim inodes
  * with this flag set because they are the inodes that are out of order.
  */
-static void prune_icache(int nr_to_scan)
+void prune_icache_sb(struct super_block *sb, int nr_to_scan)
 {
 	LIST_HEAD(freeable);
 	int nr_scanned;
 	unsigned long reap = 0;
 
 	down_read(&iprune_sem);
-	spin_lock(&inode_lru_lock);
-	for (nr_scanned = 0; nr_scanned < nr_to_scan; nr_scanned++) {
+	spin_lock(&sb->s_inode_lru_lock);
+	for (nr_scanned = nr_to_scan; nr_scanned >= 0; nr_scanned--) {
 		struct inode *inode;
 
 		if (list_empty(&inode_lru))
@@ -697,44 +699,11 @@ static void prune_icache(int nr_to_scan)
 		__count_vm_events(KSWAPD_INODESTEAL, reap);
 	else
 		__count_vm_events(PGINODESTEAL, reap);
-	spin_unlock(&inode_lru_lock);
+	spin_unlock(&sb->s_inode_lru_lock);
 
 	dispose_list(&freeable);
 	up_read(&iprune_sem);
 }
-
-/*
- * shrink_icache_memory() will attempt to reclaim some unused inodes.  Here,
- * "unused" means that no dentries are referring to the inodes: the files are
- * not open and the dcache references to those inodes have already been
- * reclaimed.
- *
- * This function is passed the number of inodes to scan, and it returns the
- * total number of remaining possibly-reclaimable inodes.
- */
-static int shrink_icache_memory(struct shrinker *shrink,
-				struct shrink_control *sc)
-{
-	int nr = sc->nr_to_scan;
-	gfp_t gfp_mask = sc->gfp_mask;
-
-	if (nr) {
-		/*
-		 * Nasty deadlock avoidance.  We may hold various FS locks,
-		 * and we don't want to recurse into the FS that called us
-		 * in clear_inode() and friends..
-		 */
-		if (!(gfp_mask & __GFP_FS))
-			return -1;
-		prune_icache(nr);
-	}
-	return (get_nr_inodes_unused() / 100) * sysctl_vfs_cache_pressure;
-}
-
-static struct shrinker icache_shrinker = {
-	.shrink = shrink_icache_memory,
-	.seeks = DEFAULT_SEEKS,
-};
 
 static void __wait_on_freeing_inode(struct inode *inode);
 /*
@@ -1582,7 +1551,7 @@ __setup("ihash_entries=", set_ihash_entries);
  */
 void __init inode_init_early(void)
 {
-	int loop;
+	unsigned int loop;
 
 	/* If hashes are distributed across NUMA nodes, defer
 	 * hash allocation until vmalloc space is available.
@@ -1600,13 +1569,13 @@ void __init inode_init_early(void)
 					&i_hash_mask,
 					0);
 
-	for (loop = 0; loop < (1 << i_hash_shift); loop++)
+	for (loop = 0; loop < (1U << i_hash_shift); loop++)
 		INIT_HLIST_HEAD(&inode_hashtable[loop]);
 }
 
 void __init inode_init(void)
 {
-	int loop;
+	unsigned int loop;
 
 	/* inode slab cache */
 	inode_cachep = kmem_cache_create("inode_cache",
@@ -1615,7 +1584,6 @@ void __init inode_init(void)
 					 (SLAB_RECLAIM_ACCOUNT|SLAB_PANIC|
 					 SLAB_MEM_SPREAD),
 					 init_once);
-	register_shrinker(&icache_shrinker);
 
 	/* Hash may have been set up in inode_init_early */
 	if (!hashdist)
@@ -1631,7 +1599,7 @@ void __init inode_init(void)
 					&i_hash_mask,
 					0);
 
-	for (loop = 0; loop < (1 << i_hash_shift); loop++)
+	for (loop = 0; loop < (1U << i_hash_shift); loop++)
 		INIT_HLIST_HEAD(&inode_hashtable[loop]);
 }
 

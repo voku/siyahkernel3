@@ -1172,6 +1172,7 @@ static gchar **fill_row(struct menu *menu)
 			row[COL_BTNVIS] = GINT_TO_POINTER(TRUE);
 		if (sym_is_choice(sym))
 			break;
+		/* fall through */
 	case S_TRISTATE:
 		val = sym_get_tristate_value(sym);
 		switch (val) {
@@ -1505,10 +1506,6 @@ int main(int ac, char *av[])
 	const char *name;
 	char *env;
 	gchar *glade_file;
-
-#ifndef LKC_DIRECT_LINK
-	kconfig_load();
-#endif
 
 	bindtextdomain(PACKAGE, LOCALEDIR);
 	bind_textdomain_codeset(PACKAGE, "UTF-8");

@@ -21,12 +21,7 @@ static inline char *bind_textdomain_codeset(const char *dn, char *c) { return c;
 extern "C" {
 #endif
 
-#ifdef LKC_DIRECT_LINK
 #define P(name,type,arg)	extern type name arg
-#else
-#include "lkc_defs.h"
-#define P(name,type,arg)	extern type (*name ## _p) arg
-#endif
 #include "lkc_proto.h"
 #undef P
 
@@ -89,6 +84,11 @@ char *conf_get_default_confname(void);
 void sym_set_change_count(int count);
 void sym_add_change_count(int count);
 void conf_set_all_new_symbols(enum conf_def_mode mode);
+
+struct conf_printer {
+	void (*print_symbol)(FILE *, struct symbol *, const char *, void *);
+	void (*print_comment)(FILE *, const char *, void *);
+};
 
 /* confdata.c and expr.c */
 static inline void xfwrite(const void *str, size_t len, size_t count, FILE *out)

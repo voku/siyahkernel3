@@ -2,8 +2,6 @@
 #define _LINUX_MEMBLOCK_H
 #ifdef __KERNEL__
 
-#define MEMBLOCK_ERROR	0
-
 #ifdef CONFIG_HAVE_MEMBLOCK
 /*
  * Logical memory blocks.
@@ -26,6 +24,9 @@
 struct memblock_region {
 	phys_addr_t base;
 	phys_addr_t size;
+#ifdef CONFIG_HAVE_MEMBLOCK_NODE_MAP
+	int nid;
+#endif
 };
 
 struct memblock_type {
@@ -59,6 +60,69 @@ extern long memblock_remove(phys_addr_t base, phys_addr_t size);
 extern long memblock_free(phys_addr_t base, phys_addr_t size);
 extern long memblock_reserve(phys_addr_t base, phys_addr_t size);
 
+#ifdef CONFIG_HAVE_MEMBLOCK_NODE_MAP
+void __next_mem_pfn_range(int *idx, int nid, unsigned long *out_start_pfn,
+			  unsigned long *out_end_pfn, int *out_nid);
+
+/**
+ * for_each_mem_pfn_range - early memory pfn range iterator
+ * @i: an integer used as loop variable
+ * @nid: node selector, %MAX_NUMNODES for all nodes
+ * @p_start: ptr to ulong for start pfn of the range, can be %NULL
+ * @p_end: ptr to ulong for end pfn of the range, can be %NULL
+ * @p_nid: ptr to int for nid of the range, can be %NULL
+ *
+ * Walks over configured memory ranges.  Available after early_node_map is
+ * populated.
+ */
+#define for_each_mem_pfn_range(i, nid, p_start, p_end, p_nid)		\
+	for (i = -1, __next_mem_pfn_range(&i, nid, p_start, p_end, p_nid); \
+	     i >= 0; __next_mem_pfn_range(&i, nid, p_start, p_end, p_nid))
+#endif /* CONFIG_HAVE_MEMBLOCK_NODE_MAP */
+
+void __next_free_mem_range(u64 *idx, int nid, phys_addr_t *out_start,
+			   phys_addr_t *out_end, int *out_nid);
+
+/**
+ * for_each_free_mem_range - iterate through free memblock areas
+ * @i: u64 used as loop variable
+ * @nid: node selector, %MAX_NUMNODES for all nodes
+ * @p_start: ptr to phys_addr_t for start address of the range, can be %NULL
+ * @p_end: ptr to phys_addr_t for end address of the range, can be %NULL
+ * @p_nid: ptr to int for nid of the range, can be %NULL
+ *
+ * Walks over free (memory && !reserved) areas of memblock.  Available as
+ * soon as memblock is initialized.
+ */
+#define for_each_free_mem_range(i, nid, p_start, p_end, p_nid)		\
+	for (i = 0,							\
+	     __next_free_mem_range(&i, nid, p_start, p_end, p_nid);	\
+	     i != (u64)ULLONG_MAX;					\
+	     __next_free_mem_range(&i, nid, p_start, p_end, p_nid))
+
+#ifdef CONFIG_HAVE_MEMBLOCK_NODE_MAP
+extern int memblock_set_node(phys_addr_t base, phys_addr_t size, int nid);
+
+static inline void memblock_set_region_node(struct memblock_region *r, int nid)
+{
+	r->nid = nid;
+}
+
+static inline int memblock_get_region_node(const struct memblock_region *r)
+{
+	return r->nid;
+}
+#else
+static inline void memblock_set_region_node(struct memblock_region *r, int nid)
+{
+}
+
+static inline int memblock_get_region_node(const struct memblock_region *r)
+{
+	return 0;
+}
+#endif /* CONFIG_HAVE_MEMBLOCK_NODE_MAP */
+
 /* The numa aware allocator is only available if
  * CONFIG_ARCH_POPULATES_NODE_MAP is set
  */
@@ -66,7 +130,6 @@ extern phys_addr_t memblock_alloc_nid(phys_addr_t size, phys_addr_t align,
 					int nid);
 extern phys_addr_t memblock_alloc_try_nid(phys_addr_t size, phys_addr_t align,
 					    int nid);
-
 extern phys_addr_t memblock_alloc(phys_addr_t size, phys_addr_t align);
 
 /* Flags for memblock_alloc_base() amd __memblock_alloc_base() */
@@ -164,7 +227,7 @@ static inline unsigned long memblock_region_reserved_end_pfn(const struct memblo
 #else
 static inline phys_addr_t memblock_alloc(phys_addr_t size, phys_addr_t align)
 {
-	return MEMBLOCK_ERROR;
+	return 0;
 }
 
 #endif /* CONFIG_HAVE_MEMBLOCK */

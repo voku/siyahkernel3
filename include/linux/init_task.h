@@ -37,6 +37,13 @@ extern struct fs_struct init_fs;
 #define INIT_CPUSET_SEQ
 #endif
 
+#ifdef CONFIG_CPUSETS
+#define INIT_CPUSET_SEQ							\
+	.mems_allowed_seq = SEQCNT_ZERO,
+#else
+#define INIT_CPUSET_SEQ
+#endif
+
 #define INIT_SIGNALS(sig) {						\
 	.nr_threads	= 1,						\
 	.wait_chldexit	= __WAIT_QUEUE_HEAD_INITIALIZER(sig.wait_chldexit),\
