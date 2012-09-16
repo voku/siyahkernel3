@@ -7,13 +7,10 @@
  * Arbitrary resource management.
  */
 
-<<<<<<< HEAD
-#include <linux/module.h>
-=======
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
+#include <linux/module.h>
 #include <linux/export.h>
->>>>>>> 65fed8f... resource: make sure requested range is included in the root range
 #include <linux/errno.h>
 #include <linux/ioport.h>
 #include <linux/init.h>
