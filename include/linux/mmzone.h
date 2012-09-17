@@ -479,6 +479,14 @@ struct zone {
 	 * rarely used fields:
 	 */
 	const char		*name;
+#ifdef CONFIG_MEMORY_ISOLATION
+	/*
+	 * the number of MIGRATE_ISOLATE *pageblock*.
+	 * We need this for free page counting. Look at zone_watermark_ok_safe.
+	 * It's protected by zone->lock
+	 */
+	int		nr_pageblock_isolate;
+#endif
 } ____cacheline_internodealigned_in_smp;
 
 typedef enum {
@@ -723,7 +731,7 @@ typedef struct pglist_data {
 #include <linux/memory_hotplug.h>
 
 extern struct mutex zonelists_mutex;
-void build_all_zonelists(void *data);
+void build_all_zonelists(pg_data_t *pgdat, struct zone *zone);
 void wakeup_kswapd(struct zone *zone, int order, enum zone_type classzone_idx);
 bool zone_watermark_ok(struct zone *z, int order, unsigned long mark,
 		int classzone_idx, int alloc_flags);

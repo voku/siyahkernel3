@@ -134,9 +134,18 @@ config HAVE_MEMBLOCK
 config HAVE_MEMBLOCK_NODE_MAP
 	boolean
 
-# eventually, we can have this option just 'select SPARSEMEM'
+config ARCH_DISCARD_MEMBLOCK
+	boolean
+
+config NO_BOOTMEM
+	boolean
+
+config MEMORY_ISOLATION
+	boolean
+
 config MEMORY_HOTPLUG
 	bool "Allow for memory hot-add"
+	select MEMORY_ISOLATION
 	depends on SPARSEMEM || X86_64_ACPI_NUMA
 	depends on HOTPLUG && ARCH_ENABLE_MEMORY_HOTPLUG
 	depends on (IA64 || X86 || PPC_BOOK3S_64 || SUPERH || S390)
@@ -266,6 +275,7 @@ config MEMORY_FAILURE
 	depends on MMU
 	depends on ARCH_SUPPORTS_MEMORY_FAILURE
 	bool "Enable recovery from hardware memory errors"
+	select MEMORY_ISOLATION
 	help
 	  Enables code to recover from some memory failures on systems
 	  with MCA recovery. This allows a system to continue running
@@ -378,6 +388,7 @@ config CMA
 	bool "Contiguous Memory Allocator framework"
 	# Currently there is only one allocator so force it on
 	select CMA_BEST_FIT
+	select MEMORY_ISOLATION
 	help
 	  This enables the Contiguous Memory Allocator framework which
 	  allows drivers to allocate big physically-contiguous blocks of
