@@ -267,7 +267,7 @@ void __init platform_smp_prepare_cpus(unsigned int max_cpus)
 	if (scu_base_addr())
 		scu_enable(scu_base_addr());
 	else
-		flush_cache_all();
+		flush_cache_louis();
 
 	/* Set up secondary boot base and core power cofiguration base address */
 	for (i = 1; i < max_cpus; i++) {
