@@ -1324,7 +1324,7 @@ static int mmc_blk_packed_err_check(struct mmc_card *card,
 		return MMC_BLK_ABORT;
 	}
 
-	if (status & R1_EXP_EVENT) {
+	if (status & R1_EXCEPTION_EVENT) {
 		err = mmc_send_ext_csd(card, ext_csd);
 		if (err) {
 			pr_err("%s: error %d sending ext_csd\n",
