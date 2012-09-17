@@ -1760,11 +1760,6 @@ int cgroup_path(const struct cgroup *cgrp, char *buf, int buflen)
 }
 EXPORT_SYMBOL_GPL(cgroup_path);
 
-struct task_and_cgroup {
-	struct task_struct	*task;
-	struct cgroup		*cgrp;
-};
-
 /*
  * Control Group taskset
  */
@@ -2278,10 +2273,8 @@ int cgroup_attach_proc(struct cgroup *cgrp, struct task_struct *leader)
 	 * being moved, this call will need to be reworked to communicate that.
 	 */
 	for_each_subsys(root, ss) {
-		if (ss->attach) {
-			tc = flex_array_get(group, 0);
-			ss->attach(ss, cgrp, tc->cgrp, tc->task);
-		}
+		if (ss->attach)
+			ss->attach(ss, cgrp, &tset);
 	}
 
 	/*
