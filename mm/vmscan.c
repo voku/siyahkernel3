@@ -3178,6 +3178,7 @@ int kswapd_run(int nid)
 		del_timer(wt);
 		BUG_ON(system_state == SYSTEM_BOOTING);
 		printk("Failed to start kswapd on node %d\n",nid);
+		pgdat->kswapd = NULL;
 		ret = -1;
 	}
 	return ret;
