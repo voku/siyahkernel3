@@ -56,4 +56,3 @@ endchoice
 
 config PREEMPT_COUNT
        bool
-
