@@ -423,10 +423,6 @@ struct wakeup_source;
 
 struct dev_pm_info {
 	pm_message_t		power_state;
-	unsigned int		can_wakeup:1;
-	unsigned int		async_suspend:1;
-	bool			is_prepared:1;	/* Owned by the PM core */
-	bool			is_suspended:1;	/* Ditto */
 	spinlock_t		lock;
 #ifdef CONFIG_PM_SLEEP
 	struct list_head	entry;
@@ -435,13 +431,11 @@ struct dev_pm_info {
 #else
 	unsigned int		should_wakeup:1;
 #endif
+	unsigned int		can_wakeup:1;
+	unsigned int		async_suspend:1;
+	bool			is_prepared:1;	/* Owned by the PM core */
+	bool			is_suspended:1;	/* Ditto */
 #ifdef CONFIG_PM_RUNTIME
-	struct timer_list	suspend_timer;
-	unsigned long		timer_expires;
-	struct work_struct	work;
-	wait_queue_head_t	wait_queue;
-	atomic_t		usage_count;
-	atomic_t		child_count;
 	unsigned int		disable_depth:3;
 	unsigned int		ignore_children:1;
 	unsigned int		idle_notification:1;
@@ -455,6 +449,12 @@ struct dev_pm_info {
 	unsigned int		timer_autosuspends:1;
 	enum rpm_request	request;
 	enum rpm_status		runtime_status;
+	struct timer_list	suspend_timer;
+	unsigned long		timer_expires;
+	struct work_struct	work;
+	wait_queue_head_t	wait_queue;
+	atomic_t		usage_count;
+	atomic_t		child_count;
 	int			runtime_error;
 	int			autosuspend_delay;
 	unsigned long		last_busy;
