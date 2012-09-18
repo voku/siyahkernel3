@@ -1,5 +1,5 @@
 /*
- *  kernel/sched.c
+ *  kernel/sched/core.c
  *
  *  Kernel scheduler and related syscalls
  *
@@ -82,7 +82,7 @@
 #include <mach/sec_debug.h>
 
 #include "sched.h"
-#include "workqueue_sched.h"
+#include "../workqueue_sched.h"
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/sched.h>
@@ -132,7 +132,7 @@ void update_rq_clock(struct rq *rq)
 	(1UL << __SCHED_FEAT_##name) * enabled |
 
 const_debug unsigned int sysctl_sched_features =
-#include "sched_features.h"
+#include "features.h"
 	0;
 
 #undef SCHED_FEAT
@@ -142,7 +142,7 @@ const_debug unsigned int sysctl_sched_features =
 	#name ,
 
 static __read_mostly char *sched_feat_names[] = {
-#include "sched_features.h"
+#include "features.h"
 	NULL
 };
 
