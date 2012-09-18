@@ -64,8 +64,22 @@
 #include <net/dst.h>
 #include <net/checksum.h>
 
+struct cgroup;
+struct cgroup_subsys;
+#ifdef CONFIG_NET
 int mem_cgroup_sockets_init(struct cgroup *cgrp, struct cgroup_subsys *ss);
-void mem_cgroup_sockets_destroy(struct cgroup *cgrp, struct cgroup_subsys *ss);
+void mem_cgroup_sockets_destroy(struct cgroup *cgrp);
+#else
+static inline
+int mem_cgroup_sockets_init(struct cgroup *cgrp, struct cgroup_subsys *ss)
+{
+	return 0;
+}
+static inline
+void mem_cgroup_sockets_destroy(struct cgroup *cgrp)
+{
+}
+#endif
 /*
  * This structure really needs to be cleaned up.
  * Most of it is for TCP, and not used by any of
@@ -838,8 +852,7 @@ struct proto {
 	 */
 	int			(*init_cgroup)(struct cgroup *cgrp,
 					       struct cgroup_subsys *ss);
-	void			(*destroy_cgroup)(struct cgroup *cgrp,
-						  struct cgroup_subsys *ss);
+	void			(*destroy_cgroup)(struct cgroup *cgrp);
 	struct cg_proto		*(*proto_cgroup)(struct mem_cgroup *memcg);
 #endif
 };
