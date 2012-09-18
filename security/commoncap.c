@@ -33,6 +33,7 @@
 #ifdef CONFIG_ANDROID_PARANOID_NETWORK
 #include <linux/android_aid.h>
 #endif
+#include <linux/binfmts.h>
 
 /*
  * If a non-root user executes a setuid-root binary in
