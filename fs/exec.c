@@ -55,6 +55,7 @@
 #include <linux/pipe_fs_i.h>
 #include <linux/oom.h>
 #include <linux/compat.h>
+#include <linux/sched.h>
 
 #include <asm/uaccess.h>
 #include <asm/mmu_context.h>
@@ -1771,7 +1772,7 @@ static int zap_process(struct task_struct *start, int exit_code)
 
 	t = start;
 	do {
-		task_clear_jobctl_stop_pending(t);
+		task_clear_jobctl_pending(t, JOBCTL_PENDING_MASK);	
 		if (t != current && t->mm) {
 			sigaddset(&t->pending.signal, SIGKILL);
 			signal_wake_up(t, 1);
