@@ -94,7 +94,8 @@ static irqreturn_t s3cfb_irq_frame(int irq, void *dev_id)
 		s3cfb_clear_interrupt(fbdev[0]);
 
 	fbdev[0]->wq_count++;
-	wake_up(&fbdev[0]->wq);
+	fbdev[0]->vsync_timestamp = ktime_get();
+	wake_up_interruptible(&fbdev[0]->wait);
 
 	return IRQ_HANDLED;
 }
@@ -571,7 +572,6 @@ static int s3cfb_remove(struct platform_device *pdev)
 				framebuffer_release(fb);
 			}
 		}
-
 		kfree(fbdev[i]->fb);
 		kfree(fbdev[i]);
 	}
