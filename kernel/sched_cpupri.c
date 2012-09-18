@@ -1,5 +1,5 @@
 /*
- *  kernel/sched_cpupri.c
+ *  kernel/sched_cpupri.c 
  *
  *  CPU priority management
  *
