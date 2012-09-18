@@ -1679,6 +1679,10 @@ int security_capable(const struct cred *cred, struct user_namespace *ns,
 			int cap);
 int security_capable_noaudit(const struct cred *cred, struct user_namespace *ns,
 			     int cap);
+int security_real_capable(struct task_struct *tsk, struct user_namespace *ns,
+			int cap);
+int security_real_capable_noaudit(struct task_struct *tsk,
+			struct user_namespace *ns, int cap);
 int security_quotactl(int cmds, int type, int id, struct super_block *sb);
 int security_quota_on(struct dentry *dentry);
 int security_syslog(int type);
@@ -1876,6 +1880,11 @@ static inline int security_capable(const struct cred *cred,
 				   struct user_namespace *ns, int cap)
 {
 	return cap_capable(cred, ns, cap, SECURITY_CAP_AUDIT);
+}
+
+static inline int security_capable_noaudit(const struct cred *cred,
+					   struct user_namespace *ns, int cap) {
+	return cap_capable(cred, ns, cap, SECURITY_CAP_NOAUDIT);
 }
 
 static inline int security_real_capable(struct task_struct *tsk, struct user_namespace *ns, int cap)
