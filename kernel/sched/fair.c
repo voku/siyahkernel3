@@ -2685,7 +2685,10 @@ again:
 			}
 			break;
 		}
+	}
 
+	sd = rcu_dereference(per_cpu(sd_llc, target));
+	for_each_lower_domain(sd) {
 		sg = sd->groups;
 		do {
 			if (!cpumask_intersects(sched_group_cpus(sg),
