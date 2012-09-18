@@ -80,6 +80,9 @@
 #include <linux/posix-timers.h>
 #include <linux/syslog.h>
 #include <linux/user_namespace.h>
+#include <linux/module.h>
+#include <linux/msg.h>
+#include <linux/shm.h>
 
 #include "avc.h"
 #include "objsec.h"

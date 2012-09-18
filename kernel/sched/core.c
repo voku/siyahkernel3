@@ -72,6 +72,7 @@
 #include <linux/slab.h>
 #include <linux/init_task.h>
 #include <linux/cpuacct.h>
+#include <linux/binfmts.h>
 
 #include <asm/bitops.h>
 #include <asm/tlb.h>
