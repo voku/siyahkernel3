@@ -372,6 +372,17 @@ static inline int bio_has_data(struct bio *bio)
 	return bio && bio->bi_io_vec != NULL;
 }
 
+static inline bool bio_is_rw(struct bio *bio)
+{
+	if (!bio_has_data(bio))
+		return false;
+
+	if (bio->bi_rw & REQ_WRITE_SAME)
+		return false;
+
+	return true;
+}
+
 /*
  * BIO list management for use by remapping drivers (e.g. DM or MD) and loop.
  *
