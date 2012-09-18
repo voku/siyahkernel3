@@ -56,7 +56,7 @@
  */
 
 #include <linux/kernel.h>
-#include <asm/cmpxchg.h>
+#include <asm/bitops.h>
 
 struct llist_head {
 	struct llist_node *first;
