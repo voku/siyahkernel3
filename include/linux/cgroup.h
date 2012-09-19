@@ -84,6 +84,12 @@ enum {
 	CSS_REMOVED, /* This CSS is dead */
 };
 
+/* Caller must verify that the css is not for root cgroup */
+static inline void __css_get(struct cgroup_subsys_state *css, int count)
+{
+	atomic_add(count, &css->refcnt);
+}
+
 /*
  * Call css_get() to hold a reference on the css; it can be used
  * for a reference obtained via:
@@ -91,7 +97,6 @@ enum {
  * - task->cgroups for a locked task
  */
 
-extern void __css_get(struct cgroup_subsys_state *css, int count);
 static inline void css_get(struct cgroup_subsys_state *css)
 {
 	/* We don't need to reference count the root state */
@@ -138,7 +143,10 @@ static inline void css_put(struct cgroup_subsys_state *css)
 enum {
 	/* Control Group is dead */
 	CGRP_REMOVED,
-	/* Control Group has ever had a child cgroup or a task */
+	/*
+	 * Control Group has previously had a child cgroup or a task,
+	 * but no longer (only if CGRP_NOTIFY_ON_RELEASE is set)
+	 */
 	CGRP_RELEASABLE,
 	/* Control Group requires release notifications to userspace */
 	CGRP_NOTIFY_ON_RELEASE,
@@ -182,6 +190,9 @@ struct cgroup {
 	 * tasks in this cgroup. Protected by css_set_lock
 	 */
 	struct list_head css_sets;
+
+	struct list_head allcg_node;	/* cgroupfs_root->allcg_list */
+	struct list_head cft_q_node;	/* used during cftype add/rm */
 
 	/*
 	 * Linked list running through all cgroups that can
@@ -247,7 +258,6 @@ struct css_set {
 
 	/* For RCU-protected deletion */
 	struct rcu_head rcu_head;
-	struct work_struct work;
 };
 
 /*
@@ -268,11 +278,17 @@ struct cgroup_map_cb {
  *	- the 'cftype' of the file is file->f_dentry->d_fsdata
  */
 
-#define MAX_CFTYPE_NAME 64
+/* cftype->flags */
+#define CFTYPE_ONLY_ON_ROOT	(1U << 0)	/* only create on root cg */
+#define CFTYPE_NOT_ON_ROOT	(1U << 1)	/* don't create onp root cg */
+
+#define MAX_CFTYPE_NAME		64
+
 struct cftype {
 	/*
 	 * By convention, the name should begin with the name of the
-	 * subsystem, followed by a period
+	 * subsystem, followed by a period.  Zero length string indicates
+	 * end of cftype array.
 	 */
 	char name[MAX_CFTYPE_NAME];
 	int private;
@@ -280,13 +296,16 @@ struct cftype {
 	 * If not 0, file mode is set to this value, otherwise it will
 	 * be figured out automatically
 	 */
-	mode_t mode;
+	umode_t mode;
 
 	/*
 	 * If non-zero, defines the maximum length of string that can
 	 * be passed to write_string; defaults to 64
 	 */
 	size_t max_write_len;
+
+	/* CFTYPE_* flags */
+	unsigned int flags;
 
 	int (*open)(struct inode *inode, struct file *file);
 	ssize_t (*read)(struct cgroup *cgrp, struct cftype *cft,
@@ -366,6 +385,16 @@ struct cftype {
 			struct eventfd_ctx *eventfd);
 };
 
+/*
+ * cftype_sets describe cftypes belonging to a subsystem and are chained at
+ * cgroup_subsys->cftsets.  Each cftset points to an array of cftypes
+ * terminated by zero length name.
+ */
+struct cftype_set {
+	struct list_head		node;	/* chained at subsys->cftsets */
+	const struct cftype		*cfts;
+};
+
 struct cgroup_scanner {
 	struct cgroup *cg;
 	int (*test_task)(struct task_struct *p, struct cgroup_scanner *scan);
@@ -390,6 +419,8 @@ int cgroup_add_files(struct cgroup *cgrp,
 			struct cgroup_subsys *subsys,
 			const struct cftype cft[],
 			int count);
+
+int cgroup_add_cftypes(struct cgroup_subsys *ss, const struct cftype *cfts);
 
 int cgroup_is_removed(const struct cgroup *cgrp);
 
@@ -445,27 +476,18 @@ int cgroup_taskset_size(struct cgroup_taskset *tset);
  */
 
 struct cgroup_subsys {
-	struct cgroup_subsys_state *(*create)(struct cgroup_subsys *ss,
-						  struct cgroup *cgrp);
-	int (*pre_destroy)(struct cgroup_subsys *ss, struct cgroup *cgrp);
-	void (*destroy)(struct cgroup_subsys *ss, struct cgroup *cgrp);
-	int (*allow_attach)(struct cgroup *cgrp, struct task_struct *tsk);
-	int (*can_attach)(struct cgroup_subsys *ss, struct cgroup *cgrp,
-			  struct cgroup_taskset *tset);
-	int (*can_attach_task)(struct cgroup *cgrp, struct task_struct *tsk);
-	void (*cancel_attach)(struct cgroup_subsys *ss, struct cgroup *cgrp,
-			      struct cgroup_taskset *tset);
-	void (*pre_attach)(struct cgroup *cgrp);
-	void (*attach_task)(struct cgroup *cgrp, struct task_struct *tsk);
-	void (*attach)(struct cgroup_subsys *ss, struct cgroup *cgrp,
-		       struct cgroup_taskset *tset);
-	void (*fork)(struct cgroup_subsys *ss, struct task_struct *task);
-	void (*exit)(struct cgroup_subsys *ss, struct cgroup *cgrp,
-			struct cgroup *old_cgrp, struct task_struct *task);
-	int (*populate)(struct cgroup_subsys *ss,
-			struct cgroup *cgrp);
-	void (*post_clone)(struct cgroup_subsys *ss, struct cgroup *cgrp);
-	void (*bind)(struct cgroup_subsys *ss, struct cgroup *root);
+	struct cgroup_subsys_state *(*create)(struct cgroup *cgrp);
+	int (*pre_destroy)(struct cgroup *cgrp);
+	void (*destroy)(struct cgroup *cgrp);
+	int (*can_attach)(struct cgroup *cgrp, struct cgroup_taskset *tset);
+	void (*cancel_attach)(struct cgroup *cgrp, struct cgroup_taskset *tset);
+	void (*attach)(struct cgroup *cgrp, struct cgroup_taskset *tset);
+	void (*fork)(struct task_struct *task);
+	void (*exit)(struct cgroup *cgrp, struct cgroup *old_cgrp,
+		     struct task_struct *task);
+	int (*populate)(struct cgroup_subsys *ss, struct cgroup *cgrp);
+	void (*post_clone)(struct cgroup *cgrp);
+	void (*bind)(struct cgroup *root);
 
 	int subsys_id;
 	int active;
@@ -500,7 +522,14 @@ struct cgroup_subsys {
 	struct list_head sibling;
 	/* used when use_id == true */
 	struct idr idr;
-	rwlock_t id_lock;
+	spinlock_t id_lock;
+
+	/* list of cftype_sets */
+	struct list_head cftsets;
+
+	/* base cftypes, automatically [de]registered with subsys itself */
+	struct cftype *base_cftypes;
+	struct cftype_set base_cftset;
 
 	/* should be defined only by modular subsystems */
 	struct module *module;
@@ -567,11 +596,6 @@ int cgroup_scan_tasks(struct cgroup_scanner *scan);
 int cgroup_attach_task(struct cgroup *, struct task_struct *);
 int cgroup_attach_task_all(struct task_struct *from, struct task_struct *);
 
-static inline int cgroup_attach_task_current_cg(struct task_struct *tsk)
-{
-	return cgroup_attach_task_all(current, tsk);
-}
-
 /*
  * CSS ID is ID for cgroup_subsys_state structs under subsys. This only works
  * if cgroup_subsys.use_id == true. It can be used for looking up and scanning.
@@ -631,10 +655,6 @@ static inline int cgroupstats_build(struct cgroupstats *stats,
 /* No cgroups - nothing to do */
 static inline int cgroup_attach_task_all(struct task_struct *from,
 					 struct task_struct *t)
-{
-	return 0;
-}
-static inline int cgroup_attach_task_current_cg(struct task_struct *t)
 {
 	return 0;
 }

@@ -105,7 +105,7 @@ static int tomoyo_path_unlink(struct path *parent, struct dentry *dentry)
 }
 
 static int tomoyo_path_mkdir(struct path *parent, struct dentry *dentry,
-			     int mode)
+			     umode_t mode)
 {
 	struct path path = { parent->mnt, dentry };
 	return tomoyo_path_number_perm(TOMOYO_TYPE_MKDIR, &path,
@@ -126,7 +126,7 @@ static int tomoyo_path_symlink(struct path *parent, struct dentry *dentry,
 }
 
 static int tomoyo_path_mknod(struct path *parent, struct dentry *dentry,
-			     int mode, unsigned int dev)
+			     umode_t mode, unsigned int dev)
 {
 	struct path path = { parent->mnt, dentry };
 	int type = TOMOYO_TYPE_CREATE;

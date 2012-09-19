@@ -36,6 +36,9 @@
 #include <linux/magic.h>
 #include <linux/dcache.h>
 #include <linux/personality.h>
+#include <linux/msg.h>
+#include <linux/shm.h>
+#include <linux/binfmts.h>
 #include "smack.h"
 
 #define task_security(task)	(task_cred_xxx((task), security))
@@ -733,9 +736,10 @@ static int smack_inode_rename(struct inode *old_inode,
  *
  * Returns 0 if access is permitted, -EACCES otherwise
  */
-static int smack_inode_permission(struct inode *inode, int mask, unsigned flags)
+static int smack_inode_permission(struct inode *inode, int mask)
 {
 	struct smk_audit_info ad;
+	int no_block = mask & MAY_NOT_BLOCK;
 
 	mask &= (MAY_READ|MAY_WRITE|MAY_EXEC|MAY_APPEND);
 	/*
@@ -745,7 +749,7 @@ static int smack_inode_permission(struct inode *inode, int mask, unsigned flags)
 		return 0;
 
 	/* May be droppable after audit */
-	if (flags & IPERM_FLAG_RCU)
+	if (no_block)
 		return -ECHILD;
 
 	smk_ad_init(&ad, __func__, LSM_AUDIT_DATA_INODE);

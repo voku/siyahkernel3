@@ -128,8 +128,7 @@ struct cgroup_subsys freezer_subsys;
  *    task->alloc_lock (inside __thaw_task(), prevents race with refrigerator())
  *     sighand->siglock
  */
-static struct cgroup_subsys_state *freezer_create(struct cgroup_subsys *ss,
-						  struct cgroup *cgroup)
+static struct cgroup_subsys_state *freezer_create(struct cgroup *cgroup)
 {
 	struct freezer *freezer;
 
@@ -142,8 +141,7 @@ static struct cgroup_subsys_state *freezer_create(struct cgroup_subsys *ss,
 	return &freezer->css;
 }
 
-static void freezer_destroy(struct cgroup_subsys *ss,
-			    struct cgroup *cgroup)
+static void freezer_destroy(struct cgroup *cgroup)
 {
 	struct freezer *freezer = cgroup_freezer(cgroup);
 
@@ -164,15 +162,18 @@ static bool is_task_frozen_enough(struct task_struct *task)
  * a write to that file racing against an attach, and hence the
  * can_attach() result will remain valid until the attach completes.
  */
-static int freezer_can_attach(struct cgroup_subsys *ss,
-			      struct cgroup *new_cgroup,
+static int freezer_can_attach(struct cgroup *new_cgroup,
 			      struct cgroup_taskset *tset)
 {
 	struct freezer *freezer;
+	struct task_struct *task;
 
 	/*
 	 * Anything frozen can't move or be moved to/from.
 	 */
+	cgroup_taskset_for_each(task, new_cgroup, tset)
+		if (cgroup_freezing(task))
+			return -EBUSY;
 
 	freezer = cgroup_freezer(new_cgroup);
 	if (freezer->state != CGROUP_THAWED)
@@ -181,12 +182,7 @@ static int freezer_can_attach(struct cgroup_subsys *ss,
 	return 0;
 }
 
-static int freezer_can_attach_task(struct cgroup *cgrp, struct task_struct *tsk)
-{
-	return cgroup_freezing(tsk) ? -EBUSY : 0;
-}
-
-static void freezer_fork(struct cgroup_subsys *ss, struct task_struct *task)
+static void freezer_fork(struct task_struct *task)
 {
 	struct freezer *freezer;
 
@@ -231,7 +227,7 @@ static void update_if_frozen(struct cgroup *cgroup,
 	cgroup_iter_start(cgroup, &it);
 	while ((task = cgroup_iter_next(cgroup, &it))) {
 		ntotal++;
-		if (is_task_frozen_enough(task))
+		if (freezing(task) && is_task_frozen_enough(task))
 			nfrozen++;
 	}
 
@@ -381,10 +377,5 @@ struct cgroup_subsys freezer_subsys = {
 	.populate	= freezer_populate,
 	.subsys_id	= freezer_subsys_id,
 	.can_attach	= freezer_can_attach,
-	.can_attach_task = freezer_can_attach_task,
-	.pre_attach	= NULL,
-	.attach_task	= NULL,
-	.attach		= NULL,
 	.fork		= freezer_fork,
-	.exit		= NULL,
 };
