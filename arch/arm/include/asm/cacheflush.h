@@ -50,13 +50,6 @@
  *
  *		Unconditionally clean and invalidate the entire cache.
  *
- *     flush_kern_cache_louis()
- *
- *             Flush data cache levels up to the level of unification
- *             inner shareable and invalidate the I-cache.
- *             Only needed from v7 onwards, falls back to flush_cache_all()
- *             for all other processor versions.
- *
  *	flush_user_all()
  *
  *		Clean and invalidate all user space cache entries
@@ -105,7 +98,6 @@
 struct cpu_cache_fns {
 	void (*flush_icache_all)(void);
 	void (*flush_kern_all)(void);
-	void (*flush_kern_cache_louis)(void);
 	void (*flush_user_all)(void);
 	void (*flush_user_range)(unsigned long, unsigned long, unsigned int);
 
@@ -206,15 +198,6 @@ extern void copy_to_user_page(struct vm_area_struct *, struct page *,
 #define __flush_icache_preferred	__cpuc_flush_icache_all
 #else
 #define __flush_icache_preferred	__flush_icache_all_generic
-#endif
-
-/*
- * Flush caches up to Level of Unification Inner Shareable
- */
-#ifdef MULTI_CACHE
-#define flush_cache_louis()   cpu_cache.flush_kern_cache_louis()
-#else
-#define flush_cache_louis()   __cpuc_flush_kern_all()
 #endif
 
 static inline void __flush_icache_all(void)

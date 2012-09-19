@@ -1,8 +1,5 @@
-#define _GNU_SOURCE
-#include <ctype.h>
 #include <dirent.h>
 #include <errno.h>
-#include <libgen.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -13,6 +10,7 @@
 #include <unistd.h>
 #include <inttypes.h>
 #include "build-id.h"
+#include "util.h"
 #include "debug.h"
 #include "symbol.h"
 #include "strlist.h"
@@ -24,13 +22,14 @@
 #include <sys/utsname.h>
 
 #ifndef KSYM_NAME_LEN
-#define KSYM_NAME_LEN 128
+#define KSYM_NAME_LEN 256
 #endif
 
 #ifndef NT_GNU_BUILD_ID
 #define NT_GNU_BUILD_ID 3
 #endif
 
+static void dso_cache__free(struct rb_root *root);
 static bool dso__build_id_equal(const struct dso *dso, u8 *build_id);
 static int elf_read_build_id(Elf *elf, void *bf, size_t size);
 static void dsos__add(struct list_head *head, struct dso *dso);
@@ -46,11 +45,39 @@ struct symbol_conf symbol_conf = {
 	.exclude_other	  = true,
 	.use_modules	  = true,
 	.try_vmlinux_path = true,
+	.annotate_src	  = true,
 	.symfs            = "",
 };
 
+static enum dso_binary_type binary_type_symtab[] = {
+	DSO_BINARY_TYPE__KALLSYMS,
+	DSO_BINARY_TYPE__GUEST_KALLSYMS,
+	DSO_BINARY_TYPE__JAVA_JIT,
+	DSO_BINARY_TYPE__DEBUGLINK,
+	DSO_BINARY_TYPE__BUILD_ID_CACHE,
+	DSO_BINARY_TYPE__FEDORA_DEBUGINFO,
+	DSO_BINARY_TYPE__UBUNTU_DEBUGINFO,
+	DSO_BINARY_TYPE__BUILDID_DEBUGINFO,
+	DSO_BINARY_TYPE__SYSTEM_PATH_DSO,
+	DSO_BINARY_TYPE__GUEST_KMODULE,
+	DSO_BINARY_TYPE__SYSTEM_PATH_KMODULE,
+	DSO_BINARY_TYPE__NOT_FOUND,
+};
+
+#define DSO_BINARY_TYPE__SYMTAB_CNT ARRAY_SIZE(binary_type_symtab)
+
+static enum dso_binary_type binary_type_data[] = {
+	DSO_BINARY_TYPE__BUILD_ID_CACHE,
+	DSO_BINARY_TYPE__SYSTEM_PATH_DSO,
+	DSO_BINARY_TYPE__NOT_FOUND,
+};
+
+#define DSO_BINARY_TYPE__DATA_CNT ARRAY_SIZE(binary_type_data)
+
 int dso__name_len(const struct dso *dso)
 {
+	if (!dso)
+		return strlen("[unknown]");
 	if (verbose)
 		return dso->long_name_len;
 
@@ -74,13 +101,101 @@ static void dso__set_sorted_by_name(struct dso *dso, enum map_type type)
 
 bool symbol_type__is_a(char symbol_type, enum map_type map_type)
 {
+	symbol_type = toupper(symbol_type);
+
 	switch (map_type) {
 	case MAP__FUNCTION:
 		return symbol_type == 'T' || symbol_type == 'W';
 	case MAP__VARIABLE:
-		return symbol_type == 'D' || symbol_type == 'd';
+		return symbol_type == 'D';
 	default:
 		return false;
+	}
+}
+
+static int prefix_underscores_count(const char *str)
+{
+	const char *tail = str;
+
+	while (*tail == '_')
+		tail++;
+
+	return tail - str;
+}
+
+#define SYMBOL_A 0
+#define SYMBOL_B 1
+
+static int choose_best_symbol(struct symbol *syma, struct symbol *symb)
+{
+	s64 a;
+	s64 b;
+
+	/* Prefer a symbol with non zero length */
+	a = syma->end - syma->start;
+	b = symb->end - symb->start;
+	if ((b == 0) && (a > 0))
+		return SYMBOL_A;
+	else if ((a == 0) && (b > 0))
+		return SYMBOL_B;
+
+	/* Prefer a non weak symbol over a weak one */
+	a = syma->binding == STB_WEAK;
+	b = symb->binding == STB_WEAK;
+	if (b && !a)
+		return SYMBOL_A;
+	if (a && !b)
+		return SYMBOL_B;
+
+	/* Prefer a global symbol over a non global one */
+	a = syma->binding == STB_GLOBAL;
+	b = symb->binding == STB_GLOBAL;
+	if (a && !b)
+		return SYMBOL_A;
+	if (b && !a)
+		return SYMBOL_B;
+
+	/* Prefer a symbol with less underscores */
+	a = prefix_underscores_count(syma->name);
+	b = prefix_underscores_count(symb->name);
+	if (b > a)
+		return SYMBOL_A;
+	else if (a > b)
+		return SYMBOL_B;
+
+	/* If all else fails, choose the symbol with the longest name */
+	if (strlen(syma->name) >= strlen(symb->name))
+		return SYMBOL_A;
+	else
+		return SYMBOL_B;
+}
+
+static void symbols__fixup_duplicate(struct rb_root *symbols)
+{
+	struct rb_node *nd;
+	struct symbol *curr, *next;
+
+	nd = rb_first(symbols);
+
+	while (nd) {
+		curr = rb_entry(nd, struct symbol, rb_node);
+again:
+		nd = rb_next(&curr->rb_node);
+		next = rb_entry(nd, struct symbol, rb_node);
+
+		if (!nd)
+			break;
+
+		if (curr->start != next->start)
+			continue;
+
+		if (choose_best_symbol(curr, next) == SYMBOL_A) {
+			rb_erase(&next->rb_node, symbols);
+			goto again;
+		} else {
+			nd = rb_next(&curr->rb_node);
+			rb_erase(&curr->rb_node, symbols);
+		}
 	}
 }
 
@@ -175,6 +290,28 @@ static size_t symbol__fprintf(struct symbol *sym, FILE *fp)
 		       sym->name);
 }
 
+size_t symbol__fprintf_symname_offs(const struct symbol *sym,
+				    const struct addr_location *al, FILE *fp)
+{
+	unsigned long offset;
+	size_t length;
+
+	if (sym && sym->name) {
+		length = fprintf(fp, "%s", sym->name);
+		if (al) {
+			offset = al->addr - sym->start;
+			length += fprintf(fp, "+0x%lx", offset);
+		}
+		return length;
+	} else
+		return fprintf(fp, "[unknown]");
+}
+
+size_t symbol__fprintf_symname(const struct symbol *sym, FILE *fp)
+{
+	return symbol__fprintf_symname_offs(sym, NULL, fp);
+}
+
 void dso__set_long_name(struct dso *dso, char *name)
 {
 	if (name == NULL)
@@ -207,11 +344,14 @@ struct dso *dso__new(const char *name)
 		dso__set_short_name(dso, dso->name);
 		for (i = 0; i < MAP__NR_TYPES; ++i)
 			dso->symbols[i] = dso->symbol_names[i] = RB_ROOT;
-		dso->symtab_type = SYMTAB__NOT_FOUND;
+		dso->cache = RB_ROOT;
+		dso->symtab_type = DSO_BINARY_TYPE__NOT_FOUND;
+		dso->data_type   = DSO_BINARY_TYPE__NOT_FOUND;
 		dso->loaded = 0;
 		dso->sorted_by_name = 0;
 		dso->has_build_id = 0;
 		dso->kernel = DSO_TYPE_USER;
+		dso->needs_swap = DSO_SWAP__UNSET;
 		INIT_LIST_HEAD(&dso->node);
 	}
 
@@ -240,6 +380,7 @@ void dso__delete(struct dso *dso)
 		free((char *)dso->short_name);
 	if (dso->lname_alloc)
 		free(dso->long_name);
+	dso_cache__free(&dso->cache);
 	free(dso);
 }
 
@@ -438,17 +579,10 @@ int kallsyms__parse(const char *filename, void *arg,
 	char *line = NULL;
 	size_t n;
 	int err = -1;
-	u64 prev_start = 0;
-	char prev_symbol_type = 0;
-	char *prev_symbol_name;
 	FILE *file = fopen(filename, "r");
 
 	if (file == NULL)
 		goto out_failure;
-
-	prev_symbol_name = malloc(KSYM_NAME_LEN);
-	if (prev_symbol_name == NULL)
-		goto out_close;
 
 	err = 0;
 
@@ -470,7 +604,7 @@ int kallsyms__parse(const char *filename, void *arg,
 		if (len + 2 >= line_len)
 			continue;
 
-		symbol_type = toupper(line[len]);
+		symbol_type = line[len];
 		len += 2;
 		symbol_name = line + len;
 		len = line_len - len;
@@ -480,24 +614,18 @@ int kallsyms__parse(const char *filename, void *arg,
 			break;
 		}
 
-		if (prev_symbol_type) {
-			u64 end = start;
-			if (end != prev_start)
-				--end;
-			err = process_symbol(arg, prev_symbol_name,
-					     prev_symbol_type, prev_start, end);
-			if (err)
-				break;
-		}
-
-		memcpy(prev_symbol_name, symbol_name, len + 1);
-		prev_symbol_type = symbol_type;
-		prev_start = start;
+		/*
+		 * module symbols are not sorted so we add all
+		 * symbols with zero length and rely on
+		 * symbols__fixup_end() to fix it up.
+		 */
+		err = process_symbol(arg, symbol_name,
+				     symbol_type, start, start);
+		if (err)
+			break;
 	}
 
-	free(prev_symbol_name);
 	free(line);
-out_close:
 	fclose(file);
 	return err;
 
@@ -703,10 +831,13 @@ int dso__load_kallsyms(struct dso *dso, const char *filename,
 	if (dso__load_all_kallsyms(dso, filename, map) < 0)
 		return -1;
 
+	symbols__fixup_duplicate(&dso->symbols[map->type]);
+	symbols__fixup_end(&dso->symbols[map->type]);
+
 	if (dso->kernel == DSO_TYPE_GUEST_KERNEL)
-		dso->symtab_type = SYMTAB__GUEST_KALLSYMS;
+		dso->symtab_type = DSO_BINARY_TYPE__GUEST_KALLSYMS;
 	else
-		dso->symtab_type = SYMTAB__KALLSYMS;
+		dso->symtab_type = DSO_BINARY_TYPE__KALLSYMS;
 
 	return dso__split_kallsyms(dso, map, filter);
 }
@@ -876,8 +1007,9 @@ static Elf_Scn *elf_section_by_name(Elf *elf, GElf_Ehdr *ep,
  * And always look at the original dso, not at debuginfo packages, that
  * have the PLT data stripped out (shdr_rel_plt.sh_type == SHT_NOBITS).
  */
-static int dso__synthesize_plt_symbols(struct  dso *dso, struct map *map,
-				       symbol_filter_t filter)
+static int
+dso__synthesize_plt_symbols(struct dso *dso, char *name, struct map *map,
+			    symbol_filter_t filter)
 {
 	uint32_t nr_rel_entries, idx;
 	GElf_Sym sym;
@@ -892,10 +1024,7 @@ static int dso__synthesize_plt_symbols(struct  dso *dso, struct map *map,
 	char sympltname[1024];
 	Elf *elf;
 	int nr = 0, symidx, fd, err = 0;
-	char name[PATH_MAX];
 
-	snprintf(name, sizeof(name), "%s%s",
-		 symbol_conf.symfs, dso->long_name);
 	fd = open(name, O_RDONLY);
 	if (fd < 0)
 		goto out;
@@ -1057,6 +1186,33 @@ static size_t elf_addr_to_index(Elf *elf, GElf_Addr addr)
 	return -1;
 }
 
+static int dso__swap_init(struct dso *dso, unsigned char eidata)
+{
+	static unsigned int const endian = 1;
+
+	dso->needs_swap = DSO_SWAP__NO;
+
+	switch (eidata) {
+	case ELFDATA2LSB:
+		/* We are big endian, DSO is little endian. */
+		if (*(unsigned char const *)&endian != 1)
+			dso->needs_swap = DSO_SWAP__YES;
+		break;
+
+	case ELFDATA2MSB:
+		/* We are little endian, DSO is big endian. */
+		if (*(unsigned char const *)&endian != 0)
+			dso->needs_swap = DSO_SWAP__YES;
+		break;
+
+	default:
+		pr_err("unrecognized DSO data encoding %d\n", eidata);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int dso__load_sym(struct dso *dso, struct map *map, const char *name,
 			 int fd, symbol_filter_t filter, int kmodule,
 			 int want_symtab)
@@ -1088,12 +1244,14 @@ static int dso__load_sym(struct dso *dso, struct map *map, const char *name,
 		goto out_elf_end;
 	}
 
+	if (dso__swap_init(dso, ehdr.e_ident[EI_DATA]))
+		goto out_elf_end;
+
 	/* Always reject images with a mismatched build-id: */
 	if (dso->has_build_id) {
 		u8 build_id[BUILD_ID_SIZE];
 
-		if (elf_read_build_id(elf, build_id,
-				      BUILD_ID_SIZE) != BUILD_ID_SIZE)
+		if (elf_read_build_id(elf, build_id, BUILD_ID_SIZE) < 0)
 			goto out_elf_end;
 
 		if (!dso__build_id_equal(dso, build_id))
@@ -1174,7 +1332,7 @@ static int dso__load_sym(struct dso *dso, struct map *map, const char *name,
 		if (opdsec && sym.st_shndx == opdidx) {
 			u32 offset = sym.st_value - opdshdr.sh_addr;
 			u64 *opd = opddata->d_buf + offset;
-			sym.st_value = *opd;
+			sym.st_value = DSO__SWAP(dso, u64, *opd);
 			sym.st_shndx = elf_addr_to_index(elf, sym.st_value);
 		}
 
@@ -1278,6 +1436,7 @@ new_symbol:
 	 * For misannotated, zeroed, ASM function sizes.
 	 */
 	if (nr > 0) {
+		symbols__fixup_duplicate(&dso->symbols[map->type]);
 		symbols__fixup_end(&dso->symbols[map->type]);
 		if (kmap) {
 			/*
@@ -1348,14 +1507,31 @@ static int elf_read_build_id(Elf *elf, void *bf, size_t size)
 		goto out;
 	}
 
-	sec = elf_section_by_name(elf, &ehdr, &shdr,
-				  ".note.gnu.build-id", NULL);
-	if (sec == NULL) {
+	/*
+	 * Check following sections for notes:
+	 *   '.note.gnu.build-id'
+	 *   '.notes'
+	 *   '.note' (VDSO specific)
+	 */
+	do {
+		sec = elf_section_by_name(elf, &ehdr, &shdr,
+					  ".note.gnu.build-id", NULL);
+		if (sec)
+			break;
+
 		sec = elf_section_by_name(elf, &ehdr, &shdr,
 					  ".notes", NULL);
-		if (sec == NULL)
-			goto out;
-	}
+		if (sec)
+			break;
+
+		sec = elf_section_by_name(elf, &ehdr, &shdr,
+					  ".note", NULL);
+		if (sec)
+			break;
+
+		return err;
+
+	} while (0);
 
 	data = elf_getdata(sec, NULL);
 	if (data == NULL)
@@ -1364,8 +1540,8 @@ static int elf_read_build_id(Elf *elf, void *bf, size_t size)
 	ptr = data->d_buf;
 	while (ptr < (data->d_buf + data->d_size)) {
 		GElf_Nhdr *nhdr = ptr;
-		int namesz = NOTE_ALIGN(nhdr->n_namesz),
-		    descsz = NOTE_ALIGN(nhdr->n_descsz);
+		size_t namesz = NOTE_ALIGN(nhdr->n_namesz),
+		       descsz = NOTE_ALIGN(nhdr->n_descsz);
 		const char *name;
 
 		ptr += sizeof(*nhdr);
@@ -1374,8 +1550,10 @@ static int elf_read_build_id(Elf *elf, void *bf, size_t size)
 		if (nhdr->n_type == NT_GNU_BUILD_ID &&
 		    nhdr->n_namesz == sizeof("GNU")) {
 			if (memcmp(name, "GNU", sizeof("GNU")) == 0) {
-				memcpy(bf, ptr, BUILD_ID_SIZE);
-				err = BUILD_ID_SIZE;
+				size_t sz = min(size, descsz);
+				memcpy(bf, ptr, sz);
+				memset(bf + sz, 0, size - sz);
+				err = descsz;
 				break;
 			}
 		}
@@ -1427,7 +1605,7 @@ int sysfs__read_build_id(const char *filename, void *build_id, size_t size)
 	while (1) {
 		char bf[BUFSIZ];
 		GElf_Nhdr nhdr;
-		int namesz, descsz;
+		size_t namesz, descsz;
 
 		if (read(fd, &nhdr, sizeof(nhdr)) != sizeof(nhdr))
 			break;
@@ -1436,15 +1614,16 @@ int sysfs__read_build_id(const char *filename, void *build_id, size_t size)
 		descsz = NOTE_ALIGN(nhdr.n_descsz);
 		if (nhdr.n_type == NT_GNU_BUILD_ID &&
 		    nhdr.n_namesz == sizeof("GNU")) {
-			if (read(fd, bf, namesz) != namesz)
+			if (read(fd, bf, namesz) != (ssize_t)namesz)
 				break;
 			if (memcmp(bf, "GNU", sizeof("GNU")) == 0) {
-				if (read(fd, build_id,
-				    BUILD_ID_SIZE) == BUILD_ID_SIZE) {
+				size_t sz = min(descsz, size);
+				if (read(fd, build_id, sz) == (ssize_t)sz) {
+					memset(build_id + sz, 0, size - sz);
 					err = 0;
 					break;
 				}
-			} else if (read(fd, bf, descsz) != descsz)
+			} else if (read(fd, bf, descsz) != (ssize_t)descsz)
 				break;
 		} else {
 			int n = namesz + descsz;
@@ -1457,34 +1636,163 @@ out:
 	return err;
 }
 
+static int filename__read_debuglink(const char *filename,
+				    char *debuglink, size_t size)
+{
+	int fd, err = -1;
+	Elf *elf;
+	GElf_Ehdr ehdr;
+	GElf_Shdr shdr;
+	Elf_Data *data;
+	Elf_Scn *sec;
+	Elf_Kind ek;
+
+	fd = open(filename, O_RDONLY);
+	if (fd < 0)
+		goto out;
+
+	elf = elf_begin(fd, PERF_ELF_C_READ_MMAP, NULL);
+	if (elf == NULL) {
+		pr_debug2("%s: cannot read %s ELF file.\n", __func__, filename);
+		goto out_close;
+	}
+
+	ek = elf_kind(elf);
+	if (ek != ELF_K_ELF)
+		goto out_close;
+
+	if (gelf_getehdr(elf, &ehdr) == NULL) {
+		pr_err("%s: cannot get elf header.\n", __func__);
+		goto out_close;
+	}
+
+	sec = elf_section_by_name(elf, &ehdr, &shdr,
+				  ".gnu_debuglink", NULL);
+	if (sec == NULL)
+		goto out_close;
+
+	data = elf_getdata(sec, NULL);
+	if (data == NULL)
+		goto out_close;
+
+	/* the start of this section is a zero-terminated string */
+	strncpy(debuglink, data->d_buf, size);
+
+	elf_end(elf);
+
+out_close:
+	close(fd);
+out:
+	return err;
+}
+
 char dso__symtab_origin(const struct dso *dso)
 {
 	static const char origin[] = {
-		[SYMTAB__KALLSYMS]	      = 'k',
-		[SYMTAB__JAVA_JIT]	      = 'j',
-		[SYMTAB__BUILD_ID_CACHE]      = 'B',
-		[SYMTAB__FEDORA_DEBUGINFO]    = 'f',
-		[SYMTAB__UBUNTU_DEBUGINFO]    = 'u',
-		[SYMTAB__BUILDID_DEBUGINFO]   = 'b',
-		[SYMTAB__SYSTEM_PATH_DSO]     = 'd',
-		[SYMTAB__SYSTEM_PATH_KMODULE] = 'K',
-		[SYMTAB__GUEST_KALLSYMS]      =  'g',
-		[SYMTAB__GUEST_KMODULE]	      =  'G',
+		[DSO_BINARY_TYPE__KALLSYMS]		= 'k',
+		[DSO_BINARY_TYPE__JAVA_JIT]		= 'j',
+		[DSO_BINARY_TYPE__DEBUGLINK]		= 'l',
+		[DSO_BINARY_TYPE__BUILD_ID_CACHE]	= 'B',
+		[DSO_BINARY_TYPE__FEDORA_DEBUGINFO]	= 'f',
+		[DSO_BINARY_TYPE__UBUNTU_DEBUGINFO]	= 'u',
+		[DSO_BINARY_TYPE__BUILDID_DEBUGINFO]	= 'b',
+		[DSO_BINARY_TYPE__SYSTEM_PATH_DSO]	= 'd',
+		[DSO_BINARY_TYPE__SYSTEM_PATH_KMODULE]	= 'K',
+		[DSO_BINARY_TYPE__GUEST_KALLSYMS]	= 'g',
+		[DSO_BINARY_TYPE__GUEST_KMODULE]	= 'G',
 	};
 
-	if (dso == NULL || dso->symtab_type == SYMTAB__NOT_FOUND)
+	if (dso == NULL || dso->symtab_type == DSO_BINARY_TYPE__NOT_FOUND)
 		return '!';
 	return origin[dso->symtab_type];
 }
 
+int dso__binary_type_file(struct dso *dso, enum dso_binary_type type,
+			  char *root_dir, char *file, size_t size)
+{
+	char build_id_hex[BUILD_ID_SIZE * 2 + 1];
+	int ret = 0;
+
+	switch (type) {
+	case DSO_BINARY_TYPE__DEBUGLINK: {
+		char *debuglink;
+
+		strncpy(file, dso->long_name, size);
+		debuglink = file + dso->long_name_len;
+		while (debuglink != file && *debuglink != '/')
+			debuglink--;
+		if (*debuglink == '/')
+			debuglink++;
+		filename__read_debuglink(dso->long_name, debuglink,
+					 size - (debuglink - file));
+		}
+		break;
+	case DSO_BINARY_TYPE__BUILD_ID_CACHE:
+		/* skip the locally configured cache if a symfs is given */
+		if (symbol_conf.symfs[0] ||
+		    (dso__build_id_filename(dso, file, size) == NULL))
+			ret = -1;
+		break;
+
+	case DSO_BINARY_TYPE__FEDORA_DEBUGINFO:
+		snprintf(file, size, "%s/usr/lib/debug%s.debug",
+			 symbol_conf.symfs, dso->long_name);
+		break;
+
+	case DSO_BINARY_TYPE__UBUNTU_DEBUGINFO:
+		snprintf(file, size, "%s/usr/lib/debug%s",
+			 symbol_conf.symfs, dso->long_name);
+		break;
+
+	case DSO_BINARY_TYPE__BUILDID_DEBUGINFO:
+		if (!dso->has_build_id) {
+			ret = -1;
+			break;
+		}
+
+		build_id__sprintf(dso->build_id,
+				  sizeof(dso->build_id),
+				  build_id_hex);
+		snprintf(file, size,
+			 "%s/usr/lib/debug/.build-id/%.2s/%s.debug",
+			 symbol_conf.symfs, build_id_hex, build_id_hex + 2);
+		break;
+
+	case DSO_BINARY_TYPE__SYSTEM_PATH_DSO:
+		snprintf(file, size, "%s%s",
+			 symbol_conf.symfs, dso->long_name);
+		break;
+
+	case DSO_BINARY_TYPE__GUEST_KMODULE:
+		snprintf(file, size, "%s%s%s", symbol_conf.symfs,
+			 root_dir, dso->long_name);
+		break;
+
+	case DSO_BINARY_TYPE__SYSTEM_PATH_KMODULE:
+		snprintf(file, size, "%s%s", symbol_conf.symfs,
+			 dso->long_name);
+		break;
+
+	default:
+	case DSO_BINARY_TYPE__KALLSYMS:
+	case DSO_BINARY_TYPE__GUEST_KALLSYMS:
+	case DSO_BINARY_TYPE__JAVA_JIT:
+	case DSO_BINARY_TYPE__NOT_FOUND:
+		ret = -1;
+		break;
+	}
+
+	return ret;
+}
+
 int dso__load(struct dso *dso, struct map *map, symbol_filter_t filter)
 {
-	int size = PATH_MAX;
 	char *name;
 	int ret = -1;
 	int fd;
+	u_int i;
 	struct machine *machine;
-	const char *root_dir;
+	char *root_dir = (char *) "";
 	int want_symtab;
 
 	dso__set_loaded(dso, map->type);
@@ -1499,18 +1807,32 @@ int dso__load(struct dso *dso, struct map *map, symbol_filter_t filter)
 	else
 		machine = NULL;
 
-	name = malloc(size);
+	name = malloc(PATH_MAX);
 	if (!name)
 		return -1;
 
 	dso->adjust_symbols = 0;
 
 	if (strncmp(dso->name, "/tmp/perf-", 10) == 0) {
+		struct stat st;
+
+		if (lstat(dso->name, &st) < 0)
+			return -1;
+
+		if (st.st_uid && (st.st_uid != geteuid())) {
+			pr_warning("File %s not owned by current user or root, "
+				"ignoring it.\n", dso->name);
+			return -1;
+		}
+
 		ret = dso__load_perf_map(dso, map, filter);
-		dso->symtab_type = ret > 0 ? SYMTAB__JAVA_JIT :
-					      SYMTAB__NOT_FOUND;
+		dso->symtab_type = ret > 0 ? DSO_BINARY_TYPE__JAVA_JIT :
+					     DSO_BINARY_TYPE__NOT_FOUND;
 		return ret;
 	}
+
+	if (machine)
+		root_dir = machine->root_dir;
 
 	/* Iterate over candidate debug images.
 	 * On the first pass, only load images if they have a full symtab.
@@ -1518,58 +1840,13 @@ int dso__load(struct dso *dso, struct map *map, symbol_filter_t filter)
 	 */
 	want_symtab = 1;
 restart:
-	for (dso->symtab_type = SYMTAB__BUILD_ID_CACHE;
-	     dso->symtab_type != SYMTAB__NOT_FOUND;
-	     dso->symtab_type++) {
-		switch (dso->symtab_type) {
-		case SYMTAB__BUILD_ID_CACHE:
-			/* skip the locally configured cache if a symfs is given */
-			if (symbol_conf.symfs[0] ||
-			    (dso__build_id_filename(dso, name, size) == NULL)) {
-				continue;
-			}
-			break;
-		case SYMTAB__FEDORA_DEBUGINFO:
-			snprintf(name, size, "%s/usr/lib/debug%s.debug",
-				 symbol_conf.symfs, dso->long_name);
-			break;
-		case SYMTAB__UBUNTU_DEBUGINFO:
-			snprintf(name, size, "%s/usr/lib/debug%s",
-				 symbol_conf.symfs, dso->long_name);
-			break;
-		case SYMTAB__BUILDID_DEBUGINFO: {
-			char build_id_hex[BUILD_ID_SIZE * 2 + 1];
+	for (i = 0; i < DSO_BINARY_TYPE__SYMTAB_CNT; i++) {
 
-			if (!dso->has_build_id)
-				continue;
+		dso->symtab_type = binary_type_symtab[i];
 
-			build_id__sprintf(dso->build_id,
-					  sizeof(dso->build_id),
-					  build_id_hex);
-			snprintf(name, size,
-				 "%s/usr/lib/debug/.build-id/%.2s/%s.debug",
-				 symbol_conf.symfs, build_id_hex, build_id_hex + 2);
-			}
-			break;
-		case SYMTAB__SYSTEM_PATH_DSO:
-			snprintf(name, size, "%s%s",
-			     symbol_conf.symfs, dso->long_name);
-			break;
-		case SYMTAB__GUEST_KMODULE:
-			if (map->groups && machine)
-				root_dir = machine->root_dir;
-			else
-				root_dir = "";
-			snprintf(name, size, "%s%s%s", symbol_conf.symfs,
-				 root_dir, dso->long_name);
-			break;
-
-		case SYMTAB__SYSTEM_PATH_KMODULE:
-			snprintf(name, size, "%s%s", symbol_conf.symfs,
-				 dso->long_name);
-			break;
-		default:;
-		}
+		if (dso__binary_type_file(dso, dso->symtab_type,
+					  root_dir, name, PATH_MAX))
+			continue;
 
 		/* Name is now the name of the next image to try */
 		fd = open(name, O_RDONLY);
@@ -1588,8 +1865,9 @@ restart:
 			continue;
 
 		if (ret > 0) {
-			int nr_plt = dso__synthesize_plt_symbols(dso, map,
-								 filter);
+			int nr_plt;
+
+			nr_plt = dso__synthesize_plt_symbols(dso, name, map, filter);
 			if (nr_plt > 0)
 				ret += nr_plt;
 			break;
@@ -1664,7 +1942,7 @@ static int map_groups__set_modules_path_dir(struct map_groups *mg,
 		struct stat st;
 
 		/*sshfs might return bad dent->d_type, so we have to stat*/
-		sprintf(path, "%s/%s", dir_name, dent->d_name);
+		snprintf(path, sizeof(path), "%s/%s", dir_name, dent->d_name);
 		if (stat(path, &st))
 			continue;
 
@@ -1673,8 +1951,6 @@ static int map_groups__set_modules_path_dir(struct map_groups *mg,
 			    !strcmp(dent->d_name, ".."))
 				continue;
 
-			snprintf(path, sizeof(path), "%s/%s",
-				 dir_name, dent->d_name);
 			ret = map_groups__set_modules_path_dir(mg, path);
 			if (ret < 0)
 				goto out;
@@ -1694,9 +1970,6 @@ static int map_groups__set_modules_path_dir(struct map_groups *mg,
 						       dso_name);
 			if (map == NULL)
 				continue;
-
-			snprintf(path, sizeof(path), "%s/%s",
-				 dir_name, dent->d_name);
 
 			long_name = strdup(path);
 			if (long_name == NULL) {
@@ -1790,9 +2063,9 @@ struct map *machine__new_module(struct machine *machine, u64 start,
 		return NULL;
 
 	if (machine__is_host(machine))
-		dso->symtab_type = SYMTAB__SYSTEM_PATH_KMODULE;
+		dso->symtab_type = DSO_BINARY_TYPE__SYSTEM_PATH_KMODULE;
 	else
-		dso->symtab_type = SYMTAB__GUEST_KMODULE;
+		dso->symtab_type = DSO_BINARY_TYPE__GUEST_KMODULE;
 	map_groups__insert(&machine->kmaps, map);
 	return map;
 }
@@ -2172,27 +2445,22 @@ size_t machines__fprintf_dsos_buildid(struct rb_root *machines,
 	return ret;
 }
 
-struct dso *dso__new_kernel(const char *name)
+static struct dso*
+dso__kernel_findnew(struct machine *machine, const char *name,
+		    const char *short_name, int dso_type)
 {
-	struct dso *dso = dso__new(name ?: "[kernel.kallsyms]");
+	/*
+	 * The kernel dso could be created by build_id processing.
+	 */
+	struct dso *dso = __dsos__findnew(&machine->kernel_dsos, name);
 
+	/*
+	 * We need to run this in all cases, since during the build_id
+	 * processing we had no idea this was the kernel dso.
+	 */
 	if (dso != NULL) {
-		dso__set_short_name(dso, "[kernel]");
-		dso->kernel = DSO_TYPE_KERNEL;
-	}
-
-	return dso;
-}
-
-static struct dso *dso__new_guest_kernel(struct machine *machine,
-					const char *name)
-{
-	char bf[PATH_MAX];
-	struct dso *dso = dso__new(name ?: machine__mmap_name(machine, bf,
-							      sizeof(bf)));
-	if (dso != NULL) {
-		dso__set_short_name(dso, "[guest.kernel]");
-		dso->kernel = DSO_TYPE_GUEST_KERNEL;
+		dso__set_short_name(dso, short_name);
+		dso->kernel = dso_type;
 	}
 
 	return dso;
@@ -2210,24 +2478,36 @@ void dso__read_running_kernel_build_id(struct dso *dso, struct machine *machine)
 		dso->has_build_id = true;
 }
 
-static struct dso *machine__create_kernel(struct machine *machine)
+static struct dso *machine__get_kernel(struct machine *machine)
 {
 	const char *vmlinux_name = NULL;
 	struct dso *kernel;
 
 	if (machine__is_host(machine)) {
 		vmlinux_name = symbol_conf.vmlinux_name;
-		kernel = dso__new_kernel(vmlinux_name);
+		if (!vmlinux_name)
+			vmlinux_name = "[kernel.kallsyms]";
+
+		kernel = dso__kernel_findnew(machine, vmlinux_name,
+					     "[kernel]",
+					     DSO_TYPE_KERNEL);
 	} else {
+		char bf[PATH_MAX];
+
 		if (machine__is_default_guest(machine))
 			vmlinux_name = symbol_conf.default_guest_vmlinux_name;
-		kernel = dso__new_guest_kernel(machine, vmlinux_name);
+		if (!vmlinux_name)
+			vmlinux_name = machine__mmap_name(machine, bf,
+							  sizeof(bf));
+
+		kernel = dso__kernel_findnew(machine, vmlinux_name,
+					     "[guest.kernel]",
+					     DSO_TYPE_GUEST_KERNEL);
 	}
 
-	if (kernel != NULL) {
+	if (kernel != NULL && (!kernel->has_build_id))
 		dso__read_running_kernel_build_id(kernel, machine);
-		dsos__add(&machine->kernel_dsos, kernel);
-	}
+
 	return kernel;
 }
 
@@ -2331,14 +2611,21 @@ void machine__destroy_kernel_maps(struct machine *machine)
 
 int machine__create_kernel_maps(struct machine *machine)
 {
-	struct dso *kernel = machine__create_kernel(machine);
+	struct dso *kernel = machine__get_kernel(machine);
 
 	if (kernel == NULL ||
 	    __machine__create_kernel_maps(machine, kernel) < 0)
 		return -1;
 
-	if (symbol_conf.use_modules && machine__create_modules(machine) < 0)
-		pr_debug("Problems creating module maps, continuing anyway...\n");
+	if (symbol_conf.use_modules && machine__create_modules(machine) < 0) {
+		if (machine__is_host(machine))
+			pr_debug("Problems creating module maps, "
+				 "continuing anyway...\n");
+		else
+			pr_debug("Problems creating module maps for guest %d, "
+				 "continuing anyway...\n", machine->pid);
+	}
+
 	/*
 	 * Now that we have all the maps created, just set the ->end of them:
 	 */
@@ -2509,10 +2796,10 @@ int symbol__init(void)
 	symbol_conf.initialized = true;
 	return 0;
 
-out_free_dso_list:
-	strlist__delete(symbol_conf.dso_list);
 out_free_comm_list:
 	strlist__delete(symbol_conf.comm_list);
+out_free_dso_list:
+	strlist__delete(symbol_conf.dso_list);
 	return -1;
 }
 
@@ -2588,6 +2875,7 @@ int machines__create_guest_kernel_maps(struct rb_root *machines)
 	int i, items = 0;
 	char path[PATH_MAX];
 	pid_t pid;
+	char *endp;
 
 	if (symbol_conf.default_guest_vmlinux_name ||
 	    symbol_conf.default_guest_modules ||
@@ -2604,7 +2892,14 @@ int machines__create_guest_kernel_maps(struct rb_root *machines)
 				/* Filter out . and .. */
 				continue;
 			}
-			pid = atoi(namelist[i]->d_name);
+			pid = (pid_t)strtol(namelist[i]->d_name, &endp, 10);
+			if ((*endp != '\0') ||
+			    (endp == namelist[i]->d_name) ||
+			    (errno == ERANGE)) {
+				pr_debug("invalid directory (%s). Skipping.\n",
+					 namelist[i]->d_name);
+				continue;
+			}
 			sprintf(path, "%s/%s/proc/kallsyms",
 				symbol_conf.guestmount,
 				namelist[i]->d_name);
@@ -2666,4 +2961,230 @@ int machine__load_vmlinux_path(struct machine *machine, enum map_type type,
 	}
 
 	return ret;
+}
+
+struct map *dso__new_map(const char *name)
+{
+	struct map *map = NULL;
+	struct dso *dso = dso__new(name);
+
+	if (dso)
+		map = map__new2(0, dso, MAP__FUNCTION);
+
+	return map;
+}
+
+static int open_dso(struct dso *dso, struct machine *machine)
+{
+	char *root_dir = (char *) "";
+	char *name;
+	int fd;
+
+	name = malloc(PATH_MAX);
+	if (!name)
+		return -ENOMEM;
+
+	if (machine)
+		root_dir = machine->root_dir;
+
+	if (dso__binary_type_file(dso, dso->data_type,
+				  root_dir, name, PATH_MAX)) {
+		free(name);
+		return -EINVAL;
+	}
+
+	fd = open(name, O_RDONLY);
+	free(name);
+	return fd;
+}
+
+int dso__data_fd(struct dso *dso, struct machine *machine)
+{
+	int i = 0;
+
+	if (dso->data_type != DSO_BINARY_TYPE__NOT_FOUND)
+		return open_dso(dso, machine);
+
+	do {
+		int fd;
+
+		dso->data_type = binary_type_data[i++];
+
+		fd = open_dso(dso, machine);
+		if (fd >= 0)
+			return fd;
+
+	} while (dso->data_type != DSO_BINARY_TYPE__NOT_FOUND);
+
+	return -EINVAL;
+}
+
+static void
+dso_cache__free(struct rb_root *root)
+{
+	struct rb_node *next = rb_first(root);
+
+	while (next) {
+		struct dso_cache *cache;
+
+		cache = rb_entry(next, struct dso_cache, rb_node);
+		next = rb_next(&cache->rb_node);
+		rb_erase(&cache->rb_node, root);
+		free(cache);
+	}
+}
+
+static struct dso_cache*
+dso_cache__find(struct rb_root *root, u64 offset)
+{
+	struct rb_node **p = &root->rb_node;
+	struct rb_node *parent = NULL;
+	struct dso_cache *cache;
+
+	while (*p != NULL) {
+		u64 end;
+
+		parent = *p;
+		cache = rb_entry(parent, struct dso_cache, rb_node);
+		end = cache->offset + DSO__DATA_CACHE_SIZE;
+
+		if (offset < cache->offset)
+			p = &(*p)->rb_left;
+		else if (offset >= end)
+			p = &(*p)->rb_right;
+		else
+			return cache;
+	}
+	return NULL;
+}
+
+static void
+dso_cache__insert(struct rb_root *root, struct dso_cache *new)
+{
+	struct rb_node **p = &root->rb_node;
+	struct rb_node *parent = NULL;
+	struct dso_cache *cache;
+	u64 offset = new->offset;
+
+	while (*p != NULL) {
+		u64 end;
+
+		parent = *p;
+		cache = rb_entry(parent, struct dso_cache, rb_node);
+		end = cache->offset + DSO__DATA_CACHE_SIZE;
+
+		if (offset < cache->offset)
+			p = &(*p)->rb_left;
+		else if (offset >= end)
+			p = &(*p)->rb_right;
+	}
+
+	rb_link_node(&new->rb_node, parent, p);
+	rb_insert_color(&new->rb_node, root);
+}
+
+static ssize_t
+dso_cache__memcpy(struct dso_cache *cache, u64 offset,
+		  u8 *data, u64 size)
+{
+	u64 cache_offset = offset - cache->offset;
+	u64 cache_size   = min(cache->size - cache_offset, size);
+
+	memcpy(data, cache->data + cache_offset, cache_size);
+	return cache_size;
+}
+
+static ssize_t
+dso_cache__read(struct dso *dso, struct machine *machine,
+		 u64 offset, u8 *data, ssize_t size)
+{
+	struct dso_cache *cache;
+	ssize_t ret;
+	int fd;
+
+	fd = dso__data_fd(dso, machine);
+	if (fd < 0)
+		return -1;
+
+	do {
+		u64 cache_offset;
+
+		ret = -ENOMEM;
+
+		cache = zalloc(sizeof(*cache) + DSO__DATA_CACHE_SIZE);
+		if (!cache)
+			break;
+
+		cache_offset = offset & DSO__DATA_CACHE_MASK;
+		ret = -EINVAL;
+
+		if (-1 == lseek(fd, cache_offset, SEEK_SET))
+			break;
+
+		ret = read(fd, cache->data, DSO__DATA_CACHE_SIZE);
+		if (ret <= 0)
+			break;
+
+		cache->offset = cache_offset;
+		cache->size   = ret;
+		dso_cache__insert(&dso->cache, cache);
+
+		ret = dso_cache__memcpy(cache, offset, data, size);
+
+	} while (0);
+
+	if (ret <= 0)
+		free(cache);
+
+	close(fd);
+	return ret;
+}
+
+static ssize_t dso_cache_read(struct dso *dso, struct machine *machine,
+			      u64 offset, u8 *data, ssize_t size)
+{
+	struct dso_cache *cache;
+
+	cache = dso_cache__find(&dso->cache, offset);
+	if (cache)
+		return dso_cache__memcpy(cache, offset, data, size);
+	else
+		return dso_cache__read(dso, machine, offset, data, size);
+}
+
+ssize_t dso__data_read_offset(struct dso *dso, struct machine *machine,
+			      u64 offset, u8 *data, ssize_t size)
+{
+	ssize_t r = 0;
+	u8 *p = data;
+
+	do {
+		ssize_t ret;
+
+		ret = dso_cache_read(dso, machine, offset, p, size);
+		if (ret < 0)
+			return ret;
+
+		/* Reached EOF, return what we have. */
+		if (!ret)
+			break;
+
+		BUG_ON(ret > size);
+
+		r      += ret;
+		p      += ret;
+		offset += ret;
+		size   -= ret;
+
+	} while (size);
+
+	return r;
+}
+
+ssize_t dso__data_read_addr(struct dso *dso, struct map *map,
+			    struct machine *machine, u64 addr,
+			    u8 *data, ssize_t size)
+{
+	u64 offset = map->map_ip(map, addr);
+	return dso__data_read_offset(dso, machine, offset, data, size);
 }

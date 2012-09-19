@@ -129,6 +129,7 @@ do_resize:
 		case 'e':
 		case 'X':
 		case 'x':
+		case 'q':
 			delwin(box);
 			delwin(dialog);
 			return 0;
@@ -190,6 +191,7 @@ do_resize:
 			break;
 		case 'B':	/* Previous page */
 		case 'b':
+		case 'u':
 		case KEY_PPAGE:
 			if (begin_reached)
 				break;
@@ -214,6 +216,7 @@ do_resize:
 			break;
 		case KEY_NPAGE:	/* Next page */
 		case ' ':
+		case 'd':
 			if (end_reached)
 				break;
 
@@ -320,7 +323,6 @@ static void print_page(WINDOW * win, int height, int width)
  */
 static void print_line(WINDOW * win, int row, int width)
 {
-	int y, x;
 	char *line;
 
 	line = get_line();
@@ -329,10 +331,10 @@ static void print_line(WINDOW * win, int row, int width)
 	waddch(win, ' ');
 	waddnstr(win, line, MIN(strlen(line), width - 2));
 
-	getyx(win, y, x);
 	/* Clear 'residue' of previous line */
 #if OLD_NCURSES
 	{
+		int x = getcurx(win);
 		int i;
 		for (i = 0; i < width - x; i++)
 			waddch(win, ' ');
