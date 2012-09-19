@@ -831,7 +831,7 @@ static int test_skcipher(struct crypto_ablkcipher *tfm, int enc,
 		else
 			memset(iv, 0, MAX_IVLEN);
 
-		if (!(template[i].np)) {
+		if (!(template[i].np) || (template[i].also_non_np)) {
 			j++;
 
 			ret = -EINVAL;
