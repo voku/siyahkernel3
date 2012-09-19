@@ -35,6 +35,7 @@
 
 #include <asm/fb.h>
 
+#include "samsung/s3cfb.h"
 
     /*
      *  Frame buffer device initialization and setup routines
@@ -1178,6 +1179,8 @@ static long do_fb_ioctl(struct fb_info *info, unsigned int cmd,
 		unlock_fb_info(info);
 		break;
 	default:
+        // Skip mutex for vsync poll because it's in its own thread
+		if (cmd != S3CFB_WAIT_FOR_VSYNC)
 		if (!lock_fb_info(info))
 			return -ENODEV;
 		fb = info->fbops;
@@ -1185,6 +1188,7 @@ static long do_fb_ioctl(struct fb_info *info, unsigned int cmd,
 			ret = fb->fb_ioctl(info, cmd, arg);
 		else
 			ret = -ENOTTY;
+		if (cmd != S3CFB_WAIT_FOR_VSYNC)
 		unlock_fb_info(info);
 	}
 	return ret;
