@@ -256,7 +256,6 @@ int s3cfb_init_global(struct s3cfb_global *fbdev)
 	fbdev->rgb_mode = MODE_RGB_P;
 
 	fbdev->wq_count = 0;
-	init_waitqueue_head(&fbdev->wq);
 	init_waitqueue_head(&fbdev->wait);
 	mutex_init(&fbdev->lock);
 
