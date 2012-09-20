@@ -256,7 +256,7 @@ int s3cfb_init_global(struct s3cfb_global *fbdev)
 	fbdev->rgb_mode = MODE_RGB_P;
 
 	fbdev->wq_count = 0;
-	init_waitqueue_head(&fbdev->wait);
+	init_waitqueue_head(&fbdev->wq);
 	mutex_init(&fbdev->lock);
 
 	s3cfb_set_output(fbdev);
@@ -1066,21 +1066,15 @@ int s3cfb_cursor(struct fb_info *fb, struct fb_cursor *cursor)
 	return 0;
 }
 
-int s3cfb_vsync_timestamp_changed(struct s3cfb_global *fbdev, ktime_t prev_timestamp)
-{
-	return !ktime_equal(prev_timestamp, fbdev->vsync_timestamp);
-}
-
 int s3cfb_wait_for_vsync(struct s3cfb_global *fbdev)
 {
-	ktime_t timestamp = fbdev->vsync_timestamp;
-	int ret = wait_event_interruptible_timeout(fbdev->wait,
-											   !ktime_equal(timestamp, fbdev->vsync_timestamp),
-					       msecs_to_jiffies(100));
-	if (ret == 0)
-	    return -ETIMEDOUT;
+	dev_dbg(fbdev->dev, "waiting for VSYNC interrupt\n");
 
-	return ret;
+	sleep_on_timeout(&fbdev->wq, HZ / 10);
+
+	dev_dbg(fbdev->dev, "got a VSYNC interrupt\n");
+
+	return 0;
 }
 
 int s3cfb_ioctl(struct fb_info *fb, unsigned int cmd, unsigned long arg)
@@ -1090,7 +1084,6 @@ int s3cfb_ioctl(struct fb_info *fb, unsigned int cmd, unsigned long arg)
 	struct s3cfb_global *fbdev = get_fimd_global(win->id);
 	struct s3cfb_lcd *lcd = fbdev->lcd;
 	void *argp = (void *)arg;
-	ktime_t timestamp;
 	int ret = 0;
 #if defined(CONFIG_CPU_EXYNOS4210)
 	unsigned int addr = 0;
@@ -1132,10 +1125,7 @@ int s3cfb_ioctl(struct fb_info *fb, unsigned int cmd, unsigned long arg)
 		s3cfb_set_vsync_interrupt(fbdev, 1);
 #endif
 		/* Wait for Vsync */
-		timestamp = fbdev->vsync_timestamp;
-		wait_event_interruptible_timeout(fbdev->wait,
-										 !ktime_equal(timestamp, fbdev->vsync_timestamp),
-										 msecs_to_jiffies(100));
+		s3cfb_wait_for_vsync(fbdev);
 		if (fbdev->regs == 0)
 			return 0;
 #if defined(CONFIG_CPU_EXYNOS4212) || defined(CONFIG_CPU_EXYNOS4412)
@@ -1143,18 +1133,6 @@ int s3cfb_ioctl(struct fb_info *fb, unsigned int cmd, unsigned long arg)
 		s3cfb_set_global_interrupt(fbdev, 0);
 		s3cfb_set_vsync_interrupt(fbdev, 0);
 #endif
-		break;
-
-	// Custom IOCTL added to return the VSYNC timestamp
-	case S3CFB_WAIT_FOR_VSYNC:
-		timestamp = fbdev->vsync_timestamp;
-		ret = wait_event_interruptible_timeout(fbdev->wait,
-											   !ktime_equal(timestamp, fbdev->vsync_timestamp),
-											   msecs_to_jiffies(1000));
-		if (ret > 0) {
-		    u64 nsecs = ktime_to_ns(fbdev->vsync_timestamp);
-		    copy_to_user((void*)arg, &nsecs, sizeof(u64));
-		}
 		break;
 
 	case S3CFB_WIN_POSITION:
@@ -1238,6 +1216,7 @@ int s3cfb_ioctl(struct fb_info *fb, unsigned int cmd, unsigned long arg)
 			dev_err(fbdev->dev, "copy_to_user error\n");
 			return -EFAULT;
 		}
+
 		break;
 
 	case S3CFB_GET_CUR_WIN_BUF_ADDR:

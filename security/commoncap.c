@@ -34,7 +34,6 @@
 #include <linux/android_aid.h>
 #endif
 #include <linux/binfmts.h>
-#include <linux/personality.h>
 
 /*
  * If a non-root user executes a setuid-root binary in
@@ -89,9 +88,8 @@ int cap_capable(const struct cred *cred, struct user_namespace *targ_ns,
 #endif
 
 	for (;;) {
-		/* The owner of the user namespace has all caps. */
-		if (targ_ns != &init_user_ns && uid_eq(targ_ns->owner,
-						       make_kuid(cred->user_ns, cred->euid)))
+		/* The creator of the user namespace has all caps. */
+		if (targ_ns != &init_user_ns && targ_ns->creator == cred->user)
 			return 0;
 
 		/* Do we have the necessary capabilities? */
@@ -525,17 +523,14 @@ skip:
 
 
 	/* Don't let someone trace a set[ug]id/setpcap binary with the revised
-	 * credentials unless they have the appropriate permit.
-	 *
-	 * In addition, if NO_NEW_PRIVS, then ensure we get no new privs.
+	 * credentials unless they have the appropriate permit
 	 */
 	if ((new->euid != old->uid ||
 	     new->egid != old->gid ||
 	     !cap_issubset(new->cap_permitted, old->cap_permitted)) &&
 	    bprm->unsafe & ~LSM_UNSAFE_PTRACE_CAP) {
 		/* downgrade; they get no more than they had, and maybe less */
-		if (!capable(CAP_SETUID) ||
-		    (bprm->unsafe & LSM_UNSAFE_NO_NEW_PRIVS)) {
+		if (!capable(CAP_SETUID)) {
 			new->euid = new->uid;
 			new->egid = new->gid;
 		}

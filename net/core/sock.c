@@ -429,7 +429,7 @@ struct dst_entry *__sk_dst_check(struct sock *sk, u32 cookie)
 
 	if (dst && dst->obsolete && dst->ops->check(dst, cookie) == NULL) {
 		sk_tx_queue_clear(sk);
-		RCU_INIT_POINTER(sk->sk_dst_cache, NULL);
+		rcu_assign_pointer(sk->sk_dst_cache, NULL);
 		dst_release(dst);
 		return NULL;
 	}
@@ -803,8 +803,8 @@ void cred_to_ucred(struct pid *pid, const struct cred *cred,
 	if (cred) {
 		struct user_namespace *current_ns = current_user_ns();
 
-		ucred->uid = from_kuid(current_ns, cred->euid);
-		ucred->gid = from_kgid(current_ns, cred->egid);
+		ucred->uid = user_ns_map_uid(current_ns, cred, cred->euid);
+		ucred->gid = user_ns_map_gid(current_ns, cred, cred->egid);
 	}
 }
 EXPORT_SYMBOL_GPL(cred_to_ucred);
@@ -1200,7 +1200,7 @@ static void __sk_free(struct sock *sk)
 				       atomic_read(&sk->sk_wmem_alloc) == 0);
 	if (filter) {
 		sk_filter_uncharge(sk, filter);
-		RCU_INIT_POINTER(sk->sk_filter, NULL);
+		rcu_assign_pointer(sk->sk_filter, NULL);
 	}
 
 	sock_disable_timestamp(sk, SOCK_TIMESTAMP);

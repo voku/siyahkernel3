@@ -93,8 +93,10 @@
 int overflowuid = DEFAULT_OVERFLOWUID;
 int overflowgid = DEFAULT_OVERFLOWGID;
 
+#ifdef CONFIG_UID16
 EXPORT_SYMBOL(overflowuid);
 EXPORT_SYMBOL(overflowgid);
+#endif
 
 /*
  * the same as above, but for filesystems which can only store a 16-bit
@@ -624,22 +626,15 @@ static int set_user(struct cred *new)
 {
 	struct user_struct *new_user;
 
-	new_user = alloc_uid(new->uid);
+	new_user = alloc_uid(current_user_ns(), new->uid);
 	if (!new_user)
 		return -EAGAIN;
 
-	/*
-	 * We don't fail in case of NPROC limit excess here because too many
-	 * poorly written programs don't check set*uid() return code, assuming
-	 * it never fails if called by root.  We may still enforce NPROC limit
-	 * for programs doing set*uid()+execve() by harmlessly deferring the
-	 * failure to the execve() stage.
-	 */
 	if (atomic_read(&new_user->processes) >= rlimit(RLIMIT_NPROC) &&
-			new_user != INIT_USER)
-		current->flags |= PF_NPROC_EXCEEDED;
-	else
-		current->flags &= ~PF_NPROC_EXCEEDED;
+			new_user != INIT_USER) {
+		free_uid(new_user);
+		return -EAGAIN;
+	}
 
 	free_uid(new->user);
 	new->user = new_user;
@@ -1843,16 +1838,6 @@ SYSCALL_DEFINE5(prctl, int, option, unsigned long, arg2, unsigned long, arg3,
 			else
 				error = PR_MCE_KILL_DEFAULT;
 			break;
-		case PR_SET_NO_NEW_PRIVS:
-			if (arg2 != 1 || arg3 || arg4 || arg5)
-				return -EINVAL;
-
-			current->no_new_privs = 1;
-			break;
-		case PR_GET_NO_NEW_PRIVS:
-			if (arg2 || arg3 || arg4 || arg5)
-				return -EINVAL;
-			return current->no_new_privs ? 1 : 0;
 		default:
 			error = -EINVAL;
 			break;
