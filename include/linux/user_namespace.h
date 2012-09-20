@@ -13,8 +13,8 @@ struct user_namespace {
 	struct kref		kref;
 	struct hlist_head	uidhash_table[UIDHASH_SZ];
 	struct user_namespace	*parent;
-	struct user_struct	*creator;
-	struct work_struct	destroyer;
+	kuid_t			owner;
+	kgid_t			group;
 };
 
 extern struct user_namespace init_user_ns;
