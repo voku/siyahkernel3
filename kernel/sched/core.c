@@ -1423,7 +1423,7 @@ ttwu_do_wakeup(struct rq *rq, struct task_struct *p, int wake_flags)
 	if (p->sched_class->task_woken)
 		p->sched_class->task_woken(rq, p);
 
-	if (unlikely(rq->idle_stamp)) {
+	if (rq->idle_stamp) {
 		u64 delta = rq->clock - rq->idle_stamp;
 		u64 max = 2*sysctl_sched_migration_cost;
 
@@ -2970,20 +2970,6 @@ void thread_group_times(struct task_struct *p, cputime_t *ut, cputime_t *st)
 # define nsecs_to_cputime(__nsecs)	nsecs_to_jiffies(__nsecs)
 #endif
 
-static cputime_t scale_utime(cputime_t utime, cputime_t rtime, cputime_t total)
-{
-	u64 temp = (__force u64) rtime;
-
-	temp *= (__force u64) utime;
-
-	if (sizeof(cputime_t) == 4)
-		temp = div_u64(temp, (__force u32) total);
-	else
-		temp = div64_u64(temp, (__force u64) total);
-
-	return (__force cputime_t) temp;
-}
-
 void task_times(struct task_struct *p, cputime_t *ut, cputime_t *st)
 {
 	cputime_t rtime, utime = p->utime, total = cputime_add(utime, p->stime);
@@ -2993,9 +2979,13 @@ void task_times(struct task_struct *p, cputime_t *ut, cputime_t *st)
 	 */
 	rtime = nsecs_to_cputime(p->se.sum_exec_runtime);
 
-	if (total)
-		utime = scale_utime(utime, rtime, total);
-	else
+	if (total) {
+		u64 temp = rtime;
+
+		temp *= utime;
+		do_div(temp, total);
+		utime = (cputime_t)temp;
+	} else
 		utime = rtime;
 
 	/*
@@ -3022,9 +3012,13 @@ void thread_group_times(struct task_struct *p, cputime_t *ut, cputime_t *st)
 	total = cputime_add(cputime.utime, cputime.stime);
 	rtime = nsecs_to_cputime(cputime.sum_exec_runtime);
 
-	if (total)
-		utime = scale_utime(cputime.utime, rtime, total);
-	else
+	if (total) {
+		u64 temp = rtime;
+
+		temp *= cputime.utime;
+		do_div(temp, total);
+		utime = (cputime_t)temp;
+	} else
 		utime = rtime;
 
 	sig->prev_utime = max(sig->prev_utime, utime);
@@ -6449,6 +6443,7 @@ struct sched_domain *build_sched_domain(struct sched_domain_topology_level *tl,
 	if (!sd)
 		return child;
 
+	set_domain_attribute(sd, attr);
 	cpumask_and(sched_domain_span(sd), cpu_map, tl->mask(cpu));
 	if (child) {
 		sd->level = child->level + 1;
@@ -6456,7 +6451,6 @@ struct sched_domain *build_sched_domain(struct sched_domain_topology_level *tl,
 		child->parent = sd;
 	}
 	sd->child = child;
-	set_domain_attribute(sd, attr);
 
 	return sd;
 }
@@ -7668,6 +7662,21 @@ static void cpu_cgroup_destroy(struct cgroup *cgrp)
 	sched_destroy_group(tg);
 }
 
+static int
+cpu_cgroup_allow_attach(struct cgroup *cgrp, 
+			struct task_struct *tsk)	
+{
+	const struct cred *cred = current_cred(), *tcred;
+
+	tcred = __task_cred(tsk);
+
+	if ((current != tsk) && !capable(CAP_SYS_NICE) &&
+	    cred->euid != tcred->uid && cred->euid != tcred->suid)
+		return -EACCES;
+
+	return 0;
+}
+
 static int cpu_cgroup_can_attach(struct cgroup *cgrp,
 				 struct cgroup_taskset *tset)
 {
@@ -8027,6 +8036,7 @@ struct cgroup_subsys cpu_cgroup_subsys = {
 	.name		= "cpu",
 	.create		= cpu_cgroup_create,
 	.destroy	= cpu_cgroup_destroy,
+	.allow_attach	= cpu_cgroup_allow_attach,
 	.can_attach	= cpu_cgroup_can_attach,
 	.attach		= cpu_cgroup_attach,
 	.exit		= cpu_cgroup_exit,
@@ -8065,12 +8075,6 @@ static struct cgroup_subsys_state *cpuacct_create(struct cgroup *cgrp)
 	ca->cpustat = alloc_percpu(struct kernel_cpustat);
 	if (!ca->cpustat)
 		goto out_free_cpuusage;
-
-	ca->cpufreq_fn = cpuacct_cpufreq;
-
-	/* If available, have platform code initalize cpu frequency table */
-	if (ca->cpufreq_fn && ca->cpufreq_fn->init)
-		ca->cpufreq_fn->init(&ca->cpuacct_data);
 
 	return &ca->css;
 
@@ -8208,32 +8212,6 @@ static int cpuacct_stats_show(struct cgroup *cgrp, struct cftype *cft,
 	return 0;
 }
 
-static int cpuacct_cpufreq_show(struct cgroup *cgrp, struct cftype *cft,
-		struct cgroup_map_cb *cb)
-{
-	struct cpuacct *ca = cgroup_ca(cgrp);
-	if (ca->cpufreq_fn && ca->cpufreq_fn->cpufreq_show)
-		ca->cpufreq_fn->cpufreq_show(ca->cpuacct_data, cb);
-
-	return 0;
-}
-
-/* return total cpu power usage (milliWatt second) of a group */
-static u64 cpuacct_powerusage_read(struct cgroup *cgrp, struct cftype *cft)
-{
-	int i;
-	struct cpuacct *ca = cgroup_ca(cgrp);
-	u64 totalpower = 0;
-
-	if (ca->cpufreq_fn && ca->cpufreq_fn->power_usage)
-		for_each_present_cpu(i) {
-			totalpower += ca->cpufreq_fn->power_usage(
-					ca->cpuacct_data);
-		}
-
-	return totalpower;
-}
-
 static struct cftype files[] = {
 	{
 		.name = "usage",
@@ -8248,20 +8226,8 @@ static struct cftype files[] = {
 		.name = "stat",
 		.read_map = cpuacct_stats_show,
 	},
-	{
-		.name =  "cpufreq",
-		.read_map = cpuacct_cpufreq_show,
-	},
-	{
-		.name = "power",
-		.read_u64 = cpuacct_powerusage_read
-	},
+	{ }	/* terminate */
 };
-
-static int cpuacct_populate(struct cgroup_subsys *ss, struct cgroup *cgrp)
-{
-	return cgroup_add_files(cgrp, ss, files, ARRAY_SIZE(files));
-}
 
 /*
  * charge this task's execution time to its accounting group.
@@ -8285,10 +8251,6 @@ void cpuacct_charge(struct task_struct *tsk, u64 cputime)
 	for (; ca; ca = parent_ca(ca)) {
 		u64 *cpuusage = per_cpu_ptr(ca->cpuusage, cpu);
 		*cpuusage += cputime;
-
-		/* Call back into platform code to account for CPU speeds */
-		if (ca->cpufreq_fn && ca->cpufreq_fn->charge)
-			ca->cpufreq_fn->charge(ca->cpuacct_data, cputime, cpu);
 	}
 
 	rcu_read_unlock();
@@ -8298,7 +8260,8 @@ struct cgroup_subsys cpuacct_subsys = {
 	.name = "cpuacct",
 	.create = cpuacct_create,
 	.destroy = cpuacct_destroy,
-	.populate = cpuacct_populate,
 	.subsys_id = cpuacct_subsys_id,
+	.base_cftypes = files,
 };
+
 #endif	/* CONFIG_CGROUP_CPUACCT */
