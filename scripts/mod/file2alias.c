@@ -343,7 +343,7 @@ static int do_hid_entry(const char *filename,
 	id->vendor = TO_NATIVE(id->vendor);
 	id->product = TO_NATIVE(id->product);
 
-	sprintf(alias, "hid:b%04X", id->bus);
+	sprintf(alias, "hid:");
 	ADD(alias, "b", id->bus != HID_BUS_ANY, id->bus);
 	ADD(alias, "g", id->group != HID_GROUP_ANY, id->group);
 	ADD(alias, "v", id->vendor != HID_ANY_ID, id->vendor);
@@ -1139,113 +1139,6 @@ void handle_moddevtable(struct module *mod, struct elf_info *info,
 		do_pnp_device_entry(symval, sym->st_size, mod);
 	else if (sym_is(name, namelen, "pnp_card"))
 		do_pnp_card_entries(symval, sym->st_size, mod);
-	else if (sym_is(symname, "__mod_pci_device_table"))
-		do_table(symval, sym->st_size,
-			 sizeof(struct pci_device_id), "pci",
-			 do_pci_entry, mod);
-	else if (sym_is(symname, "__mod_usb_device_table"))
-		/* special case to handle bcdDevice ranges */
-		do_usb_table(symval, sym->st_size, mod);
-	else if (sym_is(symname, "__mod_hid_device_table"))
-		do_table(symval, sym->st_size,
-			 sizeof(struct hid_device_id), "hid",
-			 do_hid_entry, mod);
-	else if (sym_is(symname, "__mod_ieee1394_device_table"))
-		do_table(symval, sym->st_size,
-			 sizeof(struct ieee1394_device_id), "ieee1394",
-			 do_ieee1394_entry, mod);
-	else if (sym_is(symname, "__mod_ccw_device_table"))
-		do_table(symval, sym->st_size,
-			 sizeof(struct ccw_device_id), "ccw",
-			 do_ccw_entry, mod);
-	else if (sym_is(symname, "__mod_ap_device_table"))
-		do_table(symval, sym->st_size,
-			 sizeof(struct ap_device_id), "ap",
-			 do_ap_entry, mod);
-	else if (sym_is(symname, "__mod_css_device_table"))
-		do_table(symval, sym->st_size,
-			 sizeof(struct css_device_id), "css",
-			 do_css_entry, mod);
-	else if (sym_is(symname, "__mod_serio_device_table"))
-		do_table(symval, sym->st_size,
-			 sizeof(struct serio_device_id), "serio",
-			 do_serio_entry, mod);
-	else if (sym_is(symname, "__mod_acpi_device_table"))
-		do_table(symval, sym->st_size,
-			 sizeof(struct acpi_device_id), "acpi",
-			 do_acpi_entry, mod);
-	else if (sym_is(symname, "__mod_pnp_device_table"))
-		do_pnp_device_entry(symval, sym->st_size, mod);
-	else if (sym_is(symname, "__mod_pnp_card_device_table"))
-		do_pnp_card_entries(symval, sym->st_size, mod);
-	else if (sym_is(symname, "__mod_pcmcia_device_table"))
-		do_table(symval, sym->st_size,
-			 sizeof(struct pcmcia_device_id), "pcmcia",
-			 do_pcmcia_entry, mod);
-    else if (sym_is(symname, "__mod_of_device_table"))
-		do_table(symval, sym->st_size,
-			 sizeof(struct of_device_id), "of",
-			 do_of_entry, mod);
-    else if (sym_is(symname, "__mod_vio_device_table"))
-		do_table(symval, sym->st_size,
-			 sizeof(struct vio_device_id), "vio",
-			 do_vio_entry, mod);
-	else if (sym_is(symname, "__mod_input_device_table"))
-		do_table(symval, sym->st_size,
-			 sizeof(struct input_device_id), "input",
-			 do_input_entry, mod);
-	else if (sym_is(symname, "__mod_eisa_device_table"))
-		do_table(symval, sym->st_size,
-			 sizeof(struct eisa_device_id), "eisa",
-			 do_eisa_entry, mod);
-	else if (sym_is(symname, "__mod_parisc_device_table"))
-		do_table(symval, sym->st_size,
-			 sizeof(struct parisc_device_id), "parisc",
-			 do_parisc_entry, mod);
-	else if (sym_is(symname, "__mod_sdio_device_table"))
-		do_table(symval, sym->st_size,
-			 sizeof(struct sdio_device_id), "sdio",
-			 do_sdio_entry, mod);
-	else if (sym_is(symname, "__mod_ssb_device_table"))
-		do_table(symval, sym->st_size,
-			 sizeof(struct ssb_device_id), "ssb",
-			 do_ssb_entry, mod);
-	else if (sym_is(symname, "__mod_bcma_device_table"))
-		do_table(symval, sym->st_size,
-			 sizeof(struct bcma_device_id), "bcma",
-			 do_bcma_entry, mod);
-	else if (sym_is(symname, "__mod_virtio_device_table"))
-		do_table(symval, sym->st_size,
-			 sizeof(struct virtio_device_id), "virtio",
-			 do_virtio_entry, mod);
-	else if (sym_is(symname, "__mod_i2c_device_table"))
-		do_table(symval, sym->st_size,
-			 sizeof(struct i2c_device_id), "i2c",
-			 do_i2c_entry, mod);
-	else if (sym_is(symname, "__mod_spi_device_table"))
-		do_table(symval, sym->st_size,
-			 sizeof(struct spi_device_id), "spi",
-			 do_spi_entry, mod);
-	else if (sym_is(symname, "__mod_dmi_device_table"))
-		do_table(symval, sym->st_size,
-			 sizeof(struct dmi_system_id), "dmi",
-			 do_dmi_entry, mod);
-	else if (sym_is(symname, "__mod_platform_device_table"))
-		do_table(symval, sym->st_size,
-			 sizeof(struct platform_device_id), "platform",
-			 do_platform_entry, mod);
-	else if (sym_is(symname, "__mod_mdio_device_table"))
-		do_table(symval, sym->st_size,
-			 sizeof(struct mdio_device_id), "mdio",
-			 do_mdio_entry, mod);
-	else if (sym_is(symname, "__mod_zorro_device_table"))
-		do_table(symval, sym->st_size,
-			 sizeof(struct zorro_device_id), "zorro",
-			 do_zorro_entry, mod);
-	else if (sym_is(symname, "__mod_isapnp_device_table"))
-		do_table(symval, sym->st_size,
-			sizeof(struct isapnp_device_id), "isa",
-			do_isapnp_entry, mod);
 	else {
 		struct devtable **p;
 		INIT_SECTION(__devtable);
