@@ -126,14 +126,6 @@ static int dev_whitelist_add(struct dev_cgroup *dev_cgroup,
 	return 0;
 }
 
-static void whitelist_item_free(struct rcu_head *rcu)
-{
-	struct dev_whitelist_item *item;
-
-	item = container_of(rcu, struct dev_whitelist_item, rcu);
-	kfree(item);
-}
-
 /*
  * called under devcgroup_mutex
  */
@@ -156,7 +148,7 @@ remove:
 		walk->access &= ~wh->access;
 		if (!walk->access) {
 			list_del_rcu(&walk->list);
-			call_rcu(&walk->rcu, whitelist_item_free);
+			kfree_rcu(walk, rcu);
 		}
 	}
 }
@@ -455,22 +447,16 @@ static struct cftype dev_cgroup_files[] = {
 		.read_seq_string = devcgroup_seq_read,
 		.private = DEVCG_LIST,
 	},
+	{ }	/* terminate */
 };
-
-static int devcgroup_populate(struct cgroup_subsys *ss,
-				struct cgroup *cgroup)
-{
-	return cgroup_add_files(cgroup, ss, dev_cgroup_files,
-					ARRAY_SIZE(dev_cgroup_files));
-}
 
 struct cgroup_subsys devices_subsys = {
 	.name = "devices",
 	.can_attach = devcgroup_can_attach,
 	.create = devcgroup_create,
 	.destroy = devcgroup_destroy,
-	.populate = devcgroup_populate,
 	.subsys_id = devices_subsys_id,
+	.base_cftypes = dev_cgroup_files,
 };
 
 int __devcgroup_inode_permission(struct inode *inode, int mask)

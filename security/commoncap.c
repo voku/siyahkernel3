@@ -34,6 +34,7 @@
 #include <linux/android_aid.h>
 #endif
 #include <linux/binfmts.h>
+#include <linux/personality.h>
 
 /*
  * If a non-root user executes a setuid-root binary in
@@ -88,8 +89,9 @@ int cap_capable(const struct cred *cred, struct user_namespace *targ_ns,
 #endif
 
 	for (;;) {
-		/* The creator of the user namespace has all caps. */
-		if (targ_ns != &init_user_ns && targ_ns->creator == cred->user)
+		/* The owner of the user namespace has all caps. */
+		if (targ_ns != &init_user_ns && uid_eq(targ_ns->owner,
+						       make_kuid(cred->user_ns, cred->euid)))
 			return 0;
 
 		/* Do we have the necessary capabilities? */
@@ -104,7 +106,7 @@ int cap_capable(const struct cred *cred, struct user_namespace *targ_ns,
 		 *If you have a capability in a parent user ns, then you have
 		 * it over all children user namespaces as well.
 		 */
-		targ_ns = targ_ns->creator->user_ns;
+		targ_ns = targ_ns->parent;
 	}
 
 	/* We never get here */
@@ -335,7 +337,8 @@ int cap_inode_killpriv(struct dentry *dentry)
  */
 static inline int bprm_caps_from_vfs_caps(struct cpu_vfs_cap_data *caps,
 					  struct linux_binprm *bprm,
-					  bool *effective)
+					  bool *effective,
+					  bool *has_cap)
 {
 	struct cred *new = bprm->cred;
 	unsigned i;
@@ -343,6 +346,9 @@ static inline int bprm_caps_from_vfs_caps(struct cpu_vfs_cap_data *caps,
 
 	if (caps->magic_etc & VFS_CAP_FLAGS_EFFECTIVE)
 		*effective = true;
+
+	if (caps->magic_etc & VFS_CAP_REVISION_MASK)
+		*has_cap = true;
 
 	CAP_FOR_EACH_U32(i) {
 		__u32 permitted = caps->permitted.cap[i];
@@ -427,7 +433,7 @@ int get_vfs_caps_from_disk(const struct dentry *dentry, struct cpu_vfs_cap_data 
  * its xattrs and, if present, apply them to the proposed credentials being
  * constructed by execve().
  */
-static int get_file_caps(struct linux_binprm *bprm, bool *effective)
+static int get_file_caps(struct linux_binprm *bprm, bool *effective, bool *has_cap)
 {
 	struct dentry *dentry;
 	int rc = 0;
@@ -453,7 +459,7 @@ static int get_file_caps(struct linux_binprm *bprm, bool *effective)
 		goto out;
 	}
 
-	rc = bprm_caps_from_vfs_caps(&vcaps, bprm, effective);
+	rc = bprm_caps_from_vfs_caps(&vcaps, bprm, effective, has_cap);
 	if (rc == -EINVAL)
 		printk(KERN_NOTICE "%s: cap_from_disk returned %d for %s\n",
 		       __func__, rc, bprm->filename);
@@ -478,11 +484,11 @@ int cap_bprm_set_creds(struct linux_binprm *bprm)
 {
 	const struct cred *old = current_cred();
 	struct cred *new = bprm->cred;
-	bool effective;
+	bool effective, has_cap = false;
 	int ret;
 
 	effective = false;
-	ret = get_file_caps(bprm, &effective);
+	ret = get_file_caps(bprm, &effective, &has_cap);
 	if (ret < 0)
 		return ret;
 
@@ -492,7 +498,7 @@ int cap_bprm_set_creds(struct linux_binprm *bprm)
 		 * for a setuid root binary run by a non-root user.  Do set it
 		 * for a root user just to cause least surprise to an admin.
 		 */
-		if (effective && new->uid != 0 && new->euid == 0) {
+		if (has_cap && new->uid != 0 && new->euid == 0) {
 			warn_setuid_and_fcaps_mixed(bprm->filename);
 			goto skip;
 		}
@@ -519,14 +525,17 @@ skip:
 
 
 	/* Don't let someone trace a set[ug]id/setpcap binary with the revised
-	 * credentials unless they have the appropriate permit
+	 * credentials unless they have the appropriate permit.
+	 *
+	 * In addition, if NO_NEW_PRIVS, then ensure we get no new privs.
 	 */
 	if ((new->euid != old->uid ||
 	     new->egid != old->gid ||
 	     !cap_issubset(new->cap_permitted, old->cap_permitted)) &&
 	    bprm->unsafe & ~LSM_UNSAFE_PTRACE_CAP) {
 		/* downgrade; they get no more than they had, and maybe less */
-		if (!capable(CAP_SETUID)) {
+		if (!capable(CAP_SETUID) ||
+		    (bprm->unsafe & LSM_UNSAFE_NO_NEW_PRIVS)) {
 			new->euid = new->uid;
 			new->egid = new->gid;
 		}

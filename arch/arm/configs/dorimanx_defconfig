@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm 3.0.43 Kernel Configuration
+# Linux/arm 3.0.433.6.RC6 Kernel Configuration
 #
 CONFIG_ARM=y
 CONFIG_HAVE_PWM=y
@@ -96,6 +96,7 @@ CONFIG_FAIR_GROUP_SCHED=y
 CONFIG_RT_GROUP_SCHED=y
 # CONFIG_BLK_CGROUP is not set
 # CONFIG_NAMESPACES is not set
+# CONFIG_UIDGID_STRICT_TYPE_CHECKS is not set
 # CONFIG_SCHED_AUTOGROUP is not set
 # CONFIG_SYSFS_DEPRECATED is not set
 # CONFIG_RELAY is not set
@@ -3028,6 +3029,7 @@ CONFIG_DEBUG_S3C_UART=1
 # Security options
 #
 CONFIG_KEYS=y
+# CONFIG_ENCRYPTED_KEYS is not set
 # CONFIG_KEYS_DEBUG_PROC_KEYS is not set
 # CONFIG_SECURITY_DMESG_RESTRICT is not set
 # CONFIG_SECURITY is not set
