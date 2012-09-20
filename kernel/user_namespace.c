@@ -45,6 +45,7 @@ int create_user_ns(struct cred *new)
 	}
 
 	/* set the new root user in the credentials under preparation */
+	ns->parent = parent_ns;
 	ns->creator = new->user;
 	new->user = root_user;
 	new->uid = new->euid = new->suid = new->fsuid = 0;
@@ -57,8 +58,8 @@ int create_user_ns(struct cred *new)
 #endif
 	/* tgcred will be cleared in our caller bc CLONE_THREAD won't be set */
 
-	/* root_user holds a reference to ns, our reference can be dropped */
-	put_user_ns(ns);
+	/* Leave the reference to our user_ns with the new cred */
+	new->user_ns = ns;
 
 	return 0;
 }
@@ -70,10 +71,12 @@ int create_user_ns(struct cred *new)
  */
 static void free_user_ns_work(struct work_struct *work)
 {
-	struct user_namespace *ns =
+	struct user_namespace *parent, *ns =
 		container_of(work, struct user_namespace, destroyer);
+	parent = ns->parent;
 	free_uid(ns->creator);
 	kmem_cache_free(user_ns_cachep, ns);
+	put_user_ns(parent);
 }
 
 void free_user_ns(struct kref *kref)
@@ -97,8 +100,7 @@ uid_t user_ns_map_uid(struct user_namespace *to, const struct cred *cred, uid_t 
 	/* Is cred->user the creator of the target user_ns
 	 * or the creator of one of it's parents?
 	 */
-	for ( tmp = to; tmp != &init_user_ns;
-	      tmp = tmp->creator->user_ns ) {
+	for ( tmp = to; tmp != &init_user_ns; tmp = tmp->parent ) {
 		if (cred->user == tmp->creator) {
 			return (uid_t)0;
 		}
@@ -118,8 +120,7 @@ gid_t user_ns_map_gid(struct user_namespace *to, const struct cred *cred, gid_t 
 	/* Is cred->user the creator of the target user_ns
 	 * or the creator of one of it's parents?
 	 */
-	for ( tmp = to; tmp != &init_user_ns;
-	      tmp = tmp->creator->user_ns ) {
+	for ( tmp = to; tmp != &init_user_ns; tmp = tmp->parent ) {
 		if (cred->user == tmp->creator) {
 			return (gid_t)0;
 		}

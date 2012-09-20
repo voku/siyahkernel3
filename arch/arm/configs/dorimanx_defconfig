@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm 3.0.43 Kernel Configuration
+# Linux/arm 3.0.433.6.RC6 Kernel Configuration
 #
 CONFIG_ARM=y
 CONFIG_HAVE_PWM=y
@@ -3028,6 +3028,7 @@ CONFIG_DEBUG_S3C_UART=1
 # Security options
 #
 CONFIG_KEYS=y
+# CONFIG_ENCRYPTED_KEYS is not set
 # CONFIG_KEYS_DEBUG_PROC_KEYS is not set
 # CONFIG_SECURITY_DMESG_RESTRICT is not set
 # CONFIG_SECURITY is not set
