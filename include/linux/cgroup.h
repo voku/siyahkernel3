@@ -445,24 +445,19 @@ int cgroup_taskset_size(struct cgroup_taskset *tset);
  */
 
 struct cgroup_subsys {
-	struct cgroup_subsys_state *(*create)(struct cgroup_subsys *ss,
-						  struct cgroup *cgrp);
-	int (*pre_destroy)(struct cgroup_subsys *ss, struct cgroup *cgrp);
-	void (*destroy)(struct cgroup_subsys *ss, struct cgroup *cgrp);
+	struct cgroup_subsys_state *(*create)(struct cgroup *cgrp);
+	int (*pre_destroy)(struct cgroup *cgrp);
+	void (*destroy)(struct cgroup *cgrp);
 	int (*allow_attach)(struct cgroup *cgrp, struct task_struct *tsk);
-	int (*can_attach)(struct cgroup_subsys *ss, struct cgroup *cgrp,
-			  struct cgroup_taskset *tset);
-	void (*cancel_attach)(struct cgroup_subsys *ss, struct cgroup *cgrp,
-			      struct cgroup_taskset *tset);
-	void (*attach)(struct cgroup_subsys *ss, struct cgroup *cgrp,
-		       struct cgroup_taskset *tset);
-	void (*fork)(struct cgroup_subsys *ss, struct task_struct *task);
-	void (*exit)(struct cgroup_subsys *ss, struct cgroup *cgrp,
-			struct cgroup *old_cgrp, struct task_struct *task);
-	int (*populate)(struct cgroup_subsys *ss,
-			struct cgroup *cgrp);
-	void (*post_clone)(struct cgroup_subsys *ss, struct cgroup *cgrp);
-	void (*bind)(struct cgroup_subsys *ss, struct cgroup *root);
+	int (*can_attach)(struct cgroup *cgrp, struct cgroup_taskset *tset);
+	void (*cancel_attach)(struct cgroup *cgrp, struct cgroup_taskset *tset);
+	void (*attach)(struct cgroup *cgrp, struct cgroup_taskset *tset);
+	void (*fork)(struct task_struct *task);
+	void (*exit)(struct cgroup *cgrp, struct cgroup *old_cgrp,
+		     struct task_struct *task);
+	int (*populate)(struct cgroup_subsys *ss, struct cgroup *cgrp);
+	void (*post_clone)(struct cgroup *cgrp);
+	void (*bind)(struct cgroup *root);
 
 	int subsys_id;
 	int active;

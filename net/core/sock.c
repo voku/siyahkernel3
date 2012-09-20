@@ -156,19 +156,19 @@ int mem_cgroup_sockets_init(struct mem_cgroup *memcg, struct cgroup_subsys *ss)
 out:
 	list_for_each_entry_continue_reverse(proto, &proto_list, node)
 		if (proto->destroy_cgroup)
-			proto->destroy_cgroup(cgrp, ss);
+			proto->destroy_cgroup(cgrp);
 	read_unlock(&proto_list_lock);
 	return ret;
 }
 
-void mem_cgroup_sockets_destroy(struct cgroup *cgrp, struct cgroup_subsys *ss)
+void mem_cgroup_sockets_destroy(struct cgroup *cgrp)
 {
 	struct proto *proto;
 
 	read_lock(&proto_list_lock);
 	list_for_each_entry_reverse(proto, &proto_list, node)
 		if (proto->destroy_cgroup)
-			proto->destroy_cgroup(cgrp, ss);
+			proto->destroy_cgroup(cgrp);
 	read_unlock(&proto_list_lock);
 }
 #endif

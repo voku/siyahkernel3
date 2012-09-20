@@ -32,8 +32,7 @@ static struct tslack_cgroup *cgroup_to_tslack(struct cgroup *cgroup)
 	return container_of(css, struct tslack_cgroup, css);
 }
 
-static struct cgroup_subsys_state *tslack_create(struct cgroup_subsys *subsys,
-		struct cgroup *cgroup)
+static struct cgroup_subsys_state *tslack_create(struct cgroup *cgroup)
 {
 	struct tslack_cgroup *tslack_cgroup;
 
@@ -52,8 +51,7 @@ static struct cgroup_subsys_state *tslack_create(struct cgroup_subsys *subsys,
 	return &tslack_cgroup->css;
 }
 
-static void tslack_destroy(struct cgroup_subsys *tslack_cgroup,
-		struct cgroup *cgroup)
+static void tslack_destroy(struct cgroup *cgroup)
 {
 	kfree(cgroup_to_tslack(cgroup));
 }

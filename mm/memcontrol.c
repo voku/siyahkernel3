@@ -4577,9 +4577,9 @@ static int mem_cgroup_oom_control_write(struct cgroup *cgrp,
 }
 
 #ifdef CONFIG_MEMCG_KMEM
-static int memcg_init_kmem(struct mem_cgroup *memcg, struct cgroup_subsys *ss)
+static int memcg_init_kmem(struct mem_cgroup *memcg)
 {
-	return mem_cgroup_sockets_init(memcg, ss);
+	return mem_cgroup_sockets_init(memcg);
 };
 
 static void kmem_cgroup_destroy(struct mem_cgroup *memcg)
@@ -4587,7 +4587,7 @@ static void kmem_cgroup_destroy(struct mem_cgroup *memcg)
 	mem_cgroup_sockets_destroy(memcg);
 }
 #else
-static int memcg_init_kmem(struct mem_cgroup *memcg, struct cgroup_subsys *ss)
+static int memcg_init_kmem(struct mem_cgroup *memcg)
 {
 	return 0;
 }
@@ -4973,9 +4973,9 @@ static void mem_cgroup_destroy(struct cgroup *cont)
 {
 	struct mem_cgroup *memcg = mem_cgroup_from_cont(cont);
 
-	kmem_cgroup_destroy(memcg);
+	kmem_cgroup_destroy(cont);
 
-	mem_cgroup_put(memcg);
+	mem_cgroup_put(cont);
 }
 
 #ifdef CONFIG_MMU
