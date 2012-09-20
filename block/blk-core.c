@@ -765,8 +765,6 @@ blk_init_allocated_queue(struct request_queue *q, request_fn_proc *rfn,
 
 	blk_queue_congestion_threshold(q);
 
-	/* all done, end the initial bypass */
-	blk_queue_bypass_end(q);
 	return q;
 }
 EXPORT_SYMBOL(blk_init_allocated_queue);
