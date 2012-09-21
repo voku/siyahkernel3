@@ -2497,21 +2497,12 @@ decay_load_missed(unsigned long load, unsigned long missed_updates, int idx)
  * scheduler tick (TICK_NSEC). With tickless idle this will not be called
  * every tick. We fix it up based on jiffies.
  */
-void update_cpu_load(struct rq *this_rq)
+static void __update_cpu_load(struct rq *this_rq, unsigned long this_load,
+			      unsigned long pending_updates)
 {
-	unsigned long this_load = this_rq->load.weight;
-	unsigned long curr_jiffies = jiffies;
-	unsigned long pending_updates;
 	int i, scale;
 
 	this_rq->nr_load_updates++;
-
-	/* Avoid repeated calls on same jiffy, when moving in and out of idle */
-	if (curr_jiffies == this_rq->last_load_update_tick)
-		return;
-
-	pending_updates = curr_jiffies - this_rq->last_load_update_tick;
-	this_rq->last_load_update_tick = curr_jiffies;
 
 	/* Update our load: */
 	this_rq->cpu_load[0] = this_load; /* Fasttrack for idx 0 */
@@ -2537,9 +2528,78 @@ void update_cpu_load(struct rq *this_rq)
 	sched_avg_update(this_rq);
 }
 
+#ifdef CONFIG_NO_HZ
+/*
+ * There is no sane way to deal with nohz on smp when using jiffies because the
+ * cpu doing the jiffies update might drift wrt the cpu doing the jiffy reading
+ * causing off-by-one errors in observed deltas; {0,2} instead of {1,1}.
+ *
+ * Therefore we cannot use the delta approach from the regular tick since that
+ * would seriously skew the load calculation. However we'll make do for those
+ * updates happening while idle (nohz_idle_balance) or coming out of idle
+ * (tick_nohz_idle_exit).
+ *
+ * This means we might still be one tick off for nohz periods.
+ */
+
+/*
+ * Called from nohz_idle_balance() to update the load ratings before doing the
+ * idle balance.
+ */
+void update_idle_cpu_load(struct rq *this_rq)
+{
+	unsigned long curr_jiffies = ACCESS_ONCE(jiffies);
+	unsigned long load = this_rq->load.weight;
+	unsigned long pending_updates;
+
+	/*
+	 * bail if there's load or we're actually up-to-date.
+	 */
+	if (load || curr_jiffies == this_rq->last_load_update_tick)
+		return;
+
+	pending_updates = curr_jiffies - this_rq->last_load_update_tick;
+	this_rq->last_load_update_tick = curr_jiffies;
+
+	__update_cpu_load(this_rq, load, pending_updates);
+}
+
+/*
+ * Called from tick_nohz_idle_exit() -- try and fix up the ticks we missed.
+ */
+void update_cpu_load_nohz(void)
+{
+	struct rq *this_rq = this_rq();
+	unsigned long curr_jiffies = ACCESS_ONCE(jiffies);
+	unsigned long pending_updates;
+
+	if (curr_jiffies == this_rq->last_load_update_tick)
+		return;
+
+	raw_spin_lock(&this_rq->lock);
+	pending_updates = curr_jiffies - this_rq->last_load_update_tick;
+	if (pending_updates) {
+		this_rq->last_load_update_tick = curr_jiffies;
+		/*
+		 * We were idle, this means load 0, the current load might be
+		 * !0 due to remote wakeups and the sort.
+		 */
+		__update_cpu_load(this_rq, 0, pending_updates);
+	}
+	raw_spin_unlock(&this_rq->lock);
+}
+#endif /* CONFIG_NO_HZ */
+
+/*
+ * Called from scheduler_tick()
+ */
 static void update_cpu_load_active(struct rq *this_rq)
 {
-	update_cpu_load(this_rq);
+	/*
+	 * See the mess around update_idle_cpu_load() / update_cpu_load_nohz().
+	 */
+	this_rq->last_load_update_tick = jiffies;
+	__update_cpu_load(this_rq, this_rq->load.weight, 1);
 
 	calc_load_account_active(this_rq);
 }
@@ -5186,9 +5246,6 @@ static void migrate_tasks(unsigned int dead_cpu)
 	 */
 	rq->stop = NULL;
 
-	/* Ensure any throttled groups are reachable by pick_next_task */
-	unthrottle_offline_cfs_rqs(rq);
-
 	for ( ; ; ) {
 		/*
 		 * There's this thread running, bail when that's the only
@@ -6045,8 +6102,47 @@ struct sched_domain_topology_level {
 	sched_domain_init_f init;
 	sched_domain_mask_f mask;
 	int		    flags;
+	int		    numa_level;
 	struct sd_data      data;
 };
+
+/*
+ * Build an iteration mask that can exclude certain CPUs from the upwards
+ * domain traversal.
+ *
+ * Asymmetric node setups can result in situations where the domain tree is of
+ * unequal depth, make sure to skip domains that already cover the entire
+ * range.
+ *
+ * In that case build_sched_domains() will have terminated the iteration early
+ * and our sibling sd spans will be empty. Domains should always include the
+ * cpu they're built on, so check that.
+ *
+ */
+static void build_group_mask(struct sched_domain *sd, struct sched_group *sg)
+{
+	const struct cpumask *span = sched_domain_span(sd);
+	struct sd_data *sdd = sd->private;
+	struct sched_domain *sibling;
+	int i;
+
+	for_each_cpu(i, span) {
+		sibling = *per_cpu_ptr(sdd->sd, i);
+		if (!cpumask_test_cpu(i, sched_domain_span(sibling)))
+			continue;
+
+		cpumask_set_cpu(i, sched_group_mask(sg));
+	}
+}
+
+/*
+ * Return the canonical balance cpu for this group, this is the first cpu
+ * of this group that's also in the iteration mask.
+ */
+int group_balance_cpu(struct sched_group *sg)
+{
+	return cpumask_first_and(sched_group_cpus(sg), sched_group_mask(sg));
+}
 
 static int
 build_overlap_sched_groups(struct sched_domain *sd, int cpu)
@@ -6066,6 +6162,12 @@ build_overlap_sched_groups(struct sched_domain *sd, int cpu)
 		if (cpumask_test_cpu(i, covered))
 			continue;
 
+		child = *per_cpu_ptr(sdd->sd, i);
+
+		/* See the comment near build_group_mask(). */
+		if (!cpumask_test_cpu(i, sched_domain_span(child)))
+			continue;
+
 		sg = kzalloc_node(sizeof(struct sched_group) + cpumask_size(),
 				GFP_KERNEL, cpu_to_node(cpu));
 
@@ -6073,8 +6175,6 @@ build_overlap_sched_groups(struct sched_domain *sd, int cpu)
 			goto fail;
 
 		sg_span = sched_group_cpus(sg);
-
-		child = *per_cpu_ptr(sdd->sd, i);
 		if (child->child) {
 			child = child->child;
 			cpumask_copy(sg_span, sched_domain_span(child));
@@ -6083,10 +6183,24 @@ build_overlap_sched_groups(struct sched_domain *sd, int cpu)
 
 		cpumask_or(covered, covered, sg_span);
 
-		sg->sgp = *per_cpu_ptr(sdd->sgp, cpumask_first(sg_span));
-		atomic_inc(&sg->sgp->ref);
+		sg->sgp = *per_cpu_ptr(sdd->sgp, i);
+		if (atomic_inc_return(&sg->sgp->ref) == 1)
+			build_group_mask(sd, sg);
 
-		if (cpumask_test_cpu(cpu, sg_span))
+		/*
+		 * Initialize sgp->power such that even if we mess up the
+		 * domains and no possible iteration will get us here, we won't
+		 * die on a /0 trap.
+		 */
+		sg->sgp->power = SCHED_POWER_SCALE * cpumask_weight(sg_span);
+
+		/*
+		 * Make sure the first group of this domain contains the
+		 * canonical balance cpu. Otherwise the sched_domain iteration
+		 * breaks. See update_sg_lb_stats().
+		 */
+		if ((!groups && cpumask_test_cpu(cpu, sg_span)) ||
+		    group_balance_cpu(sg) == cpu)
 			groups = sg;
 
 		if (!first)
@@ -6201,7 +6315,7 @@ static void init_sched_groups_power(int cpu, struct sched_domain *sd)
 		sg = sg->next;
 	} while (sg != sd->groups);
 
-	if (cpu != group_first_cpu(sg))
+	if (cpu != group_balance_cpu(sg))
 		return;
 
 	update_group_power(sd, cpu);
@@ -6826,7 +6940,7 @@ static int cpuset_cpu_active(struct notifier_block *nfb, unsigned long action,
 	switch (action & ~CPU_TASKS_FROZEN) {
 	case CPU_ONLINE:
 	case CPU_DOWN_FAILED:
-		cpuset_update_active_cpus();
+		cpuset_update_active_cpus(true);
 		return NOTIFY_OK;
 	default:
 		return NOTIFY_DONE;
@@ -6838,7 +6952,7 @@ static int cpuset_cpu_inactive(struct notifier_block *nfb, unsigned long action,
 {
 	switch (action & ~CPU_TASKS_FROZEN) {
 	case CPU_DOWN_PREPARE:
-		cpuset_update_active_cpus();
+		cpuset_update_active_cpus(false);
 		return NOTIFY_OK;
 	default:
 		return NOTIFY_DONE;
@@ -6895,6 +7009,7 @@ int in_sched_functions(unsigned long addr)
 
 #ifdef CONFIG_CGROUP_SCHED
 struct task_group root_task_group;
+LIST_HEAD(task_groups);
 #endif
 
 DECLARE_PER_CPU(cpumask_var_t, load_balance_tmpmask);
@@ -8077,12 +8192,6 @@ static struct cgroup_subsys_state *cpuacct_create(struct cgroup *cgrp)
 	if (!ca->cpustat)
 		goto out_free_cpuusage;
 
-	ca->cpufreq_fn = cpuacct_cpufreq;
-
-	/* If available, have platform code initalize cpu frequency table */
-	if (ca->cpufreq_fn && ca->cpufreq_fn->init)
-		ca->cpufreq_fn->init(&ca->cpuacct_data);
-
 	return &ca->css;
 
 out_free_cpuusage:
@@ -8219,32 +8328,6 @@ static int cpuacct_stats_show(struct cgroup *cgrp, struct cftype *cft,
 	return 0;
 }
 
-static int cpuacct_cpufreq_show(struct cgroup *cgrp, struct cftype *cft,
-		struct cgroup_map_cb *cb)
-{
-	struct cpuacct *ca = cgroup_ca(cgrp);
-	if (ca->cpufreq_fn && ca->cpufreq_fn->cpufreq_show)
-		ca->cpufreq_fn->cpufreq_show(ca->cpuacct_data, cb);
-
-	return 0;
-}
-
-/* return total cpu power usage (milliWatt second) of a group */
-static u64 cpuacct_powerusage_read(struct cgroup *cgrp, struct cftype *cft)
-{
-	int i;
-	struct cpuacct *ca = cgroup_ca(cgrp);
-	u64 totalpower = 0;
-
-	if (ca->cpufreq_fn && ca->cpufreq_fn->power_usage)
-		for_each_present_cpu(i) {
-			totalpower += ca->cpufreq_fn->power_usage(
-					ca->cpuacct_data);
-		}
-
-	return totalpower;
-}
-
 static struct cftype files[] = {
 	{
 		.name = "usage",
@@ -8284,10 +8367,6 @@ void cpuacct_charge(struct task_struct *tsk, u64 cputime)
 	for (; ca; ca = parent_ca(ca)) {
 		u64 *cpuusage = per_cpu_ptr(ca->cpuusage, cpu);
 		*cpuusage += cputime;
-
-		/* Call back into platform code to account for CPU speeds */
-		if (ca->cpufreq_fn && ca->cpufreq_fn->charge)
-			ca->cpufreq_fn->charge(ca->cpuacct_data, cputime, cpu);
 	}
 
 	rcu_read_unlock();
@@ -8300,4 +8379,5 @@ struct cgroup_subsys cpuacct_subsys = {
 	.subsys_id = cpuacct_subsys_id,
 	.base_cftypes = files,
 };
+
 #endif	/* CONFIG_CGROUP_CPUACCT */
