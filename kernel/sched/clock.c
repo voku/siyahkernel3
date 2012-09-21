@@ -62,12 +62,11 @@
  */
 #include <linux/spinlock.h>
 #include <linux/hardirq.h>
-#include <linux/module.h>
+#include <linux/export.h>
 #include <linux/percpu.h>
 #include <linux/ktime.h>
 #include <linux/sched.h>
 
-#if 0 // exported in vmlinux
 /*
  * Scheduler clock - returns current time in nanosec units.
  * This is default implementation.
@@ -77,9 +76,8 @@ unsigned long long __attribute__((weak)) sched_clock(void)
 {
 	return (unsigned long long)(jiffies - INITIAL_JIFFIES)
 					* (NSEC_PER_SEC / HZ);
-}
-EXPORT_SYMBOL_GPL(sched_clock);
-#endif
+};
+/*EXPORT_SYMBOL_GPL(sched_clock); its already exported in vmlinux*/
 
 __read_mostly int sched_clock_running;
 
