@@ -2260,7 +2260,7 @@ static struct dentry *nfs_fs_mount(struct file_system_type *fs_type,
 		compare_super = NULL;
 
 	/* Get a superblock - note that we may end up sharing one that already exists */
-	s = sget(fs_type, compare_super, nfs_set_super, &sb_mntdata);
+	s = sget(fs_type, compare_super, nfs_set_super, flags, &sb_mntdata);
 	if (IS_ERR(s)) {
 		mntroot = ERR_CAST(s);
 		goto out_err_nosb;
@@ -2367,7 +2367,7 @@ nfs_xdev_mount(struct file_system_type *fs_type, int flags,
 		compare_super = NULL;
 
 	/* Get a superblock - note that we may end up sharing one that already exists */
-	s = sget(&nfs_fs_type, compare_super, nfs_set_super, &sb_mntdata);
+	s = sget(&nfs_fs_type, compare_super, nfs_set_super, flags, &sb_mntdata);
 	if (IS_ERR(s)) {
 		error = PTR_ERR(s);
 		goto out_err_nosb;
