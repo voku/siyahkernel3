@@ -52,8 +52,8 @@
 
 #if defined(CONFIG_MACH_U1) || defined(CONFIG_MACH_PX) || \
 	defined(CONFIG_MACH_TRATS)
-#define TRANS_LOAD_H0 30
-#define TRANS_LOAD_L1 20
+#define TRANS_LOAD_H0 50
+#define TRANS_LOAD_L1 40
 #define TRANS_LOAD_H1 100
 
 #define BOOT_DELAY	60
