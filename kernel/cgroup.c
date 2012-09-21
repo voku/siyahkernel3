@@ -2250,9 +2250,9 @@ static int attach_task_by_pid(struct cgroup *cgrp, u64 pid, bool threadgroup)
 		 * only need to check permissions on one of them.
 		 */
 		tcred = __task_cred(tsk);
-		if (cred->euid &&
-		    cred->euid != tcred->uid &&
-		    cred->euid != tcred->suid) {
+		if (!uid_eq(cred->euid, GLOBAL_ROOT_UID) &&
+		    !uid_eq(cred->euid, tcred->uid) &&
+		    !uid_eq(cred->euid, tcred->suid)) {
 			/*
 			 * if the default permission check fails, give each
 			 * cgroup a chance to extend the permission check
