@@ -46,31 +46,6 @@
 #define RCU_TREE_NONCORE
 #include "rcutree.h"
 
-static int show_rcubarrier(struct seq_file *m, void *unused)
-{
-	struct rcu_state *rsp;
-
-	for_each_rcu_flavor(rsp)
-		seq_printf(m, "%s: %c bcc: %d nbd: %lu\n",
-			   rsp->name, rsp->rcu_barrier_in_progress ? 'B' : '.',
-			   atomic_read(&rsp->barrier_cpu_count),
-			   rsp->n_barrier_done);
-	return 0;
-}
-
-static int rcubarrier_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, show_rcubarrier, NULL);
-}
-
-static const struct file_operations rcubarrier_fops = {
-	.owner = THIS_MODULE,
-	.open = rcubarrier_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
-};
-
 #ifdef CONFIG_RCU_BOOST
 
 static char convert_kthread_status(unsigned int kthread_status)
@@ -120,16 +95,24 @@ static void print_one_rcu_data(struct seq_file *m, struct rcu_data *rdp)
 		   rdp->n_cbs_invoked, rdp->n_cbs_orphaned, rdp->n_cbs_adopted);
 }
 
+#define PRINT_RCU_DATA(name, func, m) \
+	do { \
+		int _p_r_d_i; \
+		\
+		for_each_possible_cpu(_p_r_d_i) \
+			func(m, &per_cpu(name, _p_r_d_i)); \
+	} while (0)
+
 static int show_rcudata(struct seq_file *m, void *unused)
 {
-	int cpu;
-	struct rcu_state *rsp;
-
-	for_each_rcu_flavor(rsp) {
-		seq_printf(m, "%s:\n", rsp->name);
-		for_each_possible_cpu(cpu)
-			print_one_rcu_data(m, per_cpu_ptr(rsp->rda, cpu));
-	}
+#ifdef CONFIG_TREE_PREEMPT_RCU
+	seq_puts(m, "rcu_preempt:\n");
+	PRINT_RCU_DATA(rcu_preempt_data, print_one_rcu_data, m);
+#endif /* #ifdef CONFIG_TREE_PREEMPT_RCU */
+	seq_puts(m, "rcu_sched:\n");
+	PRINT_RCU_DATA(rcu_sched_data, print_one_rcu_data, m);
+	seq_puts(m, "rcu_bh:\n");
+	PRINT_RCU_DATA(rcu_bh_data, print_one_rcu_data, m);
 	return 0;
 }
 
@@ -183,9 +166,6 @@ static void print_one_rcu_data_csv(struct seq_file *m, struct rcu_data *rdp)
 
 static int show_rcudata_csv(struct seq_file *m, void *unused)
 {
-	int cpu;
-	struct rcu_state *rsp;
-
 	seq_puts(m, "\"CPU\",\"Online?\",\"c\",\"g\",\"pq\",\"pgp\",\"pq\",");
 	seq_puts(m, "\"dt\",\"dt nesting\",\"dt NMI nesting\",\"df\",");
 	seq_puts(m, "\"of\",\"qll\",\"ql\",\"qs\"");
@@ -193,11 +173,14 @@ static int show_rcudata_csv(struct seq_file *m, void *unused)
 	seq_puts(m, "\"kt\",\"ktl\"");
 #endif /* #ifdef CONFIG_RCU_BOOST */
 	seq_puts(m, ",\"b\",\"ci\",\"co\",\"ca\"\n");
-	for_each_rcu_flavor(rsp) {
-		seq_printf(m, "\"%s:\"\n", rsp->name);
-		for_each_possible_cpu(cpu)
-			print_one_rcu_data_csv(m, per_cpu_ptr(rsp->rda, cpu));
-	}
+#ifdef CONFIG_TREE_PREEMPT_RCU
+	seq_puts(m, "\"rcu_preempt:\"\n");
+	PRINT_RCU_DATA(rcu_preempt_data, print_one_rcu_data_csv, m);
+#endif /* #ifdef CONFIG_TREE_PREEMPT_RCU */
+	seq_puts(m, "\"rcu_sched:\"\n");
+	PRINT_RCU_DATA(rcu_sched_data, print_one_rcu_data_csv, m);
+	seq_puts(m, "\"rcu_bh:\"\n");
+	PRINT_RCU_DATA(rcu_bh_data, print_one_rcu_data_csv, m);
 	return 0;
 }
 
@@ -218,7 +201,8 @@ static const struct file_operations rcudata_csv_fops = {
 
 static void print_one_rcu_node_boost(struct seq_file *m, struct rcu_node *rnp)
 {
-	seq_printf(m, "%d:%d tasks=%c%c%c%c kt=%c ntb=%lu neb=%lu nnb=%lu ",
+	seq_printf(m,  "%d:%d tasks=%c%c%c%c kt=%c ntb=%lu neb=%lu nnb=%lu "
+		   "j=%04x bt=%04x\n",
 		   rnp->grplo, rnp->grphi,
 		   "T."[list_empty(&rnp->blkd_tasks)],
 		   "N."[!rnp->gp_tasks],
@@ -226,11 +210,11 @@ static void print_one_rcu_node_boost(struct seq_file *m, struct rcu_node *rnp)
 		   "B."[!rnp->boost_tasks],
 		   convert_kthread_status(rnp->boost_kthread_status),
 		   rnp->n_tasks_boosted, rnp->n_exp_boosts,
-		   rnp->n_normal_boosts);
-	seq_printf(m, "j=%04x bt=%04x\n",
+		   rnp->n_normal_boosts,
 		   (int)(jiffies & 0xffff),
 		   (int)(rnp->boost_time & 0xffff));
-	seq_printf(m, "    balk: nt=%lu egt=%lu bt=%lu nb=%lu ny=%lu nos=%lu\n",
+	seq_printf(m, "%s: nt=%lu egt=%lu bt=%lu nb=%lu ny=%lu nos=%lu\n",
+		   "     balk",
 		   rnp->n_balk_blkd_tasks,
 		   rnp->n_balk_exp_gp_tasks,
 		   rnp->n_balk_boost_tasks,
@@ -286,15 +270,15 @@ static void print_one_rcu_state(struct seq_file *m, struct rcu_state *rsp)
 	struct rcu_node *rnp;
 
 	gpnum = rsp->gpnum;
-	seq_printf(m, "%s: c=%lu g=%lu s=%d jfq=%ld j=%x ",
-		   rsp->name, rsp->completed, gpnum, rsp->fqs_state,
+	seq_printf(m, "c=%lu g=%lu s=%d jfq=%ld j=%x "
+		      "nfqs=%lu/nfqsng=%lu(%lu) fqlh=%lu\n",
+		   rsp->completed, gpnum, rsp->fqs_state,
 		   (long)(rsp->jiffies_force_qs - jiffies),
-		   (int)(jiffies & 0xffff));
-	seq_printf(m, "nfqs=%lu/nfqsng=%lu(%lu) fqlh=%lu oqlen=%ld/%ld\n",
+		   (int)(jiffies & 0xffff),
 		   rsp->n_force_qs, rsp->n_force_qs_ngp,
 		   rsp->n_force_qs - rsp->n_force_qs_ngp,
-		   rsp->n_force_qs_lh, rsp->qlen_lazy, rsp->qlen);
-	for (rnp = &rsp->node[0]; rnp - &rsp->node[0] < rcu_num_nodes; rnp++) {
+		   rsp->n_force_qs_lh);
+	for (rnp = &rsp->node[0]; rnp - &rsp->node[0] < NUM_RCU_NODES; rnp++) {
 		if (rnp->level != level) {
 			seq_puts(m, "\n");
 			level = rnp->level;
@@ -311,10 +295,14 @@ static void print_one_rcu_state(struct seq_file *m, struct rcu_state *rsp)
 
 static int show_rcuhier(struct seq_file *m, void *unused)
 {
-	struct rcu_state *rsp;
-
-	for_each_rcu_flavor(rsp)
-		print_one_rcu_state(m, rsp);
+#ifdef CONFIG_TREE_PREEMPT_RCU
+	seq_puts(m, "rcu_preempt:\n");
+	print_one_rcu_state(m, &rcu_preempt_state);
+#endif /* #ifdef CONFIG_TREE_PREEMPT_RCU */
+	seq_puts(m, "rcu_sched:\n");
+	print_one_rcu_state(m, &rcu_sched_state);
+	seq_puts(m, "rcu_bh:\n");
+	print_one_rcu_state(m, &rcu_bh_state);
 	return 0;
 }
 
@@ -355,10 +343,11 @@ static void show_one_rcugp(struct seq_file *m, struct rcu_state *rsp)
 
 static int show_rcugp(struct seq_file *m, void *unused)
 {
-	struct rcu_state *rsp;
-
-	for_each_rcu_flavor(rsp)
-		show_one_rcugp(m, rsp);
+#ifdef CONFIG_TREE_PREEMPT_RCU
+	show_one_rcugp(m, &rcu_preempt_state);
+#endif /* #ifdef CONFIG_TREE_PREEMPT_RCU */
+	show_one_rcugp(m, &rcu_sched_state);
+	show_one_rcugp(m, &rcu_bh_state);
 	return 0;
 }
 
@@ -377,36 +366,44 @@ static const struct file_operations rcugp_fops = {
 
 static void print_one_rcu_pending(struct seq_file *m, struct rcu_data *rdp)
 {
-	seq_printf(m, "%3d%cnp=%ld ",
+	seq_printf(m, "%3d%cnp=%ld "
+		   "qsp=%ld rpq=%ld cbr=%ld cng=%ld "
+		   "gpc=%ld gps=%ld nf=%ld nn=%ld\n",
 		   rdp->cpu,
 		   cpu_is_offline(rdp->cpu) ? '!' : ' ',
-		   rdp->n_rcu_pending);
-	seq_printf(m, "qsp=%ld rpq=%ld cbr=%ld cng=%ld ",
+		   rdp->n_rcu_pending,
 		   rdp->n_rp_qs_pending,
 		   rdp->n_rp_report_qs,
 		   rdp->n_rp_cb_ready,
-		   rdp->n_rp_cpu_needs_gp);
-	seq_printf(m, "gpc=%ld gps=%ld nf=%ld nn=%ld\n",
+		   rdp->n_rp_cpu_needs_gp,
 		   rdp->n_rp_gp_completed,
 		   rdp->n_rp_gp_started,
 		   rdp->n_rp_need_fqs,
 		   rdp->n_rp_need_nothing);
 }
 
-static int show_rcu_pending(struct seq_file *m, void *unused)
+static void print_rcu_pendings(struct seq_file *m, struct rcu_state *rsp)
 {
 	int cpu;
 	struct rcu_data *rdp;
-	struct rcu_state *rsp;
 
-	for_each_rcu_flavor(rsp) {
-		seq_printf(m, "%s:\n", rsp->name);
-		for_each_possible_cpu(cpu) {
-			rdp = per_cpu_ptr(rsp->rda, cpu);
-			if (rdp->beenonline)
-				print_one_rcu_pending(m, rdp);
-		}
+	for_each_possible_cpu(cpu) {
+		rdp = per_cpu_ptr(rsp->rda, cpu);
+		if (rdp->beenonline)
+			print_one_rcu_pending(m, rdp);
 	}
+}
+
+static int show_rcu_pending(struct seq_file *m, void *unused)
+{
+#ifdef CONFIG_TREE_PREEMPT_RCU
+	seq_puts(m, "rcu_preempt:\n");
+	print_rcu_pendings(m, &rcu_preempt_state);
+#endif /* #ifdef CONFIG_TREE_PREEMPT_RCU */
+	seq_puts(m, "rcu_sched:\n");
+	print_rcu_pendings(m, &rcu_sched_state);
+	seq_puts(m, "rcu_bh:\n");
+	print_rcu_pendings(m, &rcu_bh_state);
 	return 0;
 }
 
@@ -454,11 +451,6 @@ static int __init rcutree_trace_init(void)
 
 	rcudir = debugfs_create_dir("rcu", NULL);
 	if (!rcudir)
-		goto free_out;
-
-	retval = debugfs_create_file("rcubarrier", 0444, rcudir,
-						NULL, &rcubarrier_fops);
-	if (!retval)
 		goto free_out;
 
 	retval = debugfs_create_file("rcudata", 0444, rcudir,
