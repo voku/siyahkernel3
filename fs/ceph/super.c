@@ -629,7 +629,7 @@ static struct dentry *open_root_dentry(struct ceph_fs_client *fsc,
 		dout("open_root_inode success\n");
 		if (ceph_ino(req->r_target_inode) == CEPH_INO_ROOT &&
 		    fsc->sb->s_root == NULL)
-			root = d_alloc_root(req->r_target_inode);
+			root = d_make_root(req->r_target_inode);
 		else
 			root = d_obtain_alias(req->r_target_inode);
 		req->r_target_inode = NULL;

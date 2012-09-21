@@ -1163,6 +1163,62 @@ void shrink_dcache_parent(struct dentry * parent)
 EXPORT_SYMBOL(shrink_dcache_parent);
 
 /**
+ * __d_alloc	-	allocate a dcache entry
+ * @sb: filesystem it will belong to
+ * @name: qstr of the name
+ *
+ * Allocates a dentry. It returns %NULL if there is insufficient memory
+ * available. On a success the dentry is returned. The name passed in is
+ * copied and the copy passed in may be reused after this call.
+ */
+ 
+struct dentry *__d_alloc(struct super_block *sb, const struct qstr *name)
+{
+	struct dentry *dentry;
+	char *dname;
+
+	dentry = kmem_cache_alloc(dentry_cache, GFP_KERNEL);
+	if (!dentry)
+		return NULL;
+
+	if (name->len > DNAME_INLINE_LEN-1) {
+		dname = kmalloc(name->len + 1, GFP_KERNEL);
+		if (!dname) {
+			kmem_cache_free(dentry_cache, dentry); 
+			return NULL;
+		}
+	} else  {
+		dname = dentry->d_iname;
+	}	
+	dentry->d_name.name = dname;
+
+	dentry->d_name.len = name->len;
+	dentry->d_name.hash = name->hash;
+	memcpy(dname, name->name, name->len);
+	dname[name->len] = 0;
+
+	dentry->d_count = 1;
+	dentry->d_flags = 0;
+	spin_lock_init(&dentry->d_lock);
+	seqcount_init(&dentry->d_seq);
+	dentry->d_inode = NULL;
+	dentry->d_parent = dentry;
+	dentry->d_sb = sb;
+	dentry->d_op = NULL;
+	dentry->d_fsdata = NULL;
+	INIT_HLIST_BL_NODE(&dentry->d_hash);
+	INIT_LIST_HEAD(&dentry->d_lru);
+	INIT_LIST_HEAD(&dentry->d_subdirs);
+	INIT_LIST_HEAD(&dentry->d_alias);
+	INIT_LIST_HEAD(&dentry->d_u.d_child);
+	d_set_d_op(dentry, dentry->d_sb->s_d_op);
+
+	this_cpu_inc(nr_dentry);
+
+	return dentry;
+}
+
+/**
  * d_alloc	-	allocate a dcache entry
  * @parent: parent of entry to allocate
  * @name: qstr of the name
@@ -1421,6 +1477,23 @@ struct dentry * d_alloc_root(struct inode * root_inode)
 	return res;
 }
 EXPORT_SYMBOL(d_alloc_root);
+
+struct dentry *d_make_root(struct inode *root_inode)
+{
+	struct dentry *res = NULL;
+
+	if (root_inode) {
+		static const struct qstr name = { .name = "/", .len = 1 };
+
+		res = __d_alloc(root_inode->i_sb, &name);
+		if (res)
+			d_instantiate(res, root_inode);
+		else
+			iput(root_inode);
+	}
+	return res;
+}
+EXPORT_SYMBOL(d_make_root);
 
 static struct dentry * __d_find_any_alias(struct inode *inode)
 {
