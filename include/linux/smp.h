@@ -61,7 +61,7 @@ extern void smp_prepare_cpus(unsigned int max_cpus);
 /*
  * Bring a CPU up
  */
-extern int __cpu_up(unsigned int cpunum, struct task_struct *tidle);
+extern int __cpu_up(unsigned int cpunum);
 
 /*
  * Final polishing of CPUs
@@ -162,7 +162,6 @@ static inline int up_smp_call_function(smp_call_func_t func, void *info)
 			local_irq_enable();		\
 		}					\
 	} while (0)
-
 /*
  * Preemption is disabled here to make sure the cond_func is called under the
  * same condtions in UP and SMP.
