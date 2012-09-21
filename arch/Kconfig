@@ -260,6 +260,9 @@ config MODULES_USE_ELF_REL
 config GENERIC_KERNEL_EXECVE
 	bool
 
+config GENERIC_KERNEL_THREAD
+	bool
+
 config HAVE_ARCH_SECCOMP_FILTER
 	bool
 	help
