@@ -86,7 +86,6 @@
 
 #include "sched.h"
 #include "../workqueue_sched.h"
-#include "../smpboot.h"
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/sched.h>
@@ -7191,7 +7190,6 @@ void __init sched_init(void)
 	/* May be allocated at isolcpus cmdline parse time */
 	if (cpu_isolated_map == NULL)
 		zalloc_cpumask_var(&cpu_isolated_map, GFP_NOWAIT);
-	idle_thread_set_boot_cpu();
 #endif
 	init_sched_fair_class();
 
@@ -7784,15 +7782,18 @@ static void cpu_cgroup_destroy(struct cgroup *cgrp)
 }
 
 static int
-cpu_cgroup_allow_attach(struct cgroup *cgrp, struct task_struct *tsk)
+cpu_cgroup_allow_attach(struct cgroup *cgrp, struct cgroup_taskset *tset)
 {
 	const struct cred *cred = current_cred(), *tcred;
+	struct task_struct *task;
 
-	tcred = __task_cred(tsk);
+	cgroup_taskset_for_each(task, cgrp, tset) {
+		tcred = __task_cred(task);
 
-	if ((current != tsk) && !capable(CAP_SYS_NICE) &&
-	    cred->euid != tcred->uid && cred->euid != tcred->suid)
-		return -EACCES;
+		if ((current != task) && !capable(CAP_SYS_NICE) &&
+			cred->euid != tcred->uid && cred->euid != tcred->suid)
+			return -EACCES;
+	}
 
 	return 0;
 }
@@ -8152,12 +8153,11 @@ struct cgroup_subsys cpu_cgroup_subsys = {
 	.name		= "cpu",
 	.create		= cpu_cgroup_create,
 	.destroy	= cpu_cgroup_destroy,
-	.allow_attach	= cpu_cgroup_allow_attach,
 	.can_attach	= cpu_cgroup_can_attach,	
 	.attach		= cpu_cgroup_attach,
+	.allow_attach	= cpu_cgroup_allow_attach,
 	.exit		= cpu_cgroup_exit,
 	.subsys_id	= cpu_cgroup_subsys_id,
-	.base_cftypes	= cpu_files,
 	.early_init	= 1,
 };
 
