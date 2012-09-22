@@ -92,7 +92,7 @@ static void udf_open_lvid(struct super_block *);
 static void udf_close_lvid(struct super_block *);
 static unsigned int udf_count_free(struct super_block *);
 static int udf_statfs(struct dentry *, struct kstatfs *);
-static int udf_show_options(struct seq_file *, struct vfsmount *);
+static int udf_show_options(struct seq_file *, struct dentry *);
 static void udf_error(struct super_block *sb, const char *function,
 		      const char *fmt, ...);
 
@@ -255,9 +255,9 @@ static int udf_sb_alloc_partition_maps(struct super_block *sb, u32 count)
 	return 0;
 }
 
-static int udf_show_options(struct seq_file *seq, struct vfsmount *mnt)
+static int udf_show_options(struct seq_file *seq, struct dentry *root)
 {
-	struct super_block *sb = mnt->mnt_sb;
+	struct super_block *sb = root->d_sb;
 	struct udf_sb_info *sbi = UDF_SB(sb);
 
 	if (!UDF_QUERY_FLAG(sb, UDF_FLAG_STRICT))
@@ -2097,10 +2097,9 @@ static int udf_fill_super(struct super_block *sb, void *options, int silent)
 	}
 
 	/* Allocate a dentry for the root inode */
-	sb->s_root = d_alloc_root(inode);
+	sb->s_root = d_make_root(inode);
 	if (!sb->s_root) {
 		printk(KERN_ERR "UDF-fs: Couldn't allocate root dentry\n");
-		iput(inode);
 		goto error_out;
 	}
 	sb->s_maxbytes = MAX_LFS_FILESIZE;

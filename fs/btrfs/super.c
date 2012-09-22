@@ -596,7 +596,6 @@ static int btrfs_fill_super(struct super_block *sb,
 			    void *data, int silent)
 {
 	struct inode *inode;
-	struct dentry *root_dentry;
 	struct btrfs_root *tree_root;
 	struct btrfs_key key;
 	int err;
@@ -629,14 +628,11 @@ static int btrfs_fill_super(struct super_block *sb,
 		goto fail_close;
 	}
 
-	root_dentry = d_alloc_root(inode);
-	if (!root_dentry) {
-		iput(inode);
+	sb->s_root = d_make_root(inode);
+	if (!sb->s_root) {
 		err = -ENOMEM;
 		goto fail_close;
 	}
-
-	sb->s_root = root_dentry;
 
 	save_mount_options(sb, data);
 	cleancache_init_fs(sb);
@@ -670,9 +666,9 @@ int btrfs_sync_fs(struct super_block *sb, int wait)
 	return ret;
 }
 
-static int btrfs_show_options(struct seq_file *seq, struct vfsmount *vfs)
+static int btrfs_show_options(struct seq_file *seq, struct dentry *dentry)
 {
-	struct btrfs_root *root = btrfs_sb(vfs->mnt_sb);
+	struct btrfs_root *root = btrfs_sb(dentry->d_sb);
 	struct btrfs_fs_info *info = root->fs_info;
 	char *compress_type;
 
@@ -814,9 +810,12 @@ static struct dentry *btrfs_mount(struct file_system_type *fs_type, int flags,
 	tree_root->fs_info = fs_info;
 
 	bdev = fs_devices->latest_bdev;
-	s = sget(fs_type, btrfs_test_super, btrfs_set_super, tree_root);
-	if (IS_ERR(s))
-		goto error_s;
+	s = sget(fs_type, btrfs_test_super, btrfs_set_super, flags | MS_NOSEC,
+		 fs_info);
+	if (IS_ERR(s)) {
+		error = PTR_ERR(s);
+		goto error_close_devices;
+	}
 
 	if (s->s_root) {
 		if ((flags ^ s->s_flags) & MS_RDONLY) {
@@ -831,7 +830,6 @@ static struct dentry *btrfs_mount(struct file_system_type *fs_type, int flags,
 	} else {
 		char b[BDEVNAME_SIZE];
 
-		s->s_flags = flags | MS_NOSEC;
 		strlcpy(s->s_id, bdevname(bdev, b), sizeof(s->s_id));
 		error = btrfs_fill_super(s, fs_devices, data,
 					 flags & MS_SILENT ? 1 : 0);

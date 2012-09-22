@@ -70,10 +70,10 @@ out_kill_sb:
 	kill_litter_super(sb);
 }
 
-static int autofs4_show_options(struct seq_file *m, struct vfsmount *mnt)
+static int autofs4_show_options(struct seq_file *m, struct dentry *root)
 {
-	struct autofs_sb_info *sbi = autofs4_sbi(mnt->mnt_sb);
-	struct inode *root_inode = mnt->mnt_sb->s_root->d_inode;
+	struct autofs_sb_info *sbi = autofs4_sbi(root->d_sb);
+	struct inode *root_inode = root->d_sb->s_root->d_inode;
 
 	if (!sbi)
 		return 0;
@@ -244,12 +244,9 @@ int autofs4_fill_super(struct super_block *s, void *data, int silent)
 	if (!ino)
 		goto fail_free;
 	root_inode = autofs4_get_inode(s, S_IFDIR | 0755);
-	if (!root_inode)
-		goto fail_ino;
-
-	root = d_alloc_root(root_inode);
+	root = d_make_root(root_inode);
 	if (!root)
-		goto fail_iput;
+		goto fail_ino;
 	pipe = NULL;
 
 	root->d_fsdata = ino;
@@ -314,9 +311,6 @@ fail_fput:
 fail_dput:
 	dput(root);
 	goto fail_free;
-fail_iput:
-	printk("autofs: get root dentry failed\n");
-	iput(root_inode);
 fail_ino:
 	kfree(ino);
 fail_free:

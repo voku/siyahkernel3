@@ -1163,10 +1163,10 @@ magic_found:
 		ret = PTR_ERR(inode);
 		goto failed;
 	}
-	sb->s_root = d_alloc_root(inode);
+	sb->s_root = d_make_root(inode);
 	if (!sb->s_root) {
 		ret = -ENOMEM;
-		goto dalloc_failed;
+		goto failed;
 	}
 
 	ufs_setup_cstotal(sb);
@@ -1180,8 +1180,6 @@ magic_found:
 	UFSD("EXIT\n");
 	return 0;
 
-dalloc_failed:
-	iput(inode);
 failed:
 	if (ubh)
 		ubh_brelse_uspi (uspi);
@@ -1351,9 +1349,9 @@ static int ufs_remount (struct super_block *sb, int *mount_flags, char *data)
 	return 0;
 }
 
-static int ufs_show_options(struct seq_file *seq, struct vfsmount *vfs)
+static int ufs_show_options(struct seq_file *seq, struct dentry *root)
 {
-	struct ufs_sb_info *sbi = UFS_SB(vfs->mnt_sb);
+	struct ufs_sb_info *sbi = UFS_SB(root->d_sb);
 	unsigned mval = sbi->s_mount_opt & UFS_MOUNT_UFSTYPE;
 	const struct match_token *tp = tokens;
 

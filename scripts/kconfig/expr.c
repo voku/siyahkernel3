@@ -13,7 +13,8 @@
 
 struct expr *expr_alloc_symbol(struct symbol *sym)
 {
-	struct expr *e = calloc(1, sizeof(*e));
+	struct expr *e = malloc(sizeof(*e));
+	memset(e, 0, sizeof(*e));
 	e->type = E_SYMBOL;
 	e->left.sym = sym;
 	return e;
@@ -21,7 +22,8 @@ struct expr *expr_alloc_symbol(struct symbol *sym)
 
 struct expr *expr_alloc_one(enum expr_type type, struct expr *ce)
 {
-	struct expr *e = calloc(1, sizeof(*e));
+	struct expr *e = malloc(sizeof(*e));
+	memset(e, 0, sizeof(*e));
 	e->type = type;
 	e->left.expr = ce;
 	return e;
@@ -29,7 +31,8 @@ struct expr *expr_alloc_one(enum expr_type type, struct expr *ce)
 
 struct expr *expr_alloc_two(enum expr_type type, struct expr *e1, struct expr *e2)
 {
-	struct expr *e = calloc(1, sizeof(*e));
+	struct expr *e = malloc(sizeof(*e));
+	memset(e, 0, sizeof(*e));
 	e->type = type;
 	e->left.expr = e1;
 	e->right.expr = e2;
@@ -38,7 +41,8 @@ struct expr *expr_alloc_two(enum expr_type type, struct expr *e1, struct expr *e
 
 struct expr *expr_alloc_comp(enum expr_type type, struct symbol *s1, struct symbol *s2)
 {
-	struct expr *e = calloc(1, sizeof(*e));
+	struct expr *e = malloc(sizeof(*e));
+	memset(e, 0, sizeof(*e));
 	e->type = type;
 	e->left.sym = s1;
 	e->right.sym = s2;

@@ -74,6 +74,9 @@ void zconf_nextfile(const char *name);
 int zconf_lineno(void);
 const char *zconf_curname(void);
 
+/* conf.c */
+void xfgets(char *str, int size, FILE *in);
+
 /* confdata.c */
 const char *conf_get_configname(void);
 const char *conf_get_autoconfig_name(void);
@@ -90,11 +93,12 @@ struct conf_printer {
 /* confdata.c and expr.c */
 static inline void xfwrite(const void *str, size_t len, size_t count, FILE *out)
 {
-	assert(len != 0);
-
-	if (fwrite(str, len, count, out) != count)
-		fprintf(stderr, "Error in writing or end of file.\n");
+	if (fwrite(str, len, count, out) < count)
+		fprintf(stderr, "\nError in writing or end of file.\n");
 }
+
+/* kconfig_load.c */
+void kconfig_load(void);
 
 /* menu.c */
 void _menu_init(void);

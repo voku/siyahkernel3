@@ -5,9 +5,7 @@
 #define __always_inline	inline
 #endif
 #define __user
-#ifndef __attribute_const__
 #define __attribute_const__
-#endif
 
 #define __used		__attribute__((__unused__))
 

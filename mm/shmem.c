@@ -2143,9 +2143,9 @@ out:
 	return error;
 }
 
-static int shmem_show_options(struct seq_file *seq, struct vfsmount *vfs)
+static int shmem_show_options(struct seq_file *seq, struct dentry *root)
 {
-	struct shmem_sb_info *sbinfo = SHMEM_SB(vfs->mnt_sb);
+	struct shmem_sb_info *sbinfo = SHMEM_SB(root->d_sb);
 
 	if (sbinfo->max_blocks != shmem_default_max_blocks())
 		seq_printf(seq, ",size=%luk",
@@ -2232,14 +2232,12 @@ int shmem_fill_super(struct super_block *sb, void *data, int silent)
 		goto failed;
 	inode->i_uid = sbinfo->uid;
 	inode->i_gid = sbinfo->gid;
-	root = d_alloc_root(inode);
+	root = d_make_root(inode);
 	if (!root)
-		goto failed_iput;
+		goto failed;
 	sb->s_root = root;
 	return 0;
 
-failed_iput:
-	iput(inode);
 failed:
 	shmem_put_super(sb);
 	return err;

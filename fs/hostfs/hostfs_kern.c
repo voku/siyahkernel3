@@ -258,9 +258,9 @@ static void hostfs_destroy_inode(struct inode *inode)
 	call_rcu(&inode->i_rcu, hostfs_i_callback);
 }
 
-static int hostfs_show_options(struct seq_file *seq, struct vfsmount *vfs)
+static int hostfs_show_options(struct seq_file *seq, struct dentry *root)
 {
-	const char *root_path = vfs->mnt_sb->s_fs_info;
+	const char *root_path = root->d_sb->s_fs_info;
 	size_t offset = strlen(root_ino) + 1;
 
 	if (strlen(root_path) > offset)
@@ -955,9 +955,9 @@ static int hostfs_fill_sb_common(struct super_block *sb, void *d, int silent)
 	}
 
 	err = -ENOMEM;
-	sb->s_root = d_alloc_root(root_inode);
+	sb->s_root = d_make_root(root_inode);
 	if (sb->s_root == NULL)
-		goto out_put;
+		goto out;
 
 	return 0;
 

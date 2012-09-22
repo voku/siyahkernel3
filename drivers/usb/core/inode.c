@@ -65,7 +65,7 @@ static umode_t devmode = USBFS_DEFAULT_DEVMODE;
 static umode_t busmode = USBFS_DEFAULT_BUSMODE;
 static umode_t listmode = USBFS_DEFAULT_LISTMODE;
 
-static int usbfs_show_options(struct seq_file *seq, struct vfsmount *mnt)
+static int usbfs_show_options(struct seq_file *seq, struct dentry *root)
 {
 	if (devuid != 0)
 		seq_printf(seq, ",devuid=%u", devuid);
@@ -464,16 +464,9 @@ static int usbfs_fill_super(struct super_block *sb, void *data, int silent)
 	sb->s_op = &usbfs_ops;
 	sb->s_time_gran = 1;
 	inode = usbfs_get_inode(sb, S_IFDIR | 0755, 0);
-
-	if (!inode) {
-		dbg("%s: could not get inode!",__func__);
-		return -ENOMEM;
-	}
-
-	root = d_alloc_root(inode);
+	root = d_make_root(inode);
 	if (!root) {
 		dbg("%s: could not get root dentry!",__func__);
-		iput(inode);
 		return -ENOMEM;
 	}
 	sb->s_root = root;

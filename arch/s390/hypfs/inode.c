@@ -261,9 +261,9 @@ static int hypfs_parse_options(char *options, struct super_block *sb)
 	return 0;
 }
 
-static int hypfs_show_options(struct seq_file *s, struct vfsmount *mnt)
+static int hypfs_show_options(struct seq_file *s, struct dentry *root)
 {
-	struct hypfs_sb_info *hypfs_info = mnt->mnt_sb->s_fs_info;
+	struct hypfs_sb_info *hypfs_info = root->d_sb->s_fs_info;
 
 	seq_printf(s, ",uid=%u", hypfs_info->uid);
 	seq_printf(s, ",gid=%u", hypfs_info->gid);
@@ -295,11 +295,9 @@ static int hypfs_fill_super(struct super_block *sb, void *data, int silent)
 		return -ENOMEM;
 	root_inode->i_op = &simple_dir_inode_operations;
 	root_inode->i_fop = &simple_dir_operations;
-	sb->s_root = root_dentry = d_alloc_root(root_inode);
-	if (!root_dentry) {
-		iput(root_inode);
+	sb->s_root = root_dentry = d_make_root(root_inode);
+	if (!root_dentry)
 		return -ENOMEM;
-	}
 	if (MACHINE_IS_VM)
 		rc = hypfs_vm_create_files(sb, root_dentry);
 	else

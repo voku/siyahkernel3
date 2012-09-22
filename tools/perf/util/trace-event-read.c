@@ -33,6 +33,7 @@
 #include <pthread.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <ctype.h>
 #include <errno.h>
 
 #include "../perf.h"
@@ -51,16 +52,6 @@ static unsigned long	page_size;
 
 static ssize_t calc_data_size;
 static bool repipe;
-
-static void *malloc_or_die(int size)
-{
-	void *ret;
-
-	ret = malloc(size);
-	if (!ret)
-		die("malloc");
-	return ret;
-}
 
 static int do_read(int fd, void *buf, int size)
 {
@@ -114,20 +105,20 @@ static void skip(int size)
 	};
 }
 
-static unsigned int read4(struct pevent *pevent)
+static unsigned int read4(void)
 {
 	unsigned int data;
 
 	read_or_die(&data, 4);
-	return __data2host4(pevent, data);
+	return __data2host4(data);
 }
 
-static unsigned long long read8(struct pevent *pevent)
+static unsigned long long read8(void)
 {
 	unsigned long long data;
 
 	read_or_die(&data, 8);
-	return __data2host8(pevent, data);
+	return __data2host8(data);
 }
 
 static char *read_string(void)
@@ -168,12 +159,12 @@ static char *read_string(void)
 	return str;
 }
 
-static void read_proc_kallsyms(struct pevent *pevent)
+static void read_proc_kallsyms(void)
 {
 	unsigned int size;
 	char *buf;
 
-	size = read4(pevent);
+	size = read4();
 	if (!size)
 		return;
 
@@ -181,29 +172,29 @@ static void read_proc_kallsyms(struct pevent *pevent)
 	read_or_die(buf, size);
 	buf[size] = '\0';
 
-	parse_proc_kallsyms(pevent, buf, size);
+	parse_proc_kallsyms(buf, size);
 
 	free(buf);
 }
 
-static void read_ftrace_printk(struct pevent *pevent)
+static void read_ftrace_printk(void)
 {
 	unsigned int size;
 	char *buf;
 
-	size = read4(pevent);
+	size = read4();
 	if (!size)
 		return;
 
 	buf = malloc_or_die(size);
 	read_or_die(buf, size);
 
-	parse_ftrace_printk(pevent, buf, size);
+	parse_ftrace_printk(buf, size);
 
 	free(buf);
 }
 
-static void read_header_files(struct pevent *pevent)
+static void read_header_files(void)
 {
 	unsigned long long size;
 	char *header_event;
@@ -214,7 +205,7 @@ static void read_header_files(struct pevent *pevent)
 	if (memcmp(buf, "header_page", 12) != 0)
 		die("did not read header page");
 
-	size = read8(pevent);
+	size = read8();
 	skip(size);
 
 	/*
@@ -227,48 +218,47 @@ static void read_header_files(struct pevent *pevent)
 	if (memcmp(buf, "header_event", 13) != 0)
 		die("did not read header event");
 
-	size = read8(pevent);
+	size = read8();
 	header_event = malloc_or_die(size);
 	read_or_die(header_event, size);
 	free(header_event);
 }
 
-static void read_ftrace_file(struct pevent *pevent, unsigned long long size)
+static void read_ftrace_file(unsigned long long size)
 {
 	char *buf;
 
 	buf = malloc_or_die(size);
 	read_or_die(buf, size);
-	parse_ftrace_file(pevent, buf, size);
+	parse_ftrace_file(buf, size);
 	free(buf);
 }
 
-static void read_event_file(struct pevent *pevent, char *sys,
-			    unsigned long long size)
+static void read_event_file(char *sys, unsigned long long size)
 {
 	char *buf;
 
 	buf = malloc_or_die(size);
 	read_or_die(buf, size);
-	parse_event_file(pevent, buf, size, sys);
+	parse_event_file(buf, size, sys);
 	free(buf);
 }
 
-static void read_ftrace_files(struct pevent *pevent)
+static void read_ftrace_files(void)
 {
 	unsigned long long size;
 	int count;
 	int i;
 
-	count = read4(pevent);
+	count = read4();
 
 	for (i = 0; i < count; i++) {
-		size = read8(pevent);
-		read_ftrace_file(pevent, size);
+		size = read8();
+		read_ftrace_file(size);
 	}
 }
 
-static void read_event_files(struct pevent *pevent)
+static void read_event_files(void)
 {
 	unsigned long long size;
 	char *sys;
@@ -276,15 +266,15 @@ static void read_event_files(struct pevent *pevent)
 	int count;
 	int i,x;
 
-	systems = read4(pevent);
+	systems = read4();
 
 	for (i = 0; i < systems; i++) {
 		sys = read_string();
 
-		count = read4(pevent);
+		count = read4();
 		for (x=0; x < count; x++) {
-			size = read8(pevent);
-			read_event_file(pevent, sys, size);
+			size = read8();
+			read_event_file(sys, size);
 		}
 	}
 }
@@ -293,7 +283,7 @@ struct cpu_data {
 	unsigned long long	offset;
 	unsigned long long	size;
 	unsigned long long	timestamp;
-	struct pevent_record	*next;
+	struct record		*next;
 	char			*page;
 	int			cpu;
 	int			index;
@@ -378,9 +368,9 @@ static int calc_index(void *ptr, int cpu)
 	return (unsigned long)ptr - (unsigned long)cpu_data[cpu].page;
 }
 
-struct pevent_record *trace_peek_data(struct pevent *pevent, int cpu)
+struct record *trace_peek_data(int cpu)
 {
-	struct pevent_record *data;
+	struct record *data;
 	void *page = cpu_data[cpu].page;
 	int idx = cpu_data[cpu].index;
 	void *ptr = page + idx;
@@ -400,15 +390,15 @@ struct pevent_record *trace_peek_data(struct pevent *pevent, int cpu)
 		/* FIXME: handle header page */
 		if (header_page_ts_size != 8)
 			die("expected a long long type for timestamp");
-		cpu_data[cpu].timestamp = data2host8(pevent, ptr);
+		cpu_data[cpu].timestamp = data2host8(ptr);
 		ptr += 8;
 		switch (header_page_size_size) {
 		case 4:
-			cpu_data[cpu].page_size = data2host4(pevent, ptr);
+			cpu_data[cpu].page_size = data2host4(ptr);
 			ptr += 4;
 			break;
 		case 8:
-			cpu_data[cpu].page_size = data2host8(pevent, ptr);
+			cpu_data[cpu].page_size = data2host8(ptr);
 			ptr += 8;
 			break;
 		default:
@@ -422,10 +412,10 @@ read_again:
 
 	if (idx >= cpu_data[cpu].page_size) {
 		get_next_page(cpu);
-		return trace_peek_data(pevent, cpu);
+		return trace_peek_data(cpu);
 	}
 
-	type_len_ts = data2host4(pevent, ptr);
+	type_len_ts = data2host4(ptr);
 	ptr += 4;
 
 	type_len = type_len4host(type_len_ts);
@@ -435,14 +425,14 @@ read_again:
 	case RINGBUF_TYPE_PADDING:
 		if (!delta)
 			die("error, hit unexpected end of page");
-		length = data2host4(pevent, ptr);
+		length = data2host4(ptr);
 		ptr += 4;
 		length *= 4;
 		ptr += length;
 		goto read_again;
 
 	case RINGBUF_TYPE_TIME_EXTEND:
-		extend = data2host4(pevent, ptr);
+		extend = data2host4(ptr);
 		ptr += 4;
 		extend <<= TS_SHIFT;
 		extend += delta;
@@ -453,7 +443,7 @@ read_again:
 		ptr += 12;
 		break;
 	case 0:
-		length = data2host4(pevent, ptr);
+		length = data2host4(ptr);
 		ptr += 4;
 		die("here! length=%d", length);
 		break;
@@ -478,17 +468,17 @@ read_again:
 	return data;
 }
 
-struct pevent_record *trace_read_data(struct pevent *pevent, int cpu)
+struct record *trace_read_data(int cpu)
 {
-	struct pevent_record *data;
+	struct record *data;
 
-	data = trace_peek_data(pevent, cpu);
+	data = trace_peek_data(cpu);
 	cpu_data[cpu].next = NULL;
 
 	return data;
 }
 
-ssize_t trace_report(int fd, struct pevent **ppevent, bool __repipe)
+ssize_t trace_report(int fd, bool __repipe)
 {
 	char buf[BUFSIZ];
 	char test[] = { 23, 8, 68 };
@@ -520,32 +510,28 @@ ssize_t trace_report(int fd, struct pevent **ppevent, bool __repipe)
 	file_bigendian = buf[0];
 	host_bigendian = bigendian();
 
-	*ppevent = read_trace_init(file_bigendian, host_bigendian);
-	if (*ppevent == NULL)
-		die("read_trace_init failed");
-
 	read_or_die(buf, 1);
 	long_size = buf[0];
 
-	page_size = read4(*ppevent);
+	page_size = read4();
 
-	read_header_files(*ppevent);
+	read_header_files();
 
-	read_ftrace_files(*ppevent);
-	read_event_files(*ppevent);
-	read_proc_kallsyms(*ppevent);
-	read_ftrace_printk(*ppevent);
+	read_ftrace_files();
+	read_event_files();
+	read_proc_kallsyms();
+	read_ftrace_printk();
 
 	size = calc_data_size - 1;
 	calc_data_size = 0;
 	repipe = false;
 
 	if (show_funcs) {
-		pevent_print_funcs(*ppevent);
+		print_funcs();
 		return size;
 	}
 	if (show_printk) {
-		pevent_print_printk(*ppevent);
+		print_printk();
 		return size;
 	}
 

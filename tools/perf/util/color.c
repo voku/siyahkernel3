@@ -1,4 +1,3 @@
-#include <linux/kernel.h>
 #include "cache.h"
 #include "color.h"
 
@@ -183,12 +182,12 @@ static int __color_vsnprintf(char *bf, size_t size, const char *color,
 	}
 
 	if (perf_use_color_default && *color)
-		r += scnprintf(bf, size, "%s", color);
-	r += vscnprintf(bf + r, size - r, fmt, args);
+		r += snprintf(bf, size, "%s", color);
+	r += vsnprintf(bf + r, size - r, fmt, args);
 	if (perf_use_color_default && *color)
-		r += scnprintf(bf + r, size - r, "%s", PERF_COLOR_RESET);
+		r += snprintf(bf + r, size - r, "%s", PERF_COLOR_RESET);
 	if (trail)
-		r += scnprintf(bf + r, size - r, "%s", trail);
+		r += snprintf(bf + r, size - r, "%s", trail);
 	return r;
 }
 
@@ -201,7 +200,7 @@ static int __color_vfprintf(FILE *fp, const char *color, const char *fmt,
 	 * Auto-detect:
 	 */
 	if (perf_use_color_default < 0) {
-		if (isatty(fileno(fp)) || pager_in_use())
+		if (isatty(1) || pager_in_use())
 			perf_use_color_default = 1;
 		else
 			perf_use_color_default = 0;
