@@ -37,6 +37,5 @@ pen:	ldr	r7, [r6]
 	 */
 	b	secondary_startup
 
-	.align 2
 1:	.long	.
 	.long	pen_release
