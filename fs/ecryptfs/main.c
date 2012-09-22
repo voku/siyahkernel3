@@ -574,12 +574,13 @@ static struct dentry *ecryptfs_mount(struct file_system_type *fs_type, int flags
 		goto out;
 	}
 
-	s = sget(fs_type, NULL, set_anon_super, flags, NULL);
+	s = sget(fs_type, NULL, set_anon_super, NULL);
 	if (IS_ERR(s)) {
 		rc = PTR_ERR(s);
 		goto out;
 	}
 
+	s->s_flags = flags;
 	rc = bdi_setup_and_register(&sbi->bdi, "ecryptfs", BDI_CAP_MAP_COPY);
 	if (rc)
 		goto out1;

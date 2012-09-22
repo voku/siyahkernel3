@@ -63,6 +63,7 @@ struct sched_param {
 #include <linux/nodemask.h>
 #include <linux/mm_types.h>
 
+#include <asm/system.h>
 #include <asm/page.h>
 #include <asm/ptrace.h>
 #include <asm/cputime.h>
@@ -554,18 +555,6 @@ struct signal_struct {
 	int			group_stop_count;
 	unsigned int		flags; /* see SIGNAL_* flags below */
 
-	/*
-	 * PR_SET_CHILD_SUBREAPER marks a process, like a service
-	 * manager, to re-parent orphan (double-forking) child processes
-	 * to this process instead of 'init'. The service manager is
-	 * able to receive SIGCHLD signals and is able to investigate
-	 * the process until it calls wait(). All children of this
-	 * process will inherit a flag if they should look for a
-	 * child_subreaper process at exit.
-	 */
-	unsigned int		is_child_subreaper:1;
-	unsigned int		has_child_subreaper:1;
-
 	/* POSIX.1b Interval Timers */
 	struct list_head posix_timers;
 
@@ -924,6 +913,8 @@ struct sched_group_power {
 	 * Number of busy cpus in this group.
 	 */
 	atomic_t nr_busy_cpus;
+
+	unsigned long cpumask[0]; /* iteration mask */
 };
 
 struct sched_group {
@@ -946,6 +937,15 @@ struct sched_group {
 static inline struct cpumask *sched_group_cpus(struct sched_group *sg)
 {
 	return to_cpumask(sg->cpumask);
+}
+
+/*
+ * cpumask masking which cpus in the group are allowed to iterate up the domain
+ * tree.
+ */
+static inline struct cpumask *sched_group_mask(struct sched_group *sg)
+{
+	return to_cpumask(sg->sgp->cpumask);
 }
 
 /**
@@ -985,6 +985,7 @@ struct sched_domain {
 	unsigned int smt_gain;
 	int flags;			/* See SD_* */
 	int level;
+	int idle_buddy;			/* cpu assigned to select_idle_sibling() */
 
 	/* Runtime fields. */
 	unsigned long last_balance;	/* init to jiffies. units in jiffies */
@@ -1304,11 +1305,15 @@ struct task_struct {
 #endif
 
 	unsigned int policy;
+	int nr_cpus_allowed;
 	cpumask_t cpus_allowed;
 
 #ifdef CONFIG_PREEMPT_RCU
 	int rcu_read_lock_nesting;
 	char rcu_read_unlock_special;
+#if defined(CONFIG_RCU_BOOST) && defined(CONFIG_TREE_PREEMPT_RCU)
+	int rcu_boosted;
+#endif /* #if defined(CONFIG_RCU_BOOST) && defined(CONFIG_TREE_PREEMPT_RCU) */
 	struct list_head rcu_node_entry;
 #endif /* #ifdef CONFIG_PREEMPT_RCU */
 #ifdef CONFIG_TREE_PREEMPT_RCU
@@ -1350,11 +1355,6 @@ struct task_struct {
 	/* Revert to default priority/policy when forking */
 	unsigned sched_reset_on_fork:1;
 	unsigned sched_contributes_to_load:1;
-
-#ifdef CONFIG_GENERIC_HARDIRQS
-	/* IRQ handler threads */
-	unsigned irq_thread:1;
-#endif
 
 	pid_t pid;
 	pid_t tgid;
@@ -1536,6 +1536,7 @@ struct task_struct {
 #ifdef CONFIG_CPUSETS
 	nodemask_t mems_allowed;	/* Protected by alloc_lock */
 	seqcount_t mems_allowed_seq;	/* Seqence no to catch updates */
+	int mems_allowed_change_disable;
 	int cpuset_mem_spread_rotor;
 	int cpuset_slab_spread_rotor;
 #endif
@@ -1618,7 +1619,7 @@ struct task_struct {
 	/* bitmask and counter of trace recursion */
 	unsigned long trace_recursion;
 #endif /* CONFIG_TRACING */
-#ifdef CONFIG_CGROUP_MEM_RES_CTLR /* memcg uses this to do batch job */
+#ifdef CONFIG_MEMCG /* memcg uses this to do batch job */
 	struct memcg_batch_info {
 		int do_batch;	/* incremented when batch uncharge started */
 		struct mem_cgroup *memcg; /* target memcg of uncharge */
@@ -1832,6 +1833,7 @@ extern int task_free_unregister(struct notifier_block *n);
 #define PF_MEMALLOC	0x00000800	/* Allocating memory */
 #define PF_NPROC_EXCEEDED 0x00001000	/* set_user noticed that RLIMIT_NPROC was exceeded */
 #define PF_USED_MATH	0x00002000	/* if unset the fpu must be initialized before use */
+#define PF_FREEZING	0x00004000	/* freeze in progress. do not account to load */
 #define PF_NOFREEZE	0x00008000	/* this thread should not be frozen */
 #define PF_FROZEN	0x00010000	/* frozen for system suspend */
 #define PF_FSTRANS	0x00020000	/* inside a filesystem transaction */
@@ -1883,8 +1885,8 @@ extern int task_free_unregister(struct notifier_block *n);
 #define JOBCTL_STOP_PENDING_BIT	17	/* task should stop for group stop */
 #define JOBCTL_STOP_CONSUME_BIT	18	/* consume group stop count */
 #define JOBCTL_TRAP_STOP_BIT	19	/* trap for STOP */
-#define JOBCTL_TRAP_NOTIFY_BIT	20	/* trap for NOTIFY */
 #define JOBCTL_TRAPPING_BIT	21	/* switching to TRACED */
+#define JOBCTL_TRAP_NOTIFY_BIT	20	/* trap for NOTIFY */
 #define JOBCTL_LISTENING_BIT	22	/* ptracer is listening for events */
 
 #define JOBCTL_STOP_DEQUEUED	(1 << JOBCTL_STOP_DEQUEUED_BIT)
@@ -1903,11 +1905,11 @@ extern bool task_set_jobctl_pending(struct task_struct *task,
 extern void task_clear_jobctl_trapping(struct task_struct *task);
 extern void task_clear_jobctl_pending(struct task_struct *task,
 				      unsigned int mask);
-
 #ifdef CONFIG_PREEMPT_RCU
 
 #define RCU_READ_UNLOCK_BLOCKED (1 << 0) /* blocked while in RCU read-side. */
-#define RCU_READ_UNLOCK_NEED_QS (1 << 1) /* RCU core needs CPU response. */
+#define RCU_READ_UNLOCK_BOOSTED (1 << 1) /* boosted while in RCU read-side. */
+#define RCU_READ_UNLOCK_NEED_QS (1 << 2) /* RCU core needs CPU response. */
 
 static inline void rcu_copy_process(struct task_struct *p)
 {
@@ -1983,6 +1985,7 @@ static inline int set_cpus_allowed(struct task_struct *p, cpumask_t new_mask)
  * Please use one of the three interfaces below.
  */
 extern unsigned long long notrace sched_clock(void);
+extern unsigned long long notrace sched_clock_clksrc(void);
 /*
  * See the comment in kernel/sched_clock.c
  */
@@ -2327,11 +2330,6 @@ static inline void mmdrop(struct mm_struct * mm)
 extern void mmput(struct mm_struct *);
 /* Grab a reference to a task's mm, if it is not already going away */
 extern struct mm_struct *get_task_mm(struct task_struct *task);
-/*
- * Grab a reference to a task's mm, if it is not already going away
- * and ptrace_may_access with the mode parameter passed to it
- * succeeds.
- */
 /* Remove the current tasks stale references to the old mm_struct */
 extern void mm_release(struct task_struct *, struct mm_struct *);
 /* Allocate a new mm structure and copy contents from tsk->mm */
@@ -2348,7 +2346,7 @@ extern void __cleanup_sighand(struct sighand_struct *);
 extern void exit_itimers(struct signal_struct *);
 extern void flush_itimer_signals(void);
 
-extern void do_group_exit(int);
+extern NORET_TYPE void do_group_exit(int);
 
 extern void daemonize(const char *, ...);
 extern int allow_signal(int);
@@ -2398,10 +2396,8 @@ static inline int get_nr_threads(struct task_struct *tsk)
 	return tsk->signal->nr_threads;
 }
 
-static inline bool thread_group_leader(struct task_struct *p)
-{
-	return p->exit_signal >= 0;
-}
+/* de_thread depends on thread_group_leader not being a pid based check */
+#define thread_group_leader(p)	(p == p->group_leader)
 
 /* Do to the insanities of de_thread it is possible for a process
  * to have the pid of the thread group leader without actually being
@@ -2443,7 +2439,7 @@ static inline int task_detached(struct task_struct *p)
  * Protects ->fs, ->files, ->mm, ->group_info, ->comm, keyring
  * subscriptions and synchronises with wait4().  Also used in procfs.  Also
  * pins the final release of task.io_context.  Also protects ->cpuset and
- * ->cgroup.subsys[]. And ->vfork_done.
+ * ->cgroup.subsys[].
  *
  * Nests both inside and outside of read_lock(&tasklist_lock).
  * It must not be nested with write_lock_irq(&tasklist_lock),
