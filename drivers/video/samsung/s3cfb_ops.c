@@ -1153,7 +1153,10 @@ int s3cfb_ioctl(struct fb_info *fb, unsigned int cmd, unsigned long arg)
 											   msecs_to_jiffies(1000));
 		if (ret > 0) {
 		    u64 nsecs = ktime_to_ns(fbdev->vsync_timestamp);
-		    copy_to_user((void*)arg, &nsecs, sizeof(u64));
+			if (copy_to_user((void*)arg, &nsecs, sizeof(u64))) {
+				dev_err(fbdev->dev, "copy_to_user error\n");
+				ret = -EFAULT;
+			}
 		}
 		break;
 
