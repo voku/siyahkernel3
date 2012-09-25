@@ -45,7 +45,10 @@ static struct s3c_platform_csis default_csis0_data __initdata = {
 
 int fimc_clk_rate(void)
 {
-	return 166750000;
+//	if (samsung_rev() >= EXYNOS4412_REV_2_0)
+//		return 180000000;
+//	else
+		return 166750000;
 }
 
 void __init s3c_csis0_set_platdata(struct s3c_platform_csis *pd)
