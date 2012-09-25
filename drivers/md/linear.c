@@ -295,8 +295,7 @@ static void linear_make_request (mddev_t *mddev, struct bio *bio)
 		bio_io_error(bio);
 		return;
 	}
-	if (unlikely(bio->bi_sector + (bio->bi_size >> 9) >
-		     tmp_dev->end_sector)) {
+	if (unlikely(bio_end_sector(bio) > tmp_dev->end_sector)) {
 		/* This bio crosses a device boundary, so we have to
 		 * split it.
 		 */
