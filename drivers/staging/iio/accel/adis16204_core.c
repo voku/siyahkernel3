@@ -341,13 +341,17 @@ static int adis16204_read_raw(struct iio_dev *indio_dev,
 		mutex_lock(&indio_dev->mlock);
 		addr = adis16204_addresses[chan->address][0];
 		ret = adis16204_spi_read_reg_16(indio_dev, addr, &val16);
-		if (ret)
+		if (ret) {
+			mutex_unlock(&indio_dev->mlock);
 			return ret;
+		}
 
 		if (val16 & ADIS16204_ERROR_ACTIVE) {
 			ret = adis16204_check_status(indio_dev);
-			if (ret)
+			if (ret) {
+				mutex_unlock(&indio_dev->mlock);
 				return ret;
+			}
 		}
 		val16 = val16 & ((1 << chan->scan_type.realbits) - 1);
 		if (chan->scan_type.sign == 's')
@@ -593,18 +597,7 @@ static struct spi_driver adis16204_driver = {
 	.probe = adis16204_probe,
 	.remove = __devexit_p(adis16204_remove),
 };
-
-static __init int adis16204_init(void)
-{
-	return spi_register_driver(&adis16204_driver);
-}
-module_init(adis16204_init);
-
-static __exit void adis16204_exit(void)
-{
-	spi_unregister_driver(&adis16204_driver);
-}
-module_exit(adis16204_exit);
+module_spi_driver(adis16204_driver);
 
 MODULE_AUTHOR("Barry Song <21cnbao@gmail.com>");
 MODULE_DESCRIPTION("ADIS16204 High-g Digital Impact Sensor and Recorder");

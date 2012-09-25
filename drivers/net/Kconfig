@@ -1063,8 +1063,7 @@ config SMSC911X
 	  Say Y here if you want support for SMSC LAN911x and LAN921x families
 	  of ethernet controllers.
 
-	  To compile this driver as a module, choose M here and read
-	  <file:Documentation/networking/net-modules.txt>. The module
+	  To compile this driver as a module, choose M here. The module
 	  will be called smsc911x.
 
 config SMSC911X_ARCH_HOOKS
@@ -2561,6 +2560,15 @@ config PCH_GBE
 	  purpose use.
 	  ML7223/ML7831 is companion chip for Intel Atom E6xx series.
 	  ML7223/ML7831 is completely compatible for Intel EG20T PCH.
+
+config FTGMAC100
+	tristate "Faraday FTGMAC100 Gigabit Ethernet support"
+	depends on ARM
+	select PHYLIB
+	help
+	  This driver supports the FTGMAC100 Gigabit Ethernet controller
+	  from Faraday. It is used on Faraday A369, Andes AG102 and some
+	  other ARM/NDS32 SoC's.
 
 endif # NETDEV_1000
 

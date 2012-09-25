@@ -128,7 +128,6 @@ int omap_set_pwrdm_state(struct powerdomain *pwrdm, u32 state)
 			sleep_switch = LOWPOWERSTATE_SWITCH;
 		} else {
 			clkdm_wakeup(pwrdm->pwrdm_clkdms[0]);
-			pwrdm_wait_transition(pwrdm);
 			sleep_switch = FORCEWAKEUP_SWITCH;
 		}
 	}
@@ -154,7 +153,6 @@ int omap_set_pwrdm_state(struct powerdomain *pwrdm, u32 state)
 		return ret;
 	}
 
-	pwrdm_wait_transition(pwrdm);
 	pwrdm_state_switch(pwrdm);
 err:
 	return ret;

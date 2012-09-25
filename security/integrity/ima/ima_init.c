@@ -90,3 +90,8 @@ int __init ima_init(void)
 
 	return ima_fs_init();
 }
+
+void __exit ima_cleanup(void)
+{
+	ima_fs_cleanup();
+}

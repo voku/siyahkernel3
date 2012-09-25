@@ -544,6 +544,10 @@ struct kvm_ppc_pvinfo {
 #define KVM_CAP_TSC_CONTROL 60
 #define KVM_CAP_GET_TSC_KHZ 61
 #define KVM_CAP_PPC_BOOKE_SREGS 62
+#define KVM_CAP_SPAPR_TCE 63
+#define KVM_CAP_PPC_SMT 64
+#define KVM_CAP_PPC_RMA	65
+#define KVM_CAP_S390_GMAP 71
 
 #ifdef KVM_CAP_IRQ_ROUTING
 

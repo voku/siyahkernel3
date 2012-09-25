@@ -596,6 +596,7 @@ static int btrfs_fill_super(struct super_block *sb,
 			    void *data, int silent)
 {
 	struct inode *inode;
+	struct dentry *root_dentry;
 	struct btrfs_root *tree_root;
 	struct btrfs_key key;
 	int err;
@@ -628,11 +629,14 @@ static int btrfs_fill_super(struct super_block *sb,
 		goto fail_close;
 	}
 
-	sb->s_root = d_make_root(inode);
-	if (!sb->s_root) {
+	root_dentry = d_alloc_root(inode);
+	if (!root_dentry) {
+		iput(inode);
 		err = -ENOMEM;
 		goto fail_close;
 	}
+
+	sb->s_root = root_dentry;
 
 	save_mount_options(sb, data);
 	cleancache_init_fs(sb);

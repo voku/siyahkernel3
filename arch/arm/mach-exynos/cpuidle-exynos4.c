@@ -508,7 +508,7 @@ void exynos4_flush_cache(void *addr, phys_addr_t phy_ttb_base)
 	outer_clean_range(virt_to_phys(cpu_resume),
 			  virt_to_phys(cpu_resume + 0x40));
 	outer_clean_range(phy_ttb_base, phy_ttb_base + 0xffff);
-	flush_cache_all();
+	flush_cache_louis();
 }
 
 static void exynos4_set_wakeupmask(void)
@@ -1004,7 +1004,7 @@ static void exynos4_init_cpuidle_post_hib(void)
 	l2x0_save[1] = __raw_readl(S5P_VA_L2CC + 0x10C);
 	l2x0_save[2] = __raw_readl(S5P_VA_L2CC + 0xF60);
 
-	flush_cache_all();
+	flush_cache_louis();
 	outer_clean_range(virt_to_phys(l2x0_save), ARRAY_SIZE(l2x0_save));
 	outer_clean_range(virt_to_phys(scu_save), ARRAY_SIZE(scu_save));
 }
@@ -1105,7 +1105,7 @@ static int __init exynos4_init_cpuidle(void)
 	l2x0_save[1] = __raw_readl(S5P_VA_L2CC + 0x10C);
 	l2x0_save[2] = __raw_readl(S5P_VA_L2CC + 0xF60);
 
-	flush_cache_all();
+	flush_cache_louis();
 	outer_clean_range(virt_to_phys(l2x0_save), ARRAY_SIZE(l2x0_save));
 	outer_clean_range(virt_to_phys(scu_save), ARRAY_SIZE(scu_save));
 

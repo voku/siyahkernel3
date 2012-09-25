@@ -35,8 +35,8 @@
  *
  * The basic atomic operation of this list is cmpxchg on long.  On
  * architectures that don't have NMI-safe cmpxchg implementation, the
- * list can NOT be used in NMI handler.  So code uses the list in NMI
- * handler should depend on CONFIG_ARCH_HAVE_NMI_SAFE_CMPXCHG.
+ * list can NOT be used in NMI handlers.  So code that uses the list in
+ * an NMI handler should depend on CONFIG_ARCH_HAVE_NMI_SAFE_CMPXCHG.
  *
  * Copyright 2010,2011 Intel Corp.
  *   Author: Huang Ying <ying.huang@intel.com>
@@ -56,7 +56,8 @@
  */
 
 #include <linux/kernel.h>
-#include <asm/bitops.h>
+#include <asm/system.h>
+#include <asm/processor.h>
 
 struct llist_head {
 	struct llist_node *first;
@@ -132,7 +133,7 @@ static inline void init_llist_head(struct llist_head *list)
  * test whether the list is empty without deleting something from the
  * list.
  */
-static inline int llist_empty(const struct llist_head *head)
+static inline bool llist_empty(const struct llist_head *head)
 {
 	return ACCESS_ONCE(head->first) == NULL;
 }
@@ -147,7 +148,7 @@ static inline struct llist_node *llist_next(struct llist_node *node)
  * @new:	new entry to be added
  * @head:	the head for your lock-less list
  *
- * Returns true if the list was empty prior to adding this entry.
+ * Return whether list is empty before adding.
  */
 static inline bool llist_add(struct llist_node *new, struct llist_head *head)
 {
@@ -178,8 +179,9 @@ static inline struct llist_node *llist_del_all(struct llist_head *head)
 	return xchg(&head->first, NULL);
 }
 
-void llist_add_batch(struct llist_node *new_first, 
-		     struct llist_node *new_last,
-		     struct llist_head *head);
-struct llist_node *llist_del_first(struct llist_head *head);
+extern bool llist_add_batch(struct llist_node *new_first,
+			    struct llist_node *new_last,
+			    struct llist_head *head);
+extern struct llist_node *llist_del_first(struct llist_head *head);
+
 #endif /* LLIST_H */

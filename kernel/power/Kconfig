@@ -350,3 +350,6 @@ config CPU_PM
 	  shouldn't be interrupted. Hence CPU PM event APIs  must be called
 	  with interrupts disabled.
 
+config PM_GENERIC_DOMAINS_RUNTIME
+	def_bool y
+	depends on PM_RUNTIME && PM_GENERIC_DOMAINS

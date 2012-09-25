@@ -721,11 +721,13 @@ static void shrink_dentry_list(struct list_head *list)
  *
  * If flags contains DCACHE_REFERENCED reference dentries will not be pruned.
  */
-static void __shrink_dcache_sb(struct super_block *sb, int count, int flags)
+static void __shrink_dcache_sb(struct super_block *sb, int *count, int flags)
 {
+	/* called from prune_dcache() and shrink_dcache_parent() */
 	struct dentry *dentry;
 	LIST_HEAD(referenced);
 	LIST_HEAD(tmp);
+	int cnt = *count;
 
 relock:
 	spin_lock(&dcache_lru_lock);
@@ -754,7 +756,7 @@ relock:
 			list_move_tail(&dentry->d_lru, &tmp);
 			dentry->d_flags |= DCACHE_SHRINK_LIST;
 			spin_unlock(&dentry->d_lock);
-			if (!--count)
+			if (!--cnt)
 				break;
 		}
 		cond_resched_lock(&dcache_lru_lock);
@@ -764,22 +766,83 @@ relock:
 	spin_unlock(&dcache_lru_lock);
 
 	shrink_dentry_list(&tmp);
+
+	*count = cnt;
 }
 
 /**
- * prune_dcache_sb - shrink the dcache
- * @nr_to_scan: number of entries to try to free
+ * prune_dcache - shrink the dcache
+ * @count: number of entries to try to free
  *
- * Attempt to shrink the superblock dcache LRU by @nr_to_scan entries. This is
- * done when we need more memory an called from the superblock shrinker
- * function.
+ * Shrink the dcache. This is done when we need more memory, or simply when we
+ * need to unmount something (at which point we need to unuse all dentries).
  *
- * This function may fail to free any resources if all the dentries are in
- * use.
+ * This function may fail to free any resources if all the dentries are in use.
  */
-void prune_dcache_sb(struct super_block *sb, int nr_to_scan)
+static void prune_dcache(int count)
 {
-	__shrink_dcache_sb(sb, nr_to_scan, DCACHE_REFERENCED);
+	struct super_block *sb, *p = NULL;
+	int w_count;
+	int unused = dentry_stat.nr_unused;
+	int prune_ratio;
+	int pruned;
+
+	if (unused == 0 || count == 0)
+		return;
+	if (count >= unused)
+		prune_ratio = 1;
+	else
+		prune_ratio = unused / count;
+	spin_lock(&sb_lock);
+	list_for_each_entry(sb, &super_blocks, s_list) {
+		if (list_empty(&sb->s_instances))
+			continue;
+		if (sb->s_nr_dentry_unused == 0)
+			continue;
+		sb->s_count++;
+		/* Now, we reclaim unused dentrins with fairness.
+		 * We reclaim them same percentage from each superblock.
+		 * We calculate number of dentries to scan on this sb
+		 * as follows, but the implementation is arranged to avoid
+		 * overflows:
+		 * number of dentries to scan on this sb =
+		 * count * (number of dentries on this sb /
+		 * number of dentries in the machine)
+		 */
+		spin_unlock(&sb_lock);
+		if (prune_ratio != 1)
+			w_count = (sb->s_nr_dentry_unused / prune_ratio) + 1;
+		else
+			w_count = sb->s_nr_dentry_unused;
+		pruned = w_count;
+		/*
+		 * We need to be sure this filesystem isn't being unmounted,
+		 * otherwise we could race with generic_shutdown_super(), and
+		 * end up holding a reference to an inode while the filesystem
+		 * is unmounted.  So we try to get s_umount, and make sure
+		 * s_root isn't NULL.
+		 */
+		if (down_read_trylock(&sb->s_umount)) {
+			if ((sb->s_root != NULL) &&
+			    (!list_empty(&sb->s_dentry_lru))) {
+				__shrink_dcache_sb(sb, &w_count,
+						DCACHE_REFERENCED);
+				pruned -= w_count;
+			}
+			up_read(&sb->s_umount);
+		}
+		spin_lock(&sb_lock);
+		if (p)
+			__put_super(p);
+		count -= pruned;
+		p = sb;
+		/* more work left to do? */
+		if (count <= 0)
+			break;
+	}
+	if (p)
+		__put_super(p);
+	spin_unlock(&sb_lock);
 }
 
 /**
@@ -1158,65 +1221,41 @@ void shrink_dcache_parent(struct dentry * parent)
 	int found;
 
 	while ((found = select_parent(parent)) != 0)
-		__shrink_dcache_sb(sb, found, 0);
+		__shrink_dcache_sb(sb, &found, 0);
 }
 EXPORT_SYMBOL(shrink_dcache_parent);
 
-/**
- * __d_alloc	-	allocate a dcache entry
- * @sb: filesystem it will belong to
- * @name: qstr of the name
+/*
+ * Scan `sc->nr_slab_to_reclaim' dentries and return the number which remain.
  *
- * Allocates a dentry. It returns %NULL if there is insufficient memory
- * available. On a success the dentry is returned. The name passed in is
- * copied and the copy passed in may be reused after this call.
+ * We need to avoid reentering the filesystem if the caller is performing a
+ * GFP_NOFS allocation attempt.  One example deadlock is:
+ *
+ * ext2_new_block->getblk->GFP->shrink_dcache_memory->prune_dcache->
+ * prune_one_dentry->dput->dentry_iput->iput->inode->i_sb->s_op->put_inode->
+ * ext2_discard_prealloc->ext2_free_blocks->lock_super->DEADLOCK.
+ *
+ * In this case we return -1 to tell the caller that we baled.
  */
- 
-struct dentry *__d_alloc(struct super_block *sb, const struct qstr *name)
+static int shrink_dcache_memory(struct shrinker *shrink,
+				struct shrink_control *sc)
 {
-	struct dentry *dentry;
-	char *dname;
+	int nr = sc->nr_to_scan;
+	gfp_t gfp_mask = sc->gfp_mask;
 
-	dentry = kmem_cache_alloc(dentry_cache, GFP_KERNEL);
-	if (!dentry)
-		return NULL;
+	if (nr) {
+		if (!(gfp_mask & __GFP_FS))
+			return -1;
+		prune_dcache(nr);
+	}
 
-	if (name->len > DNAME_INLINE_LEN-1) {
-		dname = kmalloc(name->len + 1, GFP_KERNEL);
-		if (!dname) {
-			kmem_cache_free(dentry_cache, dentry); 
-			return NULL;
-		}
-	} else  {
-		dname = dentry->d_iname;
-	}	
-	dentry->d_name.name = dname;
-
-	dentry->d_name.len = name->len;
-	dentry->d_name.hash = name->hash;
-	memcpy(dname, name->name, name->len);
-	dname[name->len] = 0;
-
-	dentry->d_count = 1;
-	dentry->d_flags = 0;
-	spin_lock_init(&dentry->d_lock);
-	seqcount_init(&dentry->d_seq);
-	dentry->d_inode = NULL;
-	dentry->d_parent = dentry;
-	dentry->d_sb = sb;
-	dentry->d_op = NULL;
-	dentry->d_fsdata = NULL;
-	INIT_HLIST_BL_NODE(&dentry->d_hash);
-	INIT_LIST_HEAD(&dentry->d_lru);
-	INIT_LIST_HEAD(&dentry->d_subdirs);
-	INIT_LIST_HEAD(&dentry->d_alias);
-	INIT_LIST_HEAD(&dentry->d_u.d_child);
-	d_set_d_op(dentry, dentry->d_sb->s_d_op);
-
-	this_cpu_inc(nr_dentry);
-
-	return dentry;
+	return (dentry_stat.nr_unused / 100) * sysctl_vfs_cache_pressure;
 }
+
+static struct shrinker dcache_shrinker = {
+	.shrink = shrink_dcache_memory,
+	.seeks = DEFAULT_SEEKS,
+};
 
 /**
  * d_alloc	-	allocate a dcache entry
@@ -1477,23 +1516,6 @@ struct dentry * d_alloc_root(struct inode * root_inode)
 	return res;
 }
 EXPORT_SYMBOL(d_alloc_root);
-
-struct dentry *d_make_root(struct inode *root_inode)
-{
-	struct dentry *res = NULL;
-
-	if (root_inode) {
-		static const struct qstr name = { .name = "/", .len = 1 };
-
-		res = __d_alloc(root_inode->i_sb, &name);
-		if (res)
-			d_instantiate(res, root_inode);
-		else
-			iput(root_inode);
-	}
-	return res;
-}
-EXPORT_SYMBOL(d_make_root);
 
 static struct dentry * __d_find_any_alias(struct inode *inode)
 {
@@ -3014,7 +3036,7 @@ __setup("dhash_entries=", set_dhash_entries);
 
 static void __init dcache_init_early(void)
 {
-	unsigned int loop;
+	int loop;
 
 	/* If hashes are distributed across NUMA nodes, defer
 	 * hash allocation until vmalloc space is available.
@@ -3030,16 +3052,15 @@ static void __init dcache_init_early(void)
 					HASH_EARLY,
 					&d_hash_shift,
 					&d_hash_mask,
-					0,
 					0);
 
-	for (loop = 0; loop < (1U << d_hash_shift); loop++)
+	for (loop = 0; loop < (1 << d_hash_shift); loop++)
 		INIT_HLIST_BL_HEAD(dentry_hashtable + loop);
 }
 
 static void __init dcache_init(void)
 {
-	unsigned int loop;
+	int loop;
 
 	/* 
 	 * A constructor could be added for stable state like the lists,
@@ -3048,6 +3069,8 @@ static void __init dcache_init(void)
 	 */
 	dentry_cache = KMEM_CACHE(dentry,
 		SLAB_RECLAIM_ACCOUNT|SLAB_PANIC|SLAB_MEM_SPREAD);
+	
+	register_shrinker(&dcache_shrinker);
 
 	/* Hash may have been set up in dcache_init_early */
 	if (!hashdist)
@@ -3061,10 +3084,9 @@ static void __init dcache_init(void)
 					0,
 					&d_hash_shift,
 					&d_hash_mask,
-					0,
 					0);
 
-	for (loop = 0; loop < (1U << d_hash_shift); loop++)
+	for (loop = 0; loop < (1 << d_hash_shift); loop++)
 		INIT_HLIST_BL_HEAD(dentry_hashtable + loop);
 }
 

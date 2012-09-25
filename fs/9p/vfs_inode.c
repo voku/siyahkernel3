@@ -59,15 +59,13 @@ static const struct inode_operations v9fs_symlink_inode_operations;
  *
  */
 
-static int unixmode2p9mode(struct v9fs_session_info *v9ses, int mode)
+static u32 unixmode2p9mode(struct v9fs_session_info *v9ses, umode_t mode)
 {
 	int res;
 	res = mode & 0777;
 	if (S_ISDIR(mode))
 		res |= P9_DMDIR;
 	if (v9fs_proto_dotu(v9ses)) {
-		if (S_ISLNK(mode))
-			res |= P9_DMSYMLINK;
 		if (v9ses->nodev == 0) {
 			if (S_ISSOCK(mode))
 				res |= P9_DMSOCKET;
@@ -85,10 +83,7 @@ static int unixmode2p9mode(struct v9fs_session_info *v9ses, int mode)
 			res |= P9_DMSETGID;
 		if ((mode & S_ISVTX) == S_ISVTX)
 			res |= P9_DMSETVTX;
-		if ((mode & P9_DMLINK))
-			res |= P9_DMLINK;
 	}
-
 	return res;
 }
 
@@ -99,11 +94,11 @@ static int unixmode2p9mode(struct v9fs_session_info *v9ses, int mode)
  * @rdev: major number, minor number in case of device files.
  *
  */
-static int p9mode2unixmode(struct v9fs_session_info *v9ses,
-			   struct p9_wstat *stat, dev_t *rdev)
+static umode_t p9mode2unixmode(struct v9fs_session_info *v9ses,
+			       struct p9_wstat *stat, dev_t *rdev)
 {
 	int res;
-	int mode = stat->mode;
+	u32 mode = stat->mode;
 
 	res = mode & S_IALLUGO;
 	*rdev = 0;
@@ -260,7 +255,7 @@ void v9fs_destroy_inode(struct inode *inode)
 }
 
 int v9fs_init_inode(struct v9fs_session_info *v9ses,
-		    struct inode *inode, int mode, dev_t rdev)
+		    struct inode *inode, umode_t mode, dev_t rdev)
 {
 	int err = 0;
 
@@ -277,10 +272,8 @@ int v9fs_init_inode(struct v9fs_session_info *v9ses,
 	case S_IFSOCK:
 		if (v9fs_proto_dotl(v9ses)) {
 			inode->i_op = &v9fs_file_inode_operations_dotl;
-			inode->i_fop = &v9fs_file_operations_dotl;
 		} else if (v9fs_proto_dotu(v9ses)) {
 			inode->i_op = &v9fs_file_inode_operations;
-			inode->i_fop = &v9fs_file_operations;
 		} else {
 			P9_DPRINTK(P9_DEBUG_ERROR,
 				   "special files without extended mode\n");
@@ -336,7 +329,7 @@ int v9fs_init_inode(struct v9fs_session_info *v9ses,
 
 		break;
 	default:
-		P9_DPRINTK(P9_DEBUG_ERROR, "BAD mode 0x%x S_IFMT 0x%x\n",
+		P9_DPRINTK(P9_DEBUG_ERROR, "BAD mode 0x%hx S_IFMT 0x%x\n",
 			   mode, mode & S_IFMT);
 		err = -EINVAL;
 		goto error;
@@ -353,13 +346,13 @@ error:
  *
  */
 
-struct inode *v9fs_get_inode(struct super_block *sb, int mode, dev_t rdev)
+struct inode *v9fs_get_inode(struct super_block *sb, umode_t mode, dev_t rdev)
 {
 	int err;
 	struct inode *inode;
 	struct v9fs_session_info *v9ses = sb->s_fs_info;
 
-	P9_DPRINTK(P9_DEBUG_VFS, "super block: %p mode: %o\n", sb, mode);
+	P9_DPRINTK(P9_DEBUG_VFS, "super block: %p mode: %ho\n", sb, mode);
 
 	inode = new_inode(sb);
 	if (!inode) {
@@ -493,7 +486,8 @@ static struct inode *v9fs_qid_iget(struct super_block *sb,
 				   int new)
 {
 	dev_t rdev;
-	int retval, umode;
+	int retval;
+	umode_t umode;
 	unsigned long i_ino;
 	struct inode *inode;
 	struct v9fs_session_info *v9ses = sb->s_fs_info;
@@ -552,40 +546,66 @@ v9fs_inode_from_fid(struct v9fs_session_info *v9ses, struct p9_fid *fid,
 }
 
 /**
+ * v9fs_at_to_dotl_flags- convert Linux specific AT flags to
+ * plan 9 AT flag.
+ * @flags: flags to convert
+ */
+static int v9fs_at_to_dotl_flags(int flags)
+{
+	int rflags = 0;
+	if (flags & AT_REMOVEDIR)
+		rflags |= P9_DOTL_AT_REMOVEDIR;
+	return rflags;
+}
+
+/**
  * v9fs_remove - helper function to remove files and directories
  * @dir: directory inode that is being deleted
- * @file:  dentry that is being deleted
+ * @dentry:  dentry that is being deleted
  * @rmdir: removing a directory
  *
  */
 
-static int v9fs_remove(struct inode *dir, struct dentry *file, int rmdir)
+static int v9fs_remove(struct inode *dir, struct dentry *dentry, int flags)
 {
-	int retval;
-	struct p9_fid *v9fid;
-	struct inode *file_inode;
+	struct inode *inode;
+	int retval = -EOPNOTSUPP;
+	struct p9_fid *v9fid, *dfid;
+	struct v9fs_session_info *v9ses;
 
-	P9_DPRINTK(P9_DEBUG_VFS, "inode: %p dentry: %p rmdir: %d\n", dir, file,
-		rmdir);
+	P9_DPRINTK(P9_DEBUG_VFS, "inode: %p dentry: %p rmdir: %x\n",
+		   dir, dentry, flags);
 
-	file_inode = file->d_inode;
-	v9fid = v9fs_fid_clone(file);
-	if (IS_ERR(v9fid))
-		return PTR_ERR(v9fid);
-
-	retval = p9_client_remove(v9fid);
+	v9ses = v9fs_inode2v9ses(dir);
+	inode = dentry->d_inode;
+	dfid = v9fs_fid_lookup(dentry->d_parent);
+	if (IS_ERR(dfid)) {
+		retval = PTR_ERR(dfid);
+		P9_DPRINTK(P9_DEBUG_VFS, "fid lookup failed %d\n", retval);
+		return retval;
+	}
+	if (v9fs_proto_dotl(v9ses))
+		retval = p9_client_unlinkat(dfid, dentry->d_name.name,
+					    v9fs_at_to_dotl_flags(flags));
+	if (retval == -EOPNOTSUPP) {
+		/* Try the one based on path */
+		v9fid = v9fs_fid_clone(dentry);
+		if (IS_ERR(v9fid))
+			return PTR_ERR(v9fid);
+		retval = p9_client_remove(v9fid);
+	}
 	if (!retval) {
 		/*
 		 * directories on unlink should have zero
 		 * link count
 		 */
-		if (rmdir) {
-			clear_nlink(file_inode);
+		if (flags & AT_REMOVEDIR) {
+			clear_nlink(inode);
 			drop_nlink(dir);
 		} else
-			drop_nlink(file_inode);
+			drop_nlink(inode);
 
-		v9fs_invalidate_inode_attr(file_inode);
+		v9fs_invalidate_inode_attr(inode);
 		v9fs_invalidate_inode_attr(dir);
 	}
 	return retval;
@@ -693,8 +713,8 @@ v9fs_vfs_create(struct inode *dir, struct dentry *dentry, umode_t mode,
 	fid = NULL;
 	v9ses = v9fs_inode2v9ses(dir);
 	perm = unixmode2p9mode(v9ses, mode);
-	if (nd && nd->flags & LOOKUP_OPEN)
-		flags = nd->intent.open.flags - 1;
+	if (nd)
+		flags = nd->intent.open.flags;
 	else
 		flags = O_RDWR;
 
@@ -709,7 +729,7 @@ v9fs_vfs_create(struct inode *dir, struct dentry *dentry, umode_t mode,
 
 	v9fs_invalidate_inode_attr(dir);
 	/* if we are opening a file, assign the open fid to the file */
-	if (nd && nd->flags & LOOKUP_OPEN) {
+	if (nd) {
 		v9inode = V9FS_I(dentry->d_inode);
 		mutex_lock(&v9inode->v_mutex);
 		if (v9ses->cache && !v9inode->writeback_fid &&
@@ -888,7 +908,7 @@ int v9fs_vfs_unlink(struct inode *i, struct dentry *d)
 
 int v9fs_vfs_rmdir(struct inode *i, struct dentry *d)
 {
-	return v9fs_remove(i, d, 1);
+	return v9fs_remove(i, d, AT_REMOVEDIR);
 }
 
 /**
@@ -936,9 +956,12 @@ v9fs_vfs_rename(struct inode *old_dir, struct dentry *old_dentry,
 
 	down_write(&v9ses->rename_sem);
 	if (v9fs_proto_dotl(v9ses)) {
-		retval = p9_client_rename(oldfid, newdirfid,
-					(char *) new_dentry->d_name.name);
-		if (retval != -ENOSYS)
+		retval = p9_client_renameat(olddirfid, old_dentry->d_name.name,
+					    newdirfid, new_dentry->d_name.name);
+		if (retval == -EOPNOTSUPP)
+			retval = p9_client_rename(oldfid, newdirfid,
+						  new_dentry->d_name.name);
+		if (retval != -EOPNOTSUPP)
 			goto clunk_newdir;
 	}
 	if (old_dentry->d_parent != new_dentry->d_parent) {
@@ -963,11 +986,6 @@ clunk_newdir:
 				clear_nlink(new_inode);
 			else
 				drop_nlink(new_inode);
-			/*
-			 * Work around vfs rename rehash bug with
-			 * FS_RENAME_DOES_D_MOVE
-			 */
-			v9fs_invalidate_inode_attr(new_inode);
 		}
 		if (S_ISDIR(old_inode->i_mode)) {
 			if (!new_inode)
@@ -1108,14 +1126,14 @@ void
 v9fs_stat2inode(struct p9_wstat *stat, struct inode *inode,
 	struct super_block *sb)
 {
-	mode_t mode;
+	umode_t mode;
 	char ext[32];
 	char tag_name[14];
 	unsigned int i_nlink;
 	struct v9fs_session_info *v9ses = sb->s_fs_info;
 	struct v9fs_inode *v9inode = V9FS_I(inode);
 
-	inode->i_nlink = 1;
+	set_nlink(inode, 1);
 
 	inode->i_atime.tv_sec = stat->atime;
 	inode->i_mtime.tv_sec = stat->mtime;
@@ -1141,7 +1159,7 @@ v9fs_stat2inode(struct p9_wstat *stat, struct inode *inode,
 			/* HARDLINKCOUNT %u */
 			sscanf(ext, "%13s %u", tag_name, &i_nlink);
 			if (!strncmp(tag_name, "HARDLINKCOUNT", 13))
-				inode->i_nlink = i_nlink;
+				set_nlink(inode, i_nlink);
 		}
 	}
 	mode = stat->mode & S_IALLUGO;
@@ -1281,9 +1299,8 @@ v9fs_vfs_put_link(struct dentry *dentry, struct nameidata *nd, void *p)
  */
 
 static int v9fs_vfs_mkspecial(struct inode *dir, struct dentry *dentry,
-	int mode, const char *extension)
+	u32 perm, const char *extension)
 {
-	u32 perm;
 	struct p9_fid *fid;
 	struct v9fs_session_info *v9ses;
 
@@ -1293,7 +1310,6 @@ static int v9fs_vfs_mkspecial(struct inode *dir, struct dentry *dentry,
 		return -EPERM;
 	}
 
-	perm = unixmode2p9mode(v9ses, mode);
 	fid = v9fs_create(v9ses, dir, dentry, (char *) extension, perm,
 								P9_OREAD);
 	if (IS_ERR(fid))
@@ -1320,7 +1336,7 @@ v9fs_vfs_symlink(struct inode *dir, struct dentry *dentry, const char *symname)
 	P9_DPRINTK(P9_DEBUG_VFS, " %lu,%s,%s\n", dir->i_ino,
 					dentry->d_name.name, symname);
 
-	return v9fs_vfs_mkspecial(dir, dentry, S_IFLNK, symname);
+	return v9fs_vfs_mkspecial(dir, dentry, P9_DMSYMLINK, symname);
 }
 
 /**
@@ -1377,11 +1393,13 @@ clunk_fid:
 static int
 v9fs_vfs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t rdev)
 {
+	struct v9fs_session_info *v9ses = v9fs_inode2v9ses(dir);
 	int retval;
 	char *name;
+	u32 perm;
 
 	P9_DPRINTK(P9_DEBUG_VFS,
-		" %lu,%s mode: %x MAJOR: %u MINOR: %u\n", dir->i_ino,
+		" %lu,%s mode: %hx MAJOR: %u MINOR: %u\n", dir->i_ino,
 		dentry->d_name.name, mode, MAJOR(rdev), MINOR(rdev));
 
 	if (!new_valid_dev(rdev))
@@ -1404,7 +1422,8 @@ v9fs_vfs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t rde
 		return -EINVAL;
 	}
 
-	retval = v9fs_vfs_mkspecial(dir, dentry, mode, name);
+	perm = unixmode2p9mode(v9ses, mode);
+	retval = v9fs_vfs_mkspecial(dir, dentry, perm, name);
 	__putname(name);
 
 	return retval;

@@ -145,7 +145,7 @@ struct rchan_callbacks
 	 */
 	struct dentry *(*create_buf_file)(const char *filename,
 					  struct dentry *parent,
-					  umode_t mode,
+					  int mode,
 					  struct rchan_buf *buf,
 					  int *is_global);
 

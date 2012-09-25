@@ -130,14 +130,14 @@ static mh_filter_t __rcu *mh_filter __read_mostly;
 
 int rawv6_mh_filter_register(mh_filter_t filter)
 {
-	RCU_INIT_POINTER(mh_filter, filter);
+	rcu_assign_pointer(mh_filter, filter);
 	return 0;
 }
 EXPORT_SYMBOL(rawv6_mh_filter_register);
 
 int rawv6_mh_filter_unregister(mh_filter_t filter)
 {
-	RCU_INIT_POINTER(mh_filter, NULL);
+	rcu_assign_pointer(mh_filter, NULL);
 	synchronize_rcu();
 	return 0;
 }
@@ -817,8 +817,8 @@ static int rawv6_sendmsg(struct kiocb *iocb, struct sock *sk,
 		memset(opt, 0, sizeof(struct ipv6_txoptions));
 		opt->tot_len = sizeof(struct ipv6_txoptions);
 
-		err = datagram_send_ctl(sock_net(sk), msg, &fl6, opt, &hlimit,
-					&tclass, &dontfrag);
+		err = datagram_send_ctl(sock_net(sk), sk, msg, &fl6, opt,
+					&hlimit, &tclass, &dontfrag);
 		if (err < 0) {
 			fl6_sock_release(flowlabel);
 			return err;

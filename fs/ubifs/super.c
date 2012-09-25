@@ -2076,13 +2076,15 @@ static int ubifs_fill_super(struct super_block *sb, void *data, int silent)
 		goto out_umount;
 	}
 
-	sb->s_root = d_make_root(root);
+	sb->s_root = d_alloc_root(root);
 	if (!sb->s_root)
-		goto out_umount;
+		goto out_iput;
 
 	mutex_unlock(&c->umount_mutex);
 	return 0;
 
+out_iput:
+	iput(root);
 out_umount:
 	ubifs_umount(c);
 out_unlock:

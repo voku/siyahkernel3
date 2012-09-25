@@ -785,6 +785,7 @@ char *zconftext;
 #include <string.h>
 #include <unistd.h>
 
+#define LKC_DIRECT_LINK
 #include "lkc.h"
 
 #define START_STRSIZE	16

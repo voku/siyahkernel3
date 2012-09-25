@@ -56,7 +56,7 @@ static int carl9170_debugfs_open(struct inode *inode, struct file *file)
 
 struct carl9170_debugfs_fops {
 	unsigned int read_bufsize;
-	umode_t attr;
+	mode_t attr;
 	char *(*read)(struct ar9170 *ar, char *buf, size_t bufsize,
 		      ssize_t *len);
 	ssize_t (*write)(struct ar9170 *aru, const char *buf, size_t size);

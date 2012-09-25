@@ -1745,6 +1745,10 @@ int main(int ac, char** av)
 	bindtextdomain(PACKAGE, LOCALEDIR);
 	textdomain(PACKAGE);
 
+#ifndef LKC_DIRECT_LINK
+	kconfig_load();
+#endif
+
 	progname = av[0];
 	configApp = new QApplication(ac, av);
 	if (ac > 1 && av[1][0] == '-') {

@@ -667,13 +667,11 @@ static struct cftype bfqio_files[] = {
 	},
 };
 
-#if 0 //function removed
 static int bfqio_populate(struct cgroup_subsys *subsys, struct cgroup *cgroup)
 {
 	return cgroup_add_files(cgroup, subsys, bfqio_files,
 				ARRAY_SIZE(bfqio_files));
 }
-#endif
 
 static struct cgroup_subsys_state *bfqio_create(struct cgroup *cgroup)
 {
@@ -702,7 +700,8 @@ static struct cgroup_subsys_state *bfqio_create(struct cgroup *cgroup)
  * behavior is that a group containing a task that forked using CLONE_IO
  * will not be destroyed until the tasks sharing the ioc die.
  */
-static int bfqio_can_attach(struct cgroup *cgroup, struct cgroup_taskset *tset)
+static int bfqio_can_attach(struct cgroup *cgroup,
+			    struct cgroup_taskset *tset)
 {
 	struct io_context *ioc;
 	int ret = 0;
@@ -723,8 +722,7 @@ static int bfqio_can_attach(struct cgroup *cgroup, struct cgroup_taskset *tset)
 	return ret;
 }
 
-static void bfqio_attach(struct cgroup *cgroup,
-			 struct cgroup_taskset *tset)
+static void bfqio_attach(struct cgroup *cgroup, struct cgroup_taskset *tset)
 {
 	struct io_context *ioc;
 	struct cfq_io_context *cic;
@@ -776,7 +774,7 @@ struct cgroup_subsys bfqio_subsys = {
 	.can_attach = bfqio_can_attach,
 	.attach = bfqio_attach,
 	.destroy = bfqio_destroy,
-//	.populate = bfqio_populate,
+	.populate = bfqio_populate,
 	.subsys_id = bfqio_subsys_id,
 };
 #else

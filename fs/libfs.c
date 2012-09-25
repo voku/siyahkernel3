@@ -491,9 +491,11 @@ int simple_fill_super(struct super_block *s, unsigned long magic,
 	inode->i_op = &simple_dir_inode_operations;
 	inode->i_fop = &simple_dir_operations;
 	inode->i_nlink = 2;
-	root = d_make_root(inode);
-	if (!root)
+	root = d_alloc_root(inode);
+	if (!root) {
+		iput(inode);
 		return -ENOMEM;
+	}
 	for (i = 0; !files->name || files->name[0]; i++, files++) {
 		if (!files->name)
 			continue;

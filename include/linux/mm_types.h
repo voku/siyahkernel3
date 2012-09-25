@@ -32,33 +32,19 @@ struct address_space;
  * who is mapping it.
  */
 struct page {
-	/* First double word block */
 	unsigned long flags;		/* Atomic flags, some possibly
 					 * updated asynchronously */
-	struct address_space *mapping;	/* If low bit clear, points to
-					 * inode address_space, or NULL.
-					 * If page mapped as anonymous
-					 * memory, low bit is set, and
-					 * it points to anon_vma object:
-					 * see PAGE_MAPPING_ANON below.
+	atomic_t _count;		/* Usage count, see below. */
+	bool pfmemalloc;		/* If set by the page allocator,
+				 	 * ALLOC_PFMEMALLOC was set
+					 * and the low watermark was not
+					 * met implying that the system
+					 * is under some pressure. The
+					 * caller should try ensure
+					 * this page is only used to
+					 * free other pages.
 					 */
-	/* Second double word */
-	struct {
-		union {
-			pgoff_t index;		/* Our offset within mapping. */
-			void *freelist;		/* slub/slob first free object */
-			bool pfmemalloc;	/* If set by the page allocator,
-						 * ALLOC_NO_WATERMARKS was set
-						 * and the low watermark was not
-						 * met implying that the system
-						 * is under some pressure. The
-						 * caller should try ensure
-						 * this page is only used to
-						 * free other pages.
-						 */
-		};
-
-		union {
+	union {
 #if defined(CONFIG_HAVE_CMPXCHG_DOUBLE) && \
 	defined(CONFIG_HAVE_ALIGNED_STRUCT_PAGE)
 			/* Used for cmpxchg_double in slub */
@@ -72,39 +58,59 @@ struct page {
 			unsigned counters;
 #endif
 
-			struct {
+		union {
+			/*
+		 	 * Count of ptes mapped in
+		 	 * mms, to show when page is
+		 	 * mapped & limit reverse map
+		 	 * searches.
+		 	 *
+		 	 * Used also for tail pages
+		 	 * refcounting instead of
+		 	 * _count. Tail pages cannot
+		 	 * be mapped and keeping the
+		 	 * tail page _count zero at
+		 	 * all times guarantees
+		 	 * get_page_unless_zero() will
+		 	 * never succeed on tail
+		 	 * pages.
+		 	 */
+			atomic_t _mapcount;
 
-				union {
-					/*
-					 * Count of ptes mapped in
-					 * mms, to show when page is
-					 * mapped & limit reverse map
-					 * searches.
-					 *
-					 * Used also for tail pages
-					 * refcounting instead of
-					 * _count. Tail pages cannot
-					 * be mapped and keeping the
-					 * tail page _count zero at
-					 * all times guarantees
-					 * get_page_unless_zero() will
-					 * never succeed on tail
-					 * pages.
-					 */
-					atomic_t _mapcount;
-
-					struct { /* SLUB */
-						unsigned inuse:16;
-						unsigned objects:15;
-						unsigned frozen:1;
-					};
-					int units;	/* SLOB */
-				};
-				atomic_t _count;		/* Usage count, see below. */
+			struct {		/* SLUB */
+				unsigned inuse:16;
+				unsigned objects:15;
+				unsigned frozen:1;
 			};
 		};
 	};
-
+	union {
+	    struct {
+		unsigned long private;		/* Mapping-private opaque data:
+					 	 * usually used for buffer_heads
+						 * if PagePrivate set; used for
+						 * swp_entry_t if PageSwapCache;
+						 * indicates order in the buddy
+						 * system if PG_buddy is set.
+						 */
+		struct address_space *mapping;	/* If low bit clear, points to
+						 * inode address_space, or NULL.
+						 * If page mapped as anonymous
+						 * memory, low bit is set, and
+						 * it points to anon_vma object:
+						 * see PAGE_MAPPING_ANON below.
+						 */
+	    };
+#if USE_SPLIT_PTLOCKS
+	    spinlock_t ptl;
+#endif
+	    struct kmem_cache *slab;	/* SLUB: Pointer to slab */
+	    struct page *first_page;	/* Compound tail pages */
+	};
+	union {
+		pgoff_t index;		/* Our offset within mapping. */
+		void *freelist;		/* SLUB: freelist req. slab lock */
+	};
 	/* Third double word block */
 	union {
 		struct list_head lru;	/* Pageout list, eg. active_list
@@ -120,28 +126,6 @@ struct page {
 			short int pobjects;
 #endif
 		};
-
-		struct list_head list;	/* slobs list of pages */
-		struct {		/* slab fields */
-			struct kmem_cache *slab_cache;
-			struct slab *slab_page;
-		};
-	};
-
-	/* Remainder is not double word aligned */
-	union {
-		unsigned long private;		/* Mapping-private opaque data:
-					 	 * usually used for buffer_heads
-						 * if PagePrivate set; used for
-						 * swp_entry_t if PageSwapCache;
-						 * indicates order in the buddy
-						 * system if PG_buddy is set.
-						 */
-#if USE_SPLIT_PTLOCKS
-	    spinlock_t ptl;
-#endif
-	    struct kmem_cache *slab;	/* SLUB: Pointer to slab */
-	    struct page *first_page;	/* Compound tail pages */
 	};
 
 	/*
@@ -178,17 +162,6 @@ struct page {
 	__aligned(2 * sizeof(unsigned long))
 #endif
 ;
-
-struct page_frag {
-	struct page *page;
-#if (BITS_PER_LONG > 32) || (PAGE_SIZE >= 65536)
-	__u32 offset;
-	__u32 size;
-#else
-	__u16 offset;
-	__u16 size;
-#endif
-};
 
 typedef unsigned long __nocast vm_flags_t;
 
@@ -359,6 +332,17 @@ struct mm_struct {
 
 	/* Architecture-specific MM context */
 	mm_context_t context;
+
+	/* Swap token stuff */
+	/*
+	 * Last value of global fault stamp as seen by this process.
+	 * In other words, this value gives an indication of how long
+	 * it has been since this task got the token.
+	 * Look at mm/thrash.c
+	 */
+	unsigned int faultstamp;
+	unsigned int token_priority;
+	unsigned int last_interval;
 
 	unsigned long flags; /* Must use atomic bitops to access the bits */
 

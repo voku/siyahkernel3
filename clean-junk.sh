@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 JUNK=`find . -name *.rej`;
 for i in $JUNK; do

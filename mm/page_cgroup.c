@@ -16,6 +16,7 @@ static void __meminit init_page_cgroup(struct page_cgroup *pc, unsigned long id)
 	pc->flags = 0;
 	set_page_cgroup_array_id(pc, id);
 	pc->mem_cgroup = NULL;
+	INIT_LIST_HEAD(&pc->lru);
 }
 static unsigned long total_usage;
 
@@ -347,7 +348,7 @@ void __meminit pgdat_page_cgroup_init(struct pglist_data *pgdat)
 #endif
 
 
-#ifdef CONFIG_MEMCG_SWAP
+#ifdef CONFIG_CGROUP_MEM_RES_CTLR_SWAP
 
 static DEFINE_MUTEX(swap_cgroup_mutex);
 struct swap_cgroup_ctrl {
@@ -512,11 +513,10 @@ int swap_cgroup_swapon(int type, unsigned long max_pages)
 	length = DIV_ROUND_UP(max_pages, SC_PER_PAGE);
 	array_size = length * sizeof(void *);
 
-	array = vmalloc(array_size);
+	array = vzalloc(array_size);
 	if (!array)
 		goto nomem;
 
-	memset(array, 0, array_size);
 	ctrl = &swap_cgroup_ctrl[type];
 	mutex_lock(&swap_cgroup_mutex);
 	ctrl->length = length;

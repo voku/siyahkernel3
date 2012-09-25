@@ -45,7 +45,7 @@ static inline enum integrity_status evm_verifyxattr(struct dentry *dentry,
 }
 #endif
 
-static inline int evm_inode_setattr(struct dentry *dentry, struct iattr *attr)
+static int evm_inode_setattr(struct dentry *dentry, struct iattr *attr)
 {
 	return 0;
 }

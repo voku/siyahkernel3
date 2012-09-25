@@ -2290,7 +2290,7 @@ static int xfrm_user_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
 	link = &xfrm_dispatch[type];
 
 	/* All operations require privileges, even GET */
-	if (!capable(CAP_NET_ADMIN))
+	if (security_netlink_recv(skb, CAP_NET_ADMIN))
 		return -EPERM;
 
 	if ((type == (XFRM_MSG_GETSA - XFRM_MSG_BASE) ||
@@ -2926,7 +2926,7 @@ static int __net_init xfrm_user_net_init(struct net *net)
 	if (nlsk == NULL)
 		return -ENOMEM;
 	net->xfrm.nlsk_stash = nlsk; /* Don't set to NULL */
-	RCU_INIT_POINTER(net->xfrm.nlsk, nlsk);
+	rcu_assign_pointer(net->xfrm.nlsk, nlsk);
 	return 0;
 }
 
@@ -2934,7 +2934,7 @@ static void __net_exit xfrm_user_net_exit(struct list_head *net_exit_list)
 {
 	struct net *net;
 	list_for_each_entry(net, net_exit_list, exit_list)
-		RCU_INIT_POINTER(net->xfrm.nlsk, NULL);
+		rcu_assign_pointer(net->xfrm.nlsk, NULL);
 	synchronize_net();
 	list_for_each_entry(net, net_exit_list, exit_list)
 		netlink_kernel_release(net->xfrm.nlsk_stash);

@@ -175,9 +175,7 @@ void ima_store_measurement(struct integrity_iint_cache *iint,
 	}
 	memset(&entry->template, 0, sizeof(entry->template));
 	memcpy(entry->template.digest, iint->digest, IMA_DIGEST_SIZE);
-	strcpy(entry->template.file_name,
-	       (strlen(filename) > IMA_EVENT_NAME_LEN_MAX) ?
-	       file->f_dentry->d_name.name : filename);
+	strncpy(entry->template.file_name, filename, IMA_EVENT_NAME_LEN_MAX);
 
 	result = ima_store_template(entry, violation, inode);
 	if (!result || result == -EEXIST)

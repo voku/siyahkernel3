@@ -127,25 +127,45 @@ static int __cpuinit fake_numa_create_new_node(unsigned long end_pfn,
 }
 
 /*
- * get_node_active_region - Return active region containing pfn
- * Active range returned is empty if none found.
- * @pfn: The page to return the region for
- * @node_ar: Returned set to the active region containing @pfn
+ * get_active_region_work_fn - A helper function for get_node_active_region
+ *	Returns datax set to the start_pfn and end_pfn if they contain
+ *	the initial value of datax->start_pfn between them
+ * @start_pfn: start page(inclusive) of region to check
+ * @end_pfn: end page(exclusive) of region to check
+ * @datax: comes in with ->start_pfn set to value to search for and
+ *	goes out with active range if it contains it
+ * Returns 1 if search value is in range else 0
  */
-static void __init get_node_active_region(unsigned long pfn,
-					  struct node_active_region *node_ar)
+static int __init get_active_region_work_fn(unsigned long start_pfn,
+					unsigned long end_pfn, void *datax)
 {
-	unsigned long start_pfn, end_pfn;
-	int i, nid;
+	struct node_active_region *data;
+	data = (struct node_active_region *)datax;
 
-	for_each_mem_pfn_range(i, MAX_NUMNODES, &start_pfn, &end_pfn, &nid) {
-		if (pfn >= start_pfn && pfn < end_pfn) {
-			node_ar->nid = nid;
-			node_ar->start_pfn = start_pfn;
-			node_ar->end_pfn = end_pfn;
-			break;
-		}
+	if (start_pfn <= data->start_pfn && end_pfn > data->start_pfn) {
+		data->start_pfn = start_pfn;
+		data->end_pfn = end_pfn;
+		return 1;
 	}
+	return 0;
+
+}
+
+/*
+ * get_node_active_region - Return active region containing start_pfn
+ * Active range returned is empty if none found.
+ * @start_pfn: The page to return the region for.
+ * @node_ar: Returned set to the active region containing start_pfn
+ */
+static void __init get_node_active_region(unsigned long start_pfn,
+		       struct node_active_region *node_ar)
+{
+	int nid = early_pfn_to_nid(start_pfn);
+
+	node_ar->nid = nid;
+	node_ar->start_pfn = start_pfn;
+	node_ar->end_pfn = start_pfn;
+	work_with_active_regions(nid, get_active_region_work_fn, node_ar);
 }
 
 static void map_cpu_to_node(int cpu, int node)
@@ -689,8 +709,7 @@ static void __init parse_drconf_memory(struct device_node *memory)
 
 static int __init parse_numa_properties(void)
 {
-	struct device_node *cpu = NULL;
-	struct device_node *memory = NULL;
+	struct device_node *memory;
 	int default_nid = 0;
 	unsigned long i;
 
@@ -712,6 +731,7 @@ static int __init parse_numa_properties(void)
 	 * each node to be onlined must have NODE_DATA etc backing it.
 	 */
 	for_each_present_cpu(i) {
+		struct device_node *cpu;
 		int nid;
 
 		cpu = of_get_cpu_node(i, NULL);
@@ -730,8 +750,8 @@ static int __init parse_numa_properties(void)
 	}
 
 	get_n_mem_cells(&n_mem_addr_cells, &n_mem_size_cells);
-	memory = NULL;
-	while ((memory = of_find_node_by_type(memory, "memory")) != NULL) {
+
+	for_each_node_by_type(memory, "memory") {
 		unsigned long start;
 		unsigned long size;
 		int nid;
@@ -780,8 +800,9 @@ new_range:
 	}
 
 	/*
-	 * Now do the same thing for each MEMBLOCK listed in the ibm,dynamic-memory
-	 * property in the ibm,dynamic-reconfiguration-memory node.
+	 * Now do the same thing for each MEMBLOCK listed in the
+	 * ibm,dynamic-memory property in the
+	 * ibm,dynamic-reconfiguration-memory node.
 	 */
 	memory = of_find_node_by_path("/ibm,dynamic-reconfiguration-memory");
 	if (memory)
@@ -1167,10 +1188,10 @@ static int hot_add_drconf_scn_to_nid(struct device_node *memory,
  */
 int hot_add_node_scn_to_nid(unsigned long scn_addr)
 {
-	struct device_node *memory = NULL;
+	struct device_node *memory;
 	int nid = -1;
 
-	while ((memory = of_find_node_by_type(memory, "memory")) != NULL) {
+	for_each_node_by_type(memory, "memory") {
 		unsigned long start, size;
 		int ranges;
 		const unsigned int *memcell_buf;
@@ -1431,7 +1452,7 @@ int arch_update_cpu_topology(void)
 {
 	int cpu, nid, old_nid;
 	unsigned int associativity[VPHN_ASSOC_BUFSIZE] = {0};
-	struct sys_device *sysdev;
+	struct device *dev;
 
 	for_each_cpu(cpu,&cpu_associativity_changes_mask) {
 		vphn_get_associativity(cpu, associativity);
@@ -1452,9 +1473,9 @@ int arch_update_cpu_topology(void)
 		register_cpu_under_node(cpu, nid);
 		put_online_cpus();
 
-		sysdev = get_cpu_sysdev(cpu);
-		if (sysdev)
-			kobject_uevent(&sysdev->kobj, KOBJ_CHANGE);
+		dev = get_cpu_device(cpu);
+		if (dev)
+			kobject_uevent(&dev->kobj, KOBJ_CHANGE);
 	}
 
 	return 1;

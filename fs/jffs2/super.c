@@ -74,6 +74,37 @@ static void jffs2_write_super(struct super_block *sb)
 	unlock_super(sb);
 }
 
+static const char *jffs2_compr_name(unsigned int compr)
+{
+	switch (compr) {
+	case JFFS2_COMPR_MODE_NONE:
+		return "none";
+#ifdef CONFIG_JFFS2_LZO
+	case JFFS2_COMPR_MODE_FORCELZO:
+		return "lzo";
+#endif
+#ifdef CONFIG_JFFS2_ZLIB
+	case JFFS2_COMPR_MODE_FORCEZLIB:
+		return "zlib";
+#endif
+	default:
+		/* should never happen; programmer error */
+		WARN_ON(1);
+		return "";
+	}
+}
+
+static int jffs2_show_options(struct seq_file *s, struct dentry *root)
+{
+	struct jffs2_sb_info *c = JFFS2_SB_INFO(root->d_sb);
+	struct jffs2_mount_opts *opts = &c->mount_opts;
+
+	if (opts->override_compr)
+		seq_printf(s, ",compr=%s", jffs2_compr_name(opts->compr));
+
+	return 0;
+}
+
 static int jffs2_sync_fs(struct super_block *sb, int wait)
 {
 	struct jffs2_sb_info *c = JFFS2_SB_INFO(sb);

@@ -629,7 +629,7 @@ static struct dentry *open_root_dentry(struct ceph_fs_client *fsc,
 		dout("open_root_inode success\n");
 		if (ceph_ino(req->r_target_inode) == CEPH_INO_ROOT &&
 		    fsc->sb->s_root == NULL)
-			root = d_make_root(req->r_target_inode);
+			root = d_alloc_root(req->r_target_inode);
 		else
 			root = d_obtain_alias(req->r_target_inode);
 		req->r_target_inode = NULL;
@@ -810,8 +810,8 @@ static struct dentry *ceph_mount(struct file_system_type *fs_type,
 	fsc = create_fs_client(fsopt, opt);
 	if (IS_ERR(fsc)) {
 		res = ERR_CAST(fsc);
-		kfree(fsopt);
-		kfree(opt);
+		destroy_mount_options(fsopt);
+		ceph_destroy_options(opt);
 		goto out_final;
 	}
 

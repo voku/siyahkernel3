@@ -338,6 +338,7 @@ static int hfsplus_fill_super(struct super_block *sb, void *data, int silent)
 	struct inode *root, *inode;
 	struct qstr str;
 	struct nls_table *nls = NULL;
+	u64 last_fs_block, last_fs_page;
 	int err;
 
 	err = -EINVAL;
@@ -392,6 +393,17 @@ static int hfsplus_fill_super(struct super_block *sb, void *data, int silent)
 		be32_to_cpu(vhdr->rsrc_clump_sz) >> sbi->alloc_blksz_shift;
 	if (!sbi->rsrc_clump_blocks)
 		sbi->rsrc_clump_blocks = 1;
+
+	err = -EFBIG;
+	last_fs_block = sbi->total_blocks - 1;
+	last_fs_page = (last_fs_block << sbi->alloc_blksz_shift) >>
+			PAGE_CACHE_SHIFT;
+
+	if ((last_fs_block > (sector_t)(~0ULL) >> (sbi->alloc_blksz_shift - 9)) ||
+	    (last_fs_page > (pgoff_t)(~0ULL))) {
+		printk(KERN_ERR "hfs: filesystem size too large.\n");
+		goto out_free_vhdr;
+	}
 
 	/* Set up operations so we can load metadata */
 	sb->s_op = &hfsplus_sops;

@@ -47,7 +47,6 @@ LIST_HEAD(dpm_prepared_list);
 LIST_HEAD(dpm_suspended_list);
 LIST_HEAD(dpm_noirq_list);
 
-struct suspend_stats suspend_stats;
 static DEFINE_MUTEX(dpm_list_mtx);
 static pm_message_t pm_transition;
 
@@ -485,12 +484,8 @@ void dpm_resume_noirq(pm_message_t state)
 		mutex_unlock(&dpm_list_mtx);
 
 		error = device_resume_noirq(dev, state);
-		if (error) {
-			suspend_stats.failed_resume_noirq++;
-			dpm_save_failed_step(SUSPEND_RESUME_NOIRQ);
-			dpm_save_failed_dev(dev_name(dev));
+		if (error)
 			pm_dev_err(dev, state, " early", error);
-		}
 
 		mutex_lock(&dpm_list_mtx);
 		put_device(dev);
@@ -682,12 +677,8 @@ void dpm_resume(pm_message_t state)
 			mutex_unlock(&dpm_list_mtx);
 
 			error = device_resume(dev, state, false);
-			if (error) {
-				suspend_stats.failed_resume++;
-				dpm_save_failed_step(SUSPEND_RESUME);
-				dpm_save_failed_dev(dev_name(dev));
+			if (error)
 				pm_dev_err(dev, state, "", error);
-			}
 
 			mutex_lock(&dpm_list_mtx);
 		}
@@ -876,9 +867,6 @@ int dpm_suspend_noirq(pm_message_t state)
 		mutex_lock(&dpm_list_mtx);
 		if (error) {
 			pm_dev_err(dev, state, " late", error);
-			suspend_stats.failed_suspend_noirq++;
-			dpm_save_failed_step(SUSPEND_SUSPEND_NOIRQ);
-			dpm_save_failed_dev(dev_name(dev));
 			put_device(dev);
 			break;
 		}
@@ -1008,10 +996,8 @@ static void async_suspend(void *data, async_cookie_t cookie)
 	int error;
 
 	error = __device_suspend(dev, pm_transition, true);
-	if (error) {
-		dpm_save_failed_dev(dev_name(dev));
+	if (error)
 		pm_dev_err(dev, pm_transition, " async", error);
-	}
 
 	put_device(dev);
 }
@@ -1054,7 +1040,6 @@ int dpm_suspend(pm_message_t state)
 		mutex_lock(&dpm_list_mtx);
 		if (error) {
 			pm_dev_err(dev, state, "", error);
-			dpm_save_failed_dev(dev_name(dev));
 			put_device(dev);
 			break;
 		}
@@ -1068,10 +1053,7 @@ int dpm_suspend(pm_message_t state)
 	async_synchronize_full();
 	if (!error)
 		error = async_error;
-	if (error) {
-		suspend_stats.failed_suspend++;
-		dpm_save_failed_step(SUSPEND_SUSPEND);
-	} else
+	if (!error)
 		dpm_show_time(starttime, state, NULL);
 	return error;
 }
@@ -1185,10 +1167,7 @@ int dpm_suspend_start(pm_message_t state)
 	int error;
 
 	error = dpm_prepare(state);
-	if (error) {
-		suspend_stats.failed_prepare++;
-		dpm_save_failed_step(SUSPEND_PREPARE);
-	} else
+	if (!error)
 		error = dpm_suspend(state);
 	return error;
 }

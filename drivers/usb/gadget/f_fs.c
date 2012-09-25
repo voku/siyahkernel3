@@ -1072,8 +1072,7 @@ static int ffs_sb_fill(struct super_block *sb, void *_data, int silent)
 				  &simple_dir_operations,
 				  &simple_dir_inode_operations,
 				  &data->perms);
-	sb->s_root = d_make_root(inode);
-	if (unlikely(!sb->s_root))
+	if (unlikely(!inode))
 		goto enomem1;
 	d = d_alloc_root(inode);
 	if (unlikely(!d))

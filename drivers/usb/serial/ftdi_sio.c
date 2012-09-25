@@ -1235,7 +1235,10 @@ static int change_speed(struct tty_struct *tty, struct usb_serial_port *port)
 	urb_index_value = get_ftdi_divisor(tty, port);
 	urb_value = (__u16)urb_index_value;
 	urb_index = (__u16)(urb_index_value >> 16);
-	if (priv->interface) {	/* FT2232C */
+	if ((priv->chip_type == FT2232C) || (priv->chip_type == FT2232H) ||
+		(priv->chip_type == FT4232H) || (priv->chip_type == FT232H)) {
+		/* Probably the BM type needs the MSB of the encoded fractional
+		 * divider also moved like for the chips above. Any infos? */
 		urb_index = (__u16)((urb_index << 8) | priv->interface);
 	}
 
@@ -1774,8 +1777,7 @@ static int ftdi_8u2232c_probe(struct usb_serial *serial)
 
 	dbg("%s", __func__);
 
-	if ((udev->manufacturer && !strcmp(udev->manufacturer, "CALAO Systems")) ||
-	    (udev->product && !strcmp(udev->product, "BeagleBone/XDS100")))
+	if (strcmp(udev->manufacturer, "CALAO Systems") == 0)
 		return ftdi_jtag_probe(serial);
 
 	return 0;

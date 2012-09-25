@@ -147,12 +147,6 @@ typedef enum {
 	CS_SPREAD_SLAB,
 } cpuset_flagbits_t;
 
-/* the type of hotplug event */
-enum hotplug_event {
-	CPUSET_CPU_OFFLINE,
-	CPUSET_MEM_OFFLINE,
-};
-
 /* convenient tests for these bits */
 static inline int is_cpu_exclusive(const struct cpuset *cs)
 {
@@ -276,11 +270,11 @@ static struct file_system_type cpuset_fs_type = {
  * are online.  If none are online, walk up the cpuset hierarchy
  * until we find one that does have some online cpus.  If we get
  * all the way to the top and still haven't found any online cpus,
- * return cpu_online_mask.  Or if passed a NULL cs from an exit'ing
- * task, return cpu_online_mask.
+ * return cpu_online_map.  Or if passed a NULL cs from an exit'ing
+ * task, return cpu_online_map.
  *
  * One way or another, we guarantee to return some non-empty subset
- * of cpu_online_mask.
+ * of cpu_online_map.
  *
  * Call with callback_mutex held.
  */
@@ -873,7 +867,7 @@ static int update_cpumask(struct cpuset *cs, struct cpuset *trialcs,
 	int retval;
 	int is_load_balanced;
 
-	/* top_cpuset.cpus_allowed tracks cpu_online_mask; it's read-only */
+	/* top_cpuset.cpus_allowed tracks cpu_online_map; it's read-only */
 	if (cs == &top_cpuset)
 		return -EACCES;
 
@@ -1771,17 +1765,28 @@ static struct cftype files[] = {
 		.write_u64 = cpuset_write_u64,
 		.private = FILE_SPREAD_SLAB,
 	},
-
-	{
-		.name = "memory_pressure_enabled",
-		.flags = CFTYPE_ONLY_ON_ROOT,
-		.read_u64 = cpuset_read_u64,
-		.write_u64 = cpuset_write_u64,
-		.private = FILE_MEMORY_PRESSURE_ENABLED,
-	},
-
-	{ }	/* terminate */
 };
+
+static struct cftype cft_memory_pressure_enabled = {
+	.name = "memory_pressure_enabled",
+	.read_u64 = cpuset_read_u64,
+	.write_u64 = cpuset_write_u64,
+	.private = FILE_MEMORY_PRESSURE_ENABLED,
+};
+
+static int cpuset_populate(struct cgroup_subsys *ss, struct cgroup *cont)
+{
+	int err;
+
+	err = cgroup_add_files(cont, ss, files, ARRAY_SIZE(files));
+	if (err)
+		return err;
+	/* memory_pressure_enabled is in root cpuset only */
+	if (!cont->parent)
+		err = cgroup_add_file(cont, ss,
+				      &cft_memory_pressure_enabled);
+	return err;
+}
 
 /*
  * post_clone() is called during cgroup_create() when the
@@ -1882,9 +1887,9 @@ struct cgroup_subsys cpuset_subsys = {
 	.destroy = cpuset_destroy,
 	.can_attach = cpuset_can_attach,
 	.attach = cpuset_attach,
+	.populate = cpuset_populate,
 	.post_clone = cpuset_post_clone,
 	.subsys_id = cpuset_subsys_id,
-	.base_cftypes = files,
 	.early_init = 1,
 };
 
@@ -1996,36 +2001,8 @@ static void remove_tasks_in_empty_cpuset(struct cpuset *cs)
 }
 
 /*
- * Helper function to traverse cpusets.
- * It can be used to walk the cpuset tree from top to bottom, completing
- * one layer before dropping down to the next (thus always processing a
- * node before any of its children).
- */
-static struct cpuset *cpuset_next(struct list_head *queue)
-{
-	struct cpuset *cp;
-	struct cpuset *child;	/* scans child cpusets of cp */
-	struct cgroup *cont;
-
-	if (list_empty(queue))
-		return NULL;
-
-	cp = list_first_entry(queue, struct cpuset, stack_list);
-	list_del(queue->next);
-	list_for_each_entry(cont, &cp->css.cgroup->children, sibling) {
-		child = cgroup_cs(cont);
-		list_add_tail(&child->stack_list, queue);
-	}
-
-	return cp;
-}
-
-
-/*
- * Walk the specified cpuset subtree upon a hotplug operation (CPU/Memory
- * online/offline) and update the cpusets accordingly.
- * For regular CPU/Mem hotplug, look for empty cpusets; the tasks of such
- * cpuset must be moved to a parent cpuset.
+ * Walk the specified cpuset subtree and look for empty cpusets.
+ * The tasks of such cpuset must be moved to a parent cpuset.
  *
  * Called with cgroup_mutex held.  We take callback_mutex to modify
  * cpus_allowed and mems_allowed.
@@ -2034,61 +2011,50 @@ static struct cpuset *cpuset_next(struct list_head *queue)
  * before dropping down to the next.  It always processes a node before
  * any of its children.
  *
- * In the case of memory hot-unplug, it will remove nodes from N_HIGH_MEMORY
- * if all present pages from a node are offlined.
+ * For now, since we lack memory hot unplug, we'll never see a cpuset
+ * that has tasks along with an empty 'mems'.  But if we did see such
+ * a cpuset, we'd handle it just like we do if its 'cpus' was empty.
  */
-static void
-scan_cpusets_upon_hotplug(struct cpuset *root, enum hotplug_event event)
+static void scan_for_empty_cpusets(struct cpuset *root)
 {
 	LIST_HEAD(queue);
-	struct cpuset *cp;		/* scans cpusets being updated */
+	struct cpuset *cp;	/* scans cpusets being updated */
+	struct cpuset *child;	/* scans child cpusets of cp */
+	struct cgroup *cont;
 	static nodemask_t oldmems;	/* protected by cgroup_mutex */
 
 	list_add_tail((struct list_head *)&root->stack_list, &queue);
 
-	switch (event) {
-	case CPUSET_CPU_OFFLINE:
-		while ((cp = cpuset_next(&queue)) != NULL) {
-
-			/* Continue past cpusets with all cpus online */
-			if (cpumask_subset(cp->cpus_allowed, cpu_active_mask))
-				continue;
-
-			/* Remove offline cpus from this cpuset. */
-			mutex_lock(&callback_mutex);
-			cpumask_and(cp->cpus_allowed, cp->cpus_allowed,
-							cpu_active_mask);
-			mutex_unlock(&callback_mutex);
-
-			/* Move tasks from the empty cpuset to a parent */
-			if (cpumask_empty(cp->cpus_allowed))
-				remove_tasks_in_empty_cpuset(cp);
-			else
-				update_tasks_cpumask(cp, NULL);
+	while (!list_empty(&queue)) {
+		cp = list_first_entry(&queue, struct cpuset, stack_list);
+		list_del(queue.next);
+		list_for_each_entry(cont, &cp->css.cgroup->children, sibling) {
+			child = cgroup_cs(cont);
+			list_add_tail(&child->stack_list, &queue);
 		}
-		break;
 
-	case CPUSET_MEM_OFFLINE:
-		while ((cp = cpuset_next(&queue)) != NULL) {
+		/* Continue past cpusets with all cpus, mems online */
+		if (cpumask_subset(cp->cpus_allowed, cpu_active_mask) &&
+		    nodes_subset(cp->mems_allowed, node_states[N_HIGH_MEMORY]))
+			continue;
 
-			/* Continue past cpusets with all mems online */
-			if (nodes_subset(cp->mems_allowed,
-					node_states[N_HIGH_MEMORY]))
-				continue;
+		oldmems = cp->mems_allowed;
 
-			oldmems = cp->mems_allowed;
-
-			/* Remove offline mems from this cpuset. */
-			mutex_lock(&callback_mutex);
-			nodes_and(cp->mems_allowed, cp->mems_allowed,
+		/* Remove offline cpus and mems from this cpuset. */
+		mutex_lock(&callback_mutex);
+		cpumask_and(cp->cpus_allowed, cp->cpus_allowed,
+			    cpu_active_mask);
+		nodes_and(cp->mems_allowed, cp->mems_allowed,
 						node_states[N_HIGH_MEMORY]);
-			mutex_unlock(&callback_mutex);
+		mutex_unlock(&callback_mutex);
 
-			/* Move tasks from the empty cpuset to a parent */
-			if (nodes_empty(cp->mems_allowed))
-				remove_tasks_in_empty_cpuset(cp);
-			else
-				update_tasks_nodemask(cp, &oldmems, NULL);
+		/* Move tasks from the empty cpuset to a parent */
+		if (cpumask_empty(cp->cpus_allowed) ||
+		     nodes_empty(cp->mems_allowed))
+			remove_tasks_in_empty_cpuset(cp);
+		else {
+			update_tasks_cpumask(cp, NULL);
+			update_tasks_nodemask(cp, &oldmems, NULL);
 		}
 	}
 }
@@ -2099,19 +2065,13 @@ scan_cpusets_upon_hotplug(struct cpuset *root, enum hotplug_event event)
  * (of no affect) on systems that are actively using CPU hotplug
  * but making no active use of cpusets.
  *
- * The only exception to this is suspend/resume, where we don't
- * modify cpusets at all.
- *
  * This routine ensures that top_cpuset.cpus_allowed tracks
  * cpu_active_mask on each CPU hotplug (cpuhp) event.
  *
  * Called within get_online_cpus().  Needs to call cgroup_lock()
  * before calling generate_sched_domains().
- *
- * @cpu_online: Indicates whether this is a CPU online event (true) or
- * a CPU offline event (false).
  */
-void cpuset_update_active_cpus(bool cpu_online)
+void cpuset_update_active_cpus(void)
 {
 	struct sched_domain_attr *attr;
 	cpumask_var_t *doms;
@@ -2121,10 +2081,7 @@ void cpuset_update_active_cpus(bool cpu_online)
 	mutex_lock(&callback_mutex);
 	cpumask_copy(top_cpuset.cpus_allowed, cpu_active_mask);
 	mutex_unlock(&callback_mutex);
-
-	if (!cpu_online)
-		scan_cpusets_upon_hotplug(&top_cpuset, CPUSET_CPU_OFFLINE);
-
+	scan_for_empty_cpusets(&top_cpuset);
 	ndoms = generate_sched_domains(&doms, &attr);
 	cgroup_unlock();
 
@@ -2136,7 +2093,7 @@ void cpuset_update_active_cpus(bool cpu_online)
 /*
  * Keep top_cpuset.mems_allowed tracking node_states[N_HIGH_MEMORY].
  * Call this routine anytime after node_states[N_HIGH_MEMORY] changes.
- * See cpuset_update_active_cpus() for CPU hotplug handling.
+ * See also the previous routine cpuset_track_online_cpus().
  */
 static int cpuset_track_online_nodes(struct notifier_block *self,
 				unsigned long action, void *arg)
@@ -2155,9 +2112,9 @@ static int cpuset_track_online_nodes(struct notifier_block *self,
 	case MEM_OFFLINE:
 		/*
 		 * needn't update top_cpuset.mems_allowed explicitly because
-		 * scan_cpusets_upon_hotplug() will update it.
+		 * scan_for_empty_cpusets() will update it.
 		 */
-		scan_cpusets_upon_hotplug(&top_cpuset, CPUSET_MEM_OFFLINE);
+		scan_for_empty_cpusets(&top_cpuset);
 		break;
 	default:
 		break;
@@ -2192,7 +2149,7 @@ void __init cpuset_init_smp(void)
  *
  * Description: Returns the cpumask_var_t cpus_allowed of the cpuset
  * attached to the specified @tsk.  Guaranteed to return some non-empty
- * subset of cpu_online_mask, even if this means going outside the
+ * subset of cpu_online_map, even if this means going outside the
  * tasks cpuset.
  **/
 
@@ -2205,9 +2162,10 @@ void cpuset_cpus_allowed(struct task_struct *tsk, struct cpumask *pmask)
 	mutex_unlock(&callback_mutex);
 }
 
-void cpuset_cpus_allowed_fallback(struct task_struct *tsk)
+int cpuset_cpus_allowed_fallback(struct task_struct *tsk)
 {
 	const struct cpuset *cs;
+	int cpu;
 
 	rcu_read_lock();
 	cs = task_cs(tsk);
@@ -2228,10 +2186,22 @@ void cpuset_cpus_allowed_fallback(struct task_struct *tsk)
 	 * changes in tsk_cs()->cpus_allowed. Otherwise we can temporary
 	 * set any mask even if it is not right from task_cs() pov,
 	 * the pending set_cpus_allowed_ptr() will fix things.
-	 *
-	 * select_fallback_rq() will fix things ups and set cpu_possible_mask
-	 * if required.
 	 */
+
+	cpu = cpumask_any_and(&tsk->cpus_allowed, cpu_active_mask);
+	if (cpu >= nr_cpu_ids) {
+		/*
+		 * Either tsk->cpus_allowed is wrong (see above) or it
+		 * is actually empty. The latter case is only possible
+		 * if we are racing with remove_tasks_in_empty_cpuset().
+		 * Like above we can temporary set any mask and rely on
+		 * set_cpus_allowed_ptr() as synchronization point.
+		 */
+		do_set_cpus_allowed(tsk, cpu_possible_mask);
+		cpu = cpumask_any(cpu_active_mask);
+	}
+
+	return cpu;
 }
 
 void cpuset_init_current_mems_allowed(void)
@@ -2470,19 +2440,11 @@ static int cpuset_spread_node(int *rotor)
 
 int cpuset_mem_spread_node(void)
 {
-	if (current->cpuset_mem_spread_rotor == NUMA_NO_NODE)
-		current->cpuset_mem_spread_rotor =
-			node_random(&current->mems_allowed);
-
 	return cpuset_spread_node(&current->cpuset_mem_spread_rotor);
 }
 
 int cpuset_slab_spread_node(void)
 {
-	if (current->cpuset_slab_spread_rotor == NUMA_NO_NODE)
-		current->cpuset_slab_spread_rotor =
-			node_random(&current->mems_allowed);
-
 	return cpuset_spread_node(&current->cpuset_slab_spread_rotor);
 }
 

@@ -19,6 +19,8 @@
 #include <linux/syscore_ops.h>
 #include <linux/io.h>
 #include <linux/regulator/machine.h>
+#include <linux/err.h>
+#include <linux/clk.h>
 
 #if defined(CONFIG_MACH_M0_CTC)
 #include <linux/mfd/max77693.h>
@@ -31,6 +33,7 @@
 
 #include <plat/cpu.h>
 #include <plat/pm.h>
+#include <plat/pll.h>
 #include <plat/regs-srom.h>
 
 #include <mach/regs-irq.h>
@@ -386,7 +389,7 @@ static void exynos4_cpu_prepare(void)
 		s3c_pm_do_restore_core(exynos4210_set_clksrc, ARRAY_SIZE(exynos4210_set_clksrc));
 }
 
-static int exynos4_pm_add(struct sys_device *sysdev)
+static int exynos4_pm_add(struct device *dev, struct subsys_interface *sif)
 {
 	pm_cpu_prep = exynos4_cpu_prepare;
 	pm_cpu_sleep = exynos4_cpu_suspend;
@@ -399,8 +402,10 @@ static int exynos4_pm_add(struct sys_device *sysdev)
 	return 0;
 }
 
-static struct sysdev_driver exynos4_pm_driver = {
-	.add		= exynos4_pm_add,
+static struct subsys_interface exynos4_pm_interface = {
+	.name		= "exynos4_pm",
+	.subsys		= &exynos4_subsys,
+	.add_dev	= exynos4_pm_add,
 };
 
 static __init int exynos4_pm_drvinit(void)
@@ -418,7 +423,7 @@ static __init int exynos4_pm_drvinit(void)
 	/* Disable XXTI pad in system level normal mode */
 	__raw_writel(0x0, S5P_XXTI_CONFIGURATION);
 
-	return sysdev_driver_register(&exynos4_sysclass, &exynos4_pm_driver);
+	return subsys_interface_register(&exynos4_pm_interface);
 }
 arch_initcall(exynos4_pm_drvinit);
 

@@ -293,11 +293,6 @@ ctl_table epoll_table[] = {
 
 static const struct file_operations eventpoll_fops;
 
-static inline int is_file_epoll(struct file *f)
-{
-	return f->f_op == &eventpoll_fops;
-}
-
 /* Setup the structure that is used as key for the RB tree */
 static inline void ep_set_ffd(struct epoll_filefd *ffd,
 			      struct file *file, int fd)
@@ -748,6 +743,12 @@ static const struct file_operations eventpoll_fops = {
 	.poll		= ep_eventpoll_poll,
 	.llseek		= noop_llseek,
 };
+
+/* Fast test to see if the file is an eventpoll file */
+static inline int is_file_epoll(struct file *f)
+{
+	return f->f_op == &eventpoll_fops;
+}
 
 /*
  * This is called from eventpoll_release() to unlink files from the eventpoll

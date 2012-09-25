@@ -27,29 +27,28 @@ static void hlist_sched_dtor(struct io_context *ioc, struct hlist_head *list)
 	}
 }
 
-/**
- * put_io_context - put a reference of io_context
- * @ioc: io_context to put
- *
- * Decrement reference count of @ioc and release it if the count reaches
- * zero.
+/*
+ * IO Context helper functions. put_io_context() returns 1 if there are no
+ * more users of this io context, 0 otherwise.
  */
-void put_io_context(struct io_context *ioc)
+int put_io_context(struct io_context *ioc)
 {
 	if (ioc == NULL)
-		return;
+		return 1;
 
-	BUG_ON(atomic_long_read(&ioc->refcount) <= 0);
+	BUG_ON(atomic_long_read(&ioc->refcount) == 0);
 
-	if (!atomic_long_dec_and_test(&ioc->refcount))
-		return;
+	if (atomic_long_dec_and_test(&ioc->refcount)) {
+		rcu_read_lock();
 
-	rcu_read_lock();
-	hlist_sched_dtor(ioc, &ioc->cic_list);
-	hlist_sched_dtor(ioc, &ioc->bfq_cic_list);
-	rcu_read_unlock();
+		hlist_sched_dtor(ioc, &ioc->cic_list);
+		hlist_sched_dtor(ioc, &ioc->bfq_cic_list);
+		rcu_read_unlock();
 
-	kmem_cache_free(iocontext_cachep, ioc);
+		kmem_cache_free(iocontext_cachep, ioc);
+		return 1;
+	}
+	return 0;
 }
 EXPORT_SYMBOL(put_io_context);
 
@@ -85,34 +84,37 @@ void exit_io_context(struct task_struct *task)
 
 struct io_context *alloc_io_context(gfp_t gfp_flags, int node)
 {
-	struct io_context *ioc;
+	struct io_context *ret;
 
-	ioc = kmem_cache_alloc_node(iocontext_cachep, gfp_flags | __GFP_ZERO,
-				    node);
-	if (unlikely(!ioc))
-		return NULL;
+	ret = kmem_cache_alloc_node(iocontext_cachep, gfp_flags, node);
+	if (ret) {
+		atomic_long_set(&ret->refcount, 1);
+		atomic_set(&ret->nr_tasks, 1);
+		spin_lock_init(&ret->lock);
+		bitmap_zero(ret->ioprio_changed, IOC_IOPRIO_CHANGED_BITS);
+		ret->ioprio = 0;
+		ret->last_waited = 0; /* doesn't matter... */
+		ret->nr_batch_requests = 0; /* because this is 0 */
+		INIT_RADIX_TREE(&ret->radix_root, GFP_ATOMIC | __GFP_HIGH);
+		INIT_HLIST_HEAD(&ret->cic_list);
+		INIT_RADIX_TREE(&ret->bfq_radix_root, GFP_ATOMIC | __GFP_HIGH);
+		INIT_HLIST_HEAD(&ret->bfq_cic_list);
+		ret->ioc_data = NULL;
+#if defined(CONFIG_BLK_CGROUP) || defined(CONFIG_BLK_CGROUP_MODULE)
+		ret->cgroup_changed = 0;
+#endif
+	}
 
-	/* initialize */
-	atomic_long_set(&ioc->refcount, 1);
-	atomic_set(&ioc->nr_tasks, 1);
-	spin_lock_init(&ioc->lock);
-	bitmap_zero(ioc->ioprio_changed, IOC_IOPRIO_CHANGED_BITS);
-	INIT_RADIX_TREE(&ioc->bfq_radix_root, GFP_ATOMIC | __GFP_HIGH);
-	INIT_HLIST_HEAD(&ioc->bfq_cic_list);
-
-	return ioc;
+	return ret;
 }
 
-/**
- * current_io_context - get io_context of %current
- * @gfp_flags: allocation flags, used if allocation is necessary
- * @node: allocation node, used if allocation is necessary
+/*
+ * If the current task has no IO context then create one and initialise it.
+ * Otherwise, return its existing IO context.
  *
- * Return io_context of %current.  If it doesn't exist, it is created with
- * @gfp_flags and @node.  The returned io_context does NOT have its
- * reference count incremented.  Because io_context is exited only on task
- * exit, %current can be sure that the returned io_context is valid and
- * alive as long as it is executing.
+ * This returned IO context doesn't have a specifically elevated refcount,
+ * but since the current task itself holds a reference, the context can be
+ * used in general code, so long as it stays within `current` context.
  */
 struct io_context *current_io_context(gfp_t gfp_flags, int node)
 {
@@ -141,19 +143,19 @@ struct io_context *current_io_context(gfp_t gfp_flags, int node)
  */
 struct io_context *get_io_context(gfp_t gfp_flags, int node)
 {
-	struct io_context *ioc = NULL;
+	struct io_context *ret = NULL;
 
 	/*
 	 * Check for unlikely race with exiting task. ioc ref count is
 	 * zero when ioc is being detached.
 	 */
 	do {
-		ioc = current_io_context(gfp_flags, node);
-		if (unlikely(!ioc))
+		ret = current_io_context(gfp_flags, node);
+		if (unlikely(!ret))
 			break;
-	} while (!atomic_long_inc_not_zero(&ioc->refcount));
+	} while (!atomic_long_inc_not_zero(&ret->refcount));
 
-	return ioc;
+	return ret;
 }
 EXPORT_SYMBOL(get_io_context);
 

@@ -86,19 +86,12 @@ static struct cftype ss_files[] = {
 		.read_u64 = read_classid,
 		.write_u64 = write_classid,
 	},
-	{ }	/* terminate */
 };
 
-struct cgroup_subsys net_cls_subsys = {
-	.name		= "net_cls",
-	.create		= cgrp_create,
-	.destroy	= cgrp_destroy,
-#ifdef CONFIG_NET_CLS_CGROUP
-	.subsys_id	= net_cls_subsys_id,
-#endif
-	.base_cftypes	= ss_files,
-	.module		= THIS_MODULE,
-};
+static int cgrp_populate(struct cgroup_subsys *ss, struct cgroup *cgrp)
+{
+	return cgroup_add_files(cgrp, ss, ss_files, ARRAY_SIZE(ss_files));
+}
 
 struct cls_cgroup_head {
 	u32			handle;

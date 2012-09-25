@@ -137,7 +137,8 @@ cifs_read_super(struct super_block *sb)
 		goto out_no_root;
 	}
 
-	sb->s_root = d_make_root(inode);
+	sb->s_root = d_alloc_root(inode);
+
 	if (!sb->s_root) {
 		rc = -ENOMEM;
 		goto out_no_root;

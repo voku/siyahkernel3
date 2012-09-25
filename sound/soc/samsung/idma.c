@@ -1,14 +1,16 @@
 /*
- * idma.c  --  I2S0's Internal Dma driver
+ * sound/soc/samsung/idma.c
  *
- * Copyright (c) 2010 Samsung Electronics Co. Ltd
+ * Copyright (c) 2011 Samsung Electronics Co., Ltd.
+ *		http://www.samsung.com
+ *
+ * I2S0's Internal DMA driver
  *
  * This program is free software; you can redistribute  it and/or modify it
  * under  the terms of  the GNU General  Public License as published by the
  * Free Software Foundation;  either version 2 of the  License, or (at your
  * option) any later version.
  */
-
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
@@ -102,7 +104,6 @@ static int idma_enqueue(struct snd_pcm_substream *substream)
 	 */
 	val = readl(idma.regs + I2SSIZE);
 	val &= ~(I2SSIZE_TRNMSK << I2SSIZE_SHIFT);
-
 	val |= (((runtime->dma_bytes >> 2) &
 			I2SSIZE_TRNMSK) << I2SSIZE_SHIFT);
 	writel(val, idma.regs + I2SSIZE);

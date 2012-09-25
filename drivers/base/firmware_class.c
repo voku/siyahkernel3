@@ -534,6 +534,12 @@ static int _request_firmware(const struct firmware **firmware_p,
 		return 0;
 	}
 
+	if (WARN_ON(usermodehelper_is_disabled())) {
+		dev_err(device, "firmware: %s will not be loaded\n", name);
+		retval = -EBUSY;
+		goto out;
+	}
+
 	if (uevent)
 		dev_dbg(device, "firmware: requesting %s\n", name);
 

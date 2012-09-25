@@ -2419,6 +2419,7 @@ static struct usb_device_id rt73usb_device_table[] = {
 	/* Buffalo */
 	{ USB_DEVICE(0x0411, 0x00d8) },
 	{ USB_DEVICE(0x0411, 0x00d9) },
+	{ USB_DEVICE(0x0411, 0x00e6) },
 	{ USB_DEVICE(0x0411, 0x00f4) },
 	{ USB_DEVICE(0x0411, 0x0116) },
 	{ USB_DEVICE(0x0411, 0x0119) },
@@ -2525,15 +2526,4 @@ static struct usb_driver rt73usb_driver = {
 	.resume		= rt2x00usb_resume,
 };
 
-static int __init rt73usb_init(void)
-{
-	return usb_register(&rt73usb_driver);
-}
-
-static void __exit rt73usb_exit(void)
-{
-	usb_deregister(&rt73usb_driver);
-}
-
-module_init(rt73usb_init);
-module_exit(rt73usb_exit);
+module_usb_driver(rt73usb_driver);

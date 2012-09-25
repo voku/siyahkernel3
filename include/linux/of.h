@@ -234,5 +234,26 @@ static inline bool of_have_populated_dt(void)
 	return false;
 }
 
+static inline int of_property_read_u32_array(const struct device_node *np,
+					     const char *propname,
+					     u32 *out_values, size_t sz)
+{
+	return -ENOSYS;
+}
+
+static inline int of_property_read_string(struct device_node *np,
+					  const char *propname,
+					  const char **out_string)
+{
+	return -ENOSYS;
+}
+
+static inline const void *of_get_property(const struct device_node *node,
+				const char *name,
+				int *lenp)
+{
+	return NULL;
+}
+
 #endif /* CONFIG_OF */
 #endif /* _LINUX_OF_H */

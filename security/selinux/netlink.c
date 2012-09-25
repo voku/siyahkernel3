@@ -14,14 +14,10 @@
 #include <linux/slab.h>
 #include <linux/stddef.h>
 #include <linux/kernel.h>
-#include <linux/export.h>
 #include <linux/skbuff.h>
 #include <linux/netlink.h>
 #include <linux/selinux_netlink.h>
 #include <net/net_namespace.h>
-#include <net/netlink.h>
-
-#include "security.h"
 
 static struct sock *selnl;
 
@@ -48,7 +44,7 @@ static void selnl_add_payload(struct nlmsghdr *nlh, int len, int msgtype, void *
 {
 	switch (msgtype) {
 	case SELNL_MSG_SETENFORCE: {
-		struct selnl_msg_setenforce *msg = nlmsg_data(nlh);
+		struct selnl_msg_setenforce *msg = NLMSG_DATA(nlh);
 
 		memset(msg, 0, len);
 		msg->val = *((int *)data);
@@ -56,7 +52,7 @@ static void selnl_add_payload(struct nlmsghdr *nlh, int len, int msgtype, void *
 	}
 
 	case SELNL_MSG_POLICYLOAD: {
-		struct selnl_msg_policyload *msg = nlmsg_data(nlh);
+		struct selnl_msg_policyload *msg = NLMSG_DATA(nlh);
 
 		memset(msg, 0, len);
 		msg->seqno = *((u32 *)data);
@@ -82,9 +78,7 @@ static void selnl_notify(int msgtype, void *data)
 		goto oom;
 
 	tmp = skb->tail;
-	nlh = nlmsg_put(skb, 0, 0, msgtype, len, 0);
-	if (!nlh)
-		goto out_kfree_skb;
+	nlh = NLMSG_PUT(skb, 0, 0, msgtype, len);
 	selnl_add_payload(nlh, len, msgtype, data);
 	nlh->nlmsg_len = skb->tail - tmp;
 	NETLINK_CB(skb).dst_group = SELNLGRP_AVC;
@@ -92,7 +86,7 @@ static void selnl_notify(int msgtype, void *data)
 out:
 	return;
 
-out_kfree_skb:
+nlmsg_failure:
 	kfree_skb(skb);
 oom:
 	printk(KERN_ERR "SELinux:  OOM in %s\n", __func__);
@@ -111,12 +105,8 @@ void selnl_notify_policyload(u32 seqno)
 
 static int __init selnl_init(void)
 {
-	struct netlink_kernel_cfg cfg = {
-		.groups	= SELNLGRP_MAX,
-	};
-
 	selnl = netlink_kernel_create(&init_net, NETLINK_SELINUX,
-				      THIS_MODULE, &cfg);
+				      SELNLGRP_MAX, NULL, NULL, THIS_MODULE);
 	if (selnl == NULL)
 		panic("SELinux:  Cannot create netlink socket.");
 	netlink_set_nonroot(NETLINK_SELINUX, NL_NONROOT_RECV);

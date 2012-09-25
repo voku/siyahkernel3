@@ -52,7 +52,7 @@ static int ad9832_write_frequency(struct ad9832_state *st,
 					((addr - 3) << ADD_SHIFT) |
 					((regval >> 0) & 0xFF));
 
-	return spi_sync(st->spi, &st->freq_msg);;
+	return spi_sync(st->spi, &st->freq_msg);
 }
 
 static int ad9832_write_phase(struct ad9832_state *st,
@@ -358,18 +358,7 @@ static struct spi_driver ad9832_driver = {
 	.remove		= __devexit_p(ad9832_remove),
 	.id_table	= ad9832_id,
 };
-
-static int __init ad9832_init(void)
-{
-	return spi_register_driver(&ad9832_driver);
-}
-module_init(ad9832_init);
-
-static void __exit ad9832_exit(void)
-{
-	spi_unregister_driver(&ad9832_driver);
-}
-module_exit(ad9832_exit);
+module_spi_driver(ad9832_driver);
 
 MODULE_AUTHOR("Michael Hennerich <hennerich@blackfin.uclinux.org>");
 MODULE_DESCRIPTION("Analog Devices AD9832/AD9835 DDS");

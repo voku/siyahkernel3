@@ -43,10 +43,14 @@
 static void radeon_fence_write(struct radeon_device *rdev, u32 seq, int ring)
 {
 	if (rdev->wb.enabled) {
-		*rdev->fence_drv[ring].cpu_addr = cpu_to_le32(seq);
-	} else {
-		WREG32(rdev->fence_drv[ring].scratch_reg, seq);
-	}
+		u32 scratch_index;
+		if (rdev->wb.use_event)
+			scratch_index = R600_WB_EVENT_OFFSET + rdev->fence_drv.scratch_reg - rdev->scratch.reg_base;
+		else
+			scratch_index = RADEON_WB_SCRATCH_OFFSET + rdev->fence_drv.scratch_reg - rdev->scratch.reg_base;
+		rdev->wb.wb[scratch_index/4] = cpu_to_le32(seq);
+	} else
+		WREG32(rdev->fence_drv.scratch_reg, seq);
 }
 
 static u32 radeon_fence_read(struct radeon_device *rdev, int ring)

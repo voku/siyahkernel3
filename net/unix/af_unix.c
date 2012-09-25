@@ -846,7 +846,7 @@ static int unix_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
 	atomic_set(&addr->refcnt, 1);
 
 	if (sunaddr->sun_path[0]) {
-		umode_t mode;
+		unsigned int mode;
 		err = 0;
 		/*
 		 * Get the parent directory, calculate the hash for last

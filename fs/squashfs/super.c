@@ -316,10 +316,11 @@ check_directory_table:
 	}
 	insert_inode_hash(root);
 
-	sb->s_root = d_make_root(root);
+	sb->s_root = d_alloc_root(root);
 	if (sb->s_root == NULL) {
 		ERROR("Root inode create failed\n");
 		err = -ENOMEM;
+		iput(root);
 		goto failed_mount;
 	}
 

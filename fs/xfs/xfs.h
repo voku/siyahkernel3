@@ -25,5 +25,6 @@
 /* #define QUOTADEBUG 1 */
 #endif
 
-#include <linux-2.6/xfs_linux.h>
+#include "xfs_linux.h"
+
 #endif	/* __XFS_H__ */

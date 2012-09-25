@@ -142,6 +142,7 @@ static noinline int run_scheduled_bios(struct btrfs_device *device)
 	unsigned long limit;
 	unsigned long last_waited = 0;
 	int force_reg = 0;
+	int sync_pending = 0;
 	struct blk_plug plug;
 
 	/*
@@ -228,6 +229,22 @@ loop_lock:
 			wake_up(&fs_info->async_submit_wait);
 
 		BUG_ON(atomic_read(&cur->bi_cnt) == 0);
+
+		/*
+		 * if we're doing the sync list, record that our
+		 * plug has some sync requests on it
+		 *
+		 * If we're doing the regular list and there are
+		 * sync requests sitting around, unplug before
+		 * we add more
+		 */
+		if (pending_bios == &device->pending_sync_bios) {
+			sync_pending = 1;
+		} else if (sync_pending) {
+			blk_finish_plug(&plug);
+			blk_start_plug(&plug);
+			sync_pending = 0;
+		}
 
 		submit_bio(cur->bi_rw, cur);
 		num_run++;
@@ -846,6 +863,7 @@ int find_free_dev_extent(struct btrfs_trans_handle *trans,
 
 	max_hole_start = search_start;
 	max_hole_size = 0;
+	hole_size = 0;
 
 	if (search_start >= search_end) {
 		ret = -ENOSPC;
@@ -928,7 +946,14 @@ next:
 		cond_resched();
 	}
 
-	hole_size = search_end- search_start;
+	/*
+	 * At this point, search_start should be the end of
+	 * allocated dev extents, and when shrinking the device,
+	 * search_end may be smaller than search_start.
+	 */
+	if (search_end > search_start)
+		hole_size = search_end - search_start;
+
 	if (hole_size > max_hole_size) {
 		max_hole_start = search_start;
 		max_hole_size = hole_size;
@@ -2427,9 +2452,10 @@ static int __btrfs_alloc_chunk(struct btrfs_trans_handle *trans,
 			total_avail = device->total_bytes - device->bytes_used;
 		else
 			total_avail = 0;
-		/* avail is off by max(alloc_start, 1MB), but that is the same
-		 * for all devices, so it doesn't hurt the sorting later on
-		 */
+
+		/* If there is no space on this device, skip it. */
+		if (total_avail == 0)
+			continue;
 
 		ret = find_free_dev_extent(trans, device,
 					   max_stripe_size * dev_stripes,

@@ -27,7 +27,7 @@
 #include <linux/notifier.h>
 #include <linux/rcupdate.h>
 #include <linux/kernel.h>
-#include <linux/export.h>
+#include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/sched.h>
 #include <linux/types.h>
@@ -172,7 +172,7 @@ void rcu_irq_enter(void)
 	local_irq_restore(flags);
 }
 
-#ifdef CONFIG_PROVE_RCU
+#ifdef CONFIG_DEBUG_LOCK_ALLOC
 
 /*
  * Test whether RCU thinks that the current CPU is idle.
@@ -183,7 +183,7 @@ int rcu_is_cpu_idle(void)
 }
 EXPORT_SYMBOL(rcu_is_cpu_idle);
 
-#endif /* #ifdef CONFIG_PROVE_RCU */
+#endif /* #ifdef CONFIG_DEBUG_LOCK_ALLOC */
 
 /*
  * Test whether the current CPU was interrupted from idle.  Nested

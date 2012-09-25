@@ -23,7 +23,7 @@
 #include <drm/drm_backlight.h>
 #endif
 
-static const char const *backlight_types[] = {
+static const char *const backlight_types[] = {
 	[BACKLIGHT_RAW] = "raw",
 	[BACKLIGHT_PLATFORM] = "platform",
 	[BACKLIGHT_FIRMWARE] = "firmware",

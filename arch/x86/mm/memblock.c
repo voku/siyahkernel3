@@ -66,7 +66,7 @@ u64 __init memblock_x86_find_in_range_size(u64 start, u64 *sizep, u64 align)
 			return addr;
 	}
 
-	return 0;
+	return MEMBLOCK_ERROR;
 }
 
 static __init struct range *find_range_array(int count)
@@ -78,7 +78,7 @@ static __init struct range *find_range_array(int count)
 	end = memblock.current_limit;
 
 	mem = memblock_find_in_range(0, end, size, sizeof(struct range));
-	if (!mem)
+	if (mem == MEMBLOCK_ERROR)
 		panic("can not find more space for range array");
 
 	/*
@@ -115,13 +115,28 @@ static void __init memblock_x86_subtract_reserved(struct range *range, int az)
 	memblock_reserve_reserved_regions();
 }
 
+struct count_data {
+	int nr;
+};
+
+static int __init count_work_fn(unsigned long start_pfn,
+				unsigned long end_pfn, void *datax)
+{
+	struct count_data *data = datax;
+
+	data->nr++;
+
+	return 0;
+}
+
 static int __init count_early_node_map(int nodeid)
 {
-	int i, cnt = 0;
+	struct count_data data;
 
-	for_each_mem_pfn_range(i, nodeid, NULL, NULL, NULL)
-		cnt++;
-	return cnt;
+	data.nr = 0;
+	work_with_active_regions(nodeid, count_work_fn, &data);
+
+	return data.nr;
 }
 
 int __init __get_free_all_memory_range(struct range **rangep, int nodeid,
@@ -249,6 +264,21 @@ void __init memblock_x86_free_range(u64 start, u64 end)
 	memblock_dbg("       memblock_x86_free_range: [%#010llx-%#010llx]\n", start, end - 1);
 
 	memblock_free(start, end - start);
+}
+
+/*
+ * Need to call this function after memblock_x86_register_active_regions,
+ * so early_node_map[] is filled already.
+ */
+u64 __init memblock_x86_find_in_range_node(int nid, u64 start, u64 end, u64 size, u64 align)
+{
+	u64 addr;
+	addr = find_memory_core_early(nid, size, align, start, end);
+	if (addr != MEMBLOCK_ERROR)
+		return addr;
+
+	/* Fallback, should already have start end within node range */
+	return memblock_find_in_range(start, end, size, align);
 }
 
 /*

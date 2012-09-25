@@ -12,7 +12,6 @@
 #include <linux/prctl.h>
 #include <linux/highuid.h>
 #include <linux/fs.h>
-#include <linux/kmod.h>
 #include <linux/perf_event.h>
 #include <linux/resource.h>
 #include <linux/kernel.h>
@@ -93,8 +92,10 @@
 int overflowuid = DEFAULT_OVERFLOWUID;
 int overflowgid = DEFAULT_OVERFLOWGID;
 
+#ifdef CONFIG_UID16
 EXPORT_SYMBOL(overflowuid);
 EXPORT_SYMBOL(overflowgid);
+#endif
 
 /*
  * the same as above, but for filesystems which can only store a 16-bit
@@ -131,11 +132,11 @@ static bool set_one_prio_perm(struct task_struct *p)
 {
 	const struct cred *cred = current_cred(), *pcred = __task_cred(p);
 
-	if (pcred->user_ns == cred->user_ns &&
+	if (pcred->user->user_ns == cred->user->user_ns &&
 	    (pcred->uid  == cred->euid ||
 	     pcred->euid == cred->euid))
 		return true;
-	if (ns_capable(pcred->user_ns, CAP_SYS_NICE))
+	if (ns_capable(pcred->user->user_ns, CAP_SYS_NICE))
 		return true;
 	return false;
 }
@@ -1168,7 +1169,7 @@ DECLARE_RWSEM(uts_sem);
 static int override_release(char __user *release, int len)
 {
 	int ret = 0;
-	char buf[65];
+	char buf[len];
 
 	if (current->personality & UNAME26) {
 		char *rest = UTS_RELEASE;
@@ -1482,7 +1483,7 @@ static int check_prlimit_permission(struct task_struct *task)
 		return 0;
 
 	tcred = __task_cred(task);
-	if (cred->user_ns == tcred->user_ns &&
+	if (cred->user->user_ns == tcred->user->user_ns &&
 	    (cred->uid == tcred->euid &&
 	     cred->uid == tcred->suid &&
 	     cred->uid == tcred->uid  &&
@@ -1490,7 +1491,7 @@ static int check_prlimit_permission(struct task_struct *task)
 	     cred->gid == tcred->sgid &&
 	     cred->gid == tcred->gid))
 		return 0;
-	if (ns_capable(tcred->user_ns, CAP_SYS_RESOURCE))
+	if (ns_capable(tcred->user->user_ns, CAP_SYS_RESOURCE))
 		return 0;
 
 	return -EPERM;
@@ -1862,32 +1863,6 @@ static void argv_cleanup(struct subprocess_info *info)
 	argv_free(info->argv);
 }
 
-static int __orderly_poweroff(void)
-{
-	int argc;
-	char **argv;
-	static char *envp[] = {
-		"HOME=/",
-		"PATH=/sbin:/bin:/usr/sbin:/usr/bin",
-		NULL
-	};
-	int ret;
-
-	argv = argv_split(GFP_ATOMIC, poweroff_cmd, &argc);
-	if (argv == NULL) {
-		printk(KERN_WARNING "%s failed to allocate memory for \"%s\"\n",
-		       __func__, poweroff_cmd);
-		return -ENOMEM;
-	}
-
-	ret = call_usermodehelper_fns(argv[0], argv, envp, UMH_NO_WAIT,
-				      NULL, argv_cleanup, NULL);
-	if (ret == -ENOMEM)
-		argv_free(argv);
-
-	return ret;
-}
-
 /**
  * orderly_poweroff - Trigger an orderly system poweroff
  * @force: force poweroff if command execution fails
@@ -1897,17 +1872,40 @@ static int __orderly_poweroff(void)
  */
 int orderly_poweroff(bool force)
 {
-	int ret = __orderly_poweroff();
+	int argc;
+	char **argv = argv_split(GFP_ATOMIC, poweroff_cmd, &argc);
+	static char *envp[] = {
+		"HOME=/",
+		"PATH=/sbin:/bin:/usr/sbin:/usr/bin",
+		NULL
+	};
+	int ret = -ENOMEM;
+	struct subprocess_info *info;
 
+	if (argv == NULL) {
+		printk(KERN_WARNING "%s failed to allocate memory for \"%s\"\n",
+		       __func__, poweroff_cmd);
+		goto out;
+	}
+
+	info = call_usermodehelper_setup(argv[0], argv, envp, GFP_ATOMIC);
+	if (info == NULL) {
+		argv_free(argv);
+		goto out;
+	}
+
+	call_usermodehelper_setfns(info, NULL, argv_cleanup, NULL);
+
+	ret = call_usermodehelper_exec(info, UMH_NO_WAIT);
+
+  out:
 	if (ret && force) {
 		printk(KERN_WARNING "Failed to start orderly shutdown: "
 		       "forcing the issue\n");
 
-		/*
-		 * I guess this should try to kick off some daemon to sync and
-		 * poweroff asap.  Or not even bother syncing if we're doing an
-		 * emergency shutdown?
-		 */
+		/* I guess this should try to kick off some daemon to
+		   sync and poweroff asap.  Or not even bother syncing
+		   if we're doing an emergency shutdown? */
 		emergency_sync();
 		kernel_power_off();
 	}

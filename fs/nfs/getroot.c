@@ -49,9 +49,11 @@ static int nfs_superblock_set_dummy_root(struct super_block *sb, struct inode *i
 {
 	/* The mntroot acts as the dummy root dentry for this superblock */
 	if (sb->s_root == NULL) {
-		sb->s_root = d_make_root(inode);
-		if (sb->s_root == NULL)
+		sb->s_root = d_alloc_root(inode);
+		if (sb->s_root == NULL) {
+			iput(inode);
 			return -ENOMEM;
+		}
 		ihold(inode);
 		/*
 		 * Ensure that this dentry is invisible to d_find_alias().

@@ -10,6 +10,7 @@
 #include <linux/sched.h>
 #include <asm/vdso.h>
 #include <asm/sigp.h>
+#include <asm/pgtable.h>
 
 /*
  * Make sure that the compiler is new enough. We want a compiler that
@@ -129,6 +130,7 @@ int main(void)
 	DEFINE(__LC_KERNEL_STACK, offsetof(struct _lowcore, kernel_stack));
 	DEFINE(__LC_ASYNC_STACK, offsetof(struct _lowcore, async_stack));
 	DEFINE(__LC_PANIC_STACK, offsetof(struct _lowcore, panic_stack));
+	DEFINE(__LC_USER_ASCE, offsetof(struct _lowcore, user_asce));
 	DEFINE(__LC_INT_CLOCK, offsetof(struct _lowcore, int_clock));
 	DEFINE(__LC_MCCK_CLOCK, offsetof(struct _lowcore, mcck_clock));
 	DEFINE(__LC_MACHINE_FLAGS, offsetof(struct _lowcore, machine_flags));
@@ -153,6 +155,7 @@ int main(void)
 	DEFINE(__LC_VDSO_PER_CPU, offsetof(struct _lowcore, vdso_per_cpu_data));
 	DEFINE(__LC_SIE_HOOK, offsetof(struct _lowcore, sie_hook));
 	DEFINE(__LC_CMF_HPP, offsetof(struct _lowcore, cmf_hpp));
+	DEFINE(__GMAP_ASCE, offsetof(struct gmap, asce));
 #endif /* CONFIG_32BIT */
 	return 0;
 }

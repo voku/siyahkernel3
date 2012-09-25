@@ -107,8 +107,7 @@ void cpu_idle(void)
 		preempt_enable_no_resched();
 
 #ifdef CONFIG_HOTPLUG_CPU
-		if (cpu_is_offline(cpu)) {
-			sched_preempt_enable_no_resched();
+		if (cpu_is_offline(cpu))
 			cpu_play_dead();
 #endif
 
@@ -371,9 +370,6 @@ void flush_thread(void)
 
 	/* Clear FPU register state. */
 	t->fpsaved[0] = 0;
-	
-	if (get_thread_current_ds() != ASI_AIUS)
-		set_fs(USER_DS);
 }
 
 /* It's a bit more tricky when 64-bit tasks are involved... */

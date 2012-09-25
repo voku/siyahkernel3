@@ -14,19 +14,12 @@
 
 #include <asm/sched_clock.h>
 
-<<<<<<< HEAD
-static void sched_clock_poll(unsigned long wrap_ticks);
-static DEFINE_TIMER(sched_clock_timer, sched_clock_poll, 0, 0);
-static void (*sched_clock_update_fn)(void);
-=======
 struct clock_data {
 	u64 epoch_ns;
 	u32 epoch_cyc;
 	u32 epoch_cyc_copy;
 	u32 mult;
 	u32 shift;
-	bool suspended;
-	bool needs_suspend;
 };
 
 static void sched_clock_poll(unsigned long wrap_ticks);
@@ -54,9 +47,6 @@ static unsigned long long cyc_to_sched_clock(u32 cyc, u32 mask)
 {
 	u64 epoch_ns;
 	u32 epoch_cyc;
-
-	if (cd.suspended)
-		return cd.epoch_ns;
 
 	/*
 	 * Load the epoch_cyc and epoch_ns atomically.  We do this by
@@ -100,96 +90,77 @@ static void notrace update_sched_clock(void)
 	cd.epoch_cyc_copy = cyc;
 	raw_local_irq_restore(flags);
 }
->>>>>>> 6dab7ed... Merge branch 'fixes' of git://git.linaro.org/people/rmk/linux-arm
 
 static void sched_clock_poll(unsigned long wrap_ticks)
 {
 	mod_timer(&sched_clock_timer, round_jiffies(jiffies + wrap_ticks));
-	sched_clock_update_fn();
-}
-
-<<<<<<< HEAD
-void __init init_sched_clock(struct clock_data *cd, void (*update)(void),
-	unsigned int clock_bits, unsigned long rate)
-=======
-void __init setup_sched_clock_needs_suspend(u32 (*read)(void), int bits,
-		unsigned long rate)
-{
-	setup_sched_clock(read, bits, rate);
-	cd.needs_suspend = true;
+	update_sched_clock();
 }
 
 void __init setup_sched_clock(u32 (*read)(void), int bits, unsigned long rate)
->>>>>>> 6dab7ed... Merge branch 'fixes' of git://git.linaro.org/people/rmk/linux-arm
 {
 	unsigned long r, w;
 	u64 res, wrap;
 	char r_unit;
 
-	sched_clock_update_fn = update;
+	BUG_ON(bits > 32);
+	WARN_ON(!irqs_disabled());
+	WARN_ON(read_sched_clock != jiffy_sched_clock_read);
+	read_sched_clock = read;
+	sched_clock_mask = (1 << bits) - 1;
 
 	/* calculate the mult/shift to convert counter ticks to ns. */
-	clocks_calc_mult_shift(&cd->mult, &cd->shift, rate, NSEC_PER_SEC, 0);
+	clocks_calc_mult_shift(&cd.mult, &cd.shift, rate, NSEC_PER_SEC, 0);
 
 	r = rate;
 	if (r >= 4000000) {
 		r /= 1000000;
 		r_unit = 'M';
-	} else {
+	} else if (r >= 1000) {
 		r /= 1000;
 		r_unit = 'k';
-	}
+	} else
+		r_unit = ' ';
 
 	/* calculate how many ns until we wrap */
-	wrap = cyc_to_ns((1ULL << clock_bits) - 1, cd->mult, cd->shift);
+	wrap = cyc_to_ns((1ULL << bits) - 1, cd.mult, cd.shift);
 	do_div(wrap, NSEC_PER_MSEC);
 	w = wrap;
 
 	/* calculate the ns resolution of this counter */
-	res = cyc_to_ns(1ULL, cd->mult, cd->shift);
+	res = cyc_to_ns(1ULL, cd.mult, cd.shift);
 	pr_info("sched_clock: %u bits at %lu%cHz, resolution %lluns, wraps every %lums\n",
-		clock_bits, r, r_unit, res, w);
+		bits, r, r_unit, res, w);
 
 	/*
 	 * Start the timer to keep sched_clock() properly updated and
 	 * sets the initial epoch.
 	 */
 	sched_clock_timer.data = msecs_to_jiffies(w - (w / 10));
-	update();
+	update_sched_clock();
 
 	/*
 	 * Ensure that sched_clock() starts off at 0ns
 	 */
-	cd->epoch_ns = 0;
+	cd.epoch_ns = 0;
+
+	pr_debug("Registered %pF as sched_clock source\n", read);
+}
+
+unsigned long long notrace sched_clock(void)
+{
+	u32 cyc = read_sched_clock();
+	return cyc_to_sched_clock(cyc, sched_clock_mask);
 }
 
 void __init sched_clock_postinit(void)
 {
+	/*
+	 * If no sched_clock function has been provided at that point,
+	 * make it the final one one.
+	 */
+	if (read_sched_clock == jiffy_sched_clock_read)
+		setup_sched_clock(jiffy_sched_clock_read, 32, HZ);
+
 	sched_clock_poll(sched_clock_timer.data);
-<<<<<<< HEAD
-=======
-	if (cd.needs_suspend)
-		cd.suspended = true;
-	return 0;
-}
-
-static void sched_clock_resume(void)
-{
-	if (cd.needs_suspend) {
-		cd.epoch_cyc = read_sched_clock();
-		cd.epoch_cyc_copy = cd.epoch_cyc;
-		cd.suspended = false;
-	}
-}
-
-static struct syscore_ops sched_clock_ops = {
-	.suspend = sched_clock_suspend,
-	.resume = sched_clock_resume,
-};
-
-static int __init sched_clock_syscore_init(void)
-{
-	register_syscore_ops(&sched_clock_ops);
-	return 0;
->>>>>>> 6dab7ed... Merge branch 'fixes' of git://git.linaro.org/people/rmk/linux-arm
 }

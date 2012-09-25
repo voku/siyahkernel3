@@ -48,6 +48,36 @@ extern struct resource *platform_get_resource_byname(struct platform_device *, u
 extern int platform_get_irq_byname(struct platform_device *, const char *);
 extern int platform_add_devices(struct platform_device **, int);
 
+struct platform_device_info {
+		struct device *parent;
+
+		const char *name;
+		int id;
+
+		const struct resource *res;
+		unsigned int num_res;
+
+		const void *data;
+		size_t size_data;
+		u64 dma_mask;
+};
+extern struct platform_device *platform_device_register_full(
+		const struct platform_device_info *pdevinfo);
+
+/**
+ * platform_device_register_resndata - add a platform-level device with
+ * resources and platform-specific data
+ *
+ * @parent: parent device for the device we're adding
+ * @name: base name of the device we're adding
+ * @id: instance id
+ * @res: set of resources that needs to be allocated for the device
+ * @num: number of resources
+ * @data: platform specific data for this platform device
+ * @size: size of platform specific data
+ *
+ * Returns &struct platform_device pointer on success, or ERR_PTR() on error.
+ */
 extern struct platform_device *platform_device_register_resndata(
 		struct device *parent, const char *name, int id,
 		const struct resource *res, unsigned int num,
@@ -144,6 +174,15 @@ static inline void platform_set_drvdata(struct platform_device *pdev, void *data
 {
 	dev_set_drvdata(&pdev->dev, data);
 }
+
+/* module_platform_driver() - Helper macro for drivers that don't do
+ * anything special in module init/exit.  This eliminates a lot of
+ * boilerplate.  Each module may only use this macro once, and
+ * calling it replaces module_init() and module_exit()
+ */
+#define module_platform_driver(__platform_driver) \
+	module_driver(__platform_driver, platform_driver_register, \
+			platform_driver_unregister)
 
 extern struct platform_device *platform_create_bundle(struct platform_driver *driver,
 					int (*probe)(struct platform_device *),

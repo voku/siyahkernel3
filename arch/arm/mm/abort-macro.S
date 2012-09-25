@@ -12,13 +12,13 @@
 	.macro	do_thumb_abort
 	tst	r3, #PSR_T_BIT
 	beq	not_thumb
-	ldrh	r3, [r2]			@ Read aborted Thumb instruction
-	and	r3, r3, # 0xfe00		@ Mask opcode field
-	cmp	r3, # 0x5600			@ Is it ldrsb?
-	orreq	r3, r3, #1 << 11		@ Set L-bit if yes
-	tst	r3, #1 << 11			@ L = 0 -> write
-	orreq	r1, r1, #1 << 11		@ yes.
-	mov	pc, lr
+	ldrh	\tmp, [\pc]			@ Read aborted Thumb instruction
+	and	\tmp, \tmp, # 0xfe00		@ Mask opcode field
+	cmp	\tmp, # 0x5600			@ Is it ldrsb?
+	orreq	\tmp, \tmp, #1 << 11		@ Set L-bit if yes
+	tst	\tmp, #1 << 11			@ L = 0 -> write
+	orreq	\fsr, \fsr, #1 << 11		@ yes.
+	b	do_DataAbort
 not_thumb:
 	.endm
 

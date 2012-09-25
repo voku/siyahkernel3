@@ -8,7 +8,7 @@
  *
  * Copyright (C) 2003 Red Hat, Inc., James Morris <jmorris@redhat.com>
  * Copyright (C) 2007 Hewlett-Packard Development Company, L.P.
- *		      Paul Moore <paul@paul-moore.com>
+ *		      Paul Moore <paul.moore@hp.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2,
@@ -252,7 +252,8 @@ static void sel_netif_flush(void)
 	spin_unlock_bh(&sel_netif_lock);
 }
 
-static int sel_netif_avc_callback(u32 event)
+static int sel_netif_avc_callback(u32 event, u32 ssid, u32 tsid,
+				  u16 class, u32 perms, u32 *retained)
 {
 	if (event == AVC_CALLBACK_RESET) {
 		sel_netif_flush();
@@ -291,7 +292,8 @@ static __init int sel_netif_init(void)
 
 	register_netdevice_notifier(&sel_netif_netdev_notifier);
 
-	err = avc_add_callback(sel_netif_avc_callback, AVC_CALLBACK_RESET);
+	err = avc_add_callback(sel_netif_avc_callback, AVC_CALLBACK_RESET,
+			       SECSID_NULL, SECSID_NULL, SECCLASS_NULL, 0);
 	if (err)
 		panic("avc_add_callback() failed, error %d\n", err);
 

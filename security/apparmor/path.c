@@ -13,6 +13,7 @@
  */
 
 #include <linux/magic.h>
+#include <linux/mnt_namespace.h>
 #include <linux/mount.h>
 #include <linux/namei.h>
 #include <linux/nsproxy.h>
@@ -83,31 +84,31 @@ static int d_namespace_path(struct path *path, char *buf, int buflen,
 		struct path root;
 		get_fs_root(current->fs, &root);
 		res = __d_path(path, &root, buf, buflen);
+		if (res && !IS_ERR(res)) {
+			/* everything's fine */
+			*name = res;
+			path_put(&root);
+			goto ok;
+		}
 		path_put(&root);
-	} else {
-		res = d_absolute_path(path, buf, buflen);
-		if (!our_mnt(path->mnt))
-			connected = 0;
+		connected = 0;
 	}
 
+	res = d_absolute_path(path, buf, buflen);
+
+	*name = res;
 	/* handle error conditions - and still allow a partial path to
 	 * be returned.
 	 */
-	if (!res || IS_ERR(res)) {
-		if (PTR_ERR(res) == -ENAMETOOLONG)
-			return -ENAMETOOLONG;
-		connected = 0;
-		res = dentry_path_raw(path->dentry, buf, buflen);
-		if (IS_ERR(res)) {
-			error = PTR_ERR(res);
-			*name = buf;
-			goto out;
-		};
-	} else if (!our_mnt(path->mnt))
+	if (IS_ERR(res)) {
+		error = PTR_ERR(res);
+		*name = buf;
+		goto out;
+	}
+	if (!our_mnt(path->mnt))
 		connected = 0;
 
-	*name = res;
-
+ok:
 	/* Handle two cases:
 	 * 1. A deleted dentry && profile is not allowing mediation of deleted
 	 * 2. On some filesystems, newly allocated dentries appear to the
@@ -138,7 +139,7 @@ static int d_namespace_path(struct path *path, char *buf, int buflen,
 			/* disconnected path, don't return pathname starting
 			 * with '/'
 			 */
-			error = -EACCES;
+			error = -ESTALE;
 			if (*res == '/')
 				*name = res + 1;
 		}
@@ -159,7 +160,7 @@ out:
  * Returns: %0 else error on failure
  */
 static int get_name_to_buffer(struct path *path, int flags, char *buffer,
-			      int size, char **name, const char **info)
+			      int size, char **name)
 {
 	int adjust = (flags & PATH_IS_DIR) ? 1 : 0;
 	int error = d_namespace_path(path, buffer, size - adjust, name, flags);
@@ -171,27 +172,15 @@ static int get_name_to_buffer(struct path *path, int flags, char *buffer,
 		 */
 		strcpy(&buffer[size - 2], "/");
 
-	if (info && error) {
-		if (error == -ENOENT)
-			*info = "Failed name lookup - deleted entry";
-		else if (error == -ESTALE)
-			*info = "Failed name lookup - disconnected path";
-		else if (error == -ENAMETOOLONG)
-			*info = "Failed name lookup - name too long";
-		else
-			*info = "Failed name lookup";
-	}
-
 	return error;
 }
 
 /**
- * aa_path_name - compute the pathname of a file
+ * aa_get_name - compute the pathname of a file
  * @path: path the file  (NOT NULL)
  * @flags: flags controlling path name generation
  * @buffer: buffer that aa_get_name() allocated  (NOT NULL)
  * @name: Returns - the generated path name if !error (NOT NULL)
- * @info: Returns - information on why the path lookup failed (MAYBE NULL)
  *
  * @name is a pointer to the beginning of the pathname (which usually differs
  * from the beginning of the buffer), or NULL.  If there is an error @name
@@ -204,8 +193,7 @@ static int get_name_to_buffer(struct path *path, int flags, char *buffer,
  *
  * Returns: %0 else error code if could retrieve name
  */
-int aa_path_name(struct path *path, int flags, char **buffer, const char **name,
-		 const char **info)
+int aa_get_name(struct path *path, int flags, char **buffer, const char **name)
 {
 	char *buf, *str = NULL;
 	int size = 256;
@@ -219,7 +207,7 @@ int aa_path_name(struct path *path, int flags, char **buffer, const char **name,
 		if (!buf)
 			return -ENOMEM;
 
-		error = get_name_to_buffer(path, flags, buf, size, &str, info);
+		error = get_name_to_buffer(path, flags, buf, size, &str);
 		if (error != -ENAMETOOLONG)
 			break;
 
@@ -227,7 +215,6 @@ int aa_path_name(struct path *path, int flags, char **buffer, const char **name,
 		size <<= 1;
 		if (size > aa_g_path_max)
 			return -ENAMETOOLONG;
-		*info = NULL;
 	}
 	*buffer = buf;
 	*name = str;

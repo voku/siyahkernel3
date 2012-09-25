@@ -155,8 +155,9 @@ static struct dentry *v9fs_mount(struct file_system_type *fs_type, int flags,
 		goto release_sb;
 	}
 
-	root = d_make_root(inode);
+	root = d_alloc_root(inode);
 	if (!root) {
+		iput(inode);
 		retval = -ENOMEM;
 		goto release_sb;
 	}

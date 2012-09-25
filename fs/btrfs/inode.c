@@ -1787,7 +1787,7 @@ static int btrfs_finish_ordered_io(struct inode *inode, u64 start, u64 end)
 			  &ordered_extent->list);
 
 	ret = btrfs_ordered_update_i_size(inode, 0, ordered_extent);
-	if (!ret) {
+	if (!ret || !test_bit(BTRFS_ORDERED_PREALLOC, &ordered_extent->flags)) {
 		ret = btrfs_update_inode(trans, root, inode);
 		BUG_ON(ret);
 	}
@@ -3528,15 +3528,19 @@ int btrfs_cont_expand(struct inode *inode, loff_t oldsize, loff_t size)
 			err = btrfs_drop_extents(trans, inode, cur_offset,
 						 cur_offset + hole_size,
 						 &hint_byte, 1);
-			if (err)
+			if (err) {
+				btrfs_end_transaction(trans, root);
 				break;
+			}
 
 			err = btrfs_insert_file_extent(trans, root,
 					btrfs_ino(inode), cur_offset, 0,
 					0, hole_size, 0, hole_size,
 					0, 0, 0);
-			if (err)
+			if (err) {
+				btrfs_end_transaction(trans, root);
 				break;
+			}
 
 			btrfs_drop_extent_cache(inode, hole_start,
 					last_byte - 1, 0);
@@ -5795,7 +5799,7 @@ again:
 
 	add_pending_csums(trans, inode, ordered->file_offset, &ordered->list);
 	ret = btrfs_ordered_update_i_size(inode, 0, ordered);
-	if (!ret)
+	if (!ret || !test_bit(BTRFS_ORDERED_PREALLOC, &ordered->flags))
 		btrfs_update_inode(trans, root, inode);
 	ret = 0;
 out_unlock:
@@ -7334,6 +7338,7 @@ static int btrfs_set_page_dirty(struct page *page)
 static int btrfs_permission(struct inode *inode, int mask, unsigned int flags)
 {
 	struct btrfs_root *root = BTRFS_I(inode)->root;
+	umode_t mode = inode->i_mode;
 
 	if (btrfs_root_readonly(root) && (mask & MAY_WRITE))
 		return -EROFS;

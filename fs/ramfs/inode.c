@@ -211,6 +211,7 @@ int ramfs_fill_super(struct super_block *sb, void *data, int silent)
 {
 	struct ramfs_fs_info *fsi;
 	struct inode *inode = NULL;
+	struct dentry *root;
 	int err;
 
 	save_mount_options(sb, data);
@@ -234,8 +235,14 @@ int ramfs_fill_super(struct super_block *sb, void *data, int silent)
 	sb->s_time_gran		= 1;
 
 	inode = ramfs_get_inode(sb, NULL, S_IFDIR | fsi->mount_opts.mode, 0);
-	sb->s_root = d_make_root(inode);
-	if (!sb->s_root) {
+	if (!inode) {
+		err = -ENOMEM;
+		goto fail;
+	}
+
+	root = d_alloc_root(inode);
+	sb->s_root = root;
+	if (!root) {
 		err = -ENOMEM;
 		goto fail;
 	}
@@ -244,6 +251,7 @@ int ramfs_fill_super(struct super_block *sb, void *data, int silent)
 fail:
 	kfree(fsi);
 	sb->s_fs_info = NULL;
+	iput(inode);
 	return err;
 }
 

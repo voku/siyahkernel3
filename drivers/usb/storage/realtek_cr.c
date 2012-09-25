@@ -26,7 +26,6 @@
 #include <linux/sched.h>
 #include <linux/workqueue.h>
 #include <linux/kernel.h>
-#include <linux/version.h>
 
 #include <scsi/scsi.h>
 #include <scsi/scsi_cmnd.h>
@@ -661,15 +660,4 @@ static struct usb_driver realtek_cr_driver = {
 	.soft_unbind =	1,
 };
 
-static int __init realtek_cr_init(void)
-{
-	return usb_register(&realtek_cr_driver);
-}
-
-static void __exit realtek_cr_exit(void)
-{
-	usb_deregister(&realtek_cr_driver);
-}
-
-module_init(realtek_cr_init);
-module_exit(realtek_cr_exit);
+module_usb_driver(realtek_cr_driver);
