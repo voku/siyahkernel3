@@ -212,12 +212,10 @@ struct s3cfb_global {
 	spinlock_t		vsync_slock;
 	struct clk		*clock;
 	int			irq;
-	wait_queue_head_t	wait;
+	wait_queue_head_t	wq;
 	unsigned int		wq_count;
 	struct fb_info		**fb;
 	struct s3cfb_vsync	vsync_info;
-
-	ktime_t      vsync_timestamp;
 
 	atomic_t		enabled_win;
 	enum s3cfb_output_t	output;
@@ -368,10 +366,9 @@ struct s3c_reg_data {
 #define S3CFB_SET_WIN_MEM_START		_IOW('F', 312, u32)
 #endif
 #define S3CFB_SET_ALPHA_MODE		_IOW('F', 313, unsigned int)
-#define S3CFB_WAIT_FOR_VSYNC		_IOR('F', 314, u64) // New IOCTL that waits for vsync and returns a timestamp
 
 extern struct fb_ops			s3cfb_ops;
-extern struct s3cfb_global		*get_fimd_global(int id);
+extern struct s3cfb_global	*get_fimd_global(int id);
 
 /* S3CFB */
 extern struct s3c_platform_fb *to_fb_plat(struct device *dev);
