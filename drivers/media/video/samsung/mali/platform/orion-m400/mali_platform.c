@@ -467,7 +467,37 @@ static mali_bool deinit_mali_clock(void)
 
 	return MALI_TRUE;
 }
+extern int mali_touch_boost_level;
+static int is_gpu_boosted = 0;
+static DEFINE_MUTEX(boostpop_mutex);
+static struct timer_list boostpop_timer;
+static void boostpop(struct work_struct *boostpop_work)
+{
+    mutex_lock(&boostpop_mutex);
+    mali_dvfs_bottom_lock_pop();
+    is_gpu_boosted = 0;
+    mutex_unlock(&boostpop_mutex);
+}
+static DECLARE_WORK(boostpop_work, boostpop);
 
+static void handle_boostpop(unsigned long data)
+{
+    schedule_work(&boostpop_work);
+}
+
+
+void gpu_boost_on_touch(void)
+{
+    if(!mali_touch_boost_level) return;
+    mutex_lock(&boostpop_mutex);
+    if(!is_gpu_boosted && !bPoweroff)
+    {
+        mali_dvfs_bottom_lock_push(mali_touch_boost_level);
+        is_gpu_boosted = 1;
+    }
+    mutex_unlock(&boostpop_mutex);
+    mod_timer(&boostpop_timer, jiffies + msecs_to_jiffies(1000));
+}
 
 static _mali_osk_errcode_t enable_mali_clocks(void)
 {
