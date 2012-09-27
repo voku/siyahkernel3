@@ -1066,20 +1066,23 @@ int s3cfb_cursor(struct fb_info *fb, struct fb_cursor *cursor)
 	return 0;
 }
 
-int s3cfb_vsync_timestamp_changed(struct s3cfb_global *fbdev, ktime_t prev_timestamp)
+int s3cfb_wait_for_vsync(struct s3cfb_global *fbdev, unsigned int timeout)
 {
-	return !ktime_equal(prev_timestamp, fbdev->vsync_timestamp);
-}
+	ktime_t timestamp;
+	int ret;
 
-int s3cfb_wait_for_vsync(struct s3cfb_global *fbdev)
-{
-	ktime_t timestamp = fbdev->vsync_timestamp;
-	int ret = wait_event_interruptible_timeout(fbdev->wait,
-											   !ktime_equal(timestamp, fbdev->vsync_timestamp),
-					       msecs_to_jiffies(100));
-	if (ret == 0)
-	    return -ETIMEDOUT;
-
+	timestamp = fbdev->vsync_timestamp;
+	if (timeout) {
+		ret = wait_event_interruptible_timeout(fbdev->wait,
+						       !ktime_equal(timestamp, fbdev->vsync_timestamp),
+						       msecs_to_jiffies(timeout));
+		if (ret == 0)
+			return -ETIMEDOUT;
+	} else {
+		ret = wait_event_interruptible(fbdev->wait,
+					       !ktime_equal(timestamp, fbdev->vsync_timestamp));
+	}
+	
 	return ret;
 }
 
@@ -1090,7 +1093,6 @@ int s3cfb_ioctl(struct fb_info *fb, unsigned int cmd, unsigned long arg)
 	struct s3cfb_global *fbdev = get_fimd_global(win->id);
 	struct s3cfb_lcd *lcd = fbdev->lcd;
 	void *argp = (void *)arg;
-	ktime_t timestamp;
 	int ret = 0;
 #if defined(CONFIG_CPU_EXYNOS4210)
 	unsigned int addr = 0;
@@ -1132,10 +1134,7 @@ int s3cfb_ioctl(struct fb_info *fb, unsigned int cmd, unsigned long arg)
 		s3cfb_set_vsync_interrupt(fbdev, 1);
 #endif
 		/* Wait for Vsync */
-		timestamp = fbdev->vsync_timestamp;
-		wait_event_interruptible_timeout(fbdev->wait,
-										 !ktime_equal(timestamp, fbdev->vsync_timestamp),
-										 msecs_to_jiffies(100));
+		s3cfb_wait_for_vsync(fbdev, 0);
 		if (fbdev->regs == 0)
 			return 0;
 #if defined(CONFIG_CPU_EXYNOS4212) || defined(CONFIG_CPU_EXYNOS4412)
@@ -1145,14 +1144,10 @@ int s3cfb_ioctl(struct fb_info *fb, unsigned int cmd, unsigned long arg)
 #endif
 		break;
 
-	// Custom IOCTL added to return the VSYNC timestamp
-	case S3CFB_WAIT_FOR_VSYNC:
-		timestamp = fbdev->vsync_timestamp;
-		ret = wait_event_interruptible_timeout(fbdev->wait,
-											   !ktime_equal(timestamp, fbdev->vsync_timestamp),
-											   msecs_to_jiffies(1000));
+	case S3CFB_WAIT_FOR_VSYNC: // Custom IOCTL added to return the VSYNC timestamp
+		ret = s3cfb_wait_for_vsync(fbdev, 0);
 		if (ret > 0) {
-		    u64 nsecs = ktime_to_ns(fbdev->vsync_timestamp);
+			u64 nsecs = ktime_to_ns(fbdev->vsync_timestamp);
 			if (copy_to_user((void*)arg, &nsecs, sizeof(u64))) {
 				dev_err(fbdev->dev, "copy_to_user error\n");
 				ret = -EFAULT;

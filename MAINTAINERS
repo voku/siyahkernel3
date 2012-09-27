@@ -4930,7 +4930,7 @@ F:	kernel/delayacct.c
 PERFORMANCE EVENTS SUBSYSTEM
 M:	Peter Zijlstra <a.p.zijlstra@chello.nl>
 M:	Paul Mackerras <paulus@samba.org>
-M:	Ingo Molnar <mingo@elte.hu>
+M:	Ingo Molnar <mingo@redhat.com>
 M:	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
 S:	Supported
 F:	kernel/events/*
@@ -5513,7 +5513,7 @@ S:	Maintained
 F:	drivers/watchdog/sc1200wdt.c
 
 SCHEDULER
-M:	Ingo Molnar <mingo@elte.hu>
+M:	Ingo Molnar <mingo@redhat.com>
 M:	Peter Zijlstra <peterz@infradead.org>
 S:	Maintained
 F:	kernel/sched*

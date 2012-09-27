@@ -3184,6 +3184,43 @@ struct platform_device host_notifier_device = {
 	.dev.platform_data = &host_notifier_pdata,
 };
 
+#ifdef CONFIG_CPUPOWER
+#include <linux/power/cpupower.h>
+static unsigned int table_default_power[1] = {
+	1024
+};
+
+static struct cputopo_power default_cpu_power = {
+	.max  = 1,
+	.step = 1,
+	.table = table_default_power,
+};
+
+static unsigned int table_ca9_power[10] = {
+/* freq< 200   400   600   800  1000  1200  1400  1600  1800  other*/
+	8192, 8192, 8192, 1024, 1024, 1024, 1024, 1024, 1024, 1024, /* Power save mode CA9 MP */
+};
+
+static struct cputopo_power CA9_cpu_power = {
+	.max  = 10,
+	.step = 200000,
+	.table = table_ca9_power,
+};
+
+/* This table list all possible cpu power configuration */
+static struct cputopo_power *u1_cpupower_data[2] = {
+	&default_cpu_power,
+	&CA9_cpu_power,
+};
+
+static struct platform_device u1_cpupower_dev = {
+	.name = "cpupower",
+	.dev = {
+		.platform_data = u1_cpupower_data,
+	},
+};
+#endif
+
 #include "u1-otg.c"
 static void max8997_muic_usb_cb(u8 usb_mode, bool bus_powered)
 {
@@ -6806,6 +6843,9 @@ static struct platform_device *smdkc210_devices[] __initdata = {
 	&host_notifier_device,
 #endif
 	&s3c_device_usb_otghcd,
+#ifdef CONFIG_CPUPOWER
+	&u1_cpupower_dev,
+#endif
 };
 
 #ifdef CONFIG_EXYNOS4_SETUP_THERMAL

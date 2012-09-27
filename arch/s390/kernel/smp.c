@@ -468,7 +468,12 @@ int __cpuinit start_secondary(void *cpuvoid)
 	ipi_call_lock();
 	set_cpu_online(smp_processor_id(), true);
 	ipi_call_unlock();
-	/* Switch on interrupts */
+	__ctl_clear_bit(0, 28); /* Disable lowcore protection */
+	S390_lowcore.restart_psw.mask =
+		PSW_DEFAULT_KEY | PSW_MASK_BASE | PSW_MASK_EA | PSW_MASK_BA;
+	S390_lowcore.restart_psw.addr =
+		PSW_ADDR_AMODE | (unsigned long) psw_restart_int_handler;
+	__ctl_set_bit(0, 28); /* Enable lowcore protection */
 	local_irq_enable();
 	/* cpu_idle will call schedule for us */
 	cpu_idle();
