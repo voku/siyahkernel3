@@ -14,7 +14,6 @@
 #include <linux/key.h>
 #include <linux/personality.h>
 #include <linux/binfmts.h>
-#include <linux/coredump.h>
 #include <linux/utsname.h>
 #include <linux/pid_namespace.h>
 #include <linux/module.h>
@@ -40,7 +39,6 @@
 
 #include <trace/events/task.h>
 #include "internal.h"
-#include "coredump.h"
 
 #include <trace/events/sched.h>
 
@@ -149,7 +147,7 @@ put_exe_file:
  * name into corename, which must have space for at least
  * CORENAME_MAX_SIZE bytes plus one byte for the zero terminator.
  */
-static int format_corename(struct core_name *cn, struct coredump_params *cprm)
+static int format_corename(struct core_name *cn, long signr)
 {
 	const struct cred *cred = current_cred();
 	const char *pat_ptr = core_pattern;
@@ -194,13 +192,9 @@ static int format_corename(struct core_name *cn, struct coredump_params *cprm)
 			case 'g':
 				err = cn_printf(cn, "%d", cred->gid);
 				break;
-			case 'd':
-				err = cn_printf(cn, "%d",
-					__get_dumpable(cprm->mm_flags));
-				break;
 			/* signal that caused the coredump */
 			case 's':
-				err = cn_printf(cn, "%ld", cprm->siginfo->si_signo);
+				err = cn_printf(cn, "%ld", signr);
 				break;
 			/* UNIX time of coredump */
 			case 't': {
@@ -409,7 +403,9 @@ static void coredump_finish(struct mm_struct *mm)
 
 static void wait_for_dump_helpers(struct file *file)
 {
-	struct pipe_inode_info *pipe = file->private_data;
+	struct pipe_inode_info *pipe;
+
+	pipe = file->f_path.dentry->d_inode->i_pipe;
 
 	pipe_lock(pipe);
 	pipe->readers++;
@@ -448,15 +444,14 @@ static int umh_pipe_setup(struct subprocess_info *info, struct cred *new)
 
 	cp->file = files[1];
 
-	err = replace_fd(0, files[0], 0);
-	fput(files[0]);
+	replace_fd(0, files[0], 0);
 	/* and disallow core files too */
 	current->signal->rlim[RLIMIT_CORE] = (struct rlimit){1, 1};
 
-	return err;
+	return 0;
 }
 
-void do_coredump(siginfo_t *siginfo)
+void do_coredump(long signr, int exit_code, struct pt_regs *regs)
 {
 	struct core_state core_state;
 	struct core_name cn;
@@ -471,8 +466,8 @@ void do_coredump(siginfo_t *siginfo)
 	bool need_nonrelative = false;
 	static atomic_t core_dump_count = ATOMIC_INIT(0);
 	struct coredump_params cprm = {
-		.siginfo = siginfo,
-		.regs = signal_pt_regs(),
+		.signr = signr,
+		.regs = regs,
 		.limit = rlimit(RLIMIT_CORE),
 		/*
 		 * We must use the same mm->flags while dumping core to avoid
@@ -482,7 +477,7 @@ void do_coredump(siginfo_t *siginfo)
 		.mm_flags = mm->flags,
 	};
 
-	audit_core_dumps(siginfo->si_signo);
+	audit_core_dumps(signr);
 
 	binfmt = mm->binfmt;
 	if (!binfmt || !binfmt->core_dump)
@@ -499,14 +494,14 @@ void do_coredump(siginfo_t *siginfo)
 	 * so we dump it as root in mode 2, and only into a controlled
 	 * environment (pipe handler or fully qualified path).
 	 */
-	if (__get_dumpable(cprm.mm_flags) == SUID_DUMP_ROOT) {
+	if (__get_dumpable(cprm.mm_flags) == SUID_DUMPABLE_SAFE) {
 		/* Setuid core dump mode */
 		flag = O_EXCL;		/* Stop rewrite attacks */
 		cred->fsuid = GLOBAL_ROOT_UID;	/* Dump root private */
 		need_nonrelative = true;
 	}
 
-	retval = coredump_wait(siginfo->si_signo, &core_state);
+	retval = coredump_wait(exit_code, &core_state);
 	if (retval < 0)
 		goto fail_creds;
 
@@ -518,7 +513,7 @@ void do_coredump(siginfo_t *siginfo)
 	 */
 	clear_thread_flag(TIF_SIGPENDING);
 
-	ispipe = format_corename(&cn, &cprm);
+	ispipe = format_corename(&cn, signr);
 
  	if (ispipe) {
 		int dump_count;
@@ -598,7 +593,7 @@ void do_coredump(siginfo_t *siginfo)
 		if (IS_ERR(cprm.file))
 			goto fail_unlock;
 
-		inode = file_inode(cprm.file);
+		inode = cprm.file->f_path.dentry->d_inode;
 		if (inode->i_nlink > 1)
 			goto close_fail;
 		if (d_unhashed(cprm.file->f_path.dentry))
@@ -627,11 +622,9 @@ void do_coredump(siginfo_t *siginfo)
 		goto close_fail;
 	if (displaced)
 		put_files_struct(displaced);
-	file_start_write(cprm.file);
 	retval = binfmt->core_dump(&cprm);
 	if (retval)
 		current->signal->group_exit_code |= 0x80;
-	file_end_write(cprm.file);
 
 	if (ispipe && core_pipe_limit)
 		wait_for_dump_helpers(cprm.file);
