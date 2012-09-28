@@ -265,6 +265,7 @@ apply_relocate(Elf32_Shdr *sechdrs, const char *strtab, unsigned int symindex,
 	return 0;
 }
 
+/*
 int
 apply_relocate_add(Elf32_Shdr *sechdrs, const char *strtab,
 		   unsigned int symindex, unsigned int relsec, struct module *module)
@@ -273,6 +274,7 @@ apply_relocate_add(Elf32_Shdr *sechdrs, const char *strtab,
 	       module->name);
 	return -ENOEXEC;
 }
+*/
 
 struct mod_unwind_map {
 	const Elf_Shdr *unw_sec;

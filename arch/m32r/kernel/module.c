@@ -228,6 +228,7 @@ int apply_relocate_add(Elf32_Shdr *sechdrs,
 	}
 	return 0;
 }
+<<<<<<< HEAD
 
 int apply_relocate(Elf32_Shdr *sechdrs,
 		       const char *strtab,
@@ -254,3 +255,5 @@ int module_finalize(const Elf_Ehdr *hdr,
 void module_arch_cleanup(struct module *mod)
 {
 }
+=======
+>>>>>>> 786d35d... Make most arch asm/module.h files use asm-generic/module.h

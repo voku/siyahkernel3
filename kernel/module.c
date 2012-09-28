@@ -1949,26 +1949,6 @@ static int simplify_symbols(struct module *mod, const struct load_info *info)
 	return ret;
 }
 
-int __weak apply_relocate(Elf_Shdr *sechdrs,
-			  const char *strtab,
-			  unsigned int symindex,
-			  unsigned int relsec,
-			  struct module *me)
-{
-	pr_err("module %s: REL relocation unsupported\n", me->name);
-	return -ENOEXEC;
-}
-
-int __weak apply_relocate_add(Elf_Shdr *sechdrs,
-			      const char *strtab,
-			      unsigned int symindex,
-			      unsigned int relsec,
-			      struct module *me)
-{
-	pr_err("module %s: RELA relocation unsupported\n", me->name);
-	return -ENOEXEC;
-}
-
 static int apply_relocations(struct module *mod, const struct load_info *info)
 {
 	unsigned int i;
@@ -2739,7 +2719,8 @@ static int check_module_license_and_versions(struct module *mod)
 
 	/* lve claims to be GPL but upstream won't provide source */
 	if (strcmp(mod->name, "lve") == 0)
-		add_taint_module(mod, TAINT_PROPRIETARY_MODULE);
+		add_taint_module(mod, TAINT_PROPRIETARY_MODULE,
+				 LOCKDEP_NOW_UNRELIABLE);
 
 #ifdef CONFIG_MODVERSIONS
 	if ((mod->num_syms && !mod->crcs)
