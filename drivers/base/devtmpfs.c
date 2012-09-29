@@ -365,7 +365,7 @@ int devtmpfs_mount(const char *mntdir)
 	return err;
 }
 
-static DECLARE_COMPLETION(setup_done);
+static __initdata DECLARE_COMPLETION(setup_done);
 
 static int handle(const char *name, mode_t mode, struct device *dev)
 {
@@ -402,9 +402,16 @@ static int devtmpfsd(void *p)
 			}
 			spin_lock(&req_lock);
 		}
+<<<<<<< HEAD
 		__set_current_state(TASK_INTERRUPTIBLE);
 		spin_unlock(&req_lock);
 		schedule();
+=======
+		set_current_state(TASK_INTERRUPTIBLE);
+		spin_unlock(&req_lock);
+		schedule();
+		__set_current_state(TASK_RUNNING);
+>>>>>>> 6d7e882... fix devtmpfs race
 	}
 	return 0;
 out:

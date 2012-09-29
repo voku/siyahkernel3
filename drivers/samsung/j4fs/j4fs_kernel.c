@@ -1523,3 +1523,6 @@ const struct super_operations j4fs_sops = {
 #endif
 };
 
+MODULE_AUTHOR("Samsung Inc");
+MODULE_DESCRIPTION("J4FS Driver");
+MODULE_LICENSE("GPL");

@@ -76,7 +76,7 @@ extern unsigned int zone_id_shrink_pagelist(struct zone *zone_id,struct list_hea
 
 #define lru_to_page(_head) (list_entry((_head)->prev, struct page, lru))
 
-#define SWAP_PROCESS_DEBUG_LOG 1
+#define SWAP_PROCESS_DEBUG_LOG 0
 /* free RAM 8M(6250 pages) */
 #define CHECK_FREE_MEMORY 2048
 /* free swap (10240 pages) */
@@ -497,7 +497,9 @@ int swap_inactive_pagelist(unsigned int page_swap_cluster)
 		pages_counter =
 		    swap_pages(zone0, &zone0_page_list, zone1,
 			       &zone1_page_list);
+#if SWAP_PROCESS_DEBUG_LOG > 0
 		printk("pagefreed = %d\n", pages_counter);
+#endif
 	}
 
 	return pages_counter;

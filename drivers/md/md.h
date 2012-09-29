@@ -239,9 +239,12 @@ struct mddev_s
 #define	MD_RECOVERY_FROZEN	9
 
 	unsigned long			recovery;
-	int				recovery_disabled; /* if we detect that recovery
-							    * will always fail, set this
-							    * so we don't loop trying */
+	/* If a RAID personality determines that recovery (of a particular
+	 * device) will fail due to a read error on the source device, it
+	 * takes a copy of this number and does not attempt recovery again
+	 * until this number changes.
+	 */
+	int				recovery_disabled;
 
 	int				in_sync;	/* know to not need resync */
 	/* 'open_mutex' avoids races between 'md_open' and 'do_md_stop', so
@@ -411,6 +414,20 @@ static inline void sysfs_notify_dirent_safe(struct sysfs_dirent *sd)
 static inline char * mdname (mddev_t * mddev)
 {
 	return mddev->gendisk ? mddev->gendisk->disk_name : "mdX";
+}
+
+static inline int sysfs_link_rdev(mddev_t *mddev, mdk_rdev_t *rdev)
+{
+	char nm[20];
+	sprintf(nm, "rd%d", rdev->raid_disk);
+	return sysfs_create_link(&mddev->kobj, &rdev->kobj, nm);
+}
+
+static inline void sysfs_unlink_rdev(mddev_t *mddev, mdk_rdev_t *rdev)
+{
+	char nm[20];
+	sprintf(nm, "rd%d", rdev->raid_disk);
+	sysfs_remove_link(&mddev->kobj, nm);
 }
 
 /*
