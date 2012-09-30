@@ -19,6 +19,8 @@ struct pt_regs;
 
 #ifdef __KERNEL__
 #include <linux/list.h>
+#include <linux/sched.h>
+#include <linux/unistd.h>
 #include <asm/exec.h>
 
 #define CORENAME_MAX_SIZE 128
@@ -133,6 +135,10 @@ extern void install_exec_creds(struct linux_binprm *bprm);
 extern void do_coredump(long signr, int exit_code, struct pt_regs *regs);
 extern void set_binfmt(struct linux_binfmt *new);
 extern void free_bprm(struct linux_binprm *);
+
+#ifdef __ARCH_WANT_KERNEL_EXECVE
+extern void ret_from_kernel_execve(struct pt_regs *normal) __noreturn;
+#endif
 
 #endif /* __KERNEL__ */
 #endif /* _LINUX_BINFMTS_H */
