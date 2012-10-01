@@ -6322,6 +6322,7 @@ int ext4_page_mkwrite(struct vm_area_struct *vma, struct vm_fault *vmf)
 	 * __block_page_mkwrite() to do a reliable check.
 	 */
 	vfs_check_frozen(inode->i_sb, SB_FREEZE_WRITE);
+	file_update_time(vma->vm_file);
 	/* Delalloc case is easy... */
 	if (test_opt(inode->i_sb, DELALLOC) &&
 	    !ext4_should_journal_data(inode) &&
