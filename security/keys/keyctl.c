@@ -1496,7 +1496,8 @@ long keyctl_session_to_parent(void)
 		goto error_keyring;
 	newwork = &cred->rcu;
 
-	cred->tgcred->session_keyring = key_ref_to_ptr(keyring_r);
+	cred->session_keyring = key_ref_to_ptr(keyring_r);
+	keyring_r = NULL;
 	init_task_work(newwork, key_change_session_keyring);
 
 	me = current;
@@ -1520,7 +1521,7 @@ long keyctl_session_to_parent(void)
 	mycred = current_cred();
 	pcred = __task_cred(parent);
 	if (mycred == pcred ||
-	    mycred->tgcred->session_keyring == pcred->tgcred->session_keyring) {
+	    mycred->session_keyring == pcred->session_keyring) {
 		ret = 0;
 		goto unlock;
 	}
@@ -1536,9 +1537,9 @@ long keyctl_session_to_parent(void)
 		goto unlock;
 
 	/* the keyrings must have the same UID */
-	if ((pcred->tgcred->session_keyring &&
-	     !uid_eq(pcred->tgcred->session_keyring->uid, mycred->euid)) ||
-	    !uid_eq(mycred->tgcred->session_keyring->uid, mycred->euid))
+	if ((pcred->session_keyring &&
+	     !uid_eq(pcred->session_keyring->uid, mycred->euid)) ||
+	    !uid_eq(mycred->session_keyring->uid, mycred->euid))
 		goto unlock;
 
 	/* cancel an already pending keyring replacement */
