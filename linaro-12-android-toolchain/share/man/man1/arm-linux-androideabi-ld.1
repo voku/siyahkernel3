@@ -124,7 +124,7 @@
 .\" ========================================================================
 .\"
 .IX Title "LD 1"
-.TH LD 1 "2012-08-18" "binutils-2.22.52.0.4" "GNU Development Tools"
+.TH LD 1 "2012-09-19" "binutils-2.23.51.0.3" "GNU Development Tools"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -943,6 +943,10 @@ Marks the object may contain \f(CW$ORIGIN\fR.
 .IP "\fBrelro\fR" 4
 .IX Item "relro"
 Create an \s-1ELF\s0 \f(CW\*(C`PT_GNU_RELRO\*(C'\fR segment header in the object.
+.IP "\fBnosecondary\fR" 4
+.IX Item "nosecondary"
+Convert secondary symbols to weak symbols when generating a shared
+library.
 .IP "\fBmax\-page\-size=\fR\fIvalue\fR" 4
 .IX Item "max-page-size=value"
 Set the emulation maximum page size to \fIvalue\fR.

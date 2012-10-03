@@ -1006,6 +1006,7 @@ void do_machine_check(struct pt_regs *regs, long error_code)
 		 */
 		add_taint(TAINT_MACHINE_CHECK);
 
+		mce_get_rip(&m, regs);
 		severity = mce_severity(&m, tolerant, NULL);
 
 		/*

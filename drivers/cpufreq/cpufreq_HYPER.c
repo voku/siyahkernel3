@@ -34,17 +34,17 @@
  * It helps to keep variable names smaller, simpler
  */
 
-#define DEF_FREQUENCY_DOWN_DIFFERENTIAL         (10)
+#define DEF_FREQUENCY_DOWN_DIFFERENTIAL         (20)
 #define MIN_FREQUENCY_DOWN_DIFFERENTIAL		(1)
-#define DEF_FREQUENCY_UP_THRESHOLD              (85)
+#define DEF_FREQUENCY_UP_THRESHOLD              (60)
 #define DEF_SAMPLING_DOWN_FACTOR                (1)
 #define MAX_SAMPLING_DOWN_FACTOR                (100000)
 #define MICRO_FREQUENCY_DOWN_DIFFERENTIAL       (5)
-#define MICRO_FREQUENCY_UP_THRESHOLD            (90)
+#define MICRO_FREQUENCY_UP_THRESHOLD            (95)
 #define MICRO_FREQUENCY_MIN_SAMPLE_RATE         (10000)
 #define MIN_FREQUENCY_UP_THRESHOLD              (11)
 #define MAX_FREQUENCY_UP_THRESHOLD              (100)
-#define FREQ_STEP                               (30)
+#define FREQ_STEP                               (40)
 #define UP_THRESHOLD_AT_MIN_FREQ                (60)
 #define FREQ_FOR_RESPONSIVENESS                 (200000)
 
@@ -140,7 +140,7 @@ static struct dbs_tuners {
 	.freq_responsiveness = FREQ_FOR_RESPONSIVENESS
 };
 
-static unsigned int dbs_enable=0;	/* number of CPUs using this policy */
+static unsigned int dbs_enable = 0;	/* number of CPUs using this policy */
 
 static inline u64 get_cpu_idle_time_jiffy(unsigned int cpu, u64 *wall)
 {
@@ -1006,7 +1006,7 @@ static int __init cpufreq_gov_dbs_init(void)
 	} else {
 		/* For correct statistics, we need 10 ticks for each measure */
 		min_sampling_rate =
-			MIN_SAMPLING_RATE_RATIO * jiffies_to_usecs(1);
+			MIN_SAMPLING_RATE_RATIO * jiffies_to_usecs(10);
 	}
 
 	err = pm_qos_add_notifier(PM_QOS_DVFS_RESPONSE_LATENCY,

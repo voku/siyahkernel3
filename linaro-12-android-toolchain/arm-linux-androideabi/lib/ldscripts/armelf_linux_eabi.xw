@@ -66,7 +66,7 @@ SECTIONS
     }
   .init           :
   {
-    KEEP (*(.init))
+    KEEP (*(SORT_NONE(.init)))
   }
   .plt            : { *(.plt) }
   .iplt           : { *(.iplt) }
@@ -83,7 +83,7 @@ SECTIONS
   }
   .fini           :
   {
-    KEEP (*(.fini))
+    KEEP (*(SORT_NONE(.fini)))
   }
   PROVIDE (__etext = .);
   PROVIDE (_etext = .);
@@ -173,6 +173,7 @@ SECTIONS
   }
   .data1          : { *(.data1) }
   _edata = .; PROVIDE (edata = .);
+  . = .;
   __bss_start = .;
   __bss_start__ = .;
   .bss            :
@@ -229,6 +230,8 @@ SECTIONS
   /* DWARF 3 */
   .debug_pubtypes 0 : { *(.debug_pubtypes) }
   .debug_ranges   0 : { *(.debug_ranges) }
+  /* DWARF Extension.  */
+  .debug_macro    0 : { *(.debug_macro) }
   .gnu.attributes 0 : { KEEP (*(.gnu.attributes)) }
   .note.gnu.arm.ident 0 : { KEEP (*(.note.gnu.arm.ident)) }
   /DISCARD/ : { *(.note.GNU-stack) *(.gnu_debuglink) *(.gnu.lto_*) *(.gnu_object_only) }

@@ -97,6 +97,10 @@ extern int mali_dvfs_utilization;
 module_param(mali_dvfs_utilization, int, S_IRUSR | S_IRGRP | S_IROTH); /* r--r--r-- */
 MODULE_PARM_DESC(mali_dvfs_utilization, "Mali Current Utilization");
 
+extern int mali_gpu_utilization_timeout;
+module_param(mali_gpu_utilization_timeout, int, S_IRUSR | S_IRGRP | S_IROTH); /* r--r--r-- */
+MODULE_PARM_DESC(mali_gpu_utilization_timeout, "Mali GPU Utilization Timeout");
+
 extern int mali_gpu_vol;
 module_param(mali_gpu_vol, int, S_IRUSR | S_IRGRP | S_IROTH); /* r--r--r-- */
 MODULE_PARM_DESC(mali_gpu_vol, "Mali Current Voltage");

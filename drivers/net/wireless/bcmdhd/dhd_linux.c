@@ -22,7 +22,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd_linux.c 354680 2012-09-01 09:13:38Z $
+ * $Id: dhd_linux.c 355922 2012-09-10 14:15:32Z $
  */
 
 #include <typedefs.h>
@@ -182,9 +182,20 @@ print_tainted()
 extern wl_iw_extra_params_t  g_wl_iw_params;
 #endif /* defined(CONFIG_WIRELESS_EXT) */
 
+#if defined(CUSTOMER_HW4) && defined(CONFIG_PARTIALSUSPEND_SLP)
+#include <linux/partialsuspend_slp.h>
+#define CONFIG_HAS_EARLYSUSPEND
+#define DHD_USE_EARLYSUSPEND
+#define register_early_suspend		register_pre_suspend
+#define unregister_early_suspend	unregister_pre_suspend
+#define early_suspend				pre_suspend
+#define EARLY_SUSPEND_LEVEL_BLANK_SCREEN		50
+#else
 #if defined(CONFIG_HAS_EARLYSUSPEND) && defined(DHD_USE_EARLYSUSPEND)
 #include <linux/earlysuspend.h>
 #endif /* defined(CONFIG_HAS_EARLYSUSPEND) && defined(DHD_USE_EARLYSUSPEND) */
+#endif /* CUSTOMER_HW4 && CONFIG_PARTIALSUSPEND_SLP */
+
 extern int dhd_get_dtim_skip(dhd_pub_t *dhd);
 
 #ifdef PKT_FILTER_SUPPORT
@@ -398,7 +409,7 @@ uint dhd_slpauto = TRUE;
 module_param(dhd_slpauto, uint, 0);
 
 /* ARP offload agent mode : Enable ARP Host Auto-Reply and ARP Peer Auto-Reply */
-uint dhd_arp_mode = ARP_OL_AGENT | ARP_OL_HOST_AUTO_REPLY | ARP_OL_PEER_AUTO_REPLY | ARP_OL_SNOOP;
+uint dhd_arp_mode = ARP_OL_AGENT | ARP_OL_PEER_AUTO_REPLY | ARP_OL_SNOOP;
 module_param(dhd_arp_mode, uint, 0);
 
 /* ARP offload enable */
@@ -538,6 +549,9 @@ bool g_pm_control;
 void sec_control_pm(dhd_pub_t *dhd, uint *);
 #endif
 
+#if 1
+int force_hang = 0;
+#endif
 
 #if defined(CONFIG_WIRELESS_EXT)
 struct iw_statistics *dhd_get_wireless_stats(struct net_device *dev);
@@ -618,10 +632,17 @@ void dhd_enable_packet_filter(int value, dhd_pub_t *dhd)
 }
 #endif /* PKT_FILTER_SUPPORT */
 
+#ifdef CONFIG_BCMDHD_PMFAST
+static int wifi_pm = 0;
+/* /sys/module/dhd/parameters/wifi_pm */
+module_param(wifi_pm, int, 0755);
+EXPORT_SYMBOL(wifi_pm);
+#endif
+
 static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 {
-#ifndef SUPPORT_PM2_ONLY
-	int power_mode = PM_MAX;
+#ifdef CONFIG_BCMDHD_PMFAST
+	int power_mode;
 #endif
 	/* wl_pkt_filter_enable_t	enable_parm; */
 	char iovbuf[32];
@@ -641,6 +662,20 @@ static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 	DHD_TRACE(("%s: enter, value = %d in_suspend=%d\n",
 		__FUNCTION__, value, dhd->in_suspend));
 
+#ifdef CONFIG_BCMDHD_PMFAST
+	if (wifi_pm == 1) {
+		power_mode = PM_FAST;
+		pr_info("[Dorimanx] %p Wi-Fi Power Management policy changed to PM_FAST.", __func__);
+	} else {
+		power_mode = PM_MAX;
+		pr_info("[Dorimanx] %p Wi-Fi Power Management policy changed to PM_MAX.", __func__);
+	}
+#else
+#ifndef SUPPORT_PM2_ONLY
+	int power_mode = PM_MAX;
+#endif
+#endif
+
 	dhd_suspend_lock(dhd);
 	if (dhd && dhd->up) {
 		if (value && dhd->in_suspend) {
@@ -648,12 +683,18 @@ static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 				dhd->early_suspended = 1;
 #endif
 				/* Kernel suspended */
-				DHD_ERROR(("%s: force extra Suspend setting \n", __FUNCTION__));
+				DHD_ERROR(("%s: force extra Suspend setting\n", __FUNCTION__));
 
+#ifdef CONFIG_BCMDHD_PMFAST
+				dhd_wl_ioctl_cmd(dhd, WLC_SET_PM, (char *)&power_mode,
+					sizeof(power_mode), TRUE, 0);
+#else
 #ifndef SUPPORT_PM2_ONLY
 				dhd_wl_ioctl_cmd(dhd, WLC_SET_PM, (char *)&power_mode,
-				                 sizeof(power_mode), TRUE, 0);
+					sizeof(power_mode), TRUE, 0);
 #endif
+#endif
+
 #ifdef PKT_FILTER_SUPPORT
 				/* Enable packet filter, only allow unicast packet to send up */
 				if (!dhd->dhcp_in_progress)
@@ -694,13 +735,18 @@ static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 				dhd->early_suspended = 0;
 #endif
 				/* Kernel resumed  */
-				DHD_TRACE(("%s: Remove extra suspend setting \n", __FUNCTION__));
+				DHD_TRACE(("%s: Remove extra suspend setting\n", __FUNCTION__));
 
-#ifndef SUPPORT_PM2_ONLY
-				power_mode = PM_FAST;
+#ifdef CONFIG_BCMDHD_PMFAST
 				dhd_wl_ioctl_cmd(dhd, WLC_SET_PM, (char *)&power_mode,
-				                 sizeof(power_mode), TRUE, 0);
+				       	sizeof(power_mode), TRUE, 0);
+#else
+#ifndef SUPPORT_PM2_ONLY
+				dhd_wl_ioctl_cmd(dhd, WLC_SET_PM, (char *)&power_mode,
+					sizeof(power_mode), TRUE, 0);
 #endif
+#endif
+
 #ifdef PKT_FILTER_SUPPORT
 				/* disable pkt filter */
 				dhd_enable_packet_filter(0, dhd);
@@ -2416,6 +2462,16 @@ static bool dhd_check_hang(struct net_device *net, dhd_pub_t *dhdp, int error)
 		net_os_send_hang_message(net);
 		return TRUE;
 	}
+
+#if 1
+        if (force_hang) {
+                DHD_ERROR(("***%s(): Event HANG send up by forecly", __FUNCTION__));
+                net_os_send_hang_message(net);
+                force_hang = 0;
+                return FALSE;
+        }
+#endif
+
 	return FALSE;
 }
 
@@ -2719,7 +2775,9 @@ dhd_stop(struct net_device *net)
 #endif
 
 #ifdef PROP_TXSTATUS
+	dhd_os_wlfc_block(&dhd->pub);
 	dhd_wlfc_cleanup(&dhd->pub);
+	dhd_os_wlfc_unblock(&dhd->pub);
 #endif
 
 	/* Stop the protocol module */
@@ -3533,6 +3591,9 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 	int roam_trigger[2] = {-75, WLC_BAND_ALL};
 	int roam_scan_period[2] = {10, WLC_BAND_ALL};
 	int roam_delta[2] = {10, WLC_BAND_ALL};
+#ifdef ROAM_AP_ENV_DETECTION
+	int roam_env_mode = AP_ENV_INDETERMINATE;
+#endif /* ROAM_AP_ENV_DETECTION */
 #ifdef FULL_ROAMING_SCAN_PERIOD_60_SEC
 	int roam_fullscan_period = 60;
 #else /* FULL_ROAMING_SCAN_PERIOD_60_SEC */
@@ -3681,7 +3742,7 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 		}
 #else
 	(void)concurrent_capab;
-#endif 
+#endif
 	}
 
 	dhd->op_mode = op_mode;
@@ -3714,6 +3775,16 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 	dhd_wl_ioctl_cmd(dhd, WLC_SET_ROAM_DELTA, roam_delta, sizeof(roam_delta), TRUE, 0);
 	bcm_mkiovar("fullroamperiod", (char *)&roam_fullscan_period, 4, iovbuf, sizeof(iovbuf));
 	dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf, sizeof(iovbuf), TRUE, 0);
+#ifdef ROAM_AP_ENV_DETECTION
+	if (roam_trigger[0] == WL_AUTO_ROAM_TRIGGER) {
+		bcm_mkiovar("roam_env_detection", (char *)&roam_env_mode,
+			4, iovbuf, sizeof(iovbuf));
+		if (dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf, sizeof(iovbuf), TRUE, 0) == BCME_OK)
+			dhd->roam_env_detection = TRUE;
+		else
+			dhd->roam_env_detection = FALSE;
+	}
+#endif /* ROAM_AP_ENV_DETECTION */
 #endif /* ROAM_ENABLE */
 
 #ifdef OKC_SUPPORT
@@ -3868,7 +3939,7 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 #ifdef PKT_FILTER_SUPPORT
 	/* Setup default defintions for pktfilter , enable in suspend */
 	dhd->pktfilter_count = 5;
-	/* Setup filter to allow only unicast */
+	/* Setup filter to allow unicast only */
 	dhd->pktfilter[0] = "100 0 0 0 0x01 0x00";
 	dhd->pktfilter[1] = NULL;
 	dhd->pktfilter[2] = NULL;
@@ -3877,28 +3948,16 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 	dhd->pktfilter[4] = "104 0 0 0 0xFFFFFFFFFFFF 0x01005E0000FB";
 
 #ifdef CUSTOMER_HW4
-#ifdef GAN_LITE_NAT_KEEPALIVE_FILTER
-	dhd->pktfilter_count = 4;
-	/* Setup filter to block broadcast and NAT Keepalive packets */
-	dhd->pktfilter[0] = "100 0 0 0 0xffffff 0xffffff"; /* discard all broadcast packets */
-	dhd->pktfilter[1] = "102 0 0 36 0xffffffff 0x11940009"; /* discard NAT Keepalive packets */
-	dhd->pktfilter[2] = "104 0 0 38 0xffffffff 0x11940009"; /* discard NAT Keepalive packets */
-	dhd->pktfilter[3] = NULL;
-#else
-	/* Setup filter to allow only unicast */
 #if defined(BLOCK_IPV6_PACKET)
 	dhd->pktfilter[0] = "100 0 0 0 "
 		HEX_PREF_STR UNI_FILTER_STR ZERO_ADDR_STR ETHER_TYPE_STR IPV6_FILTER_STR
 		" "
 		HEX_PREF_STR ZERO_ADDR_STR ZERO_ADDR_STR ETHER_TYPE_STR ZERO_TYPE_STR;
-#else
-	dhd->pktfilter[0] = "100 0 0 0 0x01 0x00";
 #endif /* BLOCK_IPV6_PACKET */
 #if defined(PASS_IPV4_SUSPEND)
-	dhd->pktfilter_count = 5;
-	dhd->pktfilter[4] = "104 0 0 0 0xFFFFFF 0x01005E";
+	dhd->pktfilter_count = 2;
+	dhd->pktfilter[1] = "104 0 0 0 0xFFFFFF 0x01005E";
 #endif
-#endif /* GAN_LITE_NAT_KEEPALIVE_FILTER */
 #endif /* CUSTOMER_HW4 */
 
 #if defined(SOFTAP)
@@ -5103,41 +5162,7 @@ int net_os_set_dtim_skip(struct net_device *dev, int val)
 #ifdef PKT_FILTER_SUPPORT
 int net_os_rxfilter_add_remove(struct net_device *dev, int add_remove, int num)
 {
-#ifndef GAN_LITE_NAT_KEEPALIVE_FILTER
-	dhd_info_t *dhd = *(dhd_info_t **)netdev_priv(dev);
-	char *filterp = NULL;
-	int ret = 0;
-
-	if (!dhd || (num == DHD_UNICAST_FILTER_NUM) ||
-	    (num == DHD_MDNS_FILTER_NUM))
-		return ret;
-	if (num >= dhd->pub.pktfilter_count)
-		return -EINVAL;
-	if (add_remove) {
-		switch (num) {
-		case DHD_BROADCAST_FILTER_NUM:
-			filterp = "101 0 0 0 0xFFFFFFFFFFFF 0xFFFFFFFFFFFF";
-			break;
-		case DHD_MULTICAST4_FILTER_NUM:
-			filterp = "102 0 0 0 0xFFFFFF 0x01005E";
-			break;
-		case DHD_MULTICAST6_FILTER_NUM:
-#if defined(BLOCK_IPV6_PACKET)
-/* customer want to use NO IPV6 packets only */
-			return ret;
-#endif
-			filterp = "103 0 0 0 0xFFFF 0x3333";
-			break;
-		default:
-			return -EINVAL;
-		}
-	}
-	dhd->pub.pktfilter[num] = filterp;
-	dhd_pktfilter_offload_set(&dhd->pub, dhd->pub.pktfilter[num]);
-	return ret;
-#else
 	return 0;
-#endif /* GAN_LITE_NAT_KEEPALIVE_FILTER */
 }
 
 int net_os_enable_packet_filter(struct net_device *dev, int val)

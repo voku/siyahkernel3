@@ -124,7 +124,7 @@
 .\" ========================================================================
 .\"
 .IX Title "GCC 1"
-.TH GCC 1 "2012-07-31" "gcc-4.7.2" "GNU"
+.TH GCC 1 "2012-09-10" "gcc-4.7.2" "GNU"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -4960,8 +4960,12 @@ Dump after live range splitting.
 .IX Item "-fdump-rtl-dfinish"
 .PD
 These dumps are defined but always produce empty files.
+.IP "\fB\-da\fR" 4
+.IX Item "-da"
+.PD 0
 .IP "\fB\-fdump\-rtl\-all\fR" 4
 .IX Item "-fdump-rtl-all"
+.PD
 Produce all the dumps listed above.
 .IP "\fB\-dA\fR" 4
 .IX Item "-dA"
@@ -4973,10 +4977,6 @@ normal output.
 .IP "\fB\-dH\fR" 4
 .IX Item "-dH"
 Produce a core dump whenever an error occurs.
-.IP "\fB\-dm\fR" 4
-.IX Item "-dm"
-Print statistics on memory usage, at the end of the run, to
-standard error.
 .IP "\fB\-dp\fR" 4
 .IX Item "-dp"
 Annotate the assembler output with a comment indicating which
@@ -10727,6 +10727,11 @@ address as if addressed by an instruction to access \s-1RAM\s0 like \f(CW\*(C`LD
 or \f(CW\*(C`STS\*(C'\fR. This offset depends on the device architecture and has
 to be subtracted from the \s-1RAM\s0 address in order to get the
 respective I/O@tie{}address.
+.ie n .IP """_\|_WITH_AVRLIBC_\|_""" 4
+.el .IP "\f(CW_\|_WITH_AVRLIBC_\|_\fR" 4
+.IX Item "__WITH_AVRLIBC__"
+The compiler is configured to be used together with AVR-Libc.
+See the \f(CW\*(C`\-\-with\-avrlibc\*(C'\fR configure option.
 .PP
 \fIBlackfin Options\fR
 .IX Subsection "Blackfin Options"
