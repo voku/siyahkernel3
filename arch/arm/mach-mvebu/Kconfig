@@ -24,8 +24,11 @@ menu "Marvell SOC with device tree"
 config MACH_ARMADA_370_XP
 	bool
 	select ARMADA_370_XP_TIMER
+<<<<<<< HEAD
 	select HAVE_SMP
 	select CACHE_L2X0
+=======
+>>>>>>> de49019... arm: mm: Add support for PJ4B cpu and init routines
 	select CPU_PJ4B
 
 config MACH_ARMADA_370
