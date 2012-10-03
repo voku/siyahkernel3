@@ -54,12 +54,8 @@ ifeq ($(CONFIG_VIDEO_MALI400MP_DEBUG),y)
 BUILD=debug
 endif
 
-ifeq ($(CONFIG_VIDEO_MALI400MP_STREAMLINE_PROFILING),y)
-USING_PROFILING=1
-USING_TRACEPOINTS=1
-endif
-
 # set up defaults if not defined by the user
+USE_UMPV2 ?= 0
 PANIC_ON_WATCHDOG_TIMEOUT ?= 1 
 USING_MALI400 ?= 1
 USING_MMU ?= 1
@@ -130,7 +126,7 @@ DEFINES += -DMALI_UKK_HAS_IMPLICIT_MMAP_CLEANUP
 # UMP
 ifeq ($(CONFIG_VIDEO_UMP),y)
 	DEFINES += -DMALI_USE_UNIFIED_MEMORY_PROVIDER=1 -DHAVE_UNLOCKED_IOCTL
-	EXTRA_CFLAGS += -I$(MALI_FILE_PREFIX)/../ump/include
+	EXTRA_CFLAGS += -I$(MALI_INCLUDE_PREFIX)../ump/include
 else
 	DEFINES += -DMALI_USE_UNIFIED_MEMORY_PROVIDER=0
 endif
@@ -178,11 +174,12 @@ OSKFILES=\
 endif #($(CONFIG_VIDEO_UMP),y)
 
 ifeq ($(CONFIG_CPU_EXYNOS4210),y)
-	MALI_PLATFORM_FILE = platform/orion-m400/mali_platform.o
+	MALI_PLATFORM_DIR = platform/orion-m400
 else
-	MALI_PLATFORM_FILE = platform/pegasus-m400/mali_platform.o
+	MALI_PLATFORM_DIR = platform/pegasus-m400
 endif #($(CONFIG_CPU_EXYNOS4210),y)
 
+MALI_PLATFORM_FILE=$(MALI_PLATFORM_DIR)/mali_platform.o
 UKKFILES=\
         $(FILES_PREFIX)$(OSKOS)/mali_ukk_mem.o \
         $(FILES_PREFIX)$(OSKOS)/mali_ukk_gp.o \
