@@ -113,6 +113,7 @@ struct task_group {
 
 	atomic_t load_weight;
 	atomic64_t load_avg;
+	atomic_t runnable_avg;
 #endif
 
 #ifdef CONFIG_RT_GROUP_SCHED
