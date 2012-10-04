@@ -121,6 +121,7 @@ static struct workqueue_struct *mali_dvfs_wq = 0;
 extern mali_io_address clk_register_map;
 
 extern _mali_osk_lock_t *mali_dvfs_lock;
+
 int mali_runtime_resumed = -1;
 
 static DECLARE_WORK(mali_dvfs_work, mali_dvfs_work_handler);
@@ -224,7 +225,6 @@ static mali_bool set_mali_dvfs_status(u32 step,mali_bool boostup)
 	set_mali_dvfs_current_step(validatedStep);
 	/*for future use*/
 	maliDvfsStatus.pCurrentDvfs = &mali_dvfs[validatedStep];
-
 
 	/* lock/unlock CPU freq by Mali */
 	if (mali_dvfs[step].clock >= 300)
@@ -334,6 +334,7 @@ static mali_bool mali_dvfs_status(u32 utilization)
 {
 	unsigned int nextStatus = 0;
 	unsigned int curStatus = 0;
+	mali_bool boostup = MALI_FALSE;
 	static int stay_count = 0;
 #ifdef EXYNOS4_ASV_ENABLED
 	static mali_bool asv_applied = MALI_FALSE;

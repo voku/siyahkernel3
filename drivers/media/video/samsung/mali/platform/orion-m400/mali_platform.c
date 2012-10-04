@@ -51,22 +51,24 @@
 #define CLK_DIV_STAT_G3D 	0x1003C62C
 #define CLK_DESC 		"clk-divider-status"
 
-static struct clk               *ext_xtal_clock = 0;
-static struct clk               *vpll_src_clock = 0;
-static struct clk               *fout_vpll_clock = 0;
-static struct clk               *sclk_vpll_clock = 0;
+/* lock/unlock CPU freq by Mali */
+extern int cpufreq_lock_by_mali(unsigned int freq);
+extern void cpufreq_unlock_by_mali(void);
 
-static struct clk               *mpll_clock = 0;
-static struct clk               *mali_parent_clock = 0;
-static struct clk               *mali_clock = 0;
+static struct clk  *ext_xtal_clock = 0;
+static struct clk  *vpll_src_clock = 0;
+static struct clk  *fout_vpll_clock = 0;
+static struct clk  *sclk_vpll_clock = 0;
 
-int mali_gpu_clk 	=		160;
-static unsigned int GPU_MHZ	=		1000000;
-#ifdef CONFIG_S5PV310_ASV
-int mali_gpu_vol     =               1100000;        /* 1.10V for ASV */
-#else
-int mali_gpu_vol     =               1100000;        /* 1.10V */
-#endif
+static struct clk  *mpll_clock = 0;
+static struct clk  *mali_parent_clock = 0;
+static struct clk  *mali_clock = 0;
+
+
+static unsigned int GPU_MHZ  = 1000000;
+
+int mali_gpu_clk = 160;
+int mali_gpu_vol = 1100000;
 
 #if MALI_DVFS_ENABLED
 #define MALI_DVFS_DEFAULT_STEP 0 // 134Mhz default
@@ -98,13 +100,9 @@ extern struct platform_device exynos4_device_pd[];
 #endif
 #endif
 
-mali_io_address clk_register_map=0;
+mali_io_address clk_register_map = 0;
 
-#if MALI_GPU_BOTTOM_LOCK
-_mali_osk_lock_t *mali_dvfs_lock;
-#else
-static _mali_osk_lock_t *mali_dvfs_lock;
-#endif
+_mali_osk_lock_t *mali_dvfs_lock = 0;
 
 #ifdef CONFIG_REGULATOR
 int mali_regulator_get_usecount(void)
@@ -507,7 +505,10 @@ static _mali_osk_errcode_t enable_mali_clocks(void)
 
 	// set clock rate
 	mali_clk_set_rate(mali_gpu_clk, GPU_MHZ);
-	
+
+	/* lock/unlock CPU freq by Mali */
+	if (mali_gpu_clk >= 300)
+		err = cpufreq_lock_by_mali(800);
 	MALI_SUCCESS;
 }
 
@@ -515,7 +516,9 @@ static _mali_osk_errcode_t disable_mali_clocks(void)
 {
 	clk_disable(mali_clock);
 	MALI_DEBUG_PRINT(3,("disable_mali_clocks mali_clock %p \n", mali_clock));
-	
+
+	/* lock/unlock CPU freq by Mali */
+	cpufreq_unlock_by_mali();	
 	MALI_SUCCESS;
 }
 
@@ -527,7 +530,6 @@ void set_mali_parent_power_domain(struct platform_device* dev)
 #else
 	dev->dev.parent = &exynos4_device_pd[PD_G3D].dev;
 #endif
-
 #endif
 }
 
@@ -631,11 +633,7 @@ _mali_osk_errcode_t mali_platform_powerdown(u32 cores)
 		MALI_PRINT(("mali_platform_powerdown gpu_power_state == 0 and cores %x \n", cores));
 	}
 
-	bPoweroff=1;
-
-
-
-    MALI_SUCCESS;
+	MALI_SUCCESS;
 }
 
 _mali_osk_errcode_t mali_platform_powerup(u32 cores)
@@ -657,9 +655,6 @@ _mali_osk_errcode_t mali_platform_powerup(u32 cores)
 		gpu_power_state = gpu_power_state | cores;
 	}
 	
-  	bPoweroff=0;
-
-
 	MALI_SUCCESS;
 }
 
