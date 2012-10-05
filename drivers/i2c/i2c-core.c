@@ -940,7 +940,7 @@ int i2c_add_numbered_adapter(struct i2c_adapter *adap)
 	int	id;
 	int	status;
 
-	if (adap->nr & ~MAX_ID_MASK)
+	if (adap->nr & ~MAX_IDR_MASK)
 		return -EINVAL;
 
 retry:

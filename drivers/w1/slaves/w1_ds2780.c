@@ -140,7 +140,7 @@ static int new_bat_id(void)
 		mutex_unlock(&bat_idr_lock);
 
 		if (ret == 0) {
-			ret = id & MAX_ID_MASK;
+			ret = id & MAX_IDR_MASK;
 			break;
 		} else if (ret == -EAGAIN) {
 			continue;

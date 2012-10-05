@@ -72,7 +72,7 @@ again:
 	else if (unlikely(err))
 		return ERR_PTR(err);
 
-	id = id & MAX_ID_MASK;
+	id = id & MAX_IDR_MASK;
 	hwdev = device_create(hwmon_class, dev, MKDEV(0, 0), NULL,
 			      HWMON_ID_FORMAT, id);
 
