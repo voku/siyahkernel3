@@ -671,7 +671,10 @@ void synchronize_rcu(void)
 			   "Illegal synchronize_rcu() in RCU read-side critical section");
 	if (!rcu_scheduler_active)
 		return;
-	wait_rcu_gp(call_rcu);
+	if (rcu_expedited)
+		synchronize_rcu_expedited();
+	else
+		wait_rcu_gp(call_rcu);
 }
 EXPORT_SYMBOL_GPL(synchronize_rcu);
 
@@ -807,7 +810,8 @@ void synchronize_rcu_expedited(void)
 		if (trycount++ < 10) {
 			udelay(trycount * num_online_cpus());
 		} else {
-			synchronize_rcu();
+			put_online_cpus();
+			wait_rcu_gp(call_rcu);
 			return;
 		}
 		if ((ACCESS_ONCE(sync_rcu_preempt_exp_count) - snap) > 0)
