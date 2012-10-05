@@ -80,7 +80,7 @@ static int get_idr(struct idr *idr, struct mutex *lock, int *id)
 	else if (unlikely(err))
 		return err;
 
-	*id = *id & MAX_ID_MASK;
+	*id = *id & MAX_IDR_MASK;
 	return 0;
 }
 
