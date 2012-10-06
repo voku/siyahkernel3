@@ -738,6 +738,10 @@ struct ieee80211_mgmt {
 					 */
 					u8 variable[0];
 				} __attribute__((packed)) plink_action;
+				struct {
+					u8 action_code;
+					u8 variable[0];
+				} __attribute__((packed)) self_prot;
 				struct{
 					u8 action_code;
 					u8 variable[0];
@@ -1296,6 +1300,31 @@ enum ieee80211_ht_actioncode {
 	WLAN_HT_ACTION_NONCOMPRESSED_BF = 5,
 	WLAN_HT_ACTION_COMPRESSED_BF = 6,
 	WLAN_HT_ACTION_ASEL_IDX_FEEDBACK = 7,
+};
+
+/* Self Protected Action codes */
+enum ieee80211_self_protected_actioncode {
+	WLAN_SP_RESERVED = 0,
+	WLAN_SP_MESH_PEERING_OPEN = 1,
+	WLAN_SP_MESH_PEERING_CONFIRM = 2,
+	WLAN_SP_MESH_PEERING_CLOSE = 3,
+	WLAN_SP_MGK_INFORM = 4,
+	WLAN_SP_MGK_ACK = 5,
+};
+
+/* Mesh action codes */
+enum ieee80211_mesh_actioncode {
+	WLAN_MESH_ACTION_LINK_METRIC_REPORT,
+	WLAN_MESH_ACTION_HWMP_PATH_SELECTION,
+	WLAN_MESH_ACTION_GATE_ANNOUNCEMENT,
+	WLAN_MESH_ACTION_CONGESTION_CONTROL_NOTIFICATION,
+	WLAN_MESH_ACTION_MCCA_SETUP_REQUEST,
+	WLAN_MESH_ACTION_MCCA_SETUP_REPLY,
+	WLAN_MESH_ACTION_MCCA_ADVERTISEMENT_REQUEST,
+	WLAN_MESH_ACTION_MCCA_ADVERTISEMENT,
+	WLAN_MESH_ACTION_MCCA_TEARDOWN,
+	WLAN_MESH_ACTION_TBTT_ADJUSTMENT_REQUEST,
+	WLAN_MESH_ACTION_TBTT_ADJUSTMENT_RESPONSE,
 };
 
 /* Security key length */

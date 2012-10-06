@@ -502,6 +502,7 @@ struct fimc_control {
 	struct timeval			before_time;
 	char 				cma_name[16];
 	bool				restart;
+	int				is_frame_end_irq;
 #ifdef CONFIG_SLP_DMABUF
 	struct vb2_buffer       *out_bufs[VIDEO_MAX_FRAME];
 	struct vb2_buffer       *cap_bufs[VIDEO_MAX_FRAME];

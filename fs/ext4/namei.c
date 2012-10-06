@@ -289,7 +289,7 @@ static struct stats dx_show_leaf(struct dx_hash_info *hinfo, struct ext4_dir_ent
 				while (len--) printk("%c", *name++);
 				ext4fs_dirhash(de->name, de->name_len, &h);
 				printk(":%x.%u ", h.hash,
-				       ((char *) de - base));
+				       (unsigned) ((char *) de - base));
 			}
 			space += EXT4_DIR_REC_LEN(de->name_len);
 			names++;
@@ -468,7 +468,7 @@ fail2:
 fail:
 	if (*err == ERR_BAD_DX_DIR)
 		ext4_warning(dir->i_sb,
-			     "Corrupt dir inode %ld, running e2fsck is "
+			     "Corrupt dir inode %lu, running e2fsck is "
 			     "recommended.", dir->i_ino);
 	return NULL;
 }
@@ -1014,7 +1014,7 @@ static struct buffer_head * ext4_dx_find_entry(struct inode *dir, const struct q
 
 	*err = -ENOENT;
 errout:
-	dxtrace(printk(KERN_DEBUG "%s not found\n", name));
+	dxtrace(printk(KERN_DEBUG "%s not found\n", d_name->name));
 	dx_release (frames);
 	return NULL;
 }
@@ -1698,7 +1698,7 @@ static void ext4_inc_count(handle_t *handle, struct inode *inode)
 	if (is_dx(inode) && inode->i_nlink > 1) {
 		/* limit is 16-bit i_links_count */
 		if (inode->i_nlink >= EXT4_LINK_MAX || inode->i_nlink == 2) {
-			inode->i_nlink = 1;
+			set_nlink(inode, 1);
 			EXT4_SET_RO_COMPAT_FEATURE(inode->i_sb,
 					      EXT4_FEATURE_RO_COMPAT_DIR_NLINK);
 		}
@@ -1711,9 +1711,8 @@ static void ext4_inc_count(handle_t *handle, struct inode *inode)
  */
 static void ext4_dec_count(handle_t *handle, struct inode *inode)
 {
-	drop_nlink(inode);
-	if (S_ISDIR(inode->i_mode) && inode->i_nlink == 0)
-		inc_nlink(inode);
+	if (!S_ISDIR(inode->i_mode) || inode->i_nlink > 2)
+		drop_nlink(inode);
 }
 
 
@@ -1865,7 +1864,7 @@ retry:
 	de->name_len = 2;
 	strcpy(de->name, "..");
 	ext4_set_de_type(dir->i_sb, de, S_IFDIR);
-	inode->i_nlink = 2;
+	set_nlink(inode, 2);
 	BUFFER_TRACE(dir_block, "call ext4_handle_dirty_metadata");
 	err = ext4_handle_dirty_metadata(handle, inode, dir_block);
 	if (err)
@@ -1990,18 +1989,11 @@ int ext4_orphan_add(handle_t *handle, struct inode *inode)
 	if (!list_empty(&EXT4_I(inode)->i_orphan))
 		goto out_unlock;
 
-	/* Orphan handling is only valid for files with data blocks
-	 * being truncated, or files being unlinked. */
-
-	/* @@@ FIXME: Observation from aviro:
-	 * I think I can trigger J_ASSERT in ext4_orphan_add().  We block
-	 * here (on s_orphan_lock), so race with ext4_link() which might bump
-	 * ->i_nlink. For, say it, character device. Not a regular file,
-	 * not a directory, not a symlink and ->i_nlink > 0.
-	 *
-	 * tytso, 4/25/2009: I'm not sure how that could happen;
-	 * shouldn't the fs core protect us from these sort of
-	 * unlink()/link() races?
+	/*
+	 * Orphan handling is only valid for files with data blocks
+	 * being truncated, or files being unlinked. Note that we either
+	 * hold i_mutex, or the inode can not be referenced from outside,
+	 * so i_nlink should not be bumped due to race
 	 */
 	J_ASSERT((S_ISREG(inode->i_mode) || S_ISDIR(inode->i_mode) ||
 		  S_ISLNK(inode->i_mode)) || inode->i_nlink == 0);
@@ -2225,7 +2217,7 @@ static int ext4_unlink(struct inode *dir, struct dentry *dentry)
 		ext4_warning(inode->i_sb,
 			     "Deleting nonexistent file (%lu), %d",
 			     inode->i_ino, inode->i_nlink);
-		inode->i_nlink = 1;
+		set_nlink(inode, 1);
 	}
 	retval = ext4_delete_entry(handle, dir, de, bh);
 	if (retval)
@@ -2327,7 +2319,7 @@ retry:
 			err = PTR_ERR(handle);
 			goto err_drop_inode;
 		}
-		inc_nlink(inode);
+		set_nlink(inode, 1);
 		err = ext4_orphan_del(handle, inode);
 		if (err) {
 			ext4_journal_stop(handle);

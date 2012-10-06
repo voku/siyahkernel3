@@ -357,10 +357,10 @@ static int l2cap_sock_getsockopt_old(struct socket *sock, int optname, char __us
 			break;
 		}
 
-		if (chan->role_switch)
+		if (test_bit(FLAG_ROLE_SWITCH, &chan->flags))
 			opt |= L2CAP_LM_MASTER;
 
-		if (chan->force_reliable)
+		if (test_bit(FLAG_FORCE_RELIABLE, &chan->flags))
 			opt |= L2CAP_LM_RELIABLE;
 
 		if (put_user(opt, (u32 __user *) optval))
@@ -447,7 +447,8 @@ static int l2cap_sock_getsockopt(struct socket *sock, int level, int optname, ch
 		break;
 
 	case BT_FLUSHABLE:
-		if (put_user(chan->flushable, (u32 __user *) optval))
+		if (put_user(test_bit(FLAG_FLUSHABLE, &chan->flags),
+						(u32 __user *) optval))
 			err = -EFAULT;
 
 		break;
@@ -459,7 +460,7 @@ static int l2cap_sock_getsockopt(struct socket *sock, int level, int optname, ch
 			break;
 		}
 
-		pwr.force_active = chan->force_active;
+		pwr.force_active = test_bit(FLAG_FORCE_ACTIVE, &chan->flags);
 
 		len = min_t(unsigned int, len, sizeof(pwr));
 		if (copy_to_user(optval, (char *) &pwr, len))
@@ -549,8 +550,15 @@ static int l2cap_sock_setsockopt_old(struct socket *sock, int optname, char __us
 		if (opt & L2CAP_LM_SECURE)
 			chan->sec_level = BT_SECURITY_HIGH;
 
-		chan->role_switch    = (opt & L2CAP_LM_MASTER);
-		chan->force_reliable = (opt & L2CAP_LM_RELIABLE);
+		if (opt & L2CAP_LM_MASTER)
+			set_bit(FLAG_ROLE_SWITCH, &chan->flags);
+		else
+			clear_bit(FLAG_ROLE_SWITCH, &chan->flags);
+
+		if (opt & L2CAP_LM_RELIABLE)
+			set_bit(FLAG_FORCE_RELIABLE, &chan->flags);
+		else
+			clear_bit(FLAG_FORCE_RELIABLE, &chan->flags);
 		break;
 
 	default:
@@ -656,7 +664,10 @@ static int l2cap_sock_setsockopt(struct socket *sock, int level, int optname, ch
 			}
 		}
 
-		chan->flushable = opt;
+		if (opt)
+			set_bit(FLAG_FLUSHABLE, &chan->flags);
+		else
+			clear_bit(FLAG_FLUSHABLE, &chan->flags);
 		break;
 
 	case BT_POWER:
@@ -673,7 +684,11 @@ static int l2cap_sock_setsockopt(struct socket *sock, int level, int optname, ch
 			err = -EFAULT;
 			break;
 		}
-		chan->force_active = pwr.force_active;
+
+		if (pwr.force_active)
+			set_bit(FLAG_FORCE_ACTIVE, &chan->flags);
+		else
+			clear_bit(FLAG_FORCE_ACTIVE, &chan->flags);
 		break;
 
 	default:
@@ -930,10 +945,7 @@ static void l2cap_sock_init(struct sock *sk, struct sock *parent)
 		chan->max_tx = pchan->max_tx;
 		chan->tx_win = pchan->tx_win;
 		chan->sec_level = pchan->sec_level;
-		chan->role_switch = pchan->role_switch;
-		chan->force_reliable = pchan->force_reliable;
-		chan->flushable = pchan->flushable;
-		chan->force_active = pchan->force_active;
+		chan->flags = pchan->flags;
 	} else {
 
 		switch (sk->sk_type) {
@@ -961,11 +973,8 @@ static void l2cap_sock_init(struct sock *sk, struct sock *parent)
 		chan->fcs  = L2CAP_FCS_CRC16;
 		chan->tx_win = L2CAP_DEFAULT_TX_WINDOW;
 		chan->sec_level = BT_SECURITY_LOW;
-		chan->role_switch = 0;
-		chan->force_reliable = 0;
-		chan->flushable = BT_FLUSHABLE_OFF;
-		chan->force_active = BT_POWER_FORCE_ACTIVE_ON;
-
+		chan->flags = 0;
+		set_bit(FLAG_FORCE_ACTIVE, &chan->flags);
 	}
 
 	/* Default config options */

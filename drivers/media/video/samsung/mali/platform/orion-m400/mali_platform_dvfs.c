@@ -1,4 +1,7 @@
-/* * Copyright (C) 2010-2012 ARM Limited. All rights reserved. * * This program is free software and is provided to you under the terms of the GNU General Public License version 2
+/*
+ * Copyright (C) 2010 ARM Limited. All rights reserved.
+ *
+ * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
  *
  * A copy of the licence is included with the program, and can also be obtained from Free Software
@@ -33,7 +36,7 @@
 #define EXYNOS4_ASV_ENABLED
 #endif
 
-static int bMaliDvfsRun=0;
+static int bMaliDvfsRun = 0;
 
 static _mali_osk_atomic_t bottomlock_status;
 static int bottom_lock_step;
@@ -61,35 +64,55 @@ typedef struct mali_dvfs_staycount{
 
 mali_dvfs_staycount_table mali_dvfs_staycount[MALI_DVFS_STEPS]={
 	/*step 0*/{0},
+#if (MALI_DVFS_STEPS > 1)
 	/*step 1*/{0},
+#if (MALI_DVFS_STEPS > 2)
 	/*step 2*/{0},
-	/*step 3*/{0}
+#if (MALI_DVFS_STEPS > 3)
+	/*step 3*/{0},
+#if (MALI_DVFS_STEPS > 4)
+	/*step 4*/{0}
+#endif
+#endif
+#endif
+#endif
 };
 
 mali_dvfs_table mali_dvfs[MALI_DVFS_STEPS]={
-	{108	,1000000	, 900000},
-	{160	,1000000	, 950000},
-	{266	,1000000	,1000000},
-	{330	,1000000	,1100000}
+	{100  ,1000000    , 900000},
+#if (MALI_DVFS_STEPS > 1)
+	{160  ,1000000    , 950000},
+#if (MALI_DVFS_STEPS > 2)
+	{267  ,1000000    ,1000000},
+#if (MALI_DVFS_STEPS > 3)
+	{330  ,1000000    ,1100000},
+#if (MALI_DVFS_STEPS > 4)
+	{440  ,1000000    ,1200000}
+#endif
+#endif
+#endif
+#endif
 };
 
-/*dvfs threshold*/
 mali_dvfs_threshold_table mali_dvfs_threshold[MALI_DVFS_STEPS]={
-	{0	, 70},
-	{62	, 90},
-	{85	, 90},
-	{90	,100}
+	{0   , 70},
+#if (MALI_DVFS_STEPS > 1)
+	{62  , 90},
+#if (MALI_DVFS_STEPS > 2)
+	{85  , 90},
+#if (MALI_DVFS_STEPS > 3)
+	{85  ,100}
+#if (MALI_DVFS_STEPS > 4)
+	{95  ,100}
+#endif
+#endif
+#endif
+#endif
 };
-
-/*dvfs status*/
-mali_dvfs_currentstatus maliDvfsStatus;
-int mali_dvfs_control=0;
 
 #ifdef EXYNOS4_ASV_ENABLED
-
 #define ASV_8_LEVEL	8
 #define ASV_5_LEVEL	5
-#define ASV_LEVEL_SUPPORT 0
 
 static unsigned int asv_3d_volt_5_table[ASV_5_LEVEL][MALI_DVFS_STEPS] = {
 	/* L4(108MHz), L3(160MHz), L2(266MHz), L1(330MHz) */
@@ -113,13 +136,16 @@ static unsigned int asv_3d_volt_8_table[ASV_8_LEVEL][MALI_DVFS_STEPS] = {
 };
 #endif
 
-static u32 mali_dvfs_utilization = 255;
+/*dvfs status*/
+mali_dvfs_currentstatus maliDvfsStatus;
+int mali_dvfs_control = 0;
+
+u32 mali_dvfs_utilization = 255;
 
 static void mali_dvfs_work_handler(struct work_struct *w);
 
 static struct workqueue_struct *mali_dvfs_wq = 0;
 extern mali_io_address clk_register_map;
-
 extern _mali_osk_lock_t *mali_dvfs_lock;
 
 int mali_runtime_resumed = -1;
@@ -176,7 +202,6 @@ static unsigned int get_mali_dvfs_status(void)
 {
 	return maliDvfsStatus.currentStep;
 }
-
 #if MALI_PMM_RUNTIME_JOB_CONTROL_ON
 int get_mali_dvfs_control_status(void)
 {
@@ -193,14 +218,13 @@ mali_bool set_mali_dvfs_current_step(unsigned int step)
 	return MALI_TRUE;
 }
 #endif
-
 static mali_bool set_mali_dvfs_status(u32 step,mali_bool boostup)
 {
 	u32 validatedStep=step;
 	int err;
 
 #ifdef CONFIG_REGULATOR
-	if (mali_regulator_get_usecount()==0) {
+	if (mali_regulator_get_usecount() == 0) {
 		MALI_DEBUG_PRINT(1, ("regulator use_count is 0 \n"));
 		return MALI_FALSE;
 	}
@@ -244,10 +268,9 @@ static void mali_platform_wating(u32 msec)
 	while(1) {
 		read_val = _mali_osk_mem_ioread32(clk_register_map, 0x00);
 		if ((read_val & 0x8000)==0x0000) break;
-
-		_mali_osk_time_ubusydelay(100); // 1000 -> 100 : 20101218
-	}
-	/* _mali_osk_time_ubusydelay(msec*1000);*/
+			_mali_osk_time_ubusydelay(100); // 1000 -> 100 : 20101218
+		}
+		/* _mali_osk_time_ubusydelay(msec*1000);*/
 }
 
 static mali_bool change_mali_dvfs_status(u32 step, mali_bool boostup )
@@ -270,16 +293,18 @@ static mali_bool change_mali_dvfs_status(u32 step, mali_bool boostup )
 static mali_bool mali_dvfs_table_update(void)
 {
 	unsigned int exynos_result_of_asv_group;
+	unsigned int target_asv;
 	unsigned int i;
 	exynos_result_of_asv_group = exynos_result_of_asv & 0xf;
-	MALI_PRINT(("exynos_result_of_asv_group = 0x%x\n", exynos_result_of_asv_group));
+	target_asv = exynos_result_of_asv >> 28;
+	MALI_PRINT(("exynos_result_of_asv_group = 0x%x, target_asv = 0x%x\n", exynos_result_of_asv_group, target_asv));
 
-	if (ASV_LEVEL_SUPPORT) { //asv level information will be added.
+	if (target_asv == 0x8) { //SUPPORT_1400MHZ
 		for (i = 0; i < MALI_DVFS_STEPS; i++) {
 			mali_dvfs[i].vol = asv_3d_volt_5_table[exynos_result_of_asv_group][i];
 			MALI_PRINT(("mali_dvfs[%d].vol = %d\n", i, mali_dvfs[i].vol));
 		}
-	} else {
+	} else if (target_asv == 0x4){ //SUPPORT_1200MHZ
 		for (i = 0; i < MALI_DVFS_STEPS; i++) {
 			mali_dvfs[i].vol = asv_3d_volt_8_table[exynos_result_of_asv_group][i];
 			MALI_PRINT(("mali_dvfs[%d].vol = %d\n", i, mali_dvfs[i].vol));
@@ -287,9 +312,9 @@ static mali_bool mali_dvfs_table_update(void)
 	}
 
 	return MALI_TRUE;
-
 }
 #endif
+
 static unsigned int decideNextStatus(unsigned int utilization)
 {
 	static unsigned int level = 0; // 0:stay, 1:up
@@ -381,6 +406,7 @@ static mali_bool mali_dvfs_status(u32 utilization)
 int mali_dvfs_is_running(void)
 {
 	return bMaliDvfsRun;
+
 }
 
 
@@ -403,7 +429,6 @@ static void mali_dvfs_work_handler(struct work_struct *w)
 
 	bMaliDvfsRun=0;
 }
-
 
 mali_bool init_mali_dvfs_status(int step)
 {
@@ -482,3 +507,4 @@ int mali_dvfs_bottom_lock_pop(void)
 
 	return _mali_osk_atomic_dec_return(&bottomlock_status);
 }
+

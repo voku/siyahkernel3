@@ -250,6 +250,52 @@ EXPORT_SYMBOL(touch_is_pressed);
 
 static void mxt224_optical_gain(uint16_t dbg_mode);
 
+static struct input_dev *slide2wake_dev;
+extern void request_suspend_state(int);
+extern int get_suspend_state(void);
+static DEFINE_MUTEX(s2w_lock);
+static DEFINE_SEMAPHORE(s2w_sem);
+bool s2w_enabled = true;
+extern bool s2w_prox_near;
+
+static void slide2wake_force_wakeup(void)
+{
+	int state;
+
+	mutex_lock(&s2w_lock);
+	state = get_suspend_state();
+	printk(KERN_ERR "[TSP] suspend state: %d\n", state);
+	if (state != 0)
+		request_suspend_state(0);
+	msleep(100);
+	mutex_unlock(&s2w_lock);
+}
+
+void slide2wake_setdev(struct input_dev *input_device)
+{
+	slide2wake_dev = input_device;
+}
+
+static void slide2wake_presspwr(struct work_struct *slide2wake_presspwr_work)
+{
+	printk(KERN_ERR "[TSP] %s\n", __func__);
+	input_event(slide2wake_dev, EV_KEY, KEY_POWER, 1);
+	input_event(slide2wake_dev, EV_SYN, 0, 0);
+	msleep(100);
+	input_event(slide2wake_dev, EV_KEY, KEY_POWER, 0);
+	input_event(slide2wake_dev, EV_SYN, 0, 0);
+	msleep(1000);
+	mutex_unlock(&s2w_lock);
+}
+
+static DECLARE_WORK(slide2wake_presspwr_work, slide2wake_presspwr);
+
+void slide2wake_pwrtrigger(void)
+{
+	if (mutex_trylock(&s2w_lock))
+		schedule_work(&slide2wake_presspwr_work);
+}
+
 static int read_mem(struct mxt224_data *data, u16 reg, u8 len, u8 * buf)
 {
 	int ret;
@@ -484,7 +530,7 @@ static void mxt224_ta_probe(bool ta_status)
 	u8 charge_time;
 
 	printk(KERN_ERR "[TSP] mxt224_ta_probe\n");
-	if (!copy_data->mxt224_enabled) {
+	if (!copy_data->mxt224_enabled && !s2w_enabled) {
 		printk(KERN_ERR "[TSP] copy_data->mxt224_enabled is 0\n");
 		return;
 	}
@@ -1166,7 +1212,7 @@ static int __devinit mxt224_init_touch_driver(struct mxt224_data *data)
 {
 	struct object_t *object_table;
 	u32 read_crc = 0;
-	u32 calc_crc;
+	u32 calc_crc = 0;
 	u16 crc_address;
 	u16 dummy;
 	int i;
@@ -1273,14 +1319,19 @@ extern void gpu_boost_on_touch(void);
 #ifdef CONFIG_KEYBOARD_CYPRESS_SAMMY_CM9
 void (*mxt224_touch_cb)(void) = NULL;
 #endif
+
+#define __TSP_DEBUG
 #ifdef CONFIG_KEYBOARD_CYPRESS_AOKP
-extern void flash_led_buttons(unsigned int flash_timeout);
+extern void flash_led_buttons(unsigned int);
 static unsigned int flash_timeout = 0;
 #endif
+static unsigned int wake_start = 0;
+static unsigned int x_lo;
+static unsigned int x_hi;
 
 static void report_input_data(struct mxt224_data *data)
 {
-	int i;
+	int i, ret = 0;
 	static unsigned int level = ~0;
 	bool tsp_state = false;
 	bool check_press = false;
@@ -1296,6 +1347,12 @@ static void report_input_data(struct mxt224_data *data)
 	unsigned long flags;
 #endif
 
+	if (s2w_enabled) {
+		ret = down_trylock(&s2w_sem);
+		if (ret)
+			printk(KERN_ERR "[TSP] slide2invert SEM cannot be aquired\n");
+	}
+
 	touch_is_pressed = 0;
 
 	if (level == ~0)
@@ -1304,6 +1361,16 @@ static void report_input_data(struct mxt224_data *data)
 	for (i = 0; i < data->num_fingers; i++) {
 		if (TSP_STATE_INACTIVE == data->fingers[i].z)
 			continue;
+
+		// slide2wake gesture start
+		if (s2w_enabled && copy_data->touch_is_pressed_arr[i] == 1 &&
+			!copy_data->mxt224_enabled && !s2w_prox_near) {
+			if (data->fingers[0].x < x_lo) {
+				printk(KERN_ERR "[TSP] slide2wake down at: %4d\n",
+					data->fingers[0].x);
+				wake_start = 1;
+			}
+		}
 
 		/* for release */
 		if (data->fingers[i].z == TSP_STATE_RELEASE) {
@@ -1335,6 +1402,15 @@ static void report_input_data(struct mxt224_data *data)
 			input_mt_report_slot_state(data->input_dev,
 				MT_TOOL_FINGER, false);
 			data->fingers[i].z = TSP_STATE_INACTIVE;
+
+			// slide2wake trigger
+			if (wake_start == 1 && data->fingers[0].x > x_hi) {
+				printk(KERN_ERR "[TSP] slide2wake up at: %4d\n",
+					data->fingers[i].x);
+				slide2wake_force_wakeup();
+				slide2wake_pwrtrigger();
+			}
+			wake_start = 0;
 		/* logging */
 #ifdef __TSP_DEBUG
 			printk(KERN_ERR "[TSP] Up[%d] %4d,%4d\n", i,
@@ -1453,6 +1529,7 @@ static void report_input_data(struct mxt224_data *data)
 		}
 #endif
 	}
+
 	data->finger_mask = 0;
 	copy_data->touch_state = 0;
 	input_sync(data->input_dev);
@@ -1553,6 +1630,9 @@ static void report_input_data(struct mxt224_data *data)
 		}
 #endif
 	}
+
+	if (s2w_enabled)
+		up(&s2w_sem);
 }
 
 void palm_recovery(void)
@@ -1919,14 +1999,14 @@ static irqreturn_t mxt224_irq_thread(int irq, void *ptr)
 
 		if ((msg[0] == 0x1) &&
 			((msg[1] & 0x10) == 0x10)) {	/* caliration */
-			printk(KERN_ERR "[TSP] Calibration!!!!!!");
+			printk(KERN_ERR "[TSP] Calibration!!!!!!\n");
 			Doing_calibration_flag = 1;
 		} else if ((msg[0] == 0x1) &&
 			((msg[1] & 0x40) == 0x40)) { /* overflow */
 			printk(KERN_ERR "[TSP] Overflow!!!!!!");
 		} else if ((msg[0] == 0x1) &&
 			((msg[1] & 0x10) == 0x00)) {	/* caliration */
-			printk(KERN_ERR "[TSP] Calibration End!!!!!!");
+			printk(KERN_ERR "[TSP] Calibration End!!!!!!\n");
 
 			Doing_calibration_flag = 0;
 			if (cal_check_flag == 1) {
@@ -2089,7 +2169,7 @@ static irqreturn_t mxt224_irq_thread(int irq, void *ptr)
 			report_input_data(data);
 
 		if (touch_message_flag && (cal_check_flag)
-			&& !Doing_calibration_flag)
+			&& !Doing_calibration_flag && !s2w_enabled)
 			check_chip_calibration(1);
 	} while (!gpio_get_value(data->gpio_read_done));
 
@@ -2134,7 +2214,8 @@ static int mxt224_internal_suspend(struct mxt224_data *data)
 		}
 		report_input_data(data);
 
-		data->power_off();
+		if (!s2w_enabled)
+			data->power_off();
 #ifdef CONFIG_TARGET_LOCALE_NA
 	}
 #endif	/* CONFIG_TARGET_LOCALE_NA */
@@ -2227,7 +2308,11 @@ static void mxt224_early_suspend(struct early_suspend *h)
 	copy_data->freq_table.fherr_cnt = 0;
 	copy_data->freq_table.fherr_num = 1;
 
-	disable_irq(data->client->irq);
+	if (s2w_enabled)
+		enable_irq_wake(data->client->irq);
+	else
+		disable_irq(data->client->irq);
+
 	mxt224_internal_suspend(data);
 }
 
@@ -2236,11 +2321,14 @@ static void mxt224_late_resume(struct early_suspend *h)
 	struct mxt224_data *data = container_of(h, struct mxt224_data,
 						early_suspend);
 	bool ta_status = 0;
+	copy_data->mxt224_enabled = 1;
 
 	mxt224_internal_resume(data);
-	enable_irq(data->client->irq);
+	if (s2w_enabled)
+		disable_irq_wake(data->client->irq);
+	else
+		enable_irq(data->client->irq);
 
-	copy_data->mxt224_enabled = 1;
 #ifdef CONFIG_TARGET_LOCALE_KOR
 	copy_data->is_inputmethod = 0;
 #endif
@@ -2357,33 +2445,17 @@ static ssize_t mov_hysti_store(struct device *dev,
 					const char *buf, size_t count)
 {
 	unsigned int register_value;
-	u8 **tsp_config;
 	char buff[50];
 	int i;
-	
-	//struct i2c_client *client = to_i2c_client(dev);
-//	struct mxt224_data *data = dev_get_drvdata(dev);
-	//struct mxt224_platform_data *pdata = data->client->dev.platform_data;
-	
+
 	sscanf(buf, "%u", &register_value);
-	
+
 	// store value in global variable
 	mov_hysti = register_value;
 	
-	/*
-	tsp_config = pdata->config;
-	for (i = 0; tsp_config[i][0] != RESERVED_T255; i++) {
-		if (tsp_config[i][0] == TOUCH_MULTITOUCHSCREEN_T9) {
-			printk(KERN_ERR "[TSP] T9[12]=%u\n", tsp_config[i][12]);
-			tsp_config[i][12] = (u8)register_value;
-			break;
-		}
-	}
-	*/
-	
 	//do not apply if the screen is not active,
 	//it will be applied after turning on the screen anyway -gm
-	if( copy_data->mxt224_enabled == 1)
+	if ( copy_data->mxt224_enabled == 1)
 	{
 		i = sprintf(buff, "%u %u %u", TOUCH_MULTITOUCHSCREEN_T9, 11, register_value);
 		qt602240_object_setting(dev, attr, buff, i);
@@ -2410,7 +2482,6 @@ static ssize_t mov_hysti_show(struct device* dev,
 	ret = get_object_info(data, (u8)object_type, &size, &address);
 	if (ret || size <= 11) {
 		printk(KERN_ERR "[TSP] fail to get object_info\n");
-//		sprintf(buf, "-1\n");
 		return -EINVAL;
 	}
 	
@@ -3561,6 +3632,30 @@ static ssize_t touch_lock_freq_store(struct device *dev,
 	return size;
 }
 
+static ssize_t slide2wake_show(struct device *dev,
+				  struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", s2w_enabled);
+}
+
+static ssize_t slide2wake_store(struct device *dev,
+				   struct device_attribute *attr,
+				   const char *buf, size_t size)
+{
+	int ret;
+	unsigned int value;
+
+	ret = sscanf(buf, "%d\n", &value);
+
+	if (ret != 1)
+		return -EINVAL;
+	else
+		s2w_enabled = value ? true : false;
+		mxt224_gpio_sleep_mode(value ? true : false);
+
+	return size;
+}
+
 static ssize_t led_flash_timeout_show(struct device *dev,
 				  struct device_attribute *attr, char *buf)
 {
@@ -3661,6 +3756,8 @@ static DEVICE_ATTR(tsp_touch_freq, S_IRUGO | S_IWUSR | S_IWGRP,
 	touch_lock_freq_show, touch_lock_freq_store);
 static DEVICE_ATTR(tsp_flash_timeout, S_IRUGO | S_IWUSR | S_IWGRP,
 	led_flash_timeout_show, led_flash_timeout_store);
+static DEVICE_ATTR(tsp_slide2wake, S_IRUGO | S_IWUSR | S_IWGRP,
+	slide2wake_show, slide2wake_store);
 
 static int sec_touchscreen_enable(struct mxt224_data *data)
 {
@@ -4178,6 +4275,9 @@ static int __devinit mxt224_probe(struct i2c_client *client,
 	if (ret)
 		goto err_backup;
 
+	x_lo = pdata->max_x / 10;	/* 10% display width */
+	x_hi = (pdata->max_x / 10) * 9;	/* 90% display width */
+
 	/* reset the touch IC. */
 	ret = mxt224_reset(data);
 	if (ret)
@@ -4301,6 +4401,10 @@ static int __devinit mxt224_probe(struct i2c_client *client,
 	if (device_create_file(sec_touchscreen, &dev_attr_tsp_flash_timeout) < 0)
 		printk(KERN_ERR "Failed to create device file(%s)!\n",
 			dev_attr_tsp_flash_timeout.attr.name);
+
+	if (device_create_file(sec_touchscreen, &dev_attr_tsp_slide2wake) < 0)
+		printk(KERN_ERR "Failed to create device file(%s)!\n",
+		       dev_attr_tsp_slide2wake.attr.name);
 
 	if (device_create_file
 	    (sec_touchscreen, &dev_attr_tsp_firm_version_phone) < 0)

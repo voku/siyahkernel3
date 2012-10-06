@@ -7330,7 +7330,6 @@ static int remove_and_add_spares(struct mddev *mddev)
 {
 	struct md_rdev *rdev;
 	int spares = 0;
-	int removed = 0;
 
 	mddev->curr_resync_completed = 0;
 
@@ -7344,7 +7343,6 @@ static int remove_and_add_spares(struct mddev *mddev)
 				    mddev, rdev->raid_disk)==0) {
 				sysfs_unlink_rdev(mddev, rdev);
 				rdev->raid_disk = -1;
-				removed = 1;
 			}
 		}
 
@@ -7368,8 +7366,6 @@ static int remove_and_add_spares(struct mddev *mddev)
 			}
 		}
 	}
-	if (removed)
-		set_bit(MD_CHANGE_DEVS, &mddev->flags);
 	return spares;
 }
 
@@ -7383,11 +7379,9 @@ static void reap_sync_thread(struct mddev *mddev)
 	    !test_bit(MD_RECOVERY_REQUESTED, &mddev->recovery)) {
 		/* success...*/
 		/* activate any spares */
-		if (mddev->pers->spare_active(mddev)) {
+		if (mddev->pers->spare_active(mddev))
 			sysfs_notify(&mddev->kobj, NULL,
 				     "degraded");
-			set_bit(MD_CHANGE_DEVS, &mddev->flags);
-		}
 	}
 	if (test_bit(MD_RECOVERY_RESHAPE, &mddev->recovery) &&
 	    mddev->pers->finish_reshape)

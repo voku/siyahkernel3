@@ -245,7 +245,7 @@ static struct lock_class_key af_callback_keys[AF_MAX];
  * not depend upon such differences.
  */
 #define _SK_MEM_PACKETS		256
-#define _SK_MEM_OVERHEAD	(sizeof(struct sk_buff) + 256)
+#define _SK_MEM_OVERHEAD	SKB_TRUESIZE(256)
 #define SK_WMEM_MAX		(_SK_MEM_OVERHEAD * _SK_MEM_PACKETS)
 #define SK_RMEM_MAX		(_SK_MEM_OVERHEAD * _SK_MEM_PACKETS)
 
@@ -424,7 +424,7 @@ struct dst_entry *__sk_dst_check(struct sock *sk, u32 cookie)
 
 	if (dst && dst->obsolete && dst->ops->check(dst, cookie) == NULL) {
 		sk_tx_queue_clear(sk);
-		rcu_assign_pointer(sk->sk_dst_cache, NULL);
+		RCU_INIT_POINTER(sk->sk_dst_cache, NULL);
 		dst_release(dst);
 		return NULL;
 	}
@@ -1195,7 +1195,7 @@ static void __sk_free(struct sock *sk)
 				       atomic_read(&sk->sk_wmem_alloc) == 0);
 	if (filter) {
 		sk_filter_uncharge(sk, filter);
-		rcu_assign_pointer(sk->sk_filter, NULL);
+		RCU_INIT_POINTER(sk->sk_filter, NULL);
 	}
 
 	sock_disable_timestamp(sk, SOCK_TIMESTAMP);

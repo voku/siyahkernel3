@@ -514,7 +514,7 @@ int nf_nat_protocol_register(const struct nf_nat_protocol *proto)
 		ret = -EBUSY;
 		goto out;
 	}
-	rcu_assign_pointer(nf_nat_protos[proto->protonum], proto);
+	RCU_INIT_POINTER(nf_nat_protos[proto->protonum], proto);
  out:
 	spin_unlock_bh(&nf_nat_lock);
 	return ret;
@@ -766,9 +766,9 @@ static void __exit nf_nat_cleanup(void)
 	unregister_pernet_subsys(&nf_nat_net_ops);
 	nf_ct_l3proto_put(l3proto);
 	nf_ct_extend_unregister(&nat_extend);
-	rcu_assign_pointer(nf_nat_seq_adjust_hook, NULL);
-	rcu_assign_pointer(nfnetlink_parse_nat_setup_hook, NULL);
-	rcu_assign_pointer(nf_ct_nat_offset, NULL);
+	RCU_INIT_POINTER(nf_nat_seq_adjust_hook, NULL);
+	RCU_INIT_POINTER(nfnetlink_parse_nat_setup_hook, NULL);
+	RCU_INIT_POINTER(nf_ct_nat_offset, NULL);
 	synchronize_net();
 }
 

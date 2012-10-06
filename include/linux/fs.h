@@ -88,6 +88,10 @@ struct inodes_stat_t {
 /* File is opened using open(.., 3, ..) and is writeable only for ioctls
    (specialy hack for floppy.c) */
 #define FMODE_WRITE_IOCTL	((__force fmode_t)0x100)
+/* 32bit hashes as llseek() offset (for directories) */
+#define FMODE_32BITHASH         ((__force fmode_t)0x200)
+/* 64bit hashes as llseek() offset (for directories) */
+#define FMODE_64BITHASH         ((__force fmode_t)0x400)
 
 /*
  * Don't update ctime and mtime.
@@ -1050,6 +1054,7 @@ static inline int file_check_writeable(struct file *filp)
 #define FL_LEASE	32	/* lease held on this file */
 #define FL_CLOSE	64	/* unlock on close */
 #define FL_SLEEP	128	/* A blocking lock */
+#define FL_INPROGRESS	256	/* Lease is being broken */
 
 /*
  * Special return value from posix_lock_file() and vfs_lock_file() for
@@ -1096,7 +1101,7 @@ struct file_lock {
 	struct list_head fl_link;	/* doubly linked list of all locks */
 	struct list_head fl_block;	/* circular list of blocked processes */
 	fl_owner_t fl_owner;
-	unsigned char fl_flags;
+	unsigned int fl_flags;
 	unsigned char fl_type;
 	unsigned int fl_pid;
 	struct pid *fl_nspid;
@@ -1720,6 +1725,19 @@ static inline void mark_inode_dirty_sync(struct inode *inode)
 }
 
 /**
+ * set_nlink - directly set an inode's link count
+ * @inode: inode
+ * @nlink: new nlink (should be non-zero)
+ *
+ * This is a low-level filesystem helper to replace any
+ * direct filesystem manipulation of i_nlink.
+ */
+static inline void set_nlink(struct inode *inode, unsigned int nlink)
+{
+	inode->i_nlink = nlink;
+}
+
+/**
  * inc_nlink - directly increment an inode's link count
  * @inode: inode
  *
@@ -2289,11 +2307,18 @@ extern int should_remove_suid(struct dentry *);
 extern int file_remove_suid(struct file *);
 
 extern void __insert_inode_hash(struct inode *, unsigned long hashval);
-extern void remove_inode_hash(struct inode *);
 static inline void insert_inode_hash(struct inode *inode)
 {
 	__insert_inode_hash(inode, inode->i_ino);
 }
+
+extern void __remove_inode_hash(struct inode *);
+static inline void remove_inode_hash(struct inode *inode)
+{
+	if (!inode_unhashed(inode))
+		__remove_inode_hash(inode);
+}
+
 extern void inode_sb_list_add(struct inode *inode);
 
 #ifdef CONFIG_BLOCK
