@@ -50,13 +50,16 @@
 #include <linux/suspend.h>
 #endif
 
-#if defined(CONFIG_MACH_U1_BD) && defined(CONFIG_TARGET_LOCALE_KOR)
+#if defined(CONFIG_MACH_U1_BD) && defined(CONFIG_TARGET_LOCALE_EUR)
 #include <mach/regs-clock.h>
 #include "boot_progressbar.h"
 #define DISPLAY_BOOT_PROGRESS
 #endif
 #include <mach/regs-pmu.h>
 #include <plat/regs-fb-s5p.h>
+
+bool s3cfb_mdnie_force_disable;
+bool s3cfb_mdnie_suspended;
 
 #ifdef CONFIG_FB_S5P_SYSMMU
 #include <plat/s5p-sysmmu.h>
@@ -319,6 +322,9 @@ static int s3cfb_sysfs_store_win_power(struct device *dev,
 	int id, to;
 	struct s3cfb_global *fbdev[1];
 	fbdev[0] = fbfimd->fbdev[0];
+
+	if (s3cfb_mdnie_suspended)
+		return len;
 
 	while (*p != '\0') {
 		if (!isspace(*p))
@@ -701,6 +707,9 @@ static int s3cfb_probe(struct platform_device *pdev)
 	if (ret < 0)
 		dev_err(fbdev[0]->dev, "failed to add sysfs entries\n");
 
+	s3cfb_mdnie_force_disable = false;
+	s3cfb_mdnie_suspended = false;
+
 #ifdef DISPLAY_BOOT_PROGRESS
 	if (!(readl(S5P_INFORM2)))
 		s3cfb_start_progress(fbdev[0]->fb[pdata->default_win]);
@@ -882,6 +891,8 @@ void s3cfb_early_suspend(struct early_suspend *h)
 	int i, ret;
 
 	printk(KERN_INFO "+%s\n", __func__);
+
+	s3cfb_mdnie_suspended = true;
 
 #ifdef CONFIG_FB_S5P_MIPI_DSIM
 	if (lcd_early_suspend)
@@ -1065,6 +1076,7 @@ void s3cfb_late_resume(struct early_suspend *h)
 	if (lcd_late_resume)
 		lcd_late_resume();
 #endif
+	s3cfb_mdnie_suspended = false;
 
 	dev_info(info->dev, "-%s\n", __func__);
 
