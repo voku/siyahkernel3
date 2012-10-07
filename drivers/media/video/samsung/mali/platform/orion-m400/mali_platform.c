@@ -64,7 +64,6 @@ static struct clk  *mpll_clock = 0;
 static struct clk  *mali_parent_clock = 0;
 static struct clk  *mali_clock = 0;
 
-
 static unsigned int GPU_MHZ	= 1000000;
 
 int mali_gpu_clk = 160;
@@ -494,10 +493,9 @@ static void handle_boostpop(unsigned long data)
 
 void gpu_boost_on_touch(void)
 {
-	if(!mali_touch_boost_level) return;
+	if (!mali_touch_boost_level) return;
 	mutex_lock(&boostpop_mutex);
-	if(!is_gpu_boosted && !bPoweroff)
-	{
+	if (!is_gpu_boosted && !bPoweroff) {
 		mali_dvfs_bottom_lock_push(mali_touch_boost_level);
 		is_gpu_boosted = 1;
 	}
