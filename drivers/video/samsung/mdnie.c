@@ -419,7 +419,7 @@ static int mdnie_set_brightness(struct backlight_device *bd)
 
 	if ((mdnie->enable) && (mdnie->bd_enable)) {
 		ret = update_brightness(mdnie);
-		dev_dbg(&bd->dev, "brightness=%d\n", bd->props.brightness);
+		dev_info(&bd->dev, "brightness=%d\n", bd->props.brightness);
 		if (ret < 0)
 			return -EINVAL;
 	}
@@ -805,7 +805,7 @@ void mdnie_late_resume(struct early_suspend *h)
 		pd->power_on(NULL, 1);
 
 	if (mdnie->enable) {
-		dev_dbg(&mdnie->bd->dev, "brightness=%d\n", mdnie->bd->props.brightness);
+		dev_info(&mdnie->bd->dev, "brightness=%d\n", mdnie->bd->props.brightness);
 		update_brightness(mdnie);
 	}
 

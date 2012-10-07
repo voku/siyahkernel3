@@ -107,8 +107,9 @@ struct lcd_info  {
 #endif
 };
 
+
 static const unsigned int candela_table[GAMMA_MAX] = {
-	10, 30,  40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150,
+	 10, 30,  40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150,
 	160, 170, 180, 190, 200, 210, 220, 230, 240, 250,
 	300
 };
@@ -304,24 +305,21 @@ static int ld9040_panel_send_sequence(struct lcd_info *lcd,
 #define MAX_BL 255
 #define MAX_GAMMA 24
 
-int min_gamma = 0, max_gamma = MAX_GAMMA -1, min_bl = 40;
-static int get_backlight_level_from_brightness(unsigned int brightness)
+int min_gamma = 0, max_gamma = MAX_GAMMA, min_bl = 40;
+static int get_backlight_level_from_brightness(unsigned int bl)
 {
-	int gamma_value = 0;
-	int gamma_val_x10 = 0;
+	int gamma_value =0;
+	int gamma_val_x10 =0;
 
-	if (brightness >= min_bl) {
-		gamma_val_x10 = 10 *(max_gamma - 1 - min_gamma)*brightness / (MAX_BL - min_bl) 
-		    + (10 - 10*(max_gamma - 1 - min_gamma) * (min_bl) / (MAX_BL - min_bl));
-		gamma_value = (gamma_val_x10 + 5) / 10 + min_gamma;
-	} else {
-		gamma_value = min_gamma;
+	if(bl >= min_bl){
+		gamma_val_x10 = 10 *(max_gamma-1-min_gamma)*bl/(MAX_BL-min_bl) 
+		    + (10 - 10*(max_gamma-1-min_gamma)*(min_bl)/(MAX_BL-min_bl));
+		gamma_value=(gamma_val_x10 +5)/10 + min_gamma;
+	}else{
+		gamma_value =min_gamma;
 	}
-	if (gamma_value > MAX_GAMMA) 
-		gamma_value = MAX_GAMMA;
-	else if (gamma_value < min_gamma) 
-		gamma_value = min_gamma;
-
+	if(gamma_value > MAX_GAMMA) gamma_value = MAX_GAMMA;
+	else if(gamma_value < min_gamma) gamma_value = min_gamma;
 	return gamma_value;
 }
 
@@ -357,14 +355,14 @@ declare_store(min_gamma) {
 }
 declare_store(max_gamma) {	
 	int val;
-	if (sscanf(buf, "%d", &val) == 1) {
-		if (val > MAX_GAMMA - 1) val = MAX_GAMMA - 1;
-		else if (val < 0) val = 0;
+	if(sscanf(buf,"%d",&val)==1) {
+		if(val>MAX_GAMMA) val=MAX_GAMMA;
+		else if(val<0) val=0;
 		max_gamma = val;
 	}
 	return size;
 }
-declare_store(min_bl) {
+declare_store(min_bl) {	
 	int val;
 	if(sscanf(buf,"%d",&val)==1) {
 		if(val>200) val=200;
@@ -402,7 +400,6 @@ static struct miscdevice brightness_curve_device = {
 		.minor = MISC_DYNAMIC_MINOR,
 		.name = "brightness_curve",
 };
-
 static int ld9040_gamma_ctl(struct lcd_info *lcd)
 {
 	int ret = 0, i;

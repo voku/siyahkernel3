@@ -36,7 +36,7 @@
 #define EXYNOS4_ASV_ENABLED
 #endif
 
-static int bMaliDvfsRun = 0;
+static int bMaliDvfsRun=0;
 
 static _mali_osk_atomic_t bottomlock_status;
 static int bottom_lock_step;
@@ -116,29 +116,29 @@ mali_dvfs_threshold_table mali_dvfs_threshold[MALI_DVFS_STEPS]={
 
 static unsigned int asv_3d_volt_5_table[ASV_5_LEVEL][MALI_DVFS_STEPS] = {
 	/* L4(108MHz), L3(160MHz), L2(266MHz), L1(330MHz) */
-	{ 950000, 1000000, 1100000, 1150000},	/* S */
-	{ 950000, 1000000, 1100000, 1150000},	/* A */
-	{ 900000,  950000, 1000000, 1100000},	/* B */
-	{ 900000,  950000, 1000000, 1050000},	/* C */
-	{ 900000,  950000,  950000, 1000000},	/* D */
+	{ 975000, 1000000, 1100000, 1150000},	/* S */
+	{ 975000, 1000000, 1100000, 1150000},	/* A */
+	{ 925000,  950000, 1000000, 1100000},	/* B */
+	{ 925000,  950000, 1000000, 1050000},	/* C */
+	{ 925000,  950000,  950000, 1000000},	/* D */
 };
 
 static unsigned int asv_3d_volt_8_table[ASV_8_LEVEL][MALI_DVFS_STEPS] = {
 	/* L4(108MHz), L3(160MHz), L2(266MHz)), L1(330MHz) */
-	{ 950000, 1000000, 1100000, 1150000},	/* SS */
-	{ 950000, 1000000, 1100000, 1150000},	/* A1 */
-	{ 950000, 1000000, 1100000, 1150000},	/* A2 */
-	{ 900000,  950000, 1000000, 1100000},	/* B1 */
-	{ 900000,  950000, 1000000, 1100000},	/* B2 */
-	{ 900000,  950000, 1000000, 1050000},	/* C1 */
-	{ 900000,  950000, 1000000, 1050000},	/* C2 */
-	{ 900000,  950000,  950000, 1000000},	/* D1 */
+	{ 975000, 1000000, 1100000, 1150000},	/* SS */
+	{ 975000, 1000000, 1100000, 1150000},	/* A1 */
+	{ 975000, 1000000, 1100000, 1150000},	/* A2 */
+	{ 925000,  950000, 1000000, 1100000},	/* B1 */
+	{ 925000,  950000, 1000000, 1100000},	/* B2 */
+	{ 925000,  950000, 1000000, 1050000},	/* C1 */
+	{ 925000,  950000, 1000000, 1050000},	/* C2 */
+	{ 925000,  950000,  950000, 1000000},	/* D1 */
 };
 #endif
 
 /*dvfs status*/
 mali_dvfs_currentstatus maliDvfsStatus;
-int mali_dvfs_control = 0;
+int mali_dvfs_control=0;
 
 u32 mali_dvfs_utilization = 255;
 
@@ -507,4 +507,3 @@ int mali_dvfs_bottom_lock_pop(void)
 
 	return _mali_osk_atomic_dec_return(&bottomlock_status);
 }
-

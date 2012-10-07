@@ -6,7 +6,7 @@
 config VIDEO_MALI400MP
 	bool "Enable MALI integration"
 	depends on VIDEO_SAMSUNG
-	default n
+	default y
 	---help---
                 This enables MALI integration in the multimedia device driver
 
@@ -39,7 +39,6 @@ int "Dedicated Memory Size"
    ---help---
        This value is dedicated memory size of Mali GPU(unit is MByte).
 
-
 # For DEBUG
 config VIDEO_MALI400MP_DEBUG
 	bool "Enables debug messages"
@@ -48,23 +47,9 @@ config VIDEO_MALI400MP_DEBUG
 	help
 	  This enables Mali driver debug messages.
 
-config VIDEO_MALI400MP_STREAMLINE_PROFILING
-	bool "Enables mali streamline profiling"
-	depends on VIDEO_MALI400MP
-	default n
-	help
-	  This enables Mali streamline profiling.
-
 config VIDEO_MALI400MP_DVFS
 	bool "Enables DVFS"
 	depends on VIDEO_MALI400MP && PM 
 	default y
 	help
 	  This enables Mali driver DVFS.
-
-config GPU_CLOCK_CONTROL
-	bool "Enable gpu clock control interface"
-	depends on VIDEO_MALI400MP
-	default y
-	help
-	  This enables a sysfs interface to control gpu clock speeds.

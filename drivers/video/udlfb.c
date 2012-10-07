@@ -29,6 +29,7 @@
 #include <linux/slab.h>
 #include <linux/prefetch.h>
 #include <linux/delay.h>
+#include <linux/prefetch.h>
 #include <video/udlfb.h>
 #include "edid.h"
 
@@ -1665,7 +1666,7 @@ static void dlfb_usb_disconnect(struct usb_interface *interface)
 	for (i = 0; i < ARRAY_SIZE(fb_device_attrs); i++)
 		device_remove_file(info->dev, &fb_device_attrs[i]);
 	device_remove_bin_file(info->dev, &edid_attr);
-	unlink_framebuffer(info);
+
 	usb_set_intfdata(interface, NULL);
 
 	/* if clients still have us open, will be freed on last close */
@@ -1687,7 +1688,24 @@ static struct usb_driver dlfb_driver = {
 	.id_table = id_table,
 };
 
-module_usb_driver(dlfb_driver);
+static int __init dlfb_module_init(void)
+{
+	int res;
+
+	res = usb_register(&dlfb_driver);
+	if (res)
+		err("usb_register failed. Error number %d", res);
+
+	return res;
+}
+
+static void __exit dlfb_module_exit(void)
+{
+	usb_deregister(&dlfb_driver);
+}
+
+module_init(dlfb_module_init);
+module_exit(dlfb_module_exit);
 
 static void dlfb_urb_completion(struct urb *urb)
 {
