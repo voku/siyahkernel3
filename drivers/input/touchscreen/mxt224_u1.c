@@ -267,7 +267,7 @@ static void slide2wake_force_wakeup(void)
 	printk(KERN_ERR "[TSP] suspend state: %d\n", state);
 	if (state != 0)
 		request_suspend_state(0);
-	msleep(100);
+	msleep(200);
 	mutex_unlock(&s2w_lock);
 }
 
@@ -284,7 +284,7 @@ static void slide2wake_presspwr(struct work_struct *slide2wake_presspwr_work)
 	msleep(100);
 	input_event(slide2wake_dev, EV_KEY, KEY_POWER, 0);
 	input_event(slide2wake_dev, EV_SYN, 0, 0);
-	msleep(1000);
+	msleep(500);
 	mutex_unlock(&s2w_lock);
 }
 
@@ -1339,6 +1339,7 @@ static void report_input_data(struct mxt224_data *data)
 	u16 size = 1;
 	u8 value;
 #ifdef CONFIG_TOUCHSCREEN_GESTURES
+	int state;
 	int gesture_no, finger_no;
 	int finger_pos;
 	struct gesture_point *point;
@@ -1377,21 +1378,24 @@ static void report_input_data(struct mxt224_data *data)
 #ifdef CONFIG_TOUCHSCREEN_GESTURES
 			// When a finger is released and its movement was not completed yet, reset it
 			spin_lock_irqsave(&gestures_lock, flags);
-			for (gesture_no = 0; gesture_no < MAX_GESTURES; gesture_no++) {
-				if (gestures_detected[gesture_no])
-					// Ignore gestures already reported
-					continue;
+			state = get_suspend_state();
+			if (state == 0) {
+				for (gesture_no = 0; gesture_no < MAX_GESTURES; gesture_no++) {
+					if (gestures_detected[gesture_no])
+						// Ignore gestures already reported
+						continue;
 
-				for (finger_no = 0; finger_no < MAX_GESTURE_FINGERS; finger_no++) {
-					if (gesture_fingers[gesture_no][finger_no].finger_order == i) {
-						// Found a match for ongoing movement
-						// Reset the finger progress if path not completed
-						if (gesture_fingers[gesture_no][finger_no].current_step <
-						    gestures_step_count[gesture_no][finger_no]) {
-							gesture_fingers[gesture_no][finger_no].finger_order = -1;
-							gesture_fingers[gesture_no][finger_no].current_step = -1;
+					for (finger_no = 0; finger_no < MAX_GESTURE_FINGERS; finger_no++) {
+						if (gesture_fingers[gesture_no][finger_no].finger_order == i) {
+							// Found a match for ongoing movement
+							// Reset the finger progress if path not completed
+							if (gesture_fingers[gesture_no][finger_no].current_step <
+						    		gestures_step_count[gesture_no][finger_no]) {
+								gesture_fingers[gesture_no][finger_no].finger_order = -1;
+								gesture_fingers[gesture_no][finger_no].current_step = -1;
+							}
+							break;
 						}
-						break;
 					}
 				}
 			}
@@ -1424,61 +1428,65 @@ static void report_input_data(struct mxt224_data *data)
 #ifdef CONFIG_TOUCHSCREEN_GESTURES
 		// Finger being moved, check the gesture steps progress
 		spin_lock_irqsave(&gestures_lock, flags);
-		for (gesture_no = 0; gesture_no < MAX_GESTURES; gesture_no++) {
-			if (gestures_detected[gesture_no])
-				// Ignore further movement for gestures already reported
-				continue;
+		state = get_suspend_state();
+		printk(KERN_ERR "[GESTURES] suspend state: %d\n", state);
+		if (state == 0) {
+			for (gesture_no = 0; gesture_no < MAX_GESTURES; gesture_no++) {
+				if (gestures_detected[gesture_no])
+					// Ignore further movement for gestures already reported
+					continue;
 
-			// Find which finger definition this touch maps to
-			finger_pos = -1;
-			for (finger_no = 0; finger_no < MAX_GESTURE_FINGERS; finger_no++) {
-				if (gesture_fingers[gesture_no][finger_no].finger_order == i) {
-					// Found a match for ongoing movement
-					finger_pos = finger_no;
-					break;
-				}
-			}
-			if (finger_pos < 0) {
-				// This finger is not yet tracked, check the first zone it matches
+				// Find which finger definition this touch maps to
+				finger_pos = -1;
 				for (finger_no = 0; finger_no < MAX_GESTURE_FINGERS; finger_no++) {
-					if (gestures_step_count[gesture_no][finger_no] < 1) {
-						// This finger definition has no steps, no more to check
+					if (gesture_fingers[gesture_no][finger_no].finger_order == i) {
+						// Found a match for ongoing movement
+						finger_pos = finger_no;
 						break;
-					} else {
-						point = &gesture_points[gesture_no][finger_no][0];
-						if (gesture_fingers[gesture_no][finger_no].finger_order < 0 &&
-						    data->fingers[i].x >= point->min_x &&
-						    data->fingers[i].x <= point->max_x &&
-						    data->fingers[i].y >= point->min_y &&
-						    data->fingers[i].y <= point->max_y) {
-							// This finger definition is still pending
-							// and this touch matches the area
-							finger_pos = finger_no;
-							gesture_fingers[gesture_no][finger_pos].finger_order = i;
-							gesture_fingers[gesture_no][finger_pos].current_step = 1;
-							printk("[TSP] Gesture %d, finger %d - Associated index %d\n",
-							       gesture_no, finger_pos, i);
+					}
+				}
+				if (finger_pos < 0) {
+					// This finger is not yet tracked, check the first zone it matches
+					for (finger_no = 0; finger_no < MAX_GESTURE_FINGERS; finger_no++) {
+						if (gestures_step_count[gesture_no][finger_no] < 1) {
+							// This finger definition has no steps, no more to check
 							break;
+						} else {
+							point = &gesture_points[gesture_no][finger_no][0];
+							if (gesture_fingers[gesture_no][finger_no].finger_order < 0 &&
+						    		data->fingers[i].x >= point->min_x &&
+						    		data->fingers[i].x <= point->max_x &&
+						    		data->fingers[i].y >= point->min_y &&
+						    		data->fingers[i].y <= point->max_y) {
+								// This finger definition is still pending
+								// and this touch matches the area
+								finger_pos = finger_no;
+								gesture_fingers[gesture_no][finger_pos].finger_order = i;
+								gesture_fingers[gesture_no][finger_pos].current_step = 1;
+								printk("[TSP] Gesture %d, finger %d - Associated index %d\n",
+							       		gesture_no, finger_pos, i);
+								break;
+							}
 						}
 					}
 				}
-			}
-			if (finger_pos >= 0) {
-				// Track next zones where the finger should move
-				for (step = gesture_fingers[gesture_no][finger_pos].current_step;
-				     step < gestures_step_count[gesture_no][finger_pos];
-				     step++) {
-					point = &gesture_points[gesture_no][finger_pos][step];
-					if (data->fingers[i].x >= point->min_x &&
-					    data->fingers[i].x <= point->max_x &&
-					    data->fingers[i].y >= point->min_y &&
-					    data->fingers[i].y <= point->max_y) {
-						// Next zone reached, keep testing
-						printk("[TSP] Gesture %d, finger %d - Moved through step, next is %d\n",
-						       gesture_no, finger_pos, step+1);
-						gesture_fingers[gesture_no][finger_pos].current_step++;
-					} else {
-						break;
+				if (finger_pos >= 0) {
+					// Track next zones where the finger should move
+					for (step = gesture_fingers[gesture_no][finger_pos].current_step;
+				     	step < gestures_step_count[gesture_no][finger_pos];
+				     		step++) {
+						point = &gesture_points[gesture_no][finger_pos][step];
+						if (data->fingers[i].x >= point->min_x &&
+					    		data->fingers[i].x <= point->max_x &&
+					    		data->fingers[i].y >= point->min_y &&
+					    		data->fingers[i].y <= point->max_y) {
+							// Next zone reached, keep testing
+							printk("[TSP] Gesture %d, finger %d - Moved through step, next is %d\n",
+						       		gesture_no, finger_pos, step+1);
+							gesture_fingers[gesture_no][finger_pos].current_step++;
+						} else {
+							break;
+						}
 					}
 				}
 			}
@@ -1570,35 +1578,38 @@ static void report_input_data(struct mxt224_data *data)
 #ifdef CONFIG_TOUCHSCREEN_GESTURES
 	// Check completed gestures or reset all progress if all fingers released
 	spin_lock_irqsave(&gestures_lock, flags);
-	for (gesture_no = 0; gesture_no < MAX_GESTURES; gesture_no++) {
-		if (gestures_detected[gesture_no])
-			// Gesture already reported, skip
-			continue;
+	state = get_suspend_state();
+	if (state == 0) {
+		for (gesture_no = 0; gesture_no < MAX_GESTURES; gesture_no++) {
+			if (gestures_detected[gesture_no])
+				// Gesture already reported, skip
+				continue;
 
-		if (gestures_step_count[gesture_no][0] < 1)
-			continue; // Gesture not configured
+			if (gestures_step_count[gesture_no][0] < 1)
+				continue; // Gesture not configured
 
-		fingers_completed = true;
-		for (finger_no = 0; finger_no < MAX_GESTURE_FINGERS; finger_no++) {
-			if (gestures_step_count[gesture_no][finger_no] > 0 &&
-			    gesture_fingers[gesture_no][finger_no].current_step <
-			        gestures_step_count[gesture_no][finger_no]) {
-
-				fingers_completed = false;
-				break;
-			}
-		}
-		if (fingers_completed) {
-			// All finger steps completed for this gesture, wake any consumers
-			printk("[TSP] Gesture %d completed, waking consumers\n", gesture_no);
-			gestures_detected[gesture_no] = true;
-			has_gestures = true;
-			wake_up_interruptible_all(&gestures_wq);
-		} else if (!tsp_state) {
-			// All fingers released, reset progress for all paths
+			fingers_completed = true;
 			for (finger_no = 0; finger_no < MAX_GESTURE_FINGERS; finger_no++) {
-				gesture_fingers[gesture_no][finger_no].finger_order = -1;
-				gesture_fingers[gesture_no][finger_no].current_step = -1;
+				if (gestures_step_count[gesture_no][finger_no] > 0 &&
+			    		gesture_fingers[gesture_no][finger_no].current_step <
+			        	gestures_step_count[gesture_no][finger_no]) {
+
+					fingers_completed = false;
+					break;
+				}
+			}
+			if (fingers_completed) {
+				// All finger steps completed for this gesture, wake any consumers
+				printk("[TSP] Gesture %d completed, waking consumers\n", gesture_no);
+				gestures_detected[gesture_no] = true;
+				has_gestures = true;
+				wake_up_interruptible_all(&gestures_wq);
+			} else if (!tsp_state) {
+				// All fingers released, reset progress for all paths
+				for (finger_no = 0; finger_no < MAX_GESTURE_FINGERS; finger_no++) {
+					gesture_fingers[gesture_no][finger_no].finger_order = -1;
+					gesture_fingers[gesture_no][finger_no].current_step = -1;
+				}
 			}
 		}
 	}
