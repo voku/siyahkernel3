@@ -105,7 +105,24 @@ static void __init __free_pages_memory(unsigned long start, unsigned long end)
 		__free_pages_bootmem(pfn_to_page(i), 0);
 }
 
-unsigned long __init free_all_memory_core_early(int nodeid)
+static unsigned long __init __free_memory_core(phys_addr_t start,
+				 phys_addr_t end)
+{
+	unsigned long start_pfn = PFN_UP(start);
+	unsigned long end_pfn = min_t(unsigned long,
+				      PFN_DOWN(end), max_low_pfn);
+
+	if (start_pfn > end_pfn)
+		return 0;
+
+	__free_pages_memory(start_pfn, end_pfn);
+	fixup_zone_present_pages(pfn_to_nid(start >> PAGE_SHIFT),
+			start_pfn, end_pfn);
+
+	return end_pfn - start_pfn;
+}
+
+unsigned long __init free_low_memory_core_early(int nodeid)
 {
 	int i;
 	u64 start, end;
@@ -113,7 +130,9 @@ unsigned long __init free_all_memory_core_early(int nodeid)
 	struct range *range = NULL;
 	int nr_range;
 
-	nr_range = get_free_all_memory_range(&range, nodeid);
+	reset_zone_present_pages();
+	for_each_free_mem_range(i, MAX_NUMNODES, &start, &end, NULL)
+		count += __free_memory_core(start, end);
 
 	for (i = 0; i < nr_range; i++) {
 		start = range[i].start;
