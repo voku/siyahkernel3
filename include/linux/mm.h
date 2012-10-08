@@ -454,6 +454,7 @@ int split_free_page(struct page *page);
 #else
 int split_free_page(struct page *page, bool for_cma);
 #endif
+int capture_free_page(struct page *page, int alloc_order, int migratetype);
 
 /*
  * Compound pages have a destructor function.  Provide a
