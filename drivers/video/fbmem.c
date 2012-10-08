@@ -1390,6 +1390,7 @@ fb_mmap(struct file *file, struct vm_area_struct * vma)
 	}
 	mutex_unlock(&info->mm_lock);
 
+	/* VM_IO | VM_DONTEXPAND | VM_DONTDUMP are set by io_remap_pfn_range()*/
 	vma->vm_page_prot = vm_get_page_prot(vma->vm_flags);
 	fb_pgprotect(file, vma, start);
 
