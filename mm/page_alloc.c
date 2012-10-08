@@ -1463,6 +1463,10 @@ int capture_free_page(struct page *page, int alloc_order, int migratetype)
 	zone->free_area[order].nr_free--;
 	rmv_page_order(page);
 
+	mt = get_pageblock_migratetype(page);
+	if (unlikely(mt != MIGRATE_ISOLATE))
+		 __mod_zone_page_state(zone, NR_FREE_PAGES, -(1UL << order));
+
 	if (alloc_order != order)
 		expand(zone, page, alloc_order, order,
 			&zone->free_area[order], migratetype);
