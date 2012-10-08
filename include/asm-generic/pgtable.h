@@ -87,7 +87,7 @@ static inline pmd_t pmdp_get_and_clear(struct mm_struct *mm,
 				       pmd_t *pmdp)
 {
 	pmd_t pmd = *pmdp;
-	pmd_clear(mm, address, pmdp);
+	pmd_clear(pmdp);
 	return pmd;
 }
 #endif /* CONFIG_TRANSPARENT_HUGEPAGE */
@@ -386,7 +386,8 @@ static inline void ptep_modify_prot_commit(struct mm_struct *mm,
  * by remap_pfn_range() for physical range indicated by pfn and size.
  */
 static inline int track_pfn_remap(struct vm_area_struct *vma, pgprot_t *prot,
-				  unsigned long pfn, unsigned long size)
+				  unsigned long pfn, unsigned long addr,
+				  unsigned long size)
 {
 	return 0;
 }
@@ -421,7 +422,8 @@ static inline void untrack_pfn(struct vm_area_struct *vma,
 }
 #else
 extern int track_pfn_remap(struct vm_area_struct *vma, pgprot_t *prot,
-			   unsigned long pfn, unsigned long size);
+			   unsigned long pfn, unsigned long addr,
+			   unsigned long size);
 extern int track_pfn_insert(struct vm_area_struct *vma, pgprot_t *prot,
 			    unsigned long pfn);
 extern int track_pfn_copy(struct vm_area_struct *vma);
@@ -437,10 +439,8 @@ static inline int is_zero_pfn(unsigned long pfn)
 	return offset_from_zero_pfn <= (zero_page_mask >> PAGE_SHIFT);
 }
 
-static inline unsigned long my_zero_pfn(unsigned long addr)
-{
-	return page_to_pfn(ZERO_PAGE(addr));
-}
+#define my_zero_pfn(addr)	page_to_pfn(ZERO_PAGE(addr))
+
 #else
 static inline int is_zero_pfn(unsigned long pfn)
 {
@@ -514,6 +514,16 @@ static inline int pmd_none_or_trans_huge_or_clear_bad(pmd_t *pmd)
 	/*
 	 * The barrier will stabilize the pmdval in a register or on
 	 * the stack so that it will stop changing under the code.
+	 *
+	 * When CONFIG_TRANSPARENT_HUGEPAGE=y on x86 32bit PAE,
+	 * pmd_read_atomic is allowed to return a not atomic pmdval
+	 * (for example pointing to an hugepage that has never been
+	 * mapped in the pmd). The below checks will only care about
+	 * the low part of the pmd with 32bit PAE x86 anyway, with the
+	 * exception of pmd_none(). So the important thing is that if
+	 * the low part of the pmd is found null, the high part will
+	 * be also null or the pmd_none() check below would be
+	 * confused.
 	 */
 #ifdef CONFIG_TRANSPARENT_HUGEPAGE
 	barrier();
@@ -550,7 +560,7 @@ static inline int pmd_trans_unstable(pmd_t *pmd)
 #endif
 }
 
-#ifdef CONFIG_BALANCE_NUMA
+#ifdef CONFIG_NUMA_BALANCING
 #ifdef CONFIG_ARCH_USES_NUMA_PROT_NONE
 /*
  * _PAGE_NUMA works identical to _PAGE_PROTNONE (it's actually the
@@ -654,7 +664,7 @@ static inline pmd_t pmd_mknuma(pmd_t pmd)
 {
 	return pmd;
 }
-#endif /* CONFIG_BALANCE_NUMA */
+#endif /* CONFIG_NUMA_BALANCING */
 
 #endif /* CONFIG_MMU */
 
