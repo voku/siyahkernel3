@@ -16,7 +16,7 @@
 #include <linux/sysfs.h>
 #include "internal.h"
 
-#if defined CONFIG_COMPACTION || defined CONFIG_CMA
+#if defined CONFIG_COMPACTION || defined CONFIG_DMA_CMA
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/compaction.h>
@@ -461,7 +461,7 @@ isolate_migratepages_range(struct zone *zone, struct compact_control *cc,
 	return low_pfn;
 }
 
-#endif /* CONFIG_COMPACTION || CONFIG_CMA */
+#endif /* CONFIG_COMPACTION || CONFIG_DMA_CMA */
 #ifdef CONFIG_COMPACTION
 
 /* Returns true if the page is within a block suitable for migration to */
@@ -936,6 +936,7 @@ unsigned long try_to_compact_pages(struct zonelist *zonelist,
 	struct zoneref *z;
 	struct zone *zone;
 	int rc = COMPACT_SKIPPED;
+	int alloc_flags = 0;
 
 	/*
 	 * Check whether it is worth even starting compaction. The order check is
@@ -951,6 +952,10 @@ unsigned long try_to_compact_pages(struct zonelist *zonelist,
 #endif
 	count_vm_event(COMPACTSTALL);
 
+#ifdef CONFIG_DMA_CMA
+	if (allocflags_to_migratetype(gfp_mask) == MIGRATE_MOVABLE)
+		alloc_flags |= ALLOC_CMA;
+#endif
 	/* Compact each zone in the list */
 	for_each_zone_zonelist_nodemask(zone, z, zonelist, high_zoneidx,
 								nodemask) {
@@ -961,7 +966,8 @@ unsigned long try_to_compact_pages(struct zonelist *zonelist,
 		rc = max(status, rc);
 
 		/* If a normal allocation would succeed, stop compacting */
-		if (zone_watermark_ok(zone, order, low_wmark_pages(zone), 0, 0))
+		if (zone_watermark_ok(zone, order, low_wmark_pages(zone), 0,
+				      alloc_flags))
 			break;
 	}
 
