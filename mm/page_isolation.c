@@ -77,11 +77,12 @@ int set_migratetype_isolate(struct page *page)
 out:
 	if (!ret) {
 		unsigned long nr_pages;
+		int migratetype = get_pageblock_migratetype(page);
 
 		set_pageblock_isolate(page);
 		nr_pages = move_freepages_block(zone, page, MIGRATE_ISOLATE);
 
-		__mod_zone_page_state(zone, NR_FREE_PAGES, -nr_pages);
+		__mod_zone_freepage_state(zone, -nr_pages, migratetype);
 	}
 
 	spin_unlock_irqrestore(&zone->lock, flags);
@@ -100,7 +101,7 @@ void unset_migratetype_isolate(struct page *page, unsigned migratetype)
 	if (get_pageblock_migratetype(page) != MIGRATE_ISOLATE)
 		goto out;
 	nr_pages = move_freepages_block(zone, page, migratetype);
-	__mod_zone_page_state(zone, NR_FREE_PAGES, nr_pages);
+	__mod_zone_freepage_state(zone, nr_pages, migratetype);
 	restore_pageblock_isolate(page, migratetype);
 out:
 	spin_unlock_irqrestore(&zone->lock, flags);
@@ -132,7 +133,8 @@ __first_valid_page(unsigned long pfn, unsigned long nr_pages)
  * Returns 0 on success and -EBUSY if any part of range cannot be isolated.
  */
 int
-start_isolate_page_range(unsigned long start_pfn, unsigned long end_pfn)
+start_isolate_page_range(unsigned long start_pfn, unsigned long end_pfn,
+			unsigned migratetype)
 {
 	unsigned long pfn;
 	unsigned long undo_pfn;
@@ -155,7 +157,7 @@ undo:
 	for (pfn = start_pfn;
 	     pfn < undo_pfn;
 	     pfn += pageblock_nr_pages)
-		unset_migratetype_isolate(pfn_to_page(pfn));
+		unset_migratetype_isolate(pfn_to_page(pfn), migratetype);
 
 	return -EBUSY;
 }
@@ -164,7 +166,8 @@ undo:
  * Make isolated pages available again.
  */
 int
-undo_isolate_page_range(unsigned long start_pfn, unsigned long end_pfn)
+undo_isolate_page_range(unsigned long start_pfn, unsigned long end_pfn,
+			unsigned migratetype)
 {
 	unsigned long pfn;
 	struct page *page;
@@ -176,7 +179,7 @@ undo_isolate_page_range(unsigned long start_pfn, unsigned long end_pfn)
 		page = __first_valid_page(pfn, pageblock_nr_pages);
 		if (!page || get_pageblock_migratetype(page) != MIGRATE_ISOLATE)
 			continue;
-		unset_migratetype_isolate(page);
+		unset_migratetype_isolate(page, migratetype);
 	}
 	return 0;
 }

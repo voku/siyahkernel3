@@ -142,9 +142,7 @@ enum zone_stat_item {
 	NUMA_OTHER,		/* allocation from other node */
 #endif
 	NR_ANON_TRANSPARENT_HUGEPAGES,
-#ifdef CONFIG_DMA_CMA
 	NR_FREE_CMA_PAGES,
-#endif
 	NR_VM_ZONE_STAT_ITEMS };
 
 /*
@@ -481,14 +479,14 @@ struct zone {
 	 * rarely used fields:
 	 */
 	const char		*name;
-#ifdef CONFIG_MEMORY_ISOLATION
+//#ifdef CONFIG_MEMORY_ISOLATION
 	/*
 	 * the number of MIGRATE_ISOLATE *pageblock*.
 	 * We need this for free page counting. Look at zone_watermark_ok_safe.
 	 * It's protected by zone->lock
 	 */
 	int		nr_pageblock_isolate;
-#endif
+//#endif
 } ____cacheline_internodealigned_in_smp;
 
 typedef enum {
