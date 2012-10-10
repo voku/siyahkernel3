@@ -807,11 +807,11 @@ static int run_init_process(const char *init_filename)
 	return kernel_execve(init_filename, argv_init, envp_init);
 }
 
-/* This is a non __init function. Force it to be noinline otherwise gcc
- * makes it inline to init() and it becomes part of init.text section
- */
-static noinline int init_post(void)
+static void __init kernel_init_freeable(void);
+
+static int __ref kernel_init(void *unused)
 {
+	kernel_init_freeable();
 	/* need to finish all async __init code before freeing the memory */
 	async_synchronize_full();
 	free_initmem();
@@ -847,7 +847,7 @@ static noinline int init_post(void)
 	      "See Linux Documentation/init.txt for guidance.");
 }
 
-static int __init kernel_init(void * unused)
+static void __init kernel_init_freeable(void)
 {
 	/*
 	 * Wait until kthreadd is all set-up.
@@ -905,7 +905,4 @@ static int __init kernel_init(void * unused)
 
 	/* rootfs is available now, try loading default modules */
 	load_default_modules();
-
-	init_post();
-	return 0;
 }
