@@ -30,7 +30,9 @@
 #include <linux/freezer.h>
 #include <linux/ucb1400.h>
 
-static int adcsync;
+#define UCB1400_TS_POLL_PERIOD	10 /* ms */
+
+static bool adcsync;
 static int ts_delay = 55; /* us */
 static int ts_delay_pressure;	/* us */
 

@@ -111,6 +111,48 @@ static struct file_system_type ext3_fs_type = {
 #define IS_EXT3_SB(sb) (0)
 #endif
 
+static int ext4_verify_csum_type(struct super_block *sb,
+				 struct ext4_super_block *es)
+{
+	if (!EXT4_HAS_RO_COMPAT_FEATURE(sb,
+					EXT4_FEATURE_RO_COMPAT_METADATA_CSUM))
+		return 1;
+
+	return es->s_checksum_type == EXT4_CRC32C_CHKSUM;
+}
+
+static __le32 ext4_superblock_csum(struct super_block *sb,
+				   struct ext4_super_block *es)
+{
+	struct ext4_sb_info *sbi = EXT4_SB(sb);
+	int offset = offsetof(struct ext4_super_block, s_checksum);
+	__u32 csum;
+
+	csum = ext4_chksum(sbi, ~0, (char *)es, offset);
+
+	return cpu_to_le32(csum);
+}
+
+int ext4_superblock_csum_verify(struct super_block *sb,
+				struct ext4_super_block *es)
+{
+	if (!EXT4_HAS_RO_COMPAT_FEATURE(sb,
+				       EXT4_FEATURE_RO_COMPAT_METADATA_CSUM))
+		return 1;
+
+	return es->s_checksum == ext4_superblock_csum(sb, es);
+}
+
+void ext4_superblock_csum_set(struct super_block *sb,
+			      struct ext4_super_block *es)
+{
+	if (!EXT4_HAS_RO_COMPAT_FEATURE(sb,
+		EXT4_FEATURE_RO_COMPAT_METADATA_CSUM))
+		return;
+
+	es->s_checksum = ext4_superblock_csum(sb, es);
+}
+
 void *ext4_kvmalloc(size_t size, gfp_t flags)
 {
 	void *ret;
@@ -904,6 +946,8 @@ static void ext4_put_super(struct super_block *sb)
 	unlock_super(sb);
 	kobject_put(&sbi->s_kobj);
 	wait_for_completion(&sbi->s_kobj_unregister);
+	if (sbi->s_chksum_driver)
+		crypto_free_shash(sbi->s_chksum_driver);
 	kfree(sbi->s_blockgroup_lock);
 	kfree(sbi);
 }
@@ -1348,8 +1392,7 @@ enum {
 	Opt_user_xattr, Opt_nouser_xattr, Opt_acl, Opt_noacl,
 	Opt_auto_da_alloc, Opt_noauto_da_alloc, Opt_noload,
 	Opt_commit, Opt_min_batch_time, Opt_max_batch_time,
-	Opt_journal_update, Opt_journal_dev,
-	Opt_journal_checksum, Opt_journal_async_commit,
+	Opt_journal_dev, Opt_journal_checksum, Opt_journal_async_commit,
 	Opt_abort, Opt_data_journal, Opt_data_ordered, Opt_data_writeback,
 	Opt_data_err_abort, Opt_data_err_ignore,
 	Opt_usrjquota, Opt_grpjquota, Opt_offusrjquota, Opt_offgrpjquota,
@@ -1391,7 +1434,6 @@ static const match_table_t tokens = {
 	{Opt_commit, "commit=%u"},
 	{Opt_min_batch_time, "min_batch_time=%u"},
 	{Opt_max_batch_time, "max_batch_time=%u"},
-	{Opt_journal_update, "journal=update"},
 	{Opt_journal_dev, "journal_dev=%u"},
 	{Opt_journal_checksum, "journal_checksum"},
 	{Opt_journal_async_commit, "journal_async_commit"},
@@ -1631,19 +1673,6 @@ static int parse_options(char *options, struct super_block *sb,
 			ext4_msg(sb, KERN_ERR, "(no)acl options not supported");
 			break;
 #endif
-		case Opt_journal_update:
-			/* @@@ FIXME */
-			/* Eventually we will want to be able to create
-			   a journal file here.  For now, only allow the
-			   user to specify an existing inode to be the
-			   journal file. */
-			if (is_remount) {
-				ext4_msg(sb, KERN_ERR,
-					 "Cannot specify journal on remount");
-				return 0;
-			}
-			set_opt(sb, UPDATE_JOURNAL);
-			break;
 		case Opt_journal_dev:
 			if (is_remount) {
 				ext4_msg(sb, KERN_ERR,
@@ -2548,6 +2577,23 @@ static ssize_t sbi_ui_store(struct ext4_attr *a,
 	return count;
 }
 
+static ssize_t trigger_test_error(struct ext4_attr *a,
+				  struct ext4_sb_info *sbi,
+				  const char *buf, size_t count)
+{
+	int len = count;
+
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
+
+	if (len && buf[len-1] == '\n')
+		len--;
+
+	if (len)
+		ext4_error(sbi->s_sb, "%.*s", len, buf);
+	return count;
+}
+
 #define EXT4_ATTR_OFFSET(_name,_mode,_show,_store,_elname) \
 static struct ext4_attr ext4_attr_##_name = {			\
 	.attr = {.name = __stringify(_name), .mode = _mode },	\
@@ -2580,6 +2626,7 @@ EXT4_RW_ATTR_SBI_UI(mb_order2_req, s_mb_order2_reqs);
 EXT4_RW_ATTR_SBI_UI(mb_stream_req, s_mb_stream_request);
 EXT4_RW_ATTR_SBI_UI(mb_group_prealloc, s_mb_group_prealloc);
 EXT4_RW_ATTR_SBI_UI(max_writeback_mb_bump, s_max_writeback_mb_bump);
+EXT4_ATTR(trigger_fs_error, 0200, NULL, trigger_test_error);
 
 static struct attribute *ext4_attrs[] = {
 	ATTR_LIST(delayed_allocation_blocks),
@@ -2596,6 +2643,7 @@ static struct attribute *ext4_attrs[] = {
 	ATTR_LIST(mb_stream_req),
 	ATTR_LIST(mb_group_prealloc),
 	ATTR_LIST(max_writeback_mb_bump),
+	ATTR_LIST(trigger_fs_error),
 	NULL,
 };
 
@@ -3092,6 +3140,44 @@ static void ext4_destroy_lazyinit_thread(void)
 	kthread_stop(ext4_lazyinit_task);
 }
 
+static int set_journal_csum_feature_set(struct super_block *sb)
+{
+	int ret = 1;
+	int compat, incompat;
+	struct ext4_sb_info *sbi = EXT4_SB(sb);
+
+	if (EXT4_HAS_RO_COMPAT_FEATURE(sb,
+				       EXT4_FEATURE_RO_COMPAT_METADATA_CSUM)) {
+		/* journal checksum v2 */
+		compat = 0;
+		incompat = JBD2_FEATURE_INCOMPAT_CSUM_V2;
+	} else {
+		/* journal checksum v1 */
+		compat = JBD2_FEATURE_COMPAT_CHECKSUM;
+		incompat = 0;
+	}
+
+	if (test_opt(sb, JOURNAL_ASYNC_COMMIT)) {
+		ret = jbd2_journal_set_features(sbi->s_journal,
+				compat, 0,
+				JBD2_FEATURE_INCOMPAT_ASYNC_COMMIT |
+				incompat);
+	} else if (test_opt(sb, JOURNAL_CHECKSUM)) {
+		ret = jbd2_journal_set_features(sbi->s_journal,
+				compat, 0,
+				incompat);
+		jbd2_journal_clear_features(sbi->s_journal, 0, 0,
+				JBD2_FEATURE_INCOMPAT_ASYNC_COMMIT);
+	} else {
+		jbd2_journal_clear_features(sbi->s_journal,
+				JBD2_FEATURE_COMPAT_CHECKSUM, 0,
+				JBD2_FEATURE_INCOMPAT_ASYNC_COMMIT |
+				JBD2_FEATURE_INCOMPAT_CSUM_V2);
+	}
+
+	return ret;
+}
+
 static int ext4_fill_super(struct super_block *sb, void *data, int silent)
 {
 	char *orig_data = kstrdup(data, GFP_KERNEL);
@@ -3128,6 +3214,7 @@ static int ext4_fill_super(struct super_block *sb, void *data, int silent)
 		goto out_free_orig;
 	}
 	sb->s_fs_info = sbi;
+	sbi->s_sb = sb;
 	sbi->s_mount_opt = 0;
 	sbi->s_resuid = EXT4_DEF_RESUID;
 	sbi->s_resgid = EXT4_DEF_RESGID;
@@ -3167,12 +3254,46 @@ static int ext4_fill_super(struct super_block *sb, void *data, int silent)
 	 * Note: s_es must be initialized as soon as possible because
 	 *       some ext4 macro-instructions depend on its value
 	 */
-	es = (struct ext4_super_block *) (((char *)bh->b_data) + offset);
+	es = (struct ext4_super_block *) (bh->b_data + offset);
 	sbi->s_es = es;
 	sb->s_magic = le16_to_cpu(es->s_magic);
 	if (sb->s_magic != EXT4_SUPER_MAGIC)
 		goto cantfind_ext4;
 	sbi->s_kbytes_written = le64_to_cpu(es->s_kbytes_written);
+
+	/* Check for a known checksum algorithm */
+	if (!ext4_verify_csum_type(sb, es)) {
+		ext4_msg(sb, KERN_ERR, "VFS: Found ext4 filesystem with "
+			 "unknown checksum algorithm.");
+		silent = 1;
+		goto cantfind_ext4;
+	}
+
+	/* Load the checksum driver */
+	if (EXT4_HAS_RO_COMPAT_FEATURE(sb,
+				       EXT4_FEATURE_RO_COMPAT_METADATA_CSUM)) {
+		sbi->s_chksum_driver = crypto_alloc_shash("crc32c", 0, 0);
+		if (IS_ERR(sbi->s_chksum_driver)) {
+			ext4_msg(sb, KERN_ERR, "Cannot load crc32c driver.");
+			ret = PTR_ERR(sbi->s_chksum_driver);
+			sbi->s_chksum_driver = NULL;
+			goto failed_mount;
+		}
+	}
+
+	/* Check superblock checksum */
+	if (!ext4_superblock_csum_verify(sb, es)) {
+		ext4_msg(sb, KERN_ERR, "VFS: Found ext4 filesystem with "
+			 "invalid superblock checksum.  Run e2fsck?");
+		silent = 1;
+		goto cantfind_ext4;
+	}
+
+	/* Precompute checksum seed for all metadata */
+	if (EXT4_HAS_RO_COMPAT_FEATURE(sb,
+			EXT4_FEATURE_RO_COMPAT_METADATA_CSUM))
+		sbi->s_csum_seed = ext4_chksum(sbi, ~0, es->s_uuid,
+					       sizeof(es->s_uuid));
 
 	/* Set defaults before we parse the mount options */
 	def_mount_opts = le32_to_cpu(es->s_default_mount_opts);
@@ -3334,7 +3455,7 @@ static int ext4_fill_super(struct super_block *sb, void *data, int silent)
 			       "Can't read superblock on 2nd try");
 			goto failed_mount;
 		}
-		es = (struct ext4_super_block *)(((char *)bh->b_data) + offset);
+		es = (struct ext4_super_block *)(bh->b_data + offset);
 		sbi->s_es = es;
 		if (es->s_magic != cpu_to_le16(EXT4_SUPER_MAGIC)) {
 			ext4_msg(sb, KERN_ERR,
@@ -3526,6 +3647,7 @@ static int ext4_fill_super(struct super_block *sb, void *data, int silent)
 					  GFP_KERNEL);
 	if (sbi->s_group_desc == NULL) {
 		ext4_msg(sb, KERN_ERR, "not enough memory");
+		ret = -ENOMEM;
 		goto failed_mount;
 	}
 
@@ -3579,6 +3701,7 @@ static int ext4_fill_super(struct super_block *sb, void *data, int silent)
 	}
 	if (err) {
 		ext4_msg(sb, KERN_ERR, "insufficient memory");
+		ret = err;
 		goto failed_mount3;
 	}
 
@@ -3636,26 +3759,17 @@ static int ext4_fill_super(struct super_block *sb, void *data, int silent)
 		goto no_journal;
 	}
 
-	if (ext4_blocks_count(es) > 0xffffffffULL &&
+	if (EXT4_HAS_INCOMPAT_FEATURE(sb, EXT4_FEATURE_INCOMPAT_64BIT) &&
 	    !jbd2_journal_set_features(EXT4_SB(sb)->s_journal, 0, 0,
 				       JBD2_FEATURE_INCOMPAT_64BIT)) {
 		ext4_msg(sb, KERN_ERR, "Failed to set 64-bit journal feature");
 		goto failed_mount_wq;
 	}
 
-	if (test_opt(sb, JOURNAL_ASYNC_COMMIT)) {
-		jbd2_journal_set_features(sbi->s_journal,
-				JBD2_FEATURE_COMPAT_CHECKSUM, 0,
-				JBD2_FEATURE_INCOMPAT_ASYNC_COMMIT);
-	} else if (test_opt(sb, JOURNAL_CHECKSUM)) {
-		jbd2_journal_set_features(sbi->s_journal,
-				JBD2_FEATURE_COMPAT_CHECKSUM, 0, 0);
-		jbd2_journal_clear_features(sbi->s_journal, 0, 0,
-				JBD2_FEATURE_INCOMPAT_ASYNC_COMMIT);
-	} else {
-		jbd2_journal_clear_features(sbi->s_journal,
-				JBD2_FEATURE_COMPAT_CHECKSUM, 0,
-				JBD2_FEATURE_INCOMPAT_ASYNC_COMMIT);
+	if (!set_journal_csum_feature_set(sb)) {
+		ext4_msg(sb, KERN_ERR, "Failed to set journal checksum "
+			 "feature set");
+		goto failed_mount_wq;
 	}
 
 	/* We have now updated the journal if required, so we can
@@ -3773,7 +3887,7 @@ no_journal:
 	}
 
 	ext4_ext_init(sb);
-	err = ext4_mb_init(sb, needs_recovery);
+	err = ext4_mb_init(sb);
 	if (err) {
 		ext4_msg(sb, KERN_ERR, "failed to initialize mballoc (%d)",
 			 err);
@@ -3856,6 +3970,8 @@ failed_mount2:
 		brelse(sbi->s_group_desc[i]);
 	ext4_kvfree(sbi->s_group_desc);
 failed_mount:
+	if (sbi->s_chksum_driver)
+		crypto_free_shash(sbi->s_chksum_driver);
 	if (sbi->s_proc) {
 		remove_proc_entry(sb->s_id, ext4_proc_root);
 	}
@@ -3978,7 +4094,7 @@ static journal_t *ext4_get_dev_journal(struct super_block *sb,
 		goto out_bdev;
 	}
 
-	es = (struct ext4_super_block *) (((char *)bh->b_data) + offset);
+	es = (struct ext4_super_block *) (bh->b_data + offset);
 	if ((le16_to_cpu(es->s_magic) != EXT4_SUPER_MAGIC) ||
 	    !(le32_to_cpu(es->s_feature_incompat) &
 	      EXT4_FEATURE_INCOMPAT_JOURNAL_DEV)) {
@@ -4086,15 +4202,6 @@ static int ext4_load_journal(struct super_block *sb,
 	if (!(journal->j_flags & JBD2_BARRIER))
 		ext4_msg(sb, KERN_INFO, "barriers disabled");
 
-	if (!really_read_only && test_opt(sb, UPDATE_JOURNAL)) {
-		err = jbd2_journal_update_format(journal);
-		if (err)  {
-			ext4_msg(sb, KERN_ERR, "error updating journal");
-			jbd2_journal_destroy(journal);
-			return err;
-		}
-	}
-
 	if (!EXT4_HAS_INCOMPAT_FEATURE(sb, EXT4_FEATURE_INCOMPAT_RECOVER))
 		err = jbd2_journal_wipe(journal, !really_read_only);
 	if (!err) {
@@ -4179,6 +4286,7 @@ static int ext4_commit_super(struct super_block *sb, int sync)
 				&EXT4_SB(sb)->s_freeinodes_counter));
 	sb->s_dirt = 0;
 	BUFFER_TRACE(sbh, "marking dirty");
+	ext4_superblock_csum_set(sb, es);
 	mark_buffer_dirty(sbh);
 	if (sync) {
 		error = sync_dirty_buffer(sbh);
@@ -4259,6 +4367,7 @@ static void ext4_clear_journal_err(struct super_block *sb,
 		ext4_commit_super(sb, 1);
 
 		jbd2_journal_clear_err(journal);
+		jbd2_journal_update_sb_errno(journal);
 	}
 }
 
@@ -4898,7 +5007,6 @@ static ssize_t ext4_quota_write(struct super_block *sb, int type,
 		return -EIO;
 	}
 
-	mutex_lock_nested(&inode->i_mutex, I_MUTEX_QUOTA);
 	bh = ext4_bread(handle, inode, blk, 1, &err);
 	if (!bh)
 		goto out;
@@ -4914,16 +5022,13 @@ static ssize_t ext4_quota_write(struct super_block *sb, int type,
 	err = ext4_handle_dirty_metadata(handle, NULL, bh);
 	brelse(bh);
 out:
-	if (err) {
-		mutex_unlock(&inode->i_mutex);
+	if (err)
 		return err;
-	}
 	if (inode->i_size < off + len) {
 		i_size_write(inode, off + len);
 		EXT4_I(inode)->i_disksize = inode->i_size;
 		ext4_mark_inode_dirty(handle, inode);
 	}
-	mutex_unlock(&inode->i_mutex);
 	return len;
 }
 

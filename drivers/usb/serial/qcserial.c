@@ -21,7 +21,7 @@
 #define DRIVER_AUTHOR "Qualcomm Inc"
 #define DRIVER_DESC "Qualcomm USB Serial driver"
 
-static int debug;
+static bool debug;
 
 #define DEVICE_G1K(v, p) \
 	USB_DEVICE(v, p), .driver_info = 1

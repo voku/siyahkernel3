@@ -267,7 +267,7 @@ static void slide2wake_force_wakeup(void)
 	printk(KERN_ERR "[TSP] suspend state: %d\n", state);
 	if (state != 0)
 		request_suspend_state(0);
-	msleep(200);
+	msleep(300);
 	mutex_unlock(&s2w_lock);
 }
 
@@ -284,7 +284,7 @@ static void slide2wake_presspwr(struct work_struct *slide2wake_presspwr_work)
 	msleep(100);
 	input_event(slide2wake_dev, EV_KEY, KEY_POWER, 0);
 	input_event(slide2wake_dev, EV_SYN, 0, 0);
-	msleep(500);
+	msleep(100);
 	mutex_unlock(&s2w_lock);
 }
 

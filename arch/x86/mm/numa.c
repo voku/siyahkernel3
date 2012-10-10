@@ -192,8 +192,6 @@ int __init numa_add_memblk(int nid, u64 start, u64 end)
 /* Initialize NODE_DATA for a node on the local memory */
 static void __init setup_node_data(int nid, u64 start, u64 end)
 {
-	const u64 nd_low = PFN_PHYS(MAX_DMA_PFN);
-	const u64 nd_high = PFN_PHYS(max_pfn_mapped);
 	const size_t nd_size = roundup(sizeof(pg_data_t), PAGE_SIZE);
 	bool remapped = false;
 	u64 nd_pa;
@@ -224,17 +222,12 @@ static void __init setup_node_data(int nid, u64 start, u64 end)
 		nd_pa = __pa(nd);
 		remapped = true;
 	} else {
-		nd_pa = memblock_x86_find_in_range_node(nid, nd_low, nd_high,
-						nd_size, SMP_CACHE_BYTES);
-		if (nd_pa == MEMBLOCK_ERROR)
-			nd_pa = memblock_find_in_range(nd_low, nd_high,
-						nd_size, SMP_CACHE_BYTES);
-		if (nd_pa == MEMBLOCK_ERROR) {
+		nd_pa = memblock_alloc_nid(nd_size, SMP_CACHE_BYTES, nid);
+		if (!nd_pa) {
 			pr_err("Cannot find %zu bytes in node %d\n",
 			       nd_size, nid);
 			return;
 		}
-		memblock_x86_reserve_range(nd_pa, nd_pa + nd_size, "NODE_DATA");
 		nd = __va(nd_pa);
 	}
 
@@ -395,7 +388,7 @@ static int __init numa_alloc_distance(void)
 
 	phys = memblock_find_in_range(0, PFN_PHYS(max_pfn_mapped),
 				      size, PAGE_SIZE);
-	if (phys == MEMBLOCK_ERROR) {
+	if (!phys) {
 		pr_warning("NUMA: Warning: can't allocate distance table!\n");
 		/* don't retry until explicitly reset */
 		numa_distance = (void *)1LU;
@@ -496,6 +489,7 @@ static bool __init numa_meminfo_cover_memory(const struct numa_meminfo *mi)
 
 static int __init numa_register_memblks(struct numa_meminfo *mi)
 {
+	unsigned long uninitialized_var(pfn_align);
 	int i, nid;
 
 	/* Account for nodes with cpus and no memory */
@@ -511,6 +505,20 @@ static int __init numa_register_memblks(struct numa_meminfo *mi)
 
 	/* for out of order entries */
 	sort_node_map();
+
+	/*
+	 * If sections array is gonna be used for pfn -> nid mapping, check
+	 * whether its granularity is fine enough.
+	 */
+#ifdef NODE_NOT_IN_PAGE_FLAGS
+	pfn_align = node_map_pfn_alignment();
+	if (pfn_align && pfn_align < PAGES_PER_SECTION) {
+		printk(KERN_WARNING "Node alignment %LuMB < min %LuMB, rejecting NUMA config\n",
+		       PFN_PHYS(pfn_align) >> 20,
+		       PFN_PHYS(PAGES_PER_SECTION) >> 20);
+		return -EINVAL;
+	}
+#endif
 	if (!numa_meminfo_cover_memory(mi))
 		return -EINVAL;
 

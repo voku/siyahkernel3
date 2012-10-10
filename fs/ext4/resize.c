@@ -161,6 +161,8 @@ static struct ext4_new_flex_group_data *alloc_flex_gd(unsigned long flexbg_size)
 	if (flex_gd == NULL)
 		goto out3;
 
+	if (flexbg_size >= UINT_MAX / sizeof(struct ext4_new_flex_group_data))
+		goto out2;
 	flex_gd->count = flexbg_size;
 
 	flex_gd->groups = kmalloc(sizeof(struct ext4_new_group_data) *
@@ -796,7 +798,7 @@ static int add_new_gdb(handle_t *handle, struct inode *inode,
 	ext4_kvfree(o_group_desc);
 
 	le16_add_cpu(&es->s_reserved_gdt_blocks, -1);
-	err = ext4_handle_dirty_metadata(handle, NULL, EXT4_SB(sb)->s_sbh);
+	err = ext4_handle_dirty_super_now(handle, sb);
 	if (err)
 		ext4_std_error(sb, err);
 
@@ -968,6 +970,8 @@ static void update_backups(struct super_block *sb,
 		goto exit_err;
 	}
 
+	ext4_superblock_csum_set(sb, (struct ext4_super_block *)data);
+
 	while ((group = ext4_list_backups(sb, &three, &five, &seven)) < last) {
 		struct buffer_head *bh;
 
@@ -1093,7 +1097,7 @@ static int ext4_setup_new_descs(handle_t *handle, struct super_block *sb,
 		 */
 		gdb_bh = sbi->s_group_desc[gdb_num];
 		/* Update group descriptor block for new group */
-		gdp = (struct ext4_group_desc *)((char *)gdb_bh->b_data +
+		gdp = (struct ext4_group_desc *)(gdb_bh->b_data +
 						 gdb_off * EXT4_DESC_SIZE(sb));
 
 		memset(gdp, 0, EXT4_DESC_SIZE(sb));

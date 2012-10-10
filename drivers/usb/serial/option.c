@@ -1180,7 +1180,7 @@ static struct usb_serial_driver option_1port_device = {
 #endif
 };
 
-static int debug;
+static bool debug;
 
 /* Functions used by new usb-serial code. */
 static int __init option_init(void)

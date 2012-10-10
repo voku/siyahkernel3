@@ -77,6 +77,22 @@ struct ghes {
 	};
 };
 
+struct ghes_estatus_node {
+	struct llist_node llnode;
+	struct acpi_hest_generic *generic;
+};
+
+struct ghes_estatus_cache {
+	u32 estatus_len;
+	atomic_t count;
+	struct acpi_hest_generic *generic;
+	unsigned long long time_in;
+	struct rcu_head rcu;
+};
+
+bool ghes_disable;
+module_param_named(disable, ghes_disable, bool, 0);
+
 static int ghes_panic_timeout	__read_mostly = 30;
 
 /*

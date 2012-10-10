@@ -221,7 +221,7 @@ void set_mdnie_value(struct mdnie_info *mdnie, u8 force)
 #if defined(CONFIG_TDMB) || defined(CONFIG_TARGET_LOCALE_NTT)
 etc:
 #endif
-	if (!IS_ERR_OR_NULL(etc_table[mdnie->cabc][mdnie->outdoor][mdnie->tone].seq)) {
+	if (!IS_ERR_OR_NULL(etc_table[mdnie->cabc][mdnie->outdoor == OUTDOOR_OFF][mdnie->tone].seq)) {
 		mdnie_send_sequence(mdnie, etc_table[mdnie->cabc][mdnie->outdoor][mdnie->tone].seq);
 		dev_info(mdnie->dev, "%s\n", etc_table[mdnie->cabc][mdnie->outdoor][mdnie->tone].name);
 	}

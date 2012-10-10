@@ -281,6 +281,8 @@ minstrel_ht_update_stats(struct minstrel_priv *mp, struct minstrel_ht_sta *mi)
 
 		mr = minstrel_get_ratestats(mi, mg->max_tp_rate);
 		if (cur_tp < mr->cur_tp) {
+			mi->max_tp_rate2 = mi->max_tp_rate;
+			cur_tp2 = cur_tp;
 			mi->max_tp_rate = mg->max_tp_rate;
 			cur_tp = mr->cur_tp;
 		}
@@ -452,7 +454,8 @@ minstrel_ht_tx_status(void *priv, struct ieee80211_supported_band *sband,
 
 	if (time_after(jiffies, mi->stats_update + (mp->update_interval / 2 * HZ) / 1000)) {
 		minstrel_ht_update_stats(mp, mi);
-		minstrel_aggr_check(mp, sta, skb);
+		if (!(info->flags & IEEE80211_TX_CTL_AMPDU))
+			minstrel_aggr_check(mp, sta, skb);
 	}
 }
 

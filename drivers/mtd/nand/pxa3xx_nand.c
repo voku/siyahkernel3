@@ -182,7 +182,7 @@ struct pxa3xx_nand_info {
 	unsigned int	row_addr_cycles;
 };
 
-static int use_dma = 1;
+static bool use_dma = 1;
 module_param(use_dma, bool, 0444);
 MODULE_PARM_DESC(use_dma, "enable DMA for data transferring to/from NAND HW");
 

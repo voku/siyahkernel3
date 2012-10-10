@@ -26,8 +26,8 @@
 #include <linux/slab.h>
 #include "aerdrv.h"
 
-static int forceload;
-static int nosourceid;
+static bool forceload;
+static bool nosourceid;
 module_param(forceload, bool, 0);
 module_param(nosourceid, bool, 0);
 

@@ -487,10 +487,12 @@ fallback_retry:
 	for (i = 0; i < ngroups; i++) {
 		grp = (parent_group + i) % ngroups;
 		desc = ext4_get_group_desc(sb, grp, NULL);
-		grp_free = ext4_free_inodes_count(sb, desc);
-		if (desc && grp_free && grp_free >= avefreei) {
-			*group = grp;
-			return 0;
+		if (desc) {
+			grp_free = ext4_free_inodes_count(sb, desc);
+			if (grp_free && grp_free >= avefreei) {
+				*group = grp;
+				return 0;
+			}
 		}
 	}
 
@@ -848,6 +850,19 @@ got:
 	spin_lock(&sbi->s_next_gen_lock);
 	inode->i_generation = sbi->s_next_generation++;
 	spin_unlock(&sbi->s_next_gen_lock);
+
+	/* Precompute checksum seed for inode metadata */
+	if (EXT4_HAS_RO_COMPAT_FEATURE(sb,
+			EXT4_FEATURE_RO_COMPAT_METADATA_CSUM)) {
+		__u32 csum;
+		struct ext4_sb_info *sbi = EXT4_SB(inode->i_sb);
+		__le32 inum = cpu_to_le32(inode->i_ino);
+		__le32 gen = cpu_to_le32(inode->i_generation);
+		csum = ext4_chksum(sbi, sbi->s_csum_seed, (__u8 *)&inum,
+				   sizeof(inum));
+		ei->i_csum_seed = ext4_chksum(sbi, csum, (__u8 *)&gen,
+					      sizeof(gen));
+	}
 
 	ext4_clear_state_flags(ei); /* Only relevant on 32-bit archs */
 	ext4_set_inode_state(inode, EXT4_STATE_NEW);

@@ -103,7 +103,6 @@ static int test_cipher_cycles(struct blkcipher_desc *desc, int enc,
 	int ret = 0;
 	int i;
 
-	local_bh_disable();
 	local_irq_disable();
 
 	/* Warm-up run. */
@@ -136,7 +135,6 @@ static int test_cipher_cycles(struct blkcipher_desc *desc, int enc,
 
 out:
 	local_irq_enable();
-	local_bh_enable();
 
 	if (ret == 0)
 		printk("1 operation in %lu cycles (%d bytes)\n",
@@ -306,7 +304,6 @@ static int test_hash_cycles_digest(struct hash_desc *desc,
 	int i;
 	int ret;
 
-	local_bh_disable();
 	local_irq_disable();
 
 	/* Warm-up run. */
@@ -333,7 +330,6 @@ static int test_hash_cycles_digest(struct hash_desc *desc,
 
 out:
 	local_irq_enable();
-	local_bh_enable();
 
 	if (ret)
 		return ret;
@@ -354,7 +350,6 @@ static int test_hash_cycles(struct hash_desc *desc, struct scatterlist *sg,
 	if (plen == blen)
 		return test_hash_cycles_digest(desc, sg, blen, out);
 
-	local_bh_disable();
 	local_irq_disable();
 
 	/* Warm-up run. */
@@ -397,7 +392,6 @@ static int test_hash_cycles(struct hash_desc *desc, struct scatterlist *sg,
 
 out:
 	local_irq_enable();
-	local_bh_enable();
 
 	if (ret)
 		return ret;
@@ -920,6 +914,9 @@ static int do_test(int m)
 	case 32:
 		ret += tcrypt_test("ecb(camellia)");
 		ret += tcrypt_test("cbc(camellia)");
+		ret += tcrypt_test("ctr(camellia)");
+		ret += tcrypt_test("lrw(camellia)");
+		ret += tcrypt_test("xts(camellia)");
 		break;
 #endif
 	case 33:
@@ -985,6 +982,11 @@ static int do_test(int m)
 		ret += tcrypt_test("rfc4309(ccm(aes))");
 		break;
 #endif
+#ifdef CONFIG_CRYPTO_CAMELLIA
+	case 46:
+		ret += tcrypt_test("ghash");
+		break;
+#endif
 #ifdef CONFIG_CRYPTO_MD5
 	case 100:
 		ret += tcrypt_test("hmac(md5)");
@@ -1029,6 +1031,10 @@ static int do_test(int m)
 		ret += tcrypt_test("vmac(aes)");
 		break;
 #endif
+	case 110:
+		ret += tcrypt_test("hmac(crc32)");
+		break;
+
 	case 150:
 		ret += tcrypt_test("ansi_cprng");
 		break;
@@ -1128,6 +1134,18 @@ static int do_test(int m)
 				speed_template_16_24_32);
 		test_cipher_speed("cbc(camellia)", DECRYPT, sec, NULL, 0,
 				speed_template_16_24_32);
+		test_cipher_speed("ctr(camellia)", ENCRYPT, sec, NULL, 0,
+				speed_template_16_24_32);
+		test_cipher_speed("ctr(camellia)", DECRYPT, sec, NULL, 0,
+				speed_template_16_24_32);
+		test_cipher_speed("lrw(camellia)", ENCRYPT, sec, NULL, 0,
+				speed_template_32_40_48);
+		test_cipher_speed("lrw(camellia)", DECRYPT, sec, NULL, 0,
+				speed_template_32_40_48);
+		test_cipher_speed("xts(camellia)", ENCRYPT, sec, NULL, 0,
+				speed_template_32_48_64);
+		test_cipher_speed("xts(camellia)", DECRYPT, sec, NULL, 0,
+				speed_template_32_48_64);
 		break;
 
 	case 206:

@@ -264,7 +264,7 @@ struct moschip_port {
 };
 
 
-static int debug;
+static bool debug;
 
 /*
  * mos7840_set_reg_sync

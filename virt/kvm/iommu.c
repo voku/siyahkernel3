@@ -30,6 +30,12 @@
 #include <linux/iommu.h>
 #include <linux/intel-iommu.h>
 
+static bool allow_unsafe_assigned_interrupts;
+module_param_named(allow_unsafe_assigned_interrupts,
+		   allow_unsafe_assigned_interrupts, bool, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(allow_unsafe_assigned_interrupts,
+ "Enable device assignment on platforms without interrupt remapping support.");
+
 static int kvm_iommu_unmap_memslots(struct kvm *kvm);
 static void kvm_iommu_put_pages(struct kvm *kvm,
 				gfn_t base_gfn, unsigned long npages);

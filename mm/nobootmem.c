@@ -41,9 +41,8 @@ static void * __init __alloc_memory_core_early(int nid, u64 size, u64 align,
 	if (limit > memblock.current_limit)
 		limit = memblock.current_limit;
 
-	addr = find_memory_core_early(nid, size, align, goal, limit);
-
-	if (addr == MEMBLOCK_ERROR)
+	addr = memblock_find_in_range_node(goal, limit, size, align, nid);
+	if (!addr)
 		return NULL;
 
 	ptr = phys_to_virt(addr);

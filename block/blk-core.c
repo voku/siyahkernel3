@@ -29,6 +29,7 @@
 #include <linux/fault-inject.h>
 #include <linux/list_sort.h>
 #include <linux/delay.h>
+#include <linux/ratelimit.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/block.h>
@@ -452,8 +453,8 @@ static int blk_init_free_list(struct request_queue *q)
 	init_waitqueue_head(&rl->wait[BLK_RW_ASYNC]);
 
 	rl->rq_pool = mempool_create_node(BLKDEV_MIN_RQ, mempool_alloc_slab,
-				mempool_free_slab, request_cachep, q->node);
-
+					  mempool_free_slab, request_cachep,
+					  GFP_KERNEL, q->node);
 	if (!rl->rq_pool)
 		return -ENOMEM;
 
@@ -2078,9 +2079,11 @@ bool blk_update_request(struct request *req, int error, unsigned int nr_bytes)
 			error_type = "I/O";
 			break;
 		}
-		printk(KERN_ERR "end_request: %s error, dev %s, sector %llu\n",
-		       error_type, req->rq_disk ? req->rq_disk->disk_name : "?",
-		       (unsigned long long)blk_rq_pos(req));
+		printk_ratelimited(KERN_ERR "end_request: %s error, dev %s, sector %llu\n",
+				   error_type, req->rq_disk ?
+				   req->rq_disk->disk_name : "?",
+				   (unsigned long long)blk_rq_pos(req));
+
 	}
 
 	blk_account_io_completion(req, nr_bytes);
@@ -2738,17 +2741,16 @@ static void flush_plug_callbacks(struct blk_plug *plug)
 {
 	LIST_HEAD(callbacks);
 
-	if (list_empty(&plug->cb_list))
-		return;
+	while (!list_empty(&plug->cb_list)) {
+		list_splice_init(&plug->cb_list, &callbacks);
 
-	list_splice_init(&plug->cb_list, &callbacks);
-
-	while (!list_empty(&callbacks)) {
-		struct blk_plug_cb *cb = list_first_entry(&callbacks,
+		while (!list_empty(&callbacks)) {
+			struct blk_plug_cb *cb = list_first_entry(&callbacks,
 							  struct blk_plug_cb,
 							  list);
-		list_del(&cb->list);
-		cb->callback(cb);
+			list_del(&cb->list);
+			cb->callback(cb);
+		}
 	}
 }
 

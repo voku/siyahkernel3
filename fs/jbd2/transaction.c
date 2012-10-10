@@ -27,10 +27,40 @@
 #include <linux/highmem.h>
 #include <linux/hrtimer.h>
 #include <linux/backing-dev.h>
+#include <linux/bug.h>
 #include <linux/module.h>
 
 static void __jbd2_journal_temp_unlink_buffer(struct journal_head *jh);
 static void __jbd2_journal_unfile_buffer(struct journal_head *jh);
+
+static struct kmem_cache *transaction_cache;
+int __init jbd2_journal_init_transaction_cache(void)
+{
+	J_ASSERT(!transaction_cache);
+	transaction_cache = kmem_cache_create("jbd2_transaction_s",
+					sizeof(transaction_t),
+					0,
+					SLAB_HWCACHE_ALIGN|SLAB_TEMPORARY,
+					NULL);
+	if (transaction_cache)
+		return 0;
+	return -ENOMEM;
+}
+
+void jbd2_journal_destroy_transaction_cache(void)
+{
+	if (transaction_cache) {
+		kmem_cache_destroy(transaction_cache);
+		transaction_cache = NULL;
+	}
+}
+
+void jbd2_journal_free_transaction(transaction_t *transaction)
+{
+	if (unlikely(ZERO_OR_NULL_PTR(transaction)))
+		return;
+	kmem_cache_free(transaction_cache, transaction);
+}
 
 /*
  * jbd2_get_transaction: obtain a new transaction_t object.
@@ -115,7 +145,7 @@ static inline void update_t_max_wait(transaction_t *transaction,
  */
 
 static int start_this_handle(journal_t *journal, handle_t *handle,
-			     int gfp_mask)
+			     gfp_t gfp_mask)
 {
 	transaction_t	*transaction, *new_transaction = NULL;
 	tid_t		tid;
@@ -124,7 +154,7 @@ static int start_this_handle(journal_t *journal, handle_t *handle,
 	unsigned long ts = jiffies;
 
 	if (nblocks > journal->j_max_transaction_buffers) {
-		printk(KERN_ERR "JBD: %s wants too many credits (%d > %d)\n",
+		printk(KERN_ERR "JBD2: %s wants too many credits (%d > %d)\n",
 		       current->comm, nblocks,
 		       journal->j_max_transaction_buffers);
 		return -ENOSPC;
@@ -132,7 +162,8 @@ static int start_this_handle(journal_t *journal, handle_t *handle,
 
 alloc_transaction:
 	if (!journal->j_running_transaction) {
-		new_transaction = kzalloc(sizeof(*new_transaction), gfp_mask);
+		new_transaction = kmem_cache_zalloc(transaction_cache,
+						    gfp_mask);
 		if (!new_transaction) {
 			/*
 			 * If __GFP_FS is not present, then we may be
@@ -161,7 +192,7 @@ repeat:
 	if (is_journal_aborted(journal) ||
 	    (journal->j_errno != 0 && !(journal->j_flags & JBD2_ACK_ERR))) {
 		read_unlock(&journal->j_state_lock);
-		kfree(new_transaction);
+		jbd2_journal_free_transaction(new_transaction);
 		return -EROFS;
 	}
 
@@ -292,7 +323,7 @@ repeat:
 	read_unlock(&journal->j_state_lock);
 
 	lock_map_acquire(&handle->h_lockdep_map);
-	kfree(new_transaction);
+	jbd2_journal_free_transaction(new_transaction);
 	return 0;
 }
 
@@ -329,7 +360,7 @@ static handle_t *new_handle(int nblocks)
  * Return a pointer to a newly allocated handle, or an ERR_PTR() value
  * on failure.
  */
-handle_t *jbd2__journal_start(journal_t *journal, int nblocks, int gfp_mask)
+handle_t *jbd2__journal_start(journal_t *journal, int nblocks, gfp_t gfp_mask)
 {
 	handle_t *handle = journal_current_handle();
 	int err;
@@ -452,7 +483,7 @@ out:
  * transaction capabable of guaranteeing the requested number of
  * credits.
  */
-int jbd2__journal_restart(handle_t *handle, int nblocks, int gfp_mask)
+int jbd2__journal_restart(handle_t *handle, int nblocks, gfp_t gfp_mask)
 {
 	transaction_t *transaction = handle->h_transaction;
 	journal_t *journal = transaction->t_journal;
@@ -525,12 +556,13 @@ void jbd2_journal_lock_updates(journal_t *journal)
 			break;
 
 		spin_lock(&transaction->t_handle_lock);
-		if (!atomic_read(&transaction->t_updates)) {
-			spin_unlock(&transaction->t_handle_lock);
-			break;
-		}
 		prepare_to_wait(&journal->j_wait_updates, &wait,
 				TASK_UNINTERRUPTIBLE);
+		if (!atomic_read(&transaction->t_updates)) {
+			spin_unlock(&transaction->t_handle_lock);
+			finish_wait(&journal->j_wait_updates, &wait);
+			break;
+		}
 		spin_unlock(&transaction->t_handle_lock);
 		write_unlock(&journal->j_state_lock);
 		schedule();
@@ -572,7 +604,7 @@ static void warn_dirty_buffer(struct buffer_head *bh)
 	char b[BDEVNAME_SIZE];
 
 	printk(KERN_WARNING
-	       "JBD: Spotted dirty metadata buffer (dev = %s, blocknr = %llu). "
+	       "JBD2: Spotted dirty metadata buffer (dev = %s, blocknr = %llu). "
 	       "There's a risk of filesystem corruption in case of system "
 	       "crash.\n",
 	       bdevname(bh->b_bdev, b), (unsigned long long)bh->b_blocknr);
@@ -790,12 +822,12 @@ done:
 			    "Possible IO failure.\n");
 		page = jh2bh(jh)->b_page;
 		offset = offset_in_page(jh2bh(jh)->b_data);
-		source = kmap_atomic(page, KM_USER0);
+		source = kmap_atomic(page);
 		/* Fire data frozen trigger just before we copy the data */
 		jbd2_buffer_frozen_trigger(jh, source + offset,
 					   jh->b_triggers);
 		memcpy(jh->b_frozen_data, source+offset, jh2bh(jh)->b_size);
-		kunmap_atomic(source, KM_USER0);
+		kunmap_atomic(source);
 
 		/*
 		 * Now that the frozen data is saved off, we need to store
@@ -1180,8 +1212,7 @@ out_unlock_bh:
 	jbd_unlock_bh_state(bh);
 out:
 	JBUFFER_TRACE(jh, "exit");
-	if (ret)
-		__WARN();	/* All errors are bugs, so dump the stack */
+	WARN_ON(ret);	/* All errors are bugs, so dump the stack */
 	return ret;
 }
 
@@ -1557,9 +1588,9 @@ __blist_del_buffer(struct journal_head **list, struct journal_head *jh)
  * of these pointers, it could go bad.  Generally the caller needs to re-read
  * the pointer from the transaction_t.
  *
- * Called under j_list_lock.  The journal may not be locked.
+ * Called under j_list_lock.
  */
-void __jbd2_journal_temp_unlink_buffer(struct journal_head *jh)
+static void __jbd2_journal_temp_unlink_buffer(struct journal_head *jh)
 {
 	struct journal_head **list = NULL;
 	transaction_t *transaction;
@@ -1654,10 +1685,8 @@ __journal_try_to_free_buffer(journal_t *journal, struct buffer_head *bh)
 	spin_lock(&journal->j_list_lock);
 	if (jh->b_cp_transaction != NULL && jh->b_transaction == NULL) {
 		/* written-back checkpointed metadata buffer */
-		if (jh->b_jlist == BJ_None) {
-			JBUFFER_TRACE(jh, "remove from checkpoint list");
-			__jbd2_journal_remove_checkpoint(jh);
-		}
+		JBUFFER_TRACE(jh, "remove from checkpoint list");
+		__jbd2_journal_remove_checkpoint(jh);
 	}
 	spin_unlock(&journal->j_list_lock);
 out:

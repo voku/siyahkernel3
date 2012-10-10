@@ -447,15 +447,16 @@ static int s3cfb_wait_for_vsync_thread(void *data)
 						msecs_to_jiffies(VSYNC_TIMEOUT_MSEC));
 
 		if (ret > 0) {
-			// char *envp[2];
-			// char buf[64];
-			// snprintf(buf, sizeof(buf), "VSYNC=%llu",
-			// 		ktime_to_ns(fbdev->vsync_info.timestamp));
-			// envp[0] = buf;
-			// envp[1] = NULL;
-			// kobject_uevent_env(&fbdev->dev->kobj, KOBJ_CHANGE,
-			// 				envp);
-			sysfs_notify(&fbdev->dev->kobj, NULL, "vsync_time"); // changmin
+#if defined(CONFIG_FB_S5P_VSYNC_SEND_UEVENTS)
+			char *envp[2];
+			char buf[64];
+			snprintf(buf, sizeof(buf), "VSYNC=%llu",
+					ktime_to_ns(fbdev->vsync_info.timestamp));
+			envp[0] = buf;
+			envp[1] = NULL;
+			kobject_uevent_env(&fbdev->dev->kobj, KOBJ_CHANGE,
+							envp);
+#endif
 		}
 	}
 

@@ -621,7 +621,7 @@ config CRYPTO_ANUBIS
 
 config CRYPTO_ARC4
 	tristate "ARC4 cipher algorithm"
-	select CRYPTO_ALGAPI
+	select CRYPTO_BLKCIPHER
 	help
 	  ARC4 cipher algorithm.
 
@@ -655,7 +655,7 @@ config CRYPTO_BLOWFISH_COMMON
 
 config CRYPTO_BLOWFISH_X86_64
 	tristate "Blowfish cipher algorithm (x86_64)"
-	depends on (X86 || UML_X86) && 64BIT
+	depends on X86 && 64BIT
 	select CRYPTO_ALGAPI
 	select CRYPTO_BLOWFISH_COMMON
 	help
@@ -674,6 +674,25 @@ config CRYPTO_CAMELLIA
 	select CRYPTO_ALGAPI
 	help
 	  Camellia cipher algorithms module.
+
+	  Camellia is a symmetric key block cipher developed jointly
+	  at NTT and Mitsubishi Electric Corporation.
+
+	  The Camellia specifies three key sizes: 128, 192 and 256 bits.
+
+	  See also:
+	  <https://info.isl.ntt.co.jp/crypt/eng/camellia/index_s.html>
+
+config CRYPTO_CAMELLIA_X86_64
+	tristate "Camellia cipher algorithm (x86_64)"
+	depends on X86 && 64BIT
+	depends on CRYPTO
+	select CRYPTO_ALGAPI
+	select CRYPTO_GLUE_HELPER_X86
+	select CRYPTO_LRW
+	select CRYPTO_XTS
+	help
+	  Camellia cipher algorithm module (x86_64).
 
 	  Camellia is a symmetric key block cipher developed jointly
 	  at NTT and Mitsubishi Electric Corporation.
@@ -863,7 +882,7 @@ config CRYPTO_TWOFISH_X86_64
 
 config CRYPTO_TWOFISH_X86_64_3WAY
 	tristate "Twofish cipher algorithm (x86_64, 3-way parallel)"
-	depends on (X86 || UML_X86) && 64BIT
+	depends on X86 && 64BIT
 	select CRYPTO_ALGAPI
 	select CRYPTO_TWOFISH_COMMON
 	select CRYPTO_TWOFISH_X86_64
@@ -910,6 +929,15 @@ config CRYPTO_LZO
 	select LZO_DECOMPRESS
 	help
 	  This is the LZO algorithm.
+
+config CRYPTO_842
+	tristate "842 compression algorithm"
+	depends on CRYPTO_DEV_NX_COMPRESS
+	# 842 uses lzo if the hardware becomes unavailable
+	select LZO_COMPRESS
+	select LZO_DECOMPRESS
+	help
+	  This is the 842 algorithm.
 
 comment "Random Number Generation"
 

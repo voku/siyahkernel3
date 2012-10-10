@@ -164,13 +164,14 @@ struct ieee80211_low_level_stats {
  * @BSS_CHANGED_QOS: QoS for this association was enabled/disabled. Note
  *	that it is only ever disabled for station mode.
  * @BSS_CHANGED_IDLE: Idle changed for this BSS/interface.
+ * @BSS_CHANGED_SSID: SSID changed for this BSS (AP mode)
  */
 enum ieee80211_bss_change {
 	BSS_CHANGED_ASSOC		= 1<<0,
 	BSS_CHANGED_ERP_CTS_PROT	= 1<<1,
 	BSS_CHANGED_ERP_PREAMBLE	= 1<<2,
 	BSS_CHANGED_ERP_SLOT		= 1<<3,
-	BSS_CHANGED_HT                  = 1<<4,
+	BSS_CHANGED_HT			= 1<<4,
 	BSS_CHANGED_BASIC_RATES		= 1<<5,
 	BSS_CHANGED_BEACON_INT		= 1<<6,
 	BSS_CHANGED_BSSID		= 1<<7,
@@ -181,6 +182,7 @@ enum ieee80211_bss_change {
 	BSS_CHANGED_ARP_FILTER		= 1<<12,
 	BSS_CHANGED_QOS			= 1<<13,
 	BSS_CHANGED_IDLE		= 1<<14,
+	BSS_CHANGED_SSID		= 1<<15,
 
 	/* when adding here, make sure to change ieee80211_reconfig */
 };
@@ -243,6 +245,9 @@ enum ieee80211_bss_change {
  * @idle: This interface is idle. There's also a global idle flag in the
  *	hardware config which may be more appropriate depending on what
  *	your driver/device needs to do.
+ * @ssid: The SSID of the current vif. Only valid in AP-mode.
+ * @ssid_len: Length of SSID given in @ssid.
+ * @hidden_ssid: The SSID of the current vif is hidden. Only valid in AP-mode.
  */
 struct ieee80211_bss_conf {
 	const u8 *bssid;
@@ -269,6 +274,9 @@ struct ieee80211_bss_conf {
 	bool arp_filter_enabled;
 	bool qos;
 	bool idle;
+	u8 ssid[IEEE80211_MAX_SSID_LEN];
+	size_t ssid_len;
+	bool hidden_ssid;
 };
 
 /**
@@ -1096,6 +1104,10 @@ enum ieee80211_tkip_key_type {
  *	stations based on the PM bit of incoming frames.
  *	Use ieee80211_start_ps()/ieee8021_end_ps() to manually configure
  *	the PS mode of connected stations.
+ *
+ * @IEEE80211_HW_TX_AMPDU_SETUP_IN_HW: The device handles TX A-MPDU session
+ *	setup strictly in HW. mac80211 should not attempt to do this in
+ *	software.
  */
 enum ieee80211_hw_flags {
 	IEEE80211_HW_HAS_RATE_CONTROL			= 1<<0,
@@ -1121,6 +1133,7 @@ enum ieee80211_hw_flags {
 	IEEE80211_HW_SUPPORTS_CQM_RSSI			= 1<<20,
 	IEEE80211_HW_SUPPORTS_PER_STA_GTK		= 1<<21,
 	IEEE80211_HW_AP_LINK_PS				= 1<<22,
+	IEEE80211_HW_TX_AMPDU_SETUP_IN_HW		= 1<<23,
 };
 
 /**
@@ -2264,7 +2277,7 @@ static inline int ieee80211_sta_ps_transition_ni(struct ieee80211_sta *sta,
  * The TX headroom reserved by mac80211 for its own tx_status functions.
  * This is enough for the radiotap header.
  */
-#define IEEE80211_TX_STATUS_HEADROOM	13
+#define IEEE80211_TX_STATUS_HEADROOM	14
 
 /**
  * ieee80211_sta_set_tim - set the TIM bit for a sleeping station

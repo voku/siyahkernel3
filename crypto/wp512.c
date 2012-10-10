@@ -1113,7 +1113,7 @@ static int wp256_final(struct shash_desc *desc, u8 *out)
 	return 0;
 }
 
-static struct shash_alg wp512 = {
+static struct shash_alg wp_algs[3] = { {
 	.digestsize	=	WP512_DIGEST_SIZE,
 	.init		=	wp512_init,
 	.update		=	wp512_update,
@@ -1125,9 +1125,7 @@ static struct shash_alg wp512 = {
 		.cra_blocksize	=	WP512_BLOCK_SIZE,
 		.cra_module	=	THIS_MODULE,
 	}
-};
-
-static struct shash_alg wp384 = {
+}, {
 	.digestsize	=	WP384_DIGEST_SIZE,
 	.init		=	wp512_init,
 	.update		=	wp512_update,
@@ -1139,9 +1137,7 @@ static struct shash_alg wp384 = {
 		.cra_blocksize	=	WP512_BLOCK_SIZE,
 		.cra_module	=	THIS_MODULE,
 	}
-};
-
-static struct shash_alg wp256 = {
+}, {
 	.digestsize	=	WP256_DIGEST_SIZE,
 	.init		=	wp512_init,
 	.update		=	wp512_update,
@@ -1153,39 +1149,16 @@ static struct shash_alg wp256 = {
 		.cra_blocksize	=	WP512_BLOCK_SIZE,
 		.cra_module	=	THIS_MODULE,
 	}
-};
+} };
 
 static int __init wp512_mod_init(void)
 {
-	int ret = 0;
-
-	ret = crypto_register_shash(&wp512);
-
-	if (ret < 0)
-		goto out;
-
-	ret = crypto_register_shash(&wp384);
-	if (ret < 0)
-	{
-		crypto_unregister_shash(&wp512);
-		goto out;
-	}
-
-	ret = crypto_register_shash(&wp256);
-	if (ret < 0)
-	{
-		crypto_unregister_shash(&wp512);
-		crypto_unregister_shash(&wp384);
-	}
-out:
-	return ret;
+	return crypto_register_shashes(wp_algs, ARRAY_SIZE(wp_algs));
 }
 
 static void __exit wp512_mod_fini(void)
 {
-	crypto_unregister_shash(&wp512);
-	crypto_unregister_shash(&wp384);
-	crypto_unregister_shash(&wp256);
+	crypto_unregister_shashes(wp_algs, ARRAY_SIZE(wp_algs));
 }
 
 MODULE_ALIAS("wp384");

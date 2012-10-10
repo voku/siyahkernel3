@@ -22,7 +22,7 @@
 #include <linux/atomic.h>
 #include <asm/smp.h>
 
-void (*pm_idle)(void);
+static void (*pm_idle)(void);
 
 static int hlt_counter;
 
@@ -102,7 +102,7 @@ void cpu_idle(void)
 			local_irq_disable();
 			/* Don't trace irqs off for idle */
 			stop_critical_timings();
-			if (cpuidle_idle_call())
+			if (cpuidle_call_idle())
 				pm_idle();
 			/*
 			 * Sanity check to ensure that pm_idle() returns

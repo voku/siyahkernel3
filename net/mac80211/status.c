@@ -106,6 +106,12 @@ static void ieee80211_handle_filtered_frame(struct ieee80211_local *local,
 	if (test_sta_flags(sta, WLAN_STA_PS_STA) &&
 	    skb_queue_len(&sta->tx_filtered) < STA_MAX_TX_BUFFER) {
 		skb_queue_tail(&sta->tx_filtered, skb);
+		sta_info_recalc_tim(sta);
+
+		if (!timer_pending(&local->sta_cleanup))
+			mod_timer(&local->sta_cleanup,
+				  round_jiffies(jiffies +
+						STA_INFO_CLEANUP_INTERVAL));
 		return;
 	}
 
@@ -127,11 +133,31 @@ static void ieee80211_handle_filtered_frame(struct ieee80211_local *local,
 	dev_kfree_skb(skb);
 }
 
+static void ieee80211_check_pending_bar(struct sta_info *sta, u8 *addr, u8 tid)
+{
+	struct tid_ampdu_tx *tid_tx;
+
+	tid_tx = rcu_dereference(sta->ampdu_mlme.tid_tx[tid]);
+	if (!tid_tx || !tid_tx->bar_pending)
+		return;
+
+	tid_tx->bar_pending = false;
+	ieee80211_send_bar(sta->sdata, addr, tid, tid_tx->failed_bar_ssn);
+}
+
 static void ieee80211_frame_acked(struct sta_info *sta, struct sk_buff *skb)
 {
 	struct ieee80211_mgmt *mgmt = (void *) skb->data;
 	struct ieee80211_local *local = sta->local;
 	struct ieee80211_sub_if_data *sdata = sta->sdata;
+
+	if (ieee80211_is_data_qos(mgmt->frame_control)) {
+		struct ieee80211_hdr *hdr = (void *) skb->data;
+		u8 *qc = ieee80211_get_qos_ctl(hdr);
+		u16 tid = qc[0] & 0xf;
+
+		ieee80211_check_pending_bar(sta, hdr->addr1, tid);
+	}
 
 	if (ieee80211_is_action(mgmt->frame_control) &&
 	    sdata->vif.type == NL80211_IFTYPE_STATION &&
@@ -161,6 +187,114 @@ static void ieee80211_frame_acked(struct sta_info *sta, struct sk_buff *skb)
 	}
 }
 
+static void ieee80211_set_bar_pending(struct sta_info *sta, u8 tid, u16 ssn)
+{
+	struct tid_ampdu_tx *tid_tx;
+
+	tid_tx = rcu_dereference(sta->ampdu_mlme.tid_tx[tid]);
+	if (!tid_tx)
+		return;
+
+	tid_tx->failed_bar_ssn = ssn;
+	tid_tx->bar_pending = true;
+}
+
+static int ieee80211_tx_radiotap_len(struct ieee80211_tx_info *info)
+{
+	int len = sizeof(struct ieee80211_radiotap_header);
+
+	/* IEEE80211_RADIOTAP_RATE rate */
+	if (info->status.rates[0].idx >= 0 &&
+	    !(info->status.rates[0].flags & IEEE80211_TX_RC_MCS))
+		len += 2;
+
+	/* IEEE80211_RADIOTAP_TX_FLAGS */
+	len += 2;
+
+	/* IEEE80211_RADIOTAP_DATA_RETRIES */
+	len += 1;
+
+	/* IEEE80211_TX_RC_MCS */
+	if (info->status.rates[0].idx >= 0 &&
+	    info->status.rates[0].flags & IEEE80211_TX_RC_MCS)
+		len += 3;
+
+	return len;
+}
+
+static void ieee80211_add_tx_radiotap_header(struct ieee80211_supported_band
+					     *sband, struct sk_buff *skb,
+					     int retry_count, int rtap_len)
+{
+	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *) skb->data;
+	struct ieee80211_radiotap_header *rthdr;
+	unsigned char *pos;
+	__le16 txflags;
+
+	rthdr = (struct ieee80211_radiotap_header *) skb_push(skb, rtap_len);
+
+	memset(rthdr, 0, rtap_len);
+	rthdr->it_len = cpu_to_le16(rtap_len);
+	rthdr->it_present =
+		cpu_to_le32((1 << IEEE80211_RADIOTAP_TX_FLAGS) |
+			    (1 << IEEE80211_RADIOTAP_DATA_RETRIES));
+	pos = (unsigned char *)(rthdr + 1);
+
+	/*
+	 * XXX: Once radiotap gets the bitmap reset thing the vendor
+	 *	extensions proposal contains, we can actually report
+	 *	the whole set of tries we did.
+	 */
+
+	/* IEEE80211_RADIOTAP_RATE */
+	if (info->status.rates[0].idx >= 0 &&
+	    !(info->status.rates[0].flags & IEEE80211_TX_RC_MCS)) {
+		rthdr->it_present |= cpu_to_le32(1 << IEEE80211_RADIOTAP_RATE);
+		*pos = sband->bitrates[info->status.rates[0].idx].bitrate / 5;
+		/* padding for tx flags */
+		pos += 2;
+	}
+
+	/* IEEE80211_RADIOTAP_TX_FLAGS */
+	txflags = 0;
+	if (!(info->flags & IEEE80211_TX_STAT_ACK) &&
+	    !is_multicast_ether_addr(hdr->addr1))
+		txflags |= cpu_to_le16(IEEE80211_RADIOTAP_F_TX_FAIL);
+
+	if ((info->status.rates[0].flags & IEEE80211_TX_RC_USE_RTS_CTS) ||
+	    (info->status.rates[0].flags & IEEE80211_TX_RC_USE_CTS_PROTECT))
+		txflags |= cpu_to_le16(IEEE80211_RADIOTAP_F_TX_CTS);
+	else if (info->status.rates[0].flags & IEEE80211_TX_RC_USE_RTS_CTS)
+		txflags |= cpu_to_le16(IEEE80211_RADIOTAP_F_TX_RTS);
+
+	put_unaligned_le16(txflags, pos);
+	pos += 2;
+
+	/* IEEE80211_RADIOTAP_DATA_RETRIES */
+	/* for now report the total retry_count */
+	*pos = retry_count;
+	pos++;
+
+	/* IEEE80211_TX_RC_MCS */
+	if (info->status.rates[0].idx >= 0 &&
+	    info->status.rates[0].flags & IEEE80211_TX_RC_MCS) {
+		rthdr->it_present |= cpu_to_le32(1 << IEEE80211_RADIOTAP_MCS);
+		pos[0] = IEEE80211_RADIOTAP_MCS_HAVE_MCS |
+			 IEEE80211_RADIOTAP_MCS_HAVE_GI |
+			 IEEE80211_RADIOTAP_MCS_HAVE_BW;
+		if (info->status.rates[0].flags & IEEE80211_TX_RC_SHORT_GI)
+			pos[1] |= IEEE80211_RADIOTAP_MCS_SGI;
+		if (info->status.rates[0].flags & IEEE80211_TX_RC_40_MHZ_WIDTH)
+			pos[1] |= IEEE80211_RADIOTAP_MCS_BW_40;
+		if (info->status.rates[0].flags & IEEE80211_TX_RC_GREEN_FIELD)
+			pos[1] |= IEEE80211_RADIOTAP_MCS_FMT_GF;
+		pos[2] = info->status.rates[0].idx;
+		pos += 3;
+	}
+
+}
+
 /*
  * Use a static threshold for now, best value to be determined
  * by testing ...
@@ -179,7 +313,6 @@ void ieee80211_tx_status(struct ieee80211_hw *hw, struct sk_buff *skb)
 	u16 frag, type;
 	__le16 fc;
 	struct ieee80211_supported_band *sband;
-	struct ieee80211_tx_status_rtap_hdr *rthdr;
 	struct ieee80211_sub_if_data *sdata;
 	struct net_device *prev_dev = NULL;
 	struct sta_info *sta, *tmp;
@@ -189,6 +322,7 @@ void ieee80211_tx_status(struct ieee80211_hw *hw, struct sk_buff *skb)
 	bool acked;
 	struct ieee80211_bar *bar;
 	u16 tid;
+	int rtap_len;
 
 	for (i = 0; i < IEEE80211_TX_MAX_RATES; i++) {
 		if (info->status.rates[i].idx < 0) {
@@ -246,18 +380,23 @@ void ieee80211_tx_status(struct ieee80211_hw *hw, struct sk_buff *skb)
 		}
 
 		if (!acked && ieee80211_is_back_req(fc)) {
+			u16 control;
+
 			/*
-			 * BAR failed, let's tear down the BA session as a
-			 * last resort as some STAs (Intel 5100 on Windows)
-			 * can get stuck when the BA window isn't flushed
-			 * correctly.
+			 * BAR failed, store the last SSN and retry sending
+			 * the BAR when the next unicast transmission on the
+			 * same TID succeeds.
 			 */
 			bar = (struct ieee80211_bar *) skb->data;
-			if (!(bar->control & IEEE80211_BAR_CTRL_MULTI_TID)) {
-				tid = (bar->control &
+			control = le16_to_cpu(bar->control);
+			if (!(control & IEEE80211_BAR_CTRL_MULTI_TID)) {
+				u16 ssn = le16_to_cpu(bar->start_seq_num);
+
+				tid = (control &
 				       IEEE80211_BAR_CTRL_TID_INFO_MASK) >>
 				      IEEE80211_BAR_CTRL_TID_INFO_SHIFT;
-				ieee80211_stop_tx_ba_session(&sta->sta, tid);
+
+				ieee80211_set_bar_pending(sta, tid, ssn);
 			}
 		}
 
@@ -385,44 +524,13 @@ void ieee80211_tx_status(struct ieee80211_hw *hw, struct sk_buff *skb)
 	}
 
 	/* send frame to monitor interfaces now */
-
-	if (skb_headroom(skb) < sizeof(*rthdr)) {
+	rtap_len = ieee80211_tx_radiotap_len(info);
+	if (WARN_ON_ONCE(skb_headroom(skb) < rtap_len)) {
 		printk(KERN_ERR "ieee80211_tx_status: headroom too small\n");
 		dev_kfree_skb(skb);
 		return;
 	}
-
-	rthdr = (struct ieee80211_tx_status_rtap_hdr *)
-				skb_push(skb, sizeof(*rthdr));
-
-	memset(rthdr, 0, sizeof(*rthdr));
-	rthdr->hdr.it_len = cpu_to_le16(sizeof(*rthdr));
-	rthdr->hdr.it_present =
-		cpu_to_le32((1 << IEEE80211_RADIOTAP_TX_FLAGS) |
-			    (1 << IEEE80211_RADIOTAP_DATA_RETRIES) |
-			    (1 << IEEE80211_RADIOTAP_RATE));
-
-	if (!(info->flags & IEEE80211_TX_STAT_ACK) &&
-	    !is_multicast_ether_addr(hdr->addr1))
-		rthdr->tx_flags |= cpu_to_le16(IEEE80211_RADIOTAP_F_TX_FAIL);
-
-	/*
-	 * XXX: Once radiotap gets the bitmap reset thing the vendor
-	 *	extensions proposal contains, we can actually report
-	 *	the whole set of tries we did.
-	 */
-	if ((info->status.rates[0].flags & IEEE80211_TX_RC_USE_RTS_CTS) ||
-	    (info->status.rates[0].flags & IEEE80211_TX_RC_USE_CTS_PROTECT))
-		rthdr->tx_flags |= cpu_to_le16(IEEE80211_RADIOTAP_F_TX_CTS);
-	else if (info->status.rates[0].flags & IEEE80211_TX_RC_USE_RTS_CTS)
-		rthdr->tx_flags |= cpu_to_le16(IEEE80211_RADIOTAP_F_TX_RTS);
-	if (info->status.rates[0].idx >= 0 &&
-	    !(info->status.rates[0].flags & IEEE80211_TX_RC_MCS))
-		rthdr->rate = sband->bitrates[
-				info->status.rates[0].idx].bitrate / 5;
-
-	/* for now report the total retry_count */
-	rthdr->data_retries = retry_count;
+	ieee80211_add_tx_radiotap_header(sband, skb, retry_count, rtap_len);
 
 	/* XXX: is this sufficient for BPF? */
 	skb_set_mac_header(skb, 0);
