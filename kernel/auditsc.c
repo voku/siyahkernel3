@@ -2223,7 +2223,7 @@ void __audit_inode_child(const struct inode *parent,
 		if (!strcmp(dname, n->name) ||
 		     !audit_compare_dname_path(dname, n->name, &dirlen)) {
 			if (inode)
-				audit_copy_inode(n, NULL, inode);
+				audit_copy_inode(n, dentry, inode);
 			else
 				n->ino = (unsigned long)-1;
 			found_child = n->name;
@@ -2255,7 +2255,7 @@ add_names:
 		}
 
 		if (inode)
-			audit_copy_inode(n, NULL, inode);
+			audit_copy_inode(n, dentry, inode);
 	}
 }
 EXPORT_SYMBOL_GPL(__audit_inode_child);
