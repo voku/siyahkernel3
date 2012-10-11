@@ -118,7 +118,8 @@ rm -f $INITRAMFS_TMP/compress-sql.sh
 rm -f $INITRAMFS_TMP/update*
 
 # this is MALI JB branch build.sh so we need to remove dualboot + logo of choose_rom binary fain to load. this is temp solution.
-cat $INITRAMFS_TMP/sbin/init | sed s/if\ \\[\\[\ \"\$NOBOOTLOGO.*/NOBOOTLOGO\=1\;\ \\/sbin\\/choose_rom\;/g > $INITRAMFS_TMP/sbin/init
+cat $INITRAMFS_TMP/sbin/init | sed s/if\ \\[\\[\ \"\$NOBOOTLOGO.*/NOBOOTLOGO\=1\;\ \\/sbin\\/choose_rom\;/g > $INITRAMFS_TMP/sbin/init_tmp;
+mv $INITRAMFS_TMP/sbin/init_tmp $INITRAMFS_TMP/sbin/init;
 
 # copy modules into initramfs
 mkdir -p $INITRAMFS/lib/modules
