@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # location
 export KERNELDIR=`readlink -f .`
