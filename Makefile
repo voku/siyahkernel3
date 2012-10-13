@@ -360,14 +360,14 @@ MODULES		= -fmodulo-sched -fmodulo-sched-allow-regmoves
 
 DISABLED_STORE	= 
 
-CFLAGS_MODULE   =
+CFLAGS_MODULE   = -fno-pic -fno-short-enums -march=armv7-a -mtune=cortex-a9
 AFLAGS_MODULE   =
 LDFLAGS_MODULE  =
-CFLAGS_KERNEL	=
+CFLAGS_KERNEL	= -fno-short-enums -march=armv7-a -mtune=cortex-a9
 AFLAGS_KERNEL	=
 CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage
 
-KERNEL_MODS	= $(LOW_ARM_FLAGS) $(MODULES)
+KERNEL_MODS	= $(ARM_FLAGS) $(MODULES)
 #DISABLED_KERNEL_MODS	= $(ARM_FLAGS) $(LOOPS) $(LOOPS_4_6)
 
 # Use LINUXINCLUDE when you must reference the include/ directory.
