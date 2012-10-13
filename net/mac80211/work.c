@@ -228,9 +228,11 @@ static void ieee80211_send_assoc(struct ieee80211_sub_if_data *sdata,
 			wk->ie_len + /* extra IEs */
 			9, /* WMM */
 			GFP_KERNEL);
-	if (!skb)
+	if (!skb) {
+		printk(KERN_DEBUG "%s: failed to allocate buffer for assoc "
+		       "frame\n", sdata->name);
 		return;
-
+	}
 	skb_reserve(skb, local->hw.extra_tx_headroom);
 
 	capab = WLAN_CAPABILITY_ESS;

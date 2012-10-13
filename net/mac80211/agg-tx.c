@@ -68,9 +68,11 @@ static void ieee80211_send_addba_request(struct ieee80211_sub_if_data *sdata,
 
 	skb = dev_alloc_skb(sizeof(*mgmt) + local->hw.extra_tx_headroom);
 
-	if (!skb)
+	if (!skb) {
+		printk(KERN_ERR "%s: failed to allocate buffer "
+				"for addba request frame\n", sdata->name);
 		return;
-
+	}
 	skb_reserve(skb, local->hw.extra_tx_headroom);
 	mgmt = (struct ieee80211_mgmt *) skb_put(skb, 24);
 	memset(mgmt, 0, 24);
@@ -112,9 +114,11 @@ void ieee80211_send_bar(struct ieee80211_sub_if_data *sdata, u8 *ra, u16 tid, u1
 	u16 bar_control = 0;
 
 	skb = dev_alloc_skb(sizeof(*bar) + local->hw.extra_tx_headroom);
-	if (!skb)
+	if (!skb) {
+		printk(KERN_ERR "%s: failed to allocate buffer for "
+			"bar frame\n", sdata->name);
 		return;
-
+	}
 	skb_reserve(skb, local->hw.extra_tx_headroom);
 	bar = (struct ieee80211_bar *)skb_put(skb, sizeof(*bar));
 	memset(bar, 0, sizeof(*bar));
@@ -124,7 +128,7 @@ void ieee80211_send_bar(struct ieee80211_sub_if_data *sdata, u8 *ra, u16 tid, u1
 	memcpy(bar->ta, sdata->vif.addr, ETH_ALEN);
 	bar_control |= (u16)IEEE80211_BAR_CTRL_ACK_POLICY_NORMAL;
 	bar_control |= (u16)IEEE80211_BAR_CTRL_CBMTID_COMPRESSED_BA;
-	bar_control |= (u16)(tid << IEEE80211_BAR_CTRL_TID_INFO_SHIFT);
+	bar_control |= (u16)(tid << 12);
 	bar->control = cpu_to_le16(bar_control);
 	bar->start_seq_num = cpu_to_le16(ssn);
 
@@ -408,8 +412,7 @@ int ieee80211_start_tx_ba_session(struct ieee80211_sta *pubsta, u16 tid,
 		return -EINVAL;
 
 	if ((tid >= STA_TID_NUM) ||
-	    !(local->hw.flags & IEEE80211_HW_AMPDU_AGGREGATION) ||
-	    (local->hw.flags & IEEE80211_HW_TX_AMPDU_SETUP_IN_HW))
+	    !(local->hw.flags & IEEE80211_HW_AMPDU_AGGREGATION))
 		return -EINVAL;
 
 #ifdef CONFIG_MAC80211_HT_DEBUG
@@ -458,6 +461,11 @@ int ieee80211_start_tx_ba_session(struct ieee80211_sta *pubsta, u16 tid,
 	/* prepare A-MPDU MLME for Tx aggregation */
 	tid_tx = kzalloc(sizeof(struct tid_ampdu_tx), GFP_ATOMIC);
 	if (!tid_tx) {
+#ifdef CONFIG_MAC80211_HT_DEBUG
+		if (net_ratelimit())
+			printk(KERN_ERR "allocate tx mlme to tid %d failed\n",
+					tid);
+#endif
 		ret = -ENOMEM;
 		goto err_unlock_sta;
 	}
@@ -582,9 +590,14 @@ void ieee80211_start_tx_ba_cb_irqsafe(struct ieee80211_vif *vif,
 	struct ieee80211_ra_tid *ra_tid;
 	struct sk_buff *skb = dev_alloc_skb(0);
 
-	if (unlikely(!skb))
+	if (unlikely(!skb)) {
+#ifdef CONFIG_MAC80211_HT_DEBUG
+		if (net_ratelimit())
+			printk(KERN_WARNING "%s: Not enough memory, "
+			       "dropping start BA session", sdata->name);
+#endif
 		return;
-
+	}
 	ra_tid = (struct ieee80211_ra_tid *) &skb->cb;
 	memcpy(&ra_tid->ra, ra, ETH_ALEN);
 	ra_tid->tid = tid;
@@ -730,9 +743,14 @@ void ieee80211_stop_tx_ba_cb_irqsafe(struct ieee80211_vif *vif,
 	struct ieee80211_ra_tid *ra_tid;
 	struct sk_buff *skb = dev_alloc_skb(0);
 
-	if (unlikely(!skb))
+	if (unlikely(!skb)) {
+#ifdef CONFIG_MAC80211_HT_DEBUG
+		if (net_ratelimit())
+			printk(KERN_WARNING "%s: Not enough memory, "
+			       "dropping stop BA session", sdata->name);
+#endif
 		return;
-
+	}
 	ra_tid = (struct ieee80211_ra_tid *) &skb->cb;
 	memcpy(&ra_tid->ra, ra, ETH_ALEN);
 	ra_tid->tid = tid;
@@ -775,14 +793,33 @@ void ieee80211_process_addba_resp(struct ieee80211_local *local,
 #ifdef CONFIG_MAC80211_HT_DEBUG
 	printk(KERN_DEBUG "switched off addBA timer for tid %d\n", tid);
 #endif
+
 	/*
-	 * IEEE 802.11-2007 7.3.1.14:
-	 * In an ADDBA Response frame, when the Status Code field
-	 * is set to 0, the Buffer Size subfield is set to a value
-	 * of at least 1.
+	 * addba_resp_timer may have fired before we got here, and
+	 * caused WANT_STOP to be set. If the stop then was already
+	 * processed further, STOPPING might be set.
 	 */
+	if (test_bit(HT_AGG_STATE_WANT_STOP, &tid_tx->state) ||
+	    test_bit(HT_AGG_STATE_STOPPING, &tid_tx->state)) {
+#ifdef CONFIG_MAC80211_HT_DEBUG
+		printk(KERN_DEBUG
+		       "got addBA resp for tid %d but we already gave up\n",
+		       tid);
+#endif
+		goto out;
+	}
+
 	if (le16_to_cpu(mgmt->u.action.u.addba_resp.status)
-			== WLAN_STATUS_SUCCESS && buf_size) {
+			== WLAN_STATUS_SUCCESS) {
+		/*
+		 * IEEE 802.11-2007 7.3.1.14:
+		 * In an ADDBA Response frame, when the Status Code field
+		 * is set to 0, the Buffer Size subfield is set to a value
+		 * of at least 1.
+		 */
+		if (!buf_size)
+			goto out;
+
 		if (test_and_set_bit(HT_AGG_STATE_RESPONSE_RECEIVED,
 				     &tid_tx->state)) {
 			/* ignore duplicate response */

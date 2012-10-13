@@ -211,7 +211,6 @@ int inet6_csk_xmit(struct sk_buff *skb, struct flowi *fl_unused)
 	struct flowi6 fl6;
 	struct dst_entry *dst;
 	struct in6_addr *final_p, final;
-	int res;
 
 	memset(&fl6, 0, sizeof(fl6));
 	fl6.flowi6_proto = sk->sk_protocol;
@@ -242,14 +241,12 @@ int inet6_csk_xmit(struct sk_buff *skb, struct flowi *fl_unused)
 		__inet6_csk_dst_store(sk, dst, NULL, NULL);
 	}
 
-	rcu_read_lock();
-	skb_dst_set_noref(skb, dst);
+	skb_dst_set(skb, dst_clone(dst));
 
 	/* Restore final destination back after routing done */
 	ipv6_addr_copy(&fl6.daddr, &np->daddr);
 
-	res = ip6_xmit(sk, skb, &fl6, np->opt);
-	rcu_read_unlock();
-	return res;
+	return ip6_xmit(sk, skb, &fl6, np->opt);
 }
+
 EXPORT_SYMBOL_GPL(inet6_csk_xmit);

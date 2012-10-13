@@ -62,7 +62,7 @@ static int ieee80211_change_iface(struct wiphy *wiphy,
 
 	if (type == NL80211_IFTYPE_AP_VLAN &&
 	    params && params->use_4addr == 0)
-		RCU_INIT_POINTER(sdata->u.vlan.sta, NULL);
+		rcu_assign_pointer(sdata->u.vlan.sta, NULL);
 	else if (type == NL80211_IFTYPE_STATION &&
 		 params && params->use_4addr >= 0)
 		sdata->u.mgd.use_4addr = params->use_4addr;
@@ -340,8 +340,7 @@ static void sta_set_sinfo(struct sta_info *sta, struct station_info *sinfo)
 			STATION_INFO_RX_BITRATE |
 			STATION_INFO_RX_DROP_MISC |
 			STATION_INFO_BSS_PARAM |
-			STATION_INFO_CONNECTED_TIME |
-			STATION_INFO_STA_FLAGS;
+			STATION_INFO_CONNECTED_TIME;
 
 	do_posix_clock_monotonic_gettime(&uptime);
 	sinfo->connected_time = uptime.tv_sec - sta->last_connected;
@@ -401,23 +400,6 @@ static void sta_set_sinfo(struct sta_info *sta, struct station_info *sinfo)
 		sinfo->bss_param.flags |= BSS_PARAM_FLAGS_SHORT_SLOT_TIME;
 	sinfo->bss_param.dtim_period = sdata->local->hw.conf.ps_dtim_period;
 	sinfo->bss_param.beacon_interval = sdata->vif.bss_conf.beacon_int;
-
-	sinfo->sta_flags.set = 0;
-	sinfo->sta_flags.mask = BIT(NL80211_STA_FLAG_AUTHORIZED) |
-				BIT(NL80211_STA_FLAG_SHORT_PREAMBLE) |
-				BIT(NL80211_STA_FLAG_WME) |
-				BIT(NL80211_STA_FLAG_MFP) |
-				BIT(NL80211_STA_FLAG_AUTHENTICATED);
-	if (test_sta_flag(sta, WLAN_STA_AUTHORIZED))
-		sinfo->sta_flags.set |= BIT(NL80211_STA_FLAG_AUTHORIZED);
-	if (test_sta_flag(sta, WLAN_STA_SHORT_PREAMBLE))
-		sinfo->sta_flags.set |= BIT(NL80211_STA_FLAG_SHORT_PREAMBLE);
-	if (test_sta_flag(sta, WLAN_STA_WME))
-		sinfo->sta_flags.set |= BIT(NL80211_STA_FLAG_WME);
-	if (test_sta_flag(sta, WLAN_STA_MFP))
-		sinfo->sta_flags.set |= BIT(NL80211_STA_FLAG_MFP);
-	if (test_sta_flag(sta, WLAN_STA_AUTH))
-		sinfo->sta_flags.set |= BIT(NL80211_STA_FLAG_AUTHENTICATED);
 }
 
 
@@ -468,20 +450,6 @@ static int ieee80211_get_station(struct wiphy *wiphy, struct net_device *dev,
 	rcu_read_unlock();
 
 	return ret;
-}
-
-static void ieee80211_config_ap_ssid(struct ieee80211_sub_if_data *sdata,
-				     struct beacon_parameters *params)
-{
-	struct ieee80211_bss_conf *bss_conf = &sdata->vif.bss_conf;
-
-	bss_conf->ssid_len = params->ssid_len;
-
-	if (params->ssid_len)
-		memcpy(bss_conf->ssid, params->ssid, params->ssid_len);
-
-	bss_conf->hidden_ssid =
-		(params->hidden_ssid != NL80211_HIDDEN_SSID_NOT_IN_USE);
 }
 
 /*
@@ -571,17 +539,14 @@ static int ieee80211_config_beacon(struct ieee80211_sub_if_data *sdata,
 
 	sdata->vif.bss_conf.dtim_period = new->dtim_period;
 
-	RCU_INIT_POINTER(sdata->u.ap.beacon, new);
+	rcu_assign_pointer(sdata->u.ap.beacon, new);
 
 	synchronize_rcu();
 
 	kfree(old);
 
-	ieee80211_config_ap_ssid(sdata, params);
-
 	ieee80211_bss_info_change_notify(sdata, BSS_CHANGED_BEACON_ENABLED |
-						BSS_CHANGED_BEACON |
-						BSS_CHANGED_SSID);
+						BSS_CHANGED_BEACON);
 	return 0;
 }
 
@@ -626,7 +591,7 @@ static int ieee80211_del_beacon(struct wiphy *wiphy, struct net_device *dev)
 	if (!old)
 		return -ENOENT;
 
-	RCU_INIT_POINTER(sdata->u.ap.beacon, NULL);
+	rcu_assign_pointer(sdata->u.ap.beacon, NULL);
 	synchronize_rcu();
 	kfree(old);
 
@@ -724,12 +689,6 @@ static void sta_apply_parameters(struct ieee80211_local *local,
 		if (set & BIT(NL80211_STA_FLAG_AUTHENTICATED))
 			sta->flags |= WLAN_STA_AUTH;
 	}
-
-	if (mask & BIT(NL80211_STA_FLAG_TDLS_PEER)) {
-		sta->flags &= ~WLAN_STA_TDLS_PEER;
-		if (set & BIT(NL80211_STA_FLAG_TDLS_PEER))
-			sta->flags |= WLAN_STA_TDLS_PEER;
-	}
 	spin_unlock_irqrestore(&sta->flaglock, flags);
 
 	/*
@@ -825,12 +784,6 @@ static int ieee80211_add_station(struct wiphy *wiphy, struct net_device *dev,
 
 	sta_apply_parameters(local, sta, params);
 
-	/* Only TDLS-supporting stations can add TDLS peers */
-	if ((sta->flags & WLAN_STA_TDLS_PEER) &&
-	    !((wiphy->flags & WIPHY_FLAG_SUPPORTS_TDLS) &&
-	      sdata->vif.type == NL80211_IFTYPE_STATION))
-		return -ENOTSUPP;
-
 	rate_control_rate_init(sta);
 
 	layer2_update = sdata->vif.type == NL80211_IFTYPE_AP_VLAN ||
@@ -883,14 +836,6 @@ static int ieee80211_change_station(struct wiphy *wiphy,
 		return -ENOENT;
 	}
 
-	/* The TDLS bit cannot be toggled after the STA was added */
-	if ((params->sta_flags_mask & BIT(NL80211_STA_FLAG_TDLS_PEER)) &&
-	    !!(params->sta_flags_set & BIT(NL80211_STA_FLAG_TDLS_PEER)) !=
-	    !!test_sta_flags(sta, WLAN_STA_TDLS_PEER)) {
-		rcu_read_unlock();
-		return -EINVAL;
-	}
-
 	if (params->vlan && params->vlan != sta->sdata->dev) {
 		vlansdata = IEEE80211_DEV_TO_SUB_IF(params->vlan);
 
@@ -906,7 +851,7 @@ static int ieee80211_change_station(struct wiphy *wiphy,
 				return -EBUSY;
 			}
 
-			RCU_INIT_POINTER(vlansdata->u.vlan.sta, sta);
+			rcu_assign_pointer(vlansdata->u.vlan.sta, sta);
 		}
 
 		sta->sdata = vlansdata;
@@ -967,7 +912,7 @@ static int ieee80211_del_mpath(struct wiphy *wiphy, struct net_device *dev,
 	if (dst)
 		return mesh_path_del(dst, sdata);
 
-	mesh_path_flush_by_iface(sdata);
+	mesh_path_flush(sdata);
 	return 0;
 }
 
@@ -1930,6 +1875,33 @@ static int ieee80211_mgmt_tx(struct wiphy *wiphy, struct net_device *dev,
 
 	*cookie = (unsigned long) skb;
 
+	if (is_offchan && local->ops->offchannel_tx) {
+		int ret;
+
+		IEEE80211_SKB_CB(skb)->band = chan->band;
+
+		mutex_lock(&local->mtx);
+
+		if (local->hw_offchan_tx_cookie) {
+			mutex_unlock(&local->mtx);
+			return -EBUSY;
+		}
+
+		/* TODO: bitrate control, TX processing? */
+		ret = drv_offchannel_tx(local, skb, chan, channel_type, wait);
+
+		if (ret == 0)
+			local->hw_offchan_tx_cookie = *cookie;
+		mutex_unlock(&local->mtx);
+
+		/*
+		 * Allow driver to return 1 to indicate it wants to have the
+		 * frame transmitted with a remain_on_channel + regular TX.
+		 */
+		if (ret != 1)
+			return ret;
+	}
+
 	if (is_offchan && local->ops->remain_on_channel) {
 		unsigned int duration;
 		int ret;
@@ -2015,6 +1987,18 @@ static int ieee80211_mgmt_tx_cancel_wait(struct wiphy *wiphy,
 	int ret = -ENOENT;
 
 	mutex_lock(&local->mtx);
+
+	if (local->ops->offchannel_tx_cancel_wait &&
+	    local->hw_offchan_tx_cookie == cookie) {
+		ret = drv_offchannel_tx_cancel_wait(local);
+
+		if (!ret)
+			local->hw_offchan_tx_cookie = 0;
+
+		mutex_unlock(&local->mtx);
+
+		return ret;
+	}
 
 	if (local->ops->cancel_remain_on_channel) {
 		cookie ^= 2;

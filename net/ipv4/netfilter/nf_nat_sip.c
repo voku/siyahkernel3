@@ -528,13 +528,13 @@ err1:
 
 static void __exit nf_nat_sip_fini(void)
 {
-	RCU_INIT_POINTER(nf_nat_sip_hook, NULL);
-	RCU_INIT_POINTER(nf_nat_sip_seq_adjust_hook, NULL);
-	RCU_INIT_POINTER(nf_nat_sip_expect_hook, NULL);
-	RCU_INIT_POINTER(nf_nat_sdp_addr_hook, NULL);
-	RCU_INIT_POINTER(nf_nat_sdp_port_hook, NULL);
-	RCU_INIT_POINTER(nf_nat_sdp_session_hook, NULL);
-	RCU_INIT_POINTER(nf_nat_sdp_media_hook, NULL);
+	rcu_assign_pointer(nf_nat_sip_hook, NULL);
+	rcu_assign_pointer(nf_nat_sip_seq_adjust_hook, NULL);
+	rcu_assign_pointer(nf_nat_sip_expect_hook, NULL);
+	rcu_assign_pointer(nf_nat_sdp_addr_hook, NULL);
+	rcu_assign_pointer(nf_nat_sdp_port_hook, NULL);
+	rcu_assign_pointer(nf_nat_sdp_session_hook, NULL);
+	rcu_assign_pointer(nf_nat_sdp_media_hook, NULL);
 	synchronize_rcu();
 }
 

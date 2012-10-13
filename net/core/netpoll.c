@@ -75,7 +75,7 @@ static void queue_process(struct work_struct *work)
 
 		local_irq_save(flags);
 		__netif_tx_lock(txq, smp_processor_id());
-		if (netif_xmit_frozen_or_stopped(txq) ||
+		if (netif_tx_queue_frozen_or_stopped(txq) ||
 		    ops->ndo_start_xmit(skb, dev) != NETDEV_TX_OK) {
 			skb_queue_head(&npinfo->txq, skb);
 			__netif_tx_unlock(txq);
@@ -323,7 +323,7 @@ void netpoll_send_skb_on_dev(struct netpoll *np, struct sk_buff *skb,
 		for (tries = jiffies_to_usecs(1)/USEC_PER_POLL;
 		     tries > 0; --tries) {
 			if (__netif_tx_trylock(txq)) {
-				if (!netif_xmit_stopped(txq)) {
+				if (!netif_tx_queue_stopped(txq)) {
 					status = ops->ndo_start_xmit(skb, dev);
 					if (status == NETDEV_TX_OK)
 						txq_trans_update(txq);
@@ -770,7 +770,7 @@ int __netpoll_setup(struct netpoll *np)
 	}
 
 	/* last thing to do is link it to the net device structure */
-	RCU_INIT_POINTER(ndev->npinfo, npinfo);
+	rcu_assign_pointer(ndev->npinfo, npinfo);
 
 	return 0;
 
@@ -911,7 +911,7 @@ void __netpoll_cleanup(struct netpoll *np)
 		if (ops->ndo_netpoll_cleanup)
 			ops->ndo_netpoll_cleanup(np->dev);
 
-		RCU_INIT_POINTER(np->dev->npinfo, NULL);
+		rcu_assign_pointer(np->dev->npinfo, NULL);
 
 		/* avoid racing with NAPI reading npinfo */
 		synchronize_rcu_bh();

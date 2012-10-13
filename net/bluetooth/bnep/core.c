@@ -492,10 +492,7 @@ static int bnep_session(void *arg)
 		/* RX */
 		while ((skb = skb_dequeue(&sk->sk_receive_queue))) {
 			skb_orphan(skb);
-			if (!skb_linearize(skb))
-				bnep_rx_frame(s, skb);
-			else
-				kfree_skb(skb);
+			bnep_rx_frame(s, skb);
 		}
 
 		if (sk->sk_state != BT_CONNECTED)

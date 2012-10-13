@@ -199,20 +199,6 @@ bool mesh_matches_local(struct ieee802_11_elems *ie,
 void mesh_ids_set_default(struct ieee80211_if_mesh *mesh);
 void mesh_mgmt_ies_add(struct sk_buff *skb,
 		struct ieee80211_sub_if_data *sdata);
-int mesh_add_meshconf_ie(struct sk_buff *skb,
-			 struct ieee80211_sub_if_data *sdata);
-int mesh_add_meshid_ie(struct sk_buff *skb,
-		       struct ieee80211_sub_if_data *sdata);
-int mesh_add_rsn_ie(struct sk_buff *skb,
-		    struct ieee80211_sub_if_data *sdata);
-int mesh_add_vendor_ies(struct sk_buff *skb,
-			struct ieee80211_sub_if_data *sdata);
-int mesh_add_srates_ie(struct sk_buff *skb,
-		       struct ieee80211_sub_if_data *sdata);
-int mesh_add_ext_srates_ie(struct sk_buff *skb,
-			   struct ieee80211_sub_if_data *sdata);
-int mesh_add_ds_params_ie(struct sk_buff *skb,
-			  struct ieee80211_sub_if_data *sdata);
 void mesh_rmc_free(struct ieee80211_sub_if_data *sdata);
 int mesh_rmc_init(struct ieee80211_sub_if_data *sdata);
 void ieee80211s_init(void);
@@ -237,6 +223,7 @@ struct mesh_path *mesh_path_lookup_by_idx(int idx,
 		struct ieee80211_sub_if_data *sdata);
 void mesh_path_fix_nexthop(struct mesh_path *mpath, struct sta_info *next_hop);
 void mesh_path_expire(struct ieee80211_sub_if_data *sdata);
+void mesh_path_flush(struct ieee80211_sub_if_data *sdata);
 void mesh_rx_path_sel_frame(struct ieee80211_sub_if_data *sdata,
 		struct ieee80211_mgmt *mgmt, size_t len);
 int mesh_path_add(u8 *dst, struct ieee80211_sub_if_data *sdata);
@@ -269,7 +256,6 @@ void mesh_pathtbl_unregister(void);
 int mesh_path_del(u8 *addr, struct ieee80211_sub_if_data *sdata);
 void mesh_path_timer(unsigned long data);
 void mesh_path_flush_by_nexthop(struct sta_info *sta);
-void mesh_path_flush_by_iface(struct ieee80211_sub_if_data *sdata);
 void mesh_path_discard_frame(struct sk_buff *skb,
 		struct ieee80211_sub_if_data *sdata);
 void mesh_path_quiesce(struct ieee80211_sub_if_data *sdata);

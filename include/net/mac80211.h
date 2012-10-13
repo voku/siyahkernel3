@@ -17,6 +17,7 @@
 #include <linux/kernel.h>
 #include <linux/if_ether.h>
 #include <linux/skbuff.h>
+#include <linux/wireless.h>
 #include <linux/device.h>
 #include <linux/ieee80211.h>
 #include <net/cfg80211.h>
@@ -164,14 +165,13 @@ struct ieee80211_low_level_stats {
  * @BSS_CHANGED_QOS: QoS for this association was enabled/disabled. Note
  *	that it is only ever disabled for station mode.
  * @BSS_CHANGED_IDLE: Idle changed for this BSS/interface.
- * @BSS_CHANGED_SSID: SSID changed for this BSS (AP mode)
  */
 enum ieee80211_bss_change {
 	BSS_CHANGED_ASSOC		= 1<<0,
 	BSS_CHANGED_ERP_CTS_PROT	= 1<<1,
 	BSS_CHANGED_ERP_PREAMBLE	= 1<<2,
 	BSS_CHANGED_ERP_SLOT		= 1<<3,
-	BSS_CHANGED_HT			= 1<<4,
+	BSS_CHANGED_HT                  = 1<<4,
 	BSS_CHANGED_BASIC_RATES		= 1<<5,
 	BSS_CHANGED_BEACON_INT		= 1<<6,
 	BSS_CHANGED_BSSID		= 1<<7,
@@ -182,7 +182,6 @@ enum ieee80211_bss_change {
 	BSS_CHANGED_ARP_FILTER		= 1<<12,
 	BSS_CHANGED_QOS			= 1<<13,
 	BSS_CHANGED_IDLE		= 1<<14,
-	BSS_CHANGED_SSID		= 1<<15,
 
 	/* when adding here, make sure to change ieee80211_reconfig */
 };
@@ -245,9 +244,6 @@ enum ieee80211_bss_change {
  * @idle: This interface is idle. There's also a global idle flag in the
  *	hardware config which may be more appropriate depending on what
  *	your driver/device needs to do.
- * @ssid: The SSID of the current vif. Only valid in AP-mode.
- * @ssid_len: Length of SSID given in @ssid.
- * @hidden_ssid: The SSID of the current vif is hidden. Only valid in AP-mode.
  */
 struct ieee80211_bss_conf {
 	const u8 *bssid;
@@ -274,9 +270,6 @@ struct ieee80211_bss_conf {
 	bool arp_filter_enabled;
 	bool qos;
 	bool idle;
-	u8 ssid[IEEE80211_MAX_SSID_LEN];
-	size_t ssid_len;
-	bool hidden_ssid;
 };
 
 /**
@@ -1104,10 +1097,6 @@ enum ieee80211_tkip_key_type {
  *	stations based on the PM bit of incoming frames.
  *	Use ieee80211_start_ps()/ieee8021_end_ps() to manually configure
  *	the PS mode of connected stations.
- *
- * @IEEE80211_HW_TX_AMPDU_SETUP_IN_HW: The device handles TX A-MPDU session
- *	setup strictly in HW. mac80211 should not attempt to do this in
- *	software.
  */
 enum ieee80211_hw_flags {
 	IEEE80211_HW_HAS_RATE_CONTROL			= 1<<0,
@@ -1133,7 +1122,6 @@ enum ieee80211_hw_flags {
 	IEEE80211_HW_SUPPORTS_CQM_RSSI			= 1<<20,
 	IEEE80211_HW_SUPPORTS_PER_STA_GTK		= 1<<21,
 	IEEE80211_HW_AP_LINK_PS				= 1<<22,
-	IEEE80211_HW_TX_AMPDU_SETUP_IN_HW		= 1<<23,
 };
 
 /**
@@ -1857,6 +1845,11 @@ enum ieee80211_ampdu_mlme_action {
  *	ieee80211_remain_on_channel_expired(). This callback may sleep.
  * @cancel_remain_on_channel: Requests that an ongoing off-channel period is
  *	aborted before it expires. This callback may sleep.
+ * @offchannel_tx: Transmit frame on another channel, wait for a response
+ *	and return. Reliable TX status must be reported for the frame. If the
+ *	return value is 1, then the @remain_on_channel will be used with a
+ *	regular transmission (if supported.)
+ * @offchannel_tx_cancel_wait: cancel wait associated with offchannel TX
  *
  * @set_ringparam: Set tx and rx ring sizes.
  *
@@ -1957,6 +1950,11 @@ struct ieee80211_ops {
 				 enum nl80211_channel_type channel_type,
 				 int duration);
 	int (*cancel_remain_on_channel)(struct ieee80211_hw *hw);
+	int (*offchannel_tx)(struct ieee80211_hw *hw, struct sk_buff *skb,
+			     struct ieee80211_channel *chan,
+			     enum nl80211_channel_type channel_type,
+			     unsigned int wait);
+	int (*offchannel_tx_cancel_wait)(struct ieee80211_hw *hw);
 	int (*set_ringparam)(struct ieee80211_hw *hw, u32 tx, u32 rx);
 	void (*get_ringparam)(struct ieee80211_hw *hw,
 			      u32 *tx, u32 *tx_max, u32 *rx, u32 *rx_max);
@@ -2277,7 +2275,7 @@ static inline int ieee80211_sta_ps_transition_ni(struct ieee80211_sta *sta,
  * The TX headroom reserved by mac80211 for its own tx_status functions.
  * This is enough for the radiotap header.
  */
-#define IEEE80211_TX_STATUS_HEADROOM	14
+#define IEEE80211_TX_STATUS_HEADROOM	13
 
 /**
  * ieee80211_sta_set_tim - set the TIM bit for a sleeping station

@@ -608,7 +608,6 @@ struct ieee80211_hw *ieee80211_alloc_hw(size_t priv_data_len,
 	local->hw.max_rates = 1;
 	local->hw.max_report_rates = 0;
 	local->hw.max_rx_aggregation_subframes = IEEE80211_MAX_AMPDU_BUF;
-	local->hw.max_tx_aggregation_subframes = IEEE80211_MAX_AMPDU_BUF;
 	local->hw.conf.long_frame_max_tx_count = wiphy->retry_long;
 	local->hw.conf.short_frame_max_tx_count = wiphy->retry_short;
 	local->user_power_level = -1;
@@ -886,8 +885,12 @@ int ieee80211_register_hw(struct ieee80211_hw *hw)
 	 * and we need some headroom for passing the frame to monitor
 	 * interfaces, but never both at the same time.
 	 */
+#ifndef __CHECKER__
+	BUILD_BUG_ON(IEEE80211_TX_STATUS_HEADROOM !=
+			sizeof(struct ieee80211_tx_status_rtap_hdr));
+#endif
 	local->tx_headroom = max_t(unsigned int , local->hw.extra_tx_headroom,
-				   IEEE80211_TX_STATUS_HEADROOM);
+				   sizeof(struct ieee80211_tx_status_rtap_hdr));
 
 	debugfs_hw_add(local);
 

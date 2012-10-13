@@ -2189,7 +2189,7 @@ gso:
 			return rc;
 		}
 		txq_trans_update(txq);
-		if (unlikely(netif_xmit_stopped(txq) && skb->next))
+		if (unlikely(netif_tx_queue_stopped(txq) && skb->next))
 			return NETDEV_TX_BUSY;
 	} while (skb->next);
 
@@ -2389,18 +2389,6 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
 	return rc;
 }
 
-#if IS_ENABLED(CONFIG_NETPRIO_CGROUP)
-static void skb_update_prio(struct sk_buff *skb)
-{
-	struct netprio_map *map = rcu_dereference(skb->dev->priomap);
-
-	if ((!skb->priority) && (skb->sk) && map)
-		skb->priority = map->priomap[skb->sk->sk_cgrp_prioidx];
-}
-#else
-#define skb_update_prio(skb)
-#endif
-
 static DEFINE_PER_CPU(int, xmit_recursion);
 #define RECURSION_LIMIT 10
 
@@ -2441,8 +2429,6 @@ int dev_queue_xmit(struct sk_buff *skb)
 	 */
 	rcu_read_lock_bh();
 
-	skb_update_prio(skb);
-
 	txq = dev_pick_tx(dev, skb);
 	q = rcu_dereference_bh(txq->qdisc);
 
@@ -2477,7 +2463,7 @@ int dev_queue_xmit(struct sk_buff *skb)
 
 			HARD_TX_LOCK(dev, txq, cpu);
 
-			if (!netif_xmit_stopped(txq)) {
+			if (!netif_tx_queue_stopped(txq)) {
 				__this_cpu_inc(xmit_recursion);
 				rc = dev_hard_start_xmit(skb, dev, txq);
 				__this_cpu_dec(xmit_recursion);
@@ -2686,13 +2672,13 @@ static int get_rps_cpu(struct net_device *dev, struct sk_buff *skb,
 	map = rcu_dereference(rxqueue->rps_map);
 	if (map) {
 		if (map->len == 1 &&
-		    !rcu_access_pointer(rxqueue->rps_flow_table)) {
+		    !rcu_dereference_raw(rxqueue->rps_flow_table)) {
 			tcpu = map->cpus[0];
 			if (cpu_online(tcpu))
 				cpu = tcpu;
 			goto done;
 		}
-	} else if (!rcu_access_pointer(rxqueue->rps_flow_table)) {
+	} else if (!rcu_dereference_raw(rxqueue->rps_flow_table)) {
 		goto done;
 	}
 
@@ -3107,8 +3093,8 @@ void netdev_rx_handler_unregister(struct net_device *dev)
 {
 
 	ASSERT_RTNL();
-	RCU_INIT_POINTER(dev->rx_handler, NULL);
-	RCU_INIT_POINTER(dev->rx_handler_data, NULL);
+	rcu_assign_pointer(dev->rx_handler, NULL);
+	rcu_assign_pointer(dev->rx_handler_data, NULL);
 }
 EXPORT_SYMBOL_GPL(netdev_rx_handler_unregister);
 
@@ -5417,9 +5403,6 @@ static void netdev_init_one_queue(struct net_device *dev,
 	queue->xmit_lock_owner = -1;
 	netdev_queue_numa_node_write(queue, NUMA_NO_NODE);
 	queue->dev = dev;
-#ifdef CONFIG_BQL
-	dql_init(&queue->dql, HZ);
-#endif
 }
 
 static int netif_alloc_netdev_queues(struct net_device *dev)
@@ -5755,8 +5738,8 @@ void netdev_run_todo(void)
 
 		/* paranoia */
 		BUG_ON(netdev_refcnt_read(dev));
-		WARN_ON(rcu_access_pointer(dev->ip_ptr));
-		WARN_ON(rcu_access_pointer(dev->ip6_ptr));
+		WARN_ON(rcu_dereference_raw(dev->ip_ptr));
+		WARN_ON(rcu_dereference_raw(dev->ip6_ptr));
 		WARN_ON(dev->dn_ptr);
 
 		if (dev->destructor)
@@ -5963,7 +5946,7 @@ void free_netdev(struct net_device *dev)
 	kfree(dev->_rx);
 #endif
 
-	kfree(rcu_dereference_protected(dev->ingress_queue, 1));
+	kfree(rcu_dereference_raw(dev->ingress_queue));
 
 	/* Flush device addresses */
 	dev_addr_flush(dev);

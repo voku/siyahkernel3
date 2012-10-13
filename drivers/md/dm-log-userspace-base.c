@@ -394,7 +394,8 @@ static int flush_by_group(struct log_c *lc, struct list_head *flush_list)
 			group[count] = fe->region;
 			count++;
 
-			list_move(&fe->list, &tmp_list);
+			list_del(&fe->list);
+			list_add(&fe->list, &tmp_list);
 
 			type = fe->type;
 			if (count >= MAX_FLUSH_GROUP_COUNT)

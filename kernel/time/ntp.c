@@ -28,7 +28,7 @@ unsigned long			tick_usec = TICK_USEC;
 /* ACTHZ period (nsecs): */
 unsigned long			tick_nsec;
 
-u64				tick_length;
+static u64			tick_length;
 static u64			tick_length_base;
 
 #define MAX_TICKADJ		500LL		/* usecs */
@@ -346,6 +346,13 @@ void ntp_clear(void)
 	/* Clear PPS state variables */
 	pps_clear();
 }
+
+
+u64 ntp_tick_length(void)
+{
+	return tick_length;
+}
+
 
 /*
  * this routine handles the overflow of the microsecond field

@@ -83,7 +83,11 @@ u16 ieee80211_select_queue(struct ieee80211_sub_if_data *sdata,
 		break;
 #ifdef CONFIG_MAC80211_MESH
 	case NL80211_IFTYPE_MESH_POINT:
-		ra = skb->data;
+		/*
+		 * XXX: This is clearly broken ... but already was before,
+		 * because ieee80211_fill_mesh_addresses() would clear A1
+		 * except for multicast addresses.
+		 */
 		break;
 #endif
 	case NL80211_IFTYPE_STATION:

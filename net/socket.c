@@ -549,8 +549,6 @@ static inline int __sock_sendmsg_nosec(struct kiocb *iocb, struct socket *sock,
 
 	sock_update_classid(sock->sk);
 
-	sock_update_netprioidx(sock->sk);
-
 	si->sock = sock;
 	si->scm = NULL;
 	si->msg = msg;
@@ -582,7 +580,7 @@ int sock_sendmsg(struct socket *sock, struct msghdr *msg, size_t size)
 }
 EXPORT_SYMBOL(sock_sendmsg);
 
-static int sock_sendmsg_nosec(struct socket *sock, struct msghdr *msg, size_t size)
+int sock_sendmsg_nosec(struct socket *sock, struct msghdr *msg, size_t size)
 {
 	struct kiocb iocb;
 	struct sock_iocb siocb;
@@ -2474,7 +2472,7 @@ int sock_register(const struct net_proto_family *ops)
 				      lockdep_is_held(&net_family_lock)))
 		err = -EEXIST;
 	else {
-		RCU_INIT_POINTER(net_families[ops->family], ops);
+		rcu_assign_pointer(net_families[ops->family], ops);
 		err = 0;
 	}
 	spin_unlock(&net_family_lock);
@@ -2502,7 +2500,7 @@ void sock_unregister(int family)
 	BUG_ON(family < 0 || family >= NPROTO);
 
 	spin_lock(&net_family_lock);
-	RCU_INIT_POINTER(net_families[family], NULL);
+	rcu_assign_pointer(net_families[family], NULL);
 	spin_unlock(&net_family_lock);
 
 	synchronize_rcu();

@@ -896,7 +896,8 @@ static int nl80211_send_wiphy(struct sk_buff *msg, u32 pid, u32 seq, int flags,
 		NLA_PUT_U32(msg, NL80211_ATTR_MAX_REMAIN_ON_CHANNEL_DURATION,
 			    dev->wiphy.max_remain_on_channel_duration);
 
-	if (dev->ops->mgmt_tx_cancel_wait)
+	/* for now at least assume all drivers have it */
+	if (dev->ops->mgmt_tx)
 		NLA_PUT_FLAG(msg, NL80211_ATTR_OFFCHANNEL_TX_OK);
 
 	if (mgmt_stypes) {
@@ -2454,25 +2455,18 @@ static int nl80211_set_station(struct sk_buff *skb, struct genl_info *info)
 		break;
 	case NL80211_IFTYPE_P2P_CLIENT:
 	case NL80211_IFTYPE_STATION:
-		/* disallow things sta doesn't support */
+		/* disallow everything but AUTHORIZED flag */
 		if (params.plink_action)
 			err = -EINVAL;
 		if (params.vlan)
 			err = -EINVAL;
-		if (params.supported_rates &&
-		    !(params.sta_flags_set & BIT(NL80211_STA_FLAG_TDLS_PEER)))
+		if (params.supported_rates)
 			err = -EINVAL;
 		if (params.ht_capa)
 			err = -EINVAL;
 		if (params.listen_interval >= 0)
 			err = -EINVAL;
-		if (params.sta_flags_mask &
-				~(BIT(NL80211_STA_FLAG_AUTHORIZED) |
-				  BIT(NL80211_STA_FLAG_TDLS_PEER)))
-			err = -EINVAL;
-		/* can't change the TDLS bit */
-		if (!(params.sta_flags_set & BIT(NL80211_STA_FLAG_TDLS_PEER)) &&
-		    (params.sta_flags_mask & BIT(NL80211_STA_FLAG_TDLS_PEER)))
+		if (params.sta_flags_mask & ~BIT(NL80211_STA_FLAG_AUTHORIZED))
 			err = -EINVAL;
 		break;
 	case NL80211_IFTYPE_MESH_POINT:
@@ -2558,18 +2552,7 @@ static int nl80211_new_station(struct sk_buff *skb, struct genl_info *info)
 	if (dev->ieee80211_ptr->iftype != NL80211_IFTYPE_AP &&
 	    dev->ieee80211_ptr->iftype != NL80211_IFTYPE_AP_VLAN &&
 	    dev->ieee80211_ptr->iftype != NL80211_IFTYPE_MESH_POINT &&
-	    dev->ieee80211_ptr->iftype != NL80211_IFTYPE_P2P_GO &&
-	    dev->ieee80211_ptr->iftype != NL80211_IFTYPE_STATION)
-		return -EINVAL;
-
-	/*
-	 * Only managed stations can add TDLS peers, and only when the
-	 * wiphy supports external TDLS setup.
-	 */
-	if (dev->ieee80211_ptr->iftype == NL80211_IFTYPE_STATION &&
-	    !((params.sta_flags_set & BIT(NL80211_STA_FLAG_TDLS_PEER)) &&
-	      (rdev->wiphy.flags & WIPHY_FLAG_SUPPORTS_TDLS) &&
-	      (rdev->wiphy.flags & WIPHY_FLAG_TDLS_EXTERNAL_SETUP)))
+	    dev->ieee80211_ptr->iftype != NL80211_IFTYPE_P2P_GO)
 		return -EINVAL;
 
 	err = get_vlan(info, rdev, &params.vlan);
@@ -3038,7 +3021,6 @@ static const struct nla_policy nl80211_meshconf_params_policy[NL80211_MESHCONF_A
 	[NL80211_MESHCONF_HWMP_ACTIVE_PATH_TIMEOUT] = { .type = NLA_U32 },
 	[NL80211_MESHCONF_HWMP_PREQ_MIN_INTERVAL] = { .type = NLA_U16 },
 	[NL80211_MESHCONF_HWMP_NET_DIAM_TRVS_TIME] = { .type = NLA_U16 },
-	[NL80211_MESHCONF_HWMP_ROOTMODE] = { .type = NLA_U8 },
 };
 
 static const struct nla_policy

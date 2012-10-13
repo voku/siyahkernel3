@@ -428,7 +428,7 @@ static struct inet6_dev * ipv6_add_dev(struct net_device *dev)
 	ndev->tstamp = jiffies;
 	addrconf_sysctl_register(ndev);
 	/* protected by rtnl_lock */
-	RCU_INIT_POINTER(dev->ip6_ptr, ndev);
+	rcu_assign_pointer(dev->ip6_ptr, ndev);
 
 	/* Join all-node multicast group */
 	ipv6_dev_mc_inc(dev, &in6addr_linklocal_allnodes);
@@ -2709,7 +2709,7 @@ static int addrconf_ifdown(struct net_device *dev, int how)
 		idev->dead = 1;
 
 		/* protected by rtnl_lock */
-		RCU_INIT_POINTER(dev->ip6_ptr, NULL);
+		rcu_assign_pointer(dev->ip6_ptr, NULL);
 
 		/* Step 1.5: remove snmp6 entry */
 		snmp6_unregister_dev(idev);
@@ -2972,12 +2972,12 @@ static void addrconf_dad_completed(struct inet6_ifaddr *ifp)
 
 	ipv6_ifa_notify(RTM_NEWADDR, ifp);
 
-	/* If added prefix is link local and we are prepared to process
-	   router advertisements, start sending router solicitations.
+	/* If added prefix is link local and forwarding is off,
+	   start sending router solicitations.
 	 */
 
-	if (((ifp->idev->cnf.accept_ra == 1 && !ifp->idev->cnf.forwarding) ||
-	     ifp->idev->cnf.accept_ra == 2) &&
+	if ((ifp->idev->cnf.forwarding == 0 ||
+	     ifp->idev->cnf.forwarding == 2) &&
 	    ifp->idev->cnf.rtr_solicits > 0 &&
 	    (dev->flags&IFF_LOOPBACK) == 0 &&
 	    (ipv6_addr_type(&ifp->addr) & IPV6_ADDR_LINKLOCAL)) {

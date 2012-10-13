@@ -12,9 +12,6 @@
 
 /* only for userspace compatibility */
 #ifndef __KERNEL__
-
-#include <limits.h> /* for INT_MIN, INT_MAX */
-
 /* IP Cache bits. */
 /* Src IP address. */
 #define NFC_IP6_SRC              0x0001

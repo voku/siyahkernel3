@@ -153,11 +153,12 @@ void *dm_vcalloc(unsigned long nmemb, unsigned long elem_size)
 		return NULL;
 
 	size = nmemb * elem_size;
-	addr = vzalloc(size);
+	addr = vmalloc(size);
+	if (addr)
+		memset(addr, 0, size);
 
 	return addr;
 }
-EXPORT_SYMBOL(dm_vcalloc);
 
 /*
  * highs, and targets are managed as dynamic arrays during a
@@ -278,7 +279,6 @@ void dm_table_get(struct dm_table *t)
 {
 	atomic_inc(&t->holders);
 }
-EXPORT_SYMBOL(dm_table_get);
 
 void dm_table_put(struct dm_table *t)
 {
@@ -288,7 +288,6 @@ void dm_table_put(struct dm_table *t)
 	smp_mb__before_atomic_dec();
 	atomic_dec(&t->holders);
 }
-EXPORT_SYMBOL(dm_table_put);
 
 /*
  * Checks to see if we need to extend highs or targets.
@@ -454,14 +453,13 @@ static int upgrade_mode(struct dm_dev_internal *dd, fmode_t new_mode,
  * Add a device to the list, or just increment the usage count if
  * it's already present.
  */
-int dm_get_device(struct dm_target *ti, const char *path, fmode_t mode,
-		  struct dm_dev **result)
+static int __table_get_device(struct dm_table *t, struct dm_target *ti,
+		      const char *path, fmode_t mode, struct dm_dev **result)
 {
 	int r;
 	dev_t uninitialized_var(dev);
 	struct dm_dev_internal *dd;
 	unsigned int major, minor;
-	struct dm_table *t = ti->table;
 
 	BUG_ON(!t);
 
@@ -509,7 +507,6 @@ int dm_get_device(struct dm_target *ti, const char *path, fmode_t mode,
 	*result = &dd->dm_dev;
 	return 0;
 }
-EXPORT_SYMBOL(dm_get_device);
 
 int dm_set_device_limits(struct dm_target *ti, struct dm_dev *dev,
 			 sector_t start, sector_t len, void *data)
@@ -547,8 +544,15 @@ int dm_set_device_limits(struct dm_target *ti, struct dm_dev *dev,
 }
 EXPORT_SYMBOL_GPL(dm_set_device_limits);
 
+int dm_get_device(struct dm_target *ti, const char *path, fmode_t mode,
+		  struct dm_dev **result)
+{
+	return __table_get_device(ti->table, ti, path, mode, result);
+}
+
+
 /*
- * Decrement a device's use count and remove it if necessary.
+ * Decrement a devices use count and remove it if necessary.
  */
 void dm_put_device(struct dm_target *ti, struct dm_dev *d)
 {
@@ -561,7 +565,6 @@ void dm_put_device(struct dm_target *ti, struct dm_dev *d)
 		kfree(dd);
 	}
 }
-EXPORT_SYMBOL(dm_put_device);
 
 /*
  * Checks to see if the target joins onto the end of the table.
@@ -796,63 +799,6 @@ int dm_table_add_target(struct dm_table *t, const char *type,
 	dm_put_target_type(tgt->type);
 	return r;
 }
-
-/*
- * Target argument parsing helpers.
- */
-static int validate_next_arg(struct dm_arg *arg, struct dm_arg_set *arg_set,
-			     unsigned *value, char **error, unsigned grouped)
-{
-	const char *arg_str = dm_shift_arg(arg_set);
-
-	if (!arg_str ||
-	    (sscanf(arg_str, "%u", value) != 1) ||
-	    (*value < arg->min) ||
-	    (*value > arg->max) ||
-	    (grouped && arg_set->argc < *value)) {
-		*error = arg->error;
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
-int dm_read_arg(struct dm_arg *arg, struct dm_arg_set *arg_set,
-		unsigned *value, char **error)
-{
-	return validate_next_arg(arg, arg_set, value, error, 0);
-}
-EXPORT_SYMBOL(dm_read_arg);
-
-int dm_read_arg_group(struct dm_arg *arg, struct dm_arg_set *arg_set,
-		      unsigned *value, char **error)
-{
-	return validate_next_arg(arg, arg_set, value, error, 1);
-}
-EXPORT_SYMBOL(dm_read_arg_group);
-
-const char *dm_shift_arg(struct dm_arg_set *as)
-{
-	char *r;
-
-	if (as->argc) {
-		as->argc--;
-		r = *as->argv;
-		as->argv++;
-		return r;
-	}
-
-	return NULL;
-}
-EXPORT_SYMBOL(dm_shift_arg);
-
-void dm_consume_args(struct dm_arg_set *as, unsigned num_args)
-{
-	BUG_ON(as->argc < num_args);
-	as->argc -= num_args;
-	as->argv += num_args;
-}
-EXPORT_SYMBOL(dm_consume_args);
 
 static int dm_table_set_type(struct dm_table *t)
 {
@@ -1129,13 +1075,11 @@ void dm_table_event(struct dm_table *t)
 		t->event_fn(t->event_context);
 	mutex_unlock(&_event_lock);
 }
-EXPORT_SYMBOL(dm_table_event);
 
 sector_t dm_table_get_size(struct dm_table *t)
 {
 	return t->num_targets ? (t->highs[t->num_targets - 1] + 1) : 0;
 }
-EXPORT_SYMBOL(dm_table_get_size);
 
 struct dm_target *dm_table_get_target(struct dm_table *t, unsigned int index)
 {
@@ -1283,22 +1227,6 @@ static bool dm_table_supports_flush(struct dm_table *t, unsigned flush)
 	return 0;
 }
 
-static bool dm_table_discard_zeroes_data(struct dm_table *t)
-{
-	struct dm_target *ti;
-	unsigned i = 0;
-
-	/* Ensure that all targets supports discard_zeroes_data. */
-	while (i < dm_table_get_num_targets(t)) {
-		ti = dm_table_get_target(t, i++);
-
-		if (ti->discard_zeroes_data_unsupported)
-			return 0;
-	}
-
-	return 1;
-}
-
 void dm_table_set_restrictions(struct dm_table *t, struct request_queue *q,
 			       struct queue_limits *limits)
 {
@@ -1320,9 +1248,6 @@ void dm_table_set_restrictions(struct dm_table *t, struct request_queue *q,
 			flush |= REQ_FUA;
 	}
 	blk_queue_flush(q, flush);
-
-	if (!dm_table_discard_zeroes_data(t))
-		q->limits.discard_zeroes_data = 0;
 
 	dm_table_set_integrity(t);
 
@@ -1354,7 +1279,6 @@ fmode_t dm_table_get_mode(struct dm_table *t)
 {
 	return t->mode;
 }
-EXPORT_SYMBOL(dm_table_get_mode);
 
 static void suspend_targets(struct dm_table *t, unsigned postsuspend)
 {
@@ -1463,7 +1387,6 @@ struct mapped_device *dm_table_get_md(struct dm_table *t)
 {
 	return t->md;
 }
-EXPORT_SYMBOL(dm_table_get_md);
 
 static int device_discard_capable(struct dm_target *ti, struct dm_dev *dev,
 				  sector_t start, sector_t len, void *data)
@@ -1501,3 +1424,13 @@ bool dm_table_supports_discards(struct dm_table *t)
 
 	return 0;
 }
+
+EXPORT_SYMBOL(dm_vcalloc);
+EXPORT_SYMBOL(dm_get_device);
+EXPORT_SYMBOL(dm_put_device);
+EXPORT_SYMBOL(dm_table_event);
+EXPORT_SYMBOL(dm_table_get_size);
+EXPORT_SYMBOL(dm_table_get_mode);
+EXPORT_SYMBOL(dm_table_get_md);
+EXPORT_SYMBOL(dm_table_put);
+EXPORT_SYMBOL(dm_table_get);

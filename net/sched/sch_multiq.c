@@ -107,8 +107,7 @@ static struct sk_buff *multiq_dequeue(struct Qdisc *sch)
 		/* Check that target subqueue is available before
 		 * pulling an skb to avoid head-of-line blocking.
 		 */
-		if (!netif_xmit_stopped(
-		    netdev_get_tx_queue(qdisc_dev(sch), q->curband))) {
+		if (!__netif_subqueue_stopped(qdisc_dev(sch), q->curband)) {
 			qdisc = q->queues[q->curband];
 			skb = qdisc->dequeue(qdisc);
 			if (skb) {
@@ -139,8 +138,7 @@ static struct sk_buff *multiq_peek(struct Qdisc *sch)
 		/* Check that target subqueue is available before
 		 * pulling an skb to avoid head-of-line blocking.
 		 */
-		if (!netif_xmit_stopped(
-		    netdev_get_tx_queue(qdisc_dev(sch), curband))) {
+		if (!__netif_subqueue_stopped(qdisc_dev(sch), curband)) {
 			qdisc = q->queues[curband];
 			skb = qdisc->ops->peek(qdisc);
 			if (skb)

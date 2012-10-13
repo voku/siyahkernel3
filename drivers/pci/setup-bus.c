@@ -565,20 +565,6 @@ static resource_size_t get_res_add_size(struct resource_list_x *realloc_head,
 	return 0;
 }
 
-static resource_size_t get_res_add_size(struct resource_list_x *add_head,
-					struct resource *res)
-{
-	struct resource_list_x *list;
-
-	/* check if it is in add_head list */
-	for (list = add_head->next; list && list->res != res;
-			list = list->next);
-	if (list)
-		return list->add_size;
-
-	return 0;
-}
-
 /**
  * pbus_size_io() - size the io window of a given bus
  *

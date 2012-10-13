@@ -490,8 +490,7 @@ void icmpv6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info)
 		goto out_dst_release;
 	}
 
-	rcu_read_lock();
-	idev = __in6_dev_get(skb->dev);
+	idev = in6_dev_get(skb->dev);
 
 	err = ip6_append_data(sk, icmpv6_getfrag, &msg,
 			      len + sizeof(struct icmp6hdr),
@@ -501,16 +500,19 @@ void icmpv6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info)
 	if (err) {
 		ICMP6_INC_STATS_BH(net, idev, ICMP6_MIB_OUTERRORS);
 		ip6_flush_pending_frames(sk);
-	} else {
-		err = icmpv6_push_pending_frames(sk, &fl6, &tmp_hdr,
-						 len + sizeof(struct icmp6hdr));
+		goto out_put;
 	}
-	rcu_read_unlock();
+	err = icmpv6_push_pending_frames(sk, &fl6, &tmp_hdr, len + sizeof(struct icmp6hdr));
+
+out_put:
+	if (likely(idev != NULL))
+		in6_dev_put(idev);
 out_dst_release:
 	dst_release(dst);
 out:
 	icmpv6_xmit_unlock(sk);
 }
+
 EXPORT_SYMBOL(icmpv6_send);
 
 static void icmpv6_echo_reply(struct sk_buff *skb)
@@ -567,7 +569,7 @@ static void icmpv6_echo_reply(struct sk_buff *skb)
 	if (hlimit < 0)
 		hlimit = ip6_dst_hoplimit(dst);
 
-	idev = __in6_dev_get(skb->dev);
+	idev = in6_dev_get(skb->dev);
 
 	msg.skb = skb;
 	msg.offset = 0;
@@ -581,10 +583,13 @@ static void icmpv6_echo_reply(struct sk_buff *skb)
 	if (err) {
 		ICMP6_INC_STATS_BH(net, idev, ICMP6_MIB_OUTERRORS);
 		ip6_flush_pending_frames(sk);
-	} else {
-		err = icmpv6_push_pending_frames(sk, &fl6, &tmp_hdr,
-						 skb->len + sizeof(struct icmp6hdr));
+		goto out_put;
 	}
+	err = icmpv6_push_pending_frames(sk, &fl6, &tmp_hdr, skb->len + sizeof(struct icmp6hdr));
+
+out_put:
+	if (likely(idev != NULL))
+		in6_dev_put(idev);
 	dst_release(dst);
 out:
 	icmpv6_xmit_unlock(sk);
@@ -835,7 +840,8 @@ static int __net_init icmpv6_sk_init(struct net *net)
 		/* Enough space for 2 64K ICMP packets, including
 		 * sk_buff struct overhead.
 		 */
-		sk->sk_sndbuf = 2 * SKB_TRUESIZE(64 * 1024);
+		sk->sk_sndbuf =
+			(2 * ((64 * 1024) + sizeof(struct sk_buff)));
 	}
 	return 0;
 
