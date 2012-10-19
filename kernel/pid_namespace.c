@@ -16,6 +16,7 @@
 #include <linux/slab.h>
 #include <linux/proc_fs.h>
 #include <linux/reboot.h>
+#include <linux/export.h>
 
 #define BITS_PER_PAGE		(PAGE_SIZE*8)
 
@@ -132,24 +133,37 @@ struct pid_namespace *copy_pid_ns(unsigned long flags, struct pid_namespace *old
 	return create_pid_namespace(old_ns);
 }
 
-void free_pid_ns(struct kref *kref)
+static void free_pid_ns(struct kref *kref)
 {
-	struct pid_namespace *ns, *parent;
+	struct pid_namespace *ns;
 
 	ns = container_of(kref, struct pid_namespace, kref);
-
-	parent = ns->parent;
 	destroy_pid_namespace(ns);
-
-	if (parent != NULL)
-		put_pid_ns(parent);
 }
+
+void put_pid_ns(struct pid_namespace *ns)
+{
+	struct pid_namespace *parent;
+
+	while (ns != &init_pid_ns) {
+		parent = ns->parent;
+		if (!kref_put(&ns->kref, free_pid_ns))
+			break;
+		ns = parent;
+	}
+}
+EXPORT_SYMBOL_GPL(put_pid_ns);
 
 void zap_pid_ns_processes(struct pid_namespace *pid_ns)
 {
 	int nr;
 	int rc;
-	struct task_struct *task;
+	struct task_struct *task, *me = current;
+
+	/* Ignore SIGCHLD causing any terminated children to autoreap */
+	spin_lock_irq(&me->sighand->siglock);
+	me->sighand->action[SIGCHLD - 1].sa.sa_handler = SIG_IGN;
+	spin_unlock_irq(&me->sighand->siglock);
 
 	/*
 	 * The last thread in the cgroup-init thread group is terminating.
@@ -169,13 +183,9 @@ void zap_pid_ns_processes(struct pid_namespace *pid_ns)
 	while (nr > 0) {
 		rcu_read_lock();
 
-		/*
-		 * Any nested-container's init processes won't ignore the
-		 * SEND_SIG_NOINFO signal, see send_signal()->si_fromuser().
-		 */
 		task = pid_task(find_vpid(nr), PIDTYPE_PID);
-		if (task)
-			send_sig_info(SIGKILL, SEND_SIG_NOINFO, task);
+		if (task && !__fatal_signal_pending(task))
+			send_sig_info(SIGKILL, SEND_SIG_FORCED, task);
 
 		rcu_read_unlock();
 
@@ -219,10 +229,9 @@ void zap_pid_ns_processes(struct pid_namespace *pid_ns)
 static int pid_ns_ctl_handler(struct ctl_table *table, int write,
 		void __user *buffer, size_t *lenp, loff_t *ppos)
 {
-	struct pid_namespace *pid_ns = task_active_pid_ns(current);
 	struct ctl_table tmp = *table;
 
-	if (write && !ns_capable(pid_ns->user_ns, CAP_SYS_ADMIN))
+	if (write && !capable(CAP_SYS_ADMIN))
 		return -EPERM;
 
 	/*
@@ -231,7 +240,7 @@ static int pid_ns_ctl_handler(struct ctl_table *table, int write,
 	 * it should synchronize its usage with external means.
 	 */
 
-	tmp.data = &pid_ns->last_pid;
+	tmp.data = &current->nsproxy->pid_ns->last_pid;
 	return proc_dointvec_minmax(&tmp, write, buffer, lenp, ppos);
 }
 
@@ -283,7 +292,10 @@ int reboot_pid_ns(struct pid_namespace *pid_ns, int cmd)
 static __init int pid_namespaces_init(void)
 {
 	pid_ns_cachep = KMEM_CACHE(pid_namespace, SLAB_PANIC);
+
+#ifdef CONFIG_CHECKPOINT_RESTORE
 	register_sysctl_paths(kern_path, pid_ns_ctl_table);
+#endif
 	return 0;
 }
 
