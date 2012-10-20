@@ -348,29 +348,24 @@ CHECK		= sparse
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
 
-LOW_ARM_FLAGS	= -march=armv7-a -mtune=cortex-a9 \
-		  -mfpu=neon -mfloat-abi=softfp \
-		  -funsafe-math-optimizations -funroll-loops \
-		  -mvectorize-with-neon-quad
-
-#ARM_FLAGS       = -pipe -marm -march=armv7-a -mtune=cortex-a9 \
-		   -fsingle-precision-constant -mvectorize-with-neon-quad
-#LOOPS		= -funswitch-loops -fpredictive-commoning
-#LOOPS_4_6	= -floop-strip-mine -floop-block -floop-interchange
-
+ARM_FLAGS_LOW	= -pipe -march=armv7-a -mtune=cortex-a9 -fno-short-enums
+ARM_FLAGS       = -mfpu=neon -mfloat-abi=softfp \
+			-fsingle-precision-constant -mvectorize-with-neon-quad
+MATH		= -funsafe-math-optimizations
+LOOPS		= -funswitch-loops -fpredictive-commoning
+LOOPS_4_6	= -floop-strip-mine -floop-block -floop-interchange
 MODULES		= -fmodulo-sched -fmodulo-sched-allow-regmoves
 
-DISABLED_STORE	= 
+DISABLED_STORE	= -marm -mno-thumb-interwork -ffast-math
 
-CFLAGS_MODULE   =
+CFLAGS_MODULE   = $(ARM_FLAGS_LOW)
 AFLAGS_MODULE   =
 LDFLAGS_MODULE  =
-CFLAGS_KERNEL	=
+CFLAGS_KERNEL	= $(ARM_FLAGS_LOW)
 AFLAGS_KERNEL	=
 CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage
 
-KERNEL_MODS	= $(LOW_ARM_FLAGS) $(MODULES)
-#DISABLED_KERNEL_MODS	= $(ARM_FLAGS) $(LOOPS) $(LOOPS_4_6)
+KERNEL_MODS	= $(ARM_FLAGS_LOW) $(ARM_FLAGS) $(MATH) $(LOOPS) $(LOOPS_4_6) $(MODULES)
 
 # Use LINUXINCLUDE when you must reference the include/ directory.
 # Needed to be compatible with the O= option
