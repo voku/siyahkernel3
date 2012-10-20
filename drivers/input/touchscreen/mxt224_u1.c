@@ -290,7 +290,7 @@ static void slide2wake_presspwr(struct work_struct *slide2wake_presspwr_work)
 	msleep(100);
 	input_event(slide2wake_dev, EV_KEY, KEY_POWER, 0);
 	input_event(slide2wake_dev, EV_SYN, 0, 0);
-	msleep(1000);
+	msleep(2000);
 	mutex_unlock(&s2w_lock);
 }
 
