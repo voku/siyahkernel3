@@ -247,6 +247,7 @@ static inline int is_rt(struct fuse_conn *fc)
 	/* FUSE_HANDLE_RT_CLASS bit is set by 'handle_rt_class' */
 	/* mount option while mounting a file system.           */
 	struct io_context *ioc;
+	struct task_struct *tsk = current;
 
 	if (!fc)
 		return 0;
@@ -254,7 +255,7 @@ static inline int is_rt(struct fuse_conn *fc)
 	if (!(fc->flags & FUSE_HANDLE_RT_CLASS)) /* Don't handle RT class */
 		return 0;
 
-	ioc = get_io_context(GFP_NOWAIT, 0);
+	ioc = get_task_io_context(tsk, GFP_NOWAIT, 0);
 	if (ioc && IOPRIO_PRIO_CLASS(ioc->ioprio) == IOPRIO_CLASS_RT)
 		return 1;
 

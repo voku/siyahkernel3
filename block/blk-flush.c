@@ -320,7 +320,7 @@ void blk_insert_flush(struct request *rq)
 		return;
 	}
 
-	BUG_ON(!rq->bio || rq->bio != rq->biotail);
+	BUG_ON(rq->bio != rq->biotail); /*assumes zero or single bio rq */
 
 	/*
 	 * If there's data but flush is not necessary, the request can be
@@ -330,7 +330,6 @@ void blk_insert_flush(struct request *rq)
 	if ((policy & REQ_FSEQ_DATA) &&
 	    !(policy & (REQ_FSEQ_PREFLUSH | REQ_FSEQ_POSTFLUSH))) {
 		list_add_tail(&rq->queuelist, &q->queue_head);
-		blk_run_queue_async(q);
 		return;
 	}
 
@@ -449,7 +448,10 @@ int blkdev_issue_flush(struct block_device *bdev, gfp_t gfp_mask,
 
 	if (!bio_flagged(bio, BIO_UPTODATE))
 		ret = -EIO;
-
+	else if (bdev != bdev->bd_contains)
+		/* invalidate parent block_device */
+		invalidate_bdev(bdev->bd_contains);
+ 
 	bio_put(bio);
 	return ret;
 }

@@ -25,9 +25,15 @@ queue_var_show(unsigned long var, char *page)
 static ssize_t
 queue_var_store(unsigned long *var, const char *page, size_t count)
 {
-	char *p = (char *) page;
+	int err;
+	unsigned long v;
 
-	*var = simple_strtoul(p, &p, 10);
+	err = strict_strtoul(page, 10, &v);
+	if (err || v > UINT_MAX)
+		return -EINVAL;
+
+	*var = v;
+
 	return count;
 }
 
@@ -47,6 +53,9 @@ queue_requests_store(struct request_queue *q, const char *page, size_t count)
 		return -EINVAL;
 
 	ret = queue_var_store(&nr, page, count);
+	if (ret < 0)
+		return ret;
+
 	if (nr < BLKDEV_MIN_RQ)
 		nr = BLKDEV_MIN_RQ;
 
@@ -94,6 +103,9 @@ queue_ra_store(struct request_queue *q, const char *page, size_t count)
 {
 	unsigned long ra_kb;
 	ssize_t ret = queue_var_store(&ra_kb, page, count);
+
+	if (ret < 0)
+		return ret;
 
 	q->backing_dev_info.ra_pages = ra_kb >> (PAGE_CACHE_SHIFT - 10);
 
@@ -169,6 +181,9 @@ queue_max_sectors_store(struct request_queue *q, const char *page, size_t count)
 			page_kb = 1 << (PAGE_CACHE_SHIFT - 10);
 	ssize_t ret = queue_var_store(&max_sectors_kb, page, count);
 
+	if (ret < 0)
+		return ret;
+
 	if (max_sectors_kb > max_hw_sectors_kb || max_sectors_kb < page_kb)
 		return -EINVAL;
 
@@ -229,6 +244,9 @@ static ssize_t queue_nomerges_store(struct request_queue *q, const char *page,
 	unsigned long nm;
 	ssize_t ret = queue_var_store(&nm, page, count);
 
+	if (ret < 0)
+		return ret;
+
 	spin_lock_irq(q->queue_lock);
 	queue_flag_clear(QUEUE_FLAG_NOMERGES, q);
 	queue_flag_clear(QUEUE_FLAG_NOXMERGES, q);
@@ -257,6 +275,9 @@ queue_rq_affinity_store(struct request_queue *q, const char *page, size_t count)
 	unsigned long val;
 
 	ret = queue_var_store(&val, page, count);
+	if (ret < 0)
+		return ret;
+
 	spin_lock_irq(q->queue_lock);
 	if (val == 2) {
 		queue_flag_set(QUEUE_FLAG_SAME_COMP, q);
@@ -457,11 +478,11 @@ queue_attr_store(struct kobject *kobj, struct attribute *attr,
 }
 
 /**
- * blk_cleanup_queue: - release a &struct request_queue when it is no longer needed
- * @kobj:    the kobj belonging of the request queue to be released
+ * blk_release_queue: - release a &struct request_queue when it is no longer needed
+ * @kobj:    the kobj belonging to the request queue to be released
  *
  * Description:
- *     blk_cleanup_queue is the pair to blk_init_queue() or
+ *     blk_release_queue is the pair to blk_init_queue() or
  *     blk_queue_make_request().  It should be called when a request queue is
  *     being released; typically when a block device is being de-registered.
  *     Currently, its primary task it to free all the &struct request
@@ -479,8 +500,12 @@ static void blk_release_queue(struct kobject *kobj)
 
 	blk_sync_queue(q);
 
-	if (q->elevator)
+	if (q->elevator) {
+		spin_lock_irq(q->queue_lock);
+		ioc_clear_queue(q);
+		spin_unlock_irq(q->queue_lock);
 		elevator_exit(q->elevator);
+	}
 
 	blk_throtl_exit(q);
 

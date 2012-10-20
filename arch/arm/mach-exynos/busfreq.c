@@ -28,7 +28,7 @@
 #include <linux/suspend.h>
 #include <linux/reboot.h>
 #include <linux/clk.h>
-#include <linux/pm_qos_params.h>
+#include <linux/pm_qos.h>
 
 #include <asm/mach-types.h>
 

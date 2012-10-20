@@ -8,6 +8,7 @@
  */
 
 #include <linux/dma-mapping.h>
+#include <linux/module.h>
 #include <linux/gfp.h>
 
 /*

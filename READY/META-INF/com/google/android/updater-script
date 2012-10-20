@@ -72,7 +72,6 @@ delete("/system/litepro");
 delete("/system/etc/init.d/99nstools");
 delete("/data/user.log");
 delete("/system/Hawker.u.copier");
-delete_recursive("/cache");
 ui_print("");
 show_progress(1.000000, 0);
 ui_print("Cleaning complete!");

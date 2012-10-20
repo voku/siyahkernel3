@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # location
 export KERNELDIR=`readlink -f .`
@@ -42,7 +42,13 @@ fi;
 # build script
 export USER=`whoami`
 
-NAMBEROFCPUS=`grep 'processor' /proc/cpuinfo | wc -l`
+HOST_CHECK=`uname -n`
+if [ $HOST_CHECK == dorimanx-virtual-machine ]; then
+	NAMBEROFCPUS=32
+	echo "Dori power detected!"
+else
+	NAMBEROFCPUS=`grep 'processor' /proc/cpuinfo | wc -l`
+fi;
 INITRAMFS_TMP="/tmp/initramfs-source"
 
 if [ "${1}" != "" ];
@@ -117,11 +123,6 @@ fi;
 rm -f $INITRAMFS_TMP/compress-sql.sh
 rm -f $INITRAMFS_TMP/update*
 
-# this is MALI JB branch build.sh so we need to remove dualboot + logo of choose_rom binary fain to load. this is temp solution.
-cat $INITRAMFS_TMP/sbin/init | sed s/if\ \\[\\[\ \"\$NOBOOTLOGO.*/NOBOOTLOGO\=1\;\ \\/sbin\\/choose_rom\;/g > $INITRAMFS_TMP/sbin/init_tmp;
-mv $INITRAMFS_TMP/sbin/init_tmp $INITRAMFS_TMP/sbin/init;
-chmod +x $INITRAMFS_TMP/sbin/init;
-
 # copy modules into initramfs
 mkdir -p $INITRAMFS/lib/modules
 mkdir -p $INITRAMFS_TMP/lib/modules
@@ -142,14 +143,14 @@ if [ -e $KERNELDIR/arch/arm/boot/zImage ]; then
 
 	# copy all needed to ready kernel folder.
 	cp $KERNELDIR/.config $KERNELDIR/arch/arm/configs/dorimanx_defconfig
-	cp $KERNELDIR/.config $KERNELDIR/READY-JB/
-	rm $KERNELDIR/READY-JB/boot/zImage
-	rm $KERNELDIR/READY-JB/Kernel_Dorimanx-*
+	cp $KERNELDIR/.config $KERNELDIR/READY/
+	rm $KERNELDIR/READY/boot/zImage
+	rm $KERNELDIR/READY/Kernel_Dorimanx-*
 	stat $KERNELDIR/zImage
 	GETVER=`grep 'Siyah-Dorimanx-V' arch/arm/configs/dorimanx_defconfig | cut -c 38-42`
-	cp $KERNELDIR/zImage /$KERNELDIR/READY-JB/boot/
-	cd $KERNELDIR/READY-JB/
-	zip -r Kernel_Dorimanx-$GETVER-JB-MALI`date +"-%H-%M--%d-%m-12-SGII-PWR-CORE"`.zip .
+	cp $KERNELDIR/zImage /$KERNELDIR/READY/boot/
+	cd $KERNELDIR/READY/
+	zip -r Kernel_Dorimanx-$GETVER-`date +"-%H-%M--%d-%m-12-SGII-PWR-CORE"`.zip .
 	STATUS=`adb get-state`;
 	if [ "$STATUS" == "device" ]; then
 		adb push $KERNELDIR/READY-JB/Kernel_Dorimanx*JB-MALI*.zip /sdcard/;

@@ -108,7 +108,10 @@ static int suspend_prepare(void)
 		goto Finish;
 
 	error = suspend_freeze_processes();
-	if (!error)
+	if (error) {
+		suspend_stats.failed_freeze++;
+		dpm_save_failed_step(SUSPEND_FREEZE);
+	} else
 		return 0;
 
 	suspend_thaw_processes();
@@ -158,7 +161,7 @@ static int suspend_enter(suspend_state_t state, bool *wakeup)
 
 	CHECK_POINT;
 
-	error = dpm_suspend_noirq(PMSG_SUSPEND);
+	error = dpm_suspend_end(PMSG_SUSPEND);
 	if (error) {
 		printk(KERN_ERR "PM: Some devices failed to power down\n");
 		goto Platform_finish;
@@ -207,7 +210,7 @@ static int suspend_enter(suspend_state_t state, bool *wakeup)
 	if (suspend_ops->wake)
 		suspend_ops->wake();
 
-	dpm_resume_noirq(PMSG_RESUME);
+	dpm_resume_start(PMSG_RESUME);
 
  Platform_finish:
 	if (suspend_ops->finish)
@@ -378,8 +381,16 @@ int enter_state(suspend_state_t state)
  */
 int pm_suspend(suspend_state_t state)
 {
-	if (state > PM_SUSPEND_ON && state < PM_SUSPEND_MAX)
-		return enter_state(state);
+	int ret;
+	if (state > PM_SUSPEND_ON && state <= PM_SUSPEND_MAX) {
+		ret = enter_state(state);
+		if (ret) {
+			suspend_stats.fail++;
+			dpm_save_failed_errno(ret);
+		} else
+			suspend_stats.success++;
+		return ret;
+	}
 	return -EINVAL;
 }
 EXPORT_SYMBOL(pm_suspend);

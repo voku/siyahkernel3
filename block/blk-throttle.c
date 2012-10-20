@@ -10,6 +10,7 @@
 #include <linux/bio.h>
 #include <linux/blktrace_api.h>
 #include "blk-cgroup.h"
+#include "blk.h"
 
 /* Max dispatch from a group in 1 round */
 static int throtl_grp_quantum = 8;
@@ -158,7 +159,7 @@ static void throtl_free_tg(struct rcu_head *head)
 	struct throtl_grp *tg;
 
 	tg = container_of(head, struct throtl_grp, rcu_head);
-	free_percpu(tg->blkg.stats_cpu);
+	percpu_mempool_free(tg->blkg.stats_cpu, blkg_stats_cpu_pool);
 	kfree(tg);
 }
 
@@ -323,12 +324,8 @@ static struct throtl_grp * throtl_get_tg(struct throtl_data *td)
 	/*
 	 * Need to allocate a group. Allocation of group also needs allocation
 	 * of per cpu stats which in-turn takes a mutex() and can block. Hence
-	 * we need to drop rcu lock and queue_lock before we call alloc
-	 *
-	 * Take the request queue reference to make sure queue does not
-	 * go away once we return from allocation.
+	 * we need to drop rcu lock and queue_lock before we call alloc.
 	 */
-	blk_get_queue(q);
 	rcu_read_unlock();
 	spin_unlock_irq(q->queue_lock);
 
@@ -1221,7 +1218,7 @@ void blk_throtl_drain(struct request_queue *q)
 	struct bio_list bl;
 	struct bio *bio;
 
-	lockdep_is_held(q->queue_lock);
+	WARN_ON_ONCE(!queue_is_locked(q));
 
 	bio_list_init(&bl);
 

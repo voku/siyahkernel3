@@ -5003,6 +5003,9 @@ int net_os_set_suspend(struct net_device *dev, int val)
 
 	if (dhd) {
 		ret = dhd_set_suspend(val, &dhd->pub);
+#ifdef WL_CFG80211
+		wl_cfg80211_update_power_mode(dev);
+#endif
 	}
 #endif /* defined(CONFIG_HAS_EARLYSUSPEND) */
 	return ret;
