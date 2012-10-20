@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 ARM Limited. All rights reserved.
+ * Copyright (C) 2010-2012 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -370,7 +370,7 @@ static mali_bool mali_dvfs_status(u32 utilization)
 #ifdef EXYNOS4_ASV_ENABLED
 	if (asv_applied == MALI_FALSE) {
 		mali_dvfs_table_update();
-		change_mali_dvfs_status(0,0);
+		change_mali_dvfs_status(0, 0);
 		asv_applied = MALI_TRUE;
 
 		return MALI_TRUE;

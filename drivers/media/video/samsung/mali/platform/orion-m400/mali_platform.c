@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2010 ARM Limited. All rights reserved.
- *
+ * Copyright (C) 2010-2012 ARM Limited. All rights reserved.
+ * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
  * 
@@ -32,8 +32,9 @@
 #include <plat/pd.h>
 #endif
 
-#if MALI_TIMELINE_PROFILING_ENABLED
-#include "mali_kernel_profiling.h"
+#if MALI_INTERNAL_TIMELINE_PROFILING_ENABLED
+#include "mali_osk_profiling.h"
+#include "cinstr/mali_cinstr_profiling_events_m200.h"
 #endif
 
 #include <asm/io.h>
@@ -62,6 +63,14 @@ mali_runtime_resume_table mali_runtime_resume = {100, 900000};
 extern int cpufreq_lock_by_mali(unsigned int freq);
 extern void cpufreq_unlock_by_mali(void);
 
+/* start of modification by skkim */
+extern mali_bool init_mali_dvfs_status(int step);
+extern void deinit_mali_dvfs_status(void);
+extern mali_bool mali_dvfs_handler(u32 utilization);
+extern int get_mali_dvfs_control_status(void);
+extern mali_bool set_mali_dvfs_current_step(unsigned int step);
+/* end of modification by skkim */
+
 static struct clk  *ext_xtal_clock = 0;
 static struct clk  *vpll_src_clock = 0;
 static struct clk  *fout_vpll_clock = 0;
@@ -70,7 +79,6 @@ static struct clk  *sclk_vpll_clock = 0;
 static struct clk  *mpll_clock = 0;
 static struct clk  *mali_parent_clock = 0;
 static struct clk  *mali_clock = 0;
-
 
 static unsigned int GPU_MHZ	= 1000000;
 
@@ -165,8 +173,8 @@ void mali_regulator_set_voltage(int min_uV, int max_uV)
 	}
 	MALI_DEBUG_PRINT(2, ("= regulator_set_voltage: %d, %d \n",min_uV, max_uV));
 
-#if MALI_TIMELINE_PROFILING_ENABLED
-	_mali_osk_profiling_add_event( MALI_PROFILING_EVENT_TYPE_SINGLE |
+#if MALI_INTERNAL_TIMELINE_PROFILING_ENABLED
+		_mali_osk_profiling_add_event( MALI_PROFILING_EVENT_TYPE_SINGLE |
                                MALI_PROFILING_EVENT_CHANNEL_SOFTWARE |
                                MALI_PROFILING_EVENT_REASON_SINGLE_SW_GPU_VOLTS,
                                min_uV, max_uV, 1, 0, 0);
@@ -175,11 +183,12 @@ void mali_regulator_set_voltage(int min_uV, int max_uV)
 	regulator_set_voltage(g3d_regulator,min_uV,max_uV);
 	voltage = regulator_get_voltage(g3d_regulator);
 
-#if MALI_TIMELINE_PROFILING_ENABLED
-	_mali_osk_profiling_add_event( MALI_PROFILING_EVENT_TYPE_SINGLE |
+#if MALI_INTERNAL_TIMELINE_PROFILING_ENABLED
+		_mali_osk_profiling_add_event( MALI_PROFILING_EVENT_TYPE_SINGLE |
                                MALI_PROFILING_EVENT_CHANNEL_SOFTWARE |
                                MALI_PROFILING_EVENT_REASON_SINGLE_SW_GPU_VOLTS,
                                voltage, 0, 2, 0, 0);
+
 #endif
 
 	mali_gpu_vol = voltage;
@@ -240,7 +249,7 @@ mali_bool mali_clk_get(mali_bool bis_vpll)
 	/* mpll */
 	} else {
 		if (mpll_clock == NULL) {
-			mpll_clock = clk_get(NULL,MPLLCLK_NAME);
+			mpll_clock = clk_get(NULL, MPLLCLK_NAME);
 
 			if (IS_ERR(mpll_clock)) {
 				MALI_PRINT( ("MALI Error : failed to get source mpll clock\n"));
@@ -341,19 +350,20 @@ mali_bool mali_clk_set_rate(unsigned int clk, unsigned int mhz)
 	if (clk_enable(mali_clock) < 0)
 		return MALI_FALSE;
 
-#if MALI_TIMELINE_PROFILING_ENABLED
+#if MALI_INTERNAL_TIMELINE_PROFILING_ENABLED
 	unsigned long previous_rate = 0;
 	previous_rate = clk_get_rate(mali_clock);
 	_mali_osk_profiling_add_event( MALI_PROFILING_EVENT_TYPE_SINGLE |
                                MALI_PROFILING_EVENT_CHANNEL_SOFTWARE |
                                MALI_PROFILING_EVENT_REASON_SINGLE_SW_GPU_FREQ,
                                previous_rate, 0, 0, 0, 0);
+
 #endif
 
 	clk_set_rate(mali_clock, rate);
 	rate = clk_get_rate(mali_clock);
 
-#if MALI_TIMELINE_PROFILING_ENABLED
+#if MALI_INTERNAL_TIMELINE_PROFILING_ENABLED
 	_mali_osk_profiling_add_event( MALI_PROFILING_EVENT_TYPE_SINGLE |
                                MALI_PROFILING_EVENT_CHANNEL_SOFTWARE |
                                MALI_PROFILING_EVENT_REASON_SINGLE_SW_GPU_FREQ,
@@ -470,7 +480,6 @@ static void handle_boostpop(unsigned long data)
 	schedule_work(&boostpop_work);
 }
 
-
 void gpu_boost_on_touch(void)
 {
 	if (!mali_touch_boost_level) return;
@@ -531,7 +540,7 @@ _mali_osk_errcode_t g3d_power_domain_control(int bpower_on)
 	if (bpower_on) {
 #if MALI_PMM_RUNTIME_JOB_CONTROL_ON
 		MALI_DEBUG_PRINT(3,("_mali_osk_pmm_dev_activate \n"));
-		_mali_osk_pmm_dev_activate();
+		_mali_osk_pm_dev_activate();
 #else //MALI_PMM_RUNTIME_JOB_CONTROL_ON
 		void __iomem *status;
 		u32 timeout;
@@ -553,8 +562,7 @@ _mali_osk_errcode_t g3d_power_domain_control(int bpower_on)
 	} else {
 #if MALI_PMM_RUNTIME_JOB_CONTROL_ON
 		MALI_DEBUG_PRINT( 4,("_mali_osk_pmm_dev_idle\n"));
-		_mali_osk_pmm_dev_idle();
-
+		_mali_osk_pm_dev_idle();
 #else //MALI_PMM_RUNTIME_JOB_CONTROL_ON
 		void __iomem *status;
 		u32 timeout;
@@ -569,7 +577,7 @@ _mali_osk_errcode_t g3d_power_domain_control(int bpower_on)
 				return -ETIMEDOUT;
 			}
 			timeout--;
-			_mali_osk_time_ubusydelay( 100);
+			_mali_osk_time_ubusydelay(100);
 		}
 		MALI_PRINTF(("MALI Power domain disabled"));
 #endif //MALI_PMM_RUNTIME_JOB_CONTROL_ON
@@ -597,7 +605,7 @@ _mali_osk_errcode_t mali_platform_deinit()
 
 #if MALI_DVFS_ENABLED
 	deinit_mali_dvfs_status();
-	if (clk_register_map) {
+	if (clk_register_map ) {
 		_mali_osk_mem_unmapioregion(CLK_DIV_STAT_G3D, 0x20, clk_register_map);
 		clk_register_map = 0;
 	}
@@ -674,7 +682,7 @@ _mali_osk_errcode_t mali_platform_power_mode_change(mali_power_mode power_mode)
 #endif
 				MALI_DEBUG_PRINT(4,("enable clock \n"));
 				enable_mali_clocks();
-#if MALI_TIMELINE_PROFILING_ENABLED
+#if MALI_INTERNAL_TIMELINE_PROFILING_ENABLED
 				_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_SINGLE| MALI_PROFILING_EVENT_CHANNEL_GPU|MALI_PROFILING_EVENT_REASON_SINGLE_GPU_FREQ_VOLT_CHANGE, mali_gpu_clk, mali_gpu_vol/1000, 0, 0, 0);
 #endif
 				//MALI_PRINTF(("Mali Platform powered up"));
@@ -689,7 +697,7 @@ _mali_osk_errcode_t mali_platform_power_mode_change(mali_power_mode power_mode)
 	                     bPoweroff ? "already off" : "powering off"));
 			if (bPoweroff == 0) {
 				disable_mali_clocks();
-#if MALI_TIMELINE_PROFILING_ENABLED
+#if MALI_INTERNAL_TIMELINE_PROFILING_ENABLED
 				_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_SINGLE| MALI_PROFILING_EVENT_CHANNEL_GPU|MALI_PROFILING_EVENT_REASON_SINGLE_GPU_FREQ_VOLT_CHANGE, 0, 0, 0, 0, 0);
 #endif
 

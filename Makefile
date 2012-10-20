@@ -354,7 +354,7 @@ LOW_ARM_FLAGS	= -march=armv7-a -mtune=cortex-a9 \
 		  -mvectorize-with-neon-quad
 
 #ARM_FLAGS       = -pipe -marm -march=armv7-a -mtune=cortex-a9 \
-		   -fsingle-precision-constant 
+		   -fsingle-precision-constant -mvectorize-with-neon-quad
 #LOOPS		= -funswitch-loops -fpredictive-commoning
 #LOOPS_4_6	= -floop-strip-mine -floop-block -floop-interchange
 

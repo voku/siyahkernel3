@@ -470,7 +470,7 @@ static int s3c_fb_calc_pixclk(struct s3c_fb *sfb, unsigned int pixclk)
 	result = (unsigned int)tmp / 1000;
 
 	dev_dbg(sfb->dev, "pixclk=%u, clk=%lu, div=%d (%lu)\n",
-		pixclk, clk, result, result ? clk / result : clk);
+		pixclk, clk, result, clk / result);
 
 	return result;
 }
@@ -1814,14 +1814,8 @@ static void s3c_fb_clear_win(struct s3c_fb *sfb, int win)
 	writel(0, regs + VIDOSD_A(win, sfb->variant));
 	writel(0, regs + VIDOSD_B(win, sfb->variant));
 	writel(0, regs + VIDOSD_C(win, sfb->variant));
-
-	if (sfb->variant.has_shadowcon) {
-		reg = readl(sfb->regs + SHADOWCON);
-		reg &= ~(SHADOWCON_WINx_PROTECT(win) |
-				SHADOWCON_CHx_ENABLE(win) |
-				SHADOWCON_CHx_LOCAL_ENABLE(win));
-		writel(reg, sfb->regs + SHADOWCON);
-	}
+	reg = readl(regs + SHADOWCON);
+	writel(reg & ~SHADOWCON_WINx_PROTECT(win), regs + SHADOWCON);
 }
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
