@@ -42,6 +42,8 @@
 #include <linux/ethtool.h>
 #include <linux/fcntl.h>
 #include <linux/fs.h>
+#include <linux/moduleparam.h>
+#include <linux/module.h>
 
 #include <asm/uaccess.h>
 #include <asm/unaligned.h>
@@ -546,7 +548,7 @@ int dhd_monitor_uninit(void);
 
 #ifdef CONFIG_CONTROL_PM
 bool g_pm_control;
-void sec_control_pm(dhd_pub_t *dhd, uint *);
+void sec_control_pm(dhd_pub_t *dhd, bool *);
 #endif
 
 #if 1
@@ -633,16 +635,16 @@ void dhd_enable_packet_filter(int value, dhd_pub_t *dhd)
 #endif /* PKT_FILTER_SUPPORT */
 
 #ifdef CONFIG_BCMDHD_PMFAST
-static int wifi_pm = 0;
+static bool wifi_pm = 0;
 /* /sys/module/dhd/parameters/wifi_pm */
-module_param(wifi_pm, int, 0755);
+module_param(wifi_pm, bool, 0755);
 EXPORT_SYMBOL(wifi_pm);
 #endif
 
 static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 {
 #ifdef CONFIG_BCMDHD_PMFAST
-	int power_mode;
+	bool power_mode;
 #endif
 	/* wl_pkt_filter_enable_t	enable_parm; */
 	char iovbuf[32];
@@ -3566,7 +3568,7 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 #if !defined(WL_CFG80211)
 	uint up = 0;
 #endif /* !defined(WL_CFG80211) */
-	uint power_mode = PM_FAST;
+	bool power_mode = PM_FAST;
 	uint32 dongle_align = DHD_SDALIGN;
 	uint32 glom = CUSTOM_GLOM_SETTING;
 #if defined(VSDB) || defined(ROAM_ENABLE)
@@ -5509,12 +5511,13 @@ int dhd_os_wake_lock_timeout(dhd_pub_t *pub)
 		ret = dhd->wakelock_rx_timeout_enable > dhd->wakelock_ctrl_timeout_enable ?
 			dhd->wakelock_rx_timeout_enable : dhd->wakelock_ctrl_timeout_enable;
 #ifdef CONFIG_HAS_WAKELOCK
+// testing -> reduce wakelocks by wifi -> timeout / 2
 		if (dhd->wakelock_rx_timeout_enable)
 			wake_lock_timeout(&dhd->wl_rxwake,
-				msecs_to_jiffies(dhd->wakelock_rx_timeout_enable));
+				msecs_to_jiffies(dhd->wakelock_rx_timeout_enable / 2));
 		if (dhd->wakelock_ctrl_timeout_enable)
 			wake_lock_timeout(&dhd->wl_ctrlwake,
-				msecs_to_jiffies(dhd->wakelock_ctrl_timeout_enable));
+				msecs_to_jiffies(dhd->wakelock_ctrl_timeout_enable / 2));
 #endif
 		dhd->wakelock_rx_timeout_enable = 0;
 		dhd->wakelock_ctrl_timeout_enable = 0;
