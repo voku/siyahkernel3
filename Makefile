@@ -349,23 +349,24 @@ CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
 
 ARM_FLAGS_LOW	= -pipe -march=armv7-a -mtune=cortex-a9 -fno-short-enums
-ARM_FLAGS       = -mfpu=neon -mfloat-abi=softfp \
-			-fsingle-precision-constant -mvectorize-with-neon-quad
-MATH		= -funsafe-math-optimizations
-LOOPS		= -funswitch-loops -fpredictive-commoning
+ARM_FLAGS       = -mfpu=neon -mfloat-abi=softfp -fsingle-precision-constant \
+			-ftree-vectorize -mvectorize-with-neon-quad
+MATH		= -ffast-math -fforce-addr
+LOOPS		= -funroll-loops -fpredictive-commoning -fgcse-lm -fgcse-sm
 LOOPS_4_6	= -floop-strip-mine -floop-block -floop-interchange
 MODULES		= -fmodulo-sched -fmodulo-sched-allow-regmoves
 
-DISABLED_STORE	= -marm -mno-thumb-interwork -ffast-math
+DISABLED_STORE	= -marm -mno-thumb-interwork -ffast-math -funswitch-loops -funsafe-math-optimizations
 
-CFLAGS_MODULE   = $(ARM_FLAGS_LOW)
-AFLAGS_MODULE   =
-LDFLAGS_MODULE  =
-CFLAGS_KERNEL	= $(ARM_FLAGS_LOW)
+KERNEL_MODS	= $(ARM_FLAGS_LOW) $(ARM_FLAGS) $(MATH) $(LOOPS) $(LOOPS_4_6) $(MODULES)
+
+CFLAGS_MODULE   = -DMODULE $(KERNEL_MODS)
+AFLAGS_MODULE   = -DMODULE $(KERNEL_MODS)
+LDFLAGS_MODULE  = -T $(srctree)/scripts/module-common.lds
+CFLAGS_KERNEL	= $(KERNEL_MODS)
 AFLAGS_KERNEL	=
 CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage
 
-KERNEL_MODS	= $(ARM_FLAGS_LOW) $(ARM_FLAGS) $(MATH) $(LOOPS) $(LOOPS_4_6) $(MODULES)
 
 # Use LINUXINCLUDE when you must reference the include/ directory.
 # Needed to be compatible with the O= option
@@ -384,10 +385,10 @@ KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   $(KERNEL_MODS)
 
 KBUILD_AFLAGS_KERNEL :=
-KBUILD_CFLAGS_KERNEL :=
+KBUILD_CFLAGS_KERNEL := $(KERNEL_MODS)
 KBUILD_AFLAGS   := -D__ASSEMBLY__
 KBUILD_AFLAGS_MODULE  := -DMODULE
-KBUILD_CFLAGS_MODULE  := -DMODULE
+KBUILD_CFLAGS_MODULE  := -DMODULE $(KERNEL_MODS)
 KBUILD_LDFLAGS_MODULE := -T $(srctree)/scripts/module-common.lds
 
 # Read KERNELRELEASE from include/config/kernel.release (if it exists)
