@@ -802,6 +802,7 @@ struct cfg80211_scan_request {
 	int n_ssids;
 	u32 n_channels;
 	const u8 *ie;
+	struct cfg80211_match_set *match_sets;
 	size_t ie_len;
 
 	u32 rates[IEEE80211_NUM_BANDS];

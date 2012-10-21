@@ -139,6 +139,11 @@ ifeq ($(CONFIG_SLP),y)
   DHDCFLAGS += -DPLATFORM_SLP
 endif
 
+# 5GHz channels setting
+ifeq ($(CONFIG_WLAN_COUNTRY_CODE),y)
+DHDCFLAGS += -DGLOBALCONFIG_WLAN_COUNTRY_CODE
+endif
+
 # GGSM_WIFI_5GHz_CHANNELS feature is define for only GGSM model
 ifeq ($(GGSM_WIFI_5GHz_CHANNELS),true)
   DHDCFLAGS += -DCUSTOMER_SET_COUNTRY
