@@ -24,6 +24,8 @@
 #include <asm/div64.h>
 
 #define CPUFREQ_NAME_LEN 16
+/* Print length for names. Extra 1 space for accomodating '\n' in prints */
+#define CPUFREQ_NAME_PLEN (CPUFREQ_NAME_LEN + 1)
 
 #define CPU_MAX_SUSPEND_FREQ 	600000
 #define CPU_MIN_SUSPEND_FREQ	200000
