@@ -671,8 +671,24 @@ static void flctl_select_chip(struct mtd_info *mtd, int chipnr)
 		writel(flcmncr_val, FLCMNCR(flctl));
 		break;
 	case 0:
-		flcmncr_val |= CE0_ENABLE;
-		writel(flcmncr_val, FLCMNCR(flctl));
+		flctl->flcmncr_base |= CE0_ENABLE;
+
+		if (!flctl->qos_request) {
+			ret = dev_pm_qos_add_request(&flctl->pdev->dev,
+							&flctl->pm_qos,
+							DEV_PM_QOS_LATENCY,
+							100);
+			if (ret < 0)
+				dev_err(&flctl->pdev->dev,
+					"PM QoS request failed: %d\n", ret);
+			flctl->qos_request = 1;
+		}
+
+		if (flctl->holden) {
+			pm_runtime_get_sync(&flctl->pdev->dev);
+			writel(HOLDEN, FLHOLDCR(flctl));
+			pm_runtime_put_sync(&flctl->pdev->dev);
+		}
 		break;
 	default:
 		BUG();
