@@ -1544,8 +1544,6 @@ static inline void init_idle_pids(struct pid_link *links)
 struct task_struct * __cpuinit fork_idle(int cpu)
 {
 	struct task_struct *task;
-	struct pt_regs regs;
-
 	task = copy_process(CLONE_VM, 0, 0, NULL, &init_struct_pid, 0);
 	if (!IS_ERR(task)) {
 		init_idle_pids(task->pids);
@@ -1563,7 +1561,6 @@ struct task_struct * __cpuinit fork_idle(int cpu)
  */
 long do_fork(unsigned long clone_flags,
 	      unsigned long stack_start,
-	      struct pt_regs *regs,
 	      unsigned long stack_size,
 	      int __user *parent_tidptr,
 	      int __user *child_tidptr)
@@ -1587,7 +1584,7 @@ long do_fork(unsigned long clone_flags,
 	 * requested, no event is reported; otherwise, report if the event
 	 * for the type of forking is enabled.
 	 */
-	if (!(clone_flags & CLONE_UNTRACED) && likely(user_mode(regs))) {
+	if (!(clone_flags & CLONE_UNTRACED)) {
 		if (clone_flags & CLONE_VFORK)
 			trace = PTRACE_EVENT_VFORK;
 		else if ((clone_flags & CSIGNAL) != SIGCHLD)
@@ -1663,7 +1660,7 @@ long do_fork(unsigned long clone_flags,
  */
 pid_t kernel_thread(int (*fn)(void *), void *arg, unsigned long flags)
 {
-	return do_fork(flags|CLONE_VM|CLONE_UNTRACED, (unsigned long)fn, NULL,
+	return do_fork(flags|CLONE_VM|CLONE_UNTRACED, (unsigned long)fn,
 		(unsigned long)arg, NULL, NULL);
 }
 
@@ -1705,7 +1702,8 @@ SYSCALL_DEFINE5(clone, unsigned long, clone_flags, unsigned long, newsp,
 		 int, tls_val)
 #endif
 {
-	return do_fork(clone_flags, newsp, 0, parent_tidptr, child_tidptr);
+	return do_fork(clone_flags, newsp, 0,
+		parent_tidptr, child_tidptr);
 }
 #endif
 #endif
