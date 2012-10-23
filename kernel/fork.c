@@ -1133,7 +1133,6 @@ init_task_pid(struct task_struct *task, enum pid_type type, struct pid *pid)
  */
 static struct task_struct *copy_process(unsigned long clone_flags,
 					unsigned long stack_start,
-					struct pt_regs *regs,
 					unsigned long stack_size,
 					int __user *child_tidptr,
 					struct pid *pid,
@@ -1553,8 +1552,7 @@ struct task_struct * __cpuinit fork_idle(int cpu)
 	struct task_struct *task;
 	struct pt_regs regs;
 
-	task = copy_process(CLONE_VM, 0, idle_regs(&regs), 0, NULL,
-			    &init_struct_pid, 0);
+	task = copy_process(CLONE_VM, 0, 0, NULL, &init_struct_pid, 0);
 	if (!IS_ERR(task)) {
 		init_idle_pids(task->pids);
 		init_idle(task, cpu);
@@ -1607,7 +1605,7 @@ long do_fork(unsigned long clone_flags,
 			trace = 0;
 	}
 
-	p = copy_process(clone_flags, stack_start, regs, stack_size,
+	p = copy_process(clone_flags, stack_start, stack_size,
 			 child_tidptr, NULL, trace);
 	/*
 	 * Do this prior waking up the new thread - the thread pointer
