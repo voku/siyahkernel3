@@ -102,9 +102,9 @@ void vtime_task_switch(struct task_struct *prev)
 
 	delta_stime = cycle_to_cputime(pi->ac_stime + (now - pi->ac_stamp));
 	if (idle_task(smp_processor_id()) != prev)
-		account_system_time(prev, 0, delta_stime, delta_stime);
+		__vtime_account_system(prev);
 	else
-		account_idle_time(delta_stime);
+		__vtime_account_idle(prev);
 
 	if (pi->ac_utime) {
 		delta_utime = cycle_to_cputime(pi->ac_utime);
@@ -134,14 +134,14 @@ static cputime_t vtime_delta(struct task_struct *tsk)
 	return delta_stime;
 }
 
-void vtime_account_system(struct task_struct *tsk)
+void __vtime_account_system(struct task_struct *tsk)
 {
 	cputime_t delta = vtime_delta(tsk);
 
 	account_system_time(tsk, 0, delta, delta);
 }
 
-void vtime_account_idle(struct task_struct *tsk)
+void __vtime_account_idle(struct task_struct *tsk)
 {
 	account_idle_time(vtime_delta(tsk));
 }
