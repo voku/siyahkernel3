@@ -73,8 +73,46 @@ static unsigned int esdhc_of_get_min_clock(struct sdhci_host *host)
 	return of_host->clock / 256 / 16;
 }
 
-struct sdhci_of_data sdhci_esdhc = {
-	/* card detection could be handled via GPIO */
+static void esdhc_of_resume(struct sdhci_host *host)
+{
+	esdhc_of_enable_dma(host);
+	sdhci_be32bs_writel(host, esdhc_proctl, SDHCI_HOST_CONTROL);
+}
+#endif
+
+static void esdhc_of_platform_init(struct sdhci_host *host)
+{
+	u32 vvn;
+
+	vvn = in_be32(host->ioaddr + SDHCI_SLOT_INT_STATUS);
+	vvn = (vvn & SDHCI_VENDOR_VER_MASK) >> SDHCI_VENDOR_VER_SHIFT;
+	if (vvn == VENDOR_V_22)
+		host->quirks2 |= SDHCI_QUIRK2_HOST_NO_CMD23;
+}
+
+static struct sdhci_ops sdhci_esdhc_ops = {
+	.read_l = esdhc_readl,
+	.read_w = esdhc_readw,
+	.read_b = esdhc_readb,
+	.write_l = sdhci_be32bs_writel,
+	.write_w = esdhc_writew,
+	.write_b = esdhc_writeb,
+	.set_clock = esdhc_of_set_clock,
+	.enable_dma = esdhc_of_enable_dma,
+	.get_max_clock = esdhc_of_get_max_clock,
+	.get_min_clock = esdhc_of_get_min_clock,
+	.platform_init = esdhc_of_platform_init,
+#ifdef CONFIG_PM
+	.platform_suspend = esdhc_of_suspend,
+	.platform_resume = esdhc_of_resume,
+#endif
+};
+
+static struct sdhci_pltfm_data sdhci_esdhc_pdata = {
+	/*
+	 * card detection could be handled via GPIO
+	 * eSDHC cannot support End Attribute in NOP ADMA descriptor
+	 */
 	.quirks = ESDHC_DEFAULT_QUIRKS | SDHCI_QUIRK_BROKEN_CARD_DETECTION
 		| SDHCI_QUIRK_NO_CARD_NO_RESET,
 	.ops = {

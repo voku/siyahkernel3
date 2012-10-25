@@ -120,15 +120,12 @@ static int __devinit sdhci_pltfm_probe(struct platform_device *pdev)
 		goto err_remap;
 	}
 
-	if (pdata && pdata->init) {
-		ret = pdata->init(host, pdata);
-		if (ret)
-			goto err_plat_init;
-	}
-
-	ret = sdhci_add_host(host);
-	if (ret)
-		goto err_add_host;
+	/*
+	 * Some platforms need to probe the controller to be able to
+	 * determine which caps should be used.
+	 */
+	if (host->ops && host->ops->platform_init)
+		host->ops->platform_init(host);
 
 	platform_set_drvdata(pdev, host);
 
