@@ -1144,12 +1144,12 @@ static void sk_prot_free(struct proto *prot, struct sock *sk)
 
 #ifdef CONFIG_CGROUPS
 #if IS_ENABLED(CONFIG_NET_CLS_CGROUP)
-void sock_update_classid(struct sock *sk)
+void sock_update_classid(struct sock *sk, struct task_struct *task)
 {
 	u32 classid;
 
 	rcu_read_lock();  /* doing current task, which cannot vanish. */
-	classid = task_cls_classid(current);
+	classid = task_cls_classid(task);
 	rcu_read_unlock();
 	if (classid && classid != sk->sk_classid)
 		sk->sk_classid = classid;
@@ -1193,7 +1193,7 @@ struct sock *sk_alloc(struct net *net, int family, gfp_t priority,
 		sock_net_set(sk, get_net(net));
 		atomic_set(&sk->sk_wmem_alloc, 1);
 
-		sock_update_classid(sk);
+		sock_update_classid(sk, current);
 #if IS_ENABLED(CONFIG_NETPRIO_CGROUP)
 		sock_update_netprioidx(sk, current);
 #endif
