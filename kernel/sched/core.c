@@ -3221,7 +3221,7 @@ void task_times(struct task_struct *p, cputime_t *ut, cputime_t *st)
 	 */
 	rtime = nsecs_to_cputime(p->se.sum_exec_runtime);
 
-	if (total && total == (__force u32) total) {
+	if (total && total == (__force u32) total)
 		utime = scale_utime(utime, rtime, total);
 	else
 		utime = rtime;
@@ -3250,7 +3250,7 @@ void thread_group_times(struct task_struct *p, cputime_t *ut, cputime_t *st)
 	total = cputime_add(cputime.utime, cputime.stime);
 	rtime = nsecs_to_cputime(cputime.sum_exec_runtime);
 
-	if (total && total == (__force u32) total) {
+	if (total && total == (__force u32) total)
 		utime = scale_utime(cputime.utime, rtime, total);
 	else
 		utime = rtime;
