@@ -135,6 +135,8 @@ unsigned int polling_interval = 0;	/* disabled by default */
 unsigned int notification_count = 0;
 bool notification_persistent = false;
 bool notification_renew = true;
+static unsigned int touchkey_voltage_saved = 3000;
+static bool dyn_brightness = false;
 
 static void enable_touchkey_backlights(void);
 static void disable_touchkey_backlights(void);
@@ -290,6 +292,16 @@ static void get_touch_key_led_voltage(void)
 
 }
 
+int update_touchkey_brightness(int brightness)
+{
+	if (dyn_brightness) {
+		printk("Changing touchkey brightness %d\n", brightness);
+		led_brightness = 2700 + ((brightness * 24) / 500)*50;
+		change_touch_key_led_voltage(led_brightness);
+	}
+	return 0;
+}
+
 static ssize_t brightness_control(struct device *dev,
 				  struct device_attribute *attr,
 				  const char *buf, size_t size)
@@ -299,7 +311,7 @@ static ssize_t brightness_control(struct device *dev,
 	if (sscanf(buf, "%d\n", &data) == 1) {
 		pr_err("[TouchKey] touch_led_brightness: %d\n", data);
 		change_touch_key_led_voltage(data);
-		led_brightness = data;
+		touchkey_voltage_saved = led_brightness = data;
 	} else {
 		pr_err("[TouchKey] touch_led_brightness Error\n");
 	}
@@ -991,6 +1003,34 @@ static ssize_t check_battery_write( struct device *dev, struct device_attribute 
 	return size;
 }
 
+static ssize_t dyn_brightness_read( struct device *dev, struct device_attribute *attr, char *buf )
+{
+	return sprintf(buf,"%u\n", (dyn_brightness ? 1 : 0 ));
+}
+
+static ssize_t dyn_brightness_write( struct device *dev, struct device_attribute *attr, const char *buf, size_t size )
+{
+	unsigned int data;
+	int old_dyn = dyn_brightness;
+
+	if (sscanf(buf, "%u\n", &data ) == 1 ) {
+		if (data == 1) dyn_brightness = 1;
+		if (data == 0) dyn_brightness = 0;
+	} else {
+		if (!strncmp(buf, "on", 2)) dyn_brightness = 1;
+		if (!strncmp(buf, "off", 3)) dyn_brightness = 0;
+	}
+	if (old_dyn != dyn_brightness) {
+		if (old_dyn == 0)
+			touchkey_voltage_saved = led_brightness;
+		else {
+			led_brightness = touchkey_voltage_saved;
+			change_touch_key_led_voltage(led_brightness);
+		}
+	}
+	return size;
+}
+
 #ifdef CONFIG_TARGET_CM_KERNEL
 static DEVICE_ATTR(led, S_IRUGO | S_IWUGO, led_status_read, led_status_write );
 static DEVICE_ATTR(led_timeout, S_IRUGO | S_IWUGO, led_timeout_read, led_timeout_write );
@@ -1065,6 +1105,7 @@ static DEVICE_ATTR(blinking_enabled, S_IRUGO | S_IWUGO, enable_blinking_read, en
 static DEVICE_ATTR(blinking_config, S_IRUGO | S_IWUGO, blinking_config_read, blinking_config_write );
 static DEVICE_ATTR(led_fadeout, S_IRUGO | S_IWUGO, led_fadeout_read, led_fadeout_write );
 static DEVICE_ATTR(check_battery, S_IRUGO | S_IWUGO, check_battery_read, check_battery_write );
+static DEVICE_ATTR(dyn_brightness, S_IRUGO | S_IWUSR | S_IWGRP, dyn_brightness_read, dyn_brightness_write);
 
 static struct attribute *bl_led_attributes[] = {
 #ifdef CONFIG_TARGET_CM_KERNEL
@@ -1072,12 +1113,14 @@ static struct attribute *bl_led_attributes[] = {
 	&dev_attr_led_timeout.attr,
 	&dev_attr_notification_enabled.attr,
 	&dev_attr_enabled.attr,
+	&dev_attr_dyn_brightness.attr,
 #else
         &dev_attr_blink_control.attr,
         &dev_attr_enabled.attr,
         &dev_attr_notification_led.attr,
 	&dev_attr_led_timeout.attr,
         &dev_attr_version.attr,
+	&dev_attr_dyn_brightness.attr,
 #endif
 	&dev_attr_enabled_charging.attr,
 	&dev_attr_notification_timeout.attr,
@@ -1142,6 +1185,8 @@ static int sec_touchkey_early_suspend(struct early_suspend *h)
 
 	/* disable ldo11 */
 	touchkey_ldo_on(0);
+
+	change_touch_key_led_voltage(touchkey_voltage_saved);
 
 	screen_on = 0;
 	return 0;
@@ -1608,6 +1653,7 @@ static DEVICE_ATTR(touchkey_back, S_IRUGO | S_IWUSR | S_IWGRP,
 		   touchkey_back_show, NULL);
 static DEVICE_ATTR(touch_sensitivity, S_IRUGO | S_IWUSR | S_IWGRP, NULL,
 		   touch_sensitivity_control);
+
 /*20110223N1 firmware sync*/
 static DEVICE_ATTR(touchkey_firm_update, S_IRUGO | S_IWUSR | S_IWGRP,
 	set_touchkey_update_show, NULL);/* firmware update */

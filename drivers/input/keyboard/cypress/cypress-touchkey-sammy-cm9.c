@@ -34,6 +34,9 @@
 #include <linux/regulator/machine.h>
 #include "u1-cypress-gpio.h"
 
+#include <linux/regulator/consumer.h>
+#include <linux/regulator/driver.h>
+#include <linux/regulator/machine.h>
 #include <plat/gpio-cfg.h>
 #include <mach/gpio.h>
 
@@ -105,6 +108,9 @@ static int breathing_step_idx = 0;
 
 
 static unsigned int touchkey_voltage = 3000;
+static unsigned int touchkey_voltage_saved = 3000;
+static bool dyn_brightness = false;
+static bool blnww = false;
 
 static int led_fadein = 0, led_fadeout = 0;
 static int led_on_touch = 1;
@@ -314,6 +320,45 @@ static void change_touch_key_led_voltage(int vol_mv)
 	regulator_put(tled_regulator);
 }
 
+struct regulator {
+        struct device *dev;
+        struct list_head list;
+        int uA_load;
+        int min_uV;
+        int max_uV;
+        char *supply_name;
+        struct device_attribute dev_attr;
+        struct regulator_dev *rdev;
+};
+
+void set_touch_constraints(bool blnstatus)
+{
+	struct regulator *r;
+
+	if(!blnww && blnstatus) return;
+	r = regulator_get(NULL, "touch_led");
+	r->rdev->constraints->state_mem.enabled = blnstatus;
+	r->rdev->constraints->state_mem.disabled = !blnstatus;
+	r = regulator_get(NULL, "touch");
+	r->rdev->constraints->state_mem.enabled = blnstatus;
+	r->rdev->constraints->state_mem.disabled = !blnstatus;
+}
+
+int update_touchkey_brightness(int brightness)
+{
+	if(dyn_brightness)
+	{
+		printk("Changing touchkey brightness %d\n", brightness);
+		touchkey_voltage = 2700 + ((brightness * 24) / 500)*50;
+		change_touch_key_led_voltage(touchkey_voltage);
+	}
+	return 0;
+}
+
+static ssize_t brightness_control_read( struct device *dev, struct device_attribute *attr, char *buf ){
+	return sprintf(buf,"%u\n", touchkey_voltage);
+}
+
 static ssize_t brightness_control(struct device *dev,
 				  struct device_attribute *attr,
 				  const char *buf, size_t size)
@@ -323,7 +368,7 @@ static ssize_t brightness_control(struct device *dev,
 	if (sscanf(buf, "%d\n", &data) == 1) {
 		printk(KERN_ERR "[TouchKey] touch_led_brightness: %d\n", data);
 		change_touch_key_led_voltage(data);
-		touchkey_voltage = data;
+		touchkey_voltage_saved = touchkey_voltage = data;
 	} else {
 		printk(KERN_ERR "[TouchKey] touch_led_brightness Error\n");
 	}
@@ -937,7 +982,8 @@ static int sec_touchkey_early_suspend(struct early_suspend *h)
 	/* disable ldo11 */
 	touchkey_ldo_on(0);
 	mutex_unlock(&touchkey_enable_mutex);
-
+	//to have a bright BLN
+	change_touch_key_led_voltage(touchkey_voltage_saved);
 	bln_suspended = 1;
 	return 0;
 }
@@ -1040,7 +1086,7 @@ AOSPROM
 
 static void touchkey_activate(void){
 
-        if( !wake_lock_active(&bln_wake_lock) ){ 
+        if( !blnww && !wake_lock_active(&bln_wake_lock) ){ 
             printk(KERN_DEBUG "[TouchKey] touchkey get wake_lock\n");
             wake_lock(&bln_wake_lock);
         }
@@ -1113,6 +1159,7 @@ static void enable_led_notification(void){
             if( touchkey_enable == 1 ){
                 printk(KERN_DEBUG "[TouchKey] BLN_ongoing set to true\n");
                 BLN_ongoing = true;
+                set_touch_constraints(true);
                 enable_touchkey_backlights();
             }
 			/* See if a timeout value has been set for the notification */
@@ -1130,6 +1177,7 @@ static void disable_led_notification(void){
 
 		down(&enable_sem);
         bln_blink_enabled = false;
+        set_touch_constraints(false);
         BLN_ongoing = false;
         printk(KERN_DEBUG "[TouchKey] BLN_ongoing set to false\n");
 
@@ -1207,6 +1255,25 @@ static ssize_t notification_led_status_write( struct device *dev, struct device_
         return size;
 }
 
+static ssize_t blnww_status_read( struct device *dev, struct device_attribute *attr, char *buf ){
+	return sprintf(buf,"%u\n", (blnww ? 1 : 0 ));
+}
+
+static ssize_t blnww_status_write( struct device *dev, struct device_attribute *attr, const char *buf, size_t size ){
+	unsigned int data;
+
+
+	if(sscanf(buf,"%u\n", &data ) == 1 ){
+	if( data == 1 ) blnww = 1;
+	if( data == 0 ) blnww = 0;
+	}else{
+		if( !strncmp(buf, "on", 2) ) blnww = 1;
+		if( !strncmp(buf, "off", 3) ) blnww = 0;
+	}
+
+	return size;
+}
+
 static ssize_t blink_control_read( struct device *dev, struct device_attribute *attr, char *buf ){
         return sprintf( buf, "%u\n", (bln_blink_enabled ? 1 : 0 ) );
 }
@@ -1278,6 +1345,7 @@ static void notification_off(struct work_struct *notification_off_work)
 
 	disable_touchkey_backlights();
 	touchkey_deactivate();
+	set_touch_constraints(false);
 	BLN_ongoing = 0;
 }
 
@@ -1316,13 +1384,13 @@ static ssize_t led_timeout_write( struct device *dev, struct device_attribute *a
 {
 	sscanf(buf,"%d\n", &led_timeout);
 	led_timeout = led_timeout * 1000;
-
-	if (!led_disabled) {
-		if (led_timeout == 0)
-			del_timer(&led_timer);
-			schedule_work(&led_fadein_work);
-	} else mod_timer(&led_timer, jiffies + msecs_to_jiffies(led_timeout));
-
+	if(!led_disabled)
+	if(led_timeout == 0)
+	{
+		del_timer(&led_timer);
+		schedule_work(&led_fadein_work);
+	}
+	else mod_timer(&led_timer, jiffies + msecs_to_jiffies(led_timeout));
 	return size;
 }
 
@@ -1470,6 +1538,33 @@ static ssize_t led_on_touch_write( struct device *dev, struct device_attribute *
 	return size;
 }
 
+static ssize_t dyn_brightness_read( struct device *dev, struct device_attribute *attr, char *buf ){
+	return sprintf(buf,"%u\n", (dyn_brightness ? 1 : 0 ));
+}
+
+static ssize_t dyn_brightness_write( struct device *dev, struct device_attribute *attr, const char *buf, size_t size ){
+	unsigned int data;
+	int old_dyn = dyn_brightness;
+
+	if(sscanf(buf,"%u\n", &data ) == 1 ){
+		if( data == 1 ) dyn_brightness = 1;
+		if( data == 0 ) dyn_brightness = 0;
+	}else{
+		if( !strncmp(buf, "on", 2) ) dyn_brightness = 1;
+		if( !strncmp(buf, "off", 3) ) dyn_brightness = 0;
+	}
+	if(old_dyn != dyn_brightness)
+	{
+		if(old_dyn == 0) touchkey_voltage_saved = touchkey_voltage;
+		else
+		{
+			touchkey_voltage = touchkey_voltage_saved;
+			change_touch_key_led_voltage(touchkey_voltage);
+		}
+	}
+	return size;
+}
+
 static struct miscdevice led_device = {
 	.minor = MISC_DYNAMIC_MINOR,
 	.name  = "notification",
@@ -1486,6 +1581,8 @@ static DEVICE_ATTR(breathing_steps, S_IRUGO | S_IWUGO, breathing_steps_read, bre
 static DEVICE_ATTR(led_fadein, S_IRUGO | S_IWUGO, led_fadein_read, led_fadein_write );
 static DEVICE_ATTR(led_fadeout, S_IRUGO | S_IWUGO, led_fadeout_read, led_fadeout_write );
 static DEVICE_ATTR(led_on_touch, S_IRUGO | S_IWUGO, led_on_touch_read, led_on_touch_write );
+static DEVICE_ATTR(dyn_brightness, S_IRUGO | S_IWUSR | S_IWGRP,	dyn_brightness_read, dyn_brightness_write);
+static DEVICE_ATTR(blnww, S_IRUGO | S_IWUGO, blnww_status_read,  blnww_status_write );
 
 static struct attribute *led_notification_attributes[] = {
 	&dev_attr_led.attr,
@@ -1498,6 +1595,8 @@ static struct attribute *led_notification_attributes[] = {
 	&dev_attr_led_fadein.attr,
 	&dev_attr_led_fadeout.attr,
 	&dev_attr_led_on_touch.attr,
+	&dev_attr_dyn_brightness.attr,
+	&dev_attr_blnww.attr,
     NULL
 };
 
@@ -2195,8 +2294,8 @@ static DEVICE_ATTR(touchkey_firm_version_panel, S_IRUGO | S_IWUSR | S_IWGRP,
 		   set_touchkey_firm_version_read_show, NULL);
 /*PART*/
 /*end N1 firmware sync*/
-static DEVICE_ATTR(touchkey_brightness, S_IRUGO | S_IWUSR | S_IWGRP, NULL,
-		   brightness_control);
+static DEVICE_ATTR(touchkey_brightness, S_IRUGO | S_IWUSR | S_IWGRP,
+			brightness_control_read, brightness_control);
 
 #if defined(CONFIG_TARGET_LOCALE_NAATT)
 static DEVICE_ATTR(touchkey_autocal_start, S_IRUGO | S_IWUSR | S_IWGRP, NULL,
