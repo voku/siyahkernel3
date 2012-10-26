@@ -139,10 +139,9 @@ static inline bool freezer_should_skip(struct task_struct *p)
 }
 
 /*
- * These macros are intended to be used whenever you want allow a task that's
- * sleeping in TASK_UNINTERRUPTIBLE or TASK_KILLABLE state to be frozen. Note
- * that neither return any clear indication of whether a freeze event happened
- * while in this function.
+ * These macros are intended to be used whenever you want allow a sleeping
+ * task to be frozen. Note that neither return any clear indication of
+ * whether a freeze event happened while in this function.
  */
 
 /* Like schedule(), but should not block the freezer. */
@@ -168,6 +167,15 @@ static inline bool freezer_should_skip(struct task_struct *p)
  * wait_event_killable() and wait_event_interruptible_timeout(), originally
  * defined in <linux/wait.h>
  */
+
+#define wait_event_freezekillable(wq, condition)			\
+({									\
+	int __retval;							\
+	freezer_do_not_count();						\
+	__retval = wait_event_killable(wq, (condition));		\
+	freezer_count();						\
+	__retval;							\
+})
 
 #define wait_event_freezable(wq, condition)				\
 ({									\
@@ -224,6 +232,9 @@ static inline void set_freezable(void) {}
 
 #define wait_event_freezable_timeout(wq, condition, timeout)		\
 		wait_event_interruptible_timeout(wq, condition, timeout)
+
+#define wait_event_freezekillable(wq, condition)		\
+		wait_event_killable(wq, condition)
 
 #endif /* !CONFIG_FREEZER */
 
