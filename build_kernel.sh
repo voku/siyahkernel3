@@ -158,7 +158,10 @@ if [ -e $KERNELDIR/arch/arm/boot/zImage ]; then
 	zip -r Kernel_Dorimanx-$GETVER-JB-MALI`date +"-%H-%M--%d-%m-12-SGII-PWR-CORE"`.zip .
 	STATUS=`adb get-state`;
 	if [ "$STATUS" == "device" ]; then
-		adb push $KERNELDIR/READY-JB/Kernel_Dorimanx*JB-MALI*.zip /sdcard/;
+		read -p "push kernel to android (y/n)?"
+		if [ "$REPLY" == "y" ]; then
+			adb push $KERNELDIR/READY-JB/Kernel_Dorimanx*JB-MALI*.zip /sdcard/;
+		fi;
 	fi;
 else
 	echo "Kernel STUCK in BUILD! no zImage exist"
