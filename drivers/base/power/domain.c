@@ -839,7 +839,10 @@ static int pm_genpd_suspend_late(struct device *dev)
 	if (IS_ERR(genpd))
 		return -EINVAL;
 
-	return genpd->suspend_power_off ? 0 : genpd_suspend_late(genpd, dev);
+	if (genpd->suspend_power_off)
+		return 0;
+	//else
+	//	return genpd_suspend_late(genpd, dev);
 }
 
 /**
