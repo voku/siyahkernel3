@@ -1223,11 +1223,14 @@ clean: rm-dirs  := $(CLEAN_DIRS)
 clean: rm-files := $(CLEAN_FILES)
 clean-dirs      := $(addprefix _clean_, . $(vmlinux-alldirs) Documentation)
 
-PHONY += $(clean-dirs) clean archclean
+PHONY += $(clean-dirs) clean archclean vmlinuxclean
 $(clean-dirs):
 	$(Q)$(MAKE) $(clean)=$(patsubst _clean_%,%,$@)
 
-clean: archclean
+vmlinuxclean:
+	$(Q)$(CONFIG_SHELL) $(srctree)/scripts/link-vmlinux.sh clean
+
+clean: archclean vmlinuxclean
 
 # mrproper - Delete all generated files, including .config
 #
