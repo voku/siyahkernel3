@@ -436,7 +436,7 @@ void touchkey_firmware_update(void)
 	}
 }
 
-extern void gpu_boost_on_touch(void);
+/* extern void gpu_boost_on_touch(void); */
 
 void touchkey_work_func(struct work_struct *p)
 {
@@ -476,7 +476,7 @@ void touchkey_work_func(struct work_struct *p)
 
 	if (pressed) {
 		set_touchkey_debug('P');
-		gpu_boost_on_touch();
+		/* gpu_boost_on_touch(); */
 	}
 
 	if (get_tsp_status() && pressed)

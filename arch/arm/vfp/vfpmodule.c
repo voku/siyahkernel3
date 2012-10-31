@@ -437,7 +437,6 @@ static void vfp_enable(void *unused)
 
 	BUG_ON(preemptible());
 	access = get_copro_access();
-
 	/*
 	 * Enable full access to VFP (cp10 and cp11)
 	 */

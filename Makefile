@@ -1,7 +1,7 @@
 VERSION = 3
 PATCHLEVEL = 1
 SUBLEVEL = 0
-EXTRAVERSION = -R48
+EXTRAVERSION = -R50
 NAME = "Divemaster Edition"
 
 # *DOCUMENTATION*
@@ -352,15 +352,19 @@ CC			= $(srctree)/scripts/gcc-wrapper.py $(REAL_CC)
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
 
-ARM_FLAGS	= -pipe -march=armv7-a -mtune=cortex-a9 \
+LOW_ARM_FLAGS	= -march=armv7-a -mtune=cortex-a9 \
 		  -mfpu=neon -mfloat-abi=softfp \
-		  -funsafe-math-optimizations \
-		  -funroll-loops \
-		  -mvectorize-with-neon-quad \
-		  -fsingle-precision-constant \
-		  -fpredictive-commoning
+		  -funsafe-math-optimizations -funroll-loops \
+		  -mvectorize-with-neon-quad
+
+#ARM_FLAGS       = -pipe -marm -march=armv7-a -mtune=cortex-a9 \
+		   -fsingle-precision-constant -mvectorize-with-neon-quad
+#LOOPS		= -funswitch-loops -fpredictive-commoning
+#LOOPS_4_6	= -floop-strip-mine -floop-block -floop-interchange
 
 MODULES		= -fmodulo-sched -fmodulo-sched-allow-regmoves
+
+DISABLED_STORE	= 
 
 MODFLAGS        = -DMODULE
 CFLAGS_MODULE   = $(MODFLAGS)
@@ -370,7 +374,8 @@ CFLAGS_KERNEL	=
 AFLAGS_KERNEL	=
 CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage
 
-KERNEL_MODS	= $(ARM_FLAGS) $(MODULES)
+KERNEL_MODS	= $(LOW_ARM_FLAGS) $(MODULES)
+#DISABLED_KERNEL_MODS	= $(ARM_FLAGS) $(LOOPS) $(LOOPS_4_6)
 
 # Use LINUXINCLUDE when you must reference the include/ directory.
 # Needed to be compatible with the O= option

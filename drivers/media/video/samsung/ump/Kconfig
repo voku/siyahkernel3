@@ -5,7 +5,7 @@
 #
 # For UMP
 config VIDEO_UMP
-	bool "Enable UMP(Unified Memory Provider)"
+	tristate "Enable UMP(Unified Memory Provider)"
 	default y
 	---help---
 		This enables UMP memory provider
@@ -16,6 +16,14 @@ config UMP_VCM_ALLOC
         bool "Enable ump-vcm(virtual contiguous memory) memory"
         help
           Use VCM(virtual-contiguous-memory) to allocate physical memory.
+
+
+config UMP_R3P1_LSI
+	bool "Uses the R3P1 as a ump module"
+    depends on VIDEO_UMP
+    default n
+    ---help---
+		This uses the r3p1 as a UMP kernel module
 
 choice
 depends on VIDEO_UMP

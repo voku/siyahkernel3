@@ -52,6 +52,7 @@ extern void (*pm_cpu_sleep)(void);
 extern void (*pm_cpu_restore)(void);
 extern int (*pm_prepare)(void);
 extern void (*pm_finish)(void);
+extern unsigned int (*pm_check_eint_pend)(void);
 
 /* Flags for PM Control */
 

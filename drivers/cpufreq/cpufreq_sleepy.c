@@ -192,7 +192,7 @@ static struct early_suspend sleepy_power_suspend = {
 static inline u64 get_cpu_idle_time_jiffy(unsigned int cpu, u64 *wall)
 {
         u64 idle_time;
-        cputime64_t cur_wall_time;
+        u64 cur_wall_time;
         u64 busy_time;
 
         cur_wall_time = jiffies64_to_cputime64(get_jiffies_64());

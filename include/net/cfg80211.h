@@ -817,10 +817,10 @@ struct cfg80211_scan_request {
 };
 
 /**
-* struct cfg80211_match_set - sets of attributes to match
-*
-* @ssid: SSID to be matched
-*/
+ * struct cfg80211_match_set - sets of attributes to match
+ *
+ * @ssid: SSID to be matched
+ */
 struct cfg80211_match_set {
 	struct cfg80211_ssid ssid;
 };
@@ -835,9 +835,9 @@ struct cfg80211_match_set {
  * @ie: optional information element(s) to add into Probe Request or %NULL
  * @ie_len: length of ie in octets
  * @match_sets: sets of parameters to be matched for a scan result
- *    entry to be considered valid and to be passed to the host
- *    (others are filtered out).
- *    If ommited, all results are passed.
+ * 	entry to be considered valid and to be passed to the host
+ * 	(others are filtered out).
+ *	If ommited, all results are passed.
  * @n_match_sets: number of match sets
  * @wiphy: the wiphy this was for
  * @dev: the interface
@@ -1820,12 +1820,16 @@ struct wiphy_wowlan_support {
  *	this variable determines its size
  * @max_scan_ssids: maximum number of SSIDs the device can scan for in
  *	any given scan
+ * @max_sched_scan_ssids: maximum number of SSIDs the device can scan
+ *	for in any given scheduled scan
  * @max_match_sets: maximum number of match sets the device can handle
  *	when performing a scheduled scan, 0 if filtering is not
  *	supported.
  * @max_scan_ie_len: maximum length of user-controlled IEs device can
  *	add to probe request frames transmitted during a scan, must not
  *	include fixed IEs like supported rates
+ * @max_sched_scan_ie_len: same as max_scan_ie_len, but for scheduled
+ *	scans
  * @coverage_class: current coverage class
  * @fw_version: firmware version for ethtool reporting
  * @hw_version: hardware version for ethtool reporting

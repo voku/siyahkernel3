@@ -235,7 +235,7 @@ nl80211_rekey_policy[NUM_NL80211_REKEY_DATA] = {
 static const struct nla_policy
 nl80211_match_policy[NL80211_SCHED_SCAN_MATCH_ATTR_MAX + 1] = {
 	[NL80211_ATTR_SCHED_SCAN_MATCH_SSID] = { .type = NLA_BINARY,
-		.len = IEEE80211_MAX_SSID_LEN },
+						 .len = IEEE80211_MAX_SSID_LEN },
 };
 
 /* ifidx get helper */
@@ -722,7 +722,7 @@ static int nl80211_send_wiphy(struct sk_buff *msg, u32 pid, u32 seq, int flags,
 	NLA_PUT_U16(msg, NL80211_ATTR_MAX_SCHED_SCAN_IE_LEN,
 		    dev->wiphy.max_sched_scan_ie_len);
 	NLA_PUT_U8(msg, NL80211_ATTR_MAX_MATCH_SETS,
-		    dev->wiphy.max_match_sets);
+		   dev->wiphy.max_match_sets);
 
 	if (dev->wiphy.flags & WIPHY_FLAG_IBSS_RSN)
 		NLA_PUT_FLAG(msg, NL80211_ATTR_SUPPORT_IBSS_RSN);
@@ -3573,9 +3573,9 @@ static int nl80211_start_sched_scan(struct sk_buff *skb,
 
 	if (info->attrs[NL80211_ATTR_SCHED_SCAN_MATCH])
 		nla_for_each_nested(attr,
-			info->attrs[NL80211_ATTR_SCHED_SCAN_MATCH],
-			tmp)
-		n_match_sets++;
+				    info->attrs[NL80211_ATTR_SCHED_SCAN_MATCH],
+				    tmp)
+			n_match_sets++;
 
 	if (n_match_sets > wiphy->max_match_sets)
 		return -EINVAL;

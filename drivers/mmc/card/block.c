@@ -1358,6 +1358,11 @@ static u8 mmc_blk_prep_packed_list(struct mmc_queue *mq, struct request *req)
 	}
 
 	while (reqs < max_packed_rw - 1) {
+		/* We should stop no-more packing its nopacked_period */
+		if ((card->host->caps2 & MMC_CAP2_ADAPT_PACKED)
+				&& mmc_is_nopacked_period(mq))
+			break;
+
 		spin_lock_irq(q->queue_lock);
 		next = blk_fetch_request(q);
 		spin_unlock_irq(q->queue_lock);
@@ -2022,7 +2027,7 @@ static int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 		if (card->host->areq)
 			mmc_blk_issue_rw_rq(mq, NULL);
 		if (req->cmd_flags & REQ_SECURE &&
-			!(card->quirks & MMC_QUIRK_SEC_ERASE_TRIM_BROKEN))
+			!(card->quirks & MMC_QUIRK_MOVINAND_SECURE))
 			ret = mmc_blk_issue_secdiscard_rq(mq, req);
 		else
 			ret = mmc_blk_issue_discard_rq(mq, req);
@@ -2323,34 +2328,33 @@ static const struct mmc_fixup blk_fixups[] =
 	MMC_FIXUP("MMC32G", 0x11, CID_OEMID_ANY, add_quirk_mmc,
 		  MMC_QUIRK_BLK_NO_CMD23),
 
-	/*
-	 * Some Micron MMC cards needs longer data read timeout than
-	 * indicated in CSD.
-	 */
+       /*
+	* Some Micron MMC cards needs longer data read timeout than
+	* indicated in CSD.
+	*/
 	MMC_FIXUP(CID_NAME_ANY, CID_MANFID_MICRON, 0x200, add_quirk_mmc,
 		  MMC_QUIRK_LONG_READ_TIME),
 
 	/*
-	 * On these Samsung MoviNAND parts, performing secure erase or
-	 * secure trim can result in unrecoverable corruption due to a
-	 * firmware bug.
+	 * Some issue about secure erase/secure trim for Samsung MoviNAND
 	 */
+
 	MMC_FIXUP("M8G2FA", CID_MANFID_SAMSUNG, CID_OEMID_ANY, add_quirk_mmc,
-		  MMC_QUIRK_SEC_ERASE_TRIM_BROKEN),
+		  MMC_QUIRK_MOVINAND_SECURE),
 	MMC_FIXUP("MAG4FA", CID_MANFID_SAMSUNG, CID_OEMID_ANY, add_quirk_mmc,
-		  MMC_QUIRK_SEC_ERASE_TRIM_BROKEN),
+		  MMC_QUIRK_MOVINAND_SECURE),
 	MMC_FIXUP("MBG8FA", CID_MANFID_SAMSUNG, CID_OEMID_ANY, add_quirk_mmc,
-		  MMC_QUIRK_SEC_ERASE_TRIM_BROKEN),
+		  MMC_QUIRK_MOVINAND_SECURE),
 	MMC_FIXUP("MCGAFA", CID_MANFID_SAMSUNG, CID_OEMID_ANY, add_quirk_mmc,
-		  MMC_QUIRK_SEC_ERASE_TRIM_BROKEN),
+		  MMC_QUIRK_MOVINAND_SECURE),
 	MMC_FIXUP("VAL00M", CID_MANFID_SAMSUNG, CID_OEMID_ANY, add_quirk_mmc,
-		  MMC_QUIRK_SEC_ERASE_TRIM_BROKEN),
+		  MMC_QUIRK_MOVINAND_SECURE),
 	MMC_FIXUP("VYL00M", CID_MANFID_SAMSUNG, CID_OEMID_ANY, add_quirk_mmc,
-		  MMC_QUIRK_SEC_ERASE_TRIM_BROKEN),
+		  MMC_QUIRK_MOVINAND_SECURE),
 	MMC_FIXUP("KYL00M", CID_MANFID_SAMSUNG, CID_OEMID_ANY, add_quirk_mmc,
-		  MMC_QUIRK_SEC_ERASE_TRIM_BROKEN),
+		  MMC_QUIRK_MOVINAND_SECURE),
 	MMC_FIXUP("VZL00M", CID_MANFID_SAMSUNG, CID_OEMID_ANY, add_quirk_mmc,
-		  MMC_QUIRK_SEC_ERASE_TRIM_BROKEN),
+		  MMC_QUIRK_MOVINAND_SECURE),
 
 	END_FIXUP
 };

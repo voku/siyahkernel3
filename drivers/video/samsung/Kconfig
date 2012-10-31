@@ -344,3 +344,9 @@ config FB_S5P_V2_TL2796
 	---help---
 	  This enables support for Samsung  TL2796 WVGA LCD panel
 endchoice
+
+config MDNIE_MOD
+	tristate "mdnie sharpness mod"
+	depends on S6E8AA0_AMS480GYXX
+	default y
+

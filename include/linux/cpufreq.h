@@ -26,9 +26,6 @@
 
 #define CPU_MAX_SUSPEND_FREQ 	600000
 #define CPU_MIN_SUSPEND_FREQ	200000
-#define CPU_UV_MV_MAX		1500000
-#define CPU_UV_MV_MIN		750000
-
 
 /*********************************************************************
  *                     CPUFREQ NOTIFIER INTERFACE                    *
