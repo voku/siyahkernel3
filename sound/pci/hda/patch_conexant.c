@@ -137,6 +137,7 @@ struct conexant_spec {
 	unsigned int hp_laptop:1;
 	unsigned int asus:1;
 	unsigned int single_adc_amp:1;
+	unsigned int fixup_stereo_dmic:1;
 
 	unsigned int adc_switching:1;
 
@@ -4123,9 +4124,9 @@ static int cx_auto_init(struct hda_codec *codec)
 
 static int cx_auto_add_volume_idx(struct hda_codec *codec, const char *basename,
 			      const char *dir, int cidx,
-			      hda_nid_t nid, int hda_dir, int amp_idx)
+			      hda_nid_t nid, int hda_dir, int amp_idx, int chs)
 {
-	static char name[32];
+	static char name[44];
 	static struct snd_kcontrol_new knew[] = {
 		HDA_CODEC_VOLUME(name, 0, 0, 0),
 		HDA_CODEC_MUTE(name, 0, 0, 0),
@@ -4135,7 +4136,7 @@ static int cx_auto_add_volume_idx(struct hda_codec *codec, const char *basename,
 
 	for (i = 0; i < 2; i++) {
 		struct snd_kcontrol *kctl;
-		knew[i].private_value = HDA_COMPOSE_AMP_VAL(nid, 3, amp_idx,
+		knew[i].private_value = HDA_COMPOSE_AMP_VAL(nid, chs, amp_idx,
 							    hda_dir);
 		knew[i].subdevice = HDA_SUBDEV_AMP_FLAG;
 		knew[i].index = cidx;
@@ -4154,7 +4155,7 @@ static int cx_auto_add_volume_idx(struct hda_codec *codec, const char *basename,
 }
 
 #define cx_auto_add_volume(codec, str, dir, cidx, nid, hda_dir)		\
-	cx_auto_add_volume_idx(codec, str, dir, cidx, nid, hda_dir, 0)
+	cx_auto_add_volume_idx(codec, str, dir, cidx, nid, hda_dir, 0, 3)
 
 #define cx_auto_add_pb_volume(codec, nid, str, idx)			\
 	cx_auto_add_volume(codec, str, " Playback", idx, nid, HDA_OUTPUT)
@@ -4224,6 +4225,36 @@ static int cx_auto_build_output_controls(struct hda_codec *codec)
 	return 0;
 }
 
+/* Returns zero if this is a normal stereo channel, and non-zero if it should
+   be split in two independent channels.
+   dest_label must be at least 44 characters. */
+static int cx_auto_get_rightch_label(struct hda_codec *codec, const char *label,
+				     char *dest_label, int nid)
+{
+	struct conexant_spec *spec = codec->spec;
+	int i;
+
+	if (!spec->fixup_stereo_dmic)
+		return 0;
+
+	for (i = 0; i < AUTO_CFG_MAX_INS; i++) {
+		int def_conf;
+		if (spec->autocfg.inputs[i].pin != nid)
+			continue;
+
+		if (spec->autocfg.inputs[i].type != AUTO_PIN_MIC)
+			return 0;
+		def_conf = snd_hda_codec_get_pincfg(codec, nid);
+		if (snd_hda_get_input_pin_attr(def_conf) != INPUT_PIN_ATTR_INT)
+			return 0;
+
+		/* Finally found the inverted internal mic! */
+		snprintf(dest_label, 44, "Inverted %s", label);
+		return 1;
+	}
+	return 0;
+}
+
 static int cx_auto_add_capture_volume(struct hda_codec *codec, hda_nid_t nid,
 				      const char *label, const char *pfx,
 				      int cidx)
@@ -4232,14 +4263,25 @@ static int cx_auto_add_capture_volume(struct hda_codec *codec, hda_nid_t nid,
 	int i;
 
 	for (i = 0; i < spec->num_adc_nids; i++) {
+		char rightch_label[44];
 		hda_nid_t adc_nid = spec->adc_nids[i];
 		int idx = get_input_connection(codec, adc_nid, nid);
 		if (idx < 0)
 			continue;
 		if (spec->single_adc_amp)
 			idx = 0;
+
+		if (cx_auto_get_rightch_label(codec, label, rightch_label, nid)) {
+			/* Make two independent kcontrols for left and right */
+			int err = cx_auto_add_volume_idx(codec, label, pfx,
+					      cidx, adc_nid, HDA_INPUT, idx, 1);
+			if (err < 0)
+				return err;
+			return cx_auto_add_volume_idx(codec, rightch_label, pfx,
+						      cidx, adc_nid, HDA_INPUT, idx, 2);
+		}
 		return cx_auto_add_volume_idx(codec, label, pfx,
-					      cidx, adc_nid, HDA_INPUT, idx);
+					      cidx, adc_nid, HDA_INPUT, idx, 3);
 	}
 	return 0;
 }
@@ -4252,9 +4294,19 @@ static int cx_auto_add_boost_volume(struct hda_codec *codec, int idx,
 	int i, con;
 
 	nid = spec->imux_info[idx].pin;
-	if (get_wcaps(codec, nid) & AC_WCAP_IN_AMP)
+	if (get_wcaps(codec, nid) & AC_WCAP_IN_AMP) {
+		char rightch_label[44];
+		if (cx_auto_get_rightch_label(codec, label, rightch_label, nid)) {
+			int err = cx_auto_add_volume_idx(codec, label, " Boost",
+							 cidx, nid, HDA_INPUT, 0, 1);
+			if (err < 0)
+				return err;
+			return cx_auto_add_volume_idx(codec, rightch_label, " Boost",
+						      cidx, nid, HDA_INPUT, 0, 2);
+		}
 		return cx_auto_add_volume(codec, label, " Boost", cidx,
 					  nid, HDA_INPUT);
+	}
 	con = __select_input_connection(codec, spec->imux_info[idx].adc, nid,
 					&mux, false, 0);
 	if (con < 0)

@@ -231,6 +231,12 @@ static struct se_device *fd_create_virtdevice(
 	if (!(dev))
 		goto fail;
 
+	if (fd_dev->fbd_flags & FDBD_HAS_BUFFERED_IO_WCE) {
+		pr_debug("FILEIO: Forcing setting of emulate_write_cache=1"
+			" with FDBD_HAS_BUFFERED_IO_WCE\n");
+		dev->se_sub_dev->se_dev_attrib.emulate_write_cache = 1;
+	}
+
 	fd_dev->fd_dev_id = fd_host->fd_host_dev_id_count++;
 	fd_dev->fd_queue_depth = dev->queue_depth;
 
@@ -582,6 +588,19 @@ static ssize_t fd_set_configfs_dev_params(
 				" operations for struct fd_dev\n");
 
 			fd_dev->fbd_flags |= FDBD_USE_BUFFERED_IO;
+			break;
+		case Opt_fd_buffered_io:
+			match_int(args, &arg);
+			if (arg != 1) {
+				pr_err("bogus fd_buffered_io=%d value\n", arg);
+				ret = -EINVAL;
+				goto out;
+			}
+
+			pr_debug("FILEIO: Using buffered I/O"
+				" operations for struct fd_dev\n");
+
+			fd_dev->fbd_flags |= FDBD_HAS_BUFFERED_IO_WCE;
 			break;
 		default:
 			break;
