@@ -347,14 +347,14 @@ CHECK		= sparse
 
 # Use the wrapper for the compiler.  This wrapper scans for new
 # warnings and causes the build to stop upon encountering them.
-CC			= $(srctree)/scripts/gcc-wrapper.py $(REAL_CC)
+CC		= $(srctree)/scripts/gcc-wrapper.py $(REAL_CC)
 
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
 
-LOW_ARM_FLAGS	= -march=armv7-a -mtune=cortex-a9 \
+LOW_ARM_FLAGS	= -pipe -march=armv7-a -mtune=cortex-a9 \
 		  -mfpu=neon -mfloat-abi=softfp \
-		  -funsafe-math-optimizations -funroll-loops \
+		  -funsafe-math-optimizations \
 		  -mvectorize-with-neon-quad
 
 #ARM_FLAGS       = -pipe -marm -march=armv7-a -mtune=cortex-a9 \
