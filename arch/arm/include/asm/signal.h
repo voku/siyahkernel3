@@ -19,5 +19,4 @@ typedef struct {
 #define __ARCH_HAS_SA_RESTORER
 
 #include <asm/sigcontext.h>
-#define ptrace_signal_deliver(regs, cookie) do { } while (0)
 #endif
