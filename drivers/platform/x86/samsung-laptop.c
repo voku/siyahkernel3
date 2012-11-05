@@ -21,7 +21,6 @@
 #include <linux/dmi.h>
 #include <linux/platform_device.h>
 #include <linux/rfkill.h>
-#include <linux/acpi.h>
 
 /*
  * This driver is needed because a number of Samsung laptops do not hook
@@ -739,13 +738,6 @@ static int __init samsung_init(void)
 	int retval;
 
 	mutex_init(&sabi_mutex);
-	handle_backlight = true;
-
-#ifdef CONFIG_ACPI
-	/* Don't handle backlight here if the acpi video already handle it */
-	if (acpi_video_backlight_support())
-		handle_backlight = false;
-#endif
 
 	if (!force && !dmi_check_system(samsung_dmi_table))
 		return -ENODEV;
@@ -803,8 +795,7 @@ static int __init samsung_init(void)
 		printk(KERN_DEBUG "ifaceP = 0x%08x\n", ifaceP);
 		printk(KERN_DEBUG "sabi_iface = %p\n", sabi_iface);
 
-		if (handle_backlight)
-			test_backlight();
+		test_backlight();
 		test_wireless();
 
 		retval = sabi_get_command(sabi_config->commands.get_brightness,
@@ -842,7 +833,6 @@ static int __init samsung_init(void)
 	backlight_device->props.power = FB_BLANK_UNBLANK;
 	backlight_update_status(backlight_device);
 
-skip_backlight:
 	retval = init_wireless(sdev);
 	if (retval)
 		goto error_no_rfk;

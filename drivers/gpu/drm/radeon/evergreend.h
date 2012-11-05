@@ -196,9 +196,6 @@
 #define		NOOFCHAN_MASK					0x00003000
 #define MC_SHARED_CHREMAP					0x2008
 
-#define MC_SHARED_BLACKOUT_CNTL           		0x20ac
-#define		BLACKOUT_MODE_MASK			0x00000007
-
 #define	MC_ARB_RAMCFG					0x2760
 #define		NOOFBANK_SHIFT					0
 #define		NOOFBANK_MASK					0x00000003

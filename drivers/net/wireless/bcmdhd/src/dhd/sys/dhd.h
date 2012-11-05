@@ -649,8 +649,12 @@ extern uint dhd_sdiod_drive_strength;
 
 /* Override to force tx queueing all the time */
 extern uint dhd_force_tx_queueing;
-/* Default KEEP_ALIVE Period is 28 sec to prevent AP from sending Keep Alive probe frame */
-#define KEEP_ALIVE_PERIOD 28000
+/* Default KEEP_ALIVE Period is 55 sec to prevent AP from sending Keep Alive probe frame */
+#ifdef KEEP_ALIVE_PACKET_PERIOD_30_SEC
+#define KEEP_ALIVE_PERIOD 30000
+#else /* KEEP_ALIVE_PACKET_PERIOD_30_SEC */
+#define KEEP_ALIVE_PERIOD 55000
+#endif /* KEEP_ALIVE_PACKET_PERIOD_30_SEC */
 #define NULL_PKT_STR	"null_pkt"
 
 #ifdef SDTEST
@@ -661,7 +665,6 @@ extern uint dhd_pktgen;
 extern uint dhd_pktgen_len;
 #define MAX_PKTGEN_LEN 1800
 #endif
-
 
 /* optionally set by a module_param_string() */
 #define MOD_PARAM_PATHLEN	2048

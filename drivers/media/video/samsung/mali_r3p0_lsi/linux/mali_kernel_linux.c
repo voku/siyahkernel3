@@ -169,6 +169,8 @@ MODULE_PARM_DESC(step4_vol, "Mali Current step4	_vol");
 #endif
 #endif
 #endif
+#endif
+#else
 
 extern int mali_gpu_clk;
 module_param(mali_gpu_clk, int, S_IRUSR | S_IRGRP | S_IROTH); /* r--r--r-- */
@@ -190,11 +192,15 @@ MODULE_PARM_DESC(mali_gpu_vol, "Mali Current Voltage");
 extern int gpu_power_state;
 module_param(gpu_power_state, int, S_IRUSR | S_IRGRP | S_IROTH); /* r--r--r-- */
 MODULE_PARM_DESC(gpu_power_state, "Mali Power State");
-#endif
-#else
 extern int mali_major;
+
+#if 0
+int mali_touch_boost_level = 0;
+module_param(mali_touch_boost_level, int, S_IRUSR | S_IWUSR | S_IWGRP | S_IRGRP | S_IROTH); /* rw--rw--r-- */
+MODULE_PARM_DESC(mali_touch_boost_level, "Mali Touch Boost Level");
 #endif
 
+#endif
 
 static char mali_dev_name[] = "mali"; /* should be const, but the functions we call requires non-cost */
 

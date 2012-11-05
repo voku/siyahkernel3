@@ -1124,16 +1124,6 @@ struct xhci_cd {
 	union xhci_trb		*cmd_trb;
 };
 
-/* xHCI command default timeout value */
-#define XHCI_CMD_DEFAULT_TIMEOUT	(5 * HZ)
-
-/* command descriptor */
-struct xhci_cd {
-	struct list_head	cancel_cmd_list;
-	struct xhci_command	*command;
-	union xhci_trb		*cmd_trb;
-};
-
 struct xhci_dequeue_state {
 	struct xhci_segment *new_deq_seg;
 	union xhci_trb *new_deq_ptr;

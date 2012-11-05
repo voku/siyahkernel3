@@ -559,9 +559,7 @@ static void domain_update_iommu_coherency(struct dmar_domain *domain)
 {
 	int i;
 
-	i = find_first_bit(&domain->iommu_bmp, g_num_of_iommus);
-
-	domain->iommu_coherency = i < g_num_of_iommus ? 1 : 0;
+	domain->iommu_coherency = 1;
 
 	for_each_set_bit(i, &domain->iommu_bmp, g_num_of_iommus) {
 		if (!ecap_coherent(g_iommus[i]->ecap)) {

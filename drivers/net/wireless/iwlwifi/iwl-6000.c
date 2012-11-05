@@ -212,7 +212,7 @@ static int iwl6000_hw_channel_switch(struct iwl_priv *priv,
 	 * See iwl_mac_channel_switch.
 	 */
 	struct iwl_rxon_context *ctx = &priv->contexts[IWL_RXON_CTX_BSS];
-	struct iwl6000_channel_switch_cmd *cmd;
+	struct iwl6000_channel_switch_cmd cmd;
 	const struct iwl_channel_info *ch_info;
 	u32 switch_time_in_usec, ucode_switch_time;
 	u16 ch;
@@ -222,25 +222,18 @@ static int iwl6000_hw_channel_switch(struct iwl_priv *priv,
 	struct ieee80211_vif *vif = ctx->vif;
 	struct iwl_host_cmd hcmd = {
 		.id = REPLY_CHANNEL_SWITCH,
-		.len = { sizeof(*cmd), },
+		.len = { sizeof(cmd), },
 		.flags = CMD_SYNC,
-		.dataflags[0] = IWL_HCMD_DFL_NOCOPY,
+		.data = { &cmd, },
 	};
-	int err;
 
-	cmd = kzalloc(sizeof(*cmd), GFP_KERNEL);
-	if (!cmd)
-		return -ENOMEM;
-
-	hcmd.data[0] = cmd;
-
-	cmd->band = priv->band == IEEE80211_BAND_2GHZ;
+	cmd.band = priv->band == IEEE80211_BAND_2GHZ;
 	ch = ch_switch->channel->hw_value;
 	IWL_DEBUG_11H(priv, "channel switch from %u to %u\n",
 		      ctx->active.channel, ch);
-	cmd->channel = cpu_to_le16(ch);
-	cmd->rxon_flags = ctx->staging.flags;
-	cmd->rxon_filter_flags = ctx->staging.filter_flags;
+	cmd.channel = cpu_to_le16(ch);
+	cmd.rxon_flags = ctx->staging.flags;
+	cmd.rxon_filter_flags = ctx->staging.filter_flags;
 	switch_count = ch_switch->count;
 	tsf_low = ch_switch->timestamp & 0x0ffffffff;
 	/*
