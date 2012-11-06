@@ -218,6 +218,21 @@ udc_proc_read(char *page, char **start, off_t off, int count,
 #include "s3c_udc_otg_xfer_dma.c"
 
 /*
+*  udc_core_disconnect
+*  Ask On Connection - Vzw requirement
+*/
+static void udc_core_disconect(struct s3c_udc *dev)
+{
+	u32 uTemp;
+
+	printk(KERN_DEBUG "usb: %s -dev->softconnect=%d\n",
+						__func__, dev->softconnect);
+	uTemp = __raw_readl(dev->regs + S3C_UDC_OTG_DCTL);
+	uTemp |= SOFT_DISCONNECT;
+	__raw_writel(uTemp, dev->regs + S3C_UDC_OTG_DCTL);
+}
+
+/*
  *	udc_disable - disable USB device controller
  */
 static void udc_disable(struct s3c_udc *dev)
@@ -336,18 +351,20 @@ int s3c_vbus_enable(struct usb_gadget *gadget, int is_active)
 			wake_lock_timeout(&dev->usbd_wake_lock, HZ * 5);
 			wake_lock_timeout(&dev->usb_cb_wake_lock, HZ * 5);
 		} else {
-			printk(KERN_DEBUG "usb: %s is_active=%d(udc_enable)\n",
-					__func__, is_active);
+			printk(KERN_DEBUG "usb: %s is_active=%d(udc_enable),"
+							"softconnect=%d\n",
+					__func__, is_active, dev->softconnect);
 			wake_lock(&dev->usb_cb_wake_lock);
 			udc_reinit(dev);
 			udc_enable(dev);
+			if (!dev->softconnect)
+				udc_core_disconect(dev);
 		}
 	} else {
 		printk(KERN_DEBUG "usb: %s, udc_enabled : %d, is_active : %d\n",
 				__func__, dev->udc_enabled, is_active);
 
 	}
-
 
 	mutex_unlock(&dev->mutex);
 	return 0;
@@ -660,11 +677,8 @@ static void set_max_pktsize(struct s3c_udc *dev, enum usb_device_speed speed)
 	}
 
 	dev->ep[0].ep.maxpacket = ep0_fifo_size;
-	for (i = 1; i < S3C_MAX_ENDPOINTS; i++) {
-		/* fullspeed limitations don't apply to isochronous endpoints */
-		if (dev->ep[i].bmAttributes != USB_ENDPOINT_XFER_ISOC)
-			dev->ep[i].ep.maxpacket = ep_fifo_size;
-	}
+	for (i = 1; i < S3C_MAX_ENDPOINTS; i++)
+		dev->ep[i].ep.maxpacket = ep_fifo_size;
 
 	/* EP0 - Control IN (64 bytes)*/
 	ep_ctrl = __raw_readl(dev->regs + S3C_UDC_OTG_DIEPCTL(EP0_CON));
@@ -910,6 +924,9 @@ static void s3c_udc_soft_disconnect(void)
 
 static int s3c_udc_pullup(struct usb_gadget *gadget, int is_on)
 {
+	struct s3c_udc *dev = container_of(gadget, struct s3c_udc, gadget);
+	dev->softconnect = is_on;
+
 	if (is_on)
 		s3c_udc_soft_connect();
 	else
@@ -1264,27 +1281,14 @@ static int s3c_udc_probe(struct platform_device *pdev)
 	wake_lock_init(&dev->usb_cb_wake_lock, WAKE_LOCK_SUSPEND,
 			"usb cb wake lock");
 
-	/* irq setup after old hardware state is cleaned up */
-	irq = platform_get_irq(pdev, 0);
-
-	retval =
-	    request_irq(irq, s3c_udc_irq, 0, driver_name, dev);
-
-	if (retval != 0) {
-		DEBUG(KERN_ERR "%s: can't get irq %i, err %d\n", driver_name,
-		      dev->irq, retval);
-		retval = -EBUSY;
-		goto err_regs;
-	}
-	dev->irq = irq;
-	disable_irq(dev->irq);
-
 	dev->clk = clk_get(&pdev->dev, "usbotg");
 
 	if (IS_ERR(dev->clk)) {
 		dev_err(&pdev->dev, "Failed to get clock\n");
+		retval = -ENXIO;
 		goto err_irq;
 	}
+	clk_enable(dev->clk);
 
 	dev->usb_ctrl = dma_alloc_coherent(&pdev->dev,
 			sizeof(struct usb_ctrlrequest)*BACK2BACK_SIZE,
@@ -1297,10 +1301,29 @@ static int s3c_udc_probe(struct platform_device *pdev)
 		goto err_clk;
 	}
 
+	/* Mask any interrupt left unmasked by the bootloader */
+	__raw_writel(0, dev->regs + S3C_UDC_OTG_GINTMSK);
+
+	/* irq setup after old hardware state is cleaned up */
+	irq = platform_get_irq(pdev, 0);
+	retval =
+	    request_irq(irq, s3c_udc_irq, 0, driver_name, dev);
+
+	if (retval != 0) {
+		DEBUG(KERN_ERR "%s: can't get irq %i, err %d\n", driver_name,
+		      dev->irq, retval);
+		retval = -EBUSY;
+		goto err_regs;
+	}
+	dev->irq = irq;
+
+	disable_irq(dev->irq);
+	clk_disable(dev->clk);
+
 	create_proc_files();
 
 	INIT_DELAYED_WORK(&dev->usb_ready_work, usb_ready);
-	schedule_delayed_work(&dev->usb_ready_work, msecs_to_jiffies(20000));
+	schedule_delayed_work(&dev->usb_ready_work, msecs_to_jiffies(15000));
 	mutex_init(&dev->mutex);
 
 	return retval;
@@ -1358,12 +1381,14 @@ static int s3c_udc_suspend(struct platform_device *pdev, pm_message_t state)
 		/* Terminate any outstanding requests  */
 		for (i = 0; i < S3C_MAX_ENDPOINTS; i++) {
 			struct s3c_ep *ep = &dev->ep[i];
+			unsigned long flags;
+
 			if (ep->dev != NULL)
-				spin_lock(&ep->dev->lock);
+				spin_lock_irqsave(&ep->dev->lock, flags);
 			ep->stopped = 1;
 			nuke(ep, -ESHUTDOWN);
 			if (ep->dev != NULL)
-				spin_unlock(&ep->dev->lock);
+				spin_unlock_irqrestore(&ep->dev->lock, flags);
 		}
 
 		if (dev->driver->disconnect)

@@ -155,12 +155,12 @@ if [ -e $KERNELDIR/arch/arm/boot/zImage ]; then
 	GETVER=`grep 'Siyah-Dorimanx-V' arch/arm/configs/dorimanx_defconfig | cut -c 38-42`
 	cp $KERNELDIR/zImage /$KERNELDIR/READY-JB/boot/
 	cd $KERNELDIR/READY-JB/
-	zip -r Kernel_Dorimanx-$GETVER-JB-MALI`date +"-%H-%M--%d-%m-12-SGII-PWR-CORE"`.zip .
+	zip -r Kernel_Dorimanx-$GETVER-ICS-JB-MALI`date +"-%H-%M--%d-%m-12-SGII-PWR-CORE"`.zip .
 	STATUS=`adb get-state`;
 	if [ "$STATUS" == "device" ]; then
 		read -p "push kernel to android (y/n)?"
 		if [ "$REPLY" == "y" ]; then
-			adb push $KERNELDIR/READY-JB/Kernel_Dorimanx*JB-MALI*.zip /sdcard/;
+			adb push $KERNELDIR/READY-JB/Kernel_Dorimanx*ICS-JB-MALI*.zip /sdcard/;
 		fi;
 	fi;
 else
