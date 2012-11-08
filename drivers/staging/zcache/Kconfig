@@ -1,7 +1,7 @@
 config ZCACHE
 	tristate "Dynamic compression of swap pages and clean pagecache pages"
-	depends on CLEANCACHE || FRONTSWAP
-	select XVMALLOC
+	depends on (CLEANCACHE || FRONTSWAP) && ZSMALLOC=y
+	select ZSMALLOC
 	select LZO_COMPRESS
 	select LZO_DECOMPRESS
 	default n
