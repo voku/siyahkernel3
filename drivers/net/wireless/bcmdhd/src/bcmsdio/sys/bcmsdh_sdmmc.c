@@ -168,7 +168,7 @@ sdioh_attach(osl_t *osh, void *bar0, uint irq)
 
 		/* Release host controller F1 */
 		sdio_release_host(gInstance->func[1]);
-	}else {
+	} else {
 		sd_err(("%s:gInstance->func[1] is null\n", __FUNCTION__));
 		MFREE(sd->osh, sd, sizeof(sdioh_info_t));
 		return NULL;
@@ -187,7 +187,7 @@ sdioh_attach(osl_t *osh, void *bar0, uint irq)
 
 		/* Release host controller F2 */
 		sdio_release_host(gInstance->func[2]);
-	}else {
+	} else {
 		sd_err(("%s:gInstance->func[2] is null\n", __FUNCTION__));
 		MFREE(sd->osh, sd, sizeof(sdioh_info_t));
 		return NULL;

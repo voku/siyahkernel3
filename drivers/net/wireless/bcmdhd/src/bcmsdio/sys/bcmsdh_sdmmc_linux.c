@@ -137,7 +137,7 @@ static int bcmsdh_sdmmc_probe(struct sdio_func *func,
 			sd_trace(("F2 found, calling bcmsdh_probe...\n"));
 			ret = bcmsdh_probe(&func->dev);
 		}
-	}else {
+	} else {
 		ret = -ENODEV;
 	}
 	

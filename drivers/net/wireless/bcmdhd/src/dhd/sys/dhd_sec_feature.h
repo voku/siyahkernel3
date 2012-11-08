@@ -40,8 +40,7 @@
 #define HW_OOB
 #endif
 
-/* Q1 also uses this feature */
-#if defined(CONFIG_MACH_U1) || defined(CONFIG_MACH_TRATS)
+#ifdef CONFIG_MACH_U1 /* Q1 also uses this feature */
 #ifdef CONFIG_MACH_Q1_BD
 #define HW_OOB
 #endif

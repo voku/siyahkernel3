@@ -134,9 +134,10 @@ typedef struct cmd_tlv {
 #endif
 
 #ifdef VSDB
-#define CMD_CHANGE_RL 	"CHANGE_RL"
+#define CMD_CHANGE_RL	"CHANGE_RL"
 #define CMD_RESTORE_RL  "RESTORE_RL"
-#endif
+#endif /* VSDB */
+
 typedef struct android_wifi_priv_cmd {
 	char *buf;
 	int used_len;
@@ -148,7 +149,7 @@ typedef struct android_wifi_priv_cmd {
  */
 void dhd_customer_gpio_wlan_ctrl(int onoff);
 uint dhd_dev_reset(struct net_device *dev, uint8 flag);
-void dhd_dev_init_ioctl(struct net_device *dev);
+int dhd_dev_init_ioctl(struct net_device *dev);
 #ifdef WL_CFG80211
 int wl_cfg80211_get_p2p_dev_addr(struct net_device *net, struct ether_addr *p2pdev_addr);
 int wl_cfg80211_set_btcoex_dhcp(struct net_device *dev, char *command);
@@ -370,7 +371,7 @@ int wl_android_set_country_rev(
 
 	memset(country_code, 0, sizeof(country_code));
 	sscanf(command+sizeof("SETCOUNTRYREV"), "%s %d", country_code, &rev);
-	WL_TRACE(("%s: country_code = %s, rev = %d\n", __func__,
+	WL_TRACE(("%s: country_code = %s, rev = %d\n", __FUNCTION__,
 		country_code, rev));
 
 	memcpy(cspec.country_abbrev, country_code, sizeof(country_code));
@@ -382,11 +383,11 @@ int wl_android_set_country_rev(
 
 	if (error) {
 		DHD_ERROR(("%s: set country '%s/%d' failed code %d\n",
-			__func__, cspec.ccode, cspec.rev, error));
+			__FUNCTION__, cspec.ccode, cspec.rev, error));
 	} else {
 		dhd_bus_country_set(dev, &cspec);
 		DHD_INFO(("%s: set country '%s/%d'\n",
-			__func__, cspec.ccode, cspec.rev));
+			__FUNCTION__, cspec.ccode, cspec.rev));
 	}
 
 	return error;
@@ -405,10 +406,10 @@ static int wl_android_get_country_rev(
 
 	if (error) {
 		DHD_ERROR(("%s: get country failed code %d\n",
-			__func__, error));
+			__FUNCTION__, error));
 		return -1;
 	} else {
-		DHD_INFO(("%s: get country '%s %d'\n", __func__, smbuf, smbuf[WLC_CNTRY_BUF_SZ]));
+		DHD_INFO(("%s: get country '%s %d'\n", __FUNCTION__, smbuf, smbuf[WLC_CNTRY_BUF_SZ]));
 	}
 	bytes_written = snprintf(command, total_len, "%s %s %d", CMD_COUNTRYREV_GET, smbuf, smbuf[WLC_CNTRY_BUF_SZ]);
 	return bytes_written;
@@ -538,9 +539,9 @@ static int wl_android_get_p2p_dev_addr(struct net_device *ndev, char *command, i
 #ifdef BCMCCX
 static int wl_android_get_cckm_rn(struct net_device *dev, char *command)
 {
-        int error, rn;
+	int error, rn;
 
-        WL_TRACE(("%s:wl_android_get_cckm_rn\n", dev->name));
+	WL_TRACE(("%s:wl_android_get_cckm_rn\n", dev->name));
 
         error = wldev_iovar_getint(dev, "cckm_rn", &rn);
         if (unlikely(error)) {
@@ -565,9 +566,8 @@ static int wl_android_set_cckm_krk(struct net_device *dev, char *command)
         memset(iovar_buf, 0, sizeof(iovar_buf));
         memcpy(key, command+strlen("set cckm_krk")+1, 16);
 
-        error = wldev_iovar_setbuf(dev,"cckm_krk", key, sizeof(key), iovar_buf, WLC_IOCTL_MEDLEN, NULL);
-        if (unlikely(error))
-        {
+        error = wldev_iovar_setbuf(dev, "cckm_krk", key, sizeof(key), iovar_buf, WLC_IOCTL_MEDLEN, NULL);
+        if (unlikely(error)) {
                 WL_ERR((" cckm_krk set error (%d)\n", error));
                 return -1;
         }
@@ -600,7 +600,7 @@ static int wl_android_get_assoc_res_ies(struct net_device *dev, char *command)
 
         /* first 4 bytes are ie len */
         memcpy(command, &resp_ies_len, sizeof(u32));
-        bytes_written= sizeof(u32);
+        bytes_written = sizeof(u32);
 
         /* get the association resp IE's if there are any */
         if (resp_ies_len) {
@@ -653,7 +653,10 @@ int wl_android_wifi_on(struct net_device *dev)
 		}
 		ret = dhd_dev_reset(dev, FALSE);
 		sdioh_start(NULL, 1);
-		dhd_dev_init_ioctl(dev);
+		if (!ret) {
+			if (dhd_dev_init_ioctl(dev) < 0)
+				ret = -EFAULT;
+		}
 		g_wifi_on = TRUE;
 	}
 
@@ -764,11 +767,9 @@ wl_android_set_auto_channel(struct net_device *dev, const char* string_num,
 	}
 
 done:
-//	snprintf(command, total_len, "%d", channel);
 	snprintf(command, 4, "%d", channel);
 	DHD_INFO(("%s: command result is %s\n", __FUNCTION__, command));
 
-//	return 1;
 	return 4;
 }
 
@@ -890,11 +891,11 @@ wl_android_ch_res_rl(struct net_device *dev, bool change)
 	int error = 0;
 	s32 srl = 7;
 	s32 lrl = 4;
-	printk("%s enter\n", __FUNCTION__);
+	printk(KERN_INFO "%s enter\n", __FUNCTION__);
 	if (change) {
 		srl = 4;
 		lrl = 2;
-	}	
+	}
 	error = wldev_ioctl(dev, WLC_SET_SRL, &srl,
 			sizeof(s32), true);
 	if (error) {
@@ -917,7 +918,6 @@ wl_android_set_ampdu_mpdu(struct net_device *dev, const char* string_num)
 	int err = 0;
 	int ampdu_mpdu;
 
-	//ampdu_mpdu = my_atoi(string_num);
 	ampdu_mpdu = bcm_atoi(string_num);
 
 	if (ampdu_mpdu > 32) {
@@ -1132,9 +1132,7 @@ int wl_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 	else if (strnicmp(command, CMD_SET_HAPD_AUTO_CHANNEL,
 				strlen(CMD_SET_HAPD_AUTO_CHANNEL)) == 0) {
 		int skip = strlen(CMD_SET_HAPD_AUTO_CHANNEL) + 3;
-//		wl_android_set_auto_channel(net, (const char*)command+skip, command,
-//									priv_cmd.total_len);
-		bytes_written = wl_android_set_auto_channel(net, (const char*)command+skip, command,
+		bytes_written = wl_android_set_auto_channel(net, (const char *)command+skip, command,
 									priv_cmd.total_len);
 	}
 	else if (strnicmp(command, CMD_SET_HAPD_MAX_NUM_STA,
@@ -1155,7 +1153,7 @@ int wl_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 	else if (strnicmp(command, CMD_HAPD_STA_DISASSOC,
 				strlen(CMD_HAPD_STA_DISASSOC)) == 0) {
 		int skip = strlen(CMD_HAPD_STA_DISASSOC) + 1;
-		wl_android_sta_diassoc(net, (const char*)command+skip);
+		wl_android_sta_diassoc(net, (const char *)command+skip);
 	}
 #ifdef OKC_SUPPORT
 	else if (strnicmp(command, CMD_OKC_SET_PMK, strlen(CMD_OKC_SET_PMK)) == 0)
@@ -1166,11 +1164,9 @@ int wl_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 #ifdef BCMCCX
 	else if (strnicmp(command, CMD_GETCCKM_RN, strlen(CMD_GETCCKM_RN)) == 0) {
 		bytes_written = wl_android_get_cckm_rn(net, command);
-	}
-	else if (strnicmp(command, CMD_SETCCKM_KRK, strlen(CMD_SETCCKM_KRK)) == 0) {
+	} else if (strnicmp(command, CMD_SETCCKM_KRK, strlen(CMD_SETCCKM_KRK)) == 0) {
 		bytes_written = wl_android_set_cckm_krk(net, command);
-	}
-	else if (strnicmp(command, CMD_GET_ASSOC_RES_IES, strlen(CMD_GET_ASSOC_RES_IES)) == 0) {
+	} else if (strnicmp(command, CMD_GET_ASSOC_RES_IES, strlen(CMD_GET_ASSOC_RES_IES)) == 0) {
 		bytes_written = wl_android_get_assoc_res_ies(net, command);
 	}
 #endif /* BCMCCX */
@@ -1178,7 +1174,7 @@ int wl_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 	/* CMD_AMPDU_MPDU */
 	else if (strnicmp(command, CMD_AMPDU_MPDU,strlen(CMD_AMPDU_MPDU)) == 0) {
 		int skip = strlen(CMD_AMPDU_MPDU) + 1;
-		bytes_written = wl_android_set_ampdu_mpdu(net, (const char*)command+skip);
+		bytes_written = wl_android_set_ampdu_mpdu(net, (const char *)command+skip);
 	}
 #endif
 #ifdef VSDB
@@ -1186,7 +1182,7 @@ int wl_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 		bytes_written = wl_android_ch_res_rl(net, true);
 	else if (strnicmp(command, CMD_RESTORE_RL, strlen(CMD_RESTORE_RL)) == 0)
 		bytes_written = wl_android_ch_res_rl(net, false);
-#endif
+#endif /* VSDB */
 	else {
 		if ((strnicmp(command, CMD_START, strlen(CMD_START)) != 0) &&
 			(strnicmp(command, CMD_SETFWPATH, strlen(CMD_SETFWPATH)) != 0))
@@ -1401,7 +1397,7 @@ static int wifi_remove(struct platform_device *pdev)
 	DHD_ERROR(("## %s\n", __FUNCTION__));
 	wifi_control_data = wifi_ctrl;
 
-	wifi_set_power(0, 100);	/* Power Off */
+	wifi_set_power(0, 200);	/* Power Off */
 	wifi_set_carddetect(0);	/* CardDetect (1->0) */
 
 	up(&wifi_control_sem);

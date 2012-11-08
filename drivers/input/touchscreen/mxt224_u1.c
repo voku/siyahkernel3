@@ -564,6 +564,7 @@ static void mxt224_ta_probe(bool ta_status)
 			calcfg_dis = copy_data->calcfg_batt_e ^ 0x20;
 		}
 		copy_data->threshold_e = copy_data->tchthr_batt_e;
+
 		calcfg_en = copy_data->calcfg_batt_e | 0x20;
 		noise_threshold = copy_data->noisethr_batt;
 		movfilter = copy_data->movfilter_batt;
@@ -1335,9 +1336,8 @@ static int __devinit mxt224_init_touch_driver(struct mxt224_data *data)
 	kfree(object_table);
 	return ret;
 }
-/* extern void gpu_boost_on_touch(void); */
 
-#ifdef CONFIG_KEYBOARD_CYPRESS_SAMMY_CM9
+#ifdef CONFIG_KEYBOARD_CYPRESS_GM
 void (*mxt224_touch_cb)(void) = NULL;
 #endif
 
@@ -1356,7 +1356,6 @@ static void report_input_data(struct mxt224_data *data)
 	u16 size = 1;
 	u8 value;
 #ifdef CONFIG_TOUCHSCREEN_GESTURES
-	int state;
 	int gesture_no, finger_no;
 	int finger_pos;
 	struct gesture_point *point;
@@ -1640,16 +1639,10 @@ static void report_input_data(struct mxt224_data *data)
 #ifdef CONFIG_KEYBOARD_CYPRESS_AOKP
 		if (flash_timeout)
 			flash_led_buttons(flash_timeout);
-
-/*
-		if (touch_is_pressed)
-			gpu_boost_on_touch();
-*/
 #endif
-#ifdef CONFIG_KEYBOARD_CYPRESS_SAMMY_CM9
+#ifdef CONFIG_KEYBOARD_CYPRESS_GM
 		if (touch_is_pressed && mxt224_touch_cb != NULL) {
 			(*mxt224_touch_cb)();
-			/* gpu_boost_on_touch(); */
 		}
 #endif
 	}
@@ -1906,9 +1899,11 @@ static void median_err_setting(void)
 				value = 100; /* 38;*/
 				write_mem(copy_data, obj_address + 25, 1,
 					  &value);
+#if 0
 				value = 16;
 				write_mem(copy_data, obj_address + 34, 1,
 					  &value);
+#endif
 				value = 40;
 				write_mem(copy_data, obj_address + 35, 1,
 					  &value);
@@ -2481,7 +2476,7 @@ static ssize_t mov_hysti_store(struct device *dev,
 	
 	//do not apply if the screen is not active,
 	//it will be applied after turning on the screen anyway -gm
-	if ( copy_data->mxt224_enabled == 1)
+	if (copy_data->mxt224_enabled == 1)
 	{
 		i = sprintf(buff, "%u %u %u", TOUCH_MULTITOUCHSCREEN_T9, 11, register_value);
 		qt602240_object_setting(dev, attr, buff, i);
@@ -3682,6 +3677,7 @@ static ssize_t slide2wake_store(struct device *dev,
 	return size;
 }
 
+#ifdef CONFIG_KEYBOARD_CYPRESS_AOKP
 static ssize_t led_flash_timeout_show(struct device *dev,
 				  struct device_attribute *attr, char *buf)
 {
@@ -3704,6 +3700,7 @@ static ssize_t led_flash_timeout_store(struct device *dev,
 
 	return size;
 }
+#endif
 
 static DEVICE_ATTR(set_refer0, S_IRUGO | S_IWUSR | S_IWGRP,
 		   set_refer0_mode_show, NULL);
@@ -3780,8 +3777,10 @@ static DEVICE_ATTR(tsp_touch_config, S_IRUGO | S_IWUSR | S_IWGRP,
 	touch_config_show, touch_config_store);
 static DEVICE_ATTR(tsp_touch_freq, S_IRUGO | S_IWUSR | S_IWGRP,
 	touch_lock_freq_show, touch_lock_freq_store);
+#ifdef CONFIG_KEYBOARD_CYPRESS_AOKP
 static DEVICE_ATTR(tsp_flash_timeout, S_IRUGO | S_IWUSR | S_IWGRP,
 	led_flash_timeout_show, led_flash_timeout_store);
+#endif
 static DEVICE_ATTR(tsp_slide2wake, S_IRUGO | S_IWUSR | S_IWGRP,
 	slide2wake_show, slide2wake_store);
 
@@ -4475,9 +4474,11 @@ static int __devinit mxt224_probe(struct i2c_client *client,
 		printk(KERN_ERR "Failed to create device file(%s)!\n",
 		       dev_attr_tsp_touch_freq.attr.name);
 
+#ifdef CONFIG_KEYBOARD_CYPRESS_AOKP
 	if (device_create_file(sec_touchscreen, &dev_attr_tsp_flash_timeout) < 0)
 		printk(KERN_ERR "Failed to create device file(%s)!\n",
 			dev_attr_tsp_flash_timeout.attr.name);
+#endif
 
 	if (device_create_file(sec_touchscreen, &dev_attr_tsp_slide2wake) < 0)
 		printk(KERN_ERR "Failed to create device file(%s)!\n",

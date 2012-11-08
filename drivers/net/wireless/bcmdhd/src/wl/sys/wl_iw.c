@@ -1226,7 +1226,7 @@ wl_iw_iscan_set_scan(
 	wl_iw_set_event_mask(dev);
 	wl_iw_iscan(iscan, &ssid, WL_SCAN_ACTION_START);
 
-	iscan->timer.expires = jiffies + iscan->timer_ms*HZ/1000;
+	iscan->timer.expires = jiffies + msecs_to_jiffies(iscan->timer_ms);
 	add_timer(&iscan->timer);
 	iscan->timer_on = 1;
 	DHD_ERROR(("TIMER_TIMER: i scan timer set(%s)\n", __FUNCTION__));
@@ -1613,7 +1613,7 @@ wl_iw_iscan_get_scan(
 		iwe.cmd = IWEVQUAL;
 		rssi = dtoh16(bi->RSSI);
 		if (rssi >= WL_IW_RSSI_INVALID)
-                        rssi = WL_IW_RSSI_MAXVAL;
+			rssi = WL_IW_RSSI_MAXVAL;
 
 		iwe.u.qual.qual = rssi_to_qual(rssi);
 		iwe.u.qual.level = 0x100 + rssi;
@@ -3416,7 +3416,7 @@ int wl_iw_get_wireless_stats(struct net_device *dev, struct iw_statistics *wstat
 	if (rssi >= WL_IW_RSSI_INVALID)
 		rssi = WL_IW_RSSI_MAXVAL;
 
-	WL_TRACE(("wl_iw_get_wireless_stats rssi=%d ****** \n", rssi));
+	WL_TRACE(("wl_iw_get_wireless_stats rssi=%d ******\n", rssi));
 	if (rssi <= WL_IW_RSSI_NO_SIGNAL)
 		wstats->qual.qual = 0;
 	else if (rssi <= WL_IW_RSSI_VERY_LOW)
@@ -3665,7 +3665,7 @@ _iscan_sysioc_thread(void *data)
 				rtnl_unlock();
 #endif
 
-				iscan->timer.expires = jiffies + iscan->timer_ms*HZ/1000;
+				iscan->timer.expires = jiffies + msecs_to_jiffies(iscan->timer_ms);
 				add_timer(&iscan->timer);
 				iscan->timer_on = 1;
 				DHD_ERROR(("TIMER_TIMER: iscan timer set(%s)\n", __FUNCTION__));
@@ -3678,7 +3678,7 @@ _iscan_sysioc_thread(void *data)
 			case WL_SCAN_RESULTS_PENDING:
 				WL_TRACE(("iscanresults pending\n"));
 
-				iscan->timer.expires = jiffies + iscan->timer_ms*HZ/1000;
+				iscan->timer.expires = jiffies + msecs_to_jiffies(iscan->timer_ms);
 				add_timer(&iscan->timer);
 				iscan->timer_on = 1;
 				DHD_ERROR(("TIMER_TIMER: iscan timer set(%s)\n", __FUNCTION__));

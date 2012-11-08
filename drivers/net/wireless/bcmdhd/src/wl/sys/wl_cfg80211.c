@@ -149,7 +149,7 @@ u32 wl_dbg_level = WL_DBG_ERR;
 /* Set this to 1 to use a seperate interface (p2p0)
  *  for p2p operations.
  */
-#define ENABLE_P2P_INTERFACE	1
+#define ENABLE_P2P_INTERFACE	0
 
 /* This is to override regulatory domains defined in cfg80211 module (reg.c)
  * By default world regulatory domain defined in reg.c puts the flags NL80211_RRF_PASSIVE_SCAN
@@ -1713,7 +1713,7 @@ static s32 wl_do_iscan(struct wl_priv *wl, struct cfg80211_scan_request *request
 	}
 	wl->iscan_kickstart = true;
 	wl_run_iscan(iscan, request, WL_SCAN_ACTION_START);
-	mod_timer(&iscan->timer, jiffies + iscan->timer_ms * HZ / 1000);
+	mod_timer(&iscan->timer, jiffies + msecs_to_jiffies(iscan->timer_ms));
 	iscan->timer_on = 1;
 
 	return err;
@@ -2011,7 +2011,7 @@ __wl_cfg80211_scan(struct wiphy *wiphy, struct net_device *ndev,
 #endif /* WL_CFG80211_VSDB_PRIORITIZE_SCAN_REQUEST */
 
 	/* Arm scan timeout timer */
-	mod_timer(&wl->scan_timeout, jiffies + WL_SCAN_TIMER_INTERVAL_MS * HZ / 1000);
+	mod_timer(&wl->scan_timeout, jiffies + msecs_to_jiffies(WL_SCAN_TIMER_INTERVAL_MS));
 	iscan_req = false;
 	if (request) {		/* scan bss */
 		ssids = request->ssids;
@@ -5594,7 +5594,7 @@ static s32 wl_inform_single_bss(struct wl_priv *wl, struct wl_bss_info *bi, u8 i
 	s32 signal;
 	u32 freq;
 	s32 err = 0;
-	u8 * ie_offset = NULL;
+	u8 *ie_offset = NULL;
 	gfp_t aflags;
 
 	if (unlikely(dtoh32(bi->length) > WL_BSS_INFO_MAX)) {
@@ -5639,33 +5639,32 @@ static s32 wl_inform_single_bss(struct wl_priv *wl, struct wl_bss_info *bi, u8 i
 
 	ie_offset = ((u8 *) bi) + bi->ie_offset;
 
-        if (is_roam_done && ((int)(*(ie_offset)) == WLAN_EID_SSID &&
-		((int)(*(ie_offset+1)) == 0 || (int)(*(ie_offset+2)) == 0))) {
-                u8 *ie_new_offset = NULL;
-                uint8 ie_new_length;
-                
-                WL_ERR(("WAR trace: Changing the SSID Info, from beacon %d\n", bi->flags & WL_BSS_FLAGS_FROM_BEACON));
+	if (is_roam_done && ((int)(*(ie_offset)) == WLAN_EID_SSID &&
+			((int)(*(ie_offset+1)) == 0 || (int)(*(ie_offset+2)) == 0))) {
+		u8 *ie_new_offset = NULL;
+		uint8 ie_new_length;
 
-                ie_new_offset = (u8 *)kzalloc(WL_BSS_INFO_MAX, GFP_KERNEL);
-                if (ie_new_offset) {
-                        *(ie_new_offset) = WLAN_EID_SSID; 
-                        *(ie_new_offset+1) = bi->SSID_len;
-                        memcpy(ie_new_offset+2, bi->SSID, bi->SSID_len);
-                        ie_new_length = bi->ie_length - *(ie_offset+1) + bi->SSID_len;
-                        
-                        /* Copy the remaining IE apart from SSID IE from bi */
-                        memcpy( ie_new_offset+2 + bi->SSID_len,
-                                ie_offset+2 + *(ie_offset+1),
-                                bi->ie_length - 2 - *(ie_offset+1));
-                        wl_mrg_ie(wl, ie_new_offset , ie_new_length);
-                        kfree(ie_new_offset);
-                } else {
-                        wl_mrg_ie(wl, ((u8 *) bi) + bi->ie_offset, bi->ie_length);
-                }
-        } else {
-                wl_mrg_ie(wl, ((u8 *) bi) + bi->ie_offset, bi->ie_length);
-        }
+		WL_ERR(("WAR trace: Changing the SSID Info, from beacon %d\n", bi->flags & WL_BSS_FLAGS_FROM_BEACON));
 
+		ie_new_offset = (u8 *)kzalloc(WL_BSS_INFO_MAX, GFP_KERNEL);
+		if (ie_new_offset) {
+			*(ie_new_offset) = WLAN_EID_SSID;
+			*(ie_new_offset+1) = bi->SSID_len;
+			memcpy(ie_new_offset+2, bi->SSID, bi->SSID_len);
+			ie_new_length = bi->ie_length - *(ie_offset+1) + bi->SSID_len;
+
+			/* Copy the remaining IE apart from SSID IE from bi */
+			memcpy(ie_new_offset+2 + bi->SSID_len,
+				ie_offset+2 + *(ie_offset+1),
+				bi->ie_length - 2 - *(ie_offset+1));
+			wl_mrg_ie(wl, ie_new_offset , ie_new_length);
+			kfree(ie_new_offset);
+		} else {
+			wl_mrg_ie(wl, ((u8 *) bi) + bi->ie_offset, bi->ie_length);
+		}
+	} else {
+		wl_mrg_ie(wl, ((u8 *) bi) + bi->ie_offset, bi->ie_length);
+	}
 	wl_cp_ie(wl, beacon_proberesp->variable, WL_BSS_INFO_MAX -
 		offsetof(struct wl_cfg80211_bss_info, frame_buf));
 	notif_bss_info->frame_len = offsetof(struct ieee80211_mgmt,
@@ -5820,7 +5819,7 @@ wl_notify_connect_status_ap(struct wl_priv *wl, struct net_device *ndev,
 	}
 	if (len)
 	memcpy(body, data, len);
-	
+
 	wldev_iovar_getbuf_bsscfg(ndev, "cur_etheraddr",
 		NULL, 0, wl->ioctl_buf, WLC_IOCTL_SMLEN, bsscfgidx, &wl->ioctl_buf_sync);
 	memcpy(da.octet, wl->ioctl_buf, ETHER_ADDR_LEN);
@@ -6910,7 +6909,7 @@ static s32 wl_create_event_handler(struct wl_priv *wl)
 		(unsigned int )wl, (unsigned int)&wl->event_tsk));
 	if (wl->event_tsk.thr_pid > 0)
 		WL_ERR(("wl->event_tsk already created ?\n"));
-		
+
 	/* Do not use DHD in cfg driver */
 	wl->event_tsk.thr_pid = -1;
 	PROC_START(wl_event_handler, wl, &wl->event_tsk, 0);
@@ -7029,7 +7028,7 @@ static s32 wl_iscan_pending(struct wl_priv *wl)
 	s32 err = 0;
 
 	/* Reschedule the timer */
-	mod_timer(&iscan->timer, jiffies + iscan->timer_ms * HZ / 1000);
+	mod_timer(&iscan->timer, jiffies + msecs_to_jiffies(iscan->timer_ms));
 	iscan->timer_on = 1;
 
 	return err;
@@ -7045,7 +7044,7 @@ static s32 wl_iscan_inprogress(struct wl_priv *wl)
 	wl_run_iscan(iscan, NULL, WL_SCAN_ACTION_CONTINUE);
 	mutex_unlock(&wl->usr_sync);
 	/* Reschedule the timer */
-	mod_timer(&iscan->timer, jiffies + iscan->timer_ms * HZ / 1000);
+	mod_timer(&iscan->timer, jiffies + msecs_to_jiffies(iscan->timer_ms));
 	iscan->timer_on = 1;
 
 	return err;
@@ -7265,7 +7264,7 @@ static s32 wl_escan_handler(struct wl_priv *wl,
 	wl_escan_result_t *escan_result;
 	wl_bss_info_t *bss = NULL;
 	wl_scan_results_t *list;
-	wifi_p2p_ie_t * p2p_ie;
+	wifi_p2p_ie_t *p2p_ie;
 	u32 bi_length;
 	u32 i;
 	u8 *p2p_dev_addr = NULL;
@@ -7542,7 +7541,7 @@ static s32 wl_notifier_change_state(struct wl_priv *wl, struct net_info *_net_in
 	u32 prev_chan = 0;
 	u32 connected_cnt  = 0;
 	struct net_info *iter, *next;
-	struct net_device *primary_dev = wl_to_prmry_ndev(wl); 
+	struct net_device *primary_dev = wl_to_prmry_ndev(wl);
 	if (set) { /* set */
 		switch (state) {
 			case WL_STATUS_CONNECTED: {
@@ -7566,8 +7565,8 @@ static s32 wl_notifier_change_state(struct wl_priv *wl, struct net_info *_net_in
 								if (CHSPEC_SB_UPPER(chanspec))
 									chan += CH_10MHZ_APART;
 								else
-									chan -= CH_10MHZ_APART;	
-							}								
+									chan -= CH_10MHZ_APART;
+							}
 							wl_update_prof(wl, iter->ndev, NULL, &chan, WL_PROF_CHAN);
 						}
 						if ((wl_get_mode_by_netdev(wl, iter->ndev) == WL_MODE_BSS)) {
@@ -7585,7 +7584,7 @@ static s32 wl_notifier_change_state(struct wl_priv *wl, struct net_info *_net_in
 						if (connected_cnt  > 1) {
 							if (!prev_chan && chan)
 								prev_chan = chan;
-							else if (prev_chan && (prev_chan != chan)){ 
+							else if (prev_chan && (prev_chan != chan)) {
 								wl->vsdb_mode = true;
 							}
 						}
@@ -7594,7 +7593,7 @@ static s32 wl_notifier_change_state(struct wl_priv *wl, struct net_info *_net_in
 				if ((wl_get_mode_by_netdev(wl, _net_info->ndev) == WL_MODE_AP) && p2p_is_on(wl))
 						if (wl_add_remove_eventmsg(primary_dev, WLC_E_P2P_PROBREQ_MSG, true) != BCME_OK)
 						CFGP2P_ERR((" failed to set WLC_E_P2P_PROPREQ_MSG\n"));
-			
+
 				break;
 			}
 			default:
@@ -7837,7 +7836,7 @@ s32 wl_cfg80211_attach(struct net_device *ndev, void *data)
 	wdev->iftype = wl_mode_to_nl80211_iftype(WL_MODE_BSS);
 	wl = (struct wl_priv *)wiphy_priv(wdev->wiphy);
 	WL_ERR(("%s: wl = 0x%08x\n", __FUNCTION__, (unsigned int)wl));
-	
+
 	wl->wdev = wdev;
 	wl->pub = data;
 	INIT_LIST_HEAD(&wl->net_list);
@@ -8738,7 +8737,7 @@ static void wl_init_eq_lock(struct wl_priv *wl)
 
 static void wl_delay(u32 ms)
 {
-	if (ms < 1000 / HZ) {
+	if (in_atomic() || (ms < jiffies_to_msecs(1))) {
 		cond_resched();
 		mdelay(ms);
 	} else {
@@ -8811,7 +8810,7 @@ s32 wl_cfg80211_set_wps_p2p_ie(struct net_device *net, char *buf, int len,
 		if (!wl->p2p->on) {
 			get_primary_mac(wl, &primary_mac);
 			wl_cfgp2p_generate_bss_mac(&primary_mac, &wl->p2p->dev_addr, &wl->p2p->int_addr);
-			
+
 			/* In case of p2p_listen command, supplicant send remain_on_channel
 			* without turning on P2P
 			*/
@@ -8822,7 +8821,7 @@ s32 wl_cfg80211_set_wps_p2p_ie(struct net_device *net, char *buf, int len,
 			if (unlikely(ret)) {
 				goto exit;
 			}
-		}	
+		}
 		if (net  != wl_to_prmry_ndev(wl)) {
 			if (wl_get_mode_by_netdev(wl, net) == WL_MODE_AP) {
 				ndev = wl_to_p2p_bss_ndev(wl, P2PAPI_BSSCFG_CONNECTION);
@@ -8848,7 +8847,7 @@ s32 wl_cfg80211_set_wps_p2p_ie(struct net_device *net, char *buf, int len,
 		if (pktflag)
 			ret = wl_cfgp2p_set_management_ie(wl, ndev, bssidx, pktflag, buf, len);
 	}
-exit:	
+exit:
 	return ret;
 }
 

@@ -43,7 +43,7 @@ typedef enum {
 	P2PAPI_BSSCFG_MAX
 } p2p_bsscfg_type_t;
 
-#define IE_MAX_LEN 300
+#define IE_MAX_LEN 512
 #define P2P_RES_MAX_LEN 1400
 /* Structure to hold all saved P2P and WPS IEs for a BSSCFG */
 struct p2p_saved_ie {
@@ -94,7 +94,8 @@ enum wl_cfgp2p_status {
 	WLP2P_STATUS_LISTEN_EXPIRED,
 	WLP2P_STATUS_ACTION_TX_COMPLETED,
 	WLP2P_STATUS_ACTION_TX_NOACK,
-	WLP2P_STATUS_SCANNING
+	WLP2P_STATUS_SCANNING,
+	WLP2P_STATUS_GO_NEG_PHASE
 };
 
 
@@ -123,21 +124,21 @@ enum wl_cfgp2p_status {
 #define CFGP2P_ERR(args)									\
 	do {										\
 		if (wl_dbg_level & WL_DBG_ERR) {				\
-			printk(KERN_INFO "CFGP2P-INFO2) %s : ", __func__);	\
+			printk(KERN_ERR "CFGP2P-INFO2) %s : ", __func__);	\
 			printk args;						\
 		}									\
 	} while (0)
 #define	CFGP2P_INFO(args)									\
 	do {										\
 		if (wl_dbg_level & WL_DBG_INFO) {				\
-			printk(KERN_INFO "CFGP2P-INFO) %s : ", __func__);	\
+			printk(KERN_ERR "CFGP2P-INFO) %s : ", __func__);	\
 			printk args;						\
 		}									\
 	} while (0)
 #define	CFGP2P_DBG(args)								\
 	do {									\
 		if (wl_dbg_level & WL_DBG_DBG) {			\
-			printk(KERN_DEBUG "CFGP2P-DEBUG) %s :", __func__);	\
+			printk(KERN_ERR "CFGP2P-DEBUG) %s :", __func__);	\
 			printk args;							\
 		}									\
 	} while (0)

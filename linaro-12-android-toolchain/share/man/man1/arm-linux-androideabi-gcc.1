@@ -124,7 +124,7 @@
 .\" ========================================================================
 .\"
 .IX Title "GCC 1"
-.TH GCC 1 "2012-09-10" "gcc-4.7.2" "GNU"
+.TH GCC 1 "2012-10-01" "gcc-4.7.3" "GNU"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -468,6 +468,15 @@ in the following sections.
 \&\-\-sysroot=\fR\fIdir\fR
 .IP "\fIMachine Dependent Options\fR" 4
 .IX Item "Machine Dependent Options"
+\&\fIAArch64 Options\fR
+\&\fB\-mbig\-endian  \-mlittle\-endian 
+\&\-mgeneral\-regs\-only 
+\&\-mcmodel=tiny  \-mcmodel=small  \-mcmodel=large 
+\&\-mstrict\-align 
+\&\-momit\-leaf\-frame\-pointer  \-mno\-omit\-leaf\-frame\-pointer 
+\&\-mtls\-dialect=desc  \-mtls\-dialect=traditional 
+\&\-march=\fR\fIname\fR  \fB\-mcpu=\fR\fIname\fR  \fB\-mtune=\fR\fIname\fR
+.Sp
 \&\fIAdapteva Epiphany Options\fR
 \&\fB\-mhalf\-reg\-file \-mprefer\-short\-insn\-regs 
 \&\-mbranch\-cost=\fR\fInum\fR \fB\-mcmove \-mnops=\fR\fInum\fR \fB\-msoft\-cmpsf 
@@ -934,10 +943,10 @@ See \s-1RS/6000\s0 and PowerPC Options.
 \&\fB\-Qy  \-Qn  \-YP,\fR\fIpaths\fR  \fB\-Ym,\fR\fIdir\fR
 .Sp
 \&\fITILE-Gx Options\fR
-\&\fB\-mcpu=CPU \-m32 \-m64\fR
+\&\fB\-mcpu=\fR\fIcpu\fR \fB\-m32 \-m64\fR
 .Sp
 \&\fITILEPro Options\fR
-\&\fB\-mcpu=CPU \-m32\fR
+\&\fB\-mcpu=\fR\fIcpu\fR \fB\-m32\fR
 .Sp
 \&\fIV850 Options\fR
 \&\fB\-mlong\-calls  \-mno\-long\-calls  \-mep  \-mno\-ep 
@@ -9826,6 +9835,109 @@ constants and certain bitmasks faster.
 Allowable values for reg are r43 and r63, which specify to use that register
 as a fixed register, and none, which means that no register is used for this
 purpose.  The default is \fB\-m1reg\-none\fR.
+.PP
+\fIAArch64 Options\fR
+.IX Subsection "AArch64 Options"
+.PP
+These options are defined for AArch64 implementations:
+.IP "\fB\-mbig\-endian\fR" 4
+.IX Item "-mbig-endian"
+Generate big-endian code.  This is the default when \s-1GCC\s0 is configured for an
+\&\fBaarch64_be\-*\-*\fR target.
+.IP "\fB\-mgeneral\-regs\-only\fR" 4
+.IX Item "-mgeneral-regs-only"
+Generate code which uses only the general registers.
+.IP "\fB\-mlittle\-endian\fR" 4
+.IX Item "-mlittle-endian"
+Generate little-endian code.  This is the default when \s-1GCC\s0 is configured for an
+\&\fBaarch64\-*\-*\fR but not an \fBaarch64_be\-*\-*\fR target.
+.IP "\fB\-mcmodel=tiny\fR" 4
+.IX Item "-mcmodel=tiny"
+Generate code for the tiny code model.  The program and its statically defined
+symbols must be within 1GB of each other.  Pointers are 64 bits.  Programs can
+be statically or dynamically linked.  This model is not fully implemented and
+mostly treated as \*(L"small\*(R".
+.IP "\fB\-mcmodel=small\fR" 4
+.IX Item "-mcmodel=small"
+Generate code for the small code model.  The program and its statically defined
+symbols must be within 4GB of each other.  Pointers are 64 bits.  Programs can
+be statically or dynamically linked.  This is the default code model.
+.IP "\fB\-mcmodel=large\fR" 4
+.IX Item "-mcmodel=large"
+Generate code for the large code model.  This makes no assumptions about
+addresses and sizes of sections.  Pointers are 64 bits.  Programs can be
+statically linked only.
+.IP "\fB\-mstrict\-align\fR" 4
+.IX Item "-mstrict-align"
+Do not assume that unaligned memory references will be handled by the system.
+.IP "\fB\-momit\-leaf\-frame\-pointer\fR" 4
+.IX Item "-momit-leaf-frame-pointer"
+.PD 0
+.IP "\fB\-mno\-omit\-leaf\-frame\-pointer\fR" 4
+.IX Item "-mno-omit-leaf-frame-pointer"
+.PD
+Omit or keep the frame pointer in leaf functions.  The former behaviour is the
+default.
+.IP "\fB\-mtls\-dialect=desc\fR" 4
+.IX Item "-mtls-dialect=desc"
+Use \s-1TLS\s0 descriptors as the thread-local storage mechanism for dynamic accesses
+of \s-1TLS\s0 variables.  This is the default.
+.IP "\fB\-mtls\-dialect=traditional\fR" 4
+.IX Item "-mtls-dialect=traditional"
+Use traditional \s-1TLS\s0 as the thread-local storage mechanism for dynamic accesses
+of \s-1TLS\s0 variables.
+.IP "\fB\-march=\fR\fIname\fR" 4
+.IX Item "-march=name"
+Specify the name of the target architecture, optionally suffixed by one or
+more feature modifiers.  This option has the form
+\&\fB\-march=\fR\fIarch\fR{\fB+\fR[\fBno\fR]\fIfeature\fR}*, where the
+only value for \fIarch\fR is \fBarmv8\-a\fR.  The possible values for
+\&\fIfeature\fR are documented in the sub-section below.
+.Sp
+Where conflicting feature modifiers are specified, the right-most feature is
+used.
+.Sp
+\&\s-1GCC\s0 uses this name to determine what kind of instructions it can emit when
+generating assembly code.  This option can be used in conjunction with or
+instead of the \fB\-mcpu=\fR option.
+.IP "\fB\-mcpu=\fR\fIname\fR" 4
+.IX Item "-mcpu=name"
+Specify the name of the target processor, optionally suffixed by one or more
+feature modifiers.  This option has the form
+\&\fB\-mcpu=\fR\fIcpu\fR{\fB+\fR[\fBno\fR]\fIfeature\fR}*, where the
+possible values for \fIcpu\fR are \fBgeneric\fR, \fBlarge\fR.  The
+possible values for \fIfeature\fR are documented in the sub-section
+below.
+.Sp
+Where conflicting feature modifiers are specified, the right-most feature is
+used.
+.Sp
+\&\s-1GCC\s0 uses this name to determine what kind of instructions it can emit when
+generating assembly code.
+.IP "\fB\-mtune=\fR\fIname\fR" 4
+.IX Item "-mtune=name"
+Specify the name of the processor to tune the performance for.  The code will
+be tuned as if the target processor were of the type specified in this option,
+but still using instructions compatible with the target processor specified
+by a \fB\-mcpu=\fR option.  This option cannot be suffixed by feature
+modifiers.
+.PP
+\fB\-march\fR and \fB\-mcpu\fR feature modifiers
+.IX Subsection "-march and -mcpu feature modifiers"
+.PP
+Feature modifiers used with \fB\-march\fR and \fB\-mcpu\fR can be one
+the following:
+.IP "\fBcrypto\fR" 4
+.IX Item "crypto"
+Enable Crypto extension.  This implies Advanced \s-1SIMD\s0 is enabled.
+.IP "\fBfp\fR" 4
+.IX Item "fp"
+Enable floating-point instructions.
+.IP "\fBsimd\fR" 4
+.IX Item "simd"
+Enable Advanced \s-1SIMD\s0 instructions.  This implies floating-point instructions
+are enabled.  This is the default for all current possible values for options
+\&\fB\-march\fR and \fB\-mcpu=\fR.
 .PP
 \fI\s-1ARM\s0 Options\fR
 .IX Subsection "ARM Options"

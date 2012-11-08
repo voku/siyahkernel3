@@ -49,6 +49,7 @@
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && defined(CONFIG_HAS_WAKELOCK)
 #include <linux/wakelock.h>
 #endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && defined (CONFIG_HAS_WAKELOCK) */
+
 /* The kernel threading is sdio-specific */
 struct task_struct;
 struct sched_param;
@@ -83,14 +84,13 @@ enum dhd_bus_state {
 #define CONCURRENT_MASK			(STA_MASK | WFD_MASK)
 
 /* max sequential rxcntl timeouts to set HANG event */
-#ifdef BCM4334_CHIP
-#define MAX_CNTL_TIMEOUT  1
-#else
 #define MAX_CNTL_TIMEOUT  2
-#endif
 
 #define DHD_SCAN_ACTIVE_TIME	 40 /* ms : Embedded default Active setting from DHD Driver */
 #define DHD_SCAN_PASSIVE_TIME	130 /* ms: Embedded default Passive setting from DHD Driver */
+
+#define DHD_BEACON_TIMEOUT_NORMAL  4
+#define DHD_BEACON_TIMEOUT_HIGH    10
 
 #ifndef POWERUP_MAX_RETRY
 #define POWERUP_MAX_RETRY	(10) /* how many times we retry to power up the chip */
@@ -263,6 +263,9 @@ typedef struct dhd_pub {
 	int   hang_was_sent;
 	int   rxcnt_timeout;		/* counter rxcnt timeout to send HANG */
 	int   txcnt_timeout;		/* counter txcnt timeout to send HANG */
+#ifdef BCM4334_CHIP	
+	int tx_seq_badcnt;
+#endif
 #ifdef WLMEDIA_HTSF
 	uint8 htsfdlystat_sz; /* Size of delay stats, max 255B */
 #endif
@@ -280,13 +283,13 @@ typedef struct dhd_pub {
 			SMP_RD_BARRIER_DEPENDS(); \
 			while (dhd_mmc_suspend && retry++ != b) { \
 				SMP_RD_BARRIER_DEPENDS(); \
-				wait_event_interruptible_timeout(a, !dhd_mmc_suspend, HZ/100); \
+				wait_event_interruptible_timeout(a, !dhd_mmc_suspend, 1); \
 			} \
 		}	while (0)
 #ifdef CUSTOMER_HW_SAMSUNG
 	#define DHD_PM_RESUME_WAIT(a)		_DHD_PM_RESUME_WAIT(a, 500)
 #else
-	#define DHD_PM_RESUME_WAIT(a) 		_DHD_PM_RESUME_WAIT(a, 200)
+	#define DHD_PM_RESUME_WAIT(a)		_DHD_PM_RESUME_WAIT(a, 200)
 #endif /* CUSTOMER_HW_SAMSUNG */
 	#define DHD_PM_RESUME_WAIT_FOREVER(a)	_DHD_PM_RESUME_WAIT(a, ~0)
 	#define DHD_PM_RESUME_RETURN_ERROR(a)	do { \
@@ -302,7 +305,7 @@ typedef struct dhd_pub {
 	#define SPINWAIT_SLEEP(a, exp, us) do { \
 		uint countdown = (us) + 9999; \
 		while ((exp) && (countdown >= 10000)) { \
-			wait_event_interruptible_timeout(a, FALSE, HZ/100); \
+			wait_event_interruptible_timeout(a, FALSE, 1); \
 			countdown -= 10000; \
 		} \
 	} while (0)
@@ -495,16 +498,21 @@ extern void dhd_os_sdunlock_sndup_rxq(dhd_pub_t * pub);
 extern void dhd_os_sdlock_eventq(dhd_pub_t * pub);
 extern void dhd_os_sdunlock_eventq(dhd_pub_t * pub);
 extern bool dhd_os_check_hang(dhd_pub_t *dhdp, int ifidx, int ret);
+extern int net_os_send_hang_message(struct net_device *dev);
 
 #ifdef PNO_SUPPORT
 extern int dhd_pno_enable(dhd_pub_t *dhd, int pfn_enabled);
 extern int dhd_pno_clean(dhd_pub_t *dhd);
 extern int dhd_pno_set(dhd_pub_t *dhd, wlc_ssid_t* ssids_local, int nssid,
                        ushort  scan_fr, int pno_repeat, int pno_freq_expo_max);
+extern int dhd_pno_set_ex(dhd_pub_t *dhd, wl_pfn_t* ssidnet, int nssid,
+			ushort pno_interval, int pno_repeat, int pno_expo_max, int pno_lost_time);
 extern int dhd_pno_get_status(dhd_pub_t *dhd);
 extern int dhd_dev_pno_reset(struct net_device *dev);
 extern int dhd_dev_pno_set(struct net_device *dev, wlc_ssid_t* ssids_local,
                            int nssid, ushort  scan_fr, int pno_repeat, int pno_freq_expo_max);
+extern int dhd_dev_pno_set_ex(struct net_device *dev, wl_pfn_t* ssidnet, int nssid,
+			ushort  pno_interval, int pno_repeat, int pno_expo_max, int pno_lost_time);
 extern int dhd_dev_pno_enable(struct net_device *dev,  int pfn_enabled);
 extern int dhd_dev_get_pno_status(struct net_device *dev);
 #endif /* PNO_SUPPORT */
@@ -513,6 +521,7 @@ extern int dhd_dev_get_pno_status(struct net_device *dev);
 #define DHD_BROADCAST_FILTER_NUM	1
 #define DHD_MULTICAST4_FILTER_NUM	2
 #define DHD_MULTICAST6_FILTER_NUM	3
+#define DHD_MDNS_FILTER_NUM			4
 extern int net_os_set_packet_filter(struct net_device *dev, int val);
 extern int net_os_rxfilter_add_remove(struct net_device *dev, int val, int num);
 
@@ -576,6 +585,7 @@ extern int  dhd_bus_start(dhd_pub_t *dhdp);
 extern int dhd_bus_membytes(dhd_pub_t *dhdp, bool set, uint32 address, uint8 *data, uint size);
 extern void dhd_print_buf(void *pbuf, int len, int bytes_per_line);
 extern bool dhd_is_associated(dhd_pub_t *dhd, void *bss_buf, int *retval);
+extern uint dhd_bus_chip_id(dhd_pub_t *dhdp);
 
 #if defined(KEEP_ALIVE)
 extern int dhd_keep_alive_onoff(dhd_pub_t *dhd);
@@ -667,6 +677,7 @@ extern uint dhd_pktgen;
 extern uint dhd_pktgen_len;
 #define MAX_PKTGEN_LEN 1800
 #endif
+
 
 /* optionally set by a module_param_string() */
 #define MOD_PARAM_PATHLEN	2048
