@@ -31,6 +31,9 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/vmalloc.h>
+#ifdef CONFIG_ZRAM_FOR_ANDROID
+#include <linux/swap.h>
+#endif
 
 #include "zram_drv.h"
 
@@ -180,6 +183,15 @@ static int page_zero_filled(void *ptr)
 	}
 
 	return 1;
+}
+
+static u64 zram_default_disksize_bytes(void)
+{
+#if 0
+	return ((totalram_pages << PAGE_SHIFT) *
+		default_disksize_perc_ram / 100) & PAGE_MASK;
+#endif
+	return CONFIG_ZRAM_DEFAULT_DISKSIZE;
 }
 
 static void zram_set_disksize(struct zram *zram, size_t totalram_bytes)
@@ -607,7 +619,7 @@ void __zram_reset_device(struct zram *zram)
 	/* Reset stats */
 	memset(&zram->stats, 0, sizeof(zram->stats));
 
-	zram->disksize = 0;
+	zram_set_disksize(zram, zram_default_disksize_bytes());
 }
 
 void zram_reset_device(struct zram *zram)
@@ -621,6 +633,11 @@ int zram_init_device(struct zram *zram)
 {
 	int ret;
 	size_t num_pages;
+
+#ifdef CONFIG_ZRAM_FOR_ANDROID
+	struct handle *handle;
+	union swap_header *swap_header;
+#endif /* CONFIG_ZRAM_FOR_ANDROID */
 
 	down_write(&zram->init_lock);
 
@@ -653,6 +670,20 @@ int zram_init_device(struct zram *zram)
 		ret = -ENOMEM;
 		goto fail_no_table;
 	}
+
+#ifdef CONFIG_ZRAM_FOR_ANDROID
+	handle = alloc_page(__GFP_ZERO);
+	if (!handle) {
+		pr_err("Error allocating swap header page\n");
+		ret = -ENOMEM;
+		goto fail;
+	}
+	zram->table[0].handle = handle;
+	zram_set_flag(zram, 0, ZRAM_UNCOMPRESSED);
+	swap_header = kmap(handle);
+	setup_swap_header(zram, swap_header);
+	kunmap(handle);
+#endif /* CONFIG_ZRAM_FOR_ANDROID */
 
 	set_capacity(zram->disk, zram->disksize >> SECTOR_SHIFT);
 
@@ -733,8 +764,12 @@ static int create_device(struct zram *zram, int device_id)
 	zram->disk->private_data = zram;
 	snprintf(zram->disk->disk_name, 16, "zram%d", device_id);
 
-	/* Actual capacity set using syfs (/sys/block/zram<id>/disksize */
-	set_capacity(zram->disk, 0);
+	/*
+	 * Set some default disksize. To set another disksize, user
+	 * must reset the device and then write a new disksize to
+	 * corresponding device's sysfs node.
+	 */
+	zram_set_disksize(zram, zram_default_disksize_bytes());
 
 	/* Can be changed using sysfs (/sys/block/zram<id>/compressor) */
 #ifdef MULTIPLE_COMPRESSORS
@@ -788,6 +823,13 @@ unsigned int zram_get_num_devices(void)
 static int __init zram_init(void)
 {
 	int ret, dev_id;
+
+	/*
+	 * Module parameter not specified by user. Use default
+	 * value as defined during kernel config.
+	 */
+	if (num_devices == 0)
+		num_devices = CONFIG_ZRAM_NUM_DEVICES;
 
 	if (num_devices > max_num_devices) {
 		pr_warn("Invalid value for num_devices: %u\n",

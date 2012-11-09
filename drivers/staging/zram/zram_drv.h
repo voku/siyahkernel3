@@ -29,7 +29,7 @@ static const unsigned max_num_devices = 32;
 /*-- Configurable parameters */
 
 /* Default zram disk size: 25% of total RAM */
-static const unsigned default_disksize_perc_ram = 25;
+static const unsigned default_disksize_perc_ram = CONFIG_ZRAM_DEFAULT_PERCENTAGE;
 
 /*
  * Pages that compress to size greater than this are stored
