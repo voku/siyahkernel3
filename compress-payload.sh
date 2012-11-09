@@ -16,5 +16,7 @@ tar -cv res > payload.tar
 stat payload.tar
 mv payload.tar ../
 cd ..
+md5sum PAYLOAD/STweaks.apk | awk '{print $1}' > ../initramfs3/res/stweaks_md5
+chmod 644 ../initramfs3/res/stweaks_md5
 echo "all done"
 
