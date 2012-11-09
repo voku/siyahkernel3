@@ -1899,11 +1899,9 @@ static void median_err_setting(void)
 				value = 100; /* 38;*/
 				write_mem(copy_data, obj_address + 25, 1,
 					  &value);
-#if 0
 				value = 16;
 				write_mem(copy_data, obj_address + 34, 1,
 					  &value);
-#endif
 				value = 40;
 				write_mem(copy_data, obj_address + 35, 1,
 					  &value);

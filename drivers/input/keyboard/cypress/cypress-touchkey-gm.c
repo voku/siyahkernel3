@@ -1209,8 +1209,7 @@ static ssize_t bln_status_write( struct device *dev, struct device_attribute *at
                 /* error */
 		}
 	} else {
-		if (!strncmp(buf, "on", 2)) 
-			bln_enabled = true;
+		if (!strncmp(buf, "on", 2)) bln_enabled = true;
 		if (!strncmp(buf, "off", 3)) {
 			bln_enabled = false;
 			if (BLN_ongoing)
@@ -1230,10 +1229,8 @@ static ssize_t notification_led_status_write( struct device *dev, struct device_
 
 	if (sscanf(buf,"%u\n", &data) == 1) {
 		if (data == 0 || data == 1) {
-			if (data == 1)
-				enable_led_notification();
-			if (data == 0)
-				disable_led_notification();
+			if (data == 1) enable_led_notification();
+			if (data == 0) disable_led_notification();
 		} else {
 		/* error */
 		}
@@ -1362,8 +1359,7 @@ static ssize_t led_timeout_write_ms( struct device *dev, struct device_attribute
 	if (!led_disabled) {
 		if (led_timeout == 0)
 			del_timer(&led_timer);
-		else
-			mod_timer(&led_timer, jiffies + msecs_to_jiffies(led_timeout));
+		else mod_timer(&led_timer, jiffies + msecs_to_jiffies(led_timeout));
 	}
 	return size;
 }
@@ -1377,8 +1373,7 @@ static ssize_t led_timeout_write( struct device *dev, struct device_attribute *a
 		if (led_timeout == 0) {
 			del_timer(&led_timer);
 			schedule_work(&led_fadein_work);
-		} else
-			mod_timer(&led_timer, jiffies + msecs_to_jiffies(led_timeout));
+		} else mod_timer(&led_timer, jiffies + msecs_to_jiffies(led_timeout));
 	}
 	return size;
 }
