@@ -47,6 +47,14 @@ config ZRAM_DEFAULT_DISKSIZE
 	help
 	  Set default zram disk size (default ~ 96MB)
 
+config ZRAM_FOR_ANDROID
+    bool "Optimize zram behavior for android"
+    depends on ZRAM && ANDROID
+    default y
+    help
+      This option enables modified zram behavior optimized for android
+
+
 config ZRAM_LZO
        bool "LZO compression"
        default y
