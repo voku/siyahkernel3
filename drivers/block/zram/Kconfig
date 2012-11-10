@@ -1,7 +1,7 @@
 config ZRAM
 	tristate "Compressed RAM block device support"
 	depends on BLOCK && SYSFS
-	select XVMALLOC
+	select ZSMALLOC
 	default n
 	help
 	  Creates virtual block devices called /dev/zramX (X = 0, 1, ...).
@@ -46,7 +46,6 @@ config ZRAM_DEFAULT_DISKSIZE
 	default 100663296
 	help
 	  Set default zram disk size (default ~ 96MB)
-
 
 config ZRAM_LZO
        bool "LZO compression"

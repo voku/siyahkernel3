@@ -31,9 +31,6 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/vmalloc.h>
-#ifdef CONFIG_ZRAM_FOR_ANDROID
-#include <linux/swap.h>
-#endif
 
 #include "zram_drv.h"
 
@@ -56,7 +53,7 @@ static const struct zram_compressor lzo_compressor = {
 #endif /* defined(CONFIG_ZRAM_LZO) */
 
 #if defined(CONFIG_ZRAM_SNAPPY)
-#include "../snappy/csnappy.h" /* if built in drivers/staging */
+#include "../../staging/snappy/csnappy.h" /* if built in drivers/staging */
 #define WMSIZE_ORDER	((PAGE_SHIFT > 14) ? (15) : (PAGE_SHIFT+1))
 static int
 snappy_compress_(
@@ -634,11 +631,6 @@ int zram_init_device(struct zram *zram)
 	int ret;
 	size_t num_pages;
 
-#ifdef CONFIG_ZRAM_FOR_ANDROID
-	struct handle *handle;
-	union swap_header *swap_header;
-#endif /* CONFIG_ZRAM_FOR_ANDROID */
-
 	down_write(&zram->init_lock);
 
 	if (zram->init_done) {
@@ -670,20 +662,6 @@ int zram_init_device(struct zram *zram)
 		ret = -ENOMEM;
 		goto fail_no_table;
 	}
-
-#ifdef CONFIG_ZRAM_FOR_ANDROID
-	handle = alloc_page(__GFP_ZERO);
-	if (!handle) {
-		pr_err("Error allocating swap header page\n");
-		ret = -ENOMEM;
-		goto fail;
-	}
-	zram->table[0].handle = handle;
-	zram_set_flag(zram, 0, ZRAM_UNCOMPRESSED);
-	swap_header = kmap(handle);
-	setup_swap_header(zram, swap_header);
-	kunmap(handle);
-#endif /* CONFIG_ZRAM_FOR_ANDROID */
 
 	set_capacity(zram->disk, zram->disksize >> SECTOR_SHIFT);
 

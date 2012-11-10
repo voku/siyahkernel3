@@ -32,9 +32,9 @@
 #include <linux/crypto.h>
 #include <linux/string.h>
 #include <linux/idr.h>
-#include "tmem.h"
+#include <linux/zsmalloc.h>
 
-#include "../zsmalloc/zsmalloc.h"
+#include "tmem.h"
 
 #ifdef CONFIG_CLEANCACHE
 #include <linux/cleancache.h>
