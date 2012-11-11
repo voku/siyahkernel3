@@ -382,12 +382,14 @@ uint dhd_console_ms = 0;
 module_param(dhd_console_ms, uint, 0644);
 #endif /* defined(DHD_DEBUG) */
 
+#ifdef CONFIG_BCMDHD_WIFI_PM
 /* Control wifi power mode during sleep
 	/sys/module/dhd/wifi_pm */
 #if defined(CONFIG_HAS_EARLYSUSPEND)
 uint wifi_pm = 0;
 module_param(wifi_pm, uint, 0664);
 #endif /* defined(CONFIG_HAS_EARLYSUSPEND) */
+#endif
 
 uint dhd_slpauto = TRUE;
 module_param(dhd_slpauto, uint, 0);
@@ -418,11 +420,11 @@ module_param(dhd_master_mode, uint, 1);
 
 #ifdef DHDTHREAD
 /* Watchdog thread priority, -1 to use kernel timer */
-int dhd_watchdog_prio = 0;
+int dhd_watchdog_prio = 97;
 module_param(dhd_watchdog_prio, int, 0);
 
 /* DPC thread priority, -1 to use tasklet */
-int dhd_dpc_prio = 1;
+int dhd_dpc_prio = 98;
 module_param(dhd_dpc_prio, int, 0);
 
 /* DPC thread priority, -1 to use tasklet */
@@ -645,6 +647,7 @@ int power_mode = PM_MAX;
 	DHD_ERROR(("%s: enter, value = %d in_suspend=%d\n",
 		__FUNCTION__, value, dhd->in_suspend));
 
+#ifdef CONFIG_BCMDHD_WIFI_PM
 	if (wifi_pm == 1) {
 		power_mode = PM_FAST;
 		pr_info("[Dorimanx] %p Wi-Fi Power Management policy changed to PM_FAST.", __FUNCTION__);
@@ -652,6 +655,7 @@ int power_mode = PM_MAX;
 		power_mode = PM_MAX;
 		pr_info("[Dorimanx] %p Wi-Fi Power Management policy changed to PM_MAX.", __FUNCTION__);
 	}
+#endif
 
 	if (dhd && dhd->up) {
 		if (value && dhd->in_suspend) {
