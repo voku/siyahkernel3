@@ -141,6 +141,7 @@ config SOC_DRA7XX
 	select ARM_GIC
 	select HAVE_SMP
 	select COMMON_CLK
+	select HAVE_ARM_ARCH_TIMER
 
 comment "OMAP Core Type"
 	depends on ARCH_OMAP2
