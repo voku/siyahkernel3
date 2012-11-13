@@ -98,8 +98,12 @@ void arch_vtime_task_switch(struct task_struct *prev)
 	cputime_t delta_stime, delta_utime;
 	__u64 now;
 
-	now = ia64_get_itc();
+	if (idle_task(smp_processor_id()) != prev)
+		vtime_account_system(prev);
+	else
+		vtime_account_idle(prev);
 
+	vtime_account_user(prev);
 	pi->ac_stamp = ni->ac_stamp;
 	ni->ac_stime = ni->ac_utime = 0;
 }
