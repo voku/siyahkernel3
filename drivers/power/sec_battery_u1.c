@@ -1891,7 +1891,7 @@ static void sec_bat_check_vf(struct sec_bat_info *info)
 		info->present_count = 0;
 	}
 
-	dev_info(info->dev, "%s: Battery Health (%d)\n",
+	dev_dbg(info->dev, "%s: Battery Health (%d)\n",
 		 __func__, info->batt_health);
 	return;
 }

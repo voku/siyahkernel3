@@ -347,7 +347,7 @@ void set_touch_constraints(bool blnstatus)
 int update_touchkey_brightness(int level)
 {
 	if (dyn_brightness) {
-		printk("Changing touchkey brightness %d\n", level);
+		pr_debug("Changing touchkey brightness %d\n", level);
 		touchkey_voltage = 2700 + ((level * 24) / 500) * 50;
 		change_touch_key_led_voltage(touchkey_voltage);
 	}
