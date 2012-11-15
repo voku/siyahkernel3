@@ -26,6 +26,7 @@
 #include <linux/export.h>
 #include <linux/bug.h>
 #include <linux/errno.h>
+#include <linux/module.h>
 #include <linux/memcopy.h>
 
 #ifndef __HAVE_ARCH_STRNICMP
@@ -587,7 +588,7 @@ void *memset(void *s, int c, size_t count)
 EXPORT_SYMBOL(memset);
 #endif
 
-#ifndef __HAVE_ARCH_MEMCPY
+//#ifndef __HAVE_ARCH_MEMCPY
 /**
  * memcpy - Copy one area of memory to another
  * @dest: Where to copy to
@@ -607,9 +608,9 @@ void *memcpy(void *dest, const void *src, size_t count)
 	return dest;
 }
 EXPORT_SYMBOL(memcpy);
-#endif
+//#endif
 
-#ifndef __HAVE_ARCH_MEMMOVE
+//#ifndef __HAVE_ARCH_MEMMOVE
 /**
  * memmove - Copy one area of memory to another
  * @dest: Where to copy to
@@ -623,7 +624,7 @@ void *memmove(void *dest, const void *src, size_t count)
 	unsigned long dstp = (unsigned long)dest; 
 	unsigned long srcp = (unsigned long)src; 
 
-	if (dest - src >= count) { 
+	if (dest - src >= count) {
 		/* Copy from the beginning to the end */ 
 		mem_copy_fwd(dstp, srcp, count); 
 	} else {
@@ -633,7 +634,7 @@ void *memmove(void *dest, const void *src, size_t count)
 	return dest;
 }
 EXPORT_SYMBOL(memmove);
-#endif
+//#endif
 
 #ifndef __HAVE_ARCH_MEMCMP
 /**
