@@ -19,8 +19,8 @@ static void noop_add_rq_rb(struct noop_data *nd, struct request *rq)
 {
 	struct request *alias;
 
-	while (unlikely(alias = elv_rb_add(&nd->sort_list, rq)))
-		noop_dispatch_request(rq->q, alias);
+	elv_rb_add(&nd->sort_list, rq);
+	noop_dispatch_request(rq->q, alias);
 }
 
 static inline void noop_del_rq_rb(struct noop_data *nd, struct request *rq)
@@ -69,6 +69,13 @@ static void noop_add_request(struct request_queue *q, struct request *rq)
 
 	list_add_tail(&rq->queuelist, &nd->queue);
 	noop_add_rq_rb(nd, rq);
+}
+
+static int noop_queue_empty(struct request_queue *q)
+{
+	struct noop_data *nd = q->elevator->elevator_data;
+
+	return list_empty(&nd->queue);
 }
 
 static void noop_dispatch_request(struct request_queue *q, struct request *rq)
@@ -131,7 +138,9 @@ static struct elevator_type elevator_noop = {
 
 static int __init noop_init(void)
 {
-	return elv_register(&elevator_noop);
+	elv_register(&elevator_noop);
+
+	return 0;
 }
 
 static void __exit noop_exit(void)
