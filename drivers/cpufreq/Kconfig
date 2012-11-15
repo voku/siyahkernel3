@@ -223,6 +223,13 @@ config CPU_FREQ_DEFAULT_GOV_PEGASUSQ
 	bool "pegasusq"
 	select CPU_FREQ_GOV_PEGASUSQ
 
+config CPU_FREQ_DEFAULT_GOV_NEOKDEMAND
+	bool "neokdemand"
+	select CPU_FREQ_GOV_NEOKDEMAND
+	select CPU_FREQ_GOV_PERFORMANCE
+	---help---
+	  Use the CPUFreq governor 'neokdemand' as default.
+
 endchoice
 
 config CPU_FREQ_GOV_PERFORMANCE
@@ -450,6 +457,14 @@ config CPU_FREQ_GOV_HYPER
 
 config CPU_FREQ_GOV_PEGASUSQ
 	tristate "'pegasusq' cpufreq policy governor"
+
+config CPU_FREQ_GOV_NEOKDEMAND
+	tristate "'neokdemand' cpufreq governor"
+	depends on CPU_FREQ
+	---help---
+	  'neokdemand' - a "smart" governor
+
+	  If in doubt, say N.
 
 config CPU_FREQ_GOV_SMARTASS
 	tristate "'smartass' cpufreq governor"
