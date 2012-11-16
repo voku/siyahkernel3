@@ -200,8 +200,8 @@ static char * const zone_names[MAX_NR_ZONES] = {
 	 "Movable",
 };
 
-int min_free_kbytes = 4096;
-int min_free_order_shift = 4;
+int min_free_kbytes = 1024;
+int min_free_order_shift = 1;
 
 static unsigned long __meminitdata nr_kernel_pages;
 static unsigned long __meminitdata nr_all_pages;
@@ -2341,14 +2341,7 @@ rebalance:
 					&did_some_progress);
 	if (page)
 		goto got_pg;
-
-	/*
-	 * Do not use sync migration if __GFP_NO_KSWAPD is used to indicate
-	 * the system should not be heavily disrupted. In practice, this is
-	 * to avoid THP callers being stalled in writeback during migration
-	 * as it's preferable for the the allocations to fail than to stall
-	 */
-	sync_migration = !(gfp_mask & __GFP_NO_KSWAPD);
+	sync_migration = true;
 
 	/*
 	 * If compaction is deferred for high-order allocations, it is because

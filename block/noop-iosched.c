@@ -10,57 +10,26 @@
 
 struct noop_data {
 	struct list_head queue;
-	struct rb_root sort_list;
 };
-
-static void noop_dispatch_request(struct request_queue *, struct request *);
-
-static void noop_add_rq_rb(struct noop_data *nd, struct request *rq)
-{
-	struct request *alias;
-
-	elv_rb_add(&nd->sort_list, rq);
-	noop_dispatch_request(rq->q, alias);
-}
-
-static inline void noop_del_rq_rb(struct noop_data *nd, struct request *rq)
-{
-	elv_rb_del(&nd->sort_list, rq);
-}
-
-static int
-noop_merge(struct request_queue *q, struct request **rqp, struct bio *bio)
-{
-	struct noop_data *nd = q->elevator->elevator_data;
-	sector_t sector = bio->bi_sector + bio_sectors(bio);
-	struct request *rq = elv_rb_find(&nd->sort_list, sector);
-
-	if (rq && elv_rq_merge_ok(rq, bio)) {
-		*rqp = rq;
-		return ELEVATOR_FRONT_MERGE;
-	}
-
-	return ELEVATOR_NO_MERGE;
-}
-
-static void
-noop_merged_request(struct request_queue *q, struct request *rq, int type)
-{
-	struct noop_data *nd = q->elevator->elevator_data;
-
-	if (type == ELEVATOR_FRONT_MERGE) {
-		noop_del_rq_rb(nd, rq);
-		noop_add_rq_rb(nd, rq);
-	}
-}
 
 static void noop_merged_requests(struct request_queue *q, struct request *rq,
 				 struct request *next)
 {
+	list_del_init(&next->queuelist);
+}
+
+static int noop_dispatch(struct request_queue *q, int force)
+{
 	struct noop_data *nd = q->elevator->elevator_data;
 
-	list_del_init(&next->queuelist);
-	noop_del_rq_rb(nd, next);
+	if (!list_empty(&nd->queue)) {
+		struct request *rq;
+		rq = list_entry(nd->queue.next, struct request, queuelist);
+		list_del_init(&rq->queuelist);
+		elv_dispatch_sort(q, rq);
+		return 1;
+	}
+	return 0;
 }
 
 static void noop_add_request(struct request_queue *q, struct request *rq)
@@ -68,36 +37,26 @@ static void noop_add_request(struct request_queue *q, struct request *rq)
 	struct noop_data *nd = q->elevator->elevator_data;
 
 	list_add_tail(&rq->queuelist, &nd->queue);
-	noop_add_rq_rb(nd, rq);
 }
 
-static int noop_queue_empty(struct request_queue *q)
+static struct request *
+noop_former_request(struct request_queue *q, struct request *rq)
 {
 	struct noop_data *nd = q->elevator->elevator_data;
 
-	return list_empty(&nd->queue);
+	if (rq->queuelist.prev == &nd->queue)
+		return NULL;
+	return list_entry(rq->queuelist.prev, struct request, queuelist);
 }
 
-static void noop_dispatch_request(struct request_queue *q, struct request *rq)
+static struct request *
+noop_latter_request(struct request_queue *q, struct request *rq)
 {
 	struct noop_data *nd = q->elevator->elevator_data;
 
-	list_del_init(&rq->queuelist);
-	noop_del_rq_rb(nd, rq);
-	elv_dispatch_add_tail(q, rq);
-}
-
-static int noop_dispatch(struct request_queue *q, int force)
-{
-	struct noop_data *nd = q->elevator->elevator_data;
-
-	if (!noop_queue_empty(q)) {
-		struct request *rq;
-		rq = list_entry(nd->queue.next, struct request, queuelist);
-		noop_dispatch_request(q, rq);
-		return 1;
-	}
-	return 0;
+	if (rq->queuelist.next == &nd->queue)
+		return NULL;
+	return list_entry(rq->queuelist.next, struct request, queuelist);
 }
 
 static void *noop_init_queue(struct request_queue *q)
@@ -108,7 +67,6 @@ static void *noop_init_queue(struct request_queue *q)
 	if (!nd)
 		return NULL;
 	INIT_LIST_HEAD(&nd->queue);
-	nd->sort_list = RB_ROOT;
 	return nd;
 }
 
@@ -123,12 +81,10 @@ static void noop_exit_queue(struct elevator_queue *e)
 static struct elevator_type elevator_noop = {
 	.ops = {
 		.elevator_merge_req_fn		= noop_merged_requests,
-		.elevator_merge_fn              = noop_merge,
-		.elevator_merged_fn             = noop_merged_request,
 		.elevator_dispatch_fn		= noop_dispatch,
 		.elevator_add_req_fn		= noop_add_request,
-		.elevator_former_req_fn         = elv_rb_former_request,
-		.elevator_latter_req_fn         = elv_rb_latter_request,
+		.elevator_former_req_fn		= noop_former_request,
+		.elevator_latter_req_fn		= noop_latter_request,
 		.elevator_init_fn		= noop_init_queue,
 		.elevator_exit_fn		= noop_exit_queue,
 	},
@@ -138,9 +94,7 @@ static struct elevator_type elevator_noop = {
 
 static int __init noop_init(void)
 {
-	elv_register(&elevator_noop);
-
-	return 0;
+	return elv_register(&elevator_noop);
 }
 
 static void __exit noop_exit(void)
