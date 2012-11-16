@@ -43,6 +43,9 @@
 #include "sd_ops.h"
 #include "sdio_ops.h"
 
+/* If the device is not responding */
+#define MMC_CORE_TIMEOUT_MS	(10 * 60 * 1000) /* 10 minute timeout */
+
 /*
  * Background operations can take a long time, depending on the housekeeping
  * operations the card has to perform.

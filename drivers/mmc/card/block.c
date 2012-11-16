@@ -88,6 +88,7 @@ int gnCmdLogIdx;
 #define INAND_CMD38_ARG_SECERASE 0x80
 #define INAND_CMD38_ARG_SECTRIM1 0x81
 #define INAND_CMD38_ARG_SECTRIM2 0x88
+#define MMC_BLK_TIMEOUT_MS  (10 * 60 * 1000)        /* 10 minute timeout */
 
 #define mmc_req_rel_wr(req)	(((req->cmd_flags & REQ_FUA) || \
 			(req->cmd_flags & REQ_META)) && \
@@ -1240,12 +1241,9 @@ static int mmc_blk_err_check(struct mmc_card *card,
 	if ((!mmc_host_is_spi(card->host) && rq_data_dir(req) != READ) ||
 			(mq_mrq->packed_cmd == MMC_PACKED_WR_HDR)) {
 		u32 status;
-		/* timeout value set 0x30000 : It works just SDcard case.
-		 * It means send CMD sequencially about 7.8sec.
-		 * If SDcard's data line stays low, timeout is about 4sec.
-		 * max timeout is up to 300ms
-		 */
-		u32 timeout = 0x30000;
+		unsigned long timeout;
+
+		timeout = jiffies + msecs_to_jiffies(MMC_BLK_TIMEOUT_MS);
 		do {
 			int err = get_card_status(card, &status, 5);
 			if (err) {
@@ -1253,25 +1251,24 @@ static int mmc_blk_err_check(struct mmc_card *card,
 				       req->rq_disk->disk_name, err);
 				return MMC_BLK_CMD_ERR;
 			}
+
+			/* Timeout if the device never becomes ready for data
+			 * and never leaves the program state.
+			 */
+			if (time_after(jiffies, timeout)) {
+				pr_err("%s: Card stuck in programming state!"\
+					" %s %s\n", mmc_hostname(card->host),
+					req->rq_disk->disk_name, __func__);
+
+				return MMC_BLK_CMD_ERR;
+			}
 			/*
 			 * Some cards mishandle the status bits,
 			 * so make sure to check both the busy
 			 * indication and the card state.
 			 */
-			/* Just SDcard case, decrease timeout */
-			if (mmc_card_sd(card))
-				timeout--;
-		} while ((!(status & R1_READY_FOR_DATA) ||
-			 (R1_CURRENT_STATE(status) == R1_STATE_PRG)) &&
-			 timeout);
-
-		/* If SDcard stays busy status, timeout is to be zero */
-		if (!timeout) {
-			pr_err("%s: card state has been never changed "
-					"to trans.!\n",
-					req->rq_disk->disk_name);
-			return MMC_BLK_DATA_ERR;
-		}
+		} while (!(status & R1_READY_FOR_DATA) ||
+			(R1_CURRENT_STATE(status) == R1_STATE_PRG));
 	}
 
 	if (brq->data.error) {
