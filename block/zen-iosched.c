@@ -25,7 +25,7 @@ struct zen_data {
 	/* Requests are only present on fifo_list */
 	struct list_head fifo_list[2];
 
-        unsigned int batching;          /* number of sequential requests made */
+	unsigned int batching;          /* number of sequential requests made */
 
 	/* tunables */
 	int fifo_expire[2];
