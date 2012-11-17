@@ -3002,12 +3002,14 @@ int sdhci_add_host(struct sdhci_host *host)
 				mmc_hostname(mmc));
 			host->vqmmc = NULL;
 		}
-	}
-	else if (regulator_is_supported_voltage(host->vqmmc, 1800000, 1800000))
+	} else {
 		regulator_enable(host->vqmmc);
-	else
-		caps[1] &= ~(SDHCI_SUPPORT_SDR104 | SDHCI_SUPPORT_SDR50 |
-		       SDHCI_SUPPORT_DDR50);
+		if (!regulator_is_supported_voltage(host->vqmmc, 1800000,
+			1800000))
+			caps[1] &= ~(SDHCI_SUPPORT_SDR104 |
+					SDHCI_SUPPORT_SDR50 |
+					SDHCI_SUPPORT_DDR50);
+	}
 
 	if (host->quirks2 & SDHCI_QUIRK2_NO_1_8_V)
 		caps[1] &= ~(SDHCI_SUPPORT_SDR104 | SDHCI_SUPPORT_SDR50 |
