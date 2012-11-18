@@ -272,8 +272,10 @@ static ssize_t mem_used_total_show(struct device *dev,
 	u64 val = 0;
 	struct zram *zram = dev_to_zram(dev);
 
-	if (zram->init_done)
-		val = zs_get_total_size_bytes(zram->mem_pool);
+	if (zram->init_done) {
+		val = xv_get_total_size_bytes(zram->mem_pool) +
+			((u64)(zram->stats.pages_expand) << PAGE_SHIFT);
+	}
 
 	return sprintf(buf, "%llu\n", val);
 }
@@ -284,7 +286,7 @@ static DEVICE_ATTR(compressor, S_IRUGO | S_IWUSR,
 #endif
 static DEVICE_ATTR(disksize, S_IRUGO | S_IWUSR,
 		disksize_show, disksize_store);
-static DEVICE_ATTR(initstate, S_IRUGO, initstate_show, NULL);
+static DEVICE_ATTR(initstate, S_IRUGO | S_IWUSR, initstate_show, initstate_store);
 static DEVICE_ATTR(reset, S_IWUSR, NULL, reset_store);
 static DEVICE_ATTR(num_reads, S_IRUGO, num_reads_show, NULL);
 static DEVICE_ATTR(num_writes, S_IRUGO, num_writes_show, NULL);
@@ -316,3 +318,4 @@ static struct attribute *zram_disk_attrs[] = {
 struct attribute_group zram_disk_attr_group = {
 	.attrs = zram_disk_attrs,
 };
+

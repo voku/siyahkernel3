@@ -103,7 +103,7 @@ EXPORT_SYMBOL_GPL(rds_info_deregister_func);
 void rds_info_iter_unmap(struct rds_info_iterator *iter)
 {
 	if (iter->addr) {
-		kunmap_atomic(iter->addr, KM_USER0);
+		kunmap_atomic(iter->addr);
 		iter->addr = NULL;
 	}
 }
@@ -118,7 +118,7 @@ void rds_info_copy(struct rds_info_iterator *iter, void *data,
 
 	while (bytes) {
 		if (!iter->addr)
-			iter->addr = kmap_atomic(*iter->pages, KM_USER0);
+			iter->addr = kmap_atomic(*iter->pages);
 
 		this = min(bytes, PAGE_SIZE - iter->offset);
 
@@ -133,7 +133,7 @@ void rds_info_copy(struct rds_info_iterator *iter, void *data,
 		iter->offset += this;
 
 		if (iter->offset == PAGE_SIZE) {
-			kunmap_atomic(iter->addr, KM_USER0);
+			kunmap_atomic(iter->addr);
 			iter->addr = NULL;
 			iter->offset = 0;
 			iter->pages++;

@@ -1,7 +1,11 @@
+config XVMALLOC
+	bool
+	default n
+
 config ZRAM
 	tristate "Compressed RAM block device support"
 	depends on BLOCK && SYSFS
-	select ZSMALLOC
+	select XVMALLOC
 	default n
 	help
 	  Creates virtual block devices called /dev/zramX (X = 0, 1, ...).
@@ -19,7 +23,7 @@ config ZRAM_NUM_DEVICES
 	int "Default number of zram devices"
 	depends on ZRAM
 	range 1 32
-	default 1
+	default 3
 	help
 	  Select default number of zram devices. You can override this value
 	  using 'num_devices' module parameter.
@@ -48,12 +52,11 @@ config ZRAM_DEFAULT_DISKSIZE
 	  Set default zram disk size (default ~ 96MB)
 
 config ZRAM_FOR_ANDROID
-    bool "Optimize zram behavior for android"
-    depends on ZRAM && ANDROID
-    default y
-    help
-      This option enables modified zram behavior optimized for android
-
+	bool "Optimize zram behavior for android"
+	depends on ZRAM && ANDROID
+	default y
+	help
+	  This option enables modified zram behavior optimized for android
 
 config ZRAM_LZO
        bool "LZO compression"

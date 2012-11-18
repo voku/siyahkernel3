@@ -17,13 +17,26 @@
 
 #include <linux/spinlock.h>
 #include <linux/mutex.h>
-#include <linux/zsmalloc.h>
+
+#include "xvmalloc.h"
 
 /*
  * Some arbitrary value. This is just to catch
  * invalid value for num_devices module parameter.
  */
 static const unsigned max_num_devices = 32;
+
+/*
+ * Stored at beginning of each compressed object.
+ *
+ * It stores back-reference to table entry which points to this
+ * object. This is required to support memory defragmentation.
+ */
+struct zobj_header {
+#if 0
+	u32 table_idx;
+#endif
+};
 
 /*-- Configurable parameters */
 
@@ -38,7 +51,7 @@ static const size_t max_zpage_size = PAGE_SIZE / 4 * 3;
 
 /*
  * NOTE: max_zpage_size must be less than or equal to:
- *   ZS_MAX_ALLOC_SIZE - sizeof(struct zobj_header)
+ *   XV_MAX_ALLOC_SIZE - sizeof(struct zobj_header)
  * otherwise, xv_malloc() would always return failure.
  */
 
@@ -62,6 +75,9 @@ static const size_t max_zpage_size = PAGE_SIZE / 4 * 3;
 
 /* Flags for zram pages (table[page_no].flags) */
 enum zram_pageflags {
+	/* Page is stored uncompressed */
+	ZRAM_UNCOMPRESSED,
+
 	/* Page consists entirely of zeros */
 	ZRAM_ZERO,
 
@@ -72,11 +88,11 @@ enum zram_pageflags {
 
 /* Allocated for each disk page */
 struct table {
-	unsigned long handle;
-	u16 size;	/* object size (excluding header) */
+	struct page *page;
+	u16 offset;
 	u8 count;	/* object ref count (not yet used) */
 	u8 flags;
-} __aligned(4);
+} __attribute__((aligned(4)));
 
 struct zram_stats {
 	u64 compr_size;		/* compressed size of pages stored */
@@ -89,11 +105,11 @@ struct zram_stats {
 	u32 pages_zero;		/* no. of zero filled pages */
 	u32 pages_stored;	/* no. of pages currently stored */
 	u32 good_compress;	/* % of pages with compression ratio<=50% */
-	u32 bad_compress;	/* % of pages with compression ratio>=75% */
+	u32 pages_expand;	/* % of incompressible pages */
 };
 
 struct zram {
-	struct zs_pool *mem_pool;
+	struct xv_pool *mem_pool;
 #ifdef MULTIPLE_COMPRESSORS
 	const struct zram_compressor *compressor;
 #endif
@@ -147,3 +163,4 @@ extern const struct zram_compressor * const zram_compressors[];
 #endif
 
 #endif
+

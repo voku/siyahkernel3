@@ -1974,7 +1974,7 @@ static void cifs_copy_cache_pages(struct address_space *mapping,
 		}
 		page_cache_release(page);
 
-		target = kmap_atomic(page, KM_USER0);
+		target = kmap_atomic(page);
 
 		if (PAGE_CACHE_SIZE > bytes_read) {
 			memcpy(target, data, bytes_read);
@@ -1986,7 +1986,7 @@ static void cifs_copy_cache_pages(struct address_space *mapping,
 			memcpy(target, data, PAGE_CACHE_SIZE);
 			bytes_read -= PAGE_CACHE_SIZE;
 		}
-		kunmap_atomic(target, KM_USER0);
+		kunmap_atomic(target);
 
 		flush_dcache_page(page);
 		SetPageUptodate(page);
