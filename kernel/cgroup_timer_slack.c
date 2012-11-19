@@ -32,7 +32,7 @@ static struct tslack_cgroup *cgroup_to_tslack(struct cgroup *cgroup)
 	return container_of(css, struct tslack_cgroup, css);
 }
 
-static struct cgroup_subsys_state *tslack_create(struct cgroup *cgroup)
+static struct cgroup_subsys_state *tslack_css_alloc(struct cgroup *cgroup)
 {
 	struct tslack_cgroup *tslack_cgroup;
 
@@ -51,7 +51,7 @@ static struct cgroup_subsys_state *tslack_create(struct cgroup *cgroup)
 	return &tslack_cgroup->css;
 }
 
-static void tslack_destroy(struct cgroup *cgroup)
+static void tslack_css_free(struct cgroup *cgroup)
 {
 	kfree(cgroup_to_tslack(cgroup));
 }
@@ -99,8 +99,8 @@ static struct cftype files[] = {
 struct cgroup_subsys timer_slack_subsys = {
 	.name		= "timer_slack",
 	.subsys_id	= timer_slack_subsys_id,
-	.create		= tslack_create,
-	.destroy	= tslack_destroy,
+	.css_alloc	= tslack_css_alloc,
+	.css_free	= tslack_css_free,
 	.base_cftypes	= files,
 };
 
