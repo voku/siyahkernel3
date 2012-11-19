@@ -165,8 +165,6 @@ static const struct kset_uevent_ops bus_uevent_ops = {
 
 static struct kset *bus_kset;
 
-
-#ifdef CONFIG_HOTPLUG
 /* Manually detach a device from its associated driver. */
 static ssize_t driver_unbind(struct device_driver *drv,
 			     const char *buf, size_t count)
@@ -253,7 +251,6 @@ static ssize_t store_drivers_probe(struct bus_type *bus,
 		return -EINVAL;
 	return count;
 }
-#endif
 
 static struct device *next_device(struct klist_iter *i)
 {
@@ -619,11 +616,6 @@ static void driver_remove_attrs(struct bus_type *bus,
 	}
 }
 
-#ifdef CONFIG_HOTPLUG
-/*
- * Thanks to drivers making their tables __devinit, we can't allow manual
- * bind and unbind from userspace unless CONFIG_HOTPLUG is enabled.
- */
 static int __must_check add_bind_files(struct device_driver *drv)
 {
 	int ret;
@@ -667,12 +659,6 @@ static void remove_probe_files(struct bus_type *bus)
 	bus_remove_file(bus, &bus_attr_drivers_autoprobe);
 	bus_remove_file(bus, &bus_attr_drivers_probe);
 }
-#else
-static inline int add_bind_files(struct device_driver *drv) { return 0; }
-static inline void remove_bind_files(struct device_driver *drv) {}
-static inline int add_probe_files(struct bus_type *bus) { return 0; }
-static inline void remove_probe_files(struct bus_type *bus) {}
-#endif
 
 static ssize_t driver_uevent_store(struct device_driver *drv,
 				   const char *buf, size_t count)
