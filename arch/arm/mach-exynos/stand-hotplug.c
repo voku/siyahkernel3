@@ -320,7 +320,7 @@ static void hotplug_timer(struct work_struct *work)
 
 		load += tmp_info->load;
 		/*find minimum runqueue length*/
-		tmp_hotplug_info[i].nr_running = get_cpu_nr_running(i);
+		tmp_hotplug_info[i].nr_running = nr_running();
 
 		if (i && nr_rq_min > tmp_hotplug_info[i].nr_running) {
 			nr_rq_min = tmp_hotplug_info[i].nr_running;

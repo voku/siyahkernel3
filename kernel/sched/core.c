@@ -2126,6 +2126,7 @@ unsigned long get_cpu_nr_running(unsigned int cpu)
     else
         return 0;
 }
+
 /*
  * nr_running, nr_uninterruptible and nr_context_switches:
  *
