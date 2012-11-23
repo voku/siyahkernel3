@@ -242,6 +242,7 @@ static inline void i2c_set_clientdata(struct i2c_client *dev, void *data)
  * @platform_data: stored in i2c_client.dev.platform_data
  * @archdata: copied into i2c_client.dev.archdata
  * @of_node: pointer to OpenFirmware device node
+ * @acpi_node: ACPI device node
  * @irq: stored in i2c_client.irq
  *
  * I2C doesn't actually support hardware probing, although controllers and
@@ -262,6 +263,7 @@ struct i2c_board_info {
 	void		*platform_data;
 	struct dev_archdata	*archdata;
 	struct device_node *of_node;
+	struct acpi_dev_node acpi_node;
 	int		irq;
 };
 
@@ -607,5 +609,11 @@ union i2c_smbus_data {
 #define I2C_SMBUS_I2C_BLOCK_BROKEN  6
 #define I2C_SMBUS_BLOCK_PROC_CALL   7		/* SMBus 2.0 */
 #define I2C_SMBUS_I2C_BLOCK_DATA    8
+
+#if IS_ENABLED(CONFIG_ACPI_I2C)
+extern void acpi_i2c_register_devices(struct i2c_adapter *adap);
+#else
+static inline void acpi_i2c_register_devices(struct i2c_adapter *adap) {}
+#endif
 
 #endif /* _LINUX_I2C_H */
