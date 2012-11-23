@@ -2013,10 +2013,12 @@ void device_shutdown(void)
 		}
 #else
 		if (dev->bus && dev->bus->shutdown) {
-			dev_dbg(dev, "shutdown\n");
+			if (initcall_debug)
+				dev_info(dev, "shutdown\n");
 			dev->bus->shutdown(dev);
 		} else if (dev->driver && dev->driver->shutdown) {
-			dev_dbg(dev, "shutdown\n");
+			if (initcall_debug)
+				dev_info(dev, "shutdown\n");
 			dev->driver->shutdown(dev);
 		}
 #endif
