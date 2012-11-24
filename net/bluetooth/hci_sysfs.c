@@ -397,12 +397,11 @@ static struct device_type bt_host = {
 static int inquiry_cache_show(struct seq_file *f, void *p)
 {
 	struct hci_dev *hdev = f->private;
-	struct inquiry_cache *cache = &hdev->inq_cache;
+        struct discovery_state *cache = &hdev->discovery;
 	struct inquiry_entry *e;
 
 	hci_dev_lock_bh(hdev);
-
-	for (e = cache->list; e; e = e->next) {
+	list_for_each_entry(e, &cache->all, all) {
 		struct inquiry_data *data = &e->data;
 		seq_printf(f, "%s %d %d %d 0x%.2x%.2x%.2x 0x%.4x %d %d %u\n",
 			   batostr(&data->bdaddr),
