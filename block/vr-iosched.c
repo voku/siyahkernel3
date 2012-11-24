@@ -428,9 +428,7 @@ static struct elevator_type iosched_vr = {
 
 static int __init vr_init(void)
 {
-elv_register(&iosched_vr);
-
-return 0;
+return elv_register(&iosched_vr);
 }
 
 static void __exit vr_exit(void)
