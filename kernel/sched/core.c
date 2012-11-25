@@ -541,6 +541,16 @@ void resched_cpu(int cpu)
 	raw_spin_unlock_irqrestore(&rq->lock, flags);
 }
 
+void force_cpu_resched(int cpu)
+{
+	struct rq *rq = cpu_rq(cpu);
+	unsigned long flags;
+
+	raw_spin_lock_irqsave(&rq->lock, flags);
+	resched_task(cpu_curr(cpu));
+	raw_spin_unlock_irqrestore(&rq->lock, flags);
+}
+
 #ifdef CONFIG_NO_HZ
 /*
  * In the semi idle case, use the nearest busy cpu for migrating timers
@@ -645,6 +655,11 @@ void resched_task(struct task_struct *p)
 {
 	assert_raw_spin_locked(&task_rq(p)->lock);
 	set_tsk_need_resched(p);
+}
+
+void force_cpu_resched(int cpu)
+{
+	set_need_resched();
 }
 #endif /* CONFIG_SMP */
 
@@ -2307,7 +2322,7 @@ static int test_cpu_load_update_mask(void)
 	return 0;
 }
 
- /*
+/*
  * For NO_HZ we delay the active fold to the next LOAD_FREQ update.
  * No protection here for race, so take care outside
  *
