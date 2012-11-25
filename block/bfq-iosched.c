@@ -2431,10 +2431,6 @@ static int bfq_set_request(struct request_queue *q, struct request *rq,
 	if (unlikely(bic->icq.changed))
 		if (test_and_clear_bit(ICQ_IOPRIO_CHANGED, &bic->icq.changed))
 			bfq_changed_ioprio(bic->icq.ioc, bic);
-/*
-	if (unlikely(icq_get_changed(&bic->icq) & ICQ_IOPRIO_CHANGED))
-		bfq_changed_ioprio(bic->icq.ioc, bic);
-*/
 
 	might_sleep_if(gfp_mask & __GFP_WAIT);
 
@@ -2692,7 +2688,6 @@ static void *bfq_init_queue(struct request_queue *q)
 	return bfqd;
 }
 
-#if 0
 static void bfq_slab_kill(void)
 {
 	if (bfq_pool != NULL)
@@ -2706,7 +2701,6 @@ static int __init bfq_slab_setup(void)
 		return -ENOMEM;
 	return 0;
 }
-#endif
 
 static ssize_t bfq_var_show(unsigned int var, char *page)
 {
@@ -2952,17 +2946,15 @@ static struct elevator_type iosched_bfq = {
 		.elevator_init_fn =		bfq_init_queue,
 		.elevator_exit_fn =		bfq_exit_queue,
 	},
-	.icq_size 	=	sizeof(struct bfq_io_cq),
-	.icq_align 	=	__alignof__(struct bfq_io_cq),
+	.icq_size =		sizeof(struct bfq_io_cq),
+	.icq_align =		__alignof__(struct bfq_io_cq),
 	.elevator_attrs =	bfq_attrs,
-	.elevator_name 	=	"bfq",
+	.elevator_name =	"bfq",
 	.elevator_owner =	THIS_MODULE,
 };
 
 static int __init bfq_init(void)
 {
-	int ret;
-
 	/*
 	 * Can be 0 on HZ < 1000 setups.
 	 */
@@ -2972,15 +2964,10 @@ static int __init bfq_init(void)
 	if (bfq_timeout_async == 0)
 		bfq_timeout_async = 1;
 
-	bfq_pool = KMEM_CACHE(bfq_queue, 0);
-	if (bfq_pool == NULL)
+	if (bfq_slab_setup())
 		return -ENOMEM;
 
-	ret = elv_register(&iosched_bfq);
-	if (ret) {
-		kmem_cache_destroy(bfq_pool);
-		return ret;
-	}
+	elv_register(&iosched_bfq);
 
 	return 0;
 }
@@ -2988,7 +2975,7 @@ static int __init bfq_init(void)
 static void __exit bfq_exit(void)
 {
 	elv_unregister(&iosched_bfq);
-	kmem_cache_destroy(bfq_pool);
+	bfq_slab_kill();
 }
 
 module_init(bfq_init);
