@@ -146,6 +146,7 @@ vr_merge(struct request_queue *q, struct request **rqp, struct bio *bio)
 		*rqp = rq;
 		return ELEVATOR_FRONT_MERGE;
 	}
+
 	return ELEVATOR_NO_MERGE;
 }
 
@@ -289,8 +290,9 @@ vr_dispatch_requests(struct request_queue *q, int force)
 
 	if (!rq) {
 		rq = vr_choose_request(vd);
-	if (!rq)
-		return 0;
+		if (!rq) {
+			return 0;
+		}
 	}
 
 	vr_move_request(vd, rq);
