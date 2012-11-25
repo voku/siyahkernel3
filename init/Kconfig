@@ -32,19 +32,6 @@ config BUILDTIME_EXTABLE_SORT
 
 menu "General setup"
 
-config SCHED_BFS
-	bool "BFS cpu scheduler"
-	---help---
-	  The Brain Fuck CPU Scheduler for excellent interactivity and
-	  responsiveness on the desktop and solid scalability on normal
-          hardware. Not recommended for 4096 CPUs.
-
-	  Currently incompatible with the Group CPU scheduler, and RCU TORTURE
-          TEST so these options are disabled.
-
-          Say Y here.
-	default y
-
 config EXPERIMENTAL
 	bool "Prompt for development and/or incomplete code/drivers"
 	---help---
@@ -692,7 +679,6 @@ config PROC_PID_CPUSET
 
 config CGROUP_CPUACCT
 	bool "Simple CPU accounting cgroup subsystem"
-	depends on !SCHED_BFS
 	help
 	  Provides a simple Resource Controller for monitoring the
 	  total CPU consumed by the tasks in a cgroup.
@@ -769,7 +755,6 @@ config CGROUP_PERF
 
 menuconfig CGROUP_SCHED
 	bool "Group CPU scheduler"
-	depends on !SCHED_BFS
 	default n
 	help
 	  This feature lets CPU scheduler recognize task groups and control CPU
@@ -906,7 +891,6 @@ endif # NAMESPACES
 
 config SCHED_AUTOGROUP
 	bool "Automatic process group scheduling"
-	depends on !SCHED_BFS
 	select EVENTFD
 	select CGROUPS
 	select CGROUP_SCHED
@@ -1345,6 +1329,11 @@ config SLUB
 	   of queues of objects. SLUB can use memory efficiently
 	   and has enhanced diagnostics. SLUB is the default choice for
 	   a slab allocator.
+
+config SLQB
+	bool "SLQB (Queued allocator)"
+	help
+	  SLQB is a proposed new slab allocator.
 
 config SLOB
 	depends on EXPERT
