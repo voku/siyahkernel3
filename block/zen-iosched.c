@@ -16,8 +16,8 @@
 
 enum zen_data_dir { ASYNC, SYNC };
 
-static const int sync_expire  = HZ / 4;    /* max time before a sync is submitted. */
-static const int async_expire = 4 * HZ;    /* ditto for async, these limits are SOFT! */
+static const int sync_expire  = HZ;    /* max time before a sync is submitted. */
+static const int async_expire = 6 * HZ;    /* ditto for async, these limits are SOFT! */
 static const int fifo_batch = 1;
 
 struct zen_data {
