@@ -2520,7 +2520,7 @@ rebalance:
 	 * system then fail the allocation instead of entering direct reclaim.
 	 */
 	if ((deferred_compaction || contended_compaction) &&
-	    (gfp_mask & (__GFP_MOVABLE|__GFP_REPEAT)) == __GFP_MOVABLE)
+						(gfp_mask & __GFP_NO_KSWAPD))
 		goto nopage;
 
 		/* If process is willing to reclaim/compact then wake kswapd */
