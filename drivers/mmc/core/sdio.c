@@ -119,7 +119,7 @@ static int sdio_read_cccr(struct mmc_card *card, u32 ocr)
 	cccr_vsn = data & 0x0f;
 
 	if (cccr_vsn > SDIO_CCCR_REV_3_00) {
-		printk(KERN_ERR "%s: unrecognised CCCR structure version %d\n",
+		pr_err("%s: unrecognised CCCR structure version %d\n",
 			mmc_hostname(card->host), cccr_vsn);
 		return -EINVAL;
 	}
@@ -1058,11 +1058,7 @@ static const struct mmc_bus_ops mmc_sdio_ops = {
 	.alive = mmc_sdio_alive,
 };
 
-#if (defined(CONFIG_MACH_M0) && defined(CONFIG_TARGET_LOCALE_EUR)) || \
-	((defined(CONFIG_MACH_C1) || defined(CONFIG_MACH_M0)) && \
-	defined(CONFIG_TARGET_LOCALE_KOR))
-extern void print_epll_con0(void);
-#endif
+
 /*
  * Starting point for SDIO card init.
  */
@@ -1079,13 +1075,6 @@ int mmc_attach_sdio(struct mmc_host *host)
 	if (err)
 		return err;
 
-#if (defined(CONFIG_MACH_M0) && defined(CONFIG_TARGET_LOCALE_EUR)) || \
-	((defined(CONFIG_MACH_C1) || defined(CONFIG_MACH_M0)) && \
-	defined(CONFIG_TARGET_LOCALE_KOR))
-	/* a sdio module is detected. print EPLL */
-	print_epll_con0();
-#endif
-
 	mmc_attach_bus(host, &mmc_sdio_ops);
 	if (host->ocr_avail_sdio)
 		host->ocr_avail = host->ocr_avail_sdio;
@@ -1095,7 +1084,7 @@ int mmc_attach_sdio(struct mmc_host *host)
 	 * support.
 	 */
 	if (ocr & 0xFF) {
-		printk(KERN_WARNING "%s: card claims to support voltages "
+		pr_warning("%s: card claims to support voltages "
 		       "below the defined range. These will be ignored.\n",
 		       mmc_hostname(host));
 		ocr &= ~0xFF;
@@ -1223,7 +1212,7 @@ remove:
 err:
 	mmc_detach_bus(host);
 
-	printk(KERN_ERR "%s: error %d whilst initialising SDIO card\n",
+	pr_err("%s: error %d whilst initialising SDIO card\n",
 		mmc_hostname(host), err);
 
 	return err;

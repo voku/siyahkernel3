@@ -477,8 +477,10 @@ static int _usb_tx_work(struct sk_buff *skb)
 
 	if (!pipe_data)
 		return -ENOENT;
+
 	if (iod->format == IPC_FMT && usb_ld->if_usb_is_main)
 		pr_skb("IPC-TX", skb);
+
 	if (iod->format == IPC_RAW)
 		mif_debug("TX[RAW]\n");
 

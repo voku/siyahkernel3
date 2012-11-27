@@ -113,7 +113,7 @@ static int mmc_decode_cid(struct mmc_card *card)
 		break;
 
 	default:
-		printk(KERN_ERR "%s: card has unknown MMCA version %d\n",
+		pr_err("%s: card has unknown MMCA version %d\n",
 			mmc_hostname(card->host), card->csd.mmca_vsn);
 		return -EINVAL;
 	}
@@ -151,7 +151,7 @@ static int mmc_decode_csd(struct mmc_card *card)
 	 */
 	csd->structure = UNSTUFF_BITS(resp, 126, 2);
 	if (csd->structure == 0) {
-		printk(KERN_ERR "%s: unrecognised CSD structure version %d\n",
+		pr_err("%s: unrecognised CSD structure version %d\n",
 			mmc_hostname(card->host), csd->structure);
 		return -EINVAL;
 	}
@@ -281,7 +281,7 @@ static int mmc_get_ext_csd(struct mmc_card *card, u8 **new_ext_csd)
 	 */
 	ext_csd = kmalloc(512, GFP_KERNEL);
 	if (!ext_csd) {
-		printk(KERN_ERR "%s: could not allocate a buffer to "
+		pr_err("%s: could not allocate a buffer to "
 			"receive the ext_csd.\n", mmc_hostname(card->host));
 		return -ENOMEM;
 	}
@@ -303,12 +303,12 @@ static int mmc_get_ext_csd(struct mmc_card *card, u8 **new_ext_csd)
 		 * stored in their CSD.
 		 */
 		if (card->csd.capacity == (4096 * 512)) {
-			printk(KERN_ERR "%s: unable to read EXT_CSD "
+			pr_err("%s: unable to read EXT_CSD "
 				"on a possible high capacity card. "
 				"Card will be ignored.\n",
 				mmc_hostname(card->host));
 		} else {
-			printk(KERN_WARNING "%s: unable to read "
+			pr_warning("%s: unable to read "
 				"EXT_CSD, performance might "
 				"suffer.\n",
 				mmc_hostname(card->host));
@@ -341,7 +341,7 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 	card->ext_csd.raw_ext_csd_structure = ext_csd[EXT_CSD_STRUCTURE];
 	if (card->csd.structure == 3) {
 		if (card->ext_csd.raw_ext_csd_structure > 2) {
-			printk(KERN_ERR "%s: unrecognised EXT_CSD structure "
+			pr_err("%s: unrecognised EXT_CSD structure "
 				"version %d\n", mmc_hostname(card->host),
 					card->ext_csd.raw_ext_csd_structure);
 			err = -EINVAL;
@@ -359,7 +359,7 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 	 * It's temporary change.
 	 */
 	if (card->ext_csd.rev > 7) {
-		printk(KERN_ERR "%s: unrecognised EXT_CSD revision %d\n",
+		pr_err("%s: unrecognised EXT_CSD revision %d\n",
 			mmc_hostname(card->host), card->ext_csd.rev);
 		err = -EINVAL;
 #if defined(MMC_CHECK_EXT_CSD)
@@ -435,7 +435,7 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 			mmc_error_ext_csd(card, ext_csd, 0, EXT_CSD_CARD_TYPE);
 #endif
 			/* MMC v4 spec says this cannot happen */
-			printk(KERN_WARNING "%s: card is mmc v4 but doesn't "
+			pr_warning("%s: card is mmc v4 but doesn't "
 					"support any high-speed modes.\n",
 					mmc_hostname(card->host));
 #if defined(MMC_RETRY_READ_EXT_CSD)
@@ -475,7 +475,7 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 			mmc_error_ext_csd(card, ext_csd, 0, EXT_CSD_CARD_TYPE);
 #endif
 			/* MMC v4 spec says this cannot happen */
-			printk(KERN_WARNING "%s: card is mmc v4 but doesn't "
+			pr_warning("%s: card is mmc v4 but doesn't "
 					"support any high-speed modes.\n",
 					mmc_hostname(card->host));
 #if defined(MMC_RETRY_READ_EXT_CSD)
@@ -579,9 +579,17 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 	}
 
 	if (card->ext_csd.rev >= 5) {
-		/* enable discard feature if emmc is 4.41+ */
+		/* enable discard feature if emmc is 4.41+ moviNand */
 		if ((ext_csd[EXT_CSD_VENDOR_SPECIFIC_FIELD + 0] & 0x1) &&
 			(card->cid.manfid == 0x15))
+			card->ext_csd.feature_support |= MMC_DISCARD_FEATURE;
+
+		/*
+		 * enable discard feature if emmc is 4.41+ Toshiba eMMC 19nm
+		 * Normally, emmc 4.5 use EXT_CSD[501]
+		 */
+		if ((ext_csd[EXT_CSD_MAX_PACKED_READS] & 0x3F) &&
+			(card->cid.manfid == 0x11))
 			card->ext_csd.feature_support |= MMC_DISCARD_FEATURE;
 
 		/* check whether the eMMC card supports HPI */
@@ -1124,7 +1132,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		 * so check for success and update the flag
 		 */
 		if (!err)
-			card->poweroff_notify_state = MMC_POWERED_ON;
+			card->ext_csd.power_off_notification = EXT_CSD_POWER_ON;
 
 	/*
 	 * Activate high speed (if supported)
@@ -1142,7 +1150,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 			goto free_card;
 
 		if (err) {
-			printk(KERN_WARNING "%s: switch to highspeed failed\n",
+			pr_warning("%s: switch to highspeed failed\n",
 			       mmc_hostname(card->host));
 			err = 0;
 		} else {
@@ -1303,7 +1311,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 					 card->ext_csd.generic_cmd6_time);
 		}
 		if (err) {
-			printk(KERN_WARNING "%s: switch to bus width %d ddr %d "
+			pr_warning("%s: switch to bus width %d ddr %d "
 				"failed\n", mmc_hostname(card->host),
 				1 << bus_width, ddr);
 			goto free_card;
@@ -1411,6 +1419,35 @@ err:
 	return err;
 }
 
+static int mmc_can_poweroff_notify(const struct mmc_card *card)
+{
+	return card &&
+		mmc_card_mmc(card) &&
+		(card->ext_csd.power_off_notification == EXT_CSD_POWER_ON);
+}
+
+static int mmc_poweroff_notify(struct mmc_card *card, unsigned int notify_type)
+{
+	unsigned int timeout = card->ext_csd.generic_cmd6_time;
+	int err;
+
+	/* Use EXT_CSD_POWER_OFF_SHORT as default notification type. */
+	if (notify_type == EXT_CSD_POWER_OFF_LONG)
+		timeout = card->ext_csd.power_off_longtime;
+
+	err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
+			 EXT_CSD_POWER_OFF_NOTIFICATION,
+			 notify_type, timeout);
+	if (err)
+		pr_err("%s: Power Off Notification timed out, %u\n",
+		       mmc_hostname(card->host), timeout);
+
+	/* Disable the power off notification after the switch operation. */
+	card->ext_csd.power_off_notification = EXT_CSD_NO_POWER_NOTIFICATION;
+
+	return err;
+}
+
 /*
  * Host is being removed. Free up the current card.
  */
@@ -1465,16 +1502,22 @@ static void mmc_detect(struct mmc_host *host)
  */
 static int mmc_suspend(struct mmc_host *host)
 {
+	int err = 0;
+
 	BUG_ON(!host);
 	BUG_ON(!host->card);
 
 	mmc_claim_host(host);
-	if (!mmc_host_is_spi(host))
-		mmc_deselect_cards(host);
-	host->card->state &= ~MMC_STATE_HIGHSPEED;
+	if (mmc_can_poweroff_notify(host->card))
+		err = mmc_poweroff_notify(host->card, EXT_CSD_POWER_OFF_SHORT);
+	else if (mmc_card_can_sleep(host))
+		err = mmc_card_sleep(host);
+	else if (!mmc_host_is_spi(host))
+		err = mmc_deselect_cards(host);
+	host->card->state &= ~(MMC_STATE_HIGHSPEED | MMC_STATE_HIGHSPEED_200);
 	mmc_release_host(host);
 
-	return 0;
+	return err;
 }
 
 /*
@@ -1501,7 +1544,7 @@ static int mmc_power_restore(struct mmc_host *host)
 {
 	int ret;
 
-	host->card->state &= ~MMC_STATE_HIGHSPEED;
+	host->card->state &= ~(MMC_STATE_HIGHSPEED | MMC_STATE_HIGHSPEED_200);
 	mmc_claim_host(host);
 	ret = mmc_init_card(host, host->ocr, host->card);
 	mmc_release_host(host);
@@ -1605,7 +1648,7 @@ int mmc_attach_mmc(struct mmc_host *host)
 	 * support.
 	 */
 	if (ocr & 0x7F) {
-		printk(KERN_WARNING "%s: card claims to support voltages "
+		pr_warning("%s: card claims to support voltages "
 		       "below the defined range. These will be ignored.\n",
 		       mmc_hostname(host));
 		ocr &= ~0x7F;
@@ -1644,7 +1687,7 @@ remove_card:
 err:
 	mmc_detach_bus(host);
 
-	printk(KERN_ERR "%s: error %d whilst initialising MMC card\n",
+	pr_err("%s: error %d whilst initialising MMC card\n",
 		mmc_hostname(host), err);
 
 	return err;
