@@ -17,7 +17,12 @@
 #include <asm/traps.h>			/* dotraplinkage, ...		*/
 #include <asm/pgalloc.h>		/* pgd_*(), ...			*/
 #include <asm/kmemcheck.h>		/* kmemcheck_*(), ...		*/
+<<<<<<< HEAD
 #include <asm/vsyscall.h>
+=======
+#include <asm/fixmap.h>			/* VSYSCALL_START		*/
+#include <asm/context_tracking.h>	/* exception_enter(), ...	*/
+>>>>>>> 91d1aa43... context_tracking: New context tracking susbsystem
 
 /*
  * Page fault error code bits:
