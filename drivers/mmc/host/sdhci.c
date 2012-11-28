@@ -1967,10 +1967,6 @@ static void sdhci_tasklet_finish(unsigned long param)
 		   controllers do not like that. */
 		sdhci_reset(host, SDHCI_RESET_CMD);
 		sdhci_reset(host, SDHCI_RESET_DATA);
-#ifdef CONFIG_MACH_PX
-		printk(KERN_DEBUG "%s: Controller is resetted!\n",
-			mmc_hostname(host->mmc));
-#endif
 	}
 
 	host->mrq = NULL;
@@ -2067,10 +2063,6 @@ static void sdhci_cmd_irq(struct sdhci_host *host, u32 intmask)
 
 	if (host->cmd->error) {
 		tasklet_schedule(&host->finish_tasklet);
-#ifdef CONFIG_MACH_PX
-		printk(KERN_DEBUG "%s: finish tasklet schedule\n",
-			mmc_hostname(host->mmc));
-#endif
 		return;
 	}
 
