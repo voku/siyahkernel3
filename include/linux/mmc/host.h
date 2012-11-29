@@ -257,6 +257,7 @@ struct mmc_host {
 				 MMC_CAP2_HS200_1_2V_SDR)
 #define MMC_CAP2_ADAPT_PACKED	(1 << 9)	/* Disable packed write adaptively */
 #define MMC_CAP2_HC_ERASE_SZ	(1 << 10)	/* High-capacity erase size */
+#define MMC_CAP2_BROKEN_VOLTAGE	(1 << 11)	/* Use the broken voltage */
 
 	mmc_pm_flag_t		pm_caps;	/* supported pm features */
 	unsigned int        power_notify_type;
