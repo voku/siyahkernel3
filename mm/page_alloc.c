@@ -2513,20 +2513,21 @@ rebalance:
 	sync_migration = true;
 
 	if (is_thp_alloc(gfp_mask, order)) {
-	/*
-	 * If compaction is deferred for high-order allocations, it is because
-	 * sync compaction recently failed. In this is the case and the caller
-	 * requested a movable allocation that does not heavily disrupt the
-	 * system then fail the allocation instead of entering direct reclaim.
-	 */
-	if ((deferred_compaction || contended_compaction) &&
-	    (gfp_mask & (__GFP_MOVABLE|__GFP_REPEAT)) == __GFP_MOVABLE)
-		goto nopage;
+		/*
+		 * If compaction is deferred for high-order allocations, it is
+		 * because sync compaction recently failed. If this is the case
+		 * and the caller requested a movable allocation that does not
+		 * heavily disrupt the system then fail the allocation instead
+		 * of entering direct reclaim.
+		 */
+		if (deferred_compaction || contended_compaction)
+			goto nopage;
 
 		/* If process is willing to reclaim/compact then wake kswapd */
 		wake_all_kswapd(order, zonelist, high_zoneidx,
 					zone_idx(preferred_zone));
 	}
+
 	/* Try direct reclaim and then allocating */
 	page = __alloc_pages_direct_reclaim(gfp_mask, order,
 					zonelist, high_zoneidx,
