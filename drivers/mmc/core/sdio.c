@@ -487,23 +487,27 @@ static int sdio_set_bus_speed_mode(struct mmc_card *card)
 			bus_speed = SDIO_SPEED_SDR104;
 			timing = MMC_TIMING_UHS_SDR104;
 			card->sw_caps.uhs_max_dtr = UHS_SDR104_MAX_DTR;
+			card->sd_bus_speed = UHS_SDR104_BUS_SPEED;
 	} else if ((card->host->caps & MMC_CAP_UHS_DDR50) &&
 		   (card->sw_caps.sd3_bus_mode & SD_MODE_UHS_DDR50)) {
 			bus_speed = SDIO_SPEED_DDR50;
 			timing = MMC_TIMING_UHS_DDR50;
 			card->sw_caps.uhs_max_dtr = UHS_DDR50_MAX_DTR;
+			card->sd_bus_speed = UHS_DDR50_BUS_SPEED;
 	} else if ((card->host->caps & (MMC_CAP_UHS_SDR104 |
 		    MMC_CAP_UHS_SDR50)) && (card->sw_caps.sd3_bus_mode &
 		    SD_MODE_UHS_SDR50)) {
 			bus_speed = SDIO_SPEED_SDR50;
 			timing = MMC_TIMING_UHS_SDR50;
 			card->sw_caps.uhs_max_dtr = UHS_SDR50_MAX_DTR;
+			card->sd_bus_speed = UHS_SDR50_BUS_SPEED;
 	} else if ((card->host->caps & (MMC_CAP_UHS_SDR104 |
 		    MMC_CAP_UHS_SDR50 | MMC_CAP_UHS_SDR25)) &&
 		   (card->sw_caps.sd3_bus_mode & SD_MODE_UHS_SDR25)) {
 			bus_speed = SDIO_SPEED_SDR25;
 			timing = MMC_TIMING_UHS_SDR25;
 			card->sw_caps.uhs_max_dtr = UHS_SDR25_MAX_DTR;
+			card->sd_bus_speed = UHS_SDR25_BUS_SPEED;
 	} else if ((card->host->caps & (MMC_CAP_UHS_SDR104 |
 		    MMC_CAP_UHS_SDR50 | MMC_CAP_UHS_SDR25 |
 		    MMC_CAP_UHS_SDR12)) && (card->sw_caps.sd3_bus_mode &
@@ -511,6 +515,7 @@ static int sdio_set_bus_speed_mode(struct mmc_card *card)
 			bus_speed = SDIO_SPEED_SDR12;
 			timing = MMC_TIMING_UHS_SDR12;
 			card->sw_caps.uhs_max_dtr = UHS_SDR12_MAX_DTR;
+			card->sd_bus_speed = UHS_SDR12_BUS_SPEED;
 	}
 
 	err = mmc_io_rw_direct(card, 0, 0, SDIO_CCCR_SPEED, 0, &speed);
@@ -584,6 +589,15 @@ static int mmc_sdio_init_card(struct mmc_host *host, u32 ocr,
 
 	BUG_ON(!host);
 	WARN_ON(!host->claimed);
+
+	/* If host that supports UHS-I sets S18R to 1 in arg of CMD5 to request
+	 * change of signaling level to 1.8V
+	 */
+	if (host->caps &
+			(MMC_CAP_UHS_SDR12 | MMC_CAP_UHS_SDR25 |
+			 MMC_CAP_UHS_SDR50 | MMC_CAP_UHS_SDR104 |
+			 MMC_CAP_UHS_DDR50))
+		host->ocr |= R4_18V_PRESENT;
 
 	/*
 	 * Inform the card of the voltage
@@ -1058,7 +1072,11 @@ static const struct mmc_bus_ops mmc_sdio_ops = {
 	.alive = mmc_sdio_alive,
 };
 
-
+#if (defined(CONFIG_MACH_M0) && defined(CONFIG_TARGET_LOCALE_EUR)) || \
+	((defined(CONFIG_MACH_C1) || defined(CONFIG_MACH_M0)) && \
+	defined(CONFIG_TARGET_LOCALE_KOR))
+extern void print_epll_con0(void);
+#endif
 /*
  * Starting point for SDIO card init.
  */
@@ -1074,6 +1092,13 @@ int mmc_attach_sdio(struct mmc_host *host)
 	err = mmc_send_io_op_cond(host, 0, &ocr);
 	if (err)
 		return err;
+
+#if (defined(CONFIG_MACH_M0) && defined(CONFIG_TARGET_LOCALE_EUR)) || \
+	((defined(CONFIG_MACH_C1) || defined(CONFIG_MACH_M0)) && \
+	defined(CONFIG_TARGET_LOCALE_KOR))
+	/* a sdio module is detected. print EPLL */
+	print_epll_con0();
+#endif
 
 	mmc_attach_bus(host, &mmc_sdio_ops);
 	if (host->ocr_avail_sdio)
@@ -1236,7 +1261,7 @@ int sdio_reset_comm(struct mmc_card *card)
 		goto err;
 
 	if (ocr & 0xFF) {
-		printk(KERN_WARNING "%s: card claims to support voltages "
+		pr_warning("%s: card claims to support voltages "
 		       "below the defined range. These will be ignored.\n",
 		       mmc_hostname(host));
 		ocr &= ~0xFF;

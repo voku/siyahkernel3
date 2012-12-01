@@ -103,6 +103,9 @@ static unsigned long shmem_default_max_inodes(void)
 }
 #endif
 
+static bool shmem_should_replace_page(struct page *page, gfp_t gfp);
+static int shmem_replace_page(struct page **pagep, gfp_t gfp,
+				struct shmem_inode_info *info, pgoff_t index);
 static int shmem_getpage_gfp(struct inode *inode, pgoff_t index,
 	struct page **pagep, enum sgp_type sgp, gfp_t gfp, int *fault_type);
 
@@ -379,7 +382,7 @@ static int shmem_free_swap(struct address_space *mapping,
 /*
  * Pagevec may contain swap entries, so shuffle up pages before releasing.
  */
-static void shmem_pagevec_release(struct pagevec *pvec)
+static void shmem_deswap_pagevec(struct pagevec *pvec)
 {
 	int i, j;
 
@@ -389,7 +392,36 @@ static void shmem_pagevec_release(struct pagevec *pvec)
 			pvec->pages[j++] = page;
 	}
 	pvec->nr = j;
-	pagevec_release(pvec);
+}
+
+/*
+ * SysV IPC SHM_UNLOCK restore Unevictable pages to their evictable lists.
+ */
+void shmem_unlock_mapping(struct address_space *mapping)
+{
+	struct pagevec pvec;
+	pgoff_t indices[PAGEVEC_SIZE];
+	pgoff_t index = 0;
+
+	pagevec_init(&pvec, 0);
+	/*
+	 * Minor point, but we might as well stop if someone else SHM_LOCKs it.
+	 */
+	while (!mapping_unevictable(mapping)) {
+		/*
+		 * Avoid pagevec_lookup(): find_get_pages() returns 0 as if it
+		 * has finished, if it hits a row of PAGEVEC_SIZE swap entries.
+		 */
+		pvec.nr = shmem_find_get_pages_and_swap(mapping, index,
+					PAGEVEC_SIZE, pvec.pages, indices);
+		if (!pvec.nr)
+			break;
+		index = indices[pvec.nr - 1] + 1;
+		shmem_deswap_pagevec(&pvec);
+		check_move_unevictable_pages(pvec.pages, pvec.nr);
+		pagevec_release(&pvec);
+		cond_resched();
+	}
 }
 
 /*
@@ -440,7 +472,8 @@ void shmem_truncate_range(struct inode *inode, loff_t lstart, loff_t lend)
 			}
 			unlock_page(page);
 		}
-		shmem_pagevec_release(&pvec);
+		shmem_deswap_pagevec(&pvec);
+		pagevec_release(&pvec);
 		mem_cgroup_uncharge_end();
 		cond_resched();
 		index++;
@@ -470,7 +503,8 @@ void shmem_truncate_range(struct inode *inode, loff_t lstart, loff_t lend)
 			continue;
 		}
 		if (index == start && indices[0] > end) {
-			shmem_pagevec_release(&pvec);
+			shmem_deswap_pagevec(&pvec);
+			pagevec_release(&pvec);
 			break;
 		}
 		mem_cgroup_uncharge_start();
@@ -494,7 +528,8 @@ void shmem_truncate_range(struct inode *inode, loff_t lstart, loff_t lend)
 			}
 			unlock_page(page);
 		}
-		shmem_pagevec_release(&pvec);
+		shmem_deswap_pagevec(&pvec);
+		pagevec_release(&pvec);
 		mem_cgroup_uncharge_end();
 		index++;
 	}
@@ -572,12 +607,13 @@ static void shmem_evict_inode(struct inode *inode)
  * If swap found in inode, free it and move page from swapcache to filecache.
  */
 static int shmem_unuse_inode(struct shmem_inode_info *info,
-			     swp_entry_t swap, struct page *page)
+			     swp_entry_t swap, struct page **pagep)
 {
 	struct address_space *mapping = info->vfs_inode.i_mapping;
 	void *radswap;
 	pgoff_t index;
-	int error;
+	gfp_t gfp;
+	int error = 0;
 
 	radswap = swp_to_radix_entry(swap);
 	index = radix_tree_locate_item(&mapping->page_tree, radswap);
@@ -593,22 +629,37 @@ static int shmem_unuse_inode(struct shmem_inode_info *info,
 	if (shmem_swaplist.next != &info->swaplist)
 		list_move_tail(&shmem_swaplist, &info->swaplist);
 
+	gfp = mapping_gfp_mask(mapping);
+	if (shmem_should_replace_page(*pagep, gfp)) {
+		mutex_unlock(&shmem_swaplist_mutex);
+		error = shmem_replace_page(pagep, gfp, info, index);
+		mutex_lock(&shmem_swaplist_mutex);
+		/*
+		 * We needed to drop mutex to make that restrictive page
+		 * allocation; but the inode might already be freed by now,
+		 * and we cannot refer to inode or mapping or info to check.
+		 * However, we do hold page lock on the PageSwapCache page,
+		 * so can check if that still has our reference remaining.
+		 */
+		if (!page_swapcount(*pagep))
+			error = -ENOENT;
+	}
+
 	/*
 	 * We rely on shmem_swaplist_mutex, not only to protect the swaplist,
 	 * but also to hold up shmem_evict_inode(): so inode cannot be freed
 	 * beneath us (pagelock doesn't help until the page is in pagecache).
 	 */
-	error = shmem_add_to_page_cache(page, mapping, index,
+	if (!error)
+		error = shmem_add_to_page_cache(*pagep, mapping, index,
 						GFP_NOWAIT, radswap);
-	/* which does mem_cgroup_uncharge_cache_page on error */
-
 	if (error != -ENOMEM) {
 		/*
 		 * Truncation and eviction use free_swap_and_cache(), which
 		 * only does trylock page: if we raced, best clean up here.
 		 */
-		delete_from_swap_cache(page);
-		set_page_dirty(page);
+		delete_from_swap_cache(*pagep);
+		set_page_dirty(*pagep);
 		if (!error) {
 			spin_lock(&info->lock);
 			info->swapped--;
@@ -628,7 +679,14 @@ int shmem_unuse(swp_entry_t swap, struct page *page)
 	struct list_head *this, *next;
 	struct shmem_inode_info *info;
 	int found = 0;
-	int error;
+	int error = 0;
+
+	/*
+	 * There's a faint possibility that swap page was replaced before
+	 * caller locked it: it will come back later with the right page.
+	 */
+	if (unlikely(!PageSwapCache(page)))
+		goto out;
 
 	/*
 	 * Charge page using GFP_KERNEL while we can wait, before taking
@@ -644,7 +702,7 @@ int shmem_unuse(swp_entry_t swap, struct page *page)
 	list_for_each_safe(this, next, &shmem_swaplist) {
 		info = list_entry(this, struct shmem_inode_info, swaplist);
 		if (info->swapped)
-			found = shmem_unuse_inode(info, swap, page);
+			found = shmem_unuse_inode(info, swap, &page);
 		else
 			list_del_init(&info->swaplist);
 		cond_resched();
@@ -653,8 +711,6 @@ int shmem_unuse(swp_entry_t swap, struct page *page)
 	}
 	mutex_unlock(&shmem_swaplist_mutex);
 
-	if (!found)
-		mem_cgroup_uncharge_cache_page(page);
 	if (found < 0)
 		error = found;
 out:
@@ -681,17 +737,8 @@ static int shmem_writepage(struct page *page, struct writeback_control *wbc)
 	info = SHMEM_I(inode);
 	if (info->flags & VM_LOCKED)
 		goto redirty;
-#ifdef CONFIG_ZRAM_FOR_ANDROID
-	/*
-	 * Modification for compcache
-	 * shmem_writepage can be reason of kernel panic when using swap.
-	 * This modification prevent using swap by shmem.
-	 */
-	goto redirty;
-#else
 	if (!total_swap_pages)
 		goto redirty;
-#endif
 
 	/*
 	 * shmem_backing_dev_info's capabilities prevent regular writeback or
@@ -833,6 +880,84 @@ static inline struct mempolicy *shmem_get_sbmpol(struct shmem_sb_info *sbinfo)
 #endif
 
 /*
+ * When a page is moved from swapcache to shmem filecache (either by the
+ * usual swapin of shmem_getpage_gfp(), or by the less common swapoff of
+ * shmem_unuse_inode()), it may have been read in earlier from swap, in
+ * ignorance of the mapping it belongs to.  If that mapping has special
+ * constraints (like the gma500 GEM driver, which requires RAM below 4GB),
+ * we may need to copy to a suitable page before moving to filecache.
+ *
+ * In a future release, this may well be extended to respect cpuset and
+ * NUMA mempolicy, and applied also to anonymous pages in do_swap_page();
+ * but for now it is a simple matter of zone.
+ */
+static bool shmem_should_replace_page(struct page *page, gfp_t gfp)
+{
+	return page_zonenum(page) > gfp_zone(gfp);
+}
+
+static int shmem_replace_page(struct page **pagep, gfp_t gfp,
+				struct shmem_inode_info *info, pgoff_t index)
+{
+	struct page *oldpage, *newpage;
+	struct address_space *swap_mapping;
+	pgoff_t swap_index;
+	int error;
+
+	oldpage = *pagep;
+	swap_index = page_private(oldpage);
+	swap_mapping = page_mapping(oldpage);
+
+	/*
+	 * We have arrived here because our zones are constrained, so don't
+	 * limit chance of success by further cpuset and node constraints.
+	 */
+	gfp &= ~GFP_CONSTRAINT_MASK;
+	newpage = shmem_alloc_page(gfp, info, index);
+	if (!newpage)
+		return -ENOMEM;
+	VM_BUG_ON(shmem_should_replace_page(newpage, gfp));
+
+	*pagep = newpage;
+	page_cache_get(newpage);
+	copy_highpage(newpage, oldpage);
+
+	VM_BUG_ON(!PageLocked(oldpage));
+	__set_page_locked(newpage);
+	VM_BUG_ON(!PageUptodate(oldpage));
+	SetPageUptodate(newpage);
+	VM_BUG_ON(!PageSwapBacked(oldpage));
+	SetPageSwapBacked(newpage);
+	VM_BUG_ON(!swap_index);
+	set_page_private(newpage, swap_index);
+	VM_BUG_ON(!PageSwapCache(oldpage));
+	SetPageSwapCache(newpage);
+
+	/*
+	 * Our caller will very soon move newpage out of swapcache, but it's
+	 * a nice clean interface for us to replace oldpage by newpage there.
+	 */
+	spin_lock_irq(&swap_mapping->tree_lock);
+	error = shmem_radix_tree_replace(swap_mapping, swap_index, oldpage,
+								   newpage);
+	__inc_zone_page_state(newpage, NR_FILE_PAGES);
+	__dec_zone_page_state(oldpage, NR_FILE_PAGES);
+	spin_unlock_irq(&swap_mapping->tree_lock);
+	BUG_ON(error);
+
+	mem_cgroup_replace_page_cache(oldpage, newpage);
+	lru_cache_add_anon(newpage);
+
+	ClearPageSwapCache(oldpage);
+	set_page_private(oldpage, 0);
+
+	unlock_page(oldpage);
+	page_cache_release(oldpage);
+	page_cache_release(oldpage);
+	return 0;
+}
+
+/*
  * shmem_getpage_gfp - find page in cache, or get from swap, or allocate
  *
  * If we allocate a new one we do not mark it dirty. That's up to the
@@ -900,19 +1025,20 @@ repeat:
 
 		/* We have to do this with page locked to prevent races */
 		lock_page(page);
+		if (!PageSwapCache(page) || page->mapping) {
+			error = -EEXIST;	/* try again */
+			goto failed;
+		}
 		if (!PageUptodate(page)) {
 			error = -EIO;
 			goto failed;
 		}
 		wait_on_page_writeback(page);
 
-		/* Someone may have already done it for us */
-		if (page->mapping) {
-			if (page->mapping == mapping &&
-			    page->index == index)
-				goto done;
-			error = -EEXIST;
-			goto failed;
+		if (shmem_should_replace_page(page, gfp)) {
+			error = shmem_replace_page(&page, gfp, info, index);
+			if (error)
+				goto failed;
 		}
 
 		error = mem_cgroup_cache_charge(page, current->mm,
@@ -975,7 +1101,7 @@ repeat:
 		if (sgp == SGP_DIRTY)
 			set_page_dirty(page);
 	}
-done:
+
 	/* Perhaps the file has been truncated since we checked */
 	if (sgp != SGP_WRITE &&
 	    ((loff_t)index << PAGE_CACHE_SHIFT) >= i_size_read(inode)) {
@@ -2453,6 +2579,10 @@ int shmem_unuse(swp_entry_t swap, struct page *page)
 int shmem_lock(struct file *file, int lock, struct user_struct *user)
 {
 	return 0;
+}
+
+void shmem_unlock_mapping(struct address_space *mapping)
+{
 }
 
 void shmem_truncate_range(struct inode *inode, loff_t lstart, loff_t lend)

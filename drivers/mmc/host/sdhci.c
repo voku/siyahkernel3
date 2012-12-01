@@ -211,11 +211,6 @@ static void sdhci_reset(struct sdhci_host *host, u8 mask)
 
 	if (host->quirks & SDHCI_QUIRK_RESTORE_IRQS_AFTER_RESET)
 		sdhci_clear_set_irqs(host, SDHCI_INT_ALL_MASK, ier);
-
-	if (host->flags & (SDHCI_USE_SDMA | SDHCI_USE_ADMA)) {
-		if ((host->ops->enable_dma) && (mask & SDHCI_RESET_ALL))
-			host->ops->enable_dma(host);
-	}
 }
 
 static void sdhci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios);
@@ -672,7 +667,6 @@ static u8 sdhci_calc_timeout(struct sdhci_host *host, struct mmc_command *cmd)
 	 *     =>
 	 *     (1) / (2) > 2^6
 	 */
-	BUG_ON(!host->timeout_clk);
 	count = 0;
 	current_timeout = (1 << 13) * 1000 / host->timeout_clk;
 	while (current_timeout < target_timeout) {
@@ -693,11 +687,8 @@ static u8 sdhci_calc_timeout(struct sdhci_host *host, struct mmc_command *cmd)
 			count = 0xE;
 	}
 
-	if (count >= 0xF) {
-		pr_warning("%s: Too large timeout requested for CMD%d!\n",
-		       mmc_hostname(host->mmc), cmd->opcode);
+	if (count >= 0xF)
 		count = 0xE;
-	}
 
 	return count;
 }
@@ -1973,10 +1964,6 @@ static void sdhci_tasklet_finish(unsigned long param)
 		   controllers do not like that. */
 		sdhci_reset(host, SDHCI_RESET_CMD);
 		sdhci_reset(host, SDHCI_RESET_DATA);
-#ifdef CONFIG_MACH_PX
-		printk(KERN_DEBUG "%s: Controller is resetted!\n",
-			mmc_hostname(host->mmc));
-#endif
 	}
 
 	host->mrq = NULL;
@@ -2057,12 +2044,12 @@ static void sdhci_cmd_irq(struct sdhci_host *host, u32 intmask)
 	}
 
 	if (intmask & SDHCI_INT_TIMEOUT) {
-		printk(KERN_INFO "%s: cmd %d command timeout error\n",
+		pr_info("%s: cmd %d command timeout error\n",
 			 mmc_hostname(host->mmc), host->cmd->opcode);
 		host->cmd->error = -ETIMEDOUT;
 	} else if (intmask & (SDHCI_INT_CRC | SDHCI_INT_END_BIT |
 			SDHCI_INT_INDEX)) {
-		printk(KERN_ERR "%s: cmd %d %s error\n",
+		pr_info("%s: cmd %d %s error\n",
 			mmc_hostname(host->mmc), host->cmd->opcode,
 			(intmask & SDHCI_INT_CRC) ? "command crc" :
 			(intmask & SDHCI_INT_END_BIT) ? "command end bit" :
@@ -2073,10 +2060,6 @@ static void sdhci_cmd_irq(struct sdhci_host *host, u32 intmask)
 
 	if (host->cmd->error) {
 		tasklet_schedule(&host->finish_tasklet);
-#ifdef CONFIG_MACH_PX
-		printk(KERN_DEBUG "%s: finish tasklet schedule\n",
-			mmc_hostname(host->mmc));
-#endif
 		return;
 	}
 
@@ -2171,11 +2154,11 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 	}
 
 	if (intmask & SDHCI_INT_DATA_TIMEOUT) {
-		printk(KERN_ERR "%s: cmd %d data timeout error\n",
+		pr_err("%s: cmd %d data timeout error\n",
 			mmc_hostname(host->mmc), host->mrq->cmd->opcode);
 			host->data->error = -ETIMEDOUT;
 	} else if (intmask & (SDHCI_INT_DATA_CRC | SDHCI_INT_DATA_END_BIT)) {
-		printk(KERN_ERR "%s: cmd %d %s error\n",
+		pr_err("%s: cmd %d %s error\n",
 			mmc_hostname(host->mmc), host->mrq->cmd->opcode,
 			(intmask & SDHCI_INT_DATA_CRC) ? "data crc" :
 			"command end bit");
@@ -2291,7 +2274,7 @@ static irqreturn_t sdhci_irq(int irq, void *dev_id)
 	intmask &= ~SDHCI_INT_CARD_INT;
 
 	if (intmask) {
-		pr_err("%s: Unexpected interrupt 0x%08x.\n",
+		printk(KERN_ERR "%s: Unexpected interrupt 0x%08x.\n",
 			mmc_hostname(host->mmc), intmask);
 		sdhci_dumpregs(host);
 
@@ -2321,10 +2304,9 @@ out:
 
 #ifdef CONFIG_PM
 
-int sdhci_suspend_host(struct sdhci_host *host, pm_message_t state)
+int sdhci_suspend_host(struct sdhci_host *host)
 {
 	int ret;
-	bool has_tuning_timer;
 
 	if (host->ops->platform_suspend)
 		host->ops->platform_suspend(host);
@@ -2332,9 +2314,8 @@ int sdhci_suspend_host(struct sdhci_host *host, pm_message_t state)
 	sdhci_disable_card_detection(host);
 
 	/* Disable tuning since we are suspending */
-	has_tuning_timer = host->version >= SDHCI_SPEC_300 &&
-		host->tuning_count && host->tuning_mode == SDHCI_TUNING_MODE_1;
-	if (has_tuning_timer) {
+	if (host->version >= SDHCI_SPEC_300 && host->tuning_count &&
+	    host->tuning_mode == SDHCI_TUNING_MODE_1) {
 		del_timer_sync(&host->tuning_timer);
 		host->flags &= ~SDHCI_NEEDS_RETUNING;
 	}
@@ -2345,17 +2326,8 @@ int sdhci_suspend_host(struct sdhci_host *host, pm_message_t state)
 	}
 
 	ret = mmc_suspend_host(host->mmc);
-	if (ret) {
-		if (has_tuning_timer) {
-			host->flags |= SDHCI_NEEDS_RETUNING;
-			mod_timer(&host->tuning_timer, jiffies +
-					host->tuning_count * HZ);
-		}
-
-		sdhci_enable_card_detection(host);
-
+	if (ret)
 		return ret;
-	}
 
 	free_irq(host->irq, host);
 
@@ -2377,10 +2349,7 @@ EXPORT_SYMBOL_GPL(sdhci_suspend_host);
 
 void sdhci_shutdown_host(struct sdhci_host *host)
 {
-	u32 irqs = 0xFFFF;
-
-	/* all interrupt has to be masked */
-	sdhci_mask_irqs(host, irqs);
+	sdhci_disable_card_detection(host);
 
 	free_irq(host->irq, host);
 
@@ -2392,7 +2361,9 @@ void sdhci_shutdown_host(struct sdhci_host *host)
 #endif
 			regulator_disable(host->vmmc);
 			pr_info("%s : MMC Card OFF\n", __func__);
+#if defined(CONFIG_TARGET_LOCALE_KOR)
 			mdelay(5);
+#endif
 		}
 	}
 }
@@ -2604,22 +2575,6 @@ int sdhci_add_host(struct sdhci_host *host)
 		host->max_clk = host->ops->get_max_clock(host);
 	}
 
-	host->timeout_clk =
-		(caps[0] & SDHCI_TIMEOUT_CLK_MASK) >> SDHCI_TIMEOUT_CLK_SHIFT;
-	if (host->timeout_clk == 0) {
-		if (host->ops->get_timeout_clock) {
-			host->timeout_clk = host->ops->get_timeout_clock(host);
-		} else if (!(host->quirks &
-				SDHCI_QUIRK_DATA_TIMEOUT_USES_SDCLK)) {
-			printk(KERN_ERR
-			       "%s: Hardware doesn't specify timeout clock "
-			       "frequency.\n", mmc_hostname(mmc));
-			return -ENODEV;
-		}
-	}
-	if (caps[0] & SDHCI_TIMEOUT_CLK_UNIT)
-		host->timeout_clk *= 1000;
-
 	/*
 	 * In case of Host Controller v3.00, find out whether clock
 	 * multiplier is supported.
@@ -2652,10 +2607,25 @@ int sdhci_add_host(struct sdhci_host *host)
 	} else
 		mmc->f_min = host->max_clk / SDHCI_MAX_DIV_SPEC_200;
 
+	host->timeout_clk =
+		(caps[0] & SDHCI_TIMEOUT_CLK_MASK) >> SDHCI_TIMEOUT_CLK_SHIFT;
+	if (host->timeout_clk == 0) {
+		if (host->ops->get_timeout_clock) {
+			host->timeout_clk = host->ops->get_timeout_clock(host);
+		} else if (!(host->quirks &
+				SDHCI_QUIRK_DATA_TIMEOUT_USES_SDCLK)) {
+			pr_err("%s: Hardware doesn't specify timeout clock "
+			       "frequency.\n", mmc_hostname(mmc));
+			return -ENODEV;
+		}
+	}
+	if (caps[0] & SDHCI_TIMEOUT_CLK_UNIT)
+		host->timeout_clk *= 1000;
+
 	if (host->quirks & SDHCI_QUIRK_DATA_TIMEOUT_USES_SDCLK)
-		mmc->max_discard_to = (1 << 27) / (mmc->f_max / 1000);
-	else
-		mmc->max_discard_to = (1 << 27) / host->timeout_clk;
+		host->timeout_clk = mmc->f_max / 1000;
+
+	mmc->max_discard_to = (1 << 27) / host->timeout_clk;
 
 	mmc->caps |= MMC_CAP_SDIO_IRQ | MMC_CAP_ERASE;
 
@@ -2689,8 +2659,9 @@ int sdhci_add_host(struct sdhci_host *host)
 	    mmc_card_is_removable(mmc))
 		mmc->caps |= MMC_CAP_NEEDS_POLL;
 
-	/* UHS-I mode(s) supported by the host controller. */
-	if (host->version >= SDHCI_SPEC_300)
+	/* Any UHS-I mode in caps implies SDR12 and SDR25 support. */
+	if (caps[1] & (SDHCI_SUPPORT_SDR104 | SDHCI_SUPPORT_SDR50 |
+		       SDHCI_SUPPORT_DDR50))
 		mmc->caps |= MMC_CAP_UHS_SDR12 | MMC_CAP_UHS_SDR25;
 
 	/* SDR104 supports also implies SDR50 support */
@@ -2716,6 +2687,15 @@ int sdhci_add_host(struct sdhci_host *host)
 
 	if (mmc->pm_flags & MMC_PM_IGNORE_SUSPEND_RESUME)
 		mmc->pm_caps |= MMC_PM_KEEP_POWER;
+
+	/*
+	 * If Power Off Notify capability is enabled by the host,
+	 * set notify to short power off notify timeout value.
+	 */
+	if (mmc->caps2 & MMC_CAP2_POWEROFF_NOTIFY)
+		mmc->power_notify_type = MMC_HOST_PW_NOTIFY_SHORT;
+	else
+		mmc->power_notify_type = MMC_HOST_PW_NOTIFY_NONE;
 
 	/* Initial value for re-tuning timer count */
 	host->tuning_count = (caps[1] & SDHCI_RETUNING_TIMER_COUNT_MASK) >>
@@ -2904,7 +2884,7 @@ int sdhci_add_host(struct sdhci_host *host)
 				host->vmmc_name ? host->vmmc_name : "vmmc");
 		host->vmmc = NULL;
 	} else {
-		printk(KERN_INFO "%s: %s regulator found\n",
+		pr_info("%s: %s regulator found\n",
 				mmc_hostname(mmc),
 				host->vmmc_name ? host->vmmc_name : "vmmc");
 		if (sc->ext_cd_gpio) {

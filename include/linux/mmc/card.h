@@ -60,7 +60,6 @@ struct mmc_ext_csd {
 	unsigned int		sa_timeout;		/* Units: 100ns */
 	unsigned int		generic_cmd6_time;	/* Units: 10ms */
 	unsigned int            power_off_longtime;     /* Units: ms */
-	u8			power_off_notification;	/* state */
 	unsigned int		hs_max_dtr;
 	unsigned int		sectors;
 	unsigned int		card_type;
@@ -77,6 +76,10 @@ struct mmc_ext_csd {
 	bool			hpi_en;			/* HPI enablebit */
 	bool			hpi;			/* HPI support bit */
 	unsigned int		hpi_cmd;		/* cmd used as HPI */
+	unsigned int            data_sector_size;       /* 512 bytes or 4KB */
+	unsigned int            data_tag_unit_size;     /* DATA TAG UNIT size */
+	unsigned int		boot_ro_lock;		/* ro lock support */
+	bool			boot_ro_lockable;
 	u8			raw_partition_support;	/* 160 */
 	u8			raw_erased_mem_count;	/* 181 */
 	u8			raw_ext_csd_structure;	/* 194 */
@@ -196,6 +199,7 @@ struct mmc_card {
 #define MMC_CARD_SDXC		(1<<6)		/* card is SDXC */
 #define MMC_CARD_REMOVED	(1<<7)		/* card has been removed */
 #define MMC_STATE_HIGHSPEED_200	(1<<8)		/* card is in HS200 mode */
+#define MMC_STATE_SLEEP		(1<<9)		/* card is in sleep state */
 	unsigned int		quirks; 	/* card quirks */
 #define MMC_QUIRK_LENIENT_FN0	(1<<0)		/* allow SDIO FN0 writes outside of the VS CCCR range */
 #define MMC_QUIRK_BLKSZ_FOR_BYTE_MODE (1<<1)	/* use func->cur_blksize */
@@ -207,9 +211,12 @@ struct mmc_card {
 #define MMC_QUIRK_DISABLE_CD	(1<<5)		/* disconnect CD/DAT[3] resistor */
 #define MMC_QUIRK_INAND_CMD38	(1<<6)		/* iNAND devices have broken CMD38 */
 #define MMC_QUIRK_BLK_NO_CMD23	(1<<7)		/* Avoid CMD23 for regular multiblock */
-/* MoviNAND secure issue */
-#define MMC_QUIRK_MOVINAND_SECURE (1<<8)
-#define MMC_QUIRK_LONG_READ_TIME (1<<9)		/* Data read time > CSD says */
+
+	unsigned int    poweroff_notify_state;	/* eMMC4.5 notify feature */
+#define MMC_NO_POWER_NOTIFICATION	0
+#define MMC_POWERED_ON			1
+#define MMC_POWEROFF_SHORT		2
+#define MMC_POWEROFF_LONG		3
 
 	unsigned int		erase_size;	/* erase size in sectors */
  	unsigned int		erase_shift;	/* if erase unit is power 2 */
@@ -339,6 +346,7 @@ static inline void __maybe_unused remove_quirk(struct mmc_card *card, int data)
 #define mmc_sd_card_uhs(c)	((c)->state & MMC_STATE_ULTRAHIGHSPEED)
 #define mmc_card_ext_capacity(c) ((c)->state & MMC_CARD_SDXC)
 #define mmc_card_removed(c)	((c) && ((c)->state & MMC_CARD_REMOVED))
+#define mmc_card_is_sleep(c)	((c)->state & MMC_STATE_SLEEP)
 
 #define mmc_card_set_present(c)	((c)->state |= MMC_STATE_PRESENT)
 #define mmc_card_set_readonly(c) ((c)->state |= MMC_STATE_READONLY)
@@ -350,7 +358,9 @@ static inline void __maybe_unused remove_quirk(struct mmc_card *card, int data)
 #define mmc_sd_card_set_uhs(c) ((c)->state |= MMC_STATE_ULTRAHIGHSPEED)
 #define mmc_card_set_ext_capacity(c) ((c)->state |= MMC_CARD_SDXC)
 #define mmc_card_set_removed(c) ((c)->state |= MMC_CARD_REMOVED)
+#define mmc_card_set_sleep(c)	((c)->state |= MMC_STATE_SLEEP)
 
+#define mmc_card_clr_sleep(c)	((c)->state &= ~MMC_STATE_SLEEP)
 /*
  * Quirk add/remove for MMC products.
  */
@@ -403,11 +413,6 @@ static inline int mmc_card_disable_cd(const struct mmc_card *c)
 static inline int mmc_card_nonstd_func_interface(const struct mmc_card *c)
 {
 	return c->quirks & MMC_QUIRK_NONSTD_FUNC_IF;
-}
-
-static inline int mmc_card_long_read_time(const struct mmc_card *c)
-{
-	return c->quirks & MMC_QUIRK_LONG_READ_TIME;
 }
 
 #define mmc_card_name(c)	((c)->cid.prod_name)

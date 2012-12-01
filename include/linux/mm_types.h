@@ -256,9 +256,6 @@ struct vm_area_struct {
 #ifdef CONFIG_NUMA
 	struct mempolicy *vm_policy;	/* NUMA policy for the VMA */
 #endif
-#ifdef CONFIG_ZRAM_FOR_ANDROID
-	int vma_swap_done;
-#endif /* CONFIG_ZRAM_FOR_ANDROID */
 };
 
 struct core_thread {
@@ -344,17 +341,6 @@ struct mm_struct {
 	/* Architecture-specific MM context */
 	mm_context_t context;
 
-	/* Swap token stuff */
-	/*
-	 * Last value of global fault stamp as seen by this process.
-	 * In other words, this value gives an indication of how long
-	 * it has been since this task got the token.
-	 * Look at mm/thrash.c
-	 */
-	unsigned int faultstamp;
-	unsigned int token_priority;
-	unsigned int last_interval;
-
 	unsigned long flags; /* Must use atomic bitops to access the bits */
 
 	struct core_state *core_state; /* coredumping support */
@@ -388,9 +374,6 @@ struct mm_struct {
 #ifdef CONFIG_CPUMASK_OFFSTACK
 	struct cpumask cpumask_allocation;
 #endif
-#ifdef CONFIG_ZRAM_FOR_ANDROID
-	int mm_swap_done;
-#endif /* CONFIG_ZRAM_FOR_ANDROID */
 };
 
 static inline void mm_init_cpumask(struct mm_struct *mm)
