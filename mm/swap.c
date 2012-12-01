@@ -371,16 +371,14 @@ void mark_page_accessed(struct page *page)
 
 EXPORT_SYMBOL(mark_page_accessed);
 
-void ______pagevec_lru_add(struct pagevec *pvec, enum lru_list lru, int tail);
-
-void ____lru_cache_add(struct page *page, enum lru_list lru, int tail)
+void __lru_cache_add(struct page *page, enum lru_list lru)
 {
 #ifndef CONFIG_DMA_CMA
 	struct pagevec *pvec = &get_cpu_var(lru_add_pvecs)[lru];
 
 	page_cache_get(page);
 	if (!pagevec_add(pvec, page))
-		______pagevec_lru_add(pvec, lru, tail);
+		____pagevec_lru_add(pvec, lru);
 	put_cpu_var(lru_add_pvecs);
 #else
 	struct pagevec *pvec;
@@ -397,12 +395,6 @@ void ____lru_cache_add(struct page *page, enum lru_list lru, int tail)
 	put_cpu_var(lru_add_pvecs);
 #endif
 }
-EXPORT_SYMBOL(____lru_cache_add);
-
-void __lru_cache_add(struct page *page, enum lru_list lru)
-{
-	____lru_cache_add(page, lru, 0);
-}
 EXPORT_SYMBOL(__lru_cache_add);
 
 /**
@@ -410,7 +402,7 @@ EXPORT_SYMBOL(__lru_cache_add);
  * @page: the page to be added to the LRU.
  * @lru: the LRU list to which the page is added.
  */
-void __lru_cache_add_lru(struct page *page, enum lru_list lru, int tail)
+void lru_cache_add_lru(struct page *page, enum lru_list lru)
 {
 	if (PageActive(page)) {
 		VM_BUG_ON(PageUnevictable(page));
@@ -421,12 +413,7 @@ void __lru_cache_add_lru(struct page *page, enum lru_list lru, int tail)
 	}
 
 	VM_BUG_ON(PageLRU(page) || PageActive(page) || PageUnevictable(page));
-	____lru_cache_add(page, lru, tail);
-}
-
-void lru_cache_add_lru(struct page *page, enum lru_list lru)
-{
-	__lru_cache_add_lru(page, lru, 0);
+	__lru_cache_add(page, lru);
 }
 
 /**
@@ -702,7 +689,7 @@ void lru_add_page_tail(struct zone* zone,
 		update_page_reclaim_stat(zone, page_tail, file, active);
 		if (likely(PageLRU(page)))
 			__add_page_to_lru_list(zone, page_tail, lru,
-					       page->lru.prev, 0);
+					       page->lru.prev);
 		else
 			add_page_to_lru_list(zone, page_tail, lru);
 	} else {
@@ -733,16 +720,11 @@ static void ____pagevec_lru_add_fn(struct page *page, void *arg)
  * Add the passed pages to the LRU, then drop the caller's refcount
  * on them.  Reinitialises the caller's pagevec.
  */
-void ______pagevec_lru_add(struct pagevec *pvec, enum lru_list lru, int tail)
+void ____pagevec_lru_add(struct pagevec *pvec, enum lru_list lru)
 {
 	VM_BUG_ON(is_unevictable_lru(lru));
 
 	pagevec_lru_move_fn(pvec, ____pagevec_lru_add_fn, (void *)lru);
-}
-
-void ____pagevec_lru_add(struct pagevec *pvec, enum lru_list lru)
-{
-	______pagevec_lru_add(pvec, lru, 0);
 }
 
 EXPORT_SYMBOL(____pagevec_lru_add);
