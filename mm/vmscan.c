@@ -134,7 +134,7 @@ long vm_total_pages;	/* The total number of pages which the VM controls */
 static LIST_HEAD(shrinker_list);
 static DECLARE_RWSEM(shrinker_rwsem);
 
-#ifdef CONFIG_CGROUP_MEM_RES_CTLR
+#ifdef CONFIG_MEMCG
 static bool global_reclaim(struct scan_control *sc)
 {
 	return !sc->target_mem_cgroup;
@@ -673,7 +673,7 @@ static enum page_references page_check_references(struct page *page,
 
 		/*
 		 * Activate file-backed executable pages after first usage.
-		*/
+		 */
 		if (vm_flags & VM_EXEC)
 			return PAGEREF_ACTIVATE;
 #endif
@@ -690,11 +690,12 @@ static enum page_references page_check_references(struct page *page,
 /*
  * shrink_page_list() returns the number of reclaimed pages
  */
-static
-unsigned long shrink_page_list(struct list_head *page_list,
+static unsigned long shrink_page_list(struct list_head *page_list,
 				      struct zone *zone,
 				      struct scan_control *sc,
 				      enum ttu_flags ttu_flags,
+				      unsigned long *ret_nr_dirty,
+				      unsigned long *ret_nr_writeback,
 				      bool force_reclaim)
 {
 	LIST_HEAD(ret_pages);
@@ -703,6 +704,7 @@ unsigned long shrink_page_list(struct list_head *page_list,
 	unsigned long nr_dirty = 0;
 	unsigned long nr_congested = 0;
 	unsigned long nr_reclaimed = 0;
+	unsigned long nr_writeback = 0;
 
 	cond_resched();
 
@@ -771,6 +773,7 @@ unsigned long shrink_page_list(struct list_head *page_list,
 				 * and it's also appropriate in global reclaim.
 				 */
 				SetPageReclaim(page);
+				nr_writeback++;
 				goto keep_locked;
 			}
 			wait_on_page_writeback(page);
@@ -822,6 +825,26 @@ unsigned long shrink_page_list(struct list_head *page_list,
 
 		if (PageDirty(page)) {
 			nr_dirty++;
+
+			/*
+			 * Only kswapd can writeback filesystem pages to
+			 * avoid risk of stack overflow but do not writeback
+			 * unless under significant pressure.
+			 */
+			if (page_is_file_cache(page) &&
+					(!current_is_kswapd() ||
+					 sc->priority >= DEF_PRIORITY - 2)) {
+				/*
+				 * Immediately reclaim when written back.
+				 * Similar in principal to deactivate_page()
+				 * except we already have the page isolated
+				 * and know it's dirty
+				 */
+				inc_zone_page_state(page, NR_VMSCAN_IMMEDIATE);
+				SetPageReclaim(page);
+
+				goto keep_locked;
+			}
 
 			if (references == PAGEREF_RECLAIM_CLEAN)
 				goto keep_locked;
@@ -929,7 +952,7 @@ cull_mlocked:
 
 activate_locked:
 		/* Not a candidate for swapping, so reclaim swap space. */
-		if (PageSwapCache(page))
+		if (PageSwapCache(page) && vm_swap_full())
 			try_to_free_swap(page);
 		VM_BUG_ON(PageActive(page));
 		SetPageActive(page);
@@ -955,6 +978,8 @@ keep:
 	list_splice(&ret_pages, page_list);
 	count_vm_events(PGACTIVATE, pgactivate);
 	mem_cgroup_uncharge_end();
+	*ret_nr_dirty += nr_dirty;
+	*ret_nr_writeback += nr_writeback;
 	return nr_reclaimed;
 }
 
@@ -966,7 +991,7 @@ unsigned long reclaim_clean_pages_from_list(struct zone *zone,
 		.priority = DEF_PRIORITY,
 		.may_unmap = 1,
 	};
-	unsigned long ret;
+	unsigned long ret, dummy1, dummy2;
 	struct page *page, *next;
 	LIST_HEAD(clean_pages);
 
@@ -979,7 +1004,7 @@ unsigned long reclaim_clean_pages_from_list(struct zone *zone,
 
 	ret = shrink_page_list(&clean_pages, zone, &sc,
 				TTU_UNMAP|TTU_IGNORE_ACCESS,
-				true);
+				&dummy1, &dummy2, true);
 	list_splice(&clean_pages, page_list);
 	__mod_zone_page_state(zone, NR_ISOLATED_FILE, -ret);
 	return ret;
@@ -1265,6 +1290,8 @@ shrink_inactive_list(unsigned long nr_to_scan, struct lruvec *lruvec,
 	unsigned long nr_scanned;
 	unsigned long nr_reclaimed = 0;
 	unsigned long nr_taken;
+	unsigned long nr_dirty = 0;
+	unsigned long nr_writeback = 0;
 	isolate_mode_t isolate_mode = 0;
 	int file = is_file_lru(lru);
 	struct zone *zone = lruvec_zone(lruvec);
@@ -1306,7 +1333,7 @@ shrink_inactive_list(unsigned long nr_to_scan, struct lruvec *lruvec,
 		return 0;
 
 	nr_reclaimed = shrink_page_list(&page_list, zone, sc, TTU_UNMAP,
-					false);
+					&nr_dirty, &nr_writeback, false);
 
 	spin_lock_irq(&zone->lru_lock);
 
@@ -1328,6 +1355,33 @@ shrink_inactive_list(unsigned long nr_to_scan, struct lruvec *lruvec,
 	spin_unlock_irq(&zone->lru_lock);
 
 	free_hot_cold_page_list(&page_list, 1);
+
+	/*
+	 * If reclaim is isolating dirty pages under writeback, it implies
+	 * that the long-lived page allocation rate is exceeding the page
+	 * laundering rate. Either the global limits are not being effective
+	 * at throttling processes due to the page distribution throughout
+	 * zones or there is heavy usage of a slow backing device. The
+	 * only option is to throttle from reclaim context which is not ideal
+	 * as there is no guarantee the dirtying process is throttled in the
+	 * same way balance_dirty_pages() manages.
+	 *
+	 * This scales the number of dirty pages that must be under writeback
+	 * before throttling depending on priority. It is a simple backoff
+	 * function that has the most effect in the range DEF_PRIORITY to
+	 * DEF_PRIORITY-2 which is the priority reclaim is considered to be
+	 * in trouble and reclaim is considered to be in trouble.
+	 *
+	 * DEF_PRIORITY   100% isolated pages must be PageWriteback to throttle
+	 * DEF_PRIORITY-1  50% must be PageWriteback
+	 * DEF_PRIORITY-2  25% must be PageWriteback, kswapd in trouble
+	 * ...
+	 * DEF_PRIORITY-6 For SWAP_CLUSTER_MAX isolated pages, throttle if any
+	 *                     isolated page is PageWriteback
+	 */
+	if (nr_writeback && nr_writeback >=
+			(nr_taken >> (DEF_PRIORITY - sc->priority)))
+		wait_iff_congested(zone, BLK_RW_ASYNC, HZ/10);
 
 	trace_mm_vmscan_lru_shrink_inactive(zone->zone_pgdat->node_id,
 		zone_idx(zone),
@@ -1601,7 +1655,8 @@ static int vmscan_swappiness(struct scan_control *sc)
  * by looking at the fraction of the pages scanned we did rotate back
  * onto the active list instead of evict.
  *
- * nr[0] = anon pages to scan; nr[1] = file pages to scan
+ * nr[0] = anon inactive pages to scan; nr[1] = anon active pages to scan
+ * nr[2] = file inactive pages to scan; nr[3] = file active pages to scan
  */
 static void get_scan_count(struct lruvec *lruvec, struct scan_control *sc,
 			   unsigned long *nr)
@@ -2054,8 +2109,8 @@ static bool shrink_zones(struct zonelist *zonelist, struct scan_control *sc)
 				 * Even though compaction is invoked for any
 				 * non-zero order, only frequent costly order
 				 * reclamation is disruptive enough to become a
-				 * noticable problem, like transparent huge page
-				 * allocations.
+				 * noticeable problem, like transparent huge
+				 * page allocations.
 				 */
 				if (compaction_ready(zone, sc)) {
 					aborted_reclaim = true;
@@ -2335,7 +2390,7 @@ unsigned long try_to_free_pages(struct zonelist *zonelist, int order,
 	return nr_reclaimed;
 }
 
-#ifdef CONFIG_CGROUP_MEM_RES_CTLR
+#ifdef CONFIG_MEMCG
 
 unsigned long mem_cgroup_shrink_node_zone(struct mem_cgroup *memcg,
 						gfp_t gfp_mask, bool noswap,
@@ -2759,7 +2814,7 @@ loop_again:
 				 * consider it to be no longer congested. It's
 				 * possible there are dirty pages backed by
 				 * congested BDIs but as pressure is relieved,
-				 * spectulatively avoid congestion waits
+				 * speculatively avoid congestion waits
 				 */
 				zone_clear_flag(zone, ZONE_CONGESTED);
 				if (i <= *classzone_idx)
@@ -3579,7 +3634,6 @@ int scan_unevictable_handler(struct ctl_table *table, int write,
 			   void __user *buffer,
 			   size_t *length, loff_t *ppos)
 {
-
 	warn_scan_unevictable_pages();
 	proc_doulongvec_minmax(table, write, buffer, length, ppos);
 	scan_unevictable_pages = 0;
