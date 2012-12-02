@@ -213,6 +213,7 @@ config DMA_CMA
 	bool "Contiguous Memory Allocator (EXPERIMENTAL)"
 	default n
 	select MIGRATION
+	select MEMORY_ISOLATION
 	help
 	  This enables the Contiguous Memory Allocator which allows drivers
 	  to allocate big physically-contiguous blocks of memory for use with
