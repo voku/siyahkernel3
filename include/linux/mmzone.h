@@ -65,8 +65,10 @@ enum {
 bool is_cma_pageblock(struct page *page);
 #ifdef CONFIG_DMA_CMA
 #define is_migrate_cma(migratetype) unlikely((migratetype) == MIGRATE_CMA)
+#  define cma_wmark_pages(zone) zone->min_cma_pages
 #else
 #define is_migrate_cma(migratetype) false
+#  define cma_wmark_pages(zone) 0
 #endif
 
 #define for_each_migratetype_order(order, type) \
@@ -353,6 +355,12 @@ struct zone {
 	 * sysctl_lowmem_reserve_ratio sysctl changes.
 	 */
 	unsigned long		lowmem_reserve[MAX_NR_ZONES];
+
+	/*
+	 * This is a per-zone reserve of pages that should not be
+	 * considered dirtyable memory.
+	 */
+	unsigned long		dirty_balance_reserve;
 
 #ifdef CONFIG_NUMA
 	int node;
