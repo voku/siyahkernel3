@@ -2416,8 +2416,14 @@ dhd_wlfc_cleanup(dhd_pub_t *dhd)
 	h = (wlfc_hanger_t*)wlfc->hanger;
 	for (i = 0; i < h->max_items; i++) {
 		if (h->items[i].state == WLFC_HANGER_ITEM_STATE_INUSE) {
-			PKTFREE(wlfc->osh, h->items[i].pkt, TRUE);
+			if (!dhd->hang_was_sent) {
+				PKTFREE(wlfc->osh, h->items[i].pkt, TRUE);
+			} else {
+				printk("%s: Skip freeing skb %p\n", __func__, h->items[i].pkt);
+			}
 			h->items[i].state = WLFC_HANGER_ITEM_STATE_FREE;
+			h->items[i].pkt = NULL;
+			h->items[i].identifier = 0;
 		} else if (h->items[i].state == WLFC_HANGER_ITEM_STATE_INUSE_SUPPRESSED) {
 			/* These are freed from the psq so no need to free again */
 			h->items[i].state = WLFC_HANGER_ITEM_STATE_FREE;
