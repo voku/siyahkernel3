@@ -799,4 +799,5 @@ extern s32 wl_cfg80211_scan_abort(struct wl_priv *wl, struct net_device *ndev);
 
 extern s32 wl_cfg80211_if_is_group_owner(void);
 extern s32 wl_add_remove_eventmsg(struct net_device *ndev, u16 event, bool add);
+extern int wl_cfg80211_update_power_mode(struct net_device *dev);
 #endif				/* _wl_cfg80211_h_ */
