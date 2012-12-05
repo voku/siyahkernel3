@@ -389,12 +389,12 @@ __alloc_workqueue_key(const char *fmt, unsigned int flags, int max_active,
 
 extern void destroy_workqueue(struct workqueue_struct *wq);
 
-extern bool queue_work(struct workqueue_struct *wq, struct work_struct *work);
 extern bool queue_work_on(int cpu, struct workqueue_struct *wq,
 			struct work_struct *work);
-extern bool queue_delayed_work(struct workqueue_struct *wq,
-			struct delayed_work *work, unsigned long delay);
+extern bool queue_work(struct workqueue_struct *wq, struct work_struct *work);
 extern bool queue_delayed_work_on(int cpu, struct workqueue_struct *wq,
+			struct delayed_work *work, unsigned long delay);
+extern bool queue_delayed_work(struct workqueue_struct *wq,
 			struct delayed_work *work, unsigned long delay);
 extern bool mod_delayed_work_on(int cpu, struct workqueue_struct *wq,
 			struct delayed_work *dwork, unsigned long delay);
@@ -405,11 +405,12 @@ extern void flush_workqueue(struct workqueue_struct *wq);
 extern void drain_workqueue(struct workqueue_struct *wq);
 extern void flush_scheduled_work(void);
 
-extern bool schedule_work(struct work_struct *work);
 extern bool schedule_work_on(int cpu, struct work_struct *work);
-extern bool schedule_delayed_work(struct delayed_work *work, unsigned long delay);
+extern bool schedule_work(struct work_struct *work);
 extern bool schedule_delayed_work_on(int cpu, struct delayed_work *work,
-					unsigned long delay);
+				     unsigned long delay);
+extern bool schedule_delayed_work(struct delayed_work *work,
+				  unsigned long delay);
 extern int schedule_on_each_cpu(work_func_t func);
 extern int keventd_up(void);
 
@@ -433,7 +434,7 @@ extern unsigned int work_busy(struct work_struct *work);
  * if it returns 0 the timer function may be running and the queueing is in
  * progress.
  */
-static inline bool __cancel_delayed_work(struct delayed_work *work)
+static inline bool __deprecated __cancel_delayed_work(struct delayed_work *work)
 {
 	bool ret;
 

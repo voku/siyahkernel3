@@ -1299,11 +1299,40 @@ static void __queue_work(unsigned int cpu, struct workqueue_struct *wq,
 }
 
 /**
+ * queue_work_on - queue work on specific cpu
+ * @cpu: CPU number to execute work on
+ * @wq: workqueue to use
+ * @work: work to queue
+ *
+ * Returns %false if @work was already on a queue, %true otherwise.
+ *
+ * We queue the work to a specific CPU, the caller must ensure it
+ * can't go away.
+ */
+bool queue_work_on(int cpu, struct workqueue_struct *wq,
+		   struct work_struct *work)
+{
+	bool ret = false;
+	unsigned long flags;
+
+	local_irq_save(flags);
+
+	if (!test_and_set_bit(WORK_STRUCT_PENDING_BIT, work_data_bits(work))) {
+		__queue_work(cpu, wq, work);
+		ret = true;
+	}
+
+	local_irq_restore(flags);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(queue_work_on);
+
+/**
  * queue_work - queue work on a workqueue
  * @wq: workqueue to use
  * @work: work to queue
  *
- * Returns 0 if @work was already on a queue, non-zero otherwise.
+ * Returns %false if @work was already on a queue, %true otherwise.
  *
  * We queue the work to the CPU on which it was submitted, but if the CPU dies
  * it can be processed by another CPU.
@@ -1313,30 +1342,6 @@ bool queue_work(struct workqueue_struct *wq, struct work_struct *work)
 	return queue_work_on(WORK_CPU_UNBOUND, wq, work);
 }
 EXPORT_SYMBOL_GPL(queue_work);
-
-/**
- * queue_work_on - queue work on specific cpu
- * @cpu: CPU number to execute work on
- * @wq: workqueue to use
- * @work: work to queue
- *
- * Returns 0 if @work was already on a queue, non-zero otherwise.
- *
- * We queue the work to a specific CPU, the caller must ensure it
- * can't go away.
- */
-bool
-queue_work_on(int cpu, struct workqueue_struct *wq, struct work_struct *work)
-{
-	bool ret = true;
-
-	if (!test_and_set_bit(WORK_STRUCT_PENDING_BIT, work_data_bits(work))) {
-		__queue_work(cpu, wq, work);
-		ret = true;
-	}
-	return ret;
-}
-EXPORT_SYMBOL_GPL(queue_work_on);
 
 void delayed_work_timer_fn(unsigned long __data)
 {
@@ -1720,7 +1725,6 @@ static void rebind_workers(struct global_cwq *gcwq)
 	/* rebind busy workers */
 	for_each_busy_worker(worker, i, pos, gcwq) {
 		struct work_struct *rebind_work = &worker->rebind_work;
-		unsigned long worker_flags = worker->flags;
 		struct workqueue_struct *wq;
 
 		if (test_and_set_bit(WORK_STRUCT_PENDING_BIT,
@@ -3011,6 +3015,19 @@ bool cancel_delayed_work_sync(struct delayed_work *dwork)
 EXPORT_SYMBOL(cancel_delayed_work_sync);
 
 /**
+ * schedule_work_on - put work task on a specific cpu
+ * @cpu: cpu to put the work task on
+ * @work: job to be done
+ *
+ * This puts a job on a specific cpu
+ */
+bool schedule_work_on(int cpu, struct work_struct *work)
+{
+	return queue_work_on(cpu, system_wq, work);
+}
+EXPORT_SYMBOL(schedule_work_on);
+
+/**
  * schedule_work - put work task in global workqueue
  * @work: job to be done
  *
@@ -3027,18 +3044,21 @@ bool schedule_work(struct work_struct *work)
 }
 EXPORT_SYMBOL(schedule_work);
 
-/*
- * schedule_work_on - put work task on a specific cpu
- * @cpu: cpu to put the work task on
- * @work: job to be done
+/**
+ * schedule_delayed_work_on - queue work in global workqueue on CPU after delay
+ * @cpu: cpu to use
+ * @dwork: job to be done
+ * @delay: number of jiffies to wait
  *
- * This puts a job on a specific cpu
+ * After waiting for a given time this puts a job in the kernel-global
+ * workqueue on the specified CPU.
  */
-bool schedule_work_on(int cpu, struct work_struct *work)
+bool schedule_delayed_work_on(int cpu, struct delayed_work *dwork,
+			      unsigned long delay)
 {
-	return queue_work_on(cpu, system_wq, work);
+	return queue_delayed_work_on(cpu, system_wq, dwork, delay);
 }
-EXPORT_SYMBOL(schedule_work_on);
+EXPORT_SYMBOL(schedule_delayed_work_on);
 
 /**
  * schedule_delayed_work - put work task in global workqueue after delay
@@ -3053,22 +3073,6 @@ bool schedule_delayed_work(struct delayed_work *dwork, unsigned long delay)
 	return queue_delayed_work(system_wq, dwork, delay);
 }
 EXPORT_SYMBOL(schedule_delayed_work);
-
-/**
- * schedule_delayed_work_on - queue work in global workqueue on CPU after delay
- * @cpu: cpu to use
- * @dwork: job to be done
- * @delay: number of jiffies to wait
- *
- * After waiting for a given time this puts a job in the kernel-global
- * workqueue on the specified CPU.
- */
-bool schedule_delayed_work_on(int cpu,
-			struct delayed_work *dwork, unsigned long delay)
-{
-	return queue_delayed_work_on(cpu, system_wq, dwork, delay);
-}
-EXPORT_SYMBOL(schedule_delayed_work_on);
 
 /**
  * schedule_on_each_cpu - execute a function synchronously on each online CPU
