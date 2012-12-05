@@ -86,7 +86,7 @@ enum dhd_bus_state {
 /* max sequential rxcntl timeouts to set HANG event */
 #define MAX_CNTL_TIMEOUT  2
 
-#define DHD_SCAN_ACTIVE_TIME	 40 /* ms : Embedded default Active setting from DHD Driver */
+#define DHD_SCAN_ACTIVE_TIME	 80 /* ms : Embedded default Active setting from DHD Driver */
 #define DHD_SCAN_PASSIVE_TIME	130 /* ms: Embedded default Passive setting from DHD Driver */
 
 #define DHD_BEACON_TIMEOUT_NORMAL  4
