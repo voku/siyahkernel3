@@ -253,7 +253,7 @@ struct key *key_alloc(struct key_type *type, const char *desc,
 	quotalen = desclen + type->def_datalen;
 
 	/* get hold of the key tracking for this user */
-	user = key_user_lookup(uid, cred->user->user_ns);
+	user = key_user_lookup(uid, cred->user_ns);
 	if (!user)
 		goto no_memory_1;
 
@@ -597,7 +597,7 @@ void key_put(struct key *key)
 		key_check(key);
 
 		if (atomic_dec_and_test(&key->usage))
-			queue_work(system_nrt_wq, &key_gc_work);
+			schedule_work(&key_gc_work);
 	}
 }
 EXPORT_SYMBOL(key_put);

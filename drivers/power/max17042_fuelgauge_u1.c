@@ -941,7 +941,7 @@ static int __devinit max17042_probe(struct i2c_client *client,
 	/* create fuelgauge attributes */
 	fuelgauge_create_attrs(chip->battery.dev);
 
-	INIT_DELAYED_WORK_DEFERRABLE(&chip->work, max17042_work);
+	INIT_DEFERRABLE_WORK(&chip->work, max17042_work);
 	schedule_delayed_work(&chip->work, MAX17042_SHORT_DELAY);
 
 	dev_info(&client->dev, "%s: MAX17042 Driver Loaded\n", __func__);

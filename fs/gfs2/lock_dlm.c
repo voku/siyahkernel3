@@ -209,6 +209,18 @@ static void gdlm_unmount(struct gfs2_sbd *sdp)
 {
 	struct lm_lockstruct *ls = &sdp->sd_lockstruct;
 
+	if (test_bit(DFL_NO_DLM_OPS, &ls->ls_recover_flags))
+		goto release;
+
+	/* wait for gfs2_control_wq to be done with this mount */
+
+	spin_lock(&ls->ls_recover_spin);
+	set_bit(DFL_UNMOUNT, &ls->ls_recover_flags);
+	spin_unlock(&ls->ls_recover_spin);
+	flush_delayed_work(&sdp->sd_control_work);
+
+	/* mounted_lock and control_lock will be purged in dlm recovery */
+release:
 	if (ls->ls_dlm) {
 		dlm_release_lockspace(ls->ls_dlm, 2);
 		ls->ls_dlm = NULL;

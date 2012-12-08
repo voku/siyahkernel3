@@ -451,7 +451,7 @@ int lcdfreq_init(struct fb_info *fb)
 	mutex_init(&lcdfreq->lock);
 	spin_lock_init(&lcdfreq->slock);
 
-	INIT_DELAYED_WORK_DEFERRABLE(&lcdfreq->work, lcdfreq_status_work);
+	INIT_DEFERRABLE_WORK(&lcdfreq->work, lcdfreq_status_work);
 
 	ret = sysfs_create_group(&fb->dev->kobj, &lcdfreq_attr_group);
 	if (ret < 0) {

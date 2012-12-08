@@ -534,6 +534,7 @@ affs_remount(struct super_block *sb, int *flags, char *data)
 		return -EINVAL;
 	}
 
+	flush_delayed_work(&sbi->sb_work);
 	replace_mount_options(sb, new_opts);
 
 	sbi->s_flags = mount_flags;

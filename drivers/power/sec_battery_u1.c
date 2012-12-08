@@ -3338,7 +3338,7 @@ static __devinit int sec_bat_probe(struct platform_device *pdev)
 	INIT_WORK(&info->monitor_work, sec_bat_monitor_work);
 	INIT_WORK(&info->cable_work, sec_bat_cable_work);
 
-	INIT_DELAYED_WORK_DEFERRABLE(&info->polling_work, sec_bat_polling_work);
+	INIT_DEFERRABLE_WORK(&info->polling_work, sec_bat_polling_work);
 	schedule_delayed_work(&info->polling_work, 0);
 
 #ifdef CONFIG_TARGET_LOCALE_NA
@@ -3346,7 +3346,7 @@ static __devinit int sec_bat_probe(struct platform_device *pdev)
 #endif
 
 #ifdef SEC_BATTERY_INDEPEDENT_VF_CHECK
-	INIT_DELAYED_WORK_DEFERRABLE(&info->vf_check_work,
+	INIT_DEFERRABLE_WORK(&info->vf_check_work,
 				     sec_bat_vf_check_work);
 	schedule_delayed_work(&info->vf_check_work, 0);
 #endif
