@@ -659,13 +659,15 @@ power_attr(cpufreq_min_limit);
 
 #ifdef CONFIG_GPU_LOCK
 static int gpu_lock_val;
+static int gpu_lock_cnt;
 DEFINE_MUTEX(gpu_lock_mutex);
 
 static ssize_t gpu_lock_show(struct kobject *kobj,
 					struct kobj_attribute *attr,
 					char *buf)
 {
-	return sprintf(buf, "%d\n", gpu_lock_val);
+	return sprintf(buf, "level = %d, count = %d\n",
+			gpu_lock_val, gpu_lock_cnt);
 }
 
 static ssize_t gpu_lock_store(struct kobject *kobj,
@@ -682,20 +684,14 @@ static ssize_t gpu_lock_store(struct kobject *kobj,
 		goto out;
 	}
 
-	if (val == 0) {
-		if (gpu_lock_val != 0) {
-			exynos_gpufreq_unlock();
+	if (val == 0) { /* unlock */
+		gpu_lock_cnt = exynos_gpufreq_unlock();
+		if (gpu_lock_cnt == 0)
 			gpu_lock_val = 0;
-		} else {
-			pr_info("%s: Unlock request is ignored\n", __func__);
-		}
-	} else if (val == 1) {
-		if (gpu_lock_val == 0) {
-			exynos_gpufreq_lock();
+	} else if (val > 0 && val < 5) { /* lock with level */
+		gpu_lock_cnt = exynos_gpufreq_lock(val);
+		if (gpu_lock_val < val)
 			gpu_lock_val = val;
-		} else {
-			pr_info("%s: Lock request is ignored\n", __func__);
-		}
 	} else {
 		pr_info("%s: Lock request is invalid\n", __func__);
 	}
@@ -711,9 +707,11 @@ power_attr(gpu_lock);
 #ifdef CONFIG_ROTATION_BOOSTER_SUPPORT
 static inline void rotation_booster_on(void)
 {
+	int val;
+
 	exynos_cpufreq_lock(DVFS_LOCK_ID_ROTATION_BOOSTER, L0);
 	exynos4_busfreq_lock(DVFS_LOCK_ID_ROTATION_BOOSTER, BUS_L0);
-	exynos_gpufreq_lock();
+	exynos_gpufreq_lock(val);
 }
 
 static inline void rotation_booster_off(void)
