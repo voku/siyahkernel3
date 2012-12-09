@@ -1,4 +1,11 @@
 /*
+ * This software is the confidential and proprietary information
+ * of Samsung Electronics, Inc. ("Confidential Information").  You
+ * shall not disclose such Confidential Information and shall use
+ * it only in accordance with the terms of the license agreement
+ * you entered into with Samsung.
+ */
+/*
  * Copyright (C) 2008, 2009,  Samsung Electronics Co. Ltd. All Rights Reserved.
  *       Written by Linux Lab, MITs Development Team, Mobile Communication Division.
  */
@@ -15,6 +22,7 @@
  *
  * 2009.12 - Version 1.0 Released by SungHwan.yun <sunghwan.yun@samsung.com> @LDK@
  *
+ * 2011.07 - EMMC Mount Fail Bug Fix (1.1.0p1_b0)
  */
 
 #ifdef __KERNEL__
@@ -25,6 +33,10 @@
 #include <linux/fs.h>
 #include <linux/mount.h>
 #include <linux/buffer_head.h>
+
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 36))
+#define init_MUTEX(sem)	sema_init(sem, 1)
+#endif
 
 #ifndef BYTE
 #define BYTE __u8
@@ -69,34 +81,50 @@
 /**********************************************************
  * This is porting values
  **********************************************************/
-#define PHYSICAL_PAGE_SIZE		2048		// 4KB
-#define PHYSICAL_BLOCK_SIZE	PHYSICAL_PAGE_SIZE*64		// 256KB
-#define J4FS_PARTITION_ID		21
-#undef J4FS_USE_XSR							// NO XSR
-// J4FS for moviNAND merged from ROSSI
-#undef J4FS_USE_FSR						// FSR
+#define PHYSICAL_PAGE_SIZE		(1 << CONFIG_J4FS_PAGE_SHIFT)
+#define PHYSICAL_BLOCK_SIZE		(PHYSICAL_PAGE_SIZE * 64)
+
+#if defined(CONFIG_J4FS_USE_XSR)
+#define J4FS_USE_XSR
+#undef J4FS_USE_FSR
+#undef J4FS_USE_MOVI
+#elif defined(CONFIG_J4FS_USE_FSR)
+#undef J4FS_USE_XSR
+#define J4FS_USE_FSR
+#undef J4FS_USE_MOVI
+#elif defined(CONFIG_J4FS_USE_MOVI)
+#undef J4FS_USE_XSR
+#undef J4FS_USE_FSR
 #define J4FS_USE_MOVI
+#else
+#error "Check J4FS Interface Type!"
+#endif
 
 #if defined(J4FS_USE_MOVI)
-#define J4FS_BLOCK_COUNT	20
+#define J4FS_PARTITION_ID		21
+#else
+#define J4FS_PARTITION_ID		CONFIG_J4FS_PARTITION_ID
 #endif
-// J4FS for moviNAND merged from ROSSI
+
+#if defined(J4FS_USE_MOVI)
+#define J4FS_BLOCK_COUNT		CONFIG_J4FS_BLOCK_COUNT
+#endif
 
 /*
- * J4FS Version(J4FS_1.0.0p0_b0)
+ * J4FS Version(J4FS_1.0.0p2_b0)
  */
 #define J4FS_VER_MAJOR			1
 #define J4FS_VER_MINOR1			0
 #define J4FS_VER_MINOR2			0
-#define J4FS_VER_PATCHLEVEL		0
+#define J4FS_VER_PATCHLEVEL		2
 #define J4FS_BUILD_NUMBER		0
 
 
 /*
  * file header(j4fs_header) and data block and media status table(j4fs_mst) size
  */
-#define J4FS_BASIC_UNIT_SIZE			2048
-#define J4FS_BASIC_UNIT_SIZE_BITS		11
+#define J4FS_BASIC_UNIT_SIZE		(1 << CONFIG_J4FS_PAGE_SHIFT)
+#define J4FS_BASIC_UNIT_SIZE_BITS	CONFIG_J4FS_PAGE_SHIFT
 
 /*
  * File name length
@@ -167,22 +195,23 @@
 #define J4FS_RECLAIM_RESET_UNUSED_SPACE
 #define J4FS_TRANSACTION_LOGGING
 
-#define J4FS_T(mask, p) do { if ((mask) & (j4fs_traceMask | J4FS_TRACE_ALWAYS)) TOUT(p); } while (0)
-#define J4FS_POR(mask, p, q) do { if (((mask) & (j4fs_PORMask))&&!(--j4fs_PORCount)) {TOUT(p); while(1); }} while (0)
+#undef T
+#define T(mask, p) do { if ((mask) & (j4fs_traceMask | J4FS_TRACE_ALWAYS)) TOUT(p); } while (0)
+#define POR(mask, p, q) do { if (((mask) & (j4fs_PORMask))&&!(--j4fs_PORCount)) {TOUT(p); while(1); }} while (0)
 
 #define error(ret)	(ret>=J4FS_FAIL)
 
 #ifdef __KERNEL__
 #define j4fs_panic(str)		\
 do {							\
-	J4FS_T(J4FS_TRACE_ALWAYS,("%s %d: "str"\n",__FUNCTION__,__LINE__));	\
+	T(J4FS_TRACE_ALWAYS,("%s %d: "str"\n",__FUNCTION__,__LINE__));	\
 	fsd_panic();		\
 	dump_stack();	\
 } while (0)
 #else
 #define j4fs_panic(str)		\
 do {							\
-	J4FS_T(J4FS_TRACE_ALWAYS,("%s %d: "str"\n",__FUNCTION__,__LINE__));	\
+	T(J4FS_TRACE_ALWAYS,("%s %d: "str"\n",__FUNCTION__,__LINE__));	\
 	fsd_panic();	\
 } while (0)
 #endif
@@ -190,13 +219,13 @@ do {							\
 #ifdef __KERNEL__
 #define j4fs_dump(str)		\
 do {							\
-	J4FS_T(J4FS_TRACE_ALWAYS,("%s %d: "str"\n",__FUNCTION__,__LINE__));	\
+	T(J4FS_TRACE_ALWAYS,("%s %d: "str"\n",__FUNCTION__,__LINE__));	\
 	dump_stack();	\
 } while (0)
 #else
 #define j4fs_dump(str)		\
 do {							\
-	J4FS_T(J4FS_TRACE_ALWAYS,("%s %d: "str"\n",__FUNCTION__,__LINE__));	\
+	T(J4FS_TRACE_ALWAYS,("%s %d: "str"\n",__FUNCTION__,__LINE__));	\
 	while(1);	\
 } while (0)
 #endif
@@ -205,7 +234,7 @@ do {							\
 #define j4fs_check_partition_range(offset)		\
 do {		\
 	if(offset + J4FS_BASIC_UNIT_SIZE > device_info.j4fs_end) {	\
-		J4FS_T(J4FS_TRACE_ALWAYS,("%s %d: offset overflow(offset=0x%08x, j4fs_end=0x%08x)\n", __FUNCTION__, __LINE__, offset, device_info.j4fs_end));	\
+		T(J4FS_TRACE_ALWAYS,("%s %d: offset overflow(offset=0x%08x, j4fs_end=0x%08x)\n", __FUNCTION__, __LINE__, offset, device_info.j4fs_end));	\
 		j4fs_panic("offset overflow!!");	\
 		goto error1;	\
 	}	\
@@ -490,4 +519,3 @@ extern int FlashDevSpecial(j4fs_device_info *dev_ptr, DWORD scmd);
 #else
 #define TOUT(p) printf p
 #endif
-
