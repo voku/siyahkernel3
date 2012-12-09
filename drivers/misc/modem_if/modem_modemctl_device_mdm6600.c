@@ -234,8 +234,11 @@ int mdm6600_init_modemctl_device(struct modem_ctl *mc, struct modem_data *pdata)
 	mc->vbus_on = pdata->vbus_on;
 	mc->vbus_off = pdata->vbus_off;
 
-	pdev = to_platform_device(mc->dev);
-	mc->irq_phone_active = platform_get_irq_byname(pdev, "cp_active_irq");
+	mc->irq_phone_active = pdata->irq_phone_active;
+	if (!mc->irq_phone_active) {
+		mif_err("%s: ERR! get irq_phone_active fail\n", mc->name);
+		return -1;
+	}
 	pr_info("[MODEM_IF] <%s> PHONE_ACTIVE IRQ# = %d\n",
 		__func__, mc->irq_phone_active);
 
@@ -739,8 +742,11 @@ int mdm6600_init_modemctl_device(struct modem_ctl *mc, struct modem_data *pdata)
 	gpio_set_value(mc->gpio_cp_reset, 0);
 	gpio_set_value(mc->gpio_cp_on, 0);
 
-	pdev = to_platform_device(mc->dev);
-	mc->irq_phone_active = platform_get_irq_byname(pdev, "cp_active_irq");
+	mc->irq_phone_active = pdata->irq_phone_active;
+	if (!mc->irq_phone_active) {
+		mif_err("%s: ERR! get irq_phone_active fail\n", mc->name);
+		return -1;
+	}
 	pr_info("[MSM] <%s> PHONE_ACTIVE IRQ# = %d\n",
 		__func__, mc->irq_phone_active);
 
@@ -764,7 +770,7 @@ int mdm6600_init_modemctl_device(struct modem_ctl *mc, struct modem_data *pdata)
 	}
 
 #if defined(CONFIG_SIM_DETECT)
-	mc->irq_sim_detect = platform_get_irq_byname(pdev, "sim_irq");
+	mc->irq_sim_detect = pdata->irq_sim_detect;
 	pr_info("[MSM] <%s> SIM_DECTCT IRQ# = %d\n",
 		__func__, mc->irq_sim_detect);
 
