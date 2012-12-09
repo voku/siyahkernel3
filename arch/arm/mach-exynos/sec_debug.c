@@ -35,6 +35,9 @@
 #if defined(CONFIG_SEC_MODEM_P8LTE)
 #include <linux/miscdevice.h>
 #endif
+#ifdef CONFIG_PROC_SEC_MEMINFO
+#include "linux/sec_meminfo.h"
+#endif
 /* klaatu - schedule log */
 #ifdef CONFIG_SEC_DEBUG_SCHED_LOG
 #define SCHED_LOG_MAX 2048
@@ -68,6 +71,7 @@ struct sched_log {
 
 #ifdef CONFIG_SEC_DEBUG_AUXILIARY_LOG
 #define AUX_LOG_CPU_CLOCK_MAX 64
+#define AUX_LOG_CMA_RBTREE_MAX 64
 #define AUX_LOG_LENGTH 128
 
 struct auxiliary_info {
@@ -79,6 +83,7 @@ struct auxiliary_info {
 /* This structure will be modified if some other items added for log */
 struct auxiliary_log {
 	struct auxiliary_info CpuClockLog[AUX_LOG_CPU_CLOCK_MAX];
+	struct auxiliary_info CmaRbtreeLog[AUX_LOG_CMA_RBTREE_MAX];
 };
 
 #else
@@ -250,6 +255,7 @@ static unsigned long long gExcpIrqExitTime[NR_CPUS];
 static struct auxiliary_log gExcpAuxLog	__cacheline_aligned;
 static struct auxiliary_log *gExcpAuxLogPtr;
 static atomic_t gExcpAuxCpuClockLogIdx = ATOMIC_INIT(-1);
+static atomic_t gExcpAuxCmaRbtreeLogIdx = ATOMIC_INIT(-1);
 #endif
 
 static int checksum_sched_log(void)
@@ -643,6 +649,9 @@ static int sec_debug_panic_handler(struct notifier_block *nb,
 #if defined(CONFIG_SEC_MODEM_P8LTE)
 	sec_set_cp_upload();
 #endif
+#ifdef CONFIG_PROC_SEC_MEMINFO
+	sec_meminfo_print();
+#endif
 	sec_debug_hw_reset();
 
 	return 0;
@@ -962,6 +971,14 @@ void sec_debug_aux_log(int idx, char *fmt, ...)
 		(*gExcpAuxLogPtr).CpuClockLog[i].time = cpu_clock(cpu);
 		(*gExcpAuxLogPtr).CpuClockLog[i].cpu = cpu;
 		strncpy((*gExcpAuxLogPtr).CpuClockLog[i].log,
+			buf, AUX_LOG_LENGTH);
+		break;
+	case SEC_DEBUG_AUXLOG_CMA_RBTREE_CHANGE:
+		i = atomic_inc_return(&gExcpAuxCmaRbtreeLogIdx)
+			& (AUX_LOG_CMA_RBTREE_MAX - 1);
+		(*gExcpAuxLogPtr).CmaRbtreeLog[i].time = cpu_clock(cpu);
+		(*gExcpAuxLogPtr).CmaRbtreeLog[i].cpu = cpu;
+		strncpy((*gExcpAuxLogPtr).CmaRbtreeLog[i].log,
 			buf, AUX_LOG_LENGTH);
 		break;
 	default:

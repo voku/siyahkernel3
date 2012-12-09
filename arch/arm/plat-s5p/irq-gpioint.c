@@ -27,8 +27,6 @@
 #include <asm/mach/irq.h>
 #include <mach/regs-gpio.h>
 
-#include <asm/mach/irq.h>
-
 #define GPIO_BASE(chip)		(((unsigned long)(chip)->base) & 0xFFFFF000u)
 
 #define CON_OFFSET		0x700
@@ -130,6 +128,8 @@ static void s5p_gpioint_handler(unsigned int irq, struct irq_desc *desc)
 	}
 	chained_irq_exit(chip, desc);
 
+	if (!action)
+		do_bad_IRQ(irq, desc);
 }
 
 static __init int s5p_gpioint_add(struct s3c_gpio_chip *chip)
