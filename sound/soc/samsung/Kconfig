@@ -85,7 +85,7 @@ config SND_SOC_SAMSUNG_GRANDE_WM1811
 
 config SND_SOC_SAMSUNG_T0_WM1811
 	tristate "SoC I2S Audio support for WM1811 on T0"
-	depends on SND_SOC_SAMSUNG && MACH_T0
+	depends on SND_SOC_SAMSUNG && (MACH_T0 || MACH_M3_USA_TMO)
 	select SND_SOC_WM8994
 	select SND_SAMSUNG_I2S
 	help
@@ -100,6 +100,12 @@ config SND_SOC_SAMSUNG_T0DUOS_WM1811
 config SND_SOC_SAMSUNG_M3_WM1811
 	tristate "SoC I2S Audio support for WM1811 on M3"
 	depends on SND_SOC_SAMSUNG && MACH_M3
+	select SND_SOC_WM8994
+	select SND_SAMSUNG_I2S
+
+config SND_SOC_SAMSUNG_KONA_WM1811
+	tristate "SoC I2S Audio support for WM1811 on KONA"
+	depends on SND_SOC_SAMSUNG && MACH_KONA
 	select SND_SOC_WM8994
 	select SND_SAMSUNG_I2S
 
@@ -309,7 +315,6 @@ config SND_SOC_SPEYSIDE
 	select SND_SAMSUNG_I2S
 	select SND_SOC_WM8915
 	select SND_SOC_WM9081
-	select SND_SOC_WM1250_EV1
 
 config SND_DUOS_MODEM_SWITCH
 	bool "Select DUOS Modem"
