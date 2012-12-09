@@ -1,4 +1,11 @@
 /*
+ * This software is the confidential and proprietary information
+ * of Samsung Electronics, Inc. ("Confidential Information").  You
+ * shall not disclose such Confidential Information and shall use
+ * it only in accordance with the terms of the license agreement
+ * you entered into with Samsung.
+ */
+/*
  * llid.c
  *
  * Low-Level Interface Driver
@@ -27,19 +34,17 @@
 #elif defined(J4FS_USE_FSR)
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 28))
-#include "../../fsr/Inc/FSR.h"
-#include "../../fsr/Inc/FSR_STL.h"
+#include "../../tfsr/Inc/FSR.h"
+#include "../../tfsr/Inc/FSR_STL.h"
 #else
 #include "../fsr/Inc/FSR.h"
 #include "../fsr/Inc/FSR_STL.h"
 #endif
 
-// J4FS for moviNAND merged from ROSSI
 #elif defined(J4FS_USE_MOVI)
 /* j4fs device node name */
-#define J4FS_DEVNAME			"/dev/block/mmcblk0p4"
+#define J4FS_DEVNAME			CONFIG_J4FS_DEVNAME
 static struct file *j4fs_filp;
-// J4FS for moviNAND merged from ROSSI
 
 #else
 'compile error'
@@ -60,46 +65,43 @@ extern unsigned int j4fs_traceMask;
   */
 int FlashDevRead(j4fs_device_info *dev_ptr, DWORD offset, DWORD length, BYTE *buffer)
 {
-	int ret=-1;
-#if defined(J4FS_USE_XSR) || defined(J4FS_USE_FSR)
+#ifndef J4FS_USE_MOVI
 	DWORD nVol=0;
 	int part_id=dev_ptr->device;
 #endif
-// J4FS for moviNAND merged from ROSSI
+	int ret=-1;
+
 #ifdef J4FS_USE_MOVI
 	mm_segment_t oldfs;
 #endif
-// J4FS for moviNAND merged from ROSSI
 
 #if defined(J4FS_USE_XSR)
 	ret = STL_Read(nVol, part_id, offset/512, length/512, buffer);
 	if (ret != STL_SUCCESS) {
 		T(J4FS_TRACE_ALWAYS,("%s %d: Error(offset,length,j4fs_end,nErr)=(0x%x,0x%x,0x%x,0x%x)\n",__FUNCTION__,__LINE__,offset,length,device_info.j4fs_end,ret));
-   		return J4FS_FAIL;
+		return J4FS_FAIL;
 	}
 #elif defined(J4FS_USE_FSR)
 	ret = FSR_STL_Read(nVol, part_id, offset/512, length/512, buffer, FSR_STL_FLAG_DEFAULT);
 	if (ret != FSR_STL_SUCCESS) {
 		T(J4FS_TRACE_ALWAYS,("%s %d: Error(offset,length,j4fs_end,nErr)=(0x%x,0x%x,0x%x,0x%x)\n",__FUNCTION__,__LINE__,offset,length,device_info.j4fs_end,ret));
-   		return J4FS_FAIL;
+		return J4FS_FAIL;
 	}
-// J4FS for moviNAND merged from ROSSI
 #elif defined(J4FS_USE_MOVI)
-	if (!j4fs_filp) {
-			printk(KERN_ERR "J4FS not available\n");
-			return J4FS_FAIL;
-		}
-		j4fs_filp->f_flags |= O_NONBLOCK;
-		oldfs = get_fs(); set_fs(get_ds());
-		ret = j4fs_filp->f_op->llseek(j4fs_filp, offset, SEEK_SET);
-		ret = j4fs_filp->f_op->read(j4fs_filp, buffer, length, &j4fs_filp->f_pos);
-		set_fs(oldfs);
-		j4fs_filp->f_flags &= ~O_NONBLOCK;
-		if (ret < 0) {
-			printk(KERN_ERR "j4fs_filp->read() failed: %d\n", ret);
-			return J4FS_FAIL;
-		}
-// J4FS for moviNAND merged from ROSSI
+	if (IS_ERR(j4fs_filp)) {
+		printk("J4FS not available\n");
+		return J4FS_FAIL;
+	}
+	j4fs_filp->f_flags |= O_NONBLOCK;
+	oldfs = get_fs(); set_fs(get_ds());
+	ret = j4fs_filp->f_op->llseek(j4fs_filp, offset, SEEK_SET);
+	ret = j4fs_filp->f_op->read(j4fs_filp, buffer, length, &j4fs_filp->f_pos);
+	set_fs(oldfs);
+	j4fs_filp->f_flags &= ~O_NONBLOCK;
+	if (ret < 0) {
+		printk("j4fs_filp->read() failed: %d\n", ret);
+		return J4FS_FAIL;
+	}
 #else
 'compile error'
 #endif
@@ -119,35 +121,32 @@ int FlashDevRead(j4fs_device_info *dev_ptr, DWORD offset, DWORD length, BYTE *bu
   */
 int FlashDevWrite(j4fs_device_info *dev_ptr, DWORD offset, DWORD length, BYTE *buffer)
 {
-	int ret=-1;
-#if defined(J4FS_USE_XSR) || defined(J4FS_USE_FSR)
-   	DWORD nVol=0;
+#ifndef J4FS_USE_MOVI
+	DWORD nVol=0;
 	int part_id=dev_ptr->device;
 #endif
+	int ret=-1;
 
-// J4FS for moviNAND merged from ROSSI
 #ifdef J4FS_USE_MOVI
 	mm_segment_t oldfs;
 #endif
-// J4FS for moviNAND merged from ROSSI
 
 #if defined(J4FS_USE_XSR)
 	ret = STL_Write(nVol, part_id, offset/512, length/512, buffer);
 	if (ret != STL_SUCCESS) {
 		T(J4FS_TRACE_ALWAYS,("%s %d: Error(offset,length,j4fs_end,nErr)=(0x%x,0x%x,0x%x,0x%x)\n",__FUNCTION__,__LINE__,offset,length,device_info.j4fs_end,ret));
-   		return J4FS_FAIL;
+		return J4FS_FAIL;
 	}
 #elif defined(J4FS_USE_FSR)
 	ret = FSR_STL_Write(nVol, part_id, offset/512, length/512, buffer, FSR_STL_FLAG_DEFAULT);
 	if (ret != FSR_STL_SUCCESS) {
 		T(J4FS_TRACE_ALWAYS,("%s %d: Error(offset,length,j4fs_end,nErr)=(0x%x,0x%x,0x%x,0x%x)\n",__FUNCTION__,__LINE__,offset,length,device_info.j4fs_end,ret));
-   		return J4FS_FAIL;
+		return J4FS_FAIL;
 	}
-// J4FS for moviNAND merged from ROSSI
 #elif defined(J4FS_USE_MOVI)
-	if (!j4fs_filp) {
-			printk(KERN_ERR "J4FS not available\n");
-			return J4FS_FAIL;
+	if (IS_ERR(j4fs_filp)) {
+		printk("J4FS not available\n");
+		return J4FS_FAIL;
 	}
 	j4fs_filp->f_flags |= O_NONBLOCK;
 	oldfs = get_fs(); set_fs(get_ds());
@@ -156,10 +155,9 @@ int FlashDevWrite(j4fs_device_info *dev_ptr, DWORD offset, DWORD length, BYTE *b
 	set_fs(oldfs);
 	j4fs_filp->f_flags &= ~O_NONBLOCK;
 	if (ret < 0) {
-		printk(KERN_ERR "j4fs_filp->write() failed: %d\n", ret);
+		printk("j4fs_filp->write() failed: %d\n", ret);
 		return J4FS_FAIL;
 	}
-// J4FS for moviNAND merged from ROSSI
 #else
 'compile error'
 #endif
@@ -193,10 +191,8 @@ int FlashDevSpecial(j4fs_device_info *dev_ptr, DWORD scmd)
 		case J4FS_GET_INFO:
 			break;
 
-// J4FS for moviNAND merged from ROSSI
 		case J4FS_EXIT:
 			FlashDevUnmount();
-// J4FS for moviNAND merged from ROSSI
 
 		default:
 			break;
@@ -209,7 +205,6 @@ int FlashDevMount()
 {
 	DWORD media_status_table_size=1;		//  Media Status Table occupys 1 block
 
-// J4FS for moviNAND merged from ROSSI
 #ifdef J4FS_USE_MOVI
 	j4fs_filp = filp_open(J4FS_DEVNAME, O_RDWR|O_SYNC, 0);
 	if (IS_ERR(j4fs_filp)) {
@@ -218,7 +213,6 @@ int FlashDevMount()
 	}
 	printk("FlashDevMount : filp_open() OK....!\n");
 #endif
-// J4FS for moviNAND merged from ROSSI
 
 	device_info.device=J4FS_PARTITION_ID;
 	device_info.blocksize=PHYSICAL_BLOCK_SIZE;
@@ -229,12 +223,10 @@ int FlashDevMount()
 
 int FlashDevUnmount()
 {
-// ROSSI Projecct(hyunkwon.kim) 2010.09.06 Add J4FS for Parameter Infomation
 #ifdef J4FS_USE_MOVI
 	filp_close(j4fs_filp, NULL);
 	printk("FlashDevUnmount : filp_close() OK....!\n");
 #endif
-// ROSSI Projecct(hyunkwon.kim) 2010.09.06 End
 
 	return J4FS_SUCCESS;
 }
