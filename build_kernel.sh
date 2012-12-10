@@ -17,25 +17,26 @@ export USE_SEC_FIPS_MODE=true
 # gcc 4.7 (Linaro 12.04)
 # export CROSS_COMPILE=$PARENT_DIR/linaro/bin/arm-eabi-
 # gcc 4.7.2 (Linaro 12.07)
-export CROSS_COMPILE=$KERNELDIR/android-toolchain/bin/arm-linux-gnueabihf-
+export CROSS_COMPILE=$KERNELDIR/android-toolchain/bin/arm-eabi-
 
 
 # Importing PATCH for GCC depend on GCC version.
-GCCVERSION=`./scripts/gcc-version.sh ${CROSS_COMPILE}gcc`
+GCCVERSION_OLD=`${CROSS_COMPILE}gcc --version | cut -d " " -f3 | cut -c3-5 | grep -iv "09" | grep -iv "ee" | grep -iv "en"`
+GCCVERSION_NEW=`${CROSS_COMPILE}gcc --version | cut -d " " -f4 | cut -c1-3 | grep -iv "Fre" | grep -iv "sof" | grep -iv "for" | grep -iv "auc"`
 
-if [ "a$GCCVERSION" == "a0404" ]; then
+if [ "a$GCCVERSION_OLD" == "a4.3" ]; then
 	cp $KERNELDIR/arch/arm/boot/compressed/Makefile_old_gcc $KERNELDIR/arch/arm/boot/compressed/Makefile
 	echo "GCC 4.3.X Compiler Detected, building"
-elif [ "a$GCCVERSION" == "a0404" ]; then
+elif [ "a$GCCVERSION_OLD" == "a4.4" ]; then
 	cp $KERNELDIR/arch/arm/boot/compressed/Makefile_old_gcc $KERNELDIR/arch/arm/boot/compressed/Makefile
 	echo "GCC 4.4.X Compiler Detected, building"
-elif [ "a$GCCVERSION" == "a0405" ]; then
+elif [ "a$GCCVERSION_OLD" == "a4.5" ]; then
 	cp $KERNELDIR/arch/arm/boot/compressed/Makefile_old_gcc $KERNELDIR/arch/arm/boot/compressed/Makefile
 	echo "GCC 4.5.X Compiler Detected, building"
-elif [ "a$GCCVERSION" == "a0406" ]; then
+elif [ "a$GCCVERSION_NEW" == "a4.6" ]; then
 	cp $KERNELDIR/arch/arm/boot/compressed/Makefile_linaro $KERNELDIR/arch/arm/boot/compressed/Makefile
 	echo "GCC 4.6.X Compiler Detected, building"
-elif [ "a$GCCVERSION" == "a0407" ]; then
+elif [ "a$GCCVERSION_NEW" == "a4.7" ]; then
 	cp $KERNELDIR/arch/arm/boot/compressed/Makefile_linaro $KERNELDIR/arch/arm/boot/compressed/Makefile
 	echo "GCC 4.7.X Compiler Detected, building"
 else

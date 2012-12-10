@@ -342,10 +342,12 @@ static int check_usb_op(void)
 #endif
 }
 
-#ifdef CONFIG_SND_SAMSUNG_RP
-#if defined(CONFIG_MACH_U1_NA_SPR)
+#ifdef CONFIG_MACH_U1_NA_SPR
 #include "../../../sound/soc/samsung/srp-types.h"
+#include "../../../sound/soc/samsung/idma.h"
 #endif
+
+#ifdef CONFIG_SND_SAMSUNG_RP
 extern int srp_get_op_level(void);	/* By srp driver */
 #endif
 
@@ -374,11 +376,43 @@ static inline int check_gps_uart_op(void)
 #ifdef CONFIG_INTERNAL_MODEM_IF
 static int check_idpram_op(void)
 {
+#ifdef CONFIG_SEC_MODEM_U1_SPR
+	/*
+	If GPIO_CP_DUMP_INT is HIGH, dpram is in use.
+	If there is a cmd in cp's mbx, dpram is in use.
+	*/
+
+	/* block any further write's into dpram from ap*/
+	gpio_set_value(GPIO_PDA_ACTIVE, 0);
+
+	if (gpio_get_value(GPIO_CP_DUMP_INT) ||
+		!gpio_get_value(GPIO_DPRAM_INT_CP_N)) {
+		pr_info("LPA. dpram is in use\n");
+		gpio_set_value(GPIO_PDA_ACTIVE, 1);
+		return 1;
+	}
+
+	/* dpram is not in use, so keep GPIO_PDA_ACTIVE low and return */
+	return 0;
+#else
 	/* This pin is high when CP might be accessing dpram */
 	int cp_int = gpio_get_value(GPIO_CP_AP_DPRAM_INT);
 	if (cp_int != 0)
 		pr_info("%s cp_int is high.\n", __func__);
 	return cp_int;
+#endif
+}
+#endif
+
+#if defined(CONFIG_ISDBT)
+static int check_isdbt_op(void)
+{
+	/* This pin is high when isdbt is working */
+	int isdbt_is_running = gpio_get_value(GPIO_ISDBT_EN);
+
+	if (isdbt_is_running != 0)
+		printk(KERN_INFO "isdbt_is_running is high\n");
+	return isdbt_is_running;
 }
 #endif
 
@@ -411,21 +445,28 @@ static int exynos4_check_operation(void)
 #ifdef CONFIG_SND_SAMSUNG_RP
 	if (srp_get_op_level())
 		return 1;
-#if defined(CONFIG_MACH_U1_NA_SPR)
+#endif
+
+#ifdef CONFIG_MACH_U1_NA_SPR
+#ifdef CONFIG_SND_SAMSUNG_RP
 	if (!srp_get_status(IS_RUNNING))
+		return 1;
+#elif defined(CONFIG_SND_SAMSUNG_ALP)
+	if (!idma_is_running())
 		return 1;
 #endif
 #endif
+
 	if (check_usb_op())
 		return 1;
 
-#if defined(CONFIG_BT)
-	if (check_bt_op())
+#if defined(CONFIG_ISDBT)
+	if (check_isdbt_op())
 		return 1;
 #endif
 
-#ifdef CONFIG_INTERNAL_MODEM_IF
-	if (check_idpram_op())
+#if defined(CONFIG_BT)
+	if (check_bt_op())
 		return 1;
 #endif
 
@@ -440,6 +481,10 @@ static int exynos4_check_operation(void)
 		return 1;
 	}
 
+#ifdef CONFIG_INTERNAL_MODEM_IF
+	if (check_idpram_op())
+		return 1;
+#endif
 	return 0;
 }
 
@@ -509,7 +554,7 @@ void exynos4_flush_cache(void *addr, phys_addr_t phy_ttb_base)
 	outer_clean_range(virt_to_phys(cpu_resume),
 			  virt_to_phys(cpu_resume + 0x40));
 	outer_clean_range(phy_ttb_base, phy_ttb_base + 0xffff);
-	flush_cache_louis();
+	flush_cache_all();
 }
 
 static void exynos4_set_wakeupmask(void)
@@ -1021,7 +1066,7 @@ static void exynos4_init_cpuidle_post_hib(void)
 	l2x0_save[1] = __raw_readl(S5P_VA_L2CC + 0x10C);
 	l2x0_save[2] = __raw_readl(S5P_VA_L2CC + 0xF60);
 
-	flush_cache_louis();
+	flush_cache_all();
 	outer_clean_range(virt_to_phys(l2x0_save), ARRAY_SIZE(l2x0_save));
 	outer_clean_range(virt_to_phys(scu_save), ARRAY_SIZE(scu_save));
 }
@@ -1045,7 +1090,7 @@ static int __init exynos4_init_cpuidle(void)
 
 	ret = cpuidle_register_driver(&exynos4_idle_driver);
 
-	if(ret < 0){
+	if (ret < 0) {
 		printk(KERN_ERR "exynos4 idle register driver failed\n");
 		return ret;
 	}
@@ -1122,7 +1167,7 @@ static int __init exynos4_init_cpuidle(void)
 	l2x0_save[1] = __raw_readl(S5P_VA_L2CC + 0x10C);
 	l2x0_save[2] = __raw_readl(S5P_VA_L2CC + 0xF60);
 
-	flush_cache_louis();
+	flush_cache_all();
 	outer_clean_range(virt_to_phys(l2x0_save), ARRAY_SIZE(l2x0_save));
 	outer_clean_range(virt_to_phys(scu_save), ARRAY_SIZE(scu_save));
 
