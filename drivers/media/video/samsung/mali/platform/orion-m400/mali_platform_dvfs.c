@@ -686,11 +686,10 @@ mali_bool init_mali_dvfs_status(int step)
 
 void deinit_mali_dvfs_status(void)
 {
+    _mali_osk_atomic_term(&bottomlock_status);
+
 	if (mali_dvfs_wq)
 		destroy_workqueue(mali_dvfs_wq);
-
-	_mali_osk_atomic_term(&bottomlock_status);
-
 	mali_dvfs_wq = NULL;
 }
 
@@ -761,22 +760,31 @@ int mali_dvfs_bottom_lock_push(int lock_step)
 		MALI_PRINT(("gpu bottom lock status is not valid for push\n"));
 		return -1;
 	}
-	// not a bad idea to limit locking to 4th step, so let's leave this -gm
-	if (samsung_rev() < EXYNOS4412_REV_2_0)
-		lock_step = min(lock_step, MALI_DVFS_STEPS - 2);
-	else
-		lock_step = min(lock_step, MALI_DVFS_STEPS - 1);
 
-	if (bottom_lock_step < lock_step) {
-		bottom_lock_step = lock_step;
-		if (get_mali_dvfs_status() < lock_step) {
-			mali_regulator_set_voltage(mali_dvfs[lock_step].vol,
-						   mali_dvfs[lock_step].vol);
-			mali_clk_set_rate(mali_dvfs[lock_step].clock,
-					  mali_dvfs[lock_step].freq);
-			set_mali_dvfs_current_step(lock_step);
+    if (prev_status == 0) {
+        mali_regulator_set_voltage(mali_dvfs[1].vol, mali_dvfs[1].vol);
+        mali_clk_set_rate(mali_dvfs[1].clock, mali_dvfs[1].freq);
+        set_mali_dvfs_current_step(1);
+    } else {
+
+		// not a bad idea to limit locking to 4th step, so let's leave this -gm
+		if (samsung_rev() < EXYNOS4412_REV_2_0)
+			lock_step = min(lock_step, MALI_DVFS_STEPS - 2);
+		else
+			lock_step = min(lock_step, MALI_DVFS_STEPS - 1);
+
+		if (bottom_lock_step < lock_step) {
+			bottom_lock_step = lock_step;
+			if (get_mali_dvfs_status() < lock_step) {
+				mali_regulator_set_voltage(mali_dvfs[lock_step].vol,
+							   mali_dvfs[lock_step].vol);
+				mali_clk_set_rate(mali_dvfs[lock_step].clock,
+						  mali_dvfs[lock_step].freq);
+				set_mali_dvfs_current_step(lock_step);
+			}
 		}
 	}
+
 	return _mali_osk_atomic_inc_return(&bottomlock_status);
 }
 

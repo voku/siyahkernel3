@@ -116,7 +116,11 @@ extern struct platform_device exynos4_device_pd[];
 
 mali_io_address clk_register_map = 0;
 
-_mali_osk_lock_t *mali_dvfs_lock = 0;
+#if MALI_GPU_BOTTOM_LOCK
+_mali_osk_lock_t *mali_dvfs_lock;
+#else
+static _mali_osk_lock_t *mali_dvfs_lock;
+#endif
 
 #ifdef CONFIG_REGULATOR
 int mali_regulator_get_usecount(void)
@@ -155,65 +159,37 @@ void mali_regulator_enable(void)
 
 void mali_regulator_set_voltage(int min_uV, int max_uV)
 {
-	int voltage;
-#if !MALI_DVFS_ENABLED
-	min_uV = mali_gpu_vol;
-	max_uV = mali_gpu_vol;
-#endif
-/*
-#if MALI_VOLTAGE_LOCK
-	if (mali_vol_lock_flag == MALI_FALSE) {
-		if (min_uV < MALI_BOTTOMLOCK_VOL || max_uV < MALI_BOTTOMLOCK_VOL) {
-			min_uV = MALI_BOTTOMLOCK_VOL;
-			max_uV = MALI_BOTTOMLOCK_VOL;
-		}
-	} else if (_mali_osk_atomic_read(&voltage_lock_status) > 0 ) {
-		if (min_uV < mali_lock_vol || max_uV < mali_lock_vol) {
-#if MALI_DVFS_ENABLED
-			int mali_vol_get;
-			mali_vol_get = mali_vol_get_from_table(mali_lock_vol);
-			if (mali_vol_get) {
-				min_uV = mali_vol_get;
-				max_uV = mali_vol_get;
-			}
-#else
-			min_uV = mali_lock_vol;
-			max_uV = mali_lock_vol;
-#endif
-		}
-	}
-#endif
-*/
+    int voltage;
 
-	_mali_osk_lock_wait(mali_dvfs_lock, _MALI_OSK_LOCKMODE_RW);
+    _mali_osk_lock_wait(mali_dvfs_lock, _MALI_OSK_LOCKMODE_RW);
 
-	if (IS_ERR_OR_NULL(g3d_regulator)) {
-		MALI_DEBUG_PRINT(1, ("error on mali_regulator_set_voltage : g3d_regulator is null\n"));
-		return;
-	}
-	MALI_DEBUG_PRINT(2, ("= regulator_set_voltage: %d, %d \n",min_uV, max_uV));
+    if( IS_ERR_OR_NULL(g3d_regulator) )
+    {
+        MALI_DEBUG_PRINT(1, ("error on mali_regulator_set_voltage : g3d_regulator is null\n"));
+        return;
+    }
+    MALI_DEBUG_PRINT(2, ("= regulator_set_voltage: %d, %d \n",min_uV, max_uV));
 
 #if MALI_TIMELINE_PROFILING_ENABLED
-	_mali_osk_profiling_add_event( MALI_PROFILING_EVENT_TYPE_SINGLE |
+    _mali_profiling_add_event( MALI_PROFILING_EVENT_TYPE_SINGLE |
                                MALI_PROFILING_EVENT_CHANNEL_SOFTWARE |
                                MALI_PROFILING_EVENT_REASON_SINGLE_SW_GPU_VOLTS,
-                               min_uV, max_uV, 1, 0, 0);
+                               min_uV, max_uV, 0, 0, 0);
 #endif
 
-	regulator_set_voltage(g3d_regulator,min_uV,max_uV);
-	voltage = regulator_get_voltage(g3d_regulator);
+    regulator_set_voltage(g3d_regulator,min_uV,max_uV);
+    voltage = regulator_get_voltage(g3d_regulator);
 
 #if MALI_TIMELINE_PROFILING_ENABLED
-	_mali_osk_profiling_add_event( MALI_PROFILING_EVENT_TYPE_SINGLE |
+    _mali_profiling_add_event( MALI_PROFILING_EVENT_TYPE_SINGLE |
                                MALI_PROFILING_EVENT_CHANNEL_SOFTWARE |
                                MALI_PROFILING_EVENT_REASON_SINGLE_SW_GPU_VOLTS,
-                               voltage, 0, 2, 0, 0);
+                               voltage, 0, 1, 0, 0);
 #endif
+    mali_gpu_vol = voltage;
+    MALI_DEBUG_PRINT(1, ("= regulator_get_voltage: %d \n",mali_gpu_vol));
 
-	mali_gpu_vol = voltage;
-	MALI_DEBUG_PRINT(1, ("= regulator_get_voltage: %d \n",mali_gpu_vol));
-
-	_mali_osk_lock_signal(mali_dvfs_lock, _MALI_OSK_LOCKMODE_RW);
+    _mali_osk_lock_signal(mali_dvfs_lock, _MALI_OSK_LOCKMODE_RW);
 }
 #endif
 
