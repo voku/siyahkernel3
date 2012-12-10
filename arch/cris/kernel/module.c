@@ -39,9 +39,7 @@
 
 void *module_alloc(unsigned long size)
 {
-	if (size == 0)
-		return NULL;
-	return MALLOC_MODULE(size);
+	return kmalloc(size, GFP_KERNEL);
 }
 
 
