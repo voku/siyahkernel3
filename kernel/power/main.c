@@ -707,11 +707,9 @@ power_attr(gpu_lock);
 #ifdef CONFIG_ROTATION_BOOSTER_SUPPORT
 static inline void rotation_booster_on(void)
 {
-	int val;
-
 	exynos_cpufreq_lock(DVFS_LOCK_ID_ROTATION_BOOSTER, L0);
 	exynos4_busfreq_lock(DVFS_LOCK_ID_ROTATION_BOOSTER, BUS_L0);
-	exynos_gpufreq_lock(val);
+	exynos_gpufreq_lock(1);
 }
 
 static inline void rotation_booster_off(void)
