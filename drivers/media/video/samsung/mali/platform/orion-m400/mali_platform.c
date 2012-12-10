@@ -73,15 +73,19 @@ static struct clk  *mpll_clock = 0;
 static struct clk  *mali_parent_clock = 0;
 static struct clk  *mali_clock = 0;
 
-
-static unsigned int GPU_MHZ	= 1000000;
-
+static unsigned int GPU_MHZ = 1000000;
+//#ifdef CONFIG_S5PV310_ASV
+//int mali_gpu_vol = 1100000;        /* 1.10V for ASV */
+//#else
+//int mali_gpu_vol = 1100000;        /* 1.10V */
+//#endif
 int mali_gpu_clk = 108;
 int mali_gpu_vol = 900000;
 
 #if MALI_DVFS_ENABLED
 #define MALI_DVFS_DEFAULT_STEP 0
 #endif
+
 #if MALI_VOLTAGE_LOCK
 int mali_lock_vol = 0;
 static _mali_osk_atomic_t voltage_lock_status;
@@ -485,13 +489,6 @@ static _mali_osk_errcode_t enable_mali_clocks(void)
 	}
 	if (mali_gpu_clk <= mali_runtime_resume.clk)
 		set_mali_dvfs_current_step(MALI_DVFS_STEPS + 1);
-#if CPUFREQ_LOCK_DURING_440
-	/* lock/unlock CPU freq by Mali */
-	if (mali_gpu_clk >= 533)
-		err = cpufreq_lock_by_mali(1200);
-	else if (mali_gpu_clk == 440)
-		err = cpufreq_lock_by_mali(1000);
-#endif
 #else
 	mali_regulator_set_voltage(mali_runtime_resume.vol, mali_runtime_resume.vol);
 	mali_clk_set_rate(mali_runtime_resume.clk, GPU_MHZ);
