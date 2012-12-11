@@ -17,7 +17,6 @@
  *
  */
 
-#include <linux/types.h>
 #include <linux/gpio.h>
 
 #include <sound/soc.h>

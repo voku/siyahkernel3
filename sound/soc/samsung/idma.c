@@ -1,16 +1,14 @@
 /*
- * sound/soc/samsung/idma.c
+ * idma.c  --  I2S0's Internal Dma driver
  *
- * Copyright (c) 2011 Samsung Electronics Co., Ltd.
- *		http://www.samsung.com
- *
- * I2S0's Internal DMA driver
+ * Copyright (c) 2010 Samsung Electronics Co. Ltd
  *
  * This program is free software; you can redistribute  it and/or modify it
  * under  the terms of  the GNU General  Public License as published by the
  * Free Software Foundation;  either version 2 of the  License, or (at your
  * option) any later version.
  */
+
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
@@ -47,8 +45,8 @@ static const struct snd_pcm_hardware idma_hardware = {
 		    SNDRV_PCM_FMTBIT_S8,
 	.channels_min = 1,
 	.channels_max = 2,
-	.buffer_bytes_max = 128 * 1024,
-	.period_bytes_min = PAGE_SIZE,
+	.buffer_bytes_max = LP_TXBUFF_MAX,
+	.period_bytes_min = 1024,
 	.period_bytes_max = PAGE_SIZE * 2,
 	.periods_min = 2,
 	.periods_max = 128,
@@ -116,6 +114,7 @@ static int idma_enqueue(struct snd_pcm_substream *substream)
 	 */
 	val = readl(idma.regs + I2SSIZE);
 	val &= ~(I2SSIZE_TRNMSK << I2SSIZE_SHIFT);
+
 	val |= (((runtime->dma_bytes >> 2) &
 			I2SSIZE_TRNMSK) << I2SSIZE_SHIFT);
 	writel(val, idma.regs + I2SSIZE);
@@ -523,6 +522,14 @@ void idma_init(void *regs)
 	idma.trncnt_wa_enabled = false;
 #endif
 }
+
+#ifdef CONFIG_SND_SAMSUNG_ALP
+int idma_is_running(void)
+{
+	return (idma.trigger_stat == LPAM_DMA_START) ? 1 : 0;
+}
+EXPORT_SYMBOL(idma_is_running);
+#endif
 
 #ifdef CONFIG_SND_SAMSUNG_RP
 int idma_irq_callback(void)
