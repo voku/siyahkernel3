@@ -1917,12 +1917,6 @@ static int path_init(int dfd, const char *name, unsigned int flags,
 				fdput(f);
 				return -ENOTDIR;
 			}
-
-			retval = inode_permission(dentry->d_inode, MAY_EXEC);
-			if (retval) {
-				fdput(f);
-				return retval;
-			}
 		}
 
 		nd->path = f.file->f_path;
