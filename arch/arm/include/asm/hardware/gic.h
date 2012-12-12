@@ -45,6 +45,7 @@ int gic_of_init(struct device_node *node, struct device_node *parent);
 void gic_secondary_init(unsigned int);
 void gic_cascade_irq(unsigned int gic_nr, unsigned int irq);
 void gic_raise_softirq(const struct cpumask *mask, unsigned int irq);
+void gic_enable_ppi(unsigned int);
 
 struct gic_chip_data {
 	void __percpu __iomem **dist_base;
