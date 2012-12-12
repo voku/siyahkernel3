@@ -3007,7 +3007,7 @@ static void show_migration_types(unsigned char type)
 		[MIGRATE_RECLAIMABLE]	= 'E',
 		[MIGRATE_MOVABLE]	= 'M',
 		[MIGRATE_RESERVE]	= 'R',
-#ifdef CONFIG_CMA
+#ifdef CONFIG_DMA_CMA
 		[MIGRATE_CMA]		= 'C',
 #endif
 		[MIGRATE_ISOLATE]	= 'I',
