@@ -854,7 +854,7 @@ check_pages_isolated_cb(unsigned long start_pfn, unsigned long nr_pages,
 {
 	int ret;
 	long offlined = *(long *)data;
-	ret = test_pages_isolated(start_pfn, start_pfn + nr_pages);
+	ret = test_pages_isolated(start_pfn, start_pfn + nr_pages, true);
 	offlined = nr_pages;
 	if (!ret)
 		*(long *)data += offlined;
@@ -904,7 +904,8 @@ static int __ref offline_pages(unsigned long start_pfn,
 #ifndef CONFIG_DMA_CMA
 	ret = start_isolate_page_range(start_pfn, end_pfn);
 #else
-	ret = start_isolate_page_range(start_pfn, end_pfn, MIGRATE_MOVABLE);
+	ret = start_isolate_page_range(start_pfn, end_pfn,
+				       MIGRATE_MOVABLE, true);
 #endif
 	if (ret)
 		goto out;
