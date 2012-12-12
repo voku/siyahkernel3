@@ -3037,7 +3037,7 @@ static int kswapd(void *p)
 	classzone_idx = new_classzone_idx = pgdat->nr_zones - 1;
 	balanced_classzone_idx = classzone_idx;
 	for ( ; ; ) {
-		int ret;
+		bool ret;
 
 		/* kswapd has been busy so delay watermark_timer */
 		mod_timer(&pgdat->watermark_timer, jiffies + WT_EXPIRY);
