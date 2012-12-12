@@ -49,6 +49,8 @@
 #include <net/bluetooth/bluetooth.h>
 #include <net/bluetooth/hci_core.h>
 
+static int enable_mgmt;
+
 /* ----- HCI socket interface ----- */
 
 static inline int hci_test_bit(int nr, void *addr)
@@ -178,40 +180,24 @@ static int hci_sock_release(struct socket *sock)
 	return 0;
 }
 
-/* sync from bluez git */
 static int hci_sock_blacklist_add(struct hci_dev *hdev, void __user *arg)
 {
 	bdaddr_t bdaddr;
-	int err;
 
 	if (copy_from_user(&bdaddr, arg, sizeof(bdaddr)))
 		return -EFAULT;
 
-	hci_dev_lock(hdev);
-
-	err = hci_blacklist_add(hdev, &bdaddr, 0);
-
-	hci_dev_unlock(hdev);
-
-	return err;
+	return hci_blacklist_add(hdev, &bdaddr);
 }
 
-/* sync from bluez git */
 static int hci_sock_blacklist_del(struct hci_dev *hdev, void __user *arg)
 {
 	bdaddr_t bdaddr;
-	int err;
 
 	if (copy_from_user(&bdaddr, arg, sizeof(bdaddr)))
 		return -EFAULT;
 
-	hci_dev_lock(hdev);
-
-	err = hci_blacklist_del(hdev, &bdaddr, 0);
-
-	hci_dev_unlock(hdev);
-
-	return err;
+	return hci_blacklist_del(hdev, &bdaddr);
 }
 
 /* Ioctls that require bound socket */
@@ -343,9 +329,8 @@ static int hci_sock_bind(struct socket *sock, struct sockaddr *addr, int addr_le
 	if (haddr.hci_channel > HCI_CHANNEL_CONTROL)
 		return -EINVAL;
 
-	if (haddr.hci_channel == HCI_CHANNEL_CONTROL) {
-		set_bit(HCI_PI_MGMT_INIT, &hci_pi(sk)->flags);
-	}
+	if (haddr.hci_channel == HCI_CHANNEL_CONTROL && !enable_mgmt)
+		return -EINVAL;
 
 	lock_sock(sk);
 
@@ -827,3 +812,6 @@ void hci_sock_cleanup(void)
 
 	proto_unregister(&hci_sk_proto);
 }
+
+module_param(enable_mgmt, bool, 0644);
+MODULE_PARM_DESC(enable_mgmt, "Enable Management interface");

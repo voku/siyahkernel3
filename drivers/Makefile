@@ -87,7 +87,11 @@ obj-$(CONFIG_THERMAL)		+= thermal/
 obj-$(CONFIG_WATCHDOG)		+= watchdog/
 obj-$(CONFIG_PHONE)		+= telephony/
 obj-$(CONFIG_MD)		+= md/
+ifeq ($(CONFIG_BT_TIZEN),y)
+obj-$(CONFIG_BT)		+= bluetooth_tizen/
+else
 obj-$(CONFIG_BT)		+= bluetooth/
+endif
 obj-$(CONFIG_ACCESSIBILITY)	+= accessibility/
 obj-$(CONFIG_ISDN)		+= isdn/
 obj-$(CONFIG_EDAC)		+= edac/

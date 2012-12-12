@@ -11,9 +11,6 @@ config TARGET_LOCALE_LTN
 config TARGET_LOCALE_KOR
 	bool "Kor"
 
-config TARGET_LOCALE_NAATT_TEMP
-	bool "NAGSM"
-
 config TARGET_LOCALE_P2EUR_TEMP
 	bool "P2EUR"
 
@@ -39,6 +36,9 @@ config TARGET_LOCALE_USA
 	bool "USA"
 
 endchoice
+
+config TARGET_LOCALE_NAATT_TEMP
+	bool "NAGSM"
 
 choice
 	prompt "C1 USA Target Carrier"

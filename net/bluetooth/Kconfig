@@ -19,7 +19,7 @@ menuconfig BT
 	     HCI Device drivers (Interface to the hardware)
 	     SCO Module (SCO audio links)
 	     L2CAP Module (Logical Link Control and Adaptation Protocol)
-	     RFCOMM Module (RFCOMM Protocol)
+	     RFCOMM Module (RFCOMM Protocol)  
 	     BNEP Module (Bluetooth Network Encapsulation Protocol)
 	     CMTP Module (CAPI Message Transport Protocol)
 	     HIDP Module (Human Interface Device Protocol)

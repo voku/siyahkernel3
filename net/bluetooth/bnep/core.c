@@ -124,8 +124,7 @@ static inline void bnep_set_default_proto_filter(struct bnep_session *s)
 }
 #endif
 
-static int bnep_ctrl_set_netfilter(struct bnep_session *s,
-					__be16 *data, int len)
+static int bnep_ctrl_set_netfilter(struct bnep_session *s, __be16 *data, int len)
 {
 	int n;
 
@@ -163,8 +162,7 @@ static int bnep_ctrl_set_netfilter(struct bnep_session *s,
 
 		bnep_send_rsp(s, BNEP_FILTER_NET_TYPE_RSP, BNEP_SUCCESS);
 	} else {
-		bnep_send_rsp(s, BNEP_FILTER_NET_TYPE_RSP,
-				BNEP_FILTER_LIMIT_REACHED);
+		bnep_send_rsp(s, BNEP_FILTER_NET_TYPE_RSP, BNEP_FILTER_LIMIT_REACHED);
 	}
 #else
 	bnep_send_rsp(s, BNEP_FILTER_NET_TYPE_RSP, BNEP_FILTER_UNSUPPORTED_REQ);
@@ -494,10 +492,7 @@ static int bnep_session(void *arg)
 		/* RX */
 		while ((skb = skb_dequeue(&sk->sk_receive_queue))) {
 			skb_orphan(skb);
-			if (!skb_linearize(skb))
-				bnep_rx_frame(s, skb);
-			else
-				kfree_skb(skb);
+			bnep_rx_frame(s, skb);
 		}
 
 		if (sk->sk_state != BT_CONNECTED)
