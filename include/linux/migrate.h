@@ -36,6 +36,9 @@ enum migrate_mode {
 					   * sucessful migration case.
 					   */
 
+#ifdef CONFIG_MIGRATION
+#define PAGE_MIGRATION 1
+
 extern void putback_lru_pages(struct list_head *l);
 extern int migrate_page(struct address_space *,
 			struct page *, struct page *, enum migrate_mode);
