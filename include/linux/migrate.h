@@ -7,6 +7,13 @@
 typedef struct page *new_page_t(struct page *, unsigned long private, int **);
 
 /*
+ * Return values from addresss_space_operations.migratepage():
+ * - negative errno on page migration failure;
+ * - zero on page migration success;
+ */
+#define MIGRATEPAGE_SUCCESS 0
+
+/*
  * MIGRATE_ASYNC means never block
  * MIGRATE_SYNC_LIGHT in the current implementation means to allow blocking
  *	on most operations but not ->writepage as the potential stall time
