@@ -471,15 +471,6 @@ CONFIG_TARGET_LOCALE_EUR=y
 # CONFIG_MACH_T0_VOLTE_Q is not set
 # CONFIG_IRON_BD is not set
 # CONFIG_GRANDE_BD is not set
-# CONFIG_SLP is not set
-# CONFIG_MACH_REDWOOD is not set
-# CONFIG_GPS_BCM47511 is not set
-# CONFIG_GPS_BCM4752 is not set
-# CONFIG_GPS_GSD4T is not set
-# CONFIG_GPIO_NAPLES_00_BD is not set
-# CONFIG_SLP_DISP_DEBUG is not set
-# CONFIG_EXYNOS4_DEV_TMU is not set
-# CONFIG_BT_TIZEN is not set
 # CONFIG_WRITEBACK_ENABLED is not set
 # CONFIG_EXYNOS_SOUND_PLATFORM_DATA is not set
 # CONFIG_JACK_FET is not set
@@ -1176,6 +1167,14 @@ CONFIG_BT_HCIUART_H4=y
 # CONFIG_BT_HCIBFUSB is not set
 # CONFIG_BT_HCIVHCI is not set
 # CONFIG_BT_MRVL is not set
+
+#
+# Bluetooth device drivers
+#
+
+#
+# Bluetooth device drivers
+#
 # CONFIG_AF_RXRPC is not set
 CONFIG_FIB_RULES=y
 CONFIG_WIRELESS=y
