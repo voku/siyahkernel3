@@ -23,7 +23,6 @@
 
 #include <asm/cacheflush.h>
 #include <asm/hardware/gic.h>
-#include <asm/smp_plat.h>
 #include <asm/smp_scu.h>
 #include <asm/unified.h>
 
@@ -267,7 +266,7 @@ void __init platform_smp_prepare_cpus(unsigned int max_cpus)
 	if (scu_base_addr())
 		scu_enable(scu_base_addr());
 	else
-		flush_cache_louis();
+		flush_cache_all();
 
 	/* Set up secondary boot base and core power cofiguration base address */
 	for (i = 1; i < max_cpus; i++) {

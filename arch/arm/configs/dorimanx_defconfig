@@ -1155,14 +1155,6 @@ CONFIG_BT_HCIUART_H4=y
 # CONFIG_BT_HCIBFUSB is not set
 # CONFIG_BT_HCIVHCI is not set
 # CONFIG_BT_MRVL is not set
-
-#
-# Bluetooth device drivers
-#
-
-#
-# Bluetooth device drivers
-#
 # CONFIG_AF_RXRPC is not set
 CONFIG_FIB_RULES=y
 CONFIG_WIRELESS=y
@@ -1316,6 +1308,7 @@ CONFIG_UMTS_MODEM_XMM6260=y
 # CONFIG_CDMA_MODEM_MDM6600 is not set
 # CONFIG_TDSCDMA_MODEM_SPRD8803 is not set
 # CONFIG_GSM_MODEM_ESC6270 is not set
+# CONFIG_CDMA_MODEM_QSC6085 is not set
 # CONFIG_LINK_DEVICE_MIPI is not set
 # CONFIG_LINK_DEVICE_DPRAM is not set
 # CONFIG_LINK_DEVICE_PLD is not set
@@ -1324,8 +1317,6 @@ CONFIG_LINK_DEVICE_HSIC=y
 # CONFIG_LINK_DEVICE_C2C is not set
 # CONFIG_LINK_DEVICE_SPI is not set
 # CONFIG_WORKQUEUE_FRONT is not set
-# CONFIG_IPC_CMC22x_OLD_RFS is not set
-# CONFIG_SIPC_VER_5 is not set
 # CONFIG_SIM_DETECT is not set
 # CONFIG_SIM_SLOT_SWITCH is not set
 # CONFIG_LTE_MODEM_CMC220 is not set
