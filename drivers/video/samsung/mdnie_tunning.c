@@ -63,7 +63,7 @@ static int parse_text(char *src, int len)
 	return index;
 }
 
-int mdnie_txtbuf_to_parsing(char const *pFilepath)
+int mdnie_txtbuf_to_parsing(char const *pFilepath, u16 *buf, u16 size)
 {
 	struct file *filp;
 	char	*dp;
