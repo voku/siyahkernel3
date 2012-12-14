@@ -259,12 +259,6 @@ config HAVE_MOD_ARCH_SPECIFIC
 	  just need a simple module loader without arch specific data - those
 	  should not enable this.
 
-config GENERIC_KERNEL_THREAD
-	bool
-
-config GENERIC_KERNEL_EXECVE
-	bool
-
 config ARCH_WANT_IPC_PARSE_VERSION
 	bool
 

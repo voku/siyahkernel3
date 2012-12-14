@@ -1662,7 +1662,6 @@ long do_fork(unsigned long clone_flags,
 	return nr;
 }
 
-#ifdef CONFIG_GENERIC_KERNEL_THREAD
 /*
  * Create a kernel thread.
  */
@@ -1715,7 +1714,6 @@ SYSCALL_DEFINE5(clone, unsigned long, clone_flags, unsigned long, newsp,
 			parent_tidptr, child_tidptr, tls_val);
 	return ret;
 }
-#endif
 #endif
 
 #ifndef ARCH_MIN_MMSTRUCT_ALIGN
