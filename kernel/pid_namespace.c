@@ -15,11 +15,9 @@
 #include <linux/err.h>
 #include <linux/acct.h>
 #include <linux/slab.h>
-#include <linux/proc_fs.h>
+#include <linux/proc_ns.h>
 #include <linux/reboot.h>
 #include <linux/export.h>
-
-#define BITS_PER_PAGE		(PAGE_SIZE*8)
 
 struct pid_cache {
 	int nr_ids;
@@ -107,10 +105,15 @@ static struct pid_namespace *create_pid_namespace(struct user_namespace *user_ns
 	if (ns->pid_cachep == NULL)
 		goto out_free_map;
 
+	err = proc_alloc_inum(&ns->proc_inum);
+	if (err)
+		goto out_free_map;
+
 	kref_init(&ns->kref);
 	ns->level = level;
 	ns->parent = get_pid_ns(parent_pid_ns);
 	ns->user_ns = get_user_ns(user_ns);
+	ns->nr_hashed = PIDNS_HASH_ADDING;
 	INIT_WORK(&ns->proc_work, proc_cleanup_work);
 
 	set_bit(0, ns->pidmap[0].page);
@@ -133,6 +136,7 @@ static void destroy_pid_namespace(struct pid_namespace *ns)
 {
 	int i;
 
+	proc_free_inum(ns->proc_inum);
 	for (i = 0; i < PIDMAP_ENTRIES; i++)
 		kfree(ns->pidmap[i].page);
 	put_user_ns(ns->user_ns);
@@ -144,7 +148,7 @@ struct pid_namespace *copy_pid_ns(unsigned long flags,
 {
 	if (!(flags & CLONE_NEWPID))
 		return get_pid_ns(old_ns);
-	if (flags & (CLONE_THREAD|CLONE_PARENT))
+	if (task_active_pid_ns(current) != old_ns)
 		return ERR_PTR(-EINVAL);
 	return create_pid_namespace(user_ns, old_ns);
 }
@@ -175,6 +179,10 @@ void zap_pid_ns_processes(struct pid_namespace *pid_ns)
 	int nr;
 	int rc;
 	struct task_struct *task, *me = current;
+	int init_pids = thread_group_leader(me) ? 1 : 2;
+
+	/* Don't allow any more processes into the pid namespace */
+	disable_pid_allocation(pid_ns);
 
 	/* Ignore SIGCHLD causing any terminated children to autoreap */
 	spin_lock_irq(&me->sighand->siglock);
@@ -221,7 +229,7 @@ void zap_pid_ns_processes(struct pid_namespace *pid_ns)
 	 */
 	for (;;) {
 		set_current_state(TASK_UNINTERRUPTIBLE);
-		if (pid_ns->nr_hashed == 1)
+		if (pid_ns->nr_hashed == init_pids)
 			break;
 		schedule();
 	}
@@ -298,6 +306,68 @@ int reboot_pid_ns(struct pid_namespace *pid_ns, int cmd)
 	/* Not reached */
 	return 0;
 }
+
+static void *pidns_get(struct task_struct *task)
+{
+	struct pid_namespace *ns;
+
+	rcu_read_lock();
+	ns = get_pid_ns(task_active_pid_ns(task));
+	rcu_read_unlock();
+
+	return ns;
+}
+
+static void pidns_put(void *ns)
+{
+	put_pid_ns(ns);
+}
+
+static int pidns_install(struct nsproxy *nsproxy, void *ns)
+{
+	struct pid_namespace *active = task_active_pid_ns(current);
+	struct pid_namespace *ancestor, *new = ns;
+
+	if (!ns_capable(new->user_ns, CAP_SYS_ADMIN) ||
+	    !nsown_capable(CAP_SYS_ADMIN))
+		return -EPERM;
+
+	/*
+	 * Only allow entering the current active pid namespace
+	 * or a child of the current active pid namespace.
+	 *
+	 * This is required for fork to return a usable pid value and
+	 * this maintains the property that processes and their
+	 * children can not escape their current pid namespace.
+	 */
+	if (new->level < active->level)
+		return -EINVAL;
+
+	ancestor = new;
+	while (ancestor->level > active->level)
+		ancestor = ancestor->parent;
+	if (ancestor != active)
+		return -EINVAL;
+
+	put_pid_ns(nsproxy->pid_ns);
+	nsproxy->pid_ns = get_pid_ns(new);
+	return 0;
+}
+
+static unsigned int pidns_inum(void *ns)
+{
+	struct pid_namespace *pid_ns = ns;
+	return pid_ns->proc_inum;
+}
+
+const struct proc_ns_operations pidns_operations = {
+	.name		= "pid",
+	.type		= CLONE_NEWPID,
+	.get		= pidns_get,
+	.put		= pidns_put,
+	.install	= pidns_install,
+	.inum		= pidns_inum,
+};
 
 static __init int pid_namespaces_init(void)
 {
