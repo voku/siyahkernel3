@@ -1,5 +1,5 @@
 This is gprof.info, produced by makeinfo version 4.13 from
-/mnt/jenkins/workspace/linaro-android_toolchain-4.7-2012.10/build/objdir/../build/../binutils/binutils-2.23.51.0.3/gprof/gprof.texi.
+/mnt/jenkins/workspace/linaro-android_toolchain-4.7-2012.11/build/objdir/../build/../binutils/binutils-current/gprof/gprof.texi.
 
 INFO-DIR-SECTION Software development
 START-INFO-DIR-ENTRY
@@ -29,7 +29,7 @@ to determine which parts of a program are taking most of the execution
 time.  We assume that you know how to write, compile, and execute
 programs.  GNU `gprof' was written by Jay Fenlason.
 
-   This manual is for `gprof' (Linux/GNU Binutils) version 2.23.51.0.3.
+   This manual is for `gprof' (Linux/GNU Binutils) version 2.23.51.0.5.
 
    This document is distributed under the terms of the GNU Free
 Documentation License version 1.3.  A copy of the license is included
@@ -2441,35 +2441,35 @@ permit their use in free software.
 
 
 Tag Table:
-Node: Top899
-Node: Introduction2235
-Node: Compiling4727
-Node: Executing8783
-Node: Invoking11571
-Node: Output Options12986
-Node: Analysis Options20075
-Node: Miscellaneous Options23773
-Node: Deprecated Options25028
-Node: Symspecs27097
-Node: Output28923
-Node: Flat Profile29963
-Node: Call Graph34916
-Node: Primary38148
-Node: Callers40736
-Node: Subroutines42853
-Node: Cycles44694
-Node: Line-by-line51471
-Node: Annotated Source55544
-Node: Inaccuracy58543
-Node: Sampling Error58801
-Node: Assumptions61705
-Node: How do I?63175
-Node: Incompatibilities64729
-Node: Details66223
-Node: Implementation66616
-Node: File Format72513
-Node: Internals76803
-Node: Debugging85298
-Node: GNU Free Documentation License86899
+Node: Top895
+Node: Introduction2231
+Node: Compiling4723
+Node: Executing8779
+Node: Invoking11567
+Node: Output Options12982
+Node: Analysis Options20071
+Node: Miscellaneous Options23769
+Node: Deprecated Options25024
+Node: Symspecs27093
+Node: Output28919
+Node: Flat Profile29959
+Node: Call Graph34912
+Node: Primary38144
+Node: Callers40732
+Node: Subroutines42849
+Node: Cycles44690
+Node: Line-by-line51467
+Node: Annotated Source55540
+Node: Inaccuracy58539
+Node: Sampling Error58797
+Node: Assumptions61701
+Node: How do I?63171
+Node: Incompatibilities64725
+Node: Details66219
+Node: Implementation66612
+Node: File Format72509
+Node: Internals76799
+Node: Debugging85294
+Node: GNU Free Documentation License86895
 
 End Tag Table

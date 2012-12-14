@@ -124,7 +124,7 @@
 .\" ========================================================================
 .\"
 .IX Title "AS 1"
-.TH AS 1 "2012-10-15" "binutils-2.23.51.0.3" "GNU Development Tools"
+.TH AS 1 "2012-11-16" "binutils-2.23.51.0.5" "GNU Development Tools"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -286,8 +286,8 @@ as [\fB\-a\fR[\fBcdghlns\fR][=\fIfile\fR]] [\fB\-\-alternate\fR] [\fB\-D\fR]
    [\fB\-mpwrx\fR|\fB\-mpwr2\fR|\fB\-mpwr\fR|\fB\-m601\fR|\fB\-mppc\fR|\fB\-mppc32\fR|\fB\-m603\fR|\fB\-m604\fR|\fB\-m403\fR|\fB\-m405\fR|
     \fB\-m440\fR|\fB\-m464\fR|\fB\-m476\fR|\fB\-m7400\fR|\fB\-m7410\fR|\fB\-m7450\fR|\fB\-m7455\fR|\fB\-m750cl\fR|\fB\-mppc64\fR|
     \fB\-m620\fR|\fB\-me500\fR|\fB\-e500x2\fR|\fB\-me500mc\fR|\fB\-me500mc64\fR|\fB\-me5500\fR|\fB\-me6500\fR|\fB\-mppc64bridge\fR|
-    \fB\-mbooke\fR|\fB\-mpower4\fR|\fB\-mpr4\fR|\fB\-mpower5\fR|\fB\-mpwr5\fR|\fB\-mpwr5x\fR|\fB\-mpower6\fR|\fB\-mpwr6\fR|
-    \fB\-mpower7\fR|\fB\-mpw7\fR|\fB\-ma2\fR|\fB\-mcell\fR|\fB\-mspe\fR|\fB\-mtitan\fR|\fB\-me300\fR|\fB\-mvle\fR|\fB\-mcom\fR]
+    \fB\-mbooke\fR|\fB\-mpower4\fR|\fB\-mpwr4\fR|\fB\-mpower5\fR|\fB\-mpwr5\fR|\fB\-mpwr5x\fR|\fB\-mpower6\fR|\fB\-mpwr6\fR|
+    \fB\-mpower7\fR|\fB\-mpwr7\fR|\fB\-ma2\fR|\fB\-mcell\fR|\fB\-mspe\fR|\fB\-mtitan\fR|\fB\-me300\fR|\fB\-mvle\fR|\fB\-mcom\fR]
    [\fB\-many\fR] [\fB\-maltivec\fR|\fB\-mvsx\fR]
    [\fB\-mregnames\fR|\fB\-mno\-regnames\fR]
    [\fB\-mrelocatable\fR|\fB\-mrelocatable\-lib\fR|\fB\-K \s-1PIC\s0\fR] [\fB\-memb\fR]
@@ -297,8 +297,13 @@ as [\fB\-a\fR[\fBcdghlns\fR][=\fIfile\fR]] [\fB\-\-alternate\fR] [\fB\-D\fR]
 .PP
 \&\fITarget \s-1RX\s0 options:\fR
    [\fB\-mlittle\-endian\fR|\fB\-mbig\-endian\fR]
-   [\fB\-m32bit\-ints\fR|\fB\-m16bit\-ints\fR]
    [\fB\-m32bit\-doubles\fR|\fB\-m64bit\-doubles\fR]
+   [\fB\-muse\-conventional\-section\-names\fR]
+   [\fB\-msmall\-data\-limit\fR]
+   [\fB\-mpid\fR]
+   [\fB\-mrelax\fR]
+   [\fB\-mint\-register=\fR\fInumber\fR]
+   [\fB\-mgcc\-abi\fR|\fB\-mrx\-abi\fR]
 .PP
 \&\fITarget s390 options:\fR
    [\fB\-m31\fR|\fB\-m64\fR] [\fB\-mesa\fR|\fB\-mzarch\fR] [\fB\-march\fR=\fI\s-1CPU\s0\fR]
@@ -895,6 +900,7 @@ processor names are recognized:
 \&\f(CW\*(C`amdfam10\*(C'\fR,
 \&\f(CW\*(C`bdver1\*(C'\fR,
 \&\f(CW\*(C`bdver2\*(C'\fR,
+\&\f(CW\*(C`bdver3\*(C'\fR,
 \&\f(CW\*(C`btver1\*(C'\fR,
 \&\f(CW\*(C`btver2\*(C'\fR,
 \&\f(CW\*(C`generic32\*(C'\fR and
@@ -946,6 +952,7 @@ accept various extension mnemonics.  For example,
 \&\f(CW\*(C`lwp\*(C'\fR,
 \&\f(CW\*(C`fma4\*(C'\fR,
 \&\f(CW\*(C`xop\*(C'\fR,
+\&\f(CW\*(C`cx16\*(C'\fR,
 \&\f(CW\*(C`syscall\*(C'\fR,
 \&\f(CW\*(C`rdtscp\*(C'\fR,
 \&\f(CW\*(C`3dnow\*(C'\fR,
@@ -1640,7 +1647,8 @@ Architecture (esa) or the z/Architecture mode (zarch).
 .IP "\fB\-march=\fR\fIprocessor\fR" 4
 .IX Item "-march=processor"
 Specify which s390 processor variant is the target, \fBg6\fR, \fBg6\fR,
-\&\fBz900\fR, \fBz990\fR, \fBz9\-109\fR, \fBz9\-ec\fR, or \fBz10\fR.
+\&\fBz900\fR, \fBz990\fR, \fBz9\-109\fR, \fBz9\-ec\fR, \fBz10\fR,
+\&\fBz196\fR, or \fBzEC12\fR.
 .IP "\fB\-mregnames\fR" 4
 .IX Item "-mregnames"
 .PD 0

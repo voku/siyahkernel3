@@ -124,7 +124,7 @@
 .\" ========================================================================
 .\"
 .IX Title "GCC 1"
-.TH GCC 1 "2012-10-01" "gcc-4.7.3" "GNU"
+.TH GCC 1 "2012-11-06" "gcc-4.7.3" "GNU"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -643,7 +643,7 @@ in the following sections.
 \&\fB\-mincoming\-stack\-boundary=\fR\fInum\fR 
 \&\fB\-mcld \-mcx16 \-msahf \-mmovbe \-mcrc32 
 \&\-mrecip \-mrecip=\fR\fIopt\fR 
-\&\fB\-mvzeroupper 
+\&\fB\-mvzeroupper \-mprefer\-avx128 
 \&\-mmmx  \-msse  \-msse2 \-msse3 \-mssse3 \-msse4.1 \-msse4.2 \-msse4 \-mavx 
 \&\-mavx2 \-maes \-mpclmul \-mfsgsbase \-mrdrnd \-mf16c \-mfma 
 \&\-msse4a \-m3dnow \-mpopcnt \-mabm \-mbmi \-mtbm \-mfma4 \-mxop \-mlzcnt 
@@ -10299,9 +10299,6 @@ defined.
 .IX Item "-mmcu=mcu"
 Specify Atmel \s-1AVR\s0 instruction set architectures (\s-1ISA\s0) or \s-1MCU\s0 type.
 .Sp
-For a complete list of \fImcu\fR values that are supported by \fBavr-gcc\fR,
-see the compiler output when called with the \fB\-\-help=target\fR
-command line option.
 The default for this option is@tie{}\f(CW\*(C`avr2\*(C'\fR.
 .Sp
 \&\s-1GCC\s0 supports the following \s-1AVR\s0 devices and ISAs:
@@ -10310,23 +10307,23 @@ The default for this option is@tie{}\f(CW\*(C`avr2\*(C'\fR.
 .el .IP "\f(CWavr2\fR" 4
 .IX Item "avr2"
 \&\*(L"Classic\*(R" devices with up to 8@tie{}KiB of program memory.
-\&\fImcu\fR\f(CW@tie\fR{}= \f(CW\*(C`at90c8534\*(C'\fR, \f(CW\*(C`at90s2313\*(C'\fR,
-\&\f(CW\*(C`at90s2323\*(C'\fR, \f(CW\*(C`at90s2333\*(C'\fR, \f(CW\*(C`at90s2343\*(C'\fR,
-\&\f(CW\*(C`at90s4414\*(C'\fR, \f(CW\*(C`at90s4433\*(C'\fR, \f(CW\*(C`at90s4434\*(C'\fR,
-\&\f(CW\*(C`at90s8515\*(C'\fR, \f(CW\*(C`at90s8535\*(C'\fR, \f(CW\*(C`attiny22\*(C'\fR, \f(CW\*(C`attiny26\*(C'\fR.
+\&\fImcu\fR\f(CW@tie\fR{}= \f(CW\*(C`attiny22\*(C'\fR, \f(CW\*(C`attiny26\*(C'\fR, \f(CW\*(C`at90c8534\*(C'\fR,
+\&\f(CW\*(C`at90s2313\*(C'\fR, \f(CW\*(C`at90s2323\*(C'\fR, \f(CW\*(C`at90s2333\*(C'\fR,
+\&\f(CW\*(C`at90s2343\*(C'\fR, \f(CW\*(C`at90s4414\*(C'\fR, \f(CW\*(C`at90s4433\*(C'\fR,
+\&\f(CW\*(C`at90s4434\*(C'\fR, \f(CW\*(C`at90s8515\*(C'\fR, \f(CW\*(C`at90s8535\*(C'\fR.
 .ie n .IP """avr25""" 4
 .el .IP "\f(CWavr25\fR" 4
 .IX Item "avr25"
 \&\*(L"Classic\*(R" devices with up to 8@tie{}KiB of program memory and with
 the \f(CW\*(C`MOVW\*(C'\fR instruction.
-\&\fImcu\fR\f(CW@tie\fR{}= \f(CW\*(C`at86rf401\*(C'\fR, \f(CW\*(C`ata6289\*(C'\fR, \f(CW\*(C`attiny13\*(C'\fR,
-\&\f(CW\*(C`attiny13a\*(C'\fR, \f(CW\*(C`attiny2313\*(C'\fR, \f(CW\*(C`attiny2313a\*(C'\fR,
-\&\f(CW\*(C`attiny24\*(C'\fR, \f(CW\*(C`attiny24a\*(C'\fR, \f(CW\*(C`attiny25\*(C'\fR, \f(CW\*(C`attiny261\*(C'\fR,
-\&\f(CW\*(C`attiny261a\*(C'\fR, \f(CW\*(C`attiny4313\*(C'\fR, \f(CW\*(C`attiny43u\*(C'\fR,
+\&\fImcu\fR\f(CW@tie\fR{}= \f(CW\*(C`ata6289\*(C'\fR, \f(CW\*(C`attiny13\*(C'\fR, \f(CW\*(C`attiny13a\*(C'\fR,
+\&\f(CW\*(C`attiny2313\*(C'\fR, \f(CW\*(C`attiny2313a\*(C'\fR, \f(CW\*(C`attiny24\*(C'\fR,
+\&\f(CW\*(C`attiny24a\*(C'\fR, \f(CW\*(C`attiny25\*(C'\fR, \f(CW\*(C`attiny261\*(C'\fR,
+\&\f(CW\*(C`attiny261a\*(C'\fR, \f(CW\*(C`attiny43u\*(C'\fR, \f(CW\*(C`attiny4313\*(C'\fR,
 \&\f(CW\*(C`attiny44\*(C'\fR, \f(CW\*(C`attiny44a\*(C'\fR, \f(CW\*(C`attiny45\*(C'\fR, \f(CW\*(C`attiny461\*(C'\fR,
 \&\f(CW\*(C`attiny461a\*(C'\fR, \f(CW\*(C`attiny48\*(C'\fR, \f(CW\*(C`attiny84\*(C'\fR, \f(CW\*(C`attiny84a\*(C'\fR,
 \&\f(CW\*(C`attiny85\*(C'\fR, \f(CW\*(C`attiny861\*(C'\fR, \f(CW\*(C`attiny861a\*(C'\fR, \f(CW\*(C`attiny87\*(C'\fR,
-\&\f(CW\*(C`attiny88\*(C'\fR.
+\&\f(CW\*(C`attiny88\*(C'\fR, \f(CW\*(C`at86rf401\*(C'\fR.
 .ie n .IP """avr3""" 4
 .el .IP "\f(CWavr3\fR" 4
 .IX Item "avr3"
@@ -10336,61 +10333,62 @@ the \f(CW\*(C`MOVW\*(C'\fR instruction.
 .el .IP "\f(CWavr31\fR" 4
 .IX Item "avr31"
 \&\*(L"Classic\*(R" devices with 128@tie{}KiB of program memory.
-\&\fImcu\fR\f(CW@tie\fR{}= \f(CW\*(C`at43usb320\*(C'\fR, \f(CW\*(C`atmega103\*(C'\fR.
+\&\fImcu\fR\f(CW@tie\fR{}= \f(CW\*(C`atmega103\*(C'\fR, \f(CW\*(C`at43usb320\*(C'\fR.
 .ie n .IP """avr35""" 4
 .el .IP "\f(CWavr35\fR" 4
 .IX Item "avr35"
 \&\*(L"Classic\*(R" devices with 16@tie{}KiB up to 64@tie{}KiB of program
 memory and with the \f(CW\*(C`MOVW\*(C'\fR instruction.
-\&\fImcu\fR\f(CW@tie\fR{}= \f(CW\*(C`at90usb162\*(C'\fR, \f(CW\*(C`at90usb82\*(C'\fR,
-\&\f(CW\*(C`atmega16u2\*(C'\fR, \f(CW\*(C`atmega32u2\*(C'\fR, \f(CW\*(C`atmega8u2\*(C'\fR,
-\&\f(CW\*(C`attiny167\*(C'\fR.
+\&\fImcu\fR\f(CW@tie\fR{}= \f(CW\*(C`atmega16u2\*(C'\fR, \f(CW\*(C`atmega32u2\*(C'\fR,
+\&\f(CW\*(C`atmega8u2\*(C'\fR, \f(CW\*(C`attiny167\*(C'\fR, \f(CW\*(C`at90usb162\*(C'\fR,
+\&\f(CW\*(C`at90usb82\*(C'\fR.
 .ie n .IP """avr4""" 4
 .el .IP "\f(CWavr4\fR" 4
 .IX Item "avr4"
 \&\*(L"Enhanced\*(R" devices with up to 8@tie{}KiB of program memory.
-\&\fImcu\fR\f(CW@tie\fR{}= \f(CW\*(C`at90pwm1\*(C'\fR, \f(CW\*(C`at90pwm2\*(C'\fR, \f(CW\*(C`at90pwm2b\*(C'\fR,
-\&\f(CW\*(C`at90pwm3\*(C'\fR, \f(CW\*(C`at90pwm3b\*(C'\fR, \f(CW\*(C`at90pwm81\*(C'\fR, \f(CW\*(C`atmega48\*(C'\fR,
-\&\f(CW\*(C`atmega48a\*(C'\fR, \f(CW\*(C`atmega48p\*(C'\fR, \f(CW\*(C`atmega8\*(C'\fR, \f(CW\*(C`atmega8515\*(C'\fR,
-\&\f(CW\*(C`atmega8535\*(C'\fR, \f(CW\*(C`atmega88\*(C'\fR, \f(CW\*(C`atmega88a\*(C'\fR,
-\&\f(CW\*(C`atmega88p\*(C'\fR, \f(CW\*(C`atmega88pa\*(C'\fR, \f(CW\*(C`atmega8hva\*(C'\fR.
+\&\fImcu\fR\f(CW@tie\fR{}= \f(CW\*(C`atmega48\*(C'\fR, \f(CW\*(C`atmega48a\*(C'\fR,
+\&\f(CW\*(C`atmega48p\*(C'\fR, \f(CW\*(C`atmega8\*(C'\fR, \f(CW\*(C`atmega8hva\*(C'\fR,
+\&\f(CW\*(C`atmega8515\*(C'\fR, \f(CW\*(C`atmega8535\*(C'\fR, \f(CW\*(C`atmega88\*(C'\fR,
+\&\f(CW\*(C`atmega88a\*(C'\fR, \f(CW\*(C`atmega88p\*(C'\fR, \f(CW\*(C`atmega88pa\*(C'\fR,
+\&\f(CW\*(C`at90pwm1\*(C'\fR, \f(CW\*(C`at90pwm2\*(C'\fR, \f(CW\*(C`at90pwm2b\*(C'\fR, \f(CW\*(C`at90pwm3\*(C'\fR,
+\&\f(CW\*(C`at90pwm3b\*(C'\fR, \f(CW\*(C`at90pwm81\*(C'\fR.
 .ie n .IP """avr5""" 4
 .el .IP "\f(CWavr5\fR" 4
 .IX Item "avr5"
 \&\*(L"Enhanced\*(R" devices with 16@tie{}KiB up to 64@tie{}KiB of program memory.
-\&\fImcu\fR\f(CW@tie\fR{}= \f(CW\*(C`at90can32\*(C'\fR, \f(CW\*(C`at90can64\*(C'\fR,
-\&\f(CW\*(C`at90pwm216\*(C'\fR, \f(CW\*(C`at90pwm316\*(C'\fR, \f(CW\*(C`at90scr100\*(C'\fR,
-\&\f(CW\*(C`at90usb646\*(C'\fR, \f(CW\*(C`at90usb647\*(C'\fR, \f(CW\*(C`at94k\*(C'\fR, \f(CW\*(C`atmega16\*(C'\fR,
-\&\f(CW\*(C`atmega161\*(C'\fR, \f(CW\*(C`atmega162\*(C'\fR, \f(CW\*(C`atmega163\*(C'\fR,
-\&\f(CW\*(C`atmega164a\*(C'\fR, \f(CW\*(C`atmega164p\*(C'\fR, \f(CW\*(C`atmega165\*(C'\fR,
-\&\f(CW\*(C`atmega165a\*(C'\fR, \f(CW\*(C`atmega165p\*(C'\fR, \f(CW\*(C`atmega168\*(C'\fR,
-\&\f(CW\*(C`atmega168a\*(C'\fR, \f(CW\*(C`atmega168p\*(C'\fR, \f(CW\*(C`atmega169\*(C'\fR,
-\&\f(CW\*(C`atmega169a\*(C'\fR, \f(CW\*(C`atmega169p\*(C'\fR, \f(CW\*(C`atmega169pa\*(C'\fR,
-\&\f(CW\*(C`atmega16a\*(C'\fR, \f(CW\*(C`atmega16hva\*(C'\fR, \f(CW\*(C`atmega16hva2\*(C'\fR,
-\&\f(CW\*(C`atmega16hvb\*(C'\fR, \f(CW\*(C`atmega16m1\*(C'\fR, \f(CW\*(C`atmega16u4\*(C'\fR,
-\&\f(CW\*(C`atmega32\*(C'\fR, \f(CW\*(C`atmega323\*(C'\fR, \f(CW\*(C`atmega324a\*(C'\fR,
-\&\f(CW\*(C`atmega324p\*(C'\fR, \f(CW\*(C`atmega324pa\*(C'\fR, \f(CW\*(C`atmega325\*(C'\fR,
+\&\fImcu\fR\f(CW@tie\fR{}= \f(CW\*(C`atmega16\*(C'\fR, \f(CW\*(C`atmega16a\*(C'\fR,
+\&\f(CW\*(C`atmega16hva\*(C'\fR, \f(CW\*(C`atmega16hva2\*(C'\fR, \f(CW\*(C`atmega16hvb\*(C'\fR,
+\&\f(CW\*(C`atmega16m1\*(C'\fR, \f(CW\*(C`atmega16u4\*(C'\fR, \f(CW\*(C`atmega161\*(C'\fR,
+\&\f(CW\*(C`atmega162\*(C'\fR, \f(CW\*(C`atmega163\*(C'\fR, \f(CW\*(C`atmega164a\*(C'\fR,
+\&\f(CW\*(C`atmega164p\*(C'\fR, \f(CW\*(C`atmega165\*(C'\fR, \f(CW\*(C`atmega165a\*(C'\fR,
+\&\f(CW\*(C`atmega165p\*(C'\fR, \f(CW\*(C`atmega168\*(C'\fR, \f(CW\*(C`atmega168a\*(C'\fR,
+\&\f(CW\*(C`atmega168p\*(C'\fR, \f(CW\*(C`atmega169\*(C'\fR, \f(CW\*(C`atmega169a\*(C'\fR,
+\&\f(CW\*(C`atmega169p\*(C'\fR, \f(CW\*(C`atmega169pa\*(C'\fR, \f(CW\*(C`atmega32\*(C'\fR,
+\&\f(CW\*(C`atmega32c1\*(C'\fR, \f(CW\*(C`atmega32hvb\*(C'\fR, \f(CW\*(C`atmega32m1\*(C'\fR,
+\&\f(CW\*(C`atmega32u4\*(C'\fR, \f(CW\*(C`atmega32u6\*(C'\fR, \f(CW\*(C`atmega323\*(C'\fR,
+\&\f(CW\*(C`atmega324a\*(C'\fR, \f(CW\*(C`atmega324p\*(C'\fR, \f(CW\*(C`atmega324pa\*(C'\fR,
+\&\f(CW\*(C`atmega325\*(C'\fR, \f(CW\*(C`atmega325a\*(C'\fR, \f(CW\*(C`atmega325p\*(C'\fR,
 \&\f(CW\*(C`atmega3250\*(C'\fR, \f(CW\*(C`atmega3250a\*(C'\fR, \f(CW\*(C`atmega3250p\*(C'\fR,
-\&\f(CW\*(C`atmega325a\*(C'\fR, \f(CW\*(C`atmega325p\*(C'\fR, \f(CW\*(C`atmega328\*(C'\fR,
-\&\f(CW\*(C`atmega328p\*(C'\fR, \f(CW\*(C`atmega329\*(C'\fR, \f(CW\*(C`atmega3290\*(C'\fR,
-\&\f(CW\*(C`atmega3290a\*(C'\fR, \f(CW\*(C`atmega3290p\*(C'\fR, \f(CW\*(C`atmega329a\*(C'\fR,
-\&\f(CW\*(C`atmega329p\*(C'\fR, \f(CW\*(C`atmega329pa\*(C'\fR, \f(CW\*(C`atmega32c1\*(C'\fR,
-\&\f(CW\*(C`atmega32hvb\*(C'\fR, \f(CW\*(C`atmega32m1\*(C'\fR, \f(CW\*(C`atmega32u4\*(C'\fR,
-\&\f(CW\*(C`atmega32u6\*(C'\fR, \f(CW\*(C`atmega406\*(C'\fR, \f(CW\*(C`atmega64\*(C'\fR,
-\&\f(CW\*(C`atmega640\*(C'\fR, \f(CW\*(C`atmega644\*(C'\fR, \f(CW\*(C`atmega644a\*(C'\fR,
-\&\f(CW\*(C`atmega644p\*(C'\fR, \f(CW\*(C`atmega644pa\*(C'\fR, \f(CW\*(C`atmega645\*(C'\fR,
-\&\f(CW\*(C`atmega6450\*(C'\fR, \f(CW\*(C`atmega6450a\*(C'\fR, \f(CW\*(C`atmega6450p\*(C'\fR,
-\&\f(CW\*(C`atmega645a\*(C'\fR, \f(CW\*(C`atmega645p\*(C'\fR, \f(CW\*(C`atmega649\*(C'\fR,
-\&\f(CW\*(C`atmega6490\*(C'\fR, \f(CW\*(C`atmega649a\*(C'\fR, \f(CW\*(C`atmega649p\*(C'\fR,
-\&\f(CW\*(C`atmega64c1\*(C'\fR, \f(CW\*(C`atmega64hve\*(C'\fR, \f(CW\*(C`atmega64m1\*(C'\fR,
+\&\f(CW\*(C`atmega328\*(C'\fR, \f(CW\*(C`atmega328p\*(C'\fR, \f(CW\*(C`atmega329\*(C'\fR,
+\&\f(CW\*(C`atmega329a\*(C'\fR, \f(CW\*(C`atmega329p\*(C'\fR, \f(CW\*(C`atmega329pa\*(C'\fR,
+\&\f(CW\*(C`atmega3290\*(C'\fR, \f(CW\*(C`atmega3290a\*(C'\fR, \f(CW\*(C`atmega3290p\*(C'\fR,
+\&\f(CW\*(C`atmega406\*(C'\fR, \f(CW\*(C`atmega64\*(C'\fR, \f(CW\*(C`atmega64c1\*(C'\fR,
+\&\f(CW\*(C`atmega64hve\*(C'\fR, \f(CW\*(C`atmega64m1\*(C'\fR, \f(CW\*(C`atmega640\*(C'\fR,
+\&\f(CW\*(C`atmega644\*(C'\fR, \f(CW\*(C`atmega644a\*(C'\fR, \f(CW\*(C`atmega644p\*(C'\fR,
+\&\f(CW\*(C`atmega644pa\*(C'\fR, \f(CW\*(C`atmega645\*(C'\fR, \f(CW\*(C`atmega645a\*(C'\fR,
+\&\f(CW\*(C`atmega645p\*(C'\fR, \f(CW\*(C`atmega6450\*(C'\fR, \f(CW\*(C`atmega6450a\*(C'\fR,
+\&\f(CW\*(C`atmega6450p\*(C'\fR, \f(CW\*(C`atmega649\*(C'\fR, \f(CW\*(C`atmega649a\*(C'\fR,
+\&\f(CW\*(C`atmega649p\*(C'\fR, \f(CW\*(C`atmega6490\*(C'\fR, \f(CW\*(C`at90can32\*(C'\fR,
+\&\f(CW\*(C`at90can64\*(C'\fR, \f(CW\*(C`at90pwm216\*(C'\fR, \f(CW\*(C`at90pwm316\*(C'\fR,
+\&\f(CW\*(C`at90scr100\*(C'\fR, \f(CW\*(C`at90usb646\*(C'\fR, \f(CW\*(C`at90usb647\*(C'\fR, \f(CW\*(C`at94k\*(C'\fR,
 \&\f(CW\*(C`m3000\*(C'\fR.
 .ie n .IP """avr51""" 4
 .el .IP "\f(CWavr51\fR" 4
 .IX Item "avr51"
 \&\*(L"Enhanced\*(R" devices with 128@tie{}KiB of program memory.
-\&\fImcu\fR\f(CW@tie\fR{}= \f(CW\*(C`at90can128\*(C'\fR, \f(CW\*(C`at90usb1286\*(C'\fR,
-\&\f(CW\*(C`at90usb1287\*(C'\fR, \f(CW\*(C`atmega128\*(C'\fR, \f(CW\*(C`atmega1280\*(C'\fR,
-\&\f(CW\*(C`atmega1281\*(C'\fR, \f(CW\*(C`atmega1284p\*(C'\fR, \f(CW\*(C`atmega128rfa1\*(C'\fR.
+\&\fImcu\fR\f(CW@tie\fR{}= \f(CW\*(C`atmega128\*(C'\fR, \f(CW\*(C`atmega128rfa1\*(C'\fR,
+\&\f(CW\*(C`atmega1280\*(C'\fR, \f(CW\*(C`atmega1281\*(C'\fR, \f(CW\*(C`atmega1284p\*(C'\fR,
+\&\f(CW\*(C`at90can128\*(C'\fR, \f(CW\*(C`at90usb1286\*(C'\fR, \f(CW\*(C`at90usb1287\*(C'\fR.
 .ie n .IP """avr6""" 4
 .el .IP "\f(CWavr6\fR" 4
 .IX Item "avr6"
@@ -10435,8 +10433,8 @@ more than 64@tie{}KiB of \s-1RAM\s0.
 .IX Item "avr1"
 This \s-1ISA\s0 is implemented by the minimal \s-1AVR\s0 core and supported for
 assembler only.
-\&\fImcu\fR\f(CW@tie\fR{}= \f(CW\*(C`at90s1200\*(C'\fR, \f(CW\*(C`attiny11\*(C'\fR, \f(CW\*(C`attiny12\*(C'\fR,
-\&\f(CW\*(C`attiny15\*(C'\fR, \f(CW\*(C`attiny28\*(C'\fR.
+\&\fImcu\fR\f(CW@tie\fR{}= \f(CW\*(C`attiny11\*(C'\fR, \f(CW\*(C`attiny12\*(C'\fR, \f(CW\*(C`attiny15\*(C'\fR,
+\&\f(CW\*(C`attiny28\*(C'\fR, \f(CW\*(C`at90s1200\*(C'\fR.
 .RE
 .RS 4
 .RE
@@ -10491,10 +10489,12 @@ Relaxing must be turned on if linker stubs are needed, see the
 section on \f(CW\*(C`EIND\*(C'\fR and linker stubs below.
 .IP "\fB\-mshort\-calls\fR" 4
 .IX Item "-mshort-calls"
+This option has been deprecated and will be removed in \s-1GCC\s0 4.8.
+See \f(CW\*(C`\-mrelax\*(C'\fR for a replacement.
+.Sp
 Use \f(CW\*(C`RCALL\*(C'\fR/\f(CW\*(C`RJMP\*(C'\fR instructions even on devices with
 16@tie{}KiB or more of program memory, i.e. on devices that
 have the \f(CW\*(C`CALL\*(C'\fR and \f(CW\*(C`JMP\*(C'\fR instructions.
-See also the \f(CW\*(C`\-mrelax\*(C'\fR command line option.
 .IP "\fB\-msp8\fR" 4
 .IX Item "-msp8"
 Treat the stack pointer register as an 8\-bit register,
@@ -10714,6 +10714,24 @@ triggered by the \f(CW\*(C`\-mmcu=\*(C'\fR command-line option.
 .PP
 For even more AVR-specific built-in macros see
 \&\fB\s-1AVR\s0 Named Address Spaces\fR and \fB\s-1AVR\s0 Built-in Functions\fR.
+.ie n .IP """_\|_AVR_ARCH_\|_""" 4
+.el .IP "\f(CW_\|_AVR_ARCH_\|_\fR" 4
+.IX Item "__AVR_ARCH__"
+Build-in macro that resolves to a decimal number that identifies the
+architecture and depends on the \f(CW\*(C`\-mmcu=\f(CImcu\f(CW\*(C'\fR option.
+Possible values are:
+.Sp
+\&\f(CW2\fR, \f(CW25\fR, \f(CW3\fR, \f(CW31\fR, \f(CW35\fR,
+\&\f(CW4\fR, \f(CW5\fR, \f(CW51\fR, \f(CW6\fR, \f(CW102\fR, \f(CW104\fR,
+\&\f(CW105\fR, \f(CW106\fR, \f(CW107\fR
+.Sp
+for \fImcu\fR=\f(CW\*(C`avr2\*(C'\fR, \f(CW\*(C`avr25\*(C'\fR, \f(CW\*(C`avr3\*(C'\fR,
+\&\f(CW\*(C`avr31\*(C'\fR, \f(CW\*(C`avr35\*(C'\fR, \f(CW\*(C`avr4\*(C'\fR, \f(CW\*(C`avr5\*(C'\fR, \f(CW\*(C`avr51\*(C'\fR,
+\&\f(CW\*(C`avr6\*(C'\fR, \f(CW\*(C`avrxmega2\*(C'\fR, \f(CW\*(C`avrxmega4\*(C'\fR, \f(CW\*(C`avrxmega5\*(C'\fR,
+\&\f(CW\*(C`avrxmega6\*(C'\fR, \f(CW\*(C`avrxmega7\*(C'\fR, respectively.
+If \fImcu\fR specifies a device, this built-in macro is set
+accordingly. For example, with \f(CW\*(C`\-mmcu=atmega8\*(C'\fR the macro will be
+defined to \f(CW4\fR.
 .ie n .IP """_\|_AVR_\f(CIDevice\f(CW_\|_""" 4
 .el .IP "\f(CW_\|_AVR_\f(CIDevice\f(CW_\|_\fR" 4
 .IX Item "__AVR_Device__"
@@ -10727,6 +10745,9 @@ the scheme \f(CW\*(C`_\|_AVR_\f(CIDevice\f(CW_\|_\*(C'\fR where \fIDevice\fR is
 the device name as from the \s-1AVR\s0 user manual. The difference between
 \&\fIDevice\fR in the built-in macro and \fIdevice\fR in
 \&\f(CW\*(C`\-mmcu=\f(CIdevice\f(CW\*(C'\fR is that the latter is always lowercase.
+.Sp
+If \fIdevice\fR is not a device but only a core architecture like
+\&\f(CW\*(C`avr51\*(C'\fR, this macro will not be defined.
 .ie n .IP """_\|_AVR_HAVE_ELPM_\|_""" 4
 .el .IP "\f(CW_\|_AVR_HAVE_ELPM_\|_\fR" 4
 .IX Item "__AVR_HAVE_ELPM__"
@@ -12933,6 +12954,10 @@ This option instructs \s-1GCC\s0 to emit a \f(CW\*(C`vzeroupper\*(C'\fR instruct
 before a transfer of control flow out of the function to minimize
 \&\s-1AVX\s0 to \s-1SSE\s0 transition penalty as well as remove unnecessary zeroupper
 intrinsics.
+.IP "\fB\-mprefer\-avx128\fR" 4
+.IX Item "-mprefer-avx128"
+This option instructs \s-1GCC\s0 to use 128\-bit \s-1AVX\s0 instructions instead of
+256\-bit \s-1AVX\s0 instructions in the auto-vectorizer.
 .IP "\fB\-mcx16\fR" 4
 .IX Item "-mcx16"
 This option will enable \s-1GCC\s0 to use \s-1CMPXCHG16B\s0 instruction in generated code.

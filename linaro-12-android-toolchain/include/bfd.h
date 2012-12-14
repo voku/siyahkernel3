@@ -655,6 +655,8 @@ extern struct bfd_link_needed_list *bfd_elf_get_needed_list
   (bfd *, struct bfd_link_info *);
 extern bfd_boolean bfd_elf_get_bfd_needed_list
   (bfd *, struct bfd_link_needed_list **);
+extern bfd_boolean bfd_elf_stack_segment_size (bfd *, struct bfd_link_info *,
+					       const char *, bfd_vma);
 extern bfd_boolean bfd_elf_size_dynamic_sections
   (bfd *, const char *, const char *, const char *, const char *, const char *,
    const char * const *, struct bfd_link_info *, struct bfd_section **);
@@ -2058,6 +2060,7 @@ enum bfd_architecture
   bfd_arch_tic6x,     /* Texas Instruments TMS320C6X */
   bfd_arch_tic80,     /* TI TMS320c80 (MVP) */
   bfd_arch_v850,      /* NEC V850 */
+  bfd_arch_v850_rh850,/* NEC V850 (using RH850 ABI) */
 #define bfd_mach_v850          1
 #define bfd_mach_v850e         'E'
 #define bfd_mach_v850e1        '1'
@@ -6734,6 +6737,9 @@ bfd_boolean bfd_compress_section_contents
 
 bfd_boolean bfd_get_full_section_contents
    (bfd *abfd, asection *section, bfd_byte **ptr);
+
+void bfd_cache_section_contents
+   (asection *sec, void *contents);
 
 bfd_boolean bfd_is_section_compressed
    (bfd *abfd, asection *section);

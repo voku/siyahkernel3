@@ -124,7 +124,7 @@
 .\" ========================================================================
 .\"
 .IX Title "LD 1"
-.TH LD 1 "2012-10-15" "binutils-2.23.51.0.3" "GNU Development Tools"
+.TH LD 1 "2012-11-16" "binutils-2.23.51.0.5" "GNU Development Tools"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -953,6 +953,11 @@ Set the emulation maximum page size to \fIvalue\fR.
 .IP "\fBcommon\-page\-size=\fR\fIvalue\fR" 4
 .IX Item "common-page-size=value"
 Set the emulation common page size to \fIvalue\fR.
+.IP "\fBstack\-size=\fR\fIvalue\fR" 4
+.IX Item "stack-size=value"
+Specify a stack size for in an \s-1ELF\s0 \f(CW\*(C`PT_GNU_STACK\*(C'\fR segment.
+Specifying zero will override any default non-zero sized
+\&\f(CW\*(C`PT_GNU_STACK\*(C'\fR segment creation.
 .RE
 .RS 4
 .Sp
