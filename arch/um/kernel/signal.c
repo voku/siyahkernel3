@@ -181,8 +181,3 @@ long sys_sigsuspend(int history0, int history1, old_sigset_t mask)
 	return sigsuspend(&blocked);
 >>>>>>> 68f3f16... new helper: sigsuspend()
 }
-
-long sys_sigaltstack(const stack_t __user *uss, stack_t __user *uoss)
-{
-	return do_sigaltstack(uss, uoss, PT_REGS_SP(&current->thread.regs));
-}
