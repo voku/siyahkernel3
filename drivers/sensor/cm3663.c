@@ -30,9 +30,6 @@
 #include <linux/workqueue.h>
 #include <linux/uaccess.h>
 #include <linux/sensor/cm3663.h>
-#if defined(CONFIG_MACH_S2PLUS)
-#include <linux/sensor/sensors_core.h>
-#endif
 
 #define PROX_READ_NUM		40
 
@@ -743,9 +740,9 @@ static int cm3663_i2c_probe(struct i2c_client *client,
 	}
 	dev_set_drvdata(cm3663->switch_cmd_dev, cm3663);
 
-    /* set initial proximity value (far) */
-    input_report_abs(cm3663->proximity_input_dev, ABS_DISTANCE, 1);
-    input_sync(cm3663->proximity_input_dev);
+	/* set initial proximity value as 1. */
+	input_report_abs(cm3663->proximity_input_dev, ABS_DISTANCE, 1);
+	input_sync(cm3663->proximity_input_dev);
 
 	goto done;
 

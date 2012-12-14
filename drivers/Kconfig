@@ -118,10 +118,6 @@ source "drivers/uio/Kconfig"
 
 source "drivers/vlynq/Kconfig"
 
-source "drivers/virtio/Kconfig"
-
-source "drivers/hv/Kconfig"
-
 source "drivers/xen/Kconfig"
 
 source "drivers/staging/Kconfig"
@@ -165,8 +161,8 @@ source "drivers/iommu/Kconfig"
 source "drivers/felica/Kconfig"
 
 # Authentec
-source "drivers/j4fs/Kconfig"
-
 source "drivers/interceptor/Kconfig"
+
+source "drivers/j4fs/Kconfig"
 
 endmenu

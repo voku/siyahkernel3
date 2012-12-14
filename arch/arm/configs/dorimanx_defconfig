@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm 3.1.0-R54 Kernel Configuration
+# Linux/arm 3.1.0-R56 Kernel Configuration
 #
 CONFIG_ARM=y
 CONFIG_HAVE_PWM=y
@@ -1491,6 +1491,8 @@ CONFIG_INPUT_EVDEV=y
 # CONFIG_INPUT_SECBRIDGE is not set
 # CONFIG_INPUT_KEYRESET is not set
 # CONFIG_INPUT_FBSUSPEND is not set
+# CONFIG_INPUT_MPU6050 is not set
+# CONFIG_INPUT_MPU6050_POLLING is not set
 
 #
 # Input Device Drivers
@@ -2724,11 +2726,6 @@ CONFIG_RTC_DRV_S3C=y
 # CONFIG_DMADEVICES is not set
 # CONFIG_AUXDISPLAY is not set
 # CONFIG_UIO is not set
-# CONFIG_VIRTIO_BALLOON is not set
-
-#
-# Microsoft Hyper-V guest support
-#
 CONFIG_STAGING=y
 # CONFIG_USBIP_CORE is not set
 # CONFIG_PRISM2_USB is not set
@@ -2829,6 +2826,7 @@ CONFIG_ACCESSORY=y
 # CONFIG_BARCODE_EMUL is not set
 CONFIG_IOMMU_SUPPORT=y
 # CONFIG_FELICA is not set
+# CONFIG_AUTHENTEC_VPNCLIENT_INTERCEPTOR is not set
 CONFIG_J4FS=m
 # CONFIG_J4FS_USE_XSR is not set
 # CONFIG_J4FS_USE_FSR is not set
@@ -2836,7 +2834,6 @@ CONFIG_J4FS_USE_MOVI=y
 CONFIG_J4FS_DEVNAME="/dev/block/mmcblk0p4"
 CONFIG_J4FS_PAGE_SHIFT=11
 CONFIG_J4FS_BLOCK_COUNT=20
-# CONFIG_AUTHENTEC_VPNCLIENT_INTERCEPTOR is not set
 
 #
 # File systems
