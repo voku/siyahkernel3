@@ -1554,3 +1554,7 @@ const struct super_operations j4fs_sops = {
 	.read_inode	= j4fs_read_inode,
 #endif
 };
+
+MODULE_AUTHOR("Samsung Inc");
+MODULE_DESCRIPTION("J4FS Driver");
+MODULE_LICENSE("GPL");
