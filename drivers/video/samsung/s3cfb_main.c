@@ -751,6 +751,12 @@ static int s3cfb_probe(struct platform_device *pdev)
 		if (ret < 0)
 			dev_err(fbdev[0]->dev, "failed to add sysfs entries\n");
 #endif
+
+#ifdef CONFIG_FB_S5P_VSYNC_SYSFS
+		ret = device_create_file(fbdev[i]->dev, &dev_attr_vsync_time);
+		if (ret < 0)
+			dev_err(fbdev[0]->dev, "failed to add sysfs entries\n");
+#endif
 	}
 
 #ifdef CONFIG_FB_S5P_LCD_INIT
