@@ -23,7 +23,7 @@ enum SCENARIO {
 	GALLERY_MODE,
 	VT_MODE,
 	SCENARIO_MAX,
-	COLOR_TONE_1 = 40,
+	COLOR_TONE_1 = 30,
 	COLOR_TONE_2,
 	COLOR_TONE_3,
 	COLOR_TONE_MAX,
@@ -78,12 +78,12 @@ enum NEGATIVE {
 	NEGATIVE_MAX,
 };
 
-struct mdnie_tunning_info {
+struct mdnie_tuning_info {
 	char *name;
 	const unsigned short *seq;
 };
 
-struct mdnie_tunning_info_cabc {
+struct mdnie_tuning_info_cabc {
 	char *name;
 	const unsigned short *seq;
 	unsigned int idx_lut;
@@ -107,7 +107,7 @@ struct mdnie_info {
 	enum TONE tone;
 	enum OUTDOOR outdoor;
 	enum CABC cabc;
-	unsigned int tunning;
+	unsigned int tuning;
 	unsigned int negative;
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend    early_suspend;
@@ -124,7 +124,7 @@ extern void set_mdnie_value(struct mdnie_info *mdnie, u8 force);
 #if defined(CONFIG_FB_MDNIE_PWM)
 extern void set_mdnie_pwm_value(struct mdnie_info *mdnie, int value);
 #endif
-extern int mdnie_txtbuf_to_parsing(char const *pFilepath);
+extern int mdnie_txtbuf_to_parsing(char const *pFilepath, u16 *buf, u16 size);
 
 extern void check_lcd_type(void);
 struct mdnie_backlight_value {

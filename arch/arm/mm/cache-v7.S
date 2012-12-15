@@ -33,42 +33,6 @@ ENTRY(v7_flush_icache_all)
 ENDPROC(v7_flush_icache_all)
 
 /*
- *  v7_flush_dcache_louis()
- *
- *  Flush the D-cache up to the Level of Unification Inner Shareable
- *
- *  Corrupted registers: r0-r7, r9-r11 (r6 only in Thumb mode)
- */
-ENTRY(v7_flush_dcache_louis)
-	dmb					@ ensure ordering with previous memory accesses
-	mrc	p15, 1, r0, c0, c0, 1		@ read clidr
-	ands	r3, r0, #0xe00000		@ extract louis from clidr
-	mov	r3, r3, lsr #20			@ left align louis bit field
-	moveq	pc, lr				@ return if level == 0
-	mov	r10, #0				@ starting level == 0
-	b	__flush_level
-ENDPROC(v7_flush_dcache_louis)
-
-/*
- *  v7_flush_dcache_level(level)
- *
- *  Flush the D-cache the specified level passed as input parameter.
- *
- *  r0 - cache level
- *
- *  Corrupted registers: r0-r7, r9-r11 (r6 only in Thumb mode)
- */
-ENTRY(v7_flush_dcache_level)
-	dmb					@ ensure ordering with previous memory accesses
-	sub	r10, r0, #1
-	mov	r10, r10, lsl #1
-	movs	r3, r0, lsl #1			@ level * 2
-	mrc	p15, 1, r0, c0, c0, 1		@ read clidr
-	moveq	pc, lr				@ return if level == 0
-	b	__flush_level
-ENDPROC(v7_flush_dcache_level)
-
-/*
  *	v7_flush_dcache_all()
  *
  *	Flush the whole D-cache.
@@ -84,7 +48,7 @@ ENTRY(v7_flush_dcache_all)
 	mov	r3, r3, lsr #23			@ left align loc bit field
 	beq	finished			@ if loc is 0, then no need to clean
 	mov	r10, #0				@ start clean at cache level 0
-__flush_level:
+loop1:
 	add	r2, r10, r10, lsr #1		@ work out 3x current cache level
 	mov	r1, r0, lsr r2			@ extract cache type bits from clidr
 	and	r1, r1, #7			@ mask of the bits for current cache only
@@ -123,7 +87,7 @@ loop3:
 skip:
 	add	r10, r10, #2			@ increment cache number
 	cmp	r3, r10
-	bgt	__flush_level
+	bgt	loop1
 finished:
 	mov	r10, #0				@ swith back to cache level 0
 	mcr	p15, 2, r10, c0, c0, 0		@ select current cache level in cssr
@@ -154,24 +118,6 @@ ENTRY(v7_flush_kern_cache_all)
  THUMB(	ldmfd	sp!, {r4-r7, r9-r11, lr}	)
 	mov	pc, lr
 ENDPROC(v7_flush_kern_cache_all)
-
-/*
- *  v7_flush_kern_cache_louis(void)
- *
- *  Flush the data cache up to Level of Unification Inner Shareable.
- *  Invalidate the I-cache to the point of unification.
- */
-ENTRY(v7_flush_kern_cache_louis)
- ARM(	stmfd	sp!, {r4-r5, r7, r9-r11, lr}	)
- THUMB(	stmfd	sp!, {r4-r7, r9-r11, lr}	)
-	bl	v7_flush_dcache_louis
-	mov	r0, #0
-	ALT_SMP(mcr	p15, 0, r0, c7, c1, 0)	@ invalidate I-cache inner shareable
-	ALT_UP(mcr	p15, 0, r0, c7, c5, 0)	@ I+BTB cache invalidate
- ARM(	ldmfd	sp!, {r4-r5, r7, r9-r11, lr}	)
- THUMB(	ldmfd	sp!, {r4-r7, r9-r11, lr}	)
-	mov	pc, lr
-ENDPROC(v7_flush_kern_cache_louis)
 
 /*
  *	v7_flush_cache_all()
@@ -409,4 +355,4 @@ ENDPROC(v7_dma_unmap_area)
 	__INITDATA
 
 	@ define struct cpu_cache_fns (see <asm/cacheflush.h> and proc-macros.S)
-	define_cache_functions v7, cachelouis=1
+	define_cache_functions v7

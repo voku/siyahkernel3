@@ -278,7 +278,6 @@ int init_module(void)
 	}
 
 	wake_lock_init(&vib_wake_lock, WAKE_LOCK_SUSPEND, "vib_present");
-
 	return 0;
 
 err_platform_drv_reg:

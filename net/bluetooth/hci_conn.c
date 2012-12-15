@@ -50,68 +50,27 @@ static void hci_le_connect(struct hci_conn *conn)
 	struct hci_dev *hdev = conn->hdev;
 	struct hci_cp_le_create_conn cp;
 
-	BT_DBG("");
-
 	conn->state = BT_CONNECT;
 	conn->out = 1;
 	conn->link_mode |= HCI_LM_MASTER;
 	conn->sec_level = BT_SECURITY_LOW;
 
 	memset(&cp, 0, sizeof(cp));
-/*
 	cp.scan_interval = cpu_to_le16(0x0004);
 	cp.scan_window = cpu_to_le16(0x0004);
 	bacpy(&cp.peer_addr, &conn->dst);
 	cp.peer_addr_type = conn->dst_type;
-	cp.conn_interval_min = cpu_to_le16(0x0008); // 9.28 ms
-	cp.conn_interval_max = cpu_to_le16(0x0100); // 320 ms
+	cp.conn_interval_min = cpu_to_le16(0x0008);
+	cp.conn_interval_max = cpu_to_le16(0x0100);
 	cp.supervision_timeout = cpu_to_le16(0x0064);
 	cp.min_ce_len = cpu_to_le16(0x0001);
 	cp.max_ce_len = cpu_to_le16(0x0001);
-*/
-
-/* SSBT :: KJH + comment for connection parameters, TODO */
-
-/* Bluetooth: use recommended LE connection parameters */
-/*	The new connection parameters now match the recommended values for
-*	Proximity and Health Thermometer profiles. The previous values were
-*	ramdomly chosen, and are either too low or too high for most cases.
-*	New values:
-*	Scan Interval: 60 ms
-*	Scan Window: 30 ms
-*	Minimum Connection Interval: 50 ms
-*	Maximum Connection Interval: 70 ms
-*	Supervision Timeout: 420 ms
-*/
-/*	See "Table 5.2: Recommended Scan Interval and Scan Window Values" and
-*	"Table 5.3: Recommended Connection Interval Values" for both profiles
-*	for details. Note that the "fast connection" parameters were chosen,
-*	because we do not support yet dynamically changing these parameters from
-*	initiator side.
-*	Additionally, the Proximity profile recommends (section "4.4 Alert on
-*	Link Loss"):
-*	"It is recommended that the Link Supervision Timeout (LSTO) is set to 6x
-*	the connection interval."
-*	Minimum_CE_Length and Maximum_CE_Length were also changed from 0x0001 to
-*	0x0000 because they are informational and optional, and old value was
-*	not reflecting reality.
-*/
-	cp.scan_interval = cpu_to_le16(0x0060); /* 60ms (N*0.625ms) */
-	cp.scan_window = cpu_to_le16(0x0030); /* 30ms (N*0.625ms) */
-	bacpy(&cp.peer_addr, &conn->dst);
-	cp.peer_addr_type = conn->dst_type;
-	cp.conn_interval_min = cpu_to_le16(0x0028); /* 50ms (N*1.25ms) */
-	cp.conn_interval_max = cpu_to_le16(0x0038); /* 70ms (N*1.25ms) */
-	cp.supervision_timeout = cpu_to_le16(0x002a); /* 420ms (N*10ms) */
-	cp.min_ce_len = cpu_to_le16(0x0000);
-	cp.max_ce_len = cpu_to_le16(0x0000);
 
 	hci_send_cmd(hdev, HCI_OP_LE_CREATE_CONN, sizeof(cp), &cp);
 }
 
 static void hci_le_connect_cancel(struct hci_conn *conn)
 {
-	BT_DBG("");
 	hci_send_cmd(conn->hdev, HCI_OP_LE_CREATE_CONN_CANCEL, 0, NULL);
 }
 
@@ -215,24 +174,14 @@ void hci_setup_sync(struct hci_conn *conn, __u16 handle)
 	conn->attempt++;
 
 	cp.handle   = cpu_to_le16(handle);
-	/* wbs */
+	cp.pkt_type = cpu_to_le16(conn->pkt_type);
+
 	cp.tx_bandwidth   = cpu_to_le32(0x00001f40);
 	cp.rx_bandwidth   = cpu_to_le32(0x00001f40);
-
-	if (conn->hdev->is_wbs) {
-		/* Transparent Data */
-		uint16_t voice_setting = hdev->voice_setting | ACF_TRANS;
-		cp.max_latency    = cpu_to_le16(0x000A);
-		cp.pkt_type = cpu_to_le16(ESCO_WBS);
-		cp.voice_setting  = cpu_to_le16(voice_setting);
-		/* Retransmission Effort */
-		cp.retrans_effort = RE_LINK_QUALITY;
-	} else {
 	cp.max_latency    = cpu_to_le16(0xffff);
-		cp.pkt_type = cpu_to_le16(conn->pkt_type);
 	cp.voice_setting  = cpu_to_le16(hdev->voice_setting);
 	cp.retrans_effort = 0xff;
-	}
+
 	hci_send_cmd(hdev, HCI_OP_SETUP_SYNC_CONN, sizeof(cp), &cp);
 }
 
@@ -269,7 +218,7 @@ void hci_le_start_enc(struct hci_conn *conn, __le16 ediv, __u8 rand[8],
 	cp.handle = cpu_to_le16(conn->handle);
 	memcpy(cp.ltk, ltk, sizeof(cp.ltk));
 	cp.ediv = ediv;
-	memcpy(cp.rand, rand, sizeof(cp.rand));
+	memcpy(cp.rand, rand, sizeof(rand));
 
 	hci_send_cmd(hdev, HCI_OP_LE_START_ENC, sizeof(cp), &cp);
 }
@@ -285,8 +234,7 @@ void hci_le_ltk_reply(struct hci_conn *conn, u8 ltk[16])
 	memset(&cp, 0, sizeof(cp));
 
 	cp.handle = cpu_to_le16(conn->handle);
-/* SSBT :: KJH  size */
-	memcpy(cp.ltk, ltk, sizeof(cp.ltk));
+	memcpy(cp.ltk, ltk, sizeof(ltk));
 
 	hci_send_cmd(hdev, HCI_OP_LE_LTK_REPLY, sizeof(cp), &cp);
 }
@@ -385,22 +333,6 @@ static void hci_conn_auto_accept(unsigned long arg)
 	hci_dev_unlock(hdev);
 }
 
-static void hci_conn_encrypt_set(unsigned long arg)
-{
-	struct hci_conn *conn = (void *) arg;
-	struct hci_dev *hdev = conn->hdev;
-	struct hci_cp_set_conn_encrypt cp;
-
-	cp.handle  = cpu_to_le16(conn->handle);
-	cp.encrypt = 0x01;
-	hci_dev_lock(hdev);
-
-	hci_send_cmd(hdev, HCI_OP_SET_CONN_ENCRYPT, sizeof(cp),
-							&cp);
-
-	hci_dev_unlock(hdev);
-}
-
 struct hci_conn *hci_conn_add(struct hci_dev *hdev, int type,
 					__u16 pkt_type, bdaddr_t *dst)
 {
@@ -455,8 +387,6 @@ struct hci_conn *hci_conn_add(struct hci_dev *hdev, int type,
 	setup_timer(&conn->idle_timer, hci_conn_idle, (unsigned long)conn);
 	setup_timer(&conn->auto_accept_timer, hci_conn_auto_accept,
 							(unsigned long) conn);
-	setup_timer(&conn->encrypt_timer, hci_conn_encrypt_set,
-							(unsigned long) conn);
 
 	atomic_set(&conn->refcnt, 0);
 
@@ -488,8 +418,6 @@ int hci_conn_del(struct hci_conn *conn)
 	del_timer(&conn->disc_timer);
 
 	del_timer(&conn->auto_accept_timer);
-
-	del_timer(&conn->encrypt_timer);
 
 	if (conn->type == ACL_LINK) {
 		struct hci_conn *sco = conn->link;
@@ -580,40 +508,26 @@ struct hci_conn *hci_connect(struct hci_dev *hdev, int type,
 	struct hci_conn *acl;
 	struct hci_conn *sco;
 	struct hci_conn *le;
+	struct inquiry_entry *ie;
 
 	BT_DBG("%s dst %s", hdev->name, batostr(dst));
 
 	if (type == LE_LINK) {
 		struct adv_entry *entry;
-/* SSBT :: KJH + * to check le connection & stored key, if there is stored key, use addr_type. */
-		struct smp_ltk *ltk;
 
 		le = hci_conn_hash_lookup_ba(hdev, LE_LINK, dst);
-		if (le) {
-			BT_DBG("There is connected le link");
-			hci_conn_hold(le);
-			return le;
-		}
+		if (le)
+			return ERR_PTR(-EBUSY);
 
-		ltk = hci_find_ltk_by_addr(hdev, dst, 100);
+		entry = hci_find_adv_entry(hdev, dst);
+		if (!entry)
+			return ERR_PTR(-EHOSTUNREACH);
 
-		if (ltk) {
-			BT_DBG("There is stored LTK");
-			le = hci_conn_add(hdev, LE_LINK, 0, dst);
-			if (!le)
-				return ERR_PTR(-ENOMEM);
-			le->dst_type = ltk->bdaddr_type;
-		} else {
-			entry = hci_find_adv_entry(hdev, dst);
-			if (!entry)
-				return ERR_PTR(-EHOSTUNREACH);
 		le = hci_conn_add(hdev, LE_LINK, 0, dst);
 		if (!le)
 			return ERR_PTR(-ENOMEM);
-			le->dst_type = entry->bdaddr_type;
-		}
 
-		BT_DBG("----- le->dst_type %x", le->dst_type);
+		le->dst_type = entry->bdaddr_type;
 
 		hci_le_connect(le);
 
@@ -660,9 +574,9 @@ struct hci_conn *hci_connect(struct hci_dev *hdev, int type,
 		acl->power_save = 1;
 		hci_conn_enter_active_mode(acl, BT_POWER_FORCE_ACTIVE_ON);
 
-		if (test_bit(HCI_CONN_MODE_CHANGE_PEND, &acl->flags)) {
+		if (test_bit(HCI_CONN_MODE_CHANGE_PEND, &acl->pend)) {
 			/* defer SCO setup until mode change completed */
-			set_bit(HCI_CONN_SCO_SETUP_PEND, &acl->flags);
+			set_bit(HCI_CONN_SCO_SETUP_PEND, &acl->pend);
 			return sco;
 		}
 
@@ -704,17 +618,17 @@ static int hci_conn_auth(struct hci_conn *conn, __u8 sec_level, __u8 auth_type)
 
 	conn->auth_type = auth_type;
 
-	if (!test_and_set_bit(HCI_CONN_AUTH_PEND, &conn->flags)) {
+	if (!test_and_set_bit(HCI_CONN_AUTH_PEND, &conn->pend)) {
 		struct hci_cp_auth_requested cp;
 
 		/* encrypt must be pending if auth is also pending */
-		set_bit(HCI_CONN_ENCRYPT_PEND, &conn->flags);
+		set_bit(HCI_CONN_ENCRYPT_PEND, &conn->pend);
 
 		cp.handle = cpu_to_le16(conn->handle);
 		hci_send_cmd(conn->hdev, HCI_OP_AUTH_REQUESTED,
 							sizeof(cp), &cp);
 		if (conn->key_type != 0xff)
-			set_bit(HCI_CONN_REAUTH_PEND, &conn->flags);
+			set_bit(HCI_CONN_REAUTH_PEND, &conn->pend);
 	}
 
 	return 0;
@@ -725,7 +639,7 @@ static void hci_conn_encrypt(struct hci_conn *conn)
 {
 	BT_DBG("conn %p", conn);
 
-	if (!test_and_set_bit(HCI_CONN_ENCRYPT_PEND, &conn->flags)) {
+	if (!test_and_set_bit(HCI_CONN_ENCRYPT_PEND, &conn->pend)) {
 		struct hci_cp_set_conn_encrypt cp;
 		cp.handle  = cpu_to_le16(conn->handle);
 		cp.encrypt = 0x01;
@@ -768,16 +682,14 @@ int hci_conn_security(struct hci_conn *conn, __u8 sec_level, __u8 auth_type)
 	/* A combination key has always sufficient security for the security
 	   levels 1 or 2. High security level requires the combination key
 	   is generated using maximum PIN code length (16).
-	   For pre 2.1 units.
-	   High security level requires the combination key,
-	   maximum PIN code length (16) is recommended not mandatory */
+	   For pre 2.1 units. */
 	if (conn->key_type == HCI_LK_COMBINATION &&
-			(sec_level > BT_SECURITY_LOW ||
+			(sec_level != BT_SECURITY_HIGH ||
 			conn->pin_length == 16))
 		goto encrypt;
 
 auth:
-	if (test_bit(HCI_CONN_ENCRYPT_PEND, &conn->flags))
+	if (test_bit(HCI_CONN_ENCRYPT_PEND, &conn->pend))
 		return 0;
 
 	if (!hci_conn_auth(conn, sec_level, auth_type))
@@ -812,7 +724,7 @@ int hci_conn_change_link_key(struct hci_conn *conn)
 {
 	BT_DBG("conn %p", conn);
 
-	if (!test_and_set_bit(HCI_CONN_AUTH_PEND, &conn->flags)) {
+	if (!test_and_set_bit(HCI_CONN_AUTH_PEND, &conn->pend)) {
 		struct hci_cp_change_conn_link_key cp;
 		cp.handle = cpu_to_le16(conn->handle);
 		hci_send_cmd(conn->hdev, HCI_OP_CHANGE_CONN_LINK_KEY,
@@ -831,7 +743,7 @@ int hci_conn_switch_role(struct hci_conn *conn, __u8 role)
 	if (!role && conn->link_mode & HCI_LM_MASTER)
 		return 1;
 
-	if (!test_and_set_bit(HCI_CONN_RSWITCH_PEND, &conn->flags)) {
+	if (!test_and_set_bit(HCI_CONN_RSWITCH_PEND, &conn->pend)) {
 		struct hci_cp_switch_role cp;
 		bacpy(&cp.bdaddr, &conn->dst);
 		cp.role = role;
@@ -869,6 +781,7 @@ int hci_conn_set_encrypt(struct hci_conn *conn, __u8 enable)
 EXPORT_SYMBOL(hci_conn_set_encrypt);
 /* END SS_BLUEZ_BT */
 
+
 /* Enter active mode */
 void hci_conn_enter_active_mode(struct hci_conn *conn, __u8 force_active)
 {
@@ -885,7 +798,7 @@ void hci_conn_enter_active_mode(struct hci_conn *conn, __u8 force_active)
 	if (!conn->power_save && !force_active)
 		goto timer;
 
-	if (!test_and_set_bit(HCI_CONN_MODE_CHANGE_PEND, &conn->flags)) {
+	if (!test_and_set_bit(HCI_CONN_MODE_CHANGE_PEND, &conn->pend)) {
 		struct hci_cp_exit_sniff_mode cp;
 		cp.handle = cpu_to_le16(conn->handle);
 		hci_send_cmd(hdev, HCI_OP_EXIT_SNIFF_MODE, sizeof(cp), &cp);
@@ -922,7 +835,7 @@ void hci_conn_enter_sniff_mode(struct hci_conn *conn)
 		hci_send_cmd(hdev, HCI_OP_SNIFF_SUBRATE, sizeof(cp), &cp);
 	}
 
-	if (!test_and_set_bit(HCI_CONN_MODE_CHANGE_PEND, &conn->flags)) {
+	if (!test_and_set_bit(HCI_CONN_MODE_CHANGE_PEND, &conn->pend)) {
 		struct hci_cp_sniff_mode cp;
 		cp.handle       = cpu_to_le16(conn->handle);
 		cp.max_interval = cpu_to_le16(hdev->sniff_max_interval);

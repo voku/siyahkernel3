@@ -716,18 +716,12 @@ static int hidp_session(void *arg)
 
 		while ((skb = skb_dequeue(&ctrl_sk->sk_receive_queue))) {
 			skb_orphan(skb);
-			if (!skb_linearize(skb))
-				hidp_recv_ctrl_frame(session, skb);
-			else
-				kfree_skb(skb);
+			hidp_recv_ctrl_frame(session, skb);
 		}
 
 		while ((skb = skb_dequeue(&intr_sk->sk_receive_queue))) {
 			skb_orphan(skb);
-			if (!skb_linearize(skb))
-				hidp_recv_intr_frame(session, skb);
-			else
-				kfree_skb(skb);
+			hidp_recv_intr_frame(session, skb);
 		}
 
 		hidp_process_transmit(session);

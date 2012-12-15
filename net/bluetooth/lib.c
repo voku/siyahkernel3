@@ -145,11 +145,6 @@ int bt_to_errno(__u16 code)
 	case 0x25:
 		return EPROTO;
 
-/* SSBT :: KJH + (0229) */
-	case 0x22: /* LMP RESPONSE TIMEOUT / LL RESPONSE TIMEOUT */
-	case 0x3e: /* CONNECTION FAILED TO BE ESTABLISHED */
-		return ECANCELED;
-
 	default:
 		return ENOSYS;
 	}

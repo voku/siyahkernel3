@@ -431,7 +431,7 @@ static void exynos4_mct_tick_init(struct clock_event_device *evt)
 
 	exynos4_mct_write(TICK_BASE_CNT, mct_tick[cpu].base + MCT_L_TCNTB_OFFSET);
 
-//	if (mct_int_type == MCT_INT_SPI) {
+	if (mct_int_type == MCT_INT_SPI) {
 		if (cpu == 0) {
 			mct_tick0_event_irq.dev_id = &mct_tick[cpu];
 			setup_irq(IRQ_MCT_L0, &mct_tick0_event_irq);
@@ -440,9 +440,9 @@ static void exynos4_mct_tick_init(struct clock_event_device *evt)
 			setup_irq(IRQ_MCT_L1, &mct_tick1_event_irq);
 			irq_set_affinity(IRQ_MCT_L1, cpumask_of(1));
 		}
-//	} else {
-//		gic_enable_ppi(IRQ_PPI_MCT_L);
-//	}
+	} else {
+		gic_enable_ppi(IRQ_PPI_MCT_L);
+	}
 }
 
 /* Setup the local clock events for a CPU */

@@ -30,7 +30,7 @@ AFLAGS_sleep-exynos4.o :=$(call as-instr,.arch_extension sec,-DREQUIRES_SEC=1)
 obj-$(CONFIG_EXYNOS5_PM)	+= pm-exynos5.o sleep-exynos5.o
 obj-$(CONFIG_CPU_FREQ)		+= cpufreq.o
 obj-$(CONFIG_EXYNOS4_CPUFREQ)	+= asv.o asv-4210.o asv-4x12.o
-obj-$(CONFIG_EXYNOS4_CPUFREQ)	+= cpufreq-4210.o cpufreq-4x12.o
+obj-$(CONFIG_EXYNOS4_CPUFREQ)	+= cpufreq-4210.o #cpufreq-4x12.o
 obj-$(CONFIG_EXYNOS5_CPUFREQ)	+= asv.o asv-5250.o
 obj-$(CONFIG_EXYNOS5_CPUFREQ)	+= cpufreq-5250.o
 obj-$(CONFIG_EXYNOS4_CPUIDLE)	+= cpuidle-exynos4.o idle-exynos4.o
@@ -141,8 +141,9 @@ ifeq ($(CONFIG_MACH_M3),y)
 obj-$(CONFIG_MIDAS_COMMON)		+= sec-common.o \
 					   midas-tsp.o board-midas-wlan.o \
 					   midas-camera.o midas-thermistor.o \
-					   midas-mhl.o midas-lcd.o midas-sound.o
-else
+					   midas-mhl.o midas-lcd.o
+obj-$(CONFIG_MIDAS_COMMON)		+= midas-sound.o
+endif
 ifeq ($(CONFIG_MACH_T0),y)
 obj-$(CONFIG_MIDAS_COMMON)		+= sec-common.o \
 					   midas-tsp.o board-midas-wlan.o \
@@ -173,7 +174,6 @@ obj-$(CONFIG_MIDAS_COMMON)		+= sec-common.o board-gps-bcm475x.o \
 					   midas-tsp.o board-midas-wlan.o \
 					   midas-camera.o midas-thermistor.o \
 					   midas-mhl.o midas-lcd.o midas-sound.o
-endif
 endif
 endif
 endif
@@ -281,9 +281,7 @@ obj-$(CONFIG_SEC_MODEM_M0_CTC)		+= board-m0ctc-modems.o
 obj-$(CONFIG_SEC_MODEM_T0_CU_DUOS)	+= board-m0-modems.o board-t0cu-duos-modems.o
 obj-$(CONFIG_SEC_MODEM_T0_OPEN_DUOS)      += board-m0-modems.o board-t0cu-duos-modems.o
 obj-$(CONFIG_SEC_MODEM_IRON)		+= board-iron-modems.o
-#obj-$(CONFIG_SEC_MODEM_M1)		+= board-m1-modems.o
 obj-$(CONFIG_SEC_MODEM_GAIA)		+= board-gaia-modems.o
-obj-$(CONFIG_SEC_MODEM_M1)		+= board-c1-modems.o
 obj-$(CONFIG_SEC_MODEM_C1)		+= board-c1-modems.o
 obj-$(CONFIG_SEC_MODEM_C1_LGT)		+= board-c1lgt-modems.o
 obj-$(CONFIG_SEC_MODEM_U1)		+= board-u1-modems.o

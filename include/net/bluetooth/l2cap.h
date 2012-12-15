@@ -23,7 +23,11 @@
    COPYRIGHTS, TRADEMARKS OR OTHER RIGHTS, RELATING TO USE OF THIS
    SOFTWARE IS DISCLAIMED.
 */
-
+#ifdef CONFIG_BT_MGMT
+#include "l2cap_mgmt.h"
+#elif defined(CONFIG_BT_TIZEN)
+#include "tizen/l2cap.h"
+#else
 #ifndef __L2CAP_H
 #define __L2CAP_H
 
@@ -39,14 +43,8 @@
 #define L2CAP_DEFAULT_ACK_TO		200
 #define L2CAP_LE_DEFAULT_MTU		23
 
-#define L2CAP_DISC_TIMEOUT             (100)
-#define L2CAP_DISC_REJ_TIMEOUT         (5000)  /*  5 seconds */
-#define L2CAP_ENC_TIMEOUT              (5000)  /*  5 seconds */
 #define L2CAP_CONN_TIMEOUT	(40000) /* 40 seconds */
 #define L2CAP_INFO_TIMEOUT	(4000)  /*  4 seconds */
-/* SSBT :: KJH * 15sec -> 5sec */
-#define L2CAP_CONN_LE_TIMEOUT	(5000) /* 5 seconds */
-
 
 /* L2CAP socket address */
 struct sockaddr_l2 {
@@ -174,14 +172,14 @@ struct l2cap_conn_rsp {
 #define L2CAP_CID_DYN_START	0x0040
 #define L2CAP_CID_DYN_END	0xffff
 
-/* connect/create channel results */
+/* connect result */
 #define L2CAP_CR_SUCCESS	0x0000
 #define L2CAP_CR_PEND		0x0001
 #define L2CAP_CR_BAD_PSM	0x0002
 #define L2CAP_CR_SEC_BLOCK	0x0003
 #define L2CAP_CR_NO_MEM		0x0004
 
-/* connect/create channel status */
+/* connect status */
 #define L2CAP_CS_NO_INFO	0x0000
 #define L2CAP_CS_AUTHEN_PEND	0x0001
 #define L2CAP_CS_AUTHOR_PEND	0x0002
@@ -407,8 +405,6 @@ struct l2cap_conn {
 
 	struct timer_list security_timer;
 
-	struct smp_chan *smp_chan;
-
 	struct list_head chan_l;
 	rwlock_t	chan_lock;
 };
@@ -487,7 +483,7 @@ static inline int l2cap_tx_window_full(struct l2cap_chan *ch)
 #define __is_sframe(ctrl)	((ctrl) & L2CAP_CTRL_FRAME_TYPE)
 #define __is_sar_start(ctrl)	(((ctrl) & L2CAP_CTRL_SAR) == L2CAP_SDU_START)
 
-extern bool disable_ertm;
+extern int disable_ertm;
 
 int l2cap_init_sockets(void);
 void l2cap_cleanup_sockets(void);
@@ -506,3 +502,5 @@ int l2cap_chan_send(struct l2cap_chan *chan, struct msghdr *msg, size_t len);
 void l2cap_chan_busy(struct l2cap_chan *chan, int busy);
 
 #endif /* __L2CAP_H */
+
+#endif /* BT_MGMT */

@@ -74,14 +74,9 @@ static struct usb_device_id ath3k_table[] = {
 	{ USB_DEVICE(0x0CF3, 0x311D) },
 	{ USB_DEVICE(0x13d3, 0x3375) },
 	{ USB_DEVICE(0x04CA, 0x3005) },
-	{ USB_DEVICE(0x13d3, 0x3362) },
-	{ USB_DEVICE(0x0CF3, 0xE004) },
 
 	/* Atheros AR5BBU12 with sflash firmware */
 	{ USB_DEVICE(0x0489, 0xE02C) },
-
-	/* Atheros AR5BBU22 with sflash firmware */
-	{ USB_DEVICE(0x0489, 0xE03C) },
 
 	{ }	/* Terminating entry */
 };
@@ -98,11 +93,6 @@ static struct usb_device_id ath3k_blist_tbl[] = {
 	{ USB_DEVICE(0x0cf3, 0x311D), .driver_info = BTUSB_ATH3012 },
 	{ USB_DEVICE(0x13d3, 0x3375), .driver_info = BTUSB_ATH3012 },
 	{ USB_DEVICE(0x04ca, 0x3005), .driver_info = BTUSB_ATH3012 },
-	{ USB_DEVICE(0x13d3, 0x3362), .driver_info = BTUSB_ATH3012 },
-	{ USB_DEVICE(0x0cf3, 0xe004), .driver_info = BTUSB_ATH3012 },
-
-	/* Atheros AR5BBU22 with sflash firmware */
-	{ USB_DEVICE(0x0489, 0xE03C), .driver_info = BTUSB_ATH3012 },
 
 	{ }	/* Terminating entry */
 };
@@ -440,7 +430,19 @@ static struct usb_driver ath3k_driver = {
 	.id_table	= ath3k_table,
 };
 
-module_usb_driver(ath3k_driver);
+static int __init ath3k_init(void)
+{
+	BT_INFO("Atheros AR30xx firmware driver ver %s", VERSION);
+	return usb_register(&ath3k_driver);
+}
+
+static void __exit ath3k_exit(void)
+{
+	usb_deregister(&ath3k_driver);
+}
+
+module_init(ath3k_init);
+module_exit(ath3k_exit);
 
 MODULE_AUTHOR("Atheros Communications");
 MODULE_DESCRIPTION("Atheros AR30xx firmware driver");
