@@ -9,6 +9,7 @@
 #include <asm/uaccess.h>
 #include <linux/kernel_stat.h>
 #include <trace/events/timer.h>
+#include <linux/random.h>
 
 /*
  * Called after updating RLIMIT_CPU to run cpu timer and update
@@ -480,6 +481,8 @@ void posix_cpu_timers_exit(struct task_struct *tsk)
 {
 	cputime_t utime, stime;
 
+	add_device_randomness((const void*) &tsk->se.sum_exec_runtime,
+						sizeof(unsigned long long));
 	task_cputime(tsk, &utime, &stime);
 	cleanup_timers(tsk->cpu_timers,
 		       utime, stime, tsk->se.sum_exec_runtime);
