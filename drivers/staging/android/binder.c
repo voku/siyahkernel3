@@ -288,6 +288,7 @@ struct binder_proc {
 	struct rb_root refs_by_node;
 	int pid;
 	struct vm_area_struct *vma;
+	struct mm_struct *vma_vm_mm;
 	struct task_struct *tsk;
 	struct files_struct *files;
 	struct hlist_node deferred_work_node;
@@ -409,11 +410,11 @@ repeat:
 		goto repeat;
 	}
 
-	__set_open_fd(fd, fdt);
+	FD_SET(fd, fdt->open_fds);
 	if (flags & O_CLOEXEC)
-		__set_close_on_exec(fd, fdt);
+		FD_SET(fd, fdt->close_on_exec);
 	else
-		__clear_close_on_exec(fd, fdt);
+		FD_CLR(fd, fdt->close_on_exec);
 	files->next_fd = fd + 1;
 #if 1
 	/* Sanity check */
@@ -454,7 +455,7 @@ static void task_fd_install(
 static void __put_unused_fd(struct files_struct *files, unsigned int fd)
 {
 	struct fdtable *fdt = files_fdtable(files);
-	__clear_open_fd(fd, fdt);
+	__FD_CLR(fd, fdt->open_fds);
 	if (fd < files->next_fd)
 		files->next_fd = fd;
 }
@@ -480,7 +481,7 @@ static long task_close_fd(struct binder_proc *proc, unsigned int fd)
 	if (!filp)
 		goto out_unlock;
 	rcu_assign_pointer(fdt->fd[fd], NULL);
-	__clear_close_on_exec(fd, fdt);
+	FD_CLR(fd, fdt->close_on_exec);
 	__put_unused_fd(files, fd);
 	spin_unlock(&files->file_lock);
 	retval = filp_close(filp, files);
@@ -633,7 +634,7 @@ static int binder_update_page_range(struct binder_proc *proc, int allocate,
 	if (mm) {
 		down_write(&mm->mmap_sem);
 		vma = proc->vma;
-		if (vma && mm != vma->vm_mm) {
+		if (vma && mm != proc->vma_vm_mm) {
 			pr_err("binder: %d: vma mm and task mm mismatch\n",
 				proc->pid);
 			vma = NULL;
@@ -2787,6 +2788,7 @@ static void binder_vma_close(struct vm_area_struct *vma)
 		     (vma->vm_end - vma->vm_start) / SZ_1K, vma->vm_flags,
 		     (unsigned long)pgprot_val(vma->vm_page_prot));
 	proc->vma = NULL;
+	proc->vma_vm_mm = NULL;
 	binder_defer_work(proc, BINDER_DEFERRED_PUT_FILES);
 }
 
@@ -2869,6 +2871,7 @@ static int binder_mmap(struct file *filp, struct vm_area_struct *vma)
 	barrier();
 	proc->files = get_files_struct(proc->tsk);
 	proc->vma = vma;
+	proc->vma_vm_mm = vma->vm_mm;
 
 	/*printk(KERN_INFO "binder_mmap: %d %lx-%lx maps %p\n",
 		 proc->pid, vma->vm_start, vma->vm_end, proc->buffer);*/
