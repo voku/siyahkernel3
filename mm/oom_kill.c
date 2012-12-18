@@ -591,6 +591,43 @@ void clear_zonelist_oom(struct zonelist *zonelist, gfp_t gfp_mask)
 	spin_unlock(&zone_scan_lock);
 }
 
+/*
+ * Try to acquire the oom killer lock for all system zones.  Returns zero if a
+ * parallel oom killing is taking place, otherwise locks all zones and returns
+ * non-zero.
+ */
+static int try_set_system_oom(void)
+{
+    struct zone *zone;
+    int ret = 1;
+
+    spin_lock(&zone_scan_lock);
+    for_each_populated_zone(zone)
+        if (zone_is_oom_locked(zone)) {
+            ret = 0;
+            goto out;
+        }
+    for_each_populated_zone(zone)
+        zone_set_flag(zone, ZONE_OOM_LOCKED);
+out:
+    spin_unlock(&zone_scan_lock);
+    return ret;
+}
+
+/*
+ * Clears ZONE_OOM_LOCKED for all system zones so that failed allocation
+ * attempts or page faults may now recall the oom killer, if necessary.
+ */
+static void clear_system_oom(void)
+{
+    struct zone *zone;
+
+    spin_lock(&zone_scan_lock);
+    for_each_populated_zone(zone)
+        zone_clear_flag(zone, ZONE_OOM_LOCKED);
+    spin_unlock(&zone_scan_lock);
+}
+
 /**
  * out_of_memory - kill the "best" process when we run out of memory
  * @zonelist: zonelist pointer
@@ -682,5 +719,6 @@ void pagefault_out_of_memory(void)
 	if (try_set_zonelist_oom(zonelist, GFP_KERNEL)) {
 		out_of_memory(NULL, 0, 0, NULL, false);
 		clear_zonelist_oom(zonelist, GFP_KERNEL);
+		clear_system_oom();
 	}
 }
