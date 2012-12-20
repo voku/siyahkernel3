@@ -2017,6 +2017,7 @@ struct filename {
 	const __user char *uptr;	/* original userland pointer */
 };
 
+extern long vfs_truncate(struct path *, loff_t);
 extern int do_truncate(struct dentry *, loff_t start, unsigned int time_attrs,
 		       struct file *filp);
 extern int do_fallocate(struct file *file, int mode, loff_t offset,
