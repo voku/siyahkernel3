@@ -17,6 +17,21 @@
 #include <linux/balloon_compaction.h>
 #include "internal.h"
 
+#ifdef CONFIG_COMPACTION
+static inline void count_compact_event(enum vm_event_item item)
+{
+	count_vm_event(item);
+}
+
+static inline void count_compact_events(enum vm_event_item item, long delta)
+{
+	count_vm_events(item, delta);
+}
+#else
+#define count_compact_event(item) do { } while (0)
+#define count_compact_events(item, delta) do { } while (0)
+#endif
+
 #if defined CONFIG_COMPACTION || defined CONFIG_DMA_CMA
 
 #define CREATE_TRACE_POINTS
@@ -1101,7 +1116,7 @@ unsigned long try_to_compact_pages(struct zonelist *zonelist,
 	/* Temporary log to get information whether the compaction works well */
 	printk(KERN_NOTICE "%s, order=%d, sync=%d\n", __func__, order, sync);
 #endif
-	count_vm_event(COMPACTSTALL);
+	count_compact_event(COMPACTSTALL);
 
 #ifdef CONFIG_DMA_CMA
 	if (allocflags_to_migratetype(gfp_mask) == MIGRATE_MOVABLE)
