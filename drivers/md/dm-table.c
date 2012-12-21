@@ -155,9 +155,7 @@ void *dm_vcalloc(unsigned long nmemb, unsigned long elem_size)
 		return NULL;
 
 	size = nmemb * elem_size;
-	addr = vmalloc(size);
-	if (addr)
-		memset(addr, 0, size);
+	addr = vzalloc(size);
 
 	return addr;
 }
@@ -1482,7 +1480,8 @@ void dm_table_set_restrictions(struct dm_table *t, struct request_queue *q,
 	else
 		queue_flag_clear_unlocked(QUEUE_FLAG_NONROT, q);
 
-	q->limits.max_write_same_sectors = 0;
+	if (!dm_table_supports_write_same(t))
+		q->limits.max_write_same_sectors = 0;
 
 	dm_table_set_integrity(t);
 
