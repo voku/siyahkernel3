@@ -252,8 +252,8 @@ static void stripe_map_range_sector(struct stripe_c *sc, sector_t sector,
 		*result += sc->chunk_size;		/* next chunk */
 }
 
-static int stripe_map_discard(struct stripe_c *sc, struct bio *bio,
-			      uint32_t target_stripe)
+static int stripe_map_range(struct stripe_c *sc, struct bio *bio,
+			    uint32_t target_stripe)
 {
 	sector_t begin, end;
 
