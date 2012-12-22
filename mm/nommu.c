@@ -790,11 +790,8 @@ static void delete_vma(struct mm_struct *mm, struct vm_area_struct *vma)
 	kenter("%p", vma);
 	if (vma->vm_ops && vma->vm_ops->close)
 		vma->vm_ops->close(vma);
-	if (vma->vm_file) {
+	if (vma->vm_file)
 		fput(vma->vm_file);
-		if (vma->vm_flags & VM_EXECUTABLE)
-			removed_exe_file_vma(mm);
-	}
 	put_nommu_region(vma->vm_region);
 	kmem_cache_free(vm_area_cachep, vma);
 }
@@ -1284,14 +1281,8 @@ unsigned long do_mmap_pgoff(struct file *file,
 	vma->vm_pgoff = pgoff;
 
 	if (file) {
-		region->vm_file = file;
-		get_file(file);
-		vma->vm_file = file;
-		get_file(file);
-		if (vm_flags & VM_EXECUTABLE) {
-			added_exe_file_vma(current->mm);
-			vma->vm_mm = current->mm;
-		}
+		region->vm_file = get_file(file);
+		vma->vm_file = get_file(file);
 	}
 
 	down_write(&nommu_region_sem);
@@ -1444,8 +1435,6 @@ error:
 	kmem_cache_free(vm_region_jar, region);
 	if (vma->vm_file)
 		fput(vma->vm_file);
-	if (vma->vm_flags & VM_EXECUTABLE)
-		removed_exe_file_vma(vma->vm_mm);
 	kmem_cache_free(vm_area_cachep, vma);
 	kleave(" = %d", ret);
 	return ret;
@@ -1471,7 +1460,6 @@ error_getting_region:
 	show_free_areas(0);
 	return -ENOMEM;
 }
-EXPORT_SYMBOL(do_mmap_pgoff);
 
 SYSCALL_DEFINE6(mmap_pgoff, unsigned long, addr, unsigned long, len,
 		unsigned long, prot, unsigned long, flags,
@@ -1489,9 +1477,7 @@ SYSCALL_DEFINE6(mmap_pgoff, unsigned long, addr, unsigned long, len,
 
 	flags &= ~(MAP_EXECUTABLE | MAP_DENYWRITE);
 
-	down_write(&current->mm->mmap_sem);
-	retval = do_mmap_pgoff(file, addr, len, prot, flags, pgoff);
-	up_write(&current->mm->mmap_sem);
+	ret = vm_mmap_pgoff(file, addr, len, prot, flags, pgoff);
 
 	if (file)
 		fput(file);
@@ -1751,7 +1737,7 @@ void exit_mmap(struct mm_struct *mm)
 	kleave("");
 }
 
-unsigned long do_brk(unsigned long addr, unsigned long len)
+unsigned long vm_brk(unsigned long addr, unsigned long len)
 {
 	return -ENOMEM;
 }

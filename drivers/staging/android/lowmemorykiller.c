@@ -42,7 +42,7 @@
 #include <linux/swap.h>
 
 static uint32_t lowmem_debug_level = 1;
-static int lowmem_adj[6] = {
+static short lowmem_adj[6] = {
 	0,
 	1,
 	6,
@@ -188,6 +188,9 @@ static void __exit lowmem_exit(void)
 }
 
 #ifdef CONFIG_ANDROID_LOW_MEMORY_KILLER_AUTODETECT_OOM_ADJ_VALUES
+#define OOM_DISABLE	(-17)
+#define OOM_ADJUST_MAX	15
+
 static int lowmem_oom_adj_to_oom_score_adj(int oom_adj)
 {
 	if (oom_adj == OOM_ADJUST_MAX)
@@ -200,7 +203,7 @@ static void lowmem_autodetect_oom_adj_values(void)
 {
 	int i;
 	int oom_adj;
-	int oom_score_adj;
+	short oom_score_adj;
 	int array_size = ARRAY_SIZE(lowmem_adj);
 
 	if (lowmem_adj_size < array_size)
@@ -272,7 +275,7 @@ __module_param_call(MODULE_PARAM_PREFIX, adj,
 		    S_IRUGO | S_IWUSR, 0);
 __MODULE_PARM_TYPE(adj, "array of int");
 #else
-module_param_array_named(adj, lowmem_adj, int, &lowmem_adj_size,
+module_param_array_named(adj, lowmem_adj, short, &lowmem_adj_size,
 			 S_IRUGO | S_IWUSR);
 #endif
 module_param_array_named(minfree, lowmem_minfree, uint, &lowmem_minfree_size,

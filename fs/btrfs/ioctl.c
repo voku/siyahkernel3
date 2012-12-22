@@ -1089,7 +1089,7 @@ int btrfs_defrag_file(struct inode *inode, struct file *file,
 
 		defrag_count += ret;
 		balance_dirty_pages_ratelimited(inode->i_mapping);
-		i += ret;
+		mutex_unlock(&inode->i_mutex);
 
 		if (newer_than) {
 			if (newer_off == (u64)-1)

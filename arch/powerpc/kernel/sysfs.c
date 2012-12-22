@@ -208,6 +208,8 @@ static ssize_t __used store_dscr_default(struct device *dev,
 		return -EINVAL;
 	dscr_default = val;
 
+	on_each_cpu(update_dscr, NULL, 1);
+
 	return count;
 }
 

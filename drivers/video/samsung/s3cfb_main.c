@@ -742,9 +742,6 @@ static int s3cfb_probe(struct platform_device *pdev)
 		if (ret < 0)
 			dev_err(fbdev[0]->dev, "failed to add sysfs entries\n");
 
-		/* changmin or cm (/sys/devices/platform/samsung-pd.2/s3cfb.0/vsync_time) */
-		ret = device_create_file(fbdev[i]->dev, &dev_attr_vsync_time);
-
 #ifdef FEATURE_VSYNC_EVENT_VIA_SYSFS
 		ret = device_create_file(fbdev[i]->fb[pdata->default_win]->dev,
 					&dev_attr_vsync_event);
@@ -753,6 +750,7 @@ static int s3cfb_probe(struct platform_device *pdev)
 #endif
 
 #ifdef CONFIG_FB_S5P_VSYNC_SYSFS
+		/* changmin or cm (/sys/devices/platform/samsung-pd.2/s3cfb.0/vsync_time) */
 		ret = device_create_file(fbdev[i]->dev, &dev_attr_vsync_time);
 		if (ret < 0)
 			dev_err(fbdev[0]->dev, "failed to add sysfs entries\n");

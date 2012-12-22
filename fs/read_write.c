@@ -55,11 +55,11 @@ static loff_t lseek_execute(struct file *file, struct inode *inode,
  * @file:	file structure to seek on
  * @offset:	file offset to seek to
  * @origin:	type of seek
- * @size:	max size of file system
+ * @size:	max size of this file in file system
  * @eof:	offset used for SEEK_END position
  *
  * This is a variant of generic_file_llseek that allows passing in a custom
- * file size.
+ * maximum file size and a custom EOF position, for e.g. hashed directories
  *
  * Synchronization:
  * SEEK_SET and SEEK_END are unsynchronized (but atomic on 64bit platforms)
@@ -100,7 +100,7 @@ generic_file_llseek_size(struct file *file, loff_t offset, int origin,
 		 * In the generic case the entire file is data, so as long as
 		 * offset isn't at the end of the file then the offset is data.
 		 */
-		if (offset >= i_size_read(inode))
+		if (offset >= eof)
 			return -ENXIO;
 		break;
 	case SEEK_HOLE:

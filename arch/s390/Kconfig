@@ -117,6 +117,12 @@ config S390
 	select ARCH_INLINE_WRITE_UNLOCK_BH
 	select ARCH_INLINE_WRITE_UNLOCK_IRQ
 	select ARCH_INLINE_WRITE_UNLOCK_IRQRESTORE
+	select ARCH_WANT_IPC_PARSE_VERSION
+	select GENERIC_SMP_IDLE_THREAD
+	select GENERIC_TIME_VSYSCALL_OLD
+	select GENERIC_CLOCKEVENTS
+	select KTIME_SCALAR if 32BIT
+	select HAVE_ARCH_SECCOMP_FILTER
 
 config SCHED_OMIT_FRAME_POINTER
 	def_bool y
@@ -344,9 +350,6 @@ config WARN_DYNAMIC_STACK
 	  that dynamically allocate stack space using alloca.
 
 	  Say N if you are unsure.
-
-config ARCH_POPULATES_NODE_MAP
-	def_bool y
 
 comment "Kernel preemption"
 

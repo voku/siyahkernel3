@@ -152,6 +152,7 @@ extern u64 timecounter_cyc2time(struct timecounter *tc,
  * @mult:		cycle to nanosecond multiplier
  * @shift:		cycle to nanosecond divisor (power of two)
  * @max_idle_ns:	max idle time permitted by the clocksource (nsecs)
+ * @maxadj		maximum adjustment value to mult (~11%)
  * @flags:		flags describing special properties
  * @vread:		vsyscall based read
  * @suspend:		suspend function for the clocksource, if necessary
@@ -168,6 +169,7 @@ struct clocksource {
 	u32 mult;
 	u32 shift;
 	u64 max_idle_ns;
+	u32 maxadj;
 
 #ifdef CONFIG_IA64
 	void *fsys_mmio;        /* used by fsyscall asm code */
@@ -319,23 +321,6 @@ clocksource_calc_mult_shift(struct clocksource *cs, u32 freq, u32 minsec)
 	return clocks_calc_mult_shift(&cs->mult, &cs->shift, freq,
 				      NSEC_PER_SEC, minsec);
 }
-
-#ifdef CONFIG_GENERIC_TIME_VSYSCALL
-extern void
-update_vsyscall(struct timespec *ts, struct timespec *wtm,
-			struct clocksource *c, u32 mult);
-extern void update_vsyscall_tz(void);
-#else
-static inline void
-update_vsyscall(struct timespec *ts, struct timespec *wtm,
-			struct clocksource *c, u32 mult)
-{
-}
-
-static inline void update_vsyscall_tz(void)
-{
-}
-#endif
 
 extern void timekeeping_notify(struct clocksource *clock);
 

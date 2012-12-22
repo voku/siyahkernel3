@@ -25,7 +25,6 @@
 #include <linux/writeback.h>
 #include <linux/blkdev.h>
 #include <linux/backing-dev.h>
-#include <linux/buffer_head.h>
 #include <linux/tracepoint.h>
 #include "internal.h"
 
@@ -574,8 +573,8 @@ static long writeback_sb_inodes(struct super_block *sb,
 		}
 
 		/*
-		 * Don't bother with new inodes or inodes beeing freed, first
-		 * kind does not need peridic writeout yet, and for the latter
+		 * Don't bother with new inodes or inodes being freed, first
+		 * kind does not need periodic writeout yet, and for the latter
 		 * kind writeout is handled by the freer.
 		 */
 		spin_lock(&inode->i_lock);

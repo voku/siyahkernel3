@@ -37,6 +37,7 @@
 #include <linux/fs.h>
 #include <linux/math64.h>
 #include <linux/ptrace.h>
+#include <linux/timekeeper_internal.h>
 
 #include <asm/uaccess.h>
 #include <asm/unistd.h>
