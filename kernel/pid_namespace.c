@@ -184,6 +184,9 @@ void zap_pid_ns_processes(struct pid_namespace *pid_ns)
 	/* Don't allow any more processes into the pid namespace */
 	disable_pid_allocation(pid_ns);
 
+	/* Don't allow any more processes into the pid namespace */
+	disable_pid_allocation(pid_ns);
+
 	/* Ignore SIGCHLD causing any terminated children to autoreap */
 	spin_lock_irq(&me->sighand->siglock);
 	me->sighand->action[SIGCHLD - 1].sa.sa_handler = SIG_IGN;
