@@ -209,6 +209,12 @@ config CPU_FREQ_DEFAULT_GOV_INTERACTIVE
 	  loading your cpufreq low-level hardware driver, using the
 	  'interactive' governor for latency-sensitive workloads.
 
+config CPU_FREQ_DEFAULT_GOV_ZENX
+	bool "ZenX"
+	select CPU_FREQ_GOV_ZENERACTIVE
+	help
+	  Use the CPUFreq governor 'ZenX' as default.
+
 config CPU_FREQ_DEFAULT_GOV_ADAPTIVE
 	bool "adaptive"
 	select CPU_FREQ_GOV_ADAPTIVE
@@ -376,6 +382,19 @@ config CPU_FREQ_GOV_CONSERVATIVE
 	  For details, take a look at linux/Documentation/cpu-freq.
 
 	  If in doubt, say N.
+
+config CPU_FREQ_GOV_ZENERACTIVE
+	tristate "'zeneractive' cpufreq governor"
+	depends on CPU_FREQ
+	help
+	  'ZenX' - an interactive-based governor
+
+	  This governor provides full CPU hotplugging support
+	  based on average CPU load across all CPUs.
+
+	  For details, take a look at linux/Documentation/cpu-freq.
+
+	  If in doubt, say N
 
 config CPU_FREQ_GOV_INTELLIDEMAND
 	tristate "'intellidemand' cpufreq governor"
