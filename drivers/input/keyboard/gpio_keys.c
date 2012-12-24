@@ -26,11 +26,11 @@
 #include <linux/workqueue.h>
 #include <linux/gpio.h>
 #include <linux/irqdesc.h>
-#ifdef CONFIG_MACH_U1
-#include <linux/i2c/mxt224_u1.h>
-#endif
 #ifdef CONFIG_FAST_BOOT
 #include <linux/wakelock.h>
+#endif
+#ifdef CONFIG_MACH_U1
+#include <linux/i2c/mxt224_u1.h>
 #endif
 
 extern struct class *sec_class;
@@ -509,7 +509,7 @@ static void gpio_keys_report_event(struct gpio_button_data *bdata)
 {
 	static int64_t homekey_lasttime = 0;
 	static int homekey_count = 0;
-
+	
 	struct gpio_keys_button *button = bdata->button;
 	struct input_dev *input = bdata->input;
 	unsigned int type = button->type ?: EV_KEY;
@@ -592,17 +592,23 @@ static void gpio_keys_report_event(struct gpio_button_data *bdata)
 	}
 #endif
 
-	/* mdnie negative effect toggle by gm */
-	if ((button->code == HOME_KEY_VAL) && mdnie_shortcut_enabled) {
-		if (state) {
-			if (get_time_inms() - homekey_lasttime < homekey_trg_ms) {
+	//mdnie negative effect toggle by gm
+	if( ( button->code == KEY_HOME || button->code == KEY_HOMEPAGE )
+		&& mdnie_shortcut_enabled)
+	{
+		if(state) {
+			if (  get_time_inms() - homekey_lasttime < homekey_trg_ms) {
 				homekey_count++;
 				printk(KERN_INFO "repeated home_key action %d.\n", homekey_count);
-			} else {
+			}
+			else
+			{
 				homekey_count = 0;
 			}
-		} else {
-			if (homekey_count>=homekey_trg_cnt - 1) {
+		}
+		else {
+			if(homekey_count>=homekey_trg_cnt - 1)
+			{
 				mdnie_toggle_negative();
 				homekey_count = 0;
 			}
@@ -614,7 +620,7 @@ static void gpio_keys_report_event(struct gpio_button_data *bdata)
 		if (state) {
 			input_event(input, type, button->code, button->value);
 			input_sync(input);
-		}
+			}
 	} else {
 		if (bdata->wakeup && !state) {
 			input_event(input, type, button->code, !state);
@@ -625,6 +631,7 @@ static void gpio_keys_report_event(struct gpio_button_data *bdata)
 
 		bdata->key_state = !!state;
 		bdata->wakeup = false;
+
 
 #ifdef CONFIG_MACH_GC1
 		if (system_rev < 6 && system_rev >= 2
@@ -1033,6 +1040,7 @@ static int __devexit gpio_keys_remove(struct platform_device *pdev)
 
 	return 0;
 }
+
 
 #ifdef CONFIG_PM
 static int gpio_keys_suspend(struct device *dev)
