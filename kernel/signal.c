@@ -3273,6 +3273,23 @@ SYSCALL_DEFINE2(rt_sigsuspend, sigset_t __user *, unewset, size_t, sigsetsize)
 }
 #endif /* __ARCH_WANT_SYS_RT_SIGSUSPEND */
 
+#ifdef CONFIG_OLD_SIGSUSPEND
+SYSCALL_DEFINE1(sigsuspend, old_sigset_t, mask)
+{
+	sigset_t blocked;
+	siginitset(&blocked, mask);
+	return sigsuspend(&blocked);
+}
+#endif
+#ifdef CONFIG_OLD_SIGSUSPEND3
+SYSCALL_DEFINE3(sigsuspend, int, unused1, int, unused2, old_sigset_t, mask)
+{
+	sigset_t blocked;
+	siginitset(&blocked, mask);
+	return sigsuspend(&blocked);
+}
+#endif
+
 __attribute__((weak)) const char *arch_vma_name(struct vm_area_struct *vma)
 {
 	return NULL;
