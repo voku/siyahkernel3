@@ -336,6 +336,9 @@ config HAVE_UNDERSCORE_SYMBOL_PREFIX
 config GENERIC_COMPAT_RT_SIGPROCMASK
 	bool
 
+config GENERIC_COMPAT_RT_SIGPENDING
+	bool
+
 #
 # ABI hall of shame
 #
