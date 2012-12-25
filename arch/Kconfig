@@ -333,6 +333,12 @@ config HAVE_UNDERSCORE_SYMBOL_PREFIX
 	  Some architectures generate an _ in front of C symbols; things like
 	  module loading and assembly files need to know about this.
 
+config GENERIC_COMPAT_RT_SIGPROCMASK
+	bool
+
+#
+# ABI hall of shame
+#
 config ODD_RT_SIGACTION
 	bool
 	help
