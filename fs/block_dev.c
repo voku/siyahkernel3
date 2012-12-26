@@ -374,7 +374,7 @@ static int blkdev_write_end(struct file *file, struct address_space *mapping,
  * for a block special file file->f_path.dentry->d_inode->i_size is zero
  * so we compute the size by hand (just as in block_read/write above)
  */
-static loff_t block_llseek(struct file *file, loff_t offset, int origin)
+static loff_t block_llseek(struct file *file, loff_t offset, int whence)
 {
 	struct inode *bd_inode = file->f_mapping->host;
 	loff_t size;
@@ -383,7 +383,7 @@ static loff_t block_llseek(struct file *file, loff_t offset, int origin)
 	mutex_lock(&bd_inode->i_mutex);
 	size = i_size_read(bd_inode);
 
-	switch (origin) {
+	switch (whence) {
 		case 2:
 			offset += size;
 			break;

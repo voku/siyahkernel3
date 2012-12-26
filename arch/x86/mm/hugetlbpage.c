@@ -71,7 +71,6 @@ huge_pmd_share(struct mm_struct *mm, unsigned long addr, pud_t *pud)
 	struct address_space *mapping = vma->vm_file->f_mapping;
 	pgoff_t idx = ((addr - vma->vm_start) >> PAGE_SHIFT) +
 			vma->vm_pgoff;
-	struct prio_tree_iter iter;
 	struct vm_area_struct *svma;
 	unsigned long saddr;
 	pte_t *spte = NULL;
@@ -81,7 +80,7 @@ huge_pmd_share(struct mm_struct *mm, unsigned long addr, pud_t *pud)
 		return (pte_t *)pmd_alloc(mm, pud, addr);
 
 	mutex_lock(&mapping->i_mmap_mutex);
-	vma_prio_tree_foreach(svma, &iter, &mapping->i_mmap, idx, idx) {
+	vma_interval_tree_foreach(svma, &mapping->i_mmap, idx, idx) {
 		if (svma == vma)
 			continue;
 
@@ -344,13 +343,15 @@ try_again:
 		 * Lookup failure means no vma is above this address,
 		 * i.e. return with success:
 		 */
-		if (!(vma = find_vma_prev(mm, addr, &prev_vma)))
+		vma = find_vma(mm, add);
+		if (!vma)
 			return addr;
 
 		/*
 		 * new region fits between prev_vma->vm_end and
 		 * vma->vm_start, use it:
 		 */
+		prev_vma = vma->vm_prev;
 		if (addr + len <= vma->vm_start &&
 		            (!prev_vma || (addr >= prev_vma->vm_end))) {
 			/* remember the address as a hint for next time */
