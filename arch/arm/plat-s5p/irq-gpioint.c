@@ -27,6 +27,8 @@
 #include <asm/mach/irq.h>
 #include <mach/regs-gpio.h>
 
+#include <asm/mach/irq.h>
+
 #define GPIO_BASE(chip)		(((unsigned long)(chip)->base) & 0xFFFFF000u)
 
 #define CON_OFFSET		0x700

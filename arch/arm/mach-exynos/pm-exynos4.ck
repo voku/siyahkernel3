@@ -19,8 +19,6 @@
 #include <linux/syscore_ops.h>
 #include <linux/io.h>
 #include <linux/regulator/machine.h>
-#include <linux/err.h>
-#include <linux/clk.h>
 #include <linux/interrupt.h>
 
 #if defined(CONFIG_MACH_M0_CTC)
@@ -34,7 +32,6 @@
 
 #include <plat/cpu.h>
 #include <plat/pm.h>
-#include <plat/pll.h>
 #include <plat/regs-srom.h>
 
 #include <mach/regs-irq.h>
@@ -405,7 +402,7 @@ static unsigned int exynos4_pm_check_eint_pend(void)
 	return pending_eint;
 }
 
-static int exynos4_pm_add(struct device *dev, struct subsys_interface *sif)
+static int exynos4_pm_add(struct sys_device *sysdev)
 {
 	pm_cpu_prep = exynos4_cpu_prepare;
 	pm_cpu_sleep = exynos4_cpu_suspend;
@@ -421,10 +418,8 @@ static int exynos4_pm_add(struct device *dev, struct subsys_interface *sif)
 	return 0;
 }
 
-static struct subsys_interface exynos4_pm_interface = {
-	.name		= "exynos4_pm",
-	.subsys		= &exynos4_subsys,
-	.add_dev	= exynos4_pm_add,
+static struct sysdev_driver exynos4_pm_driver = {
+	.add		= exynos4_pm_add,
 };
 
 static __init int exynos4_pm_drvinit(void)
@@ -442,7 +437,7 @@ static __init int exynos4_pm_drvinit(void)
 	/* Disable XXTI pad in system level normal mode */
 	__raw_writel(0x0, S5P_XXTI_CONFIGURATION);
 
-	return subsys_interface_register(&exynos4_pm_interface);
+	return sysdev_driver_register(&exynos4_sysclass, &exynos4_pm_driver);
 }
 arch_initcall(exynos4_pm_drvinit);
 

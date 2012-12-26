@@ -131,8 +131,8 @@ static unsigned int _target(struct busfreq_data *data, struct opp *new)
 		voltage = data->get_int_volt(index);
 		regulator_set_voltage(data->vdd_int, voltage,
 				voltage + 25000);
-		if (data->busfreq_prepare)
-			data->busfreq_prepare(index);
+		/*if (data->busfreq_prepare)
+			data->busfreq_prepare(index);*/
 	}
 	if (data->set_qos)
 		data->set_qos(index);
@@ -140,8 +140,8 @@ static unsigned int _target(struct busfreq_data *data, struct opp *new)
 	data->target(index);
 
 	if (newfreq < currfreq) {
-		if (data->busfreq_post)
-			data->busfreq_post(index);
+		/*if (data->busfreq_post)
+			data->busfreq_post(index);*/
 		regulator_set_voltage(data->vdd_mif, voltage,
 				voltage + 25000);
 		voltage = data->get_int_volt(index);

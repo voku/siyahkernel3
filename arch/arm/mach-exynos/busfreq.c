@@ -101,7 +101,7 @@ struct busfreq_table {
 	unsigned int clk_dmcdiv;
 };
 
-static struct busfreq_table exynos4_busfreq_table[] = {
+struct busfreq_table exynos4_busfreq_table[] = {
 	{LV_0, 400000, 1100000, 0, 0},
 	{LV_1, 267000, 1000000, 0, 0},
 #ifdef CONFIG_BUSFREQ_L2_160M

@@ -183,14 +183,7 @@ unsigned long mem_cgroup_soft_limit_reclaim(struct zone *zone, int order,
 						gfp_t gfp_mask,
 						unsigned long *total_scanned);
 
-void __mem_cgroup_count_vm_event(struct mm_struct *mm, enum vm_event_item idx);
-static inline void mem_cgroup_count_vm_event(struct mm_struct *mm,
-					     enum vm_event_item idx)
-{
-	if (mem_cgroup_disabled())
-		return;
-	__mem_cgroup_count_vm_event(mm, idx);
-}
+void mem_cgroup_count_vm_event(struct mm_struct *mm, enum vm_event_item idx);
 #ifdef CONFIG_TRANSPARENT_HUGEPAGE
 void mem_cgroup_split_huge_fixup(struct page *head);
 #endif
