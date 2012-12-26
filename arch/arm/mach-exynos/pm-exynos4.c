@@ -509,7 +509,9 @@ static int exynos4_pm_suspend(void)
 		s3c_pm_do_save(exynos4x12_regs_save,
 					ARRAY_SIZE(exynos4x12_regs_save));
 
+#if defined(CONFIG_CACHE_L2X0)
 	s3c_pm_do_save(exynos4_l2cc_save, ARRAY_SIZE(exynos4_l2cc_save));
+#endif
 
 	/* Setting Central Sequence Register for power down mode */
 
