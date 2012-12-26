@@ -24,15 +24,31 @@
 #ifndef __REALTEK_RTSX_TRACE_H
 #define __REALTEK_RTSX_TRACE_H
 
-#include <linux/string.h>
-
 #define _MSG_TRACE
 
 #ifdef _MSG_TRACE
+static inline char *filename(char *path)
+{
+	char *ptr;
+
+	if (path == NULL)
+		return NULL;
+
+	ptr = path;
+
+	while (*ptr != '\0') {
+		if ((*ptr == '\\') || (*ptr == '/'))
+			path = ptr + 1;
+		
+		ptr++;
+	}
+
+	return path;
+}
 
 #define TRACE_RET(chip, ret)   										\
 do {													\
-	const char *_file = kbasename(__FILE__);								\
+	char *_file = filename(__FILE__);								\
 	RTSX_DEBUGP("[%s][%s]:[%d]\n", _file, __func__, __LINE__);					\
 	(chip)->trace_msg[(chip)->msg_idx].line = (u16)(__LINE__);					\
 	strncpy((chip)->trace_msg[(chip)->msg_idx].func, __func__, MSG_FUNC_LEN-1);			\
@@ -48,7 +64,7 @@ do {													\
 
 #define TRACE_GOTO(chip, label)   									\
 do {													\
-	const char *_file = kbasename(__FILE__);								\
+	char *_file = filename(__FILE__);								\
 	RTSX_DEBUGP("[%s][%s]:[%d]\n", _file, __func__, __LINE__);					\
 	(chip)->trace_msg[(chip)->msg_idx].line = (u16)(__LINE__);					\
 	strncpy((chip)->trace_msg[(chip)->msg_idx].func, __func__, MSG_FUNC_LEN-1);			\

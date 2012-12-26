@@ -61,13 +61,6 @@ config BROADCOM_WIFI_RESERVED_MEM
 	---help---
 	  This is a configuration for broadcom WLAN driver.
 
-config BCMDHD_WIFI_PM
-	bool "Enable support for changing the WiFi power mode"
-	depends on (BCM4330 || BCM4334 || BCM43241)
-	default y
-	---help---
-	Enable support for changing the WiFi power mode for screen-off.
-
 config WLAN_REGION_CODE
 	int "---Region codes for Broadcom WiFi Driver"
 	depends on (BCM4330 || BCM4334 || BCM43241)

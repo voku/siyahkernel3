@@ -58,6 +58,13 @@ static DEFINE_MUTEX(ddebug_lock);
 static LIST_HEAD(ddebug_tables);
 static int verbose = 0;
 
+/* Return the last part of a pathname */
+static inline const char *basename(const char *path)
+{
+	const char *tail = strrchr(path, '/');
+	return tail ? tail+1 : path;
+}
+
 static struct { unsigned flag:8; char opt_char; } opt_array[] = {
 	{ _DPRINTK_FLAGS_PRINT, 'p' },
 	{ _DPRINTK_FLAGS_INCL_MODNAME, 'm' },
@@ -114,7 +121,7 @@ static void ddebug_change(const struct ddebug_query *query,
 			/* match against the source filename */
 			if (query->filename != NULL &&
 			    strcmp(query->filename, dp->filename) &&
-			    strcmp(query->filename, kbasename(dp->filename)))
+			    strcmp(query->filename, basename(dp->filename)))
 				continue;
 
 			/* match against the function */
