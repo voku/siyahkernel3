@@ -5126,7 +5126,6 @@ static struct platform_device sec_device_thermistor = {
 };
 #endif /* CONFIG_SEC_THERMISTOR */
 
-
 struct gpio_keys_button u1_buttons[] = {
 	{
 		.code = KEY_VOLUMEUP,
@@ -5157,6 +5156,7 @@ struct gpio_keys_button u1_buttons[] = {
 	},			/* power key */
 #if !defined(CONFIG_MACH_U1_NA_SPR) && !defined(CONFIG_MACH_U1_NA_USCC)
 	{
+		.code = KEY_HOMEPAGE,
 		.code = KEY_HOME,
 		.gpio = GPIO_OK_KEY,
 		.active_low = 1,
