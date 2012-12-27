@@ -5,10 +5,6 @@ config TICK_ONESHOT
 	bool
 
 # Timekeeping vsyscall support
-config GENERIC_TIME_VSYSCALL
-	bool
-
-# Timekeeping vsyscall support
 config GENERIC_TIME_VSYSCALL_OLD
 	bool
 
