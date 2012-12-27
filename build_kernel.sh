@@ -139,7 +139,7 @@ else
 fi;
 
 if [ -e $KERNELDIR/arch/arm/boot/zImage ]; then
-	$KERNELDIR/mkshbootimg.py $KERNELDIR/zImage $KERNELDIR/arch/arm/boot/zImage $KERNELDIR/payload.tar $KERNELDIR/recovery.tar.xz
+	$KERNELDIR/mkshbootimg.py $KERNELDIR/zImage $KERNELDIR/arch/arm/boot/zImage $KERNELDIR/payload.tar.xz $KERNELDIR/recovery.tar.xz
 
 	# copy all needed to ready kernel folder.
 	cp $KERNELDIR/.config $KERNELDIR/arch/arm/configs/dorimanx_defconfig
