@@ -1048,7 +1048,7 @@ int copy_page_range(struct mm_struct *dst_mm, struct mm_struct *src_mm,
 	if (is_vm_hugetlb_page(vma))
 		return copy_hugetlb_page_range(dst_mm, src_mm, vma);
 
-	if (unlikely(is_pfn_mapping(vma))) {
+	if (unlikely(vma->vm_flags & VM_PFNMAP)) {
 		/*
 		 * We do not free on error cases below as remove_vma
 		 * gets called on error from higher level routine
@@ -1323,7 +1323,7 @@ static void unmap_single_vma(struct mmu_gather *tlb,
 	if (vma->vm_file)
 		uprobe_munmap(vma, start, end);
 
-	if (unlikely(is_pfn_mapping(vma)))
+	if (unlikely(vma->vm_flags & VM_PFNMAP))
 		untrack_pfn(vma, 0, 0);
 
 	if (start != end) {
@@ -1506,6 +1506,8 @@ struct page *follow_page(struct vm_area_struct *vma, unsigned long address,
 		page = follow_huge_pmd(mm, address, pmd, flags & FOLL_WRITE);
 		goto out;
 	}
+    if ((flags & FOLL_NUMA) && pmd_numa(*pmd))
+        goto no_page_table;
 	if (pmd_trans_huge(*pmd)) {
 		if (flags & FOLL_SPLIT) {
 			split_huge_page_pmd(vma, address, pmd);
@@ -1535,8 +1537,10 @@ split_fallthrough:
 	pte = *ptep;
 	if (!pte_present(pte))
 		goto no_page;
-	if ((flags & FOLL_WRITE) && !pte_write(pte))
-		goto unlock;
+    if ((flags & FOLL_NUMA) && pte_numa(pte))
+        goto no_page;
+    if ((flags & FOLL_WRITE) && !pte_write(pte))
+        goto unlock;
 
 	page = vm_normal_page(vma, address, pte);
 	if (unlikely(!page)) {
@@ -1570,14 +1574,14 @@ split_fallthrough:
 		 * when it attempts to reclaim the page.
 		 */
 		if (page->mapping && trylock_page(page)) {
-			lru_add_drain();  /* push cached pages to LRU */
-			/*
-			 * Because we lock page here and migration is
-			 * blocked by the pte's page reference, we need
-			 * only check for file-cache page truncation.
-			 */
-			if (page->mapping)
-				mlock_vma_page(page);
+            lru_add_drain();  /* push cached pages to LRU */
+            /*
+             * Because we lock page here, and migration is
+             * blocked by the pte's page reference, and we
+             * know the page is still mapped, we don't even
+             * need to check for file-cache page truncation.
+             */
+            mlock_vma_page(page);
 			unlock_page(page);
 		}
 	}
@@ -1686,6 +1690,19 @@ int __get_user_pages(struct task_struct *tsk, struct mm_struct *mm,
 			(VM_WRITE | VM_MAYWRITE) : (VM_READ | VM_MAYREAD);
 	vm_flags &= (gup_flags & FOLL_FORCE) ?
 			(VM_MAYREAD | VM_MAYWRITE) : (VM_READ | VM_WRITE);
+
+    /*
+     * If FOLL_FORCE and FOLL_NUMA are both set, handle_mm_fault
+     * would be called on PROT_NONE ranges. We must never invoke
+     * handle_mm_fault on PROT_NONE ranges or the NUMA hinting
+     * page faults would unprotect the PROT_NONE ranges if
+     * _PAGE_NUMA and _PAGE_PROTNONE are sharing the same pte/pmd
+     * bitflag. So to avoid that, don't set FOLL_NUMA if
+     * FOLL_FORCE is set.
+     */
+    if (!(gup_flags & FOLL_FORCE))
+        gup_flags |= FOLL_NUMA;
+
 	i = 0;
 
 	do {
@@ -2340,59 +2357,52 @@ int remap_pfn_range(struct vm_area_struct *vma, unsigned long addr,
 	struct mm_struct *mm = vma->vm_mm;
 	int err;
 
-	/*
-	 * Physically remapped pages are special. Tell the
-	 * rest of the world about it:
-	 *   VM_IO tells people not to look at these pages
-	 *	(accesses can have side effects).
-	 *   VM_RESERVED is specified all over the place, because
-	 *	in 2.4 it kept swapout's vma scan off this vma; but
-	 *	in 2.6 the LRU scan won't even find its pages, so this
-	 *	flag means no more than count its pages in reserved_vm,
-	 * 	and omit it from core dump, even when VM_IO turned off.
-	 *   VM_PFNMAP tells the core MM that the base pages are just
-	 *	raw PFN mappings, and do not have a "struct page" associated
-	 *	with them.
-	 *
-	 * There's a horrible special case to handle copy-on-write
-	 * behaviour that some programs depend on. We mark the "original"
-	 * un-COW'ed pages by matching them up with "vma->vm_pgoff".
-	 */
-	if (addr == vma->vm_start && end == vma->vm_end) {
-		vma->vm_pgoff = pfn;
-		vma->vm_flags |= VM_PFN_AT_MMAP;
-	} else if (is_cow_mapping(vma->vm_flags))
-		return -EINVAL;
+    /*
+     * Physically remapped pages are special. Tell the
+     * rest of the world about it:
+     *   VM_IO tells people not to look at these pages
+     *  (accesses can have side effects).
+     *   VM_PFNMAP tells the core MM that the base pages are just
+     *  raw PFN mappings, and do not have a "struct page" associated
+     *  with them.
+     *   VM_DONTEXPAND
+     *      Disable vma merging and expanding with mremap().
+     *   VM_DONTDUMP
+     *      Omit vma from core dump, even when VM_IO turned off.
+     *
+     * There's a horrible special case to handle copy-on-write
+     * behaviour that some programs depend on. We mark the "original"
+     * un-COW'ed pages by matching them up with "vma->vm_pgoff".
+     * See vm_normal_page() for details.
+     */
+    if (is_cow_mapping(vma->vm_flags)) {
+        if (addr != vma->vm_start || end != vma->vm_end)
+            return -EINVAL;
+        vma->vm_pgoff = pfn;
+    }
 
-	vma->vm_flags |= VM_IO | VM_RESERVED | VM_PFNMAP;
+    err = track_pfn_remap(vma, &prot, pfn, addr, PAGE_ALIGN(size));
+    if (err)
+        return -EINVAL;
 
-	err = track_pfn_remap(vma, &prot, pfn, PAGE_ALIGN(size));
-	if (err) {
-		/*
-		 * To indicate that track_pfn related cleanup is not
-		 * needed from higher level routine calling unmap_vmas
-		 */
-		vma->vm_flags &= ~(VM_IO | VM_RESERVED | VM_PFNMAP);
-		vma->vm_flags &= ~VM_PFN_AT_MMAP;
-		return -EINVAL;
-	}
+    vma->vm_flags |= VM_IO | VM_PFNMAP | VM_DONTEXPAND | VM_DONTDUMP;
 
-	BUG_ON(addr >= end);
-	pfn -= addr >> PAGE_SHIFT;
-	pgd = pgd_offset(mm, addr);
-	flush_cache_range(vma, addr, end);
-	do {
-		next = pgd_addr_end(addr, end);
-		err = remap_pud_range(mm, pgd, addr, next,
-				pfn + (addr >> PAGE_SHIFT), prot);
-		if (err)
-			break;
-	} while (pgd++, addr = next, addr != end);
+    BUG_ON(addr >= end);
+    pfn -= addr >> PAGE_SHIFT;
+    pgd = pgd_offset(mm, addr);
+    flush_cache_range(vma, addr, end);
+    do {
+        next = pgd_addr_end(addr, end);
+        err = remap_pud_range(mm, pgd, addr, next,
+                pfn + (addr >> PAGE_SHIFT), prot);
+        if (err)
+            break;
+    } while (pgd++, addr = next, addr != end);
 
-	if (err)
-		untrack_pfn(vma, pfn, PAGE_ALIGN(size));
+    if (err)
+        untrack_pfn(vma, pfn, PAGE_ALIGN(size));
 
-	return err;
+    return err;
 }
 EXPORT_SYMBOL(remap_pfn_range);
 
@@ -3475,6 +3485,170 @@ static int do_nonlinear_fault(struct mm_struct *mm, struct vm_area_struct *vma,
 	return __do_fault(mm, vma, address, pmd, pgoff, flags, orig_pte);
 }
 
+int numa_migrate_prep(struct page *page, struct vm_area_struct *vma,
+                unsigned long addr, int current_nid)
+{
+    get_page(page);
+
+    count_vm_numa_event(NUMA_HINT_FAULTS);
+    if (current_nid == numa_node_id())
+        count_vm_numa_event(NUMA_HINT_FAULTS_LOCAL);
+
+    return mpol_misplaced(page, vma, addr);
+}
+
+int do_numa_page(struct mm_struct *mm, struct vm_area_struct *vma,
+           unsigned long addr, pte_t pte, pte_t *ptep, pmd_t *pmd)
+{
+    struct page *page = NULL;
+    spinlock_t *ptl;
+    int current_nid = -1;
+    int target_nid;
+    bool migrated = false;
+
+    /*
+    * The "pte" at this point cannot be used safely without
+    * validation through pte_unmap_same(). It's of NUMA type but
+    * the pfn may be screwed if the read is non atomic.
+    *
+    * ptep_modify_prot_start is not called as this is clearing
+    * the _PAGE_NUMA bit and it is not really expected that there
+    * would be concurrent hardware modifications to the PTE.
+    */
+    ptl = pte_lockptr(mm, pmd);
+    spin_lock(ptl);
+    if (unlikely(!pte_same(*ptep, pte))) {
+        pte_unmap_unlock(ptep, ptl);
+        goto out;
+    }
+
+    pte = pte_mknonnuma(pte);
+    set_pte_at(mm, addr, ptep, pte);
+    update_mmu_cache(vma, addr, ptep);
+
+    page = vm_normal_page(vma, addr, pte);
+    if (!page) {
+        pte_unmap_unlock(ptep, ptl);
+        return 0;
+    }
+
+    current_nid = page_to_nid(page);
+    target_nid = numa_migrate_prep(page, vma, addr, current_nid);
+    pte_unmap_unlock(ptep, ptl);
+    if (target_nid == -1) {
+        /*
+         * Account for the fault against the current node if it not
+         * being replaced regardless of where the page is located.
+         */
+        current_nid = numa_node_id();
+        put_page(page);
+        goto out;
+    }
+
+    /* Migrate to the requested node */
+    migrated = migrate_misplaced_page(page, target_nid);
+    if (migrated)
+        current_nid = target_nid;
+
+out:
+    if (current_nid != -1)
+        task_numa_fault(current_nid, 1, migrated);
+    return 0;
+}
+
+/* NUMA hinting page fault entry point for regular pmds */
+#ifdef CONFIG_NUMA_BALANCING
+static int do_pmd_numa_page(struct mm_struct *mm, struct vm_area_struct *vma,
+             unsigned long addr, pmd_t *pmdp)
+{
+    pmd_t pmd;
+    pte_t *pte, *orig_pte;
+    unsigned long _addr = addr & PMD_MASK;
+    unsigned long offset;
+    spinlock_t *ptl;
+    bool numa = false;
+    int local_nid = numa_node_id();
+
+    spin_lock(&mm->page_table_lock);
+    pmd = *pmdp;
+    if (pmd_numa(pmd)) {
+        set_pmd_at(mm, _addr, pmdp, pmd_mknonnuma(pmd));
+        numa = true;
+    }
+    spin_unlock(&mm->page_table_lock);
+
+    if (!numa)
+        return 0;
+
+    /* we're in a page fault so some vma must be in the range */
+    BUG_ON(!vma);
+    BUG_ON(vma->vm_start >= _addr + PMD_SIZE);
+    offset = max(_addr, vma->vm_start) & ~PMD_MASK;
+    VM_BUG_ON(offset >= PMD_SIZE);
+    orig_pte = pte = pte_offset_map_lock(mm, pmdp, _addr, &ptl);
+    pte += offset >> PAGE_SHIFT;
+    for (addr = _addr + offset; addr < _addr + PMD_SIZE; pte++, addr += PAGE_SIZE) {
+        pte_t pteval = *pte;
+        struct page *page;
+        int curr_nid = local_nid;
+        int target_nid;
+        bool migrated;
+        if (!pte_present(pteval))
+            continue;
+        if (!pte_numa(pteval))
+            continue;
+        if (addr >= vma->vm_end) {
+            vma = find_vma(mm, addr);
+            /* there's a pte present so there must be a vma */
+            BUG_ON(!vma);
+            BUG_ON(addr < vma->vm_start);
+        }
+        if (pte_numa(pteval)) {
+            pteval = pte_mknonnuma(pteval);
+            set_pte_at(mm, addr, pte, pteval);
+        }
+        page = vm_normal_page(vma, addr, pteval);
+        if (unlikely(!page))
+            continue;
+        /* only check non-shared pages */
+        if (unlikely(page_mapcount(page) != 1))
+            continue;
+
+        /*
+         * Note that the NUMA fault is later accounted to either
+         * the node that is currently running or where the page is
+         * migrated to.
+         */
+        curr_nid = local_nid;
+        target_nid = numa_migrate_prep(page, vma, addr,
+                           page_to_nid(page));
+        if (target_nid == -1) {
+            put_page(page);
+            continue;
+        }
+
+        /* Migrate to the requested node */
+        pte_unmap_unlock(pte, ptl);
+        migrated = migrate_misplaced_page(page, target_nid);
+        if (migrated)
+            curr_nid = target_nid;
+        task_numa_fault(curr_nid, 1, migrated);
+
+        pte = pte_offset_map_lock(mm, pmdp, addr, &ptl);
+    }
+    pte_unmap_unlock(orig_pte, ptl);
+
+    return 0;
+}
+#else
+static int do_pmd_numa_page(struct mm_struct *mm, struct vm_area_struct *vma,
+             unsigned long addr, pmd_t *pmdp)
+{
+    BUG();
+    return 0;
+}
+#endif /* CONFIG_NUMA_BALANCING */
+
 /*
  * These routines also need to handle stuff like marking pages dirty
  * and/or accessed for architectures that don't do it in hardware (most
@@ -3512,6 +3686,9 @@ int handle_pte_fault(struct mm_struct *mm,
 		return do_swap_page(mm, vma, address,
 					pte, pmd, flags, entry);
 	}
+
+    if (pte_numa(entry))
+        return do_numa_page(mm, vma, address, entry, pte, pmd);
 
 	ptl = pte_lockptr(mm, pmd);
 	spin_lock(ptl);
@@ -3583,32 +3760,40 @@ retry:
 		if (pmd_trans_huge(orig_pmd)) {
 			unsigned int dirty = flags & FAULT_FLAG_WRITE;
 
-			if (dirty && !pmd_write(orig_pmd) &&
-			    !pmd_trans_splitting(orig_pmd)) {
-				ret = do_huge_pmd_wp_page(mm, vma, address, pmd,
-							  orig_pmd);
-				/*
-				 * If COW results in an oom, the huge pmd will
-				 * have been split, so retry the fault on the
-				 * pte for a smaller charge.
-				 */
-				if (unlikely(ret & VM_FAULT_OOM))
-					goto retry;
-				return ret;
-			} else {
-				huge_pmd_set_accessed(mm, vma, address, pmd,
-						      orig_pmd, dirty);
-			}
-			return 0;
+            if (pmd_numa(orig_pmd))
+                return do_huge_pmd_numa_page(mm, vma, address,
+                                 orig_pmd, pmd);
+
+            if (dirty && !pmd_write(orig_pmd)) {
+                ret = do_huge_pmd_wp_page(mm, vma, address, pmd,
+                              orig_pmd);
+                /*
+                 * If COW results in an oom, the huge pmd will
+                 * have been split, so retry the fault on the
+                 * pte for a smaller charge.
+                 */
+                if (unlikely(ret & VM_FAULT_OOM))
+                    goto retry;
+                return ret;
+            } else {
+                huge_pmd_set_accessed(mm, vma, address, pmd,
+                              orig_pmd, dirty);
+            }
+
+            return 0;
 		}
 	}
+
+    if (pmd_numa(*pmd))
+        return do_pmd_numa_page(mm, vma, address, pmd);
 
 	/*
 	 * Use __pte_alloc instead of pte_alloc_map, because we can't
 	 * run pte_offset_map on the pmd, if an huge pmd could
 	 * materialize from under us from a different thread.
 	 */
-	if (unlikely(pmd_none(*pmd)) && __pte_alloc(mm, vma, pmd, address))
+    if (unlikely(pmd_none(*pmd)) &&
+        unlikely(__pte_alloc(mm, vma, pmd, address)))
 		return VM_FAULT_OOM;
 	/* if an huge pmd materialized from under us just retry later */
 	if (unlikely(pmd_trans_huge(*pmd)))

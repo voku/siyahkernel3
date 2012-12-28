@@ -3,21 +3,9 @@
 
 #include <linux/mm.h>
 #include <linux/mempolicy.h>
+#include <linux/migrate_mode.h>
 
 typedef struct page *new_page_t(struct page *, unsigned long private, int **);
-
-/*
- * MIGRATE_ASYNC means never block
- * MIGRATE_SYNC_LIGHT in the current implementation means to allow blocking
- *	on most operations but not ->writepage as the potential stall time
- *	is too significant
- * MIGRATE_SYNC will block when migrating pages
- */
-enum migrate_mode {
-	MIGRATE_ASYNC,
-	MIGRATE_SYNC_LIGHT,
-	MIGRATE_SYNC,
-};
 
 /*
  * Return values from addresss_space_operations.migratepage():
@@ -35,6 +23,15 @@ enum migrate_mode {
 #define MIGRATEPAGE_BALLOON_SUCCESS	1 /* special ret code for balloon page
 					   * sucessful migration case.
 					   */
+enum migrate_reason {
+	MR_COMPACTION,
+	MR_MEMORY_FAILURE,
+	MR_MEMORY_HOTPLUG,
+	MR_SYSCALL,		/* also applies to cpusets */
+	MR_MEMPOLICY_MBIND,
+	MR_NUMA_MISPLACED,
+	MR_CMA
+};
 
 #ifdef CONFIG_MIGRATION
 
@@ -44,8 +41,8 @@ extern int migrate_page(struct address_space *,
 			struct page *, struct page *, enum migrate_mode);
 extern int migrate_pages(struct list_head *l, new_page_t x,
 			unsigned long private, bool offlining,
-			enum migrate_mode mode);
-extern int migrate_huge_pages(struct list_head *l, new_page_t x,
+			enum migrate_mode mode, int reason);
+extern int migrate_huge_page(struct page *, new_page_t x,
 			unsigned long private, bool offlining,
 			enum migrate_mode mode);
 
@@ -66,8 +63,8 @@ static inline void putback_lru_pages(struct list_head *l) {}
 static inline void putback_movable_pages(struct list_head *l) {}
 static inline int migrate_pages(struct list_head *l, new_page_t x,
 		unsigned long private, bool offlining,
-		enum migrate_mode mode) { return -ENOSYS; }
-static inline int migrate_huge_pages(struct list_head *l, new_page_t x,
+		enum migrate_mode mode, int reason) { return -ENOSYS; }
+static inline int migrate_huge_page(struct page *page, new_page_t x,
 		unsigned long private, bool offlining,
 		enum migrate_mode mode) { return -ENOSYS; }
 
@@ -95,4 +92,37 @@ static inline int migrate_huge_page_move_mapping(struct address_space *mapping,
 #define fail_migrate_page NULL
 
 #endif /* CONFIG_MIGRATION */
+
+#ifdef CONFIG_NUMA_BALANCING
+extern int migrate_misplaced_page(struct page *page, int node);
+extern int migrate_misplaced_page(struct page *page, int node);
+extern bool migrate_ratelimited(int node);
+#else
+static inline int migrate_misplaced_page(struct page *page, int node)
+{
+	return -EAGAIN; /* can't migrate now */
+}
+static inline bool migrate_ratelimited(int node)
+{
+	return false;
+}
+#endif /* CONFIG_NUMA_BALANCING */
+
+#if defined(CONFIG_NUMA_BALANCING) && defined(CONFIG_TRANSPARENT_HUGEPAGE)
+extern int migrate_misplaced_transhuge_page(struct mm_struct *mm,
+			struct vm_area_struct *vma,
+			pmd_t *pmd, pmd_t entry,
+			unsigned long address,
+			struct page *page, int node);
+#else
+static inline int migrate_misplaced_transhuge_page(struct mm_struct *mm,
+			struct vm_area_struct *vma,
+			pmd_t *pmd, pmd_t entry,
+			unsigned long address,
+			struct page *page, int node)
+{
+	return -EAGAIN;
+}
+#endif /* CONFIG_NUMA_BALANCING && CONFIG_TRANSPARENT_HUGEPAGE*/
+
 #endif /* _LINUX_MIGRATE_H */
