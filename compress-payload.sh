@@ -1,10 +1,10 @@
 #!/bin/sh
 cd PAYLOAD
 
-rm -f ../payload.tar
-tar -cv res > payload.tar
-stat payload.tar
-mv payload.tar ../
+rm -f ../payload.ta*
+tar -cvJ --xz . > payload.tar.xz
+stat payload.tar.xz
+mv payload.tar.xz ../
 cd ..
 echo "all done"
 

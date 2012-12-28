@@ -133,17 +133,17 @@ ${CROSS_COMPILE}strip --strip-debug ${INITRAMFS_TMP}/lib/modules/*.ko
 chmod 755 ${INITRAMFS_TMP}/lib/modules/*
 
 if [ $USER != "root" ]; then
-	make -j${NAMBEROFCPUS} zImage CONFIG_INITRAMFS_SOURCE="${INITRAMFS_TMP}" || exit 1
+	make -j${NAMBEROFCPUS} zImage CONFIG_INITRAMFS_SOURCE="${INITRAMFS_TMP}"
 else
 	# nice: a higher nice value means a low priority [-20 -> 20]
-	nice -n -10 make -j${NAMBEROFCPUS} zImage CONFIG_INITRAMFS_SOURCE="${INITRAMFS_TMP}" || exit 1
+	nice -n -15 make -j${NAMBEROFCPUS} zImage CONFIG_INITRAMFS_SOURCE="${INITRAMFS_TMP}"
 fi;
 
 # restore clean arch/arm/boot/compressed/Makefile_clean till next time
 cp ${KERNELDIR}/arch/arm/boot/compressed/Makefile_clean ${KERNELDIR}/arch/arm/boot/compressed/Makefile
 
 if [ -e ${KERNELDIR}/arch/arm/boot/zImage ]; then
-	${KERNELDIR}/mkshbootimg.py ${KERNELDIR}/zImage ${KERNELDIR}/arch/arm/boot/zImage ${KERNELDIR}/payload.tar ${KERNELDIR}/recovery.tar.xz
+	${KERNELDIR}/mkshbootimg.py ${KERNELDIR}/zImage ${KERNELDIR}/arch/arm/boot/zImage ${KERNELDIR}/payload.tar.xz ${KERNELDIR}/recovery.tar.xz
 
 	# copy all needed to ready kernel folder
 	cp ${KERNELDIR}/.config ${KERNELDIR}/arch/arm/configs/${KERNEL_CONFIG}
