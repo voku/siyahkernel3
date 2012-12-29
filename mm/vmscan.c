@@ -159,7 +159,7 @@ static unsigned long get_lru_size(struct lruvec *lruvec, enum lru_list lru)
  */
 void register_shrinker(struct shrinker *shrinker)
 {
-	atomic_long_set(&shrinker->nr_in_batch, 0);
+	shrinker->nr = 0;
 	down_write(&shrinker_rwsem);
 	list_add_tail(&shrinker->list, &shrinker_list);
 	up_write(&shrinker_rwsem);
@@ -240,7 +240,9 @@ unsigned long shrink_slab(struct shrink_control *shrink,
 		 * and zero it so that other concurrent shrinker invocations
 		 * don't also do this scanning work.
 		 */
-		nr = atomic_long_xchg(&shrinker->nr_in_batch, 0);
+		do {
+			nr = shrinker->nr;
+		} while (cmpxchg(&shrinker->nr, nr, 0) != nr);
 
 		total_scan = nr;
 		delta = (4 * nr_pages_scanned) / shrinker->seeks;
@@ -302,11 +304,12 @@ unsigned long shrink_slab(struct shrink_control *shrink,
 		 * manner that handles concurrent updates. If we exhausted the
 		 * scan, there is no need to do an update.
 		 */
-        if (total_scan > 0)
-            new_nr = atomic_long_add_return(total_scan,
-                    &shrinker->nr_in_batch);
-        else
-            new_nr = atomic_long_read(&shrinker->nr_in_batch);
+		do {
+			nr = shrinker->nr;
+			new_nr = total_scan + nr;
+			if (total_scan <= 0)
+				break;
+		} while (cmpxchg(&shrinker->nr, nr, new_nr) != nr);
 
 		trace_mm_shrink_slab_end(shrinker, shrink_ret, nr, new_nr);
 	}
@@ -631,42 +634,57 @@ static enum page_references page_check_references(struct page *page,
 	if (vm_flags & VM_LOCKED)
 		return PAGEREF_RECLAIM;
 
-    if (referenced_ptes) {
-        if (PageSwapBacked(page))
-            return PAGEREF_ACTIVATE;
-        /*
-         * All mapped pages start out with page table
-         * references from the instantiating fault, so we need
-         * to look twice if a mapped file page is used more
-         * than once.
-         *
-         * Mark it and spare it for another trip around the
-         * inactive list.  Another page table reference will
-         * lead to its activation.
-         *
-         * Note: the mark is set for activated pages as well
-         * so that recently deactivated but used pages are
-         * quickly recovered.
-         */
-        SetPageReferenced(page);
+	if (referenced_ptes) {
+		if (PageSwapBacked(page))
+			return PAGEREF_ACTIVATE;
 
-        if (referenced_page || referenced_ptes > 1)
-            return PAGEREF_ACTIVATE;
+		/*
+		 * Identify referenced, file-backed active pages and move them
+		 * to the active list. We know that this page has been
+		 * referenced since being put on the inactive list. VM_EXEC
+		 * pages are only moved to the inactive list when they have not
+		 * been referenced between scans (see shrink_active_list).
+		 */
+		if ((vm_flags & VM_EXEC) && page_is_file_cache(page))
+			return PAGEREF_ACTIVATE;
 
-        /*
-         * Activate file-backed executable pages after first usage.
-         */
-        if (vm_flags & VM_EXEC)
-            return PAGEREF_ACTIVATE;
+		/*
+		 * All mapped pages start out with page table
+		 * references from the instantiating fault, so we need
+		 * to look twice if a mapped file page is used more
+		 * than once.
+		 *
+		 * Mark it and spare it for another trip around the
+		 * inactive list.  Another page table reference will
+		 * lead to its activation.
+		 *
+		 * Note: the mark is set for activated pages as well
+		 * so that recently deactivated but used pages are
+		 * quickly recovered.
+		 */
+		SetPageReferenced(page);
 
-        return PAGEREF_KEEP;
-    }
+#ifndef CONFIG_DMA_CMA
+		if (referenced_page)
+			return PAGEREF_ACTIVATE;
+#else
+		if (referenced_page || referenced_ptes > 1)
+			return PAGEREF_ACTIVATE;
 
-    /* Reclaim if clean, defer dirty pages to writeback */
-    if (referenced_page && !PageSwapBacked(page))
-        return PAGEREF_RECLAIM_CLEAN;
+		/*
+		 * Activate file-backed executable pages after first usage.
+		 */
+		if (vm_flags & VM_EXEC)
+			return PAGEREF_ACTIVATE;
+#endif
+		return PAGEREF_KEEP;
+	}
 
-    return PAGEREF_RECLAIM;
+	/* Reclaim if clean, defer dirty pages to writeback */
+	if (referenced_page && !PageSwapBacked(page))
+		return PAGEREF_RECLAIM_CLEAN;
+
+	return PAGEREF_RECLAIM;
 }
 
 /*
@@ -1010,10 +1028,14 @@ int __isolate_lru_page(struct page *page, isolate_mode_t mode)
 	if (!PageLRU(page))
 		return ret;
 
-    /* Compaction should not handle unevictable pages but CMA can do so */
-    if (PageUnevictable(page) && !(mode & ISOLATE_UNEVICTABLE))
-        return ret;
-
+#ifndef CONFIG_DMA_CMA
+	/* Compaction should not handle unevictable pages but CMA can do so */
+	if (PageUnevictable(page) && !(mode & ISOLATE_UNEVICTABLE))
+		return ret;
+#else
+		printk(KERN_ERR "%s[%d] Unevictable page %p\n",
+					__func__, __LINE__, page);
+#endif
 	ret = -EBUSY;
 
 	/*
@@ -1659,6 +1681,8 @@ static void get_scan_count(struct lruvec *lruvec, struct scan_control *sc,
 	enum lru_list lru;
 	int noswap = 0;
 	bool force_scan = false;
+	unsigned long nr_force_scan[2];
+
 	struct zone *zone = lruvec_zone(lruvec);
 
 	/*
@@ -1683,6 +1707,8 @@ static void get_scan_count(struct lruvec *lruvec, struct scan_control *sc,
 		fraction[0] = 0;
 		fraction[1] = 1;
 		denominator = 1;
+		nr_force_scan[0] = 0;
+		nr_force_scan[1] = SWAP_CLUSTER_MAX;
 		goto out;
 	}
 
@@ -1701,6 +1727,8 @@ static void get_scan_count(struct lruvec *lruvec, struct scan_control *sc,
 			fraction[0] = 1;
 			fraction[1] = 0;
 			denominator = 1;
+			nr_force_scan[0] = SWAP_CLUSTER_MAX;
+			nr_force_scan[1] = 0;
 			goto out;
 		} else if (!inactive_file_is_low_global(zone)) {
 			/*
@@ -1758,19 +1786,34 @@ static void get_scan_count(struct lruvec *lruvec, struct scan_control *sc,
 	fraction[0] = ap;
 	fraction[1] = fp;
 	denominator = ap + fp + 1;
+	if (force_scan) {
+		unsigned long scan = SWAP_CLUSTER_MAX;
+		nr_force_scan[0] = div64_u64(scan * ap, denominator);
+		nr_force_scan[1] = div64_u64(scan * fp, denominator);
+	}
 out:
 	for_each_evictable_lru(lru) {
 		int file = is_file_lru(lru);
 		unsigned long scan;
 
-        scan = get_lru_size(lruvec, lru);
-        if (sc->priority || noswap || !vmscan_swappiness(sc)) {
-            scan >>= sc->priority;
-            if (!scan && force_scan)
-                scan = SWAP_CLUSTER_MAX;
-            scan = div64_u64(scan * fraction[file], denominator);
-        }
-        nr[lru] = scan;
+		scan = get_lru_size(lruvec, lru);
+		if (sc->priority || noswap || !vmscan_swappiness(sc)) {
+			scan >>= sc->priority;
+			scan = div64_u64(scan * fraction[file], denominator);
+		}
+
+		/*
+		 * If zone is small or memcg is small, nr[l] can be 0.
+		 * This results no-scan on this priority and priority drop down.
+		 * For global direct reclaim, it can visit next zone and tend
+		 * not to have problems. For global kswapd, it's for zone
+		 * balancing and it need to scan a small amounts. When using
+		 * memcg, priority drop can cause big latency. So, it's better
+		 * to scan small amount. See may_noscan above.
+		 */
+		if (!scan && force_scan)
+			scan = nr_force_scan[file];
+		nr[lru] = scan;
 	}
 }
 

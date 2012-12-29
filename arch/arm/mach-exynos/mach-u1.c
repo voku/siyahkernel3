@@ -8,6 +8,7 @@
  * published by the Free Software Foundation.
  */
 
+#include <linux/kernel.h>
 #include <linux/serial_core.h>
 #include <linux/delay.h>
 #include <linux/gpio.h>
@@ -5156,8 +5157,11 @@ struct gpio_keys_button u1_buttons[] = {
 	},			/* power key */
 #if !defined(CONFIG_MACH_U1_NA_SPR) && !defined(CONFIG_MACH_U1_NA_USCC)
 	{
+#if defined(SAMSUNGROM)
 		.code = KEY_HOMEPAGE,
+#else
 		.code = KEY_HOME,
+#endif
 		.gpio = GPIO_OK_KEY,
 		.active_low = 1,
 		.type = EV_KEY,

@@ -318,9 +318,6 @@ static unsigned long isolate_freepages_block(struct compact_control *cc,
 	if (blockpfn == end_pfn)
 		update_pageblock_skip(cc, valid_page, total_isolated, false);
 
-    count_compact_events(COMPACTFREE_SCANNED, nr_scanned);
-    if (total_isolated)
-        count_compact_events(COMPACTISOLATED, total_isolated);
 	return total_isolated;
 }
 
@@ -627,10 +624,6 @@ next_pageblock:
 
 	trace_mm_compaction_isolate_migratepages(nr_scanned, nr_isolated);
 
-    count_compact_events(COMPACTMIGRATE_SCANNED, nr_scanned);
-    if (nr_isolated)
-        count_compact_events(COMPACTISOLATED, nr_isolated);
-
 	return low_pfn;
 }
 
@@ -698,18 +691,10 @@ static void isolate_freepages(struct zone *zone,
 
 		/* Found a block suitable for isolating free pages from */
 		isolated = 0;
-
-        /*
-         * As pfn may not start aligned, pfn+pageblock_nr_page
-         * may cross a MAX_ORDER_NR_PAGES boundary and miss
-         * a pfn_valid check. Ensure isolate_freepages_block()
-         * only scans within a pageblock
-         */
-        end_pfn = ALIGN(pfn + 1, pageblock_nr_pages);
-        end_pfn = min(end_pfn, zone_end_pfn);
-        isolated = isolate_freepages_block(cc, pfn, end_pfn,
-                           freelist, false);
-        nr_freepages += isolated;
+		end_pfn = min(pfn + pageblock_nr_pages, zone_end_pfn);
+		isolated = isolate_freepages_block(cc, pfn, end_pfn,
+						   freelist, false);
+		nr_freepages += isolated;
 
 		/*
 		 * Record the highest PFN we isolated pages from. When next
@@ -1034,16 +1019,19 @@ static int compact_zone(struct zone *zone, struct compact_control *cc)
 			;
 		}
 
-        nr_migrate = cc->nr_migratepages;
-        err = migrate_pages(&cc->migratepages, compaction_alloc,
-                (unsigned long)cc, false,
-                cc->sync ? MIGRATE_SYNC_LIGHT : MIGRATE_ASYNC,
-                MR_COMPACTION);
-        update_nr_listpages(cc);
-        nr_remaining = cc->nr_migratepages;
+		nr_migrate = cc->nr_migratepages;
+		err = migrate_pages(&cc->migratepages, compaction_alloc,
+				(unsigned long)cc, false,
+				cc->sync ? MIGRATE_SYNC_LIGHT : MIGRATE_ASYNC);
+		update_nr_listpages(cc);
+		nr_remaining = cc->nr_migratepages;
 
-        trace_mm_compaction_migratepages(nr_migrate - nr_remaining,
-                        nr_remaining);
+		count_vm_event(COMPACTBLOCKS);
+		count_vm_events(COMPACTPAGES, nr_migrate - nr_remaining);
+		if (nr_remaining)
+			count_vm_events(COMPACTPAGEFAILED, nr_remaining);
+		trace_mm_compaction_migratepages(nr_migrate - nr_remaining,
+						nr_remaining);
 
 		/* Release isolated pages not migrated */
 		if (err) {
@@ -1247,34 +1235,5 @@ int sysctl_extfrag_handler(struct ctl_table *table, int write,
 
 	return 0;
 }
-
-#if defined(CONFIG_SYSFS) && defined(CONFIG_NUMA)
-ssize_t sysfs_compact_node(struct device *dev,
-            struct device_attribute *attr,
-            const char *buf, size_t count)
-{
-    int nid = dev->id;
-
-    if (nid >= 0 && nid < nr_node_ids && node_online(nid)) {
-        /* Flush pending updates to the LRU lists */
-        lru_add_drain_all();
-
-        compact_node(nid);
-    }
-
-    return count;
-}
-static DEVICE_ATTR(compact, S_IWUSR, NULL, sysfs_compact_node);
-
-int compaction_register_node(struct node *node)
-{
-    return device_create_file(&node->dev, &dev_attr_compact);
-}
-
-void compaction_unregister_node(struct node *node)
-{
-    return device_remove_file(&node->dev, &dev_attr_compact);
-}
-#endif /* CONFIG_SYSFS && CONFIG_NUMA */
 
 #endif /* CONFIG_COMPACTION */

@@ -142,7 +142,6 @@ enum zone_stat_item {
 	NUMA_OTHER,		/* allocation from other node */
 #endif
 	NR_ANON_TRANSPARENT_HUGEPAGES,
-	NR_FREE_CMA_PAGES,
 	NR_VM_ZONE_STAT_ITEMS };
 
 /*
@@ -189,7 +188,7 @@ static inline int is_unevictable_lru(enum lru_list lru)
 struct zone_reclaim_stat {
 	/*
 	 * The pageout code in vmscan.c keeps track of how many of the
-	 * mem/swap backed and file backed pages are referenced.
+	 * mem/swap backed and file backed pages are refeferenced.
 	 * The higher the rotated/scanned ratio, the more valuable
 	 * that cache is.
 	 *
@@ -741,19 +740,6 @@ typedef struct pglist_data {
 	int kswapd_max_order;
 	struct timer_list watermark_timer;
 	enum zone_type classzone_idx;
-#ifdef CONFIG_NUMA_BALANCING
-    /*
-     * Lock serializing the per destination node AutoNUMA memory
-     * migration rate limiting data.
-     */
-    spinlock_t numabalancing_migrate_lock;
-
-    /* Rate limiting time interval */
-    unsigned long numabalancing_migrate_next_window;
-
-    /* Number of pages migrated during the rate limiting time interval */
-    unsigned long numabalancing_migrate_nr_pages;
-#endif
 } pg_data_t;
 
 #define node_present_pages(nid)	(NODE_DATA(nid)->node_present_pages)

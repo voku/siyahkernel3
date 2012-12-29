@@ -16,7 +16,6 @@
 #include <linux/range.h>
 #include <linux/pfn.h>
 #include <linux/bit_spinlock.h>
-#include <linux/shrinker.h>
 
 struct mempolicy;
 struct anon_vma;
@@ -70,8 +69,6 @@ extern unsigned int kobjsize(const void *objp);
 /*
  * vm_flags in vm_area_struct, see mm_types.h.
  */
-#define VM_NONE     0x00000000
-
 #define VM_READ		0x00000001	/* currently active flags */
 #define VM_WRITE	0x00000002
 #define VM_EXEC		0x00000004
@@ -707,36 +704,6 @@ static inline int page_to_nid(const struct page *page)
 }
 #endif
 
-#ifdef CONFIG_NUMA_BALANCING
-static inline int page_xchg_last_nid(struct page *page, int nid)
-{
-    return xchg(&page->_last_nid, nid);
-}
-
-static inline int page_last_nid(struct page *page)
-{
-    return page->_last_nid;
-}
-static inline void reset_page_last_nid(struct page *page)
-{
-    page->_last_nid = -1;
-}
-#else
-static inline int page_xchg_last_nid(struct page *page, int nid)
-{
-    return page_to_nid(page);
-}
-
-static inline int page_last_nid(struct page *page)
-{
-    return page_to_nid(page);
-}
-
-static inline void reset_page_last_nid(struct page *page)
-{
-}
-#endif
-
 static inline struct zone *page_zone(const struct page *page)
 {
 	return &NODE_DATA(page_to_nid(page))->node_zones[page_zonenum(page)];
@@ -784,7 +751,7 @@ static inline void set_page_links(struct page *page, enum zone_type zone,
 
 static __always_inline void *lowmem_page_address(const struct page *page)
 {
-	return __va(PFN_PHYS(page_to_pfn(page)));
+	return __va(PFN_PHYS(page_to_pfn((struct page *)page)));
 }
 
 #if defined(CONFIG_HIGHMEM) && !defined(WANT_PAGE_VIRTUAL)
@@ -1112,9 +1079,6 @@ static inline int stack_guard_page_end(struct vm_area_struct *vma,
 		!vma_growsup(vma->vm_next, addr);
 }
 
-extern pid_t
-vm_is_stack(struct task_struct *task, struct vm_area_struct *vma, int in_group);
-
 extern unsigned long move_page_tables(struct vm_area_struct *vma,
 		unsigned long old_addr, struct vm_area_struct *new_vma,
 		unsigned long new_addr, unsigned long len,
@@ -1213,6 +1177,45 @@ static inline void sync_mm_rss(struct mm_struct *mm)
 {
 }
 #endif
+
+/*
+ * This struct is used to pass information from page reclaim to the shrinkers.
+ * We consolidate the values for easier extention later.
+ */
+struct shrink_control {
+	gfp_t gfp_mask;
+
+	/* How many slab objects shrinker() should scan and try to reclaim */
+	unsigned long nr_to_scan;
+};
+
+/*
+ * A callback you can register to apply pressure to ageable caches.
+ *
+ * 'sc' is passed shrink_control which includes a count 'nr_to_scan'
+ * and a 'gfpmask'.  It should look through the least-recently-used
+ * 'nr_to_scan' entries and attempt to free them up.  It should return
+ * the number of objects which remain in the cache.  If it returns -1, it means
+ * it cannot do any scanning at this time (eg. there is a risk of deadlock).
+ *
+ * The 'gfpmask' refers to the allocation we are currently trying to
+ * fulfil.
+ *
+ * Note that 'shrink' will be passed nr_to_scan == 0 when the VM is
+ * querying the cache size, so a fastpath for that case is appropriate.
+ */
+struct shrinker {
+	int (*shrink)(struct shrinker *, struct shrink_control *sc);
+	int seeks;	/* seeks to recreate an obj */
+	long batch;	/* reclaim batch size, 0 = default */
+
+	/* These are for internal use */
+	struct list_head list;
+	long nr;	/* objs pending delete */
+};
+#define DEFAULT_SEEKS 2 /* A good number if you don't know better. */
+extern void register_shrinker(struct shrinker *);
+extern void unregister_shrinker(struct shrinker *);
 
 int vma_wants_writenotify(struct vm_area_struct *vma);
 
@@ -1615,11 +1618,6 @@ static inline pgprot_t vm_get_page_prot(unsigned long vm_flags)
 }
 #endif
 
-#ifdef CONFIG_ARCH_USES_NUMA_PROT_NONE
-unsigned long change_prot_numa(struct vm_area_struct *vma,
-            unsigned long start, unsigned long end);
-#endif
-
 struct vm_area_struct *find_extend_vma(struct mm_struct *, unsigned long addr);
 int remap_pfn_range(struct vm_area_struct *, unsigned long addr,
 			unsigned long pfn, unsigned long size, pgprot_t);
@@ -1641,7 +1639,6 @@ struct page *follow_page(struct vm_area_struct *, unsigned long address,
 #define FOLL_MLOCK	0x40	/* mark page as mlocked */
 #define FOLL_SPLIT	0x80	/* don't return transhuge pages, split them */
 #define FOLL_HWPOISON	0x100	/* check page is hwpoisoned */
-#define FOLL_NUMA   0x200	/* force NUMA hinting page fault */
 
 typedef int (*pte_fn_t)(pte_t *pte, pgtable_t token, unsigned long addr,
 			void *data);
