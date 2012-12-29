@@ -93,10 +93,6 @@ static unsigned long go_hispeed_load = DEFAULT_GO_HISPEED_LOAD;
 static unsigned int unplug_load[] =
 	{ DEFAULT_UNPLUG_LOAD_CPU1,
 	  DEFAULT_UNPLUG_LOAD_CPU2,
-	  DEFAULT_UNPLUG_LOAD_CPUMORE,
-	  DEFAULT_UNPLUG_LOAD_CPUMORE,
-	  DEFAULT_UNPLUG_LOAD_CPUMORE,
-	  DEFAULT_UNPLUG_LOAD_CPUMORE,
 	  DEFAULT_UNPLUG_LOAD_CPUMORE
 	};
 
@@ -329,9 +325,9 @@ static void cpufreq_zenx_timer(unsigned long data)
 		&per_cpu(cpuinfo, data);
 	unsigned int new_freq;
 	unsigned int loadadjfreq;
-	unsigned int index;
+	unsigned int index, up_load_index;
 	unsigned int total_load = 0;
-	unsigned int rearm_if_notmax = 0;
+	unsigned int rearm_if_notmax = 1;
 	unsigned long flags;
 	bool boosted;
 
@@ -379,6 +375,7 @@ static void cpufreq_zenx_timer(unsigned long data)
 	if (pcpu->target_freq >= hispeed_freq &&
 	    new_freq > pcpu->target_freq &&
 	    now - pcpu->hispeed_validate_time < above_hispeed_delay_val) {
+		rearm_if_notmax = 0;
 		goto call_hp_work;
 	}
 
@@ -389,6 +386,7 @@ static void cpufreq_zenx_timer(unsigned long data)
 					   &index)) {
 		pr_warn_once("timer %d: cpufreq_frequency_table_target error\n",
 			     (int) data);
+		rearm_if_notmax = 0;
 		goto call_hp_work;
 	}
 
@@ -431,6 +429,10 @@ static void cpufreq_zenx_timer(unsigned long data)
 call_hp_work:
 	/* Skip hot-add/remove calculations for CPU 0 */
 	if (data > 0) {
+		if (data > 2)
+			up_load_index = 2;
+		else
+			up_load_index = data - 1;
 	        /*
 	         * Compute average load across all online CPUs
         	 */
@@ -456,7 +458,7 @@ call_hp_work:
 		 */
 		if (pcpu->nr_periods_add >= curr_hot_add_sampling_periods) {
 			if (pcpu->add_avg_load / pcpu->nr_periods_add
-			    > unplug_load[data - 1]) {
+			    > unplug_load[up_load_index]) {
 				spin_lock_irqsave(&hotplug_add_cpumask_lock, flags);
 				cpumask_set_cpu(data, &hotplug_add_cpumask);
 				spin_unlock_irqrestore(&hotplug_add_cpumask_lock, flags);
@@ -470,7 +472,7 @@ call_hp_work:
 			pcpu->nr_periods_add = 0;
 		} else if (pcpu->nr_periods_remove >= curr_hot_remove_sampling_periods) {
 			if (pcpu->remove_avg_load / pcpu->nr_periods_remove
-			    <= unplug_load[data - 1]) {
+			    <= unplug_load[up_load_index]) {
 				spin_lock_irqsave(&hotplug_remove_cpumask_lock, flags);
 				cpumask_set_cpu(data, &hotplug_remove_cpumask);
 				spin_unlock_irqrestore(&hotplug_remove_cpumask_lock, flags);
@@ -728,12 +730,6 @@ static int cpufreq_zenx_notifier(
 
 	if (val == CPUFREQ_POSTCHANGE) {
 		pcpu = &per_cpu(cpuinfo, freq->cpu);
-		if (!down_read_trylock(&pcpu->enable_sem))
-			return 0;
-		if (!pcpu->governor_enabled) {
-			up_read(&pcpu->enable_sem);
-			return 0;
-		}
 
 		for_each_cpu(cpu, pcpu->policy->cpus) {
 			struct cpufreq_zenx_cpuinfo *pjcpu =
@@ -742,9 +738,8 @@ static int cpufreq_zenx_notifier(
 			update_load(cpu);
 			spin_unlock(&pjcpu->load_lock);
 		}
-
-		up_read(&pcpu->enable_sem);
 	}
+
 	return 0;
 }
 
@@ -1155,7 +1150,7 @@ static ssize_t store_boost(struct kobject *kobj, struct attribute *attr,
 
 	boost_val = val;
 
-	if (boost_val)
+	if (boost_val) 
 		cpufreq_zenx_boost();
 
 	return count;
@@ -1471,5 +1466,5 @@ MODULE_AUTHOR("Mike Chan <mike@android.com>");
 MODULE_AUTHOR("Brandon Berhent <bbedward@androiddeveloperalliance.org>");
 MODULE_DESCRIPTION("'cpufreq_zenx' - A cpufreq governor for "
 	"Latency sensitive workloads with load-based hotplugging.");
-MODULE_VERSION("2.0");
+MODULE_VERSION("2.1");
 MODULE_LICENSE("GPL");
