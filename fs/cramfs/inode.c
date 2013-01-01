@@ -20,6 +20,7 @@
 #include <linux/cramfs_fs.h>
 #include <linux/slab.h>
 #include <linux/cramfs_fs_sb.h>
+#include <linux/buffer_head.h>
 #include <linux/vfs.h>
 #include <linux/mutex.h>
 

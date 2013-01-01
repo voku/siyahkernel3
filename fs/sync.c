@@ -14,6 +14,7 @@
 #include <linux/linkage.h>
 #include <linux/pagemap.h>
 #include <linux/quotaops.h>
+#include <linux/buffer_head.h>
 #include <linux/backing-dev.h>
 #include "internal.h"
 
@@ -92,7 +93,7 @@ static void sync_filesystems(int wait)
 }
 
 /*
- * sync everything.  Start out by waking flusher, because that writes back
+ * sync everything.  Start out by waking pdflush, because that writes back
  * all queues in parallel.
  */
 SYSCALL_DEFINE0(sync)

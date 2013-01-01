@@ -19,7 +19,6 @@
 #include <linux/module.h>
 #include <linux/file.h>
 #include <linux/fs.h>
-#include <linux/falloc.h>
 #include <linux/miscdevice.h>
 #include <linux/security.h>
 #include <linux/mm.h>
@@ -327,6 +326,7 @@ static int ashmem_mmap(struct file *file, struct vm_area_struct *vma)
 			fput(vma->vm_file);
 		vma->vm_file = asma->file;
 	}
+	vma->vm_flags |= VM_CAN_NONLINEAR;
 
 out:
 	mutex_unlock(&ashmem_mutex);
@@ -361,12 +361,11 @@ static int ashmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	if (!mutex_trylock(&ashmem_mutex))
 		return lru_count;
 	list_for_each_entry_safe(range, next, &ashmem_lru_list, lru) {
+		struct inode *inode = range->asma->file->f_dentry->d_inode;
 		loff_t start = range->pgstart * PAGE_SIZE;
-		loff_t end = (range->pgend + 1) * PAGE_SIZE;
+		loff_t end = (range->pgend + 1) * PAGE_SIZE - 1;
 
-		do_fallocate(range->asma->file,
-			FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE,
-			start, end - start);
+		vmtruncate_range(inode, start, end);
 		range->purged = ASHMEM_WAS_PURGED;
 		lru_del(range);
 

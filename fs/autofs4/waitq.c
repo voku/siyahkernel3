@@ -169,7 +169,8 @@ static void autofs4_notify_daemon(struct autofs_sb_info *sbi,
 	/* Check if we have become catatonic */
 	mutex_lock(&sbi->wq_mutex);
 	if (!sbi->catatonic) {
-		pipe = get_file(sbi->pipe);
+		pipe = sbi->pipe;
+		get_file(pipe);
 	}
 	mutex_unlock(&sbi->wq_mutex);
 

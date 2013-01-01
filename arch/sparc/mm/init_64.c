@@ -1769,6 +1769,8 @@ void __init paging_init(void)
 		sun4v_ktsb_init();
 	}
 
+	memblock_init();
+
 	/* Find available physical memory...
 	 *
 	 * Read it twice in order to work around a bug in openfirmware.
@@ -1794,7 +1796,7 @@ void __init paging_init(void)
 
 	memblock_enforce_memory_limit(cmdline_memory_size);
 
-	memblock_allow_resize();
+	memblock_analyze();
 	memblock_dump_all();
 
 	set_bit(0, mmu_context_bmap);

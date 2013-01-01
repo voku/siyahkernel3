@@ -92,11 +92,6 @@ extern int isolate_lru_page(struct page *page);
 extern void putback_lru_page(struct page *page);
 
 /*
- * in mm/rmap.c:
- */
-extern pmd_t *mm_find_pmd(struct mm_struct *mm, unsigned long address);
-
-/*
  * in mm/page_alloc.c
  */
 extern void __free_pages_bootmem(struct page *page, unsigned int order);
@@ -361,10 +356,6 @@ extern u32 hwpoison_filter_enable;
 
 unsigned long reclaim_clean_pages_from_list(struct zone *zone,
 					    struct list_head *page_list);
-
-extern unsigned long vm_mmap_pgoff(struct file *, unsigned long,
-	unsigned long, unsigned long,
-	unsigned long, unsigned long);
 
 extern void set_pageblock_order(void);
 

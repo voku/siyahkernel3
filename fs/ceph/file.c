@@ -761,14 +761,14 @@ out:
 /*
  * llseek.  be sure to verify file size on SEEK_END.
  */
-static loff_t ceph_llseek(struct file *file, loff_t offset, int whence)
+static loff_t ceph_llseek(struct file *file, loff_t offset, int origin)
 {
 	struct inode *inode = file->f_mapping->host;
 	int ret;
 
 	mutex_lock(&inode->i_mutex);
 	__ceph_do_pending_vmtruncate(inode);
-	switch (whence) {
+	switch (origin) {
 	case SEEK_END:
 		ret = ceph_do_getattr(inode, CEPH_STAT_CAP_SIZE);
 		if (ret < 0) {

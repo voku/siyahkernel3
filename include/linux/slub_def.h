@@ -101,9 +101,6 @@ struct kmem_cache {
 #ifdef CONFIG_SYSFS
 	struct kobject kobj;	/* For sysfs */
 #endif
-#ifdef CONFIG_MEMCG_KMEM
-	struct memcg_cache_params *memcg_params;
-#endif
 
 #ifdef CONFIG_NUMA
 	/*

@@ -160,7 +160,6 @@ ext4_file_write(struct kiocb *iocb, const struct iovec *iov,
 static const struct vm_operations_struct ext4_file_vm_ops = {
 	.fault		= filemap_fault,
 	.page_mkwrite   = ext4_page_mkwrite,
-	.remap_pages	= generic_file_remap_pages,
 };
 
 static int ext4_file_mmap(struct file *file, struct vm_area_struct *vma)
@@ -171,6 +170,7 @@ static int ext4_file_mmap(struct file *file, struct vm_area_struct *vma)
 		return -ENOEXEC;
 	file_accessed(file);
 	vma->vm_ops = &ext4_file_vm_ops;
+	vma->vm_flags |= VM_CAN_NONLINEAR;
 	return 0;
 }
 
@@ -231,7 +231,7 @@ static int ext4_file_open(struct inode * inode, struct file * filp)
  * block-mapped and extent-mapped maxbytes values. This should
  * otherwise be identical with generic_file_llseek().
  */
-loff_t ext4_llseek(struct file *file, loff_t offset, int whence)
+loff_t ext4_llseek(struct file *file, loff_t offset, int origin)
 {
 	struct inode *inode = file->f_mapping->host;
 	loff_t maxbytes;
@@ -240,9 +240,32 @@ loff_t ext4_llseek(struct file *file, loff_t offset, int whence)
 		maxbytes = EXT4_SB(inode->i_sb)->s_bitmap_maxbytes;
 	else
 		maxbytes = inode->i_sb->s_maxbytes;
+	mutex_lock(&inode->i_mutex);
+	switch (origin) {
+	case SEEK_END:
+		offset += inode->i_size;
+		break;
+	case SEEK_CUR:
+		if (offset == 0) {
+			mutex_unlock(&inode->i_mutex);
+			return file->f_pos;
+		}
+		offset += file->f_pos;
+		break;
+	}
 
-	return generic_file_llseek_size(file, offset, whence,
-					maxbytes, i_size_read(inode));
+	if (offset < 0 || offset > maxbytes) {
+		mutex_unlock(&inode->i_mutex);
+		return -EINVAL;
+	}
+
+	if (offset != file->f_pos) {
+		file->f_pos = offset;
+		file->f_version = 0;
+	}
+	mutex_unlock(&inode->i_mutex);
+
+	return offset;
 }
 
 const struct file_operations ext4_file_operations = {
@@ -276,3 +299,4 @@ const struct inode_operations ext4_file_inode_operations = {
 	.check_acl	= ext4_check_acl,
 	.fiemap		= ext4_fiemap,
 };
+

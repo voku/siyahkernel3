@@ -16,7 +16,7 @@
 #include <linux/poll.h>
 
 
-static loff_t bad_file_llseek(struct file *file, loff_t offset, int whence)
+static loff_t bad_file_llseek(struct file *file, loff_t offset, int origin)
 {
 	return -EIO;
 }
@@ -291,6 +291,7 @@ static const struct inode_operations bad_inode_ops =
 	.getxattr	= bad_inode_getxattr,
 	.listxattr	= bad_inode_listxattr,
 	.removexattr	= bad_inode_removexattr,
+	/* truncate_range returns void */
 };
 
 

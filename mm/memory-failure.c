@@ -127,7 +127,7 @@ static int hwpoison_filter_flags(struct page *p)
  * can only guarantee that the page either belongs to the memcg tasks, or is
  * a freed page.
  */
-#ifdef	CONFIG_MEMCG_SWAP
+#ifdef	CONFIG_CGROUP_MEM_RES_CTLR_SWAP
 u64 hwpoison_filter_memcg;
 EXPORT_SYMBOL_GPL(hwpoison_filter_memcg);
 static int hwpoison_filter_task(struct page *p)
@@ -391,21 +391,18 @@ static void collect_procs_anon(struct page *page, struct list_head *to_kill,
 	struct vm_area_struct *vma;
 	struct task_struct *tsk;
 	struct anon_vma *av;
-	pgoff_t pgoff;
 
 	av = page_lock_anon_vma(page);
 	if (av == NULL)	/* Not actually mapped anymore */
 		return;
 
-	pgoff = page->index << (PAGE_CACHE_SHIFT - PAGE_SHIFT);
 	read_lock(&tasklist_lock);
 	for_each_process (tsk) {
 		struct anon_vma_chain *vmac;
 
 		if (!task_early_kill(tsk))
 			continue;
-		anon_vma_interval_tree_foreach(vmac, &av->rb_root,
-					       pgoff, pgoff) {
+		list_for_each_entry(vmac, &av->head, same_anon_vma) {
 			vma = vmac->vma;
 			if (!page_mapped_in_vma(page, vma))
 				continue;
@@ -425,6 +422,7 @@ static void collect_procs_file(struct page *page, struct list_head *to_kill,
 {
 	struct vm_area_struct *vma;
 	struct task_struct *tsk;
+	struct prio_tree_iter iter;
 	struct address_space *mapping = page->mapping;
 
 	mutex_lock(&mapping->i_mmap_mutex);
@@ -435,7 +433,7 @@ static void collect_procs_file(struct page *page, struct list_head *to_kill,
 		if (!task_early_kill(tsk))
 			continue;
 
-		vma_interval_tree_foreach(vma, &mapping->i_mmap, pgoff,
+		vma_prio_tree_foreach(vma, &iter, &mapping->i_mmap, pgoff,
 				      pgoff) {
 			/*
 			 * Send early kill signal to tasks where a vma covers
@@ -772,16 +770,16 @@ static struct page_state {
 	{ compound,	compound,	"huge",		me_huge_page },
 #endif
 
-	{ sc|dirty,	sc|dirty,	"dirty swapcache",	me_swapcache_dirty },
-	{ sc|dirty,	sc,		"clean swapcache",	me_swapcache_clean },
+	{ sc|dirty,	sc|dirty,	"swapcache",	me_swapcache_dirty },
+	{ sc|dirty,	sc,		"swapcache",	me_swapcache_clean },
 
-	{ unevict|dirty, unevict|dirty,	"dirty unevictable LRU", me_pagecache_dirty },
-	{ unevict,	unevict,	"clean unevictable LRU", me_pagecache_clean },
+	{ unevict|dirty, unevict|dirty,	"unevictable LRU", me_pagecache_dirty},
+	{ unevict,	unevict,	"unevictable LRU", me_pagecache_clean},
 
-	{ mlock|dirty,	mlock|dirty,	"dirty mlocked LRU",	me_pagecache_dirty },
-	{ mlock,	mlock,		"clean mlocked LRU",	me_pagecache_clean },
+	{ mlock|dirty,	mlock|dirty,	"mlocked LRU",	me_pagecache_dirty },
+	{ mlock,	mlock,		"mlocked LRU",	me_pagecache_clean },
 
-	{ lru|dirty,	lru|dirty,	"dirty LRU",	me_pagecache_dirty },
+	{ lru|dirty,	lru|dirty,	"LRU",		me_pagecache_dirty },
 	{ lru|dirty,	lru,		"clean LRU",	me_pagecache_clean },
 
 	/*
@@ -803,14 +801,14 @@ static struct page_state {
 #undef slab
 #undef reserved
 
-/*
- * "Dirty/Clean" indication is not 100% accurate due to the possibility of
- * setting PG_dirty outside page lock. See also comment above set_page_dirty().
- */
 static void action_result(unsigned long pfn, char *msg, int result)
 {
-	pr_err("MCE %#lx: %s page recovery: %s\n",
-		pfn, msg, action_name[result]);
+	struct page *page = pfn_to_page(pfn);
+
+	printk(KERN_ERR "MCE %#lx: %s%s page recovery: %s\n",
+		pfn,
+		PageDirty(page) ? "dirty " : "",
+		msg, action_name[result]);
 }
 
 static int page_action(struct page_state *ps, struct page *p,
@@ -985,25 +983,7 @@ static void clear_page_hwpoison_huge_page(struct page *hpage)
 		ClearPageHWPoison(hpage + i);
 }
 
-/**
- * memory_failure - Handle memory failure of a page.
- * @pfn: Page Number of the corrupted page
- * @trapno: Trap number reported in the signal to user space.
- * @flags: fine tune action taken
- *
- * This function is called by the low level machine check code
- * of an architecture when it detects hardware memory corruption
- * of a page. It tries its best to recover, which includes
- * dropping pages, killing processes etc.
- *
- * The function is primarily of use for corruptions that
- * happen outside the current execution context (e.g. when
- * detected by a background scrubber)
- *
- * Must run in process context (e.g. a work queue) with interrupts
- * enabled and no spinlocks hold.
- */
-int memory_failure(unsigned long pfn, int trapno, int flags)
+int __memory_failure(unsigned long pfn, int trapno, int flags)
 {
 	struct page_state *ps;
 	struct page *p;
@@ -1175,7 +1155,29 @@ out:
 	unlock_page(hpage);
 	return res;
 }
-EXPORT_SYMBOL_GPL(memory_failure);
+EXPORT_SYMBOL_GPL(__memory_failure);
+
+/**
+ * memory_failure - Handle memory failure of a page.
+ * @pfn: Page Number of the corrupted page
+ * @trapno: Trap number reported in the signal to user space.
+ *
+ * This function is called by the low level machine check code
+ * of an architecture when it detects hardware memory corruption
+ * of a page. It tries its best to recover, which includes
+ * dropping pages, killing processes etc.
+ *
+ * The function is primarily of use for corruptions that
+ * happen outside the current execution context (e.g. when
+ * detected by a background scrubber)
+ *
+ * Must run in process context (e.g. a work queue) with interrupts
+ * enabled and no spinlocks hold.
+ */
+void memory_failure(unsigned long pfn, int trapno)
+{
+	__memory_failure(pfn, trapno, 0);
+}
 
 #define MEMORY_FAILURE_FIFO_ORDER	4
 #define MEMORY_FAILURE_FIFO_SIZE	(1 << MEMORY_FAILURE_FIFO_ORDER)
@@ -1248,7 +1250,7 @@ static void memory_failure_work_func(struct work_struct *work)
 		spin_unlock_irqrestore(&mf_cpu->lock, proc_flags);
 		if (!gotten)
 			break;
-		memory_failure(entry.pfn, entry.trapno, entry.flags);
+		__memory_failure(entry.pfn, entry.trapno, entry.flags);
 	}
 }
 
@@ -1374,7 +1376,7 @@ static int get_any_page(struct page *p, unsigned long pfn, int flags)
 	 * Isolate the page, so that it doesn't get reallocated if it
 	 * was free.
 	 */
-	set_migratetype_isolate(p, true);
+	set_migratetype_isolate(p);
 	/*
 	 * When the target page is a free hugepage, just remove it
 	 * from free hugepage list.

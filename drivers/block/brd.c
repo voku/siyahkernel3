@@ -17,7 +17,7 @@
 #include <linux/highmem.h>
 #include <linux/mutex.h>
 #include <linux/radix-tree.h>
-#include <linux/fs.h>
+#include <linux/buffer_head.h> /* invalidate_bh_lrus() */
 #include <linux/slab.h>
 
 #include <asm/uaccess.h>
@@ -402,13 +402,14 @@ static int brd_ioctl(struct block_device *bdev, fmode_t mode,
 	error = -EBUSY;
 	if (bdev->bd_openers <= 1) {
 		/*
-		 * Kill the cache first, so it isn't written back to the
-		 * device.
+		 * Invalidate the cache first, so it isn't written
+		 * back to the device.
 		 *
 		 * Another thread might instantiate more buffercache here,
 		 * but there is not much we can do to close that race.
 		 */
-		kill_bdev(bdev);
+		invalidate_bh_lrus();
+		truncate_inode_pages(bdev->bd_inode->i_mapping, 0);
 		brd_free_pages(brd);
 		error = 0;
 	}

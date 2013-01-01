@@ -628,7 +628,8 @@ int vectors_user_mapping(void)
 	struct mm_struct *mm = current->mm;
 	return install_special_mapping(mm, 0xffff0000, PAGE_SIZE,
 				       VM_READ | VM_EXEC |
-				       VM_MAYREAD | VM_MAYEXEC | VM_RESERVED,
+				       VM_MAYREAD | VM_MAYEXEC |
+				       VM_ALWAYSDUMP | VM_RESERVED,
 				       NULL);
 }
 
