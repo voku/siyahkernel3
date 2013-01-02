@@ -97,6 +97,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		    other_file < lowmem_minfree[i]) {
 #endif
 			min_score_adj = lowmem_adj[i];
+			target_free = lowmem_minfree[i] - (other_free + other_file);
 			break;
 		}
 	}
