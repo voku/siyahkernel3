@@ -374,6 +374,20 @@ static int break_ksm(struct vm_area_struct *vma, unsigned long addr)
 	return (ret & VM_FAULT_OOM) ? -ENOMEM : 0;
 }
 
+static struct vm_area_struct *find_mergeable_vma(struct mm_struct *mm,
+		unsigned long addr)
+{
+	struct vm_area_struct *vma;
+	if (ksm_test_exit(mm))
+		return NULL;
+	vma = find_vma(mm, addr);
+	if (!vma || vma->vm_start > addr)
+		return NULL;
+	if (!(vma->vm_flags & VM_MERGEABLE) || !vma->anon_vma)
+		return NULL;
+	return vma;
+}
+
 static void break_cow(struct rmap_item *rmap_item)
 {
 	struct mm_struct *mm = rmap_item->mm;
@@ -387,15 +401,9 @@ static void break_cow(struct rmap_item *rmap_item)
 	put_anon_vma(rmap_item->anon_vma);
 
 	down_read(&mm->mmap_sem);
-	if (ksm_test_exit(mm))
-		goto out;
-	vma = find_vma(mm, addr);
-	if (!vma || vma->vm_start > addr)
-		goto out;
-	if (!(vma->vm_flags & VM_MERGEABLE) || !vma->anon_vma)
-		goto out;
-	break_ksm(vma, addr);
-out:
+	vma = find_mergeable_vma(mm, addr);
+	if (vma)
+		break_ksm(vma, addr);
 	up_read(&mm->mmap_sem);
 }
 
@@ -421,12 +429,8 @@ static struct page *get_mergeable_page(struct rmap_item *rmap_item)
 	struct page *page;
 
 	down_read(&mm->mmap_sem);
-	if (ksm_test_exit(mm))
-		goto out;
-	vma = find_vma(mm, addr);
-	if (!vma || vma->vm_start > addr)
-		goto out;
-	if (!(vma->vm_flags & VM_MERGEABLE) || !vma->anon_vma)
+	vma = find_mergeable_vma(mm, addr);
+	if (!vma)
 		goto out;
 
 	page = follow_page(vma, addr, FOLL_GET);
@@ -705,15 +709,22 @@ static int write_protect_page(struct vm_area_struct *vma, struct page *page,
 	spinlock_t *ptl;
 	int swapped;
 	int err = -EFAULT;
+	unsigned long mmun_start;	/* For mmu_notifiers */
+	unsigned long mmun_end;		/* For mmu_notifiers */
 
 	addr = page_address_in_vma(page, vma);
 	if (addr == -EFAULT)
 		goto out;
 
 	BUG_ON(PageTransCompound(page));
+
+	mmun_start = addr;
+	mmun_end   = addr + PAGE_SIZE;
+	mmu_notifier_invalidate_range_start(mm, mmun_start, mmun_end);
+
 	ptep = page_check_address(page, mm, addr, &ptl, 0);
 	if (!ptep)
-		goto out;
+		goto out_mn;
 
 	if (pte_write(*ptep) || pte_dirty(*ptep)) {
 		pte_t entry;
@@ -748,6 +759,8 @@ static int write_protect_page(struct vm_area_struct *vma, struct page *page,
 
 out_unlock:
 	pte_unmap_unlock(ptep, ptl);
+out_mn:
+	mmu_notifier_invalidate_range_end(mm, mmun_start, mmun_end);
 out:
 	return err;
 }
@@ -765,35 +778,31 @@ static int replace_page(struct vm_area_struct *vma, struct page *page,
 			struct page *kpage, pte_t orig_pte)
 {
 	struct mm_struct *mm = vma->vm_mm;
-	pgd_t *pgd;
-	pud_t *pud;
 	pmd_t *pmd;
 	pte_t *ptep;
 	spinlock_t *ptl;
 	unsigned long addr;
 	int err = -EFAULT;
+	unsigned long mmun_start;	/* For mmu_notifiers */
+	unsigned long mmun_end;		/* For mmu_notifiers */
 
 	addr = page_address_in_vma(page, vma);
 	if (addr == -EFAULT)
 		goto out;
 
-	pgd = pgd_offset(mm, addr);
-	if (!pgd_present(*pgd))
+	pmd = mm_find_pmd(mm, addr);
+	if (!pmd)
 		goto out;
-
-	pud = pud_offset(pgd, addr);
-	if (!pud_present(*pud))
-		goto out;
-
-	pmd = pmd_offset(pud, addr);
 	BUG_ON(pmd_trans_huge(*pmd));
-	if (!pmd_present(*pmd))
-		goto out;
+
+	mmun_start = addr;
+	mmun_end   = addr + PAGE_SIZE;
+	mmu_notifier_invalidate_range_start(mm, mmun_start, mmun_end);
 
 	ptep = pte_offset_map_lock(mm, pmd, addr, &ptl);
 	if (!pte_same(*ptep, orig_pte)) {
 		pte_unmap_unlock(ptep, ptl);
-		goto out;
+		goto out_mn;
 	}
 
 	get_page(kpage);
@@ -810,6 +819,8 @@ static int replace_page(struct vm_area_struct *vma, struct page *page,
 
 	pte_unmap_unlock(ptep, ptl);
 	err = 0;
+out_mn:
+	mmu_notifier_invalidate_range_end(mm, mmun_start, mmun_end);
 out:
 	return err;
 }
@@ -1465,9 +1476,14 @@ int ksm_madvise(struct vm_area_struct *vma, unsigned long start,
 		 */
 		if (*vm_flags & (VM_MERGEABLE | VM_SHARED  | VM_MAYSHARE   |
 				 VM_PFNMAP    | VM_IO      | VM_DONTEXPAND |
-				 VM_RESERVED  | VM_HUGETLB | VM_INSERTPAGE |
+				 VM_RESERVED  | VM_HUGETLB |
 				 VM_NONLINEAR | VM_MIXEDMAP | VM_SAO))
 			return 0;		/* just ignore the advice */
+
+#ifdef VM_SAO
+		if (*vm_flags & VM_SAO)
+			return 0;
+#endif
 
 		if (!test_bit(MMF_VM_MERGEABLE, &mm->flags)) {
 			err = __ksm_enter(mm);
@@ -1609,8 +1625,9 @@ again:
 		struct anon_vma_chain *vmac;
 		struct vm_area_struct *vma;
 
-		anon_vma_lock(anon_vma);
-		list_for_each_entry(vmac, &anon_vma->head, same_anon_vma) {
+		anon_vma_lock_read(anon_vma);
+		anon_vma_interval_tree_foreach(vmac, &anon_vma->rb_root,
+					       0, ULONG_MAX) {
 			vma = vmac->vma;
 			if (rmap_item->address < vma->vm_start ||
 			    rmap_item->address >= vma->vm_end)
@@ -1632,7 +1649,7 @@ again:
 			if (!search_new_forks || !mapcount)
 				break;
 		}
-		anon_vma_unlock(anon_vma);
+		anon_vma_unlock_read(anon_vma);
 		if (!mapcount)
 			goto out;
 	}
@@ -1662,8 +1679,9 @@ again:
 		struct anon_vma_chain *vmac;
 		struct vm_area_struct *vma;
 
-		anon_vma_lock(anon_vma);
-		list_for_each_entry(vmac, &anon_vma->head, same_anon_vma) {
+		anon_vma_lock_read(anon_vma);
+		anon_vma_interval_tree_foreach(vmac, &anon_vma->rb_root,
+					       0, ULONG_MAX) {
 			vma = vmac->vma;
 			if (rmap_item->address < vma->vm_start ||
 			    rmap_item->address >= vma->vm_end)
@@ -1680,11 +1698,11 @@ again:
 			ret = try_to_unmap_one(page, vma,
 					rmap_item->address, flags);
 			if (ret != SWAP_AGAIN || !page_mapped(page)) {
-				anon_vma_unlock(anon_vma);
+				anon_vma_unlock_read(anon_vma);
 				goto out;
 			}
 		}
-		anon_vma_unlock(anon_vma);
+		anon_vma_unlock_read(anon_vma);
 	}
 	if (!search_new_forks++)
 		goto again;
@@ -1714,8 +1732,9 @@ again:
 		struct anon_vma_chain *vmac;
 		struct vm_area_struct *vma;
 
-		anon_vma_lock(anon_vma);
-		list_for_each_entry(vmac, &anon_vma->head, same_anon_vma) {
+		anon_vma_lock_read(anon_vma);
+		anon_vma_interval_tree_foreach(vmac, &anon_vma->rb_root,
+					       0, ULONG_MAX) {
 			vma = vmac->vma;
 			if (rmap_item->address < vma->vm_start ||
 			    rmap_item->address >= vma->vm_end)
@@ -1731,11 +1750,11 @@ again:
 
 			ret = rmap_one(page, vma, rmap_item->address, arg);
 			if (ret != SWAP_AGAIN) {
-				anon_vma_unlock(anon_vma);
+				anon_vma_unlock_read(anon_vma);
 				goto out;
 			}
 		}
-		anon_vma_unlock(anon_vma);
+		anon_vma_unlock_read(anon_vma);
 	}
 	if (!search_new_forks++)
 		goto again;
@@ -1901,12 +1920,9 @@ static ssize_t run_store(struct kobject *kobj, struct kobj_attribute *attr,
 	if (ksm_run != flags) {
 		ksm_run = flags;
 		if (flags & KSM_RUN_UNMERGE) {
-			int oom_score_adj;
-
-			oom_score_adj = test_set_oom_score_adj(OOM_SCORE_ADJ_MAX);
+			set_current_oom_origin();
 			err = unmerge_and_remove_all_rmap_items();
-			compare_swap_oom_score_adj(OOM_SCORE_ADJ_MAX,
-								oom_score_adj);
+			clear_current_oom_origin();
 			if (err) {
 				ksm_run = KSM_RUN_STOP;
 				count = err;
