@@ -33,13 +33,16 @@
 #include <linux/memcontrol.h>
 #include <linux/syscalls.h>
 #include <linux/hugetlb.h>
+#include <linux/hugetlb_cgroup.h>
 #include <linux/gfp.h>
+#include <linux/balloon_compaction.h>
 
 #include <asm/tlbflush.h>
 
-#include "internal.h"
+#define CREATE_TRACE_POINTS
+#include <trace/events/migrate.h>
 
-#define lru_to_page(_head) (list_entry((_head)->prev, struct page, lru))
+#include "internal.h"
 
 /*
  * migrate_prep() needs to be called before we start compiling a list of pages
@@ -80,7 +83,30 @@ void putback_lru_pages(struct list_head *l)
 		list_del(&page->lru);
 		dec_zone_page_state(page, NR_ISOLATED_ANON +
 				page_is_file_cache(page));
-		putback_lru_page(page);
+			putback_lru_page(page);
+	}
+}
+
+/*
+ * Put previously isolated pages back onto the appropriate lists
+ * from where they were once taken off for compaction/migration.
+ *
+ * This function shall be used instead of putback_lru_pages(),
+ * whenever the isolated pageset has been built by isolate_migratepages_range()
+ */
+void putback_movable_pages(struct list_head *l)
+{
+	struct page *page;
+	struct page *page2;
+
+	list_for_each_entry_safe(page, page2, l, lru) {
+		list_del(&page->lru);
+		dec_zone_page_state(page, NR_ISOLATED_ANON +
+				page_is_file_cache(page));
+		if (unlikely(balloon_page_movable(page)))
+			balloon_page_putback(page);
+		else
+			putback_lru_page(page);
 	}
 }
 
@@ -92,8 +118,6 @@ static int remove_migration_pte(struct page *new, struct vm_area_struct *vma,
 {
 	struct mm_struct *mm = vma->vm_mm;
 	swp_entry_t entry;
- 	pgd_t *pgd;
- 	pud_t *pud;
  	pmd_t *pmd;
 	pte_t *ptep, pte;
  	spinlock_t *ptl;
@@ -104,18 +128,10 @@ static int remove_migration_pte(struct page *new, struct vm_area_struct *vma,
 			goto out;
 		ptl = &mm->page_table_lock;
 	} else {
-		pgd = pgd_offset(mm, addr);
-		if (!pgd_present(*pgd))
+		pmd = mm_find_pmd(mm, addr);
+		if (!pmd)
 			goto out;
-
-		pud = pud_offset(pgd, addr);
-		if (!pud_present(*pud))
-			goto out;
-
-		pmd = pmd_offset(pud, addr);
 		if (pmd_trans_huge(*pmd))
-			goto out;
-		if (!pmd_present(*pmd))
 			goto out;
 
 		ptep = pte_offset_map(pmd, addr);
@@ -181,8 +197,6 @@ static void remove_migration_ptes(struct page *old, struct page *new)
  * Something used the pte of a page under migration. We need to
  * get to the page and wait until migration is finished.
  * When we return from this function the fault will be retried.
- *
- * This function is called from do_swap_page().
  */
 void migration_entry_wait(struct mm_struct *mm, pmd_t *pmd,
 				unsigned long address)
@@ -282,14 +296,14 @@ static int migrate_page_move_mapping(struct address_space *mapping,
 		struct page *newpage, struct page *page,
 		struct buffer_head *head, enum migrate_mode mode)
 {
-	int expected_count;
+	int expected_count = 0;
 	void **pslot;
 
 	if (!mapping) {
 		/* Anonymous page without mapping */
 		if (page_count(page) != 1)
 			return -EAGAIN;
-		return 0;
+		return MIGRATEPAGE_SUCCESS;
 	}
 
 	spin_lock_irq(&mapping->tree_lock);
@@ -359,7 +373,7 @@ static int migrate_page_move_mapping(struct address_space *mapping,
 	}
 	spin_unlock_irq(&mapping->tree_lock);
 
-	return 0;
+	return MIGRATEPAGE_SUCCESS;
 }
 
 /*
@@ -375,7 +389,7 @@ int migrate_huge_page_move_mapping(struct address_space *mapping,
 	if (!mapping) {
 		if (page_count(page) != 1)
 			return -EAGAIN;
-		return 0;
+		return MIGRATEPAGE_SUCCESS;
 	}
 
 	spin_lock_irq(&mapping->tree_lock);
@@ -402,7 +416,7 @@ int migrate_huge_page_move_mapping(struct address_space *mapping,
 	page_unfreeze_refs(page, expected_count - 1);
 
 	spin_unlock_irq(&mapping->tree_lock);
-	return 0;
+	return MIGRATEPAGE_SUCCESS;
 }
 
 /*
@@ -410,7 +424,7 @@ int migrate_huge_page_move_mapping(struct address_space *mapping,
  */
 void migrate_page_copy(struct page *newpage, struct page *page)
 {
-	if (PageHuge(page))
+	if (PageHuge(page) || PageTransHuge(page))
 		copy_huge_page(newpage, page);
 	else
 		copy_highpage(newpage, page);
@@ -489,11 +503,11 @@ int migrate_page(struct address_space *mapping,
 
 	rc = migrate_page_move_mapping(mapping, newpage, page, NULL, mode);
 
-	if (rc)
+	if (rc != MIGRATEPAGE_SUCCESS)
 		return rc;
 
 	migrate_page_copy(newpage, page);
-	return 0;
+	return MIGRATEPAGE_SUCCESS;
 }
 EXPORT_SYMBOL(migrate_page);
 
@@ -516,7 +530,7 @@ int buffer_migrate_page(struct address_space *mapping,
 
 	rc = migrate_page_move_mapping(mapping, newpage, page, head, mode);
 
-	if (rc)
+	if (rc != MIGRATEPAGE_SUCCESS)
 		return rc;
 
 	/*
@@ -552,7 +566,7 @@ int buffer_migrate_page(struct address_space *mapping,
 
 	} while (bh != head);
 
-	return 0;
+	return MIGRATEPAGE_SUCCESS;
 }
 EXPORT_SYMBOL(buffer_migrate_page);
 #endif
@@ -631,7 +645,7 @@ static int fallback_migrate_page(struct address_space *mapping,
  *
  * Return value:
  *   < 0 - error code
- *  == 0 - success
+ *  MIGRATEPAGE_SUCCESS - success
  */
 static int move_to_new_page(struct page *newpage, struct page *page,
 				int remap_swapcache, enum migrate_mode mode)
@@ -668,7 +682,7 @@ static int move_to_new_page(struct page *newpage, struct page *page,
 	else
 		rc = fallback_migrate_page(mapping, newpage, page, mode);
 
-	if (rc) {
+	if (rc != MIGRATEPAGE_SUCCESS) {
 		newpage->mapping = NULL;
 	} else {
 		if (remap_swapcache)
@@ -686,7 +700,6 @@ static int __unmap_and_move(struct page *page, struct page *newpage,
 {
 	int rc = -EAGAIN;
 	int remap_swapcache = 1;
-	int charge = 0;
 	struct mem_cgroup *mem;
 	struct anon_vma *anon_vma = NULL;
 
@@ -728,12 +741,7 @@ static int __unmap_and_move(struct page *page, struct page *newpage,
 	}
 
 	/* charge against new page */
-	charge = mem_cgroup_prepare_migration(page, newpage, &mem, GFP_KERNEL);
-	if (charge == -ENOMEM) {
-		rc = -ENOMEM;
-		goto unlock;
-	}
-	BUG_ON(charge);
+	mem_cgroup_prepare_migration(page, newpage, &mem);
 
 	if (PageWriteback(page)) {
 		/*
@@ -760,7 +768,7 @@ static int __unmap_and_move(struct page *page, struct page *newpage,
 	 */
 	if (PageAnon(page)) {
 		/*
-		 * Only page_lock_anon_vma() understands the subtleties of
+		 * Only page_lock_anon_vma_read() understands the subtleties of
 		 * getting a hold on an anon_vma from outside one of its mms.
 		 */
 		anon_vma = page_get_anon_vma(page);
@@ -785,6 +793,18 @@ static int __unmap_and_move(struct page *page, struct page *newpage,
 		} else {
 			goto uncharge;
 		}
+	}
+
+	if (unlikely(balloon_page_movable(page))) {
+		/*
+		 * A ballooned page does not need any special attention from
+		 * physical to virtual reverse mapping procedures.
+		 * Skip any attempt to unmap PTEs or to remap swap cache,
+		 * in order to avoid burning cycles at rmap level, and perform
+		 * the page migration right away (proteced by page lock).
+		 */
+		rc = balloon_page_migrate(newpage, page, mode);
+		goto uncharge;
 	}
 
 	/*
@@ -823,8 +843,9 @@ skip_unmap:
 		put_anon_vma(anon_vma);
 
 uncharge:
-	if (!charge)
-		mem_cgroup_end_migration(mem, page, newpage, rc == 0);
+	mem_cgroup_end_migration(mem, page, newpage,
+				 (rc == MIGRATEPAGE_SUCCESS ||
+				  rc == MIGRATEPAGE_BALLOON_SUCCESS));
 unlock:
 	unlock_page(page);
 out:
@@ -856,6 +877,18 @@ static int unmap_and_move(new_page_t get_new_page, unsigned long private,
 			goto out;
 
 	rc = __unmap_and_move(page, newpage, force, offlining, mode);
+
+	if (unlikely(rc == MIGRATEPAGE_BALLOON_SUCCESS)) {
+		/*
+		 * A ballooned page has been migrated already.
+		 * Now, it's the time to wrap-up counters,
+		 * handle the page back to Buddy and return.
+		 */
+		dec_zone_page_state(page, NR_ISOLATED_ANON +
+				    page_is_file_cache(page));
+		balloon_page_free(page);
+		return MIGRATEPAGE_SUCCESS;
+	}
 out:
 	if (rc != -EAGAIN) {
 		/*
@@ -935,16 +968,13 @@ static int unmap_and_move_huge_page(new_page_t get_new_page,
 
 	if (anon_vma)
 		put_anon_vma(anon_vma);
-out:
+
+	if (!rc)
+		hugetlb_cgroup_migrate(hpage, new_hpage);
+
 	unlock_page(hpage);
-
-	if (rc != -EAGAIN) {
-		list_del(&hpage->lru);
-		put_page(hpage);
-	}
-
+out:
 	put_page(new_hpage);
-
 	if (result) {
 		if (rc)
 			*result = rc;
@@ -975,6 +1005,7 @@ int migrate_pages(struct list_head *from,
 {
 	int retry = 1;
 	int nr_failed = 0;
+	int nr_succeeded = 0;
 	int pass = 0;
 	struct page *page;
 	struct page *page2;
@@ -1000,7 +1031,8 @@ int migrate_pages(struct list_head *from,
 			case -EAGAIN:
 				retry++;
 				break;
-			case 0:
+			case MIGRATEPAGE_SUCCESS:
+				nr_succeeded++;
 				break;
 			default:
 				/* Permanent failure */
@@ -1009,59 +1041,46 @@ int migrate_pages(struct list_head *from,
 			}
 		}
 	}
-	rc = 0;
+	rc = nr_failed + retry;
 out:
+	if (nr_succeeded)
+		count_vm_events(PGMIGRATE_SUCCESS, nr_succeeded);
+	if (nr_failed)
+		count_vm_events(PGMIGRATE_FAIL, nr_failed);
+	trace_mm_migrate_pages(nr_succeeded, nr_failed, mode);
+
 	if (!swapwrite)
 		current->flags &= ~PF_SWAPWRITE;
 
-	if (rc)
-		return rc;
-
-	return nr_failed + retry;
+	return rc;
 }
 
-int migrate_huge_pages(struct list_head *from,
-		new_page_t get_new_page, unsigned long private, bool offlining,
-		enum migrate_mode mode)
+int migrate_huge_page(struct page *hpage, new_page_t get_new_page,
+		      unsigned long private, bool offlining,
+		      enum migrate_mode mode)
 {
-	int retry = 1;
-	int nr_failed = 0;
-	int pass = 0;
-	struct page *page;
-	struct page *page2;
-	int rc;
+	int pass, rc;
 
-	for (pass = 0; pass < 10 && retry; pass++) {
-		retry = 0;
-
-		list_for_each_entry_safe(page, page2, from, lru) {
+	for (pass = 0; pass < 10; pass++) {
+		rc = unmap_and_move_huge_page(get_new_page,
+					      private, hpage, pass > 2, offlining,
+					      mode);
+		switch (rc) {
+		case -ENOMEM:
+			goto out;
+		case -EAGAIN:
+			/* try again */
 			cond_resched();
-
-			rc = unmap_and_move_huge_page(get_new_page,
-					private, page, pass > 2, offlining,
-					mode);
-
-			switch(rc) {
-			case -ENOMEM:
-				goto out;
-			case -EAGAIN:
-				retry++;
-				break;
-			case 0:
-				break;
-			default:
-				/* Permanent failure */
-				nr_failed++;
-				break;
-			}
+			break;
+		case MIGRATEPAGE_SUCCESS:
+			goto out;
+		default:
+			rc = -EIO;
+			goto out;
 		}
 	}
-	rc = 0;
 out:
-	if (rc)
-		return rc;
-
-	return nr_failed + retry;
+	return rc;
 }
 
 #ifdef CONFIG_NUMA
@@ -1168,7 +1187,8 @@ set_status:
 	err = 0;
 	if (!list_empty(&pagelist)) {
 		err = migrate_pages(&pagelist, new_page_node,
-				(unsigned long)pm, 0, MIGRATE_SYNC);
+				(unsigned long)pm, 0, MIGRATE_SYNC,
+				MR_SYSCALL);
 		if (err)
 			putback_lru_pages(&pagelist);
 	}
@@ -1181,19 +1201,16 @@ set_status:
  * Migrate an array of page address onto an array of nodes and fill
  * the corresponding array of status.
  */
-static int do_pages_move(struct mm_struct *mm, struct task_struct *task,
+static int do_pages_move(struct mm_struct *mm, nodemask_t task_nodes,
 			 unsigned long nr_pages,
 			 const void __user * __user *pages,
 			 const int __user *nodes,
 			 int __user *status, int flags)
 {
 	struct page_to_node *pm;
-	nodemask_t task_nodes;
 	unsigned long chunk_nr_pages;
 	unsigned long chunk_start;
 	int err;
-
-	task_nodes = cpuset_mems_allowed(task);
 
 	err = -ENOMEM;
 	pm = (struct page_to_node *)__get_free_page(GFP_KERNEL);
@@ -1233,7 +1250,7 @@ static int do_pages_move(struct mm_struct *mm, struct task_struct *task,
 			if (node < 0 || node >= MAX_NUMNODES)
 				goto out_pm;
 
-			if (!node_state(node, N_HIGH_MEMORY))
+			if (!node_state(node, N_MEMORY))
 				goto out_pm;
 
 			err = -EACCES;
@@ -1356,6 +1373,7 @@ SYSCALL_DEFINE6(move_pages, pid_t, pid, unsigned long, nr_pages,
 	struct task_struct *task;
 	struct mm_struct *mm;
 	int err;
+	nodemask_t task_nodes;
 
 	/* Check flags */
 	if (flags & ~(MPOL_MF_MOVE|MPOL_MF_MOVE_ALL))
@@ -1371,11 +1389,7 @@ SYSCALL_DEFINE6(move_pages, pid_t, pid, unsigned long, nr_pages,
 		rcu_read_unlock();
 		return -ESRCH;
 	}
-	mm = get_task_mm(task);
-	rcu_read_unlock();
-
-	if (!mm)
-		return -EINVAL;
+	get_task_struct(task);
 
 	/*
 	 * Check if this process has the right to modify the specified
@@ -1383,7 +1397,6 @@ SYSCALL_DEFINE6(move_pages, pid_t, pid, unsigned long, nr_pages,
 	 * capabilities, superuser privileges or the same
 	 * userid as the target process.
 	 */
-	rcu_read_lock();
 	tcred = __task_cred(task);
 	if (cred->euid != tcred->suid && cred->euid != tcred->uid &&
 	    cred->uid  != tcred->suid && cred->uid  != tcred->uid &&
@@ -1398,15 +1411,24 @@ SYSCALL_DEFINE6(move_pages, pid_t, pid, unsigned long, nr_pages,
  	if (err)
 		goto out;
 
-	if (nodes) {
-		err = do_pages_move(mm, task, nr_pages, pages, nodes, status,
-				    flags);
-	} else {
+	task_nodes = cpuset_mems_allowed(task);
+	mm = get_task_mm(task);
+	put_task_struct(task);
+
+	if (!mm)
+		return -EINVAL;
+
+	if (nodes)
+		err = do_pages_move(mm, task_nodes, nr_pages, pages,
+				    nodes, status, flags);
+	else
 		err = do_pages_stat(mm, nr_pages, pages, status);
-	}
+
+	mmput(mm);
+	return err;
 
 out:
-	mmput(mm);
+	put_task_struct(task);
 	return err;
 }
 

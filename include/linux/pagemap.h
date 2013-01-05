@@ -24,6 +24,7 @@ enum mapping_flags {
 	AS_ENOSPC	= __GFP_BITS_SHIFT + 1,	/* ENOSPC on async write */
 	AS_MM_ALL_LOCKS	= __GFP_BITS_SHIFT + 2,	/* under mm_take_all_locks() */
 	AS_UNEVICTABLE	= __GFP_BITS_SHIFT + 3,	/* e.g., ramdisk, SHM_LOCK */
+	AS_BALLOON_MAP  = __GFP_BITS_SHIFT + 4, /* balloon page special map */
 };
 
 static inline void mapping_set_error(struct address_space *mapping, int error)
@@ -51,6 +52,21 @@ static inline int mapping_unevictable(struct address_space *mapping)
 	if (mapping)
 		return test_bit(AS_UNEVICTABLE, &mapping->flags);
 	return !!mapping;
+}
+
+static inline void mapping_set_balloon(struct address_space *mapping)
+{
+	set_bit(AS_BALLOON_MAP, &mapping->flags);
+}
+
+static inline void mapping_clear_balloon(struct address_space *mapping)
+{
+	clear_bit(AS_BALLOON_MAP, &mapping->flags);
+}
+
+static inline int mapping_balloon(struct address_space *mapping)
+{
+	return mapping && test_bit(AS_BALLOON_MAP, &mapping->flags);
 }
 
 static inline gfp_t mapping_gfp_mask(struct address_space * mapping)
@@ -461,8 +477,6 @@ int add_to_page_cache_locked(struct page *page, struct address_space *mapping,
 				pgoff_t index, gfp_t gfp_mask);
 int add_to_page_cache_lru(struct page *page, struct address_space *mapping,
 				pgoff_t index, gfp_t gfp_mask);
-int __add_to_page_cache_lru(struct page *page, struct address_space *mapping,
-				pgoff_t offset, gfp_t gfp_mask, int tail);
 extern void delete_from_page_cache(struct page *page);
 extern void __delete_from_page_cache(struct page *page);
 int replace_page_cache_page(struct page *old, struct page *new, gfp_t gfp_mask);

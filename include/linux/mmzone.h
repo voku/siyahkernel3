@@ -65,10 +65,8 @@ enum {
 bool is_cma_pageblock(struct page *page);
 #ifdef CONFIG_DMA_CMA
 #define is_migrate_cma(migratetype) unlikely((migratetype) == MIGRATE_CMA)
-#  define cma_wmark_pages(zone) zone->min_cma_pages
 #else
 #define is_migrate_cma(migratetype) false
-#  define cma_wmark_pages(zone) 0
 #endif
 
 #define for_each_migratetype_order(order, type) \
@@ -203,7 +201,7 @@ struct zone_reclaim_stat {
 struct lruvec {
 	struct list_head lists[NR_LRU_LISTS];
 	struct zone_reclaim_stat reclaim_stat;
-#ifdef CONFIG_CGROUP_MEM_RES_CTLR
+#ifdef CONFIG_MEMCG
 	struct zone *zone;
 #endif
 };
@@ -387,14 +385,6 @@ struct zone {
 	/* see spanned/present_pages for more description */
 	seqlock_t		span_seqlock;
 #endif
-#ifdef CONFIG_DMA_CMA
-	/*
-	 * CMA needs to increase watermark levels during the allocation
-	 * process to make sure that the system is not starved.
-	 */
-	unsigned long       min_cma_pages;
-	bool                cma_alloc;
-#endif
 	struct free_area	free_area[MAX_ORDER];
 
 #ifndef CONFIG_SPARSEMEM
@@ -474,17 +464,44 @@ struct zone {
 	unsigned long		zone_start_pfn;
 
 	/*
-	 * zone_start_pfn, spanned_pages and present_pages are all
-	 * protected by span_seqlock.  It is a seqlock because it has
-	 * to be read outside of zone->lock, and it is done in the main
-	 * allocator path.  But, it is written quite infrequently.
+	 * spanned_pages is the total pages spanned by the zone, including
+	 * holes, which is calculated as:
+	 * 	spanned_pages = zone_end_pfn - zone_start_pfn;
 	 *
-	 * The lock is declared along with zone->lock because it is
+	 * present_pages is physical pages existing within the zone, which
+	 * is calculated as:
+	 *	present_pages = spanned_pages - absent_pages(pags in holes);
+	 *
+	 * managed_pages is present pages managed by the buddy system, which
+	 * is calculated as (reserved_pages includes pages allocated by the
+	 * bootmem allocator):
+	 *	managed_pages = present_pages - reserved_pages;
+	 *
+	 * So present_pages may be used by memory hotplug or memory power
+	 * management logic to figure out unmanaged pages by checking
+	 * (present_pages - managed_pages). And managed_pages should be used
+	 * by page allocator and vm scanner to calculate all kinds of watermarks
+	 * and thresholds.
+	 *
+	 * Locking rules:
+	 *
+	 * zone_start_pfn and spanned_pages are protected by span_seqlock.
+	 * It is a seqlock because it has to be read outside of zone->lock,
+	 * and it is done in the main allocator path.  But, it is written
+	 * quite infrequently.
+	 *
+	 * The span_seq lock is declared along with zone->lock because it is
 	 * frequently read in proximity to zone->lock.  It's good to
 	 * give them a chance of being in the same cacheline.
+	 *
+	 * Write access to present_pages and managed_pages at runtime should
+	 * be protected by lock_memory_hotplug()/unlock_memory_hotplug().
+	 * Any reader who can't tolerant drift of present_pages and
+	 * managed_pages should hold memory hotplug lock to get a stable value.
 	 */
-	unsigned long		spanned_pages;	/* total size, including holes */
-	unsigned long		present_pages;	/* amount of memory (excluding holes) */
+	unsigned long		spanned_pages;
+	unsigned long		present_pages;
+	unsigned long		managed_pages;
 
 	/*
 	 * rarely used fields:
@@ -663,13 +680,13 @@ struct zonelist {
 #endif
 };
 
-#ifdef CONFIG_ARCH_POPULATES_NODE_MAP
+#ifdef CONFIG_HAVE_MEMBLOCK_NODE_MAP
 struct node_active_region {
 	unsigned long start_pfn;
 	unsigned long end_pfn;
 	int nid;
 };
-#endif /* CONFIG_ARCH_POPULATES_NODE_MAP */
+#endif /* CONFIG_HAVE_MEMBLOCK_NODE_MAP */
 
 #ifndef CONFIG_DISCONTIGMEM
 /* The array of struct pages - for discontigmem use pgdat->lmem_map */
@@ -694,7 +711,7 @@ typedef struct pglist_data {
 	int nr_zones;
 #ifdef CONFIG_FLAT_NODE_MEM_MAP	/* means !SPARSEMEM */
 	struct page *node_mem_map;
-#ifdef CONFIG_CGROUP_MEM_RES_CTLR
+#ifdef CONFIG_MEMCG
 	struct page_cgroup *node_page_cgroup;
 #endif
 #endif
@@ -799,7 +816,7 @@ extern int movable_zone;
 
 static inline int zone_movable_is_highmem(void)
 {
-#if defined(CONFIG_HIGHMEM) && defined(CONFIG_ARCH_POPULATES_NODE_MAP)
+#if defined(CONFIG_HIGHMEM) && defined(CONFIG_HAVE_MEMBLOCK_NODE)
 	return movable_zone == ZONE_HIGHMEM;
 #else
 	return 0;
@@ -1017,7 +1034,7 @@ static inline struct zoneref *first_zones_zonelist(struct zonelist *zonelist,
 #endif
 
 #if !defined(CONFIG_HAVE_ARCH_EARLY_PFN_TO_NID) && \
-	!defined(CONFIG_ARCH_POPULATES_NODE_MAP)
+	!defined(CONFIG_HAVE_MEMBLOCK_NODE_MAP)
 static inline unsigned long early_pfn_to_nid(unsigned long pfn)
 {
 	return 0;
@@ -1078,7 +1095,7 @@ struct mem_section {
 
 	/* See declaration of similar field in struct zone */
 	unsigned long *pageblock_flags;
-#ifdef CONFIG_CGROUP_MEM_RES_CTLR
+#ifdef CONFIG_MEMCG
 	/*
 	 * If !SPARSEMEM, pgdat doesn't have page_cgroup pointer. We use
 	 * section. (see memcontrol.h/page_cgroup.h about this.)

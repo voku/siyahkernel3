@@ -17,7 +17,8 @@
 #include <linux/task_io_accounting_ops.h>
 #include <linux/pagevec.h>
 #include <linux/pagemap.h>
-#include <linux/swap.h>
+#include <linux/syscalls.h>
+#include <linux/file.h>
 
 unsigned long max_readahead_pages = VM_MAX_READAHEAD * 1024 / PAGE_CACHE_SIZE;
 
@@ -134,7 +135,7 @@ int read_cache_pages(struct address_space *mapping, struct list_head *pages,
 EXPORT_SYMBOL(read_cache_pages);
 
 static int read_pages(struct address_space *mapping, struct file *filp,
-		struct list_head *pages, unsigned nr_pages, int tail)
+		struct list_head *pages, unsigned nr_pages)
 {
 	struct blk_plug plug;
 	unsigned page_idx;
@@ -152,8 +153,8 @@ static int read_pages(struct address_space *mapping, struct file *filp,
 	for (page_idx = 0; page_idx < nr_pages; page_idx++) {
 		struct page *page = list_to_page(pages);
 		list_del(&page->lru);
-		if (!__add_to_page_cache_lru(page, mapping,
-					page->index, GFP_KERNEL, tail)) {
+		if (!add_to_page_cache_lru(page, mapping,
+					page->index, GFP_KERNEL)) {
 			mapping->a_ops->readpage(filp, page);
 		}
 		page_cache_release(page);
@@ -164,28 +165,6 @@ out:
 	blk_finish_plug(&plug);
 
 	return ret;
-}
-
-static inline int nr_mapped(void)
-{
-	return global_page_state(NR_FILE_MAPPED) +
-		global_page_state(NR_ANON_PAGES);
-}
-
-/*
- * This examines how large in pages a file size is and returns 1 if it is
- * more than half the unmapped ram. Avoid doing read_page_state which is
- * expensive unless we already know it is likely to be large enough.
- */
-static int large_isize(unsigned long nr_pages)
-{
-	if (nr_pages * 6 > vm_total_pages) {
-		 unsigned long unmapped_ram = vm_total_pages - nr_mapped();
-
-		if (nr_pages * 2 > unmapped_ram)
-			return 1;
-	}
-	return 0;
 }
 
 /*
@@ -245,8 +224,7 @@ __do_page_cache_readahead(struct address_space *mapping, struct file *filp,
 	 * will then handle the error.
 	 */
 	if (ret)
-		read_pages(mapping, filp, &page_pool, ret,
-			   large_isize(end_index));
+		read_pages(mapping, filp, &page_pool, ret);
 	BUG_ON(!list_empty(&page_pool));
 out:
 	return ret;
@@ -612,3 +590,40 @@ page_cache_async_readahead(struct address_space *mapping,
 	ondemand_readahead(mapping, ra, filp, true, offset, req_size);
 }
 EXPORT_SYMBOL_GPL(page_cache_async_readahead);
+static ssize_t
+do_readahead(struct address_space *mapping, struct file *filp,
+	     pgoff_t index, unsigned long nr)
+{
+	if (!mapping || !mapping->a_ops || !mapping->a_ops->readpage)
+		return -EINVAL;
+
+	force_page_cache_readahead(mapping, filp, index, nr);
+	return 0;
+}
+
+SYSCALL_DEFINE(readahead)(int fd, loff_t offset, size_t count)
+{
+	ssize_t ret;
+	struct fd f;
+
+	ret = -EBADF;
+	f = fdget(fd);
+	if (f.file) {
+		if (f.file->f_mode & FMODE_READ) {
+			struct address_space *mapping = f.file->f_mapping;
+			pgoff_t start = offset >> PAGE_CACHE_SHIFT;
+			pgoff_t end = (offset + count - 1) >> PAGE_CACHE_SHIFT;
+			unsigned long len = end - start + 1;
+			ret = do_readahead(mapping, f.file, start, len);
+		}
+		fdput(f);
+	}
+	return ret;
+}
+#ifdef CONFIG_HAVE_SYSCALL_WRAPPERS
+asmlinkage long SyS_readahead(long fd, loff_t offset, long count)
+{
+	return SYSC_readahead((int) fd, offset, (size_t) count);
+}
+SYSCALL_ALIAS(sys_readahead, SyS_readahead);
+#endif
