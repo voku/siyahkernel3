@@ -103,7 +103,7 @@ cp .config arch/arm/configs/${KERNEL_CONFIG}
 if [ $USER != "root" ]; then
 	make -j${NAMBEROFCPUS} modules || exit 1
 else
-	nice -n 10 make -j${NAMBEROFCPUS} modules || exit 1
+	nice -n -15 make -j${NAMBEROFCPUS} modules || exit 1
 fi;
 
 # copy initramfs files to tmp directory
@@ -135,7 +135,6 @@ chmod 755 ${INITRAMFS_TMP}/lib/modules/*
 if [ $USER != "root" ]; then
 	make -j${NAMBEROFCPUS} zImage CONFIG_INITRAMFS_SOURCE="${INITRAMFS_TMP}"
 else
-	# nice: a higher nice value means a low priority [-20 -> 20]
 	nice -n -15 make -j${NAMBEROFCPUS} zImage CONFIG_INITRAMFS_SOURCE="${INITRAMFS_TMP}"
 fi;
 
