@@ -149,17 +149,17 @@ if [ -e ${KERNELDIR}/arch/arm/boot/zImage ]; then
 	cp ${KERNELDIR}/.config ${KERNELDIR}/arch/arm/configs/${KERNEL_CONFIG}
 	cp ${KERNELDIR}/.config ${KERNELDIR}/READY-JB/
 	rm ${KERNELDIR}/READY-JB/boot/zImage
-	rm ${KERNELDIR}/READY-JB/Kernel_Dorimanx-*
+	rm ${KERNELDIR}/READY-JB/Kernel_*
 	stat ${KERNELDIR}/zImage
-	GETVER=`grep 'Siyah-Dorimanx-V' arch/arm/configs/${KERNEL_CONFIG} | sed 's/.*-V//g' | sed 's/-I.*//g'`
+	GETVER=`grep 'Siyah-.*-V' arch/arm/configs/${KERNEL_CONFIG} | sed 's/.*".//g' | sed 's/-I.*//g'`
 	cp ${KERNELDIR}/zImage /${KERNELDIR}/READY-JB/boot/
 	cd ${KERNELDIR}/READY-JB/
-	zip -r Kernel_Dorimanx-${GETVER}-ICS-JB`date +"-%H-%M--%d-%m-12-SG2-PWR-CORE"`.zip .
+	zip -r Kernel_${GETVER}-ICS-JB`date +"-%H-%M--%d-%m-12-SG2-PWR-CORE"`.zip .
 	STATUS=`adb get-state`;
 	if [ "$STATUS" == "device" ]; then
 		read -p "push kernel to android (y/n)?"
 		if [ "$REPLY" == "y" ]; then
-			adb push ${KERNELDIR}/READY-JB/Kernel_Dorimanx*ICS-JB*.zip /sdcard/;
+			adb push ${KERNELDIR}/READY-JB/Kernel_*ICS-JB*.zip /sdcard/;
 		fi;
 	fi;
 else
