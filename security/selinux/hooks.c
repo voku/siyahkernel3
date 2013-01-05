@@ -2192,6 +2192,7 @@ static inline void flush_unauthorized_files(const struct cred *cred,
 			}
 		}
 		spin_lock(&files->file_lock);
+
 	}
 	spin_unlock(&files->file_lock);
 }

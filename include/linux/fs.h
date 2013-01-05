@@ -32,9 +32,7 @@
 #define SEEK_SET	0	/* seek relative to beginning of file */
 #define SEEK_CUR	1	/* seek relative to current file position */
 #define SEEK_END	2	/* seek relative to end of file */
-#define SEEK_DATA	3	/* seek to the next data */
-#define SEEK_HOLE	4	/* seek to the next hole */
-#define SEEK_MAX	SEEK_HOLE
+#define SEEK_MAX	SEEK_END
 
 struct fstrim_range {
 	__u64 start;
@@ -399,7 +397,7 @@ struct inodes_stat_t {
 #include <linux/cache.h>
 #include <linux/list.h>
 #include <linux/radix-tree.h>
-#include <linux/rbtree.h>
+#include <linux/prio_tree.h>
 #include <linux/init.h>
 #include <linux/pid.h>
 #include <linux/bug.h>
@@ -662,7 +660,7 @@ struct address_space {
 	struct radix_tree_root	page_tree;	/* radix tree of all pages */
 	spinlock_t		tree_lock;	/* and lock protecting it */
 	unsigned int		i_mmap_writable;/* count VM_SHARED mappings */
-	struct rb_root		i_mmap;		/* tree of private and shared mappings */
+	struct prio_tree_root	i_mmap;		/* tree of private and shared mappings */
 	struct list_head	i_mmap_nonlinear;/*list VM_NONLINEAR mappings */
 	struct mutex		i_mmap_mutex;	/* protect tree, count, list */
 	/* Protected by tree_lock together with the radix tree */
@@ -673,7 +671,7 @@ struct address_space {
 	struct backing_dev_info *backing_dev_info; /* device readahead, etc */
 	spinlock_t		private_lock;	/* for use by the address_space */
 	struct list_head	private_list;	/* ditto */
-	void			*private_data;	/* ditto */
+	struct address_space	*assoc_mapping;	/* ditto */
 } __attribute__((aligned(sizeof(long))));
 	/*
 	 * On most architectures that alignment is already the case; but
@@ -732,7 +730,7 @@ int mapping_tagged(struct address_space *mapping, int tag);
  */
 static inline int mapping_mapped(struct address_space *mapping)
 {
-	return	!RB_EMPTY_ROOT(&mapping->i_mmap) ||
+	return	!prio_tree_empty(&mapping->i_mmap) ||
 		!list_empty(&mapping->i_mmap_nonlinear);
 }
 
@@ -803,7 +801,7 @@ struct inode {
 	struct timespec		i_ctime;
 	blkcnt_t		i_blocks;
 	unsigned short          i_bytes;
-	atomic_t		i_dio_count;
+	struct rw_semaphore	i_alloc_sem;
 	const struct file_operations	*i_fop;	/* former ->i_op->default_file_ops */
 	struct file_lock	*i_flock;
 	struct address_space	*i_mapping;
@@ -973,12 +971,7 @@ struct file {
 #define f_dentry	f_path.dentry
 #define f_vfsmnt	f_path.mnt
 	const struct file_operations	*f_op;
-
-	/*
-	 * Protects f_ep_links, f_flags, f_pos vs i_size in lseek SEEK_CUR.
-	 * Must not be taken from IRQ context.
-	 */
-	spinlock_t		f_lock;
+	spinlock_t		f_lock;  /* f_ep_links, f_flags, no IRQ */
 #ifdef CONFIG_SMP
 	int			f_sb_list_cpu;
 #endif
@@ -1015,11 +1008,7 @@ struct file_handle {
 	unsigned char f_handle[0];
 };
 
-static inline struct file *get_file(struct file *f)
-{
-	atomic_long_inc(&f->f_count);
-	return f;
-}
+#define get_file(x)	atomic_long_inc(&(x)->f_count)
 #define fput_atomic(x)	atomic_long_add_unless(&(x)->f_count, -1, 1)
 #define file_count(x)	atomic_long_read(&(x)->f_count)
 
@@ -1633,6 +1622,7 @@ struct inode_operations {
 	ssize_t (*getxattr) (struct dentry *, const char *, void *, size_t);
 	ssize_t (*listxattr) (struct dentry *, char *, size_t);
 	int (*removexattr) (struct dentry *, const char *);
+	void (*truncate_range)(struct inode *, loff_t, loff_t);
 	int (*fiemap)(struct inode *, struct fiemap_extent_info *, u64 start,
 		      u64 len);
 } ____cacheline_aligned;
@@ -1725,10 +1715,6 @@ struct super_operations {
  *			set during data writeback, and cleared with a wakeup
  *			on the bit address once it is done.
  *
- * I_REFERENCED		Marks the inode as recently references on the LRU list.
- *
- * I_DIO_WAKEUP		Never set.  Only used as a key for wait_on_bit().
- *
  * Q: What is the difference between I_WILL_FREE and I_FREEING?
  */
 #define I_DIRTY_SYNC		(1 << 0)
@@ -1742,8 +1728,6 @@ struct super_operations {
 #define __I_SYNC		7
 #define I_SYNC			(1 << __I_SYNC)
 #define I_REFERENCED		(1 << 8)
-#define __I_DIO_WAKEUP		9
-#define I_DIO_WAKEUP		(1 << I_DIO_WAKEUP)
 
 #define I_DIRTY (I_DIRTY_SYNC | I_DIRTY_DATASYNC | I_DIRTY_PAGES)
 
@@ -1867,6 +1851,7 @@ struct file_system_type {
 	struct lock_class_key i_lock_key;
 	struct lock_class_key i_mutex_key;
 	struct lock_class_key i_mutex_dir_key;
+	struct lock_class_key i_alloc_sem_key;
 };
 
 extern struct dentry *mount_ns(struct file_system_type *fs_type, int flags,
@@ -2083,7 +2068,6 @@ extern void bd_forget(struct inode *inode);
 extern void bdput(struct block_device *);
 extern void invalidate_bdev(struct block_device *);
 extern int sync_blockdev(struct block_device *bdev);
-extern void kill_bdev(struct block_device *);
 extern struct super_block *freeze_bdev(struct block_device *);
 extern void emergency_thaw_all(void);
 extern int thaw_bdev(struct block_device *bdev, struct super_block *sb);
@@ -2091,7 +2075,6 @@ extern int fsync_bdev(struct block_device *);
 #else
 static inline void bd_forget(struct inode *inode) {}
 static inline int sync_blockdev(struct block_device *bdev) { return 0; }
-static inline void kill_bdev(struct block_device *bdev) {}
 static inline void invalidate_bdev(struct block_device *bdev) {}
 
 static inline struct super_block *freeze_bdev(struct block_device *sb)
@@ -2297,9 +2280,9 @@ extern ino_t find_inode_number(struct dentry *, struct qstr *);
 #include <linux/err.h>
 
 /* needed for stackable file system support */
-extern loff_t default_llseek(struct file *file, loff_t offset, int whence);
+extern loff_t default_llseek(struct file *file, loff_t offset, int origin);
 
-extern loff_t vfs_llseek(struct file *file, loff_t offset, int whence);
+extern loff_t vfs_llseek(struct file *file, loff_t offset, int origin);
 
 extern int inode_init_always(struct super_block *, struct inode *);
 extern void inode_init_once(struct inode *);
@@ -2366,8 +2349,6 @@ extern int sb_min_blocksize(struct super_block *, int);
 
 extern int generic_file_mmap(struct file *, struct vm_area_struct *);
 extern int generic_file_readonly_mmap(struct file *, struct vm_area_struct *);
-extern int generic_file_remap_pages(struct vm_area_struct *, unsigned long addr,
-		unsigned long size, pgoff_t pgoff);
 extern int file_read_actor(read_descriptor_t * desc, struct page *page, unsigned long offset, unsigned long size);
 int generic_write_checks(struct file *file, loff_t *pos, size_t *count, int isblk);
 extern ssize_t generic_file_aio_read(struct kiocb *, const struct iovec *, unsigned long, loff_t);
@@ -2387,7 +2368,6 @@ extern int generic_segment_checks(const struct iovec *iov,
 extern ssize_t blkdev_aio_write(struct kiocb *iocb, const struct iovec *iov,
 				unsigned long nr_segs, loff_t pos);
 extern int blkdev_fsync(struct file *filp, int datasync);
-extern void block_sync_page(struct page *page);
 
 /* fs/splice.c */
 extern ssize_t generic_file_splice_read(struct file *, loff_t *,
@@ -2403,11 +2383,11 @@ extern long do_splice_direct(struct file *in, loff_t *ppos, struct file *out,
 
 extern void
 file_ra_state_init(struct file_ra_state *ra, struct address_space *mapping);
-extern loff_t noop_llseek(struct file *file, loff_t offset, int whence);
-extern loff_t no_llseek(struct file *file, loff_t offset, int whence);
-extern loff_t generic_file_llseek(struct file *file, loff_t offset, int whence);
-extern loff_t generic_file_llseek_size(struct file *file, loff_t offset,
-		int whence, loff_t maxsize, loff_t eof);
+extern loff_t noop_llseek(struct file *file, loff_t offset, int origin);
+extern loff_t no_llseek(struct file *file, loff_t offset, int origin);
+extern loff_t generic_file_llseek(struct file *file, loff_t offset, int origin);
+extern loff_t generic_file_llseek_unlocked(struct file *file, loff_t offset,
+			int origin);
 extern int generic_file_open(struct inode * inode, struct file * filp);
 extern int nonseekable_open(struct inode * inode, struct file * filp);
 
@@ -2438,8 +2418,6 @@ enum {
 };
 
 void dio_end_io(struct bio *bio, int error);
-void inode_dio_wait(struct inode *inode);
-void inode_dio_done(struct inode *inode);
 
 ssize_t __blockdev_direct_IO(int rw, struct kiocb *iocb, struct inode *inode,
 	struct block_device *bdev, const struct iovec *iov, loff_t offset,
@@ -2447,11 +2425,12 @@ ssize_t __blockdev_direct_IO(int rw, struct kiocb *iocb, struct inode *inode,
 	dio_submit_t submit_io,	int flags);
 
 static inline ssize_t blockdev_direct_IO(int rw, struct kiocb *iocb,
-		struct inode *inode, const struct iovec *iov, loff_t offset,
-		unsigned long nr_segs, get_block_t get_block)
+	struct inode *inode, struct block_device *bdev, const struct iovec *iov,
+	loff_t offset, unsigned long nr_segs, get_block_t get_block,
+	dio_iodone_t end_io)
 {
-	return __blockdev_direct_IO(rw, iocb, inode, inode->i_sb->s_bdev, iov,
-				    offset, nr_segs, get_block, NULL, NULL,
+	return __blockdev_direct_IO(rw, iocb, inode, bdev, iov, offset,
+				    nr_segs, get_block, end_io, NULL,
 				    DIO_LOCKING | DIO_SKIP_HOLES);
 }
 #else

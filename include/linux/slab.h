@@ -162,50 +162,6 @@ unsigned int kmem_cache_size(struct kmem_cache *);
 #define KMALLOC_MAX_ORDER	(KMALLOC_SHIFT_HIGH - PAGE_SHIFT)
 
 /*
- * Some archs want to perform DMA into kmalloc caches and need a guaranteed
- * alignment larger than the alignment of a 64-bit integer.
- * Setting ARCH_KMALLOC_MINALIGN in arch headers allows that.
- */
-#ifdef ARCH_DMA_MINALIGN
-#define ARCH_KMALLOC_MINALIGN ARCH_DMA_MINALIGN
-#else
-#define ARCH_KMALLOC_MINALIGN __alignof__(unsigned long long)
-#endif
-
-/*
- * Setting ARCH_SLAB_MINALIGN in arch headers allows a different alignment.
- * Intended for arches that get misalignment faults even for 64 bit integer
- * aligned buffers.
- */
-#ifndef ARCH_SLAB_MINALIGN
-#define ARCH_SLAB_MINALIGN __alignof__(unsigned long long)
-#endif
-
-/*
- * This is the main placeholder for memcg-related information in kmem caches.
- * struct kmem_cache will hold a pointer to it, so the memory cost while
- * disabled is 1 pointer. The runtime cost while enabled, gets bigger than it
- * would otherwise be if that would be bundled in kmem_cache: we'll need an
- * extra pointer chase. But the trade off clearly lays in favor of not
- * penalizing non-users.
- *
- * Both the root cache and the child caches will have it. For the root cache,
- * this will hold a dynamically allocated array large enough to hold
- * information about the currently limited memcgs in the system.
- *
- * Child caches will hold extra metadata needed for its operation. Fields are:
- *
- * @memcg: pointer to the memcg this cache belongs to
- */
-struct memcg_cache_params {
-	bool is_root_cache;
-	union {
-		struct kmem_cache *memcg_caches[0];
-		struct mem_cgroup *memcg;
-	};
-};
-
-/*
  * Common kmalloc functions provided by all allocators
  */
 void * __must_check __krealloc(const void *, size_t, gfp_t);
@@ -296,7 +252,7 @@ size_t ksize(const void *);
  */
 static inline void *kcalloc(size_t n, size_t size, gfp_t flags)
 {
-	if (size != 0 && n > SIZE_MAX / size)
+	if (size != 0 && n > ULONG_MAX / size)
 		return NULL;
 	return __kmalloc(n * size, flags | __GFP_ZERO);
 }

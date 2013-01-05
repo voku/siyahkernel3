@@ -3,46 +3,32 @@
 
 #include <linux/mm.h>
 #include <linux/mempolicy.h>
-#include <linux/migrate_mode.h>
 
 typedef struct page *new_page_t(struct page *, unsigned long private, int **);
 
 /*
- * Return values from addresss_space_operations.migratepage():
- * - negative errno on page migration failure;
- * - zero on page migration success;
- *
- * The balloon page migration introduces this special case where a 'distinct'
- * return code is used to flag a successful page migration to unmap_and_move().
- * This approach is necessary because page migration can race against balloon
- * deflation procedure, and for such case we could introduce a nasty page leak
- * if a successfully migrated balloon page gets released concurrently with
- * migration's unmap_and_move() wrap-up steps.
+ * MIGRATE_ASYNC means never block
+ * MIGRATE_SYNC_LIGHT in the current implementation means to allow blocking
+ *	on most operations but not ->writepage as the potential stall time
+ *	is too significant
+ * MIGRATE_SYNC will block when migrating pages
  */
-#define MIGRATEPAGE_SUCCESS		0
-#define MIGRATEPAGE_BALLOON_SUCCESS	1 /* special ret code for balloon page
-					   * sucessful migration case.
-					   */
-enum migrate_reason {
-	MR_COMPACTION,
-	MR_MEMORY_FAILURE,
-	MR_MEMORY_HOTPLUG,
-	MR_SYSCALL,		/* also applies to cpusets */
-	MR_MEMPOLICY_MBIND,
-	MR_NUMA_MISPLACED,
-	MR_CMA
+enum migrate_mode {
+	MIGRATE_ASYNC,
+	MIGRATE_SYNC_LIGHT,
+	MIGRATE_SYNC,
 };
 
 #ifdef CONFIG_MIGRATION
+#define PAGE_MIGRATION 1
 
 extern void putback_lru_pages(struct list_head *l);
-extern void putback_movable_pages(struct list_head *l);
 extern int migrate_page(struct address_space *,
 			struct page *, struct page *, enum migrate_mode);
 extern int migrate_pages(struct list_head *l, new_page_t x,
 			unsigned long private, bool offlining,
 			enum migrate_mode mode);
-extern int migrate_huge_page(struct page *, new_page_t x,
+extern int migrate_huge_pages(struct list_head *l, new_page_t x,
 			unsigned long private, bool offlining,
 			enum migrate_mode mode);
 
@@ -58,13 +44,13 @@ extern void migrate_page_copy(struct page *newpage, struct page *page);
 extern int migrate_huge_page_move_mapping(struct address_space *mapping,
 				  struct page *newpage, struct page *page);
 #else
+#define PAGE_MIGRATION 0
 
 static inline void putback_lru_pages(struct list_head *l) {}
-static inline void putback_movable_pages(struct list_head *l) {}
 static inline int migrate_pages(struct list_head *l, new_page_t x,
 		unsigned long private, bool offlining,
-		enum migrate_mode mode, int reason) { return -ENOSYS; }
-static inline int migrate_huge_page(struct page *page, new_page_t x,
+		enum migrate_mode mode) { return -ENOSYS; }
+static inline int migrate_huge_pages(struct list_head *l, new_page_t x,
 		unsigned long private, bool offlining,
 		enum migrate_mode mode) { return -ENOSYS; }
 

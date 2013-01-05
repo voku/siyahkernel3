@@ -175,13 +175,14 @@ int inode_init_always(struct super_block *sb, struct inode *inode)
 	mutex_init(&inode->i_mutex);
 	lockdep_set_class(&inode->i_mutex, &sb->s_type->i_mutex_key);
 
-	atomic_set(&inode->i_dio_count, 0);
+	init_rwsem(&inode->i_alloc_sem);
+	lockdep_set_class(&inode->i_alloc_sem, &sb->s_type->i_alloc_sem_key);
 
 	mapping->a_ops = &empty_aops;
 	mapping->host = inode;
 	mapping->flags = 0;
 	mapping_set_gfp_mask(mapping, GFP_HIGHUSER_MOVABLE);
-	mapping->private_data = NULL;
+	mapping->assoc_mapping = NULL;
 	mapping->backing_dev_info = &default_backing_dev_info;
 	mapping->writeback_index = 0;
 
@@ -283,7 +284,7 @@ void address_space_init_once(struct address_space *mapping)
 	mutex_init(&mapping->i_mmap_mutex);
 	INIT_LIST_HEAD(&mapping->private_list);
 	spin_lock_init(&mapping->private_lock);
-	mapping->i_mmap = RB_ROOT;
+	INIT_RAW_PRIO_TREE_ROOT(&mapping->i_mmap);
 	INIT_LIST_HEAD(&mapping->i_mmap_nonlinear);
 }
 EXPORT_SYMBOL(address_space_init_once);

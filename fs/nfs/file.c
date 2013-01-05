@@ -178,29 +178,28 @@ force_reval:
 	return __nfs_revalidate_inode(server, inode);
 }
 
-static loff_t nfs_file_llseek(struct file *filp, loff_t offset, int whence)
+static loff_t nfs_file_llseek(struct file *filp, loff_t offset, int origin)
 {
 	loff_t loff;
 
 	dprintk("NFS: llseek file(%s/%s, %lld, %d)\n",
 			filp->f_path.dentry->d_parent->d_name.name,
 			filp->f_path.dentry->d_name.name,
-			offset, whence);
+			offset, origin);
 
 	/* origin == SEEK_END => we must revalidate the cached file length */
-	if (whence == SEEK_END) {
+	if (origin == SEEK_END) {
 		struct inode *inode = filp->f_mapping->host;
 
 		int retval = nfs_revalidate_file_size(inode, filp);
 		if (retval < 0)
 			return (loff_t)retval;
 
-		/* AK: should drop this lock. Unlikely to be needed. */
 		spin_lock(&inode->i_lock);
-		loff = generic_file_llseek(filp, offset, whence);
+		loff = generic_file_llseek_unlocked(filp, offset, origin);
 		spin_unlock(&inode->i_lock);
 	} else
-		loff = generic_file_llseek(filp, offset, whence);
+		loff = generic_file_llseek_unlocked(filp, offset, origin);
 	return loff;
 }
 
@@ -594,7 +593,6 @@ out:
 static const struct vm_operations_struct nfs_file_vm_ops = {
 	.fault = filemap_fault,
 	.page_mkwrite = nfs_vm_page_mkwrite,
-	.remap_pages = generic_file_remap_pages,
 };
 
 static int nfs_need_sync_write(struct file *filp, struct inode *inode)

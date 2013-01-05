@@ -339,10 +339,12 @@ void single_step_once(struct pt_regs *regs)
 		}
 
 		/* allocate a cache line of writable, executable memory */
-		buffer = (void __user *) vm_mmap(NULL, 0, 64,
+		down_write(&current->mm->mmap_sem);
+		buffer = (void __user *) do_mmap(NULL, 0, 64,
 					  PROT_EXEC | PROT_READ | PROT_WRITE,
 					  MAP_PRIVATE | MAP_ANONYMOUS,
 					  0);
+		up_write(&current->mm->mmap_sem);
 
 		if (IS_ERR((void __force *)buffer)) {
 			kfree(state);

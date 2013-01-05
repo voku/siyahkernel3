@@ -178,7 +178,7 @@ struct sp_node {
 
 struct shared_policy {
 	struct rb_root root;
-	spinlock_t lock;
+	struct mutex mutex;
 };
 
 void mpol_shared_policy_init(struct shared_policy *sp, struct mempolicy *mpol);
@@ -220,10 +220,11 @@ int do_migrate_pages(struct mm_struct *mm,
 
 
 #ifdef CONFIG_TMPFS
-extern int mpol_parse_str(char *str, struct mempolicy **mpol);
+extern int mpol_parse_str(char *str, struct mempolicy **mpol, int no_context);
 #endif
 
-extern int mpol_to_str(char *buffer, int maxlen, struct mempolicy *pol);
+extern int mpol_to_str(char *buffer, int maxlen, struct mempolicy *pol,
+			int no_context);
 
 /* Check if a vma is migratable */
 static inline int vma_migratable(struct vm_area_struct *vma)
@@ -349,13 +350,15 @@ static inline void check_highest_zone(int k)
 }
 
 #ifdef CONFIG_TMPFS
-static inline int mpol_parse_str(char *str, struct mempolicy **mpol)
+static inline int mpol_parse_str(char *str, struct mempolicy **mpol,
+				int no_context)
 {
 	return 1;	/* error */
 }
 #endif
 
-static inline int mpol_to_str(char *buffer, int maxlen, struct mempolicy *pol)
+static inline int mpol_to_str(char *buffer, int maxlen, struct mempolicy *pol,
+				int no_context)
 {
 	return 0;
 }

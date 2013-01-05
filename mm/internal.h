@@ -92,11 +92,6 @@ extern int isolate_lru_page(struct page *page);
 extern void putback_lru_page(struct page *page);
 
 /*
- * in mm/rmap.c:
- */
-extern pmd_t *mm_find_pmd(struct mm_struct *mm, unsigned long address);
-
-/*
  * in mm/page_alloc.c
  */
 extern void __free_pages_bootmem(struct page *page, unsigned int order);
@@ -185,8 +180,7 @@ static inline int mlocked_vma_newpage(struct vm_area_struct *vma,
 		return 0;
 
 	if (!TestSetPageMlocked(page)) {
-		mod_zone_page_state(page_zone(page), NR_MLOCK,
-				    hpage_nr_pages(page));
+		inc_zone_page_state(page, NR_MLOCK);
 		count_vm_event(UNEVICTABLE_PGMLOCKED);
 	}
 	return 1;
@@ -207,7 +201,12 @@ extern void munlock_vma_page(struct page *page);
  * If called for a page that is still mapped by mlocked vmas, all we do
  * is revert to lazy LRU behaviour -- semantics are not broken.
  */
-extern void clear_page_mlock(struct page *page);
+extern void __clear_page_mlock(struct page *page);
+static inline void clear_page_mlock(struct page *page)
+{
+	if (unlikely(TestClearPageMlocked(page)))
+		__clear_page_mlock(page);
+}
 
 /*
  * mlock_migrate_page - called only from migrate_page_copy() to
@@ -217,17 +216,14 @@ static inline void mlock_migrate_page(struct page *newpage, struct page *page)
 {
 	if (TestClearPageMlocked(page)) {
 		unsigned long flags;
-		int nr_pages = hpage_nr_pages(page);
 
 		local_irq_save(flags);
-		__mod_zone_page_state(page_zone(page), NR_MLOCK, -nr_pages);
+		__dec_zone_page_state(page, NR_MLOCK);
 		SetPageMlocked(newpage);
-		__mod_zone_page_state(page_zone(newpage), NR_MLOCK, nr_pages);
+		__inc_zone_page_state(newpage, NR_MLOCK);
 		local_irq_restore(flags);
 	}
 }
-
-extern pmd_t maybe_pmd_mkwrite(pmd_t pmd, struct vm_area_struct *vma);
 
 #ifdef CONFIG_TRANSPARENT_HUGEPAGE
 extern unsigned long vma_address(struct page *page,
@@ -347,6 +343,7 @@ static inline void mminit_validate_memmodel_limits(unsigned long *start_pfn,
 #define ZONE_RECLAIM_FULL	-1
 #define ZONE_RECLAIM_SOME	0
 #define ZONE_RECLAIM_SUCCESS	1
+#endif
 
 extern int hwpoison_filter(struct page *p);
 
@@ -357,13 +354,11 @@ extern u64 hwpoison_filter_flags_value;
 extern u64 hwpoison_filter_memcg;
 extern u32 hwpoison_filter_enable;
 
-extern unsigned long vm_mmap_pgoff(struct file *, unsigned long,
-        unsigned long, unsigned long,
-        unsigned long, unsigned long);
-
-extern void set_pageblock_order(void);
 unsigned long reclaim_clean_pages_from_list(struct zone *zone,
 					    struct list_head *page_list);
+
+extern void set_pageblock_order(void);
+
 /* The ALLOC_WMARK bits are used as an index to zone->watermark */
 #define ALLOC_WMARK_MIN		WMARK_MIN
 #define ALLOC_WMARK_LOW		WMARK_LOW
@@ -377,5 +372,3 @@ unsigned long reclaim_clean_pages_from_list(struct zone *zone,
 #define ALLOC_HIGH		0x20 /* __GFP_HIGH set */
 #define ALLOC_CPUSET		0x40 /* check for correct cpuset */
 #define ALLOC_CMA		0x80 /* allow allocations from CMA areas */
-
-#endif	/* __MM_INTERNAL_H */

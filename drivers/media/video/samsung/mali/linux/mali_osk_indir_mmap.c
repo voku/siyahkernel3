@@ -31,7 +31,7 @@ _mali_osk_errcode_t _mali_osk_specific_indirect_mmap( _mali_uk_mem_mmap_s *args 
 	/* we need to lock the mmap semaphore before calling the do_mmap function */
     down_write(&current->mm->mmap_sem);
 
-    args->mapping = (void __user *)vm_mmap(
+    args->mapping = (void __user *)do_mmap(
 											(struct file *)args->ukk_private,
 											0, /* start mapping from any address after NULL */
 											args->size,

@@ -777,14 +777,10 @@ const char * const vmstat_text[] = {
 
 	"pgrotated",
 
-#ifdef CONFIG_MIGRATION
-	"pgmigrate_success",
-	"pgmigrate_fail",
-#endif
 #ifdef CONFIG_COMPACTION
-	"compact_migrate_scanned",
-	"compact_free_scanned",
-	"compact_isolated",
+	"compact_blocks_moved",
+	"compact_pages_moved",
+	"compact_pagemigrate_failed",
 	"compact_stall",
 	"compact_fail",
 	"compact_success",
@@ -801,6 +797,7 @@ const char * const vmstat_text[] = {
 	"unevictable_pgs_munlocked",
 	"unevictable_pgs_cleared",
 	"unevictable_pgs_stranded",
+	"unevictable_pgs_mlockfreed",	/* no longer useful: always zero */
 
 #ifdef CONFIG_TRANSPARENT_HUGEPAGE
 	"thp_fault_alloc",
@@ -937,7 +934,7 @@ static int pagetypeinfo_show(struct seq_file *m, void *arg)
 	pg_data_t *pgdat = (pg_data_t *)arg;
 
 	/* check memoryless node */
-	if (!node_state(pgdat->node_id, N_MEMORY))
+	if (!node_state(pgdat->node_id, N_HIGH_MEMORY))
 		return 0;
 
 	seq_printf(m, "Page block order: %d\n", pageblock_order);
@@ -999,16 +996,14 @@ static void zoneinfo_show_print(struct seq_file *m, pg_data_t *pgdat,
 		   "\n        high     %lu"
 		   "\n        scanned  %lu"
 		   "\n        spanned  %lu"
-		   "\n        present  %lu"
-		   "\n        managed  %lu",
+		   "\n        present  %lu",
 		   zone_page_state(zone, NR_FREE_PAGES),
 		   min_wmark_pages(zone),
 		   low_wmark_pages(zone),
 		   high_wmark_pages(zone),
 		   zone->pages_scanned,
 		   zone->spanned_pages,
-		   zone->present_pages,
-		   zone->managed_pages);
+		   zone->present_pages);
 
 	for (i = 0; i < NR_VM_ZONE_STAT_ITEMS; i++)
 		seq_printf(m, "\n    %-12s %lu", vmstat_text[i],
@@ -1301,7 +1296,7 @@ static int unusable_show(struct seq_file *m, void *arg)
 	pg_data_t *pgdat = (pg_data_t *)arg;
 
 	/* check memoryless node */
-	if (!node_state(pgdat->node_id, N_MEMORY))
+	if (!node_state(pgdat->node_id, N_HIGH_MEMORY))
 		return 0;
 
 	walk_zones_in_node(m, pgdat, unusable_show_print);

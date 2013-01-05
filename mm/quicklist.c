@@ -17,6 +17,7 @@
 #include <linux/gfp.h>
 #include <linux/mm.h>
 #include <linux/mmzone.h>
+#include <linux/module.h>
 #include <linux/quicklist.h>
 
 DEFINE_PER_CPU(struct quicklist [CONFIG_NR_QUICK], quicklist);

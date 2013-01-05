@@ -318,7 +318,7 @@ static void wakeup_timer_fn(unsigned long data)
 	if (bdi->wb.task) {
 		trace_writeback_wake_thread(bdi);
 		wake_up_process(bdi->wb.task);
-	} else if (bdi->dev) {
+	} else {
 		/*
 		 * When bdi tasks are inactive for long time, they are killed.
 		 * In this case we have to wake-up the forker thread which
@@ -584,8 +584,6 @@ EXPORT_SYMBOL(bdi_register_dev);
  */
 static void bdi_wb_shutdown(struct backing_dev_info *bdi)
 {
-	struct task_struct *task;
-
 	if (!bdi_cap_writeback_dirty(bdi))
 		return;
 
@@ -604,13 +602,8 @@ static void bdi_wb_shutdown(struct backing_dev_info *bdi)
 	 * Finally, kill the kernel thread. We don't need to be RCU
 	 * safe anymore, since the bdi is gone from visibility.
 	 */
-	spin_lock_bh(&bdi->wb_lock);
-	task = bdi->wb.task;
-	bdi->wb.task = NULL;
-	spin_unlock_bh(&bdi->wb_lock);
-
-	if (task)
-		kthread_stop(task);
+	if (bdi->wb.task)
+		kthread_stop(bdi->wb.task);
 }
 
 /*
@@ -630,9 +623,7 @@ static void bdi_prune_sb(struct backing_dev_info *bdi)
 
 void bdi_unregister(struct backing_dev_info *bdi)
 {
-	struct device *dev = bdi->dev;
-
-	if (dev) {
+	if (bdi->dev) {
 		bdi_set_min_ratio(bdi, 0);
 		trace_writeback_bdi_unregister(bdi);
 		bdi_prune_sb(bdi);
@@ -641,12 +632,8 @@ void bdi_unregister(struct backing_dev_info *bdi)
 		if (!bdi_cap_flush_forker(bdi))
 			bdi_wb_shutdown(bdi);
 		bdi_debug_unregister(bdi);
-
-		spin_lock_bh(&bdi->wb_lock);
+		device_unregister(bdi->dev);
 		bdi->dev = NULL;
-		spin_unlock_bh(&bdi->wb_lock);
-
-		device_unregister(dev);
 	}
 }
 EXPORT_SYMBOL(bdi_unregister);
@@ -677,7 +664,7 @@ int bdi_init(struct backing_dev_info *bdi)
 
 	bdi->min_ratio = 0;
 	bdi->max_ratio = 100;
-	bdi->max_prop_frac = FPROP_FRAC_BASE;
+	bdi->max_prop_frac = PROP_FRAC_BASE;
 	spin_lock_init(&bdi->wb_lock);
 	INIT_LIST_HEAD(&bdi->bdi_list);
 	INIT_LIST_HEAD(&bdi->work_list);
@@ -700,7 +687,7 @@ int bdi_init(struct backing_dev_info *bdi)
 	bdi->write_bandwidth = INIT_BW;
 	bdi->avg_write_bandwidth = INIT_BW;
 
-	err = fprop_local_init_percpu(&bdi->completions);
+	err = prop_local_init_percpu(&bdi->completions);
 
 	if (err) {
 err:
@@ -744,7 +731,7 @@ void bdi_destroy(struct backing_dev_info *bdi)
 	for (i = 0; i < NR_BDI_STAT_ITEMS; i++)
 		percpu_counter_destroy(&bdi->bdi_stat[i]);
 
-	fprop_local_destroy_percpu(&bdi->completions);
+	prop_local_destroy_percpu(&bdi->completions);
 }
 EXPORT_SYMBOL(bdi_destroy);
 
@@ -886,23 +873,3 @@ out:
 	return ret;
 }
 EXPORT_SYMBOL(wait_iff_congested);
-
-int pdflush_proc_obsolete(struct ctl_table *table, int write,
-			void __user *buffer, size_t *lenp, loff_t *ppos)
-{
-	char kbuf[] = "0\n";
-
-	if (*ppos) {
-		*lenp = 0;
-		return 0;
-	}
-
-	if (copy_to_user(buffer, kbuf, sizeof(kbuf)))
-		return -EFAULT;
-	printk_once(KERN_WARNING "%s exported in /proc is scheduled for removal\n",
-			table->procname);
-
-	*lenp = 2;
-	*ppos += *lenp;
-	return 2;
-}

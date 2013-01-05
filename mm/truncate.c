@@ -107,6 +107,7 @@ truncate_complete_page(struct address_space *mapping, struct page *page)
 
 	cancel_dirty_page(page, PAGE_CACHE_SIZE);
 
+	clear_page_mlock(page);
 	ClearPageMappedToDisk(page);
 	delete_from_page_cache(page);
 	return 0;
@@ -131,17 +132,24 @@ invalidate_complete_page(struct address_space *mapping, struct page *page)
 	if (page_has_private(page) && !try_to_release_page(page, 0))
 		return 0;
 
+	clear_page_mlock(page);
 	ret = remove_mapping(mapping, page);
 
 	return ret;
 }
 
+#ifdef CONFIG_MACH_P4NOTE
+static int unmap_mapcount = -99;
+#endif
 int truncate_inode_page(struct address_space *mapping, struct page *page)
 {
 	if (page_mapped(page)) {
 		unmap_mapping_range(mapping,
 				   (loff_t)page->index << PAGE_CACHE_SHIFT,
 				   PAGE_CACHE_SIZE, 0);
+#ifdef CONFIG_MACH_P4NOTE
+		unmap_mapcount = atomic_read(&(page)->_mapcount);
+#endif
 	}
 	return truncate_complete_page(mapping, page);
 }
@@ -182,7 +190,7 @@ int invalidate_inode_page(struct page *page)
 }
 
 /**
- * truncate_inode_pages_range - truncate range of pages specified by start & end byte offsets
+ * truncate_inode_pages - truncate range of pages specified by start & end byte offsets
  * @mapping: mapping to truncate
  * @lstart: offset from which to truncate
  * @lend: offset to which to truncate
@@ -334,14 +342,6 @@ unsigned long invalidate_mapping_pages(struct address_space *mapping,
 	unsigned long count = 0;
 	int i;
 
-	/*
-	 * Note: this function may get called on a shmem/tmpfs mapping:
-	 * pagevec_lookup() might then return 0 prematurely (because it
-	 * got a gangful of swap entries); but it's hardly worth worrying
-	 * about - it can rarely have anything to free from such a mapping
-	 * (most pages are dirty), and already skips over any difficulties.
-	 */
-
 	pagevec_init(&pvec, 0);
 	while (index <= end && pagevec_lookup(&pvec, mapping, index,
 			min(end - index, (pgoff_t)PAGEVEC_SIZE - 1) + 1)) {
@@ -391,6 +391,8 @@ invalidate_complete_page2(struct address_space *mapping, struct page *page)
 
 	if (page_has_private(page) && !try_to_release_page(page, GFP_KERNEL))
 		return 0;
+
+	clear_page_mlock(page);
 
 	spin_lock_irq(&mapping->tree_lock);
 	if (PageDirty(page))
@@ -575,6 +577,55 @@ void truncate_setsize(struct inode *inode, loff_t newsize)
 	truncate_pagecache(inode, oldsize, newsize);
 }
 EXPORT_SYMBOL(truncate_setsize);
+
+/**
+ * vmtruncate - unmap mappings "freed" by truncate() syscall
+ * @inode: inode of the file used
+ * @newsize: file offset to start truncating
+ *
+ * This function is deprecated and truncate_setsize or truncate_pagecache
+ * should be used instead, together with filesystem specific block truncation.
+ */
+int vmtruncate(struct inode *inode, loff_t newsize)
+{
+	int error;
+
+	error = inode_newsize_ok(inode, newsize);
+	if (error)
+		return error;
+
+	truncate_setsize(inode, newsize);
+	if (inode->i_op->truncate)
+		inode->i_op->truncate(inode);
+	return 0;
+}
+EXPORT_SYMBOL(vmtruncate);
+
+int vmtruncate_range(struct inode *inode, loff_t lstart, loff_t lend)
+{
+	struct address_space *mapping = inode->i_mapping;
+	loff_t holebegin = round_up(lstart, PAGE_SIZE);
+	loff_t holelen = 1 + lend - holebegin;
+
+	/*
+	 * If the underlying filesystem is not going to provide
+	 * a way to truncate a range of blocks (punch a hole) -
+	 * we should return failure right now.
+	 */
+	if (!inode->i_op->truncate_range)
+		return -ENOSYS;
+
+	mutex_lock(&inode->i_mutex);
+	down_write(&inode->i_alloc_sem);
+	unmap_mapping_range(mapping, holebegin, holelen, 1);
+	inode->i_op->truncate_range(inode, lstart, lend);
+	/* unmap again to remove racily COWed private pages */
+	unmap_mapping_range(mapping, holebegin, holelen, 1);
+	up_write(&inode->i_alloc_sem);
+	mutex_unlock(&inode->i_mutex);
+
+	return 0;
+}
 
 /**
  * truncate_pagecache_range - unmap and remove pagecache that is hole-punched

@@ -42,12 +42,14 @@
 #include <linux/bitops.h>
 #include <linux/mpage.h>
 #include <linux/bit_spinlock.h>
+#include <linux/cleancache.h>
 
 static int fsync_buffers_list(spinlock_t *lock, struct list_head *list);
 
 #define BH_ENTRY(list) list_entry((list), struct buffer_head, b_assoc_buffers)
 
-void init_buffer(struct buffer_head *bh, bh_end_io_t *handler, void *private)
+inline void
+init_buffer(struct buffer_head *bh, bh_end_io_t *handler, void *private)
 {
 	bh->b_end_io = handler;
 	bh->b_private = private;
@@ -226,6 +228,55 @@ out_unlock:
 out:
 	return ret;
 }
+
+/* If invalidate_buffers() will trash dirty buffers, it means some kind
+   of fs corruption is going on. Trashing dirty data always imply losing
+   information that was supposed to be just stored on the physical layer
+   by the user.
+
+   Thus invalidate_buffers in general usage is not allwowed to trash
+   dirty buffers. For example ioctl(FLSBLKBUF) expects dirty data to
+   be preserved.  These buffers are simply skipped.
+  
+   We also skip buffers which are still in use.  For example this can
+   happen if a userspace program is reading the block device.
+
+   NOTE: In the case where the user removed a removable-media-disk even if
+   there's still dirty data not synced on disk (due a bug in the device driver
+   or due an error of the user), by not destroying the dirty buffers we could
+   generate corruption also on the next media inserted, thus a parameter is
+   necessary to handle this case in the most safe way possible (trying
+   to not corrupt also the new disk inserted with the data belonging to
+   the old now corrupted disk). Also for the ramdisk the natural thing
+   to do in order to release the ramdisk memory is to destroy dirty buffers.
+
+   These are two special cases. Normal usage imply the device driver
+   to issue a sync on the device (without waiting I/O completion) and
+   then an invalidate_buffers call that doesn't trash dirty buffers.
+
+   For handling cache coherency with the blkdev pagecache the 'update' case
+   is been introduced. It is needed to re-read from disk any pinned
+   buffer. NOTE: re-reading from disk is destructive so we can do it only
+   when we assume nobody is changing the buffercache under our I/O and when
+   we think the disk contains more recent information than the buffercache.
+   The update == 1 pass marks the buffers we need to update, the update == 2
+   pass does the actual I/O. */
+void invalidate_bdev(struct block_device *bdev)
+{
+	struct address_space *mapping = bdev->bd_inode->i_mapping;
+
+	if (mapping->nrpages == 0)
+		return;
+
+	invalidate_bh_lrus();
+	lru_add_drain_all();	/* make sure all lru add caches are flushed */
+	invalidate_mapping_pages(mapping, 0, -1);
+	/* 99% of the time, we don't need to flush the cleancache on the bdev.
+	 * But, for the strange corners, lets be cautious
+	 */
+	cleancache_invalidate_inode(mapping);
+}
+EXPORT_SYMBOL(invalidate_bdev);
 
 /*
  * Kick the writeback threads then try to free up some ZONE_NORMAL memory.
@@ -552,7 +603,7 @@ void emergency_thaw_all(void)
  */
 int sync_mapping_buffers(struct address_space *mapping)
 {
-	struct address_space *buffer_mapping = mapping->private_data;
+	struct address_space *buffer_mapping = mapping->assoc_mapping;
 
 	if (buffer_mapping == NULL || list_empty(&mapping->private_list))
 		return 0;
@@ -585,10 +636,10 @@ void mark_buffer_dirty_inode(struct buffer_head *bh, struct inode *inode)
 	struct address_space *buffer_mapping = bh->b_page->mapping;
 
 	mark_buffer_dirty(bh);
-	if (!mapping->private_data) {
-		mapping->private_data = buffer_mapping;
+	if (!mapping->assoc_mapping) {
+		mapping->assoc_mapping = buffer_mapping;
 	} else {
-		BUG_ON(mapping->private_data != buffer_mapping);
+		BUG_ON(mapping->assoc_mapping != buffer_mapping);
 	}
 	if (!bh->b_assoc_map) {
 		spin_lock(&buffer_mapping->private_lock);
@@ -785,7 +836,7 @@ void invalidate_inode_buffers(struct inode *inode)
 	if (inode_has_buffers(inode)) {
 		struct address_space *mapping = &inode->i_data;
 		struct list_head *list = &mapping->private_list;
-		struct address_space *buffer_mapping = mapping->private_data;
+		struct address_space *buffer_mapping = mapping->assoc_mapping;
 
 		spin_lock(&buffer_mapping->private_lock);
 		while (!list_empty(list))
@@ -808,7 +859,7 @@ int remove_inode_buffers(struct inode *inode)
 	if (inode_has_buffers(inode)) {
 		struct address_space *mapping = &inode->i_data;
 		struct list_head *list = &mapping->private_list;
-		struct address_space *buffer_mapping = mapping->private_data;
+		struct address_space *buffer_mapping = mapping->assoc_mapping;
 
 		spin_lock(&buffer_mapping->private_lock);
 		while (!list_empty(list)) {
@@ -847,10 +898,13 @@ try_again:
 		if (!bh)
 			goto no_grow;
 
+		bh->b_bdev = NULL;
 		bh->b_this_page = head;
 		bh->b_blocknr = -1;
 		head = bh;
 
+		bh->b_state = 0;
+		atomic_set(&bh->b_count, 0);
 		bh->b_size = size;
 
 		/* Link the buffer to its page */

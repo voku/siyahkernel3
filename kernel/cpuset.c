@@ -296,10 +296,10 @@ static void guarantee_online_cpus(const struct cpuset *cs,
  * are online, with memory.  If none are online with memory, walk
  * up the cpuset hierarchy until we find one that does have some
  * online mems.  If we get all the way to the top and still haven't
- * found any online mems, return node_states[N_MEMORY].
+ * found any online mems, return node_states[N_HIGH_MEMORY].
  *
  * One way or another, we guarantee to return some non-empty subset
- * of node_states[N_MEMORY].
+ * of node_states[N_HIGH_MEMORY].
  *
  * Call with callback_mutex held.
  */
@@ -307,14 +307,14 @@ static void guarantee_online_cpus(const struct cpuset *cs,
 static void guarantee_online_mems(const struct cpuset *cs, nodemask_t *pmask)
 {
 	while (cs && !nodes_intersects(cs->mems_allowed,
-					node_states[N_MEMORY]))
+					node_states[N_HIGH_MEMORY]))
 		cs = cs->parent;
 	if (cs)
 		nodes_and(*pmask, cs->mems_allowed,
-					node_states[N_MEMORY]);
+					node_states[N_HIGH_MEMORY]);
 	else
-		*pmask = node_states[N_MEMORY];
-	BUG_ON(!nodes_intersects(*pmask, node_states[N_MEMORY]));
+		*pmask = node_states[N_HIGH_MEMORY];
+	BUG_ON(!nodes_intersects(*pmask, node_states[N_HIGH_MEMORY]));
 }
 
 /*
@@ -1094,7 +1094,7 @@ static int update_nodemask(struct cpuset *cs, struct cpuset *trialcs,
 		return -ENOMEM;
 
 	/*
-	 * top_cpuset.mems_allowed tracks node_stats[N_MEMORY];
+	 * top_cpuset.mems_allowed tracks node_stats[N_HIGH_MEMORY];
 	 * it's read-only
 	 */
 	if (cs == &top_cpuset) {
@@ -1116,7 +1116,7 @@ static int update_nodemask(struct cpuset *cs, struct cpuset *trialcs,
 			goto done;
 
 		if (!nodes_subset(trialcs->mems_allowed,
-				node_states[N_MEMORY])) {
+				node_states[N_HIGH_MEMORY])) {
 			retval =  -EINVAL;
 			goto done;
 		}
@@ -1765,14 +1765,58 @@ static struct cftype files[] = {
 		.write_u64 = cpuset_write_u64,
 		.private = FILE_SPREAD_SLAB,
 	},
+};
 
-	{
-		.name = "memory_pressure_enabled",
-		.flags = CFTYPE_ONLY_ON_ROOT,
-		.read_u64 = cpuset_read_u64,
-		.write_u64 = cpuset_write_u64,
-		.private = FILE_MEMORY_PRESSURE_ENABLED,
-	},
+static struct cftype cft_memory_pressure_enabled = {
+	.name = "memory_pressure_enabled",
+	.read_u64 = cpuset_read_u64,
+	.write_u64 = cpuset_write_u64,
+	.private = FILE_MEMORY_PRESSURE_ENABLED,
+};
+
+static int cpuset_populate(struct cgroup_subsys *ss, struct cgroup *cont)
+{
+	int err;
+
+	err = cgroup_add_files(cont, ss, files, ARRAY_SIZE(files));
+	if (err)
+		return err;
+	/* memory_pressure_enabled is in root cpuset only */
+	if (!cont->parent)
+		err = cgroup_add_file(cont, ss,
+				      &cft_memory_pressure_enabled);
+	return err;
+}
+
+/*
+ * post_clone() is called during cgroup_create() when the
+ * clone_children mount argument was specified.  The cgroup
+ * can not yet have any tasks.
+ *
+ * Currently we refuse to set up the cgroup - thereby
+ * refusing the task to be entered, and as a result refusing
+ * the sys_unshare() or clone() which initiated it - if any
+ * sibling cpusets have exclusive cpus or mem.
+ *
+ * If this becomes a problem for some users who wish to
+ * allow that scenario, then cpuset_post_clone() could be
+ * changed to grant parent->cpus_allowed-sibling_cpus_exclusive
+ * (and likewise for mems) to the new cgroup. Called with cgroup_mutex
+ * held.
+ */
+static void cpuset_post_clone(struct cgroup *cgroup)
+{
+	struct cgroup *parent, *child;
+	struct cpuset *cs, *parent_cs;
+
+	parent = cgroup->parent;
+	list_for_each_entry(child, &parent->children, sibling) {
+		cs = cgroup_cs(child);
+		if (is_mem_exclusive(cs) || is_cpu_exclusive(cs))
+			return;
+	}
+	cs = cgroup_cs(cgroup);
+	parent_cs = cgroup_cs(parent);
 
 	mutex_lock(&callback_mutex);
 	cs->mems_allowed = parent_cs->mems_allowed;
@@ -1991,7 +2035,7 @@ static void scan_for_empty_cpusets(struct cpuset *root)
 
 		/* Continue past cpusets with all cpus, mems online */
 		if (cpumask_subset(cp->cpus_allowed, cpu_active_mask) &&
-		    nodes_subset(cp->mems_allowed, node_states[N_MEMORY]))
+		    nodes_subset(cp->mems_allowed, node_states[N_HIGH_MEMORY]))
 			continue;
 
 		oldmems = cp->mems_allowed;
@@ -2001,7 +2045,7 @@ static void scan_for_empty_cpusets(struct cpuset *root)
 		cpumask_and(cp->cpus_allowed, cp->cpus_allowed,
 			    cpu_active_mask);
 		nodes_and(cp->mems_allowed, cp->mems_allowed,
-						node_states[N_MEMORY]);
+						node_states[N_HIGH_MEMORY]);
 		mutex_unlock(&callback_mutex);
 
 		/* Move tasks from the empty cpuset to a parent */
@@ -2050,8 +2094,8 @@ void cpuset_update_active_cpus(void)
 
 #ifdef CONFIG_MEMORY_HOTPLUG
 /*
- * Keep top_cpuset.mems_allowed tracking node_states[N_MEMORY].
- * Call this routine anytime after node_states[N_MEMORY] changes.
+ * Keep top_cpuset.mems_allowed tracking node_states[N_HIGH_MEMORY].
+ * Call this routine anytime after node_states[N_HIGH_MEMORY] changes.
  * See also the previous routine cpuset_track_online_cpus().
  */
 static int cpuset_track_online_nodes(struct notifier_block *self,
@@ -2064,7 +2108,7 @@ static int cpuset_track_online_nodes(struct notifier_block *self,
 	case MEM_ONLINE:
 		oldmems = top_cpuset.mems_allowed;
 		mutex_lock(&callback_mutex);
-		top_cpuset.mems_allowed = node_states[N_MEMORY];
+		top_cpuset.mems_allowed = node_states[N_HIGH_MEMORY];
 		mutex_unlock(&callback_mutex);
 		update_tasks_nodemask(&top_cpuset, &oldmems, NULL);
 		break;
@@ -2093,7 +2137,7 @@ static int cpuset_track_online_nodes(struct notifier_block *self,
 void __init cpuset_init_smp(void)
 {
 	cpumask_copy(top_cpuset.cpus_allowed, cpu_active_mask);
-	top_cpuset.mems_allowed = node_states[N_MEMORY];
+	top_cpuset.mems_allowed = node_states[N_HIGH_MEMORY];
 
 	hotplug_memory_notifier(cpuset_track_online_nodes, 10);
 
@@ -2161,7 +2205,7 @@ void cpuset_init_current_mems_allowed(void)
  *
  * Description: Returns the nodemask_t mems_allowed of the cpuset
  * attached to the specified @tsk.  Guaranteed to return some non-empty
- * subset of node_states[N_MEMORY], even if this means going outside the
+ * subset of node_states[N_HIGH_MEMORY], even if this means going outside the
  * tasks cpuset.
  **/
 

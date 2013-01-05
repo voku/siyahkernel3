@@ -51,13 +51,15 @@ EXPORT_SYMBOL(can_do_mlock);
 /*
  *  LRU accounting for clear_page_mlock()
  */
-void clear_page_mlock(struct page *page)
+void __clear_page_mlock(struct page *page)
 {
-	if (!TestClearPageMlocked(page))
-		return;
+	VM_BUG_ON(!PageLocked(page));
 
-	mod_zone_page_state(page_zone(page), NR_MLOCK,
-			    -hpage_nr_pages(page));
+	if (!page->mapping) {	/* truncated ? */
+		return;
+	}
+
+	dec_zone_page_state(page, NR_MLOCK);
 	count_vm_event(UNEVICTABLE_PGCLEARED);
 	if (!isolate_lru_page(page)) {
 		putback_lru_page(page);
@@ -79,8 +81,7 @@ void mlock_vma_page(struct page *page)
 	BUG_ON(!PageLocked(page));
 
 	if (!TestSetPageMlocked(page)) {
-		mod_zone_page_state(page_zone(page), NR_MLOCK,
-				    hpage_nr_pages(page));
+		inc_zone_page_state(page, NR_MLOCK);
 		count_vm_event(UNEVICTABLE_PGMLOCKED);
 		if (!isolate_lru_page(page))
 			putback_lru_page(page);
@@ -107,18 +108,9 @@ void munlock_vma_page(struct page *page)
 	BUG_ON(!PageLocked(page));
 
 	if (TestClearPageMlocked(page)) {
-		mod_zone_page_state(page_zone(page), NR_MLOCK,
-				    -hpage_nr_pages(page));
+		dec_zone_page_state(page, NR_MLOCK);
 		if (!isolate_lru_page(page)) {
-			int ret = SWAP_AGAIN;
-
-			/*
-			 * Optimization: if the page was mapped just once,
-			 * that's our mapping and we don't need to check all the
-			 * other vmas.
-			 */
-			if (page_mapcount(page) > 1)
-				ret = try_to_munlock(page);
+			int ret = try_to_munlock(page);
 			/*
 			 * did try_to_unlock() succeed or punt?
 			 */
@@ -290,7 +282,14 @@ void munlock_vma_pages_range(struct vm_area_struct *vma,
 		page = follow_page(vma, addr, FOLL_GET | FOLL_DUMP);
 		if (page && !IS_ERR(page)) {
 			lock_page(page);
-			munlock_vma_page(page);
+			/*
+			 * Like in __mlock_vma_pages_range(),
+			 * because we lock page here and migration is
+			 * blocked by the elevated reference, we need
+			 * only check for file-cache page truncation.
+			 */
+			if (page->mapping)
+				munlock_vma_page(page);
 			unlock_page(page);
 			put_page(page);
 		}
@@ -378,11 +377,10 @@ static int do_mlock(unsigned long start, size_t len, int on)
 		return -EINVAL;
 	if (end == start)
 		return 0;
-	vma = find_vma(current->mm, start);
+	vma = find_vma_prev(current->mm, start, &prev);
 	if (!vma || vma->vm_start > start)
 		return -ENOMEM;
 
-	prev = vma->vm_prev;
 	if (start > vma->vm_start)
 		prev = vma;
 
@@ -551,8 +549,7 @@ SYSCALL_DEFINE1(mlockall, int, flags)
 	if (!can_do_mlock())
 		goto out;
 
-	if (flags & MCL_CURRENT)
-		lru_add_drain_all();	/* flush pagevec */
+	lru_add_drain_all();	/* flush pagevec */
 
 	down_write(&current->mm->mmap_sem);
 
