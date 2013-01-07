@@ -1220,6 +1220,15 @@ out:
 	host->clock = clock;
 }
 
+static inline void sdhci_update_clock(struct sdhci_host *host)
+{
+	unsigned int clock;
+
+	clock = host->clock;
+	host->clock = 0;
+	sdhci_set_clock(host, clock);
+}
+
 static void sdhci_set_power(struct sdhci_host *host, unsigned short power)
 {
 	u8 pwr = 0;
@@ -1438,7 +1447,6 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 
 	if (host->version >= SDHCI_SPEC_300) {
 		u16 clk, ctrl_2;
-		unsigned int clock;
 
 		/* In case of UHS-I modes, set High Speed Enable */
 		if ((ios->timing == MMC_TIMING_MMC_HS200) ||
@@ -1478,9 +1486,7 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 			sdhci_writeb(host, ctrl, SDHCI_HOST_CONTROL);
 
 			/* Re-enable SD Clock */
-			clock = host->clock;
-			host->clock = 0;
-			sdhci_set_clock(host, clock);
+			sdhci_update_clock(host);
 		}
 
 
@@ -1511,9 +1517,7 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 		}
 
 		/* Re-enable SD Clock */
-		clock = host->clock;
-		host->clock = 0;
-		sdhci_set_clock(host, clock);
+		sdhci_update_clock(host);
 	} else
 		sdhci_writeb(host, ctrl, SDHCI_HOST_CONTROL);
 
@@ -2137,14 +2141,9 @@ static void sdhci_tasklet_finish(unsigned long param)
 		   (host->quirks & SDHCI_QUIRK_RESET_AFTER_REQUEST))) {
 
 		/* Some controllers need this kick or reset won't work here */
-		if (host->quirks & SDHCI_QUIRK_CLOCK_BEFORE_RESET) {
-			unsigned int clock;
-
+		if (host->quirks & SDHCI_QUIRK_CLOCK_BEFORE_RESET)
 			/* This is to force an update */
-			clock = host->clock;
-			host->clock = 0;
-			sdhci_set_clock(host, clock);
-		}
+			sdhci_update_clock(host);
 
 		/* Spec says we should do both at the same time, but Ricoh
 		   controllers do not like that. */
