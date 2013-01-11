@@ -318,6 +318,9 @@ static unsigned long isolate_freepages_block(struct compact_control *cc,
 	if (blockpfn == end_pfn)
 		update_pageblock_skip(cc, valid_page, total_isolated, false);
 
+	count_compact_events(COMPACTFREE_SCANNED, nr_scanned);
+	if (total_isolated)
+		count_compact_events(COMPACTISOLATED, total_isolated);
 	return total_isolated;
 }
 
@@ -623,6 +626,10 @@ next_pageblock:
 		update_pageblock_skip(cc, valid_page, nr_isolated, true);
 
 	trace_mm_compaction_isolate_migratepages(nr_scanned, nr_isolated);
+
+	count_compact_events(COMPACTMIGRATE_SCANNED, nr_scanned);
+	if (nr_isolated)
+		count_compact_events(COMPACTISOLATED, nr_isolated);
 
 	return low_pfn;
 }
@@ -975,10 +982,6 @@ static int compact_zone(struct zone *zone, struct compact_control *cc)
 		update_nr_listpages(cc);
 		nr_remaining = cc->nr_migratepages;
 
-		count_vm_event(COMPACTBLOCKS);
-		count_vm_events(COMPACTPAGES, nr_migrate - nr_remaining);
-		if (nr_remaining)
-			count_vm_events(COMPACTPAGEFAILED, nr_remaining);
 		trace_mm_compaction_migratepages(nr_migrate - nr_remaining,
 						nr_remaining);
 
@@ -1140,7 +1143,7 @@ static int compact_node(int nid, bool sync)
 }
 
 /* Compact all nodes in the system */
-int compact_nodes(bool sync)
+void compact_nodes(bool sync)
 {
 	int nid;
 
@@ -1149,8 +1152,6 @@ int compact_nodes(bool sync)
 
 	for_each_online_node(nid)
 		compact_node(nid, sync);
-
-	return COMPACT_COMPLETE;
 }
 
 /* The written value is actually unused, all memory is compacted */
@@ -1161,7 +1162,7 @@ int sysctl_compaction_handler(struct ctl_table *table, int write,
 			void __user *buffer, size_t *length, loff_t *ppos)
 {
 	if (write)
-		return compact_nodes(true);
+		compact_nodes(true);
 
 	return 0;
 }
@@ -1173,5 +1174,34 @@ int sysctl_extfrag_handler(struct ctl_table *table, int write,
 
 	return 0;
 }
+
+#if defined(CONFIG_SYSFS) && defined(CONFIG_NUMA)
+ssize_t sysfs_compact_node(struct device *dev,
+			struct device_attribute *attr,
+			const char *buf, size_t count)
+{
+	int nid = dev->id;
+
+	if (nid >= 0 && nid < nr_node_ids && node_online(nid)) {
+		/* Flush pending updates to the LRU lists */
+		lru_add_drain_all();
+
+		compact_node(nid);
+	}
+
+	return count;
+}
+static DEVICE_ATTR(compact, S_IWUSR, NULL, sysfs_compact_node);
+
+int compaction_register_node(struct node *node)
+{
+	return device_create_file(&node->dev, &dev_attr_compact);
+}
+
+void compaction_unregister_node(struct node *node)
+{
+	return device_remove_file(&node->dev, &dev_attr_compact);
+}
+#endif /* CONFIG_SYSFS && CONFIG_NUMA */
 
 #endif /* CONFIG_COMPACTION */
