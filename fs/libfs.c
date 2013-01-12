@@ -12,9 +12,11 @@
 #include <linux/mutex.h>
 #include <linux/exportfs.h>
 #include <linux/writeback.h>
-#include <linux/buffer_head.h>
+#include <linux/buffer_head.h> /* sync_mapping_buffers */
 
 #include <asm/uaccess.h>
+
+#include "internal.h"
 
 static inline int simple_positive(struct dentry *dentry)
 {
@@ -79,11 +81,11 @@ int dcache_dir_close(struct inode *inode, struct file *file)
 	return 0;
 }
 
-loff_t dcache_dir_lseek(struct file *file, loff_t offset, int origin)
+loff_t dcache_dir_lseek(struct file *file, loff_t offset, int whence)
 {
 	struct dentry *dentry = file->f_path.dentry;
 	mutex_lock(&dentry->d_inode->i_mutex);
-	switch (origin) {
+	switch (whence) {
 		case 1:
 			offset += file->f_pos;
 		case 0:
@@ -246,13 +248,11 @@ struct dentry *mount_pseudo(struct file_system_type *fs_type, char *name,
 	root->i_ino = 1;
 	root->i_mode = S_IFDIR | S_IRUSR | S_IWUSR;
 	root->i_atime = root->i_mtime = root->i_ctime = CURRENT_TIME;
-	dentry = d_alloc(NULL, &d_name);
+	dentry = __d_alloc(s, &d_name);
 	if (!dentry) {
 		iput(root);
 		goto Enomem;
 	}
-	dentry->d_sb = s;
-	dentry->d_parent = dentry;
 	d_instantiate(dentry, root);
 	s->s_root = dentry;
 	s->s_d_op = dops;
