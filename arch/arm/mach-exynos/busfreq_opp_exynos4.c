@@ -294,42 +294,6 @@ static ssize_t show_time_in_state(struct device *device,
 	return len;
 }
 
-static ssize_t show_up_threshold(struct device *device,
-		 struct device_attribute *attr, char *buf)
-{
-	int len = 0;
-	len = sprintf(buf, "%d\n", up_threshold);
-
-	return len;
-}
-static ssize_t store_up_threshold(struct device *device,
-		struct device_attribute *attr,
-		const char *buf, size_t count)
-{
-	int ret;
-
-	ret = sscanf(buf, "%d", &up_threshold);
-	return count;
-}
-
-static ssize_t show_ppmu_threshold(struct device *device,
-		struct device_attribute *attr, char *buf)
-{
-	int len = 0;
-	len = sprintf(buf, "%d\n", ppmu_threshold);
-
-	return len;
-}
-static ssize_t store_ppmu_threshold(struct device *device,
-		struct device_attribute *attr,
-		const char *buf, size_t count)
-{
-	int ret;
-
-	ret = sscanf(buf, "%d", &ppmu_threshold);
-	return count;
-}
-
 static ssize_t show_idle_threshold(struct device *device,
 		struct device_attribute *attr, char *buf)
 {
@@ -447,28 +411,17 @@ static ssize_t store_load_history_size(struct device *device,
 static DEVICE_ATTR(curr_freq, 0664, show_level_lock, store_level_lock);
 static DEVICE_ATTR(lock_list, 0664, show_locklist, NULL);
 static DEVICE_ATTR(time_in_state, 0664, show_time_in_state, NULL);
-static DEVICE_ATTR(up_threshold, 0664, show_up_threshold, store_up_threshold);
-static DEVICE_ATTR(ppmu_threshold, 0664, show_ppmu_threshold,
-					store_ppmu_threshold);
-static DEVICE_ATTR(idle_threshold, 0664, show_idle_threshold,
-					store_idle_threshold);
-static DEVICE_ATTR(up_cpu_threshold, 0664, show_up_cpu_threshold,
-					store_up_cpu_threshold);
-static DEVICE_ATTR(max_cpu_threshold, 0664, show_max_cpu_threshold,
-					store_max_cpu_threshold);
-static DEVICE_ATTR(cpu_slope_size, 0664, show_cpu_slope_size,
-					store_cpu_slope_size);
-static DEVICE_ATTR(dmc_max_threshold, 0664, show_dmc_max_threshold,
-					store_dmc_max_threshold);
-static DEVICE_ATTR(load_history_size, 0664, show_load_history_size,
-					store_load_history_size);
+static DEVICE_ATTR(idle_threshold, 0664, show_idle_threshold, store_idle_threshold);
+static DEVICE_ATTR(up_cpu_threshold, 0664, show_up_cpu_threshold, store_up_cpu_threshold);
+static DEVICE_ATTR(max_cpu_threshold, 0664, show_max_cpu_threshold, store_max_cpu_threshold);
+static DEVICE_ATTR(cpu_slope_size, 0664, show_cpu_slope_size, store_cpu_slope_size);
+static DEVICE_ATTR(dmc_max_threshold, 0664, show_dmc_max_threshold, store_dmc_max_threshold);
+static DEVICE_ATTR(load_history_size, 0664, show_load_history_size, store_load_history_size);
 
 static struct attribute *busfreq_attributes[] = {
 	&dev_attr_curr_freq.attr,
 	&dev_attr_lock_list.attr,
 	&dev_attr_time_in_state.attr,
-	&dev_attr_up_threshold.attr,
-	&dev_attr_ppmu_threshold.attr,
 	&dev_attr_idle_threshold.attr,
 	&dev_attr_up_cpu_threshold.attr,
 	&dev_attr_max_cpu_threshold.attr,
