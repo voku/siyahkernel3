@@ -1131,7 +1131,7 @@ pause:
 					  pages_dirtied,
 					  pause,
 					  start_time);
-		__set_current_state(TASK_UNINTERRUPTIBLE);
+		__set_current_state(TASK_KILLABLE);
 		io_schedule_timeout(pause);
 
 		dirty_thresh = hard_dirty_limit(dirty_thresh);
@@ -1285,7 +1285,6 @@ int dirty_writeback_centisecs_handler(ctl_table *table, int write,
 	void __user *buffer, size_t *length, loff_t *ppos)
 {
 	proc_dointvec(table, write, buffer, length, ppos);
-	bdi_arm_supers_timer();
 	return 0;
 }
 

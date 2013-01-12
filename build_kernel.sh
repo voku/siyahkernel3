@@ -153,7 +153,7 @@ if [ -e ${KERNELDIR}/arch/arm/boot/zImage ]; then
 	GETVER=`grep 'Siyah-.*-V' arch/arm/configs/${KERNEL_CONFIG} | sed 's/.*".//g' | sed 's/-I.*//g'`
 	cp ${KERNELDIR}/zImage /${KERNELDIR}/READY-JB/boot/
 	cd ${KERNELDIR}/READY-JB/
-	zip -r Kernel_${GETVER}-ICS-JB`date +"-%H-%M--%d-%m-12-SG2-PWR-CORE"`.zip .
+	zip -r Kernel_${GETVER}-`date +"[%H-%M]-[%d-%m]-ICS-JB-SGII-PWR-CORE"`.zip .
 	STATUS=`adb get-state`;
 	if [ "$STATUS" == "device" ]; then
 		read -p "push kernel to android (y/n)?"
