@@ -1343,6 +1343,7 @@ static int cpufreq_governor_zenx(struct cpufreq_policy *policy,
 		if (++active_count > 1) {
 			mutex_unlock(&gov_lock);
 			return 0;
+		}
 
 		rc = sysfs_create_group(cpufreq_global_kobject,
 				&zenx_attr_group);
