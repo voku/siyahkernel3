@@ -94,12 +94,6 @@ static inline unsigned long compaction_suitable(struct zone *zone, int order)
 	return COMPACT_SKIPPED;
 }
 
-static inline unsigned long compact_zone_order(struct zone *zone, int order,
-					       gfp_t gfp_mask, bool sync)
-{
-	return COMPACT_CONTINUE;
-}
-
 static inline void defer_compaction(struct zone *zone, int order)
 {
 }
@@ -109,11 +103,7 @@ static inline bool compaction_deferred(struct zone *zone, int order)
 	return true;
 }
 
-static inline int compact_nodes(bool sync)
-{
-	return COMPACT_CONTINUE;
-}
-
 #endif /* CONFIG_COMPACTION */
+
 
 #endif /* _LINUX_COMPACTION_H */

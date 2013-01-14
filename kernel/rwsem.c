@@ -10,6 +10,7 @@
 #include <linux/module.h>
 #include <linux/rwsem.h>
 
+#include <asm/system.h>
 #include <linux/atomic.h>
 
 /*
@@ -116,6 +117,15 @@ void down_read_nested(struct rw_semaphore *sem, int subclass)
 
 EXPORT_SYMBOL(down_read_nested);
 
+void down_read_non_owner(struct rw_semaphore *sem)
+{
+	might_sleep();
+
+	__down_read(sem);
+}
+
+EXPORT_SYMBOL(down_read_non_owner);
+
 void _down_write_nest_lock(struct rw_semaphore *sem, struct lockdep_map *nest)
 {
 	might_sleep();
@@ -135,6 +145,13 @@ void down_write_nested(struct rw_semaphore *sem, int subclass)
 }
 
 EXPORT_SYMBOL(down_write_nested);
+
+void up_read_non_owner(struct rw_semaphore *sem)
+{
+	__up_read(sem);
+}
+
+EXPORT_SYMBOL(up_read_non_owner);
 
 #endif
 
