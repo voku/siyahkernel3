@@ -1365,17 +1365,21 @@ static void report_input_data(struct mxt224_data *data)
 
 	if (level == ~0) {
 
+		// DEBUG
 		printk("old lock_freq: %u\n", lock_freq);
 		new_lock_freq = lock_freq / 10 * nr_running();
+
+		if (new_lock_freq <= 100000) new_lock_freq = 100000;
+		else if (new_lock_freq <= 200000) new_lock_freq = 200000;
+		else if (new_lock_freq <= 300000) new_lock_freq = 300000;
+		else if (new_lock_freq <= 400000) new_lock_freq = 400000;
+		else if (new_lock_freq <= 500000) new_lock_freq = 500000;
+		else if (new_lock_freq > lock_freq) new_lock_freq = 500000;
+
+		// DEBUG
 		printk("new lock_freq: %u\n", new_lock_freq);
 
-		if (new_lock_freq <= 100000) lock_freq = 100000;
-		else if (new_lock_freq <= 200000) lock_freq = 200000;
-		else if (new_lock_freq <= 300000) lock_freq = 300000;
-		else if (new_lock_freq <= 400000) lock_freq = 400000;
-		else if (new_lock_freq <= 500000) lock_freq = 500000;
-
-		exynos_cpufreq_get_level(lock_freq, &level);
+		exynos_cpufreq_get_level(new_lock_freq, &level);
 	}
 
 	for (i = 0; i < data->num_fingers; i++) {
