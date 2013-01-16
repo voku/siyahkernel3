@@ -101,9 +101,6 @@
 //#define printk(arg, ...)
 #define TOUCH_LOCK_FREQ			500000
 
-#define LOAD_INT(x) ((x) >> FSHIFT)
-#define LOAD_FRAC(x) LOAD_INT(((x) & (FIXED_1-1)) * 100)
-
 #if defined(U1_EUR_TARGET)
 static bool gbfilter;
 #endif
@@ -1367,24 +1364,16 @@ static void report_input_data(struct mxt224_data *data)
 	touch_is_pressed = 0;
 
 	if (level == ~0) {
-		get_avenrun(avnrun, FIXED_1/200, 0);
-
-		// DEBUG
-		printk("user-load: %lu, nice-load: %lu, kernel-load: %lu, processes: %ld/%d\n", 
-			LOAD_INT(avnrun[0]), 
-			LOAD_INT(avnrun[1]), 
-			LOAD_INT(avnrun[2]),
-			nr_running(), nr_threads);
 
 		printk("old lock_freq: %u\n", lock_freq);
 		new_lock_freq = lock_freq / 10 * nr_running();
 		printk("new lock_freq: %u\n", new_lock_freq);
 
-		if (new_lock_freq <= 100) lock_freq = 100;
-		else if (new_lock_freq <= 200) lock_freq = 200;
-		else if (new_lock_freq <= 300) lock_freq = 300;
-		else if (new_lock_freq <= 400) lock_freq = 400;
-		else if (new_lock_freq <= 500) lock_freq = 500;
+		if (new_lock_freq <= 100000) lock_freq = 100000;
+		else if (new_lock_freq <= 200000) lock_freq = 200000;
+		else if (new_lock_freq <= 300000) lock_freq = 300000;
+		else if (new_lock_freq <= 400000) lock_freq = 400000;
+		else if (new_lock_freq <= 500000) lock_freq = 500000;
 
 		exynos_cpufreq_get_level(lock_freq, &level);
 	}
