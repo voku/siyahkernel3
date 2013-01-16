@@ -98,8 +98,11 @@
 #define MAX_USING_FINGER_NUM 10
 
 #define MXT224_AUTOCAL_WAIT_TIME		2000
-#define printk(arg, ...)
+//#define printk(arg, ...)
 #define TOUCH_LOCK_FREQ			500000
+
+#define LOAD_INT(x) ((x) >> FSHIFT)
+#define LOAD_FRAC(x) LOAD_INT(((x) & (FIXED_1-1)) * 100)
 
 #if defined(U1_EUR_TARGET)
 static bool gbfilter;
@@ -1347,6 +1350,7 @@ static void report_input_data(struct mxt224_data *data)
 	u16 object_address = 0;
 	u16 size = 1;
 	u8 value;
+	unsigned long avnrun[3];
 #ifdef CONFIG_TOUCHSCREEN_GESTURES
 	int gesture_no, finger_no;
 	int finger_pos;
@@ -1354,6 +1358,7 @@ static void report_input_data(struct mxt224_data *data)
 	int step;
 	bool fingers_completed;
 	unsigned long flags;
+	unsigned int new_lock_freq;
 	bool track_gestures;
 
 	track_gestures = copy_data->mxt224_enabled;
@@ -1361,8 +1366,28 @@ static void report_input_data(struct mxt224_data *data)
 
 	touch_is_pressed = 0;
 
-	if (level == ~0)
+	if (level == ~0) {
+		get_avenrun(avnrun, FIXED_1/200, 0);
+
+		// DEBUG
+		printk("user-load: %lu, nice-load: %lu, kernel-load: %lu, processes: %ld/%d\n", 
+			LOAD_INT(avnrun[0]), 
+			LOAD_INT(avnrun[1]), 
+			LOAD_INT(avnrun[2]),
+			nr_running(), nr_threads);
+
+		printk("old lock_freq: %u\n", lock_freq);
+		new_lock_freq = lock_freq / 10 * nr_running();
+		printk("new lock_freq: %u\n", new_lock_freq);
+
+		if (new_lock_freq <= 100) lock_freq = 100;
+		else if (new_lock_freq <= 200) lock_freq = 200;
+		else if (new_lock_freq <= 300) lock_freq = 300;
+		else if (new_lock_freq <= 400) lock_freq = 400;
+		else if (new_lock_freq <= 500) lock_freq = 500;
+
 		exynos_cpufreq_get_level(lock_freq, &level);
+	}
 
 	for (i = 0; i < data->num_fingers; i++) {
 		if (TSP_STATE_INACTIVE == data->fingers[i].z)
