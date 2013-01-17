@@ -98,7 +98,7 @@
 #define MAX_USING_FINGER_NUM 10
 
 #define MXT224_AUTOCAL_WAIT_TIME		2000
-#define printk(arg, ...)
+//#define printk(arg, ...)
 #define TOUCH_LOCK_FREQ			500000
 
 #if defined(U1_EUR_TARGET)
@@ -1366,22 +1366,25 @@ static void report_input_data(struct mxt224_data *data)
 	if (level == ~0) {
 
 		// DEBUG
-		//printk("old lock_freq: %u\n", lock_freq);
+		printk("old lock_freq: %u\n", lock_freq);
 		new_lock_freq = lock_freq / 10 * nr_running();
 
-		for (i=100000; i <= 1000000; i=i+100000) {
+		for (i=100000; i <= 1200000; i=i+100000) {
 			if (i >= lock_freq) {
 				new_lock_freq = lock_freq;
 				break;
 			}
 			else if (new_lock_freq <= i ) {
+				if (i == "850000" || i == "950000") {
+					i = i + 2000;
+				}
 				new_lock_freq = i;
 				break;
 			}
 		}
 
 		// DEBUG
-		//printk("new lock_freq: %u\n", new_lock_freq);
+		printk("new lock_freq: %u\n", new_lock_freq);
 
 		exynos_cpufreq_get_level(new_lock_freq, &level);
 	}
