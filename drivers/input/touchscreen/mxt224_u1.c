@@ -1369,13 +1369,13 @@ static void report_input_data(struct mxt224_data *data)
 		//printk("old lock_freq: %u\n", lock_freq);
 		new_lock_freq = lock_freq / 10 * nr_running();
 
-		for (i=100000; i <= 1000000; i=i+100000) { 
+		for (i=100000; i <= 1000000; i=i+100000) {
 			if (i >= lock_freq) {
 				new_lock_freq = lock_freq;
 				break;
 			}
 			else if (new_lock_freq <= i ) {
-				new_lock_freq = i; 
+				new_lock_freq = i;
 				break;
 			}
 		}
