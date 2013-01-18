@@ -789,6 +789,17 @@ static void __init do_pre_smp_initcalls(void)
 		do_one_initcall(*fn);
 }
 
+/*
+ * This function requests modules which should be loaded by default and is
+ * called twice right after initrd is mounted and right before init is
+ * exec'd.  If such modules are on either initrd or rootfs, they will be
+ * loaded before control is passed to userland.
+ */
+void __init load_default_modules(void)
+{
+	load_default_elevator_module();
+}
+
 static int run_init_process(const char *init_filename)
 {
 	int ret = 0;
@@ -811,8 +822,7 @@ static noinline int init_post(void)
 	if (ramdisk_execute_command) {
 		if (!run_init_process(ramdisk_execute_command))
 			return 0;
-		printk(KERN_WARNING "Failed to execute %s\n",
-				ramdisk_execute_command);
+		pr_err("Failed to execute %s\n", ramdisk_execute_command);
 	}
 
 	/*
@@ -824,8 +834,8 @@ static noinline int init_post(void)
 	if (execute_command) {
 		if (!run_init_process(execute_command))
 			return 0;
-		printk(KERN_WARNING "Failed to execute %s.  Attempting "
-					"defaults...\n", execute_command);
+		pr_err("Failed to execute %s.  Attempting defaults...\n",
+			execute_command);
 	}
 	if (!run_init_process("/sbin/init") ||
 	    !run_init_process("/etc/init") ||
@@ -892,6 +902,9 @@ static int __init kernel_init(void * unused)
 	 * we're essentially up and running. Get rid of the
 	 * initmem segments and start the user-mode stuff..
 	 */
+
+	/* rootfs is available now, try loading default modules */
+	load_default_modules();
 
 	init_post();
 	return 0;
