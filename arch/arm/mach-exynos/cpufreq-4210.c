@@ -156,7 +156,7 @@ static unsigned int clkdiv_cpu1[CPUFREQ_LEVEL_END][2] = {
 	{ 4, 0 },	/* ARM L7: 1052MHz */
 	{ 4, 0 },	/* ARM L8: 1000MHz */
 	{ 4, 0 },	/* ARM L9:  952MHz */
-	{ 4, 0 },	/* ARM L7:  900MHz */
+	{ 4, 0 },	/* ARM L10: 900MHz */
 	{ 3, 0 },	/* ARM L11: 852MHz */
 	{ 3, 0 },	/* ARM L12: 800MHz */
 	{ 3, 0 },	/* ARM L13: 750MHz */
@@ -187,7 +187,7 @@ static unsigned int exynos4_apll_pms_table[CPUFREQ_LEVEL_END] = {
 	((275 << 16)|(6 << 8)|(0x1)),	/* APLL FOUT L6: 1100MHz */
 	((263 << 16)|(6 << 8)|(0x1)),	/* APLL FOUT L6: 1052MHz */	 // 262.5
 	((250 << 16)|(6 << 8)|(0x1)),	/* APLL FOUT L8: 1000MHz */
-	((238 << 16)|(6 << 8)|(0x1)),	/* APLL FOUT L10: 952MHz */	 // 237.5
+	((238 << 16)|(6 << 8)|(0x1)),	/* APLL FOUT L9:  952MHz */	 // 237.5
 	((225 << 16)|(6 << 8)|(0x1)),	/* APLL FOUT L10: 900MHz */
 	((213 << 16)|(6 << 8)|(0x1)),	/* APLL FOUT L11: 852MHz */  // 212.5
 	((200 << 16)|(6 << 8)|(0x1)),	/* APLL FOUT L12: 800MHz */	 
@@ -271,7 +271,6 @@ static const unsigned int asv_voltage_B[CPUFREQ_LEVEL_END][5] = {
 	{ 1150000, 1100000, 1050000, 1000000,  975000 },
 	{ 1050000, 1000000,  950000,  950000,  950000 },
 	{ 1025000,  975000,  950000,  950000,  950000 },
-
 };
 
 static void set_clkdiv(unsigned int div_index)
