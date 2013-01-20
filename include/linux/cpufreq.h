@@ -451,6 +451,7 @@ void cpufreq_frequency_table_get_attr(struct cpufreq_frequency_table *table,
 				      unsigned int cpu);
 
 void cpufreq_frequency_table_put_attr(unsigned int cpu);
+const char *cpufreq_get_current_driver(void);
 
 /*********************************************************************
  *                     Governor Helpers				     *
