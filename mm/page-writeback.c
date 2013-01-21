@@ -1638,7 +1638,7 @@ static struct notifier_block __cpuinitdata ratelimit_nb = {
 
 static void dirty_early_suspend(struct early_suspend *handler)
 {
-	dirty_writeback_interval = 5 * 100;
+	dirty_writeback_interval = 5 * 200;
 }
 
 static void dirty_late_resume(struct early_suspend *handler)
