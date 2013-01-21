@@ -234,9 +234,9 @@ static inline void sanitize_highpage(struct page *page)
 	unsigned long flags;
 
 	local_irq_save(flags);
-	kaddr = kmap_atomic(page, KM_CLEARPAGE);
+	kaddr = kmap_atomic(page);
 	clear_page(kaddr);
-	kunmap_atomic(kaddr, KM_CLEARPAGE);
+	kunmap_atomic(kaddr);
 	local_irq_restore(flags);
 }
 

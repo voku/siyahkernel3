@@ -102,7 +102,7 @@ static inline int bio_has_allocated_vec(struct bio *bio)
  * I/O completely on that queue (see ide-dma for example)
  */
 #define __bio_kmap_atomic(bio, idx, kmtype)				\
-	(kmap_atomic(bio_iovec_idx((bio), (idx))->bv_page) +	\
+	(kmap_atomic(bio_iovec_idx((bio)) +	\
 		bio_iovec_idx((bio), (idx))->bv_offset)
 
 #define __bio_kunmap_atomic(addr, kmtype) kunmap_atomic(addr)
