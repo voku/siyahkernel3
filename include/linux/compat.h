@@ -19,6 +19,57 @@
 #include <asm/siginfo.h>
 #include <asm/signal.h>
 
+#ifndef COMPAT_USE_64BIT_TIME
+#define COMPAT_USE_64BIT_TIME 0
+#endif
+
+#ifndef __SC_DELOUSE
+#define __SC_DELOUSE(t,v) ((t)(unsigned long)(v))
+#endif
+
+#define COMPAT_SYSCALL_DEFINE1(name, ...) \
+        COMPAT_SYSCALL_DEFINEx(1, _##name, __VA_ARGS__)
+#define COMPAT_SYSCALL_DEFINE2(name, ...) \
+	COMPAT_SYSCALL_DEFINEx(2, _##name, __VA_ARGS__)
+#define COMPAT_SYSCALL_DEFINE3(name, ...) \
+	COMPAT_SYSCALL_DEFINEx(3, _##name, __VA_ARGS__)
+#define COMPAT_SYSCALL_DEFINE4(name, ...) \
+	COMPAT_SYSCALL_DEFINEx(4, _##name, __VA_ARGS__)
+#define COMPAT_SYSCALL_DEFINE5(name, ...) \
+	COMPAT_SYSCALL_DEFINEx(5, _##name, __VA_ARGS__)
+#define COMPAT_SYSCALL_DEFINE6(name, ...) \
+	COMPAT_SYSCALL_DEFINEx(6, _##name, __VA_ARGS__)
+
+#ifdef CONFIG_HAVE_SYSCALL_WRAPPERS
+
+#define COMPAT_SYSCALL_DEFINEx(x, name, ...)				\
+	asmlinkage long compat_sys##name(__MAP(x,__SC_DECL,__VA_ARGS__));\
+	static inline long C_SYSC##name(__MAP(x,__SC_DECL,__VA_ARGS__));\
+	asmlinkage long compat_SyS##name(__MAP(x,__SC_LONG,__VA_ARGS__))\
+	{								\
+		return C_SYSC##name(__MAP(x,__SC_DELOUSE,__VA_ARGS__));	\
+	}								\
+	SYSCALL_ALIAS(compat_sys##name, compat_SyS##name);		\
+	static inline long C_SYSC##name(__MAP(x,__SC_DECL,__VA_ARGS__))
+
+#else /* CONFIG_HAVE_SYSCALL_WRAPPERS */
+
+#define COMPAT_SYSCALL_DEFINEx(x, name, ...)				\
+	asmlinkage long compat_sys##name(__MAP(x,__SC_DECL,__VA_ARGS__))
+
+#endif /* CONFIG_HAVE_SYSCALL_WRAPPERS */
+
+#ifndef compat_user_stack_pointer
+#define compat_user_stack_pointer() current_user_stack_pointer()
+#endif
+#ifndef compat_sigaltstack	/* we'll need that for MIPS */
+typedef struct compat_sigaltstack {
+	compat_uptr_t			ss_sp;
+	int				ss_flags;
+	compat_size_t			ss_size;
+} compat_stack_t;
+#endif
+
 #define compat_jiffies_to_clock_t(x)	\
 		(((unsigned long)(x) * COMPAT_USER_HZ) / HZ)
 
