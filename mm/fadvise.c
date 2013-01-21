@@ -145,13 +145,6 @@ out:
 	fdput(f);
 	return ret;
 }
-#ifdef CONFIG_HAVE_SYSCALL_WRAPPERS
-asmlinkage long SyS_fadvise64_64(long fd, loff_t offset, loff_t len, long advice)
-{
-	return SYSC_fadvise64_64((int) fd, offset, len, (int) advice);
-}
-SYSCALL_ALIAS(sys_fadvise64_64, SyS_fadvise64_64);
-#endif
 
 #ifdef __ARCH_WANT_SYS_FADVISE64
 
@@ -159,12 +152,5 @@ SYSCALL_DEFINE4(fadvise64, int, fd, loff_t, offset, size_t, len, int, advice)
 {
 	return sys_fadvise64_64(fd, offset, len, advice);
 }
-#ifdef CONFIG_HAVE_SYSCALL_WRAPPERS
-asmlinkage long SyS_fadvise64(long fd, loff_t offset, long len, long advice)
-{
-	return SYSC_fadvise64((int) fd, offset, (size_t)len, (int)advice);
-}
-SYSCALL_ALIAS(sys_fadvise64, SyS_fadvise64);
-#endif
 
 #endif
