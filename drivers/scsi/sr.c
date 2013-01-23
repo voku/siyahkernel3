@@ -577,7 +577,21 @@ static unsigned int sr_block_check_events(struct gendisk *disk,
 					  unsigned int clearing)
 {
 	struct scsi_cd *cd = scsi_cd(disk);
+<<<<<<< HEAD
 	return cdrom_check_events(&cd->cdi, clearing);
+=======
+	unsigned int ret;
+
+	if (atomic_read(&cd->device->disk_events_disable_depth) == 0) {
+		scsi_autopm_get_device(cd->device);
+		ret = cdrom_check_events(&cd->cdi, clearing);
+		scsi_autopm_put_device(cd->device);
+	} else {
+		ret = 0;
+	}
+
+	return ret;
+>>>>>>> 6f4c827... [libata] scsi: no poll when ODD is powered off
 }
 
 static int sr_block_revalidate_disk(struct gendisk *disk)
