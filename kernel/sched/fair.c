@@ -784,7 +784,7 @@ account_entity_enqueue(struct cfs_rq *cfs_rq, struct sched_entity *se)
 		update_load_add(&rq_of(cfs_rq)->load, se->load.weight);
 #ifdef CONFIG_SMP
 	if (entity_is_task(se))
-		list_add_tail(&se->group_node, &rq_of(cfs_rq)->cfs_tasks);
+		list_add(&se->group_node, &rq_of(cfs_rq)->cfs_tasks);
 #endif
 	cfs_rq->nr_running++;
 }
@@ -1386,20 +1386,20 @@ entity_tick(struct cfs_rq *cfs_rq, struct sched_entity *curr, int queued)
 #ifdef CONFIG_CFS_BANDWIDTH
 
 #ifdef HAVE_JUMP_LABEL
-static struct jump_label_key __cfs_bandwidth_used;
+static struct static_key __cfs_bandwidth_used;
 
 static inline bool cfs_bandwidth_used(void)
 {
-	return static_branch(&__cfs_bandwidth_used);
+	return static_key_false(&__cfs_bandwidth_used);
 }
 
 void account_cfs_bandwidth_used(int enabled, int was_enabled)
 {
 	/* only need to count groups transitioning between enabled/!enabled */
 	if (enabled && !was_enabled)
-		jump_label_inc(&__cfs_bandwidth_used);
+		static_key_slow_inc(&__cfs_bandwidth_used);
 	else if (!enabled && was_enabled)
-		jump_label_dec(&__cfs_bandwidth_used);
+		static_key_slow_dec(&__cfs_bandwidth_used);
 }
 #else /* HAVE_JUMP_LABEL */
 static bool cfs_bandwidth_used(void)
@@ -3201,6 +3201,8 @@ static int move_one_task(struct lb_env *env)
 
 static unsigned long task_h_load(struct task_struct *p);
 
+static const unsigned int sched_nr_migrate_break = 32;
+
 /*
  * move_tasks tries to move up to load_move weighted load from busiest to
  * this_rq, as part of a balancing operation within domain "sd".
@@ -3228,7 +3230,7 @@ static int move_tasks(struct lb_env *env)
 
 		/* take a breather every nr_migrate tasks */
 		if (env->loop > env->loop_break) {
-			env->loop_break += sysctl_sched_nr_migrate;
+			env->loop_break += sched_nr_migrate_break;
 			env->flags |= LBF_NEED_BREAK;
 			break;
 		}
@@ -3238,7 +3240,7 @@ static int move_tasks(struct lb_env *env)
 
 		load = task_h_load(p);
 
-		if (load < 16 && !env->sd->nr_balance_failed)
+		if (sched_feat(LB_MIN) && load < 16 && !env->sd->nr_balance_failed)
 			goto next;
 
 		if ((load / 2) > env->load_move)
@@ -3763,8 +3765,7 @@ static inline void update_sg_lb_stats(struct sched_domain *sd,
 			int local_group, const struct cpumask *cpus,
 			int *balance, struct sg_lb_stats *sgs)
 {
-	unsigned long nr_running, max_nr_running, min_nr_running;
-	unsigned long load, max_cpu_load, min_cpu_load;
+	unsigned long load, max_cpu_load, min_cpu_load, max_nr_running;
 	int i;
 	unsigned int balance_cpu = -1, first_idle_cpu = 0;
 	unsigned long avg_load_per_task = 0;
@@ -3776,12 +3777,9 @@ static inline void update_sg_lb_stats(struct sched_domain *sd,
 	max_cpu_load = 0;
 	min_cpu_load = ~0UL;
 	max_nr_running = 0;
-	min_nr_running = ~0UL;
 
 	for_each_cpu_and(i, sched_group_cpus(group), cpus) {
 		struct rq *rq = cpu_rq(i);
-
-		nr_running = rq->nr_running;
 
 		/* Bias balancing toward cpus of our domain */
 		if (local_group) {
@@ -3793,19 +3791,16 @@ static inline void update_sg_lb_stats(struct sched_domain *sd,
 			load = target_load(i, load_idx);
 		} else {
 			load = source_load(i, load_idx);
-			if (load > max_cpu_load)
+			if (load > max_cpu_load) {
 				max_cpu_load = load;
+				max_nr_running = rq->nr_running;
+			}
 			if (min_cpu_load > load)
 				min_cpu_load = load;
-
-			if (nr_running > max_nr_running)
-				max_nr_running = nr_running;
-			if (min_nr_running > nr_running)
-				min_nr_running = nr_running;
 		}
 
 		sgs->group_load += load;
-		sgs->sum_nr_running += nr_running;
+		sgs->sum_nr_running += rq->nr_running;
 		sgs->sum_weighted_load += weighted_cpuload(i);
 		if (idle_cpu(i))
 			sgs->idle_cpus++;
@@ -3843,8 +3838,7 @@ static inline void update_sg_lb_stats(struct sched_domain *sd,
 	if (sgs->sum_nr_running)
 		avg_load_per_task = sgs->sum_weighted_load / sgs->sum_nr_running;
 
-	if ((max_cpu_load - min_cpu_load) >= avg_load_per_task &&
-			(max_nr_running - min_nr_running) > 1)
+	if ((max_cpu_load - min_cpu_load) >= avg_load_per_task && max_nr_running > 1)
 		sgs->group_imb = 1;
 
 	sgs->group_capacity = DIV_ROUND_CLOSEST(group->sgp->power,
@@ -4401,7 +4395,7 @@ static int load_balance(int this_cpu, struct rq *this_rq,
 		.dst_cpu	= this_cpu,
 		.dst_rq		= this_rq,
 		.idle		= idle,
-		.loop_break	= sysctl_sched_nr_migrate,
+		.loop_break	= sched_nr_migrate_break,
 	};
 
 	cpumask_copy(cpus, cpu_active_mask);
@@ -4440,9 +4434,9 @@ redo:
 		 */
 		env.flags |= LBF_ALL_PINNED;
 		env.load_move = imbalance;
-		env.src_cpu = busiest->cpu;
-		env.src_rq = busiest;
-		env.loop_max = min(sysctl_sched_nr_migrate, busiest->nr_running);
+		env.src_cpu   = busiest->cpu;
+		env.src_rq    = busiest;
+		env.loop_max  = min(sysctl_sched_nr_migrate, busiest->nr_running);
 
 more_balance:
 		local_irq_save(flags);
