@@ -40,6 +40,7 @@
 #include <linux/notifier.h>
 #include <linux/swap.h>
 #include <linux/earlysuspend.h>
+#include <linux/slab.h>
 
 static uint32_t lowmem_debug_level = 1;
 static short lowmem_adj[6] = {
@@ -78,6 +79,12 @@ static int lowmem_minfree_screen_on[6] = {
 static int lowmem_minfree_size = 6;
 
 static unsigned long lowmem_deathpending_timeout;
+
+// testing
+static unsigned int *uids;
+static unsigned int max_alloc = 10;
+static unsigned int counter = 0;
+static bool screen_off = false;
 
 #define lowmem_print(level, x...)			\
 	do {						\
@@ -138,13 +145,54 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	for_each_process(tsk) {
 		struct task_struct *p;
 		short oom_score_adj;
+		const struct cred *cred = current_cred(), *pcred;
+		unsigned int uid, i;
+		bool test = false;
 
 		if (tsk->flags & PF_KTHREAD)
 			continue;
 
 		p = find_lock_task_mm(tsk);
+
 		if (!p)
 			continue;
+
+// testing ----------
+		pcred = __task_cred(p);
+		uid = pcred->uid;
+
+		// user root
+		if (uid == 0)
+			continue;
+
+		if (screen_off == true) {
+			for (i = 0; i < counter; i++) {
+				if (uids[i] == uid)
+					test = true;
+			}
+
+			if (test == true)
+				continue;
+
+			if (counter >= max_alloc) {
+				max_alloc += max_alloc;
+				uids = krealloc(uids, 
+					  max_alloc*PAGE_SIZE,
+					  GFP_KERNEL);
+			}
+			else if (counter == 0) {
+				uids = kmalloc(max_alloc*PAGE_SIZE, 
+					  GFP_KERNEL);
+			}
+
+			if (uids)
+				uids[counter++] = uid;
+
+			for (i = 0; i < counter; i++)
+    	   		printk("UID: %d ", uids[i]);
+		}
+
+// ------------
 
 		if (test_tsk_thread_flag(p, TIF_MEMDIE) &&
 		    time_before_eq(jiffies, lowmem_deathpending_timeout)) {
@@ -200,11 +248,18 @@ static void low_mem_early_suspend(struct early_suspend *handler)
 {
 	memcpy(lowmem_minfree_screen_on, lowmem_minfree, sizeof(lowmem_minfree));
 	memcpy(lowmem_minfree, lowmem_minfree_screen_off, sizeof(lowmem_minfree_screen_off));
+
+	kfree(uids);
+	counter = 0;
+	max_alloc = 10;
+	screen_off = true;
 }
 
 static void low_mem_late_resume(struct early_suspend *handler)
 {
 	memcpy(lowmem_minfree, lowmem_minfree_screen_on, sizeof(lowmem_minfree_screen_on));
+
+	screen_off = false;
 }
 
 static struct early_suspend low_mem_suspend = {
