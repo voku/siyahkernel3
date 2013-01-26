@@ -38,6 +38,7 @@
 #include <linux/rcupdate.h>
 #include <linux/profile.h>
 #include <linux/notifier.h>
+#include <linux/compaction.h>
 #include <linux/swap.h>
 #include <linux/earlysuspend.h>
 #include <linux/slab.h>
@@ -94,6 +95,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 {
 	struct task_struct *tsk;
 	struct task_struct *selected = NULL;
+	const struct cred *cred = current_cred(), *pcred;
 	int rem = 0;
 	int tasksize;
 	int i;
@@ -146,8 +148,6 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		short oom_score_adj;
 		bool test = false;
 
-		const struct cred *cred = current_cred(), *pcred;
-
 		if (tsk->flags & PF_KTHREAD)
 			continue;
 
@@ -180,13 +180,12 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 				continue;
 		}
 
-		pcred = __task_cred(p);
-		uid = pcred->uid;
-
-		// debug
-		//printk("UID: %d ", uid);
+		selected = p;
 
 		if (screen_off == true) {
+			pcred = __task_cred(selected);
+			uid = pcred->uid;
+
 			for (i = 0; i < counter; i++) {
 				if (uids[i] == uid)
 					test = true;
@@ -194,6 +193,19 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 
 			if (test == true)
 				continue;
+		}
+
+		selected_tasksize = tasksize;
+		selected_target_offset = target_offset;
+		selected_oom_score_adj = oom_score_adj;
+		lowmem_print(2, "select %d (%s), adj %hd, size %d, uid %d, to kill\n",
+			     p->pid, p->comm, oom_score_adj, tasksize, uid);
+	}
+	if (selected) {
+
+		if (screen_off == true) {
+			pcred = __task_cred(selected);
+			uid = pcred->uid;
 
 			if (counter >= max_alloc)
 				max_alloc += max_alloc;
@@ -207,14 +219,6 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 				memset(uids, uid, counter * sizeof(unsigned int));
 		}
 
-		selected = p;
-		selected_tasksize = tasksize;
-		selected_target_offset = target_offset;
-		selected_oom_score_adj = oom_score_adj;
-		lowmem_print(2, "select %d (%s), adj %hd, size %d, to kill\n",
-			     p->pid, p->comm, oom_score_adj, tasksize);
-	}
-	if (selected) {
 		lowmem_print(1, "send sigkill to %d (%s), adj %hd, size %d, uid %d\n",
 			     selected->pid, selected->comm,
 			     selected_oom_score_adj, selected_tasksize,
@@ -227,6 +231,8 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	lowmem_print(4, "lowmem_shrink %lu, %x, return %d\n",
 		     sc->nr_to_scan, sc->gfp_mask, rem);
 	rcu_read_unlock();
+	if (selected)
+		compact_nodes(false);
 	return rem;
 }
 
@@ -237,8 +243,13 @@ static struct shrinker lowmem_shrinker = {
 
 static void low_mem_early_suspend(struct early_suspend *handler)
 {
+	int i;
+
 	memcpy(lowmem_minfree_screen_on, lowmem_minfree, sizeof(lowmem_minfree));
 	memcpy(lowmem_minfree, lowmem_minfree_screen_off, sizeof(lowmem_minfree_screen_off));
+
+	for (i = 0; i < counter; i++)
+		uids[i] = 0;
 
 	kfree(uids);
 	counter = 0;

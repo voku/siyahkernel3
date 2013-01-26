@@ -103,6 +103,10 @@ static inline bool compaction_deferred(struct zone *zone, int order)
 	return true;
 }
 
+static inline void compact_nodes(bool sync)
+{
+}
+
 #endif /* CONFIG_COMPACTION */
 
 

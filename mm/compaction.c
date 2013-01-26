@@ -1133,18 +1133,19 @@ int compact_pgdat(pg_data_t *pgdat, int order)
 	return __compact_pgdat(pgdat, &cc);
 }
 
-static int compact_node(int nid)
+static int compact_node(int nid, bool sync)
 {
+	
 	struct compact_control cc = {
 		.order = -1,
-		.sync = true,
+		.sync = sync,
 	};
 
 	return __compact_pgdat(NODE_DATA(nid), &cc);
 }
 
 /* Compact all nodes in the system */
-static void compact_nodes(void)
+void compact_nodes(bool sync)
 {
 	int nid;
 
@@ -1152,7 +1153,7 @@ static void compact_nodes(void)
 	lru_add_drain_all();
 
 	for_each_online_node(nid)
-		compact_node(nid);
+		compact_node(nid, sync);
 }
 
 /* The written value is actually unused, all memory is compacted */
@@ -1163,7 +1164,7 @@ int sysctl_compaction_handler(struct ctl_table *table, int write,
 			void __user *buffer, size_t *length, loff_t *ppos)
 {
 	if (write)
-		compact_nodes();
+		compact_nodes(true);
 
 	return 0;
 }
