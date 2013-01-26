@@ -80,10 +80,6 @@ static int lowmem_minfree_screen_on[6] = {
 static int lowmem_minfree_size = 6;
 
 static unsigned long lowmem_deathpending_timeout;
-static unsigned int *uids = NULL;
-static unsigned int max_alloc = 10;
-static unsigned int counter = 0;
-static bool screen_off = false;
 
 #define lowmem_print(level, x...)			\
 	do {						\
@@ -98,7 +94,6 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	const struct cred *cred = current_cred(), *pcred;
 	short min_score_adj = OOM_SCORE_ADJ_MAX + 1;
 	short selected_oom_score_adj;
-	unsigned int uid = 0;
 	int rem = 0;
 	int tasksize;
 	int selected_tasksize = 0;
@@ -177,49 +172,16 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		}
 
 		selected = p;
-
-		if (screen_off == true) {
-			pcred = __task_cred(selected);
-			uid = pcred->uid;
-
-			for (i = 0; i < counter; i++) {
-				if (uids[i] == uid)
-					test = true;
-			}
-
-			if (test == true)
-				continue;
-		}
-
 		selected_tasksize = tasksize;
 		selected_oom_score_adj = oom_score_adj;
-		lowmem_print(2, "select %d (%s), adj %hd, size %d, uid %d, screen %d to kill\n",
-			     p->pid, p->comm, oom_score_adj, tasksize, uid, screen_off);
+		lowmem_print(2, "select %d (%s), adj %hd, size %d to kill\n",
+			     p->pid, p->comm, oom_score_adj, tasksize);
 	}
 	if (selected) {
 
-		if (screen_off == true) {
-			pcred = __task_cred(selected);
-			uid = pcred->uid;
-
-			if (counter >= max_alloc)
-				max_alloc += max_alloc;
-
-			if (counter > max_alloc)
-				uids = krealloc(uids, counter * sizeof(unsigned int), GFP_KERNEL);
-			else if (counter == 0)
-				uids = kmalloc(max_alloc * sizeof(unsigned int), GFP_KERNEL);
-
-			if (uids) {
-				memset(&uids[counter], uid, counter * sizeof(unsigned int));
-				counter++;
-			}
-		}
-
-		lowmem_print(1, "send sigkill to %d (%s), adj %hd, size %d, uid %d, screen %d\n",
+		lowmem_print(1, "send sigkill to %d (%s), adj %hd, size %d\n",
 			     selected->pid, selected->comm,
-			     selected_oom_score_adj, selected_tasksize,
-			     uid, screen_off);
+			     selected_oom_score_adj, selected_tasksize);
 		lowmem_deathpending_timeout = jiffies + HZ;
 		send_sig(SIGKILL, selected, 0);
 		set_tsk_thread_flag(selected, TIF_MEMDIE);
@@ -242,21 +204,11 @@ static void low_mem_early_suspend(struct early_suspend *handler)
 {
 	memcpy(lowmem_minfree_screen_on, lowmem_minfree, sizeof(lowmem_minfree));
 	memcpy(lowmem_minfree, lowmem_minfree_screen_off, sizeof(lowmem_minfree_screen_off));
-
-	screen_off = true;
 }
 
 static void low_mem_late_resume(struct early_suspend *handler)
 {
-	int i;
-
 	memcpy(lowmem_minfree, lowmem_minfree_screen_on, sizeof(lowmem_minfree_screen_on));
-
-	screen_off = false;
-	for (i = 0; i < counter; i++)
-		kfree(&uids[i]);
-	counter = 0;
-	max_alloc = 10;
 }
 
 static struct early_suspend low_mem_suspend = {
