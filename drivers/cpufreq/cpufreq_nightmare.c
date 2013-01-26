@@ -1078,6 +1078,7 @@ static void dbs_check_frequency(struct cpufreq_nightmare_cpuinfo *this_dbs_info)
 
 			// if we cannot increment the frequency anymore, break out early
 			if (policy->cur == policy->max) {
+				cpufreq_cpu_put(policy);
 				continue;
 			}
 
@@ -1085,6 +1086,7 @@ static void dbs_check_frequency(struct cpufreq_nightmare_cpuinfo *this_dbs_info)
 			inc_brake = (freq_up_brake * policy->min) / 100;
 
 			if (inc_brake > inc_load) {
+				cpufreq_cpu_put(policy);
 				continue;
 			} else {
 				freq_up = policy->cur + (inc_load - inc_brake);
@@ -1099,6 +1101,7 @@ static void dbs_check_frequency(struct cpufreq_nightmare_cpuinfo *this_dbs_info)
 
 			// if we cannot reduce the frequency anymore, break out early
 			if (policy->cur == policy->min) {
+				cpufreq_cpu_put(policy);
 				continue;
 			}
 	
@@ -1248,6 +1251,8 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 	case CPUFREQ_GOV_START:
 		if ((!cpu_online(0)) || (!policy->cur))
 			return -EINVAL;
+
+		this_dbs_info->cur_policy = policy;
 
 		start_rq_work();
 
