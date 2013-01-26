@@ -248,9 +248,9 @@ static void low_mem_late_resume(struct early_suspend *handler)
 	memcpy(lowmem_minfree, lowmem_minfree_screen_on, sizeof(lowmem_minfree_screen_on));
 
 	screen_off = false;
-    kfree(uids);
-    counter = 0;
-    max_alloc = 10;
+	kfree(uids);
+	counter = 0;
+	max_alloc = 10;
 }
 
 static struct early_suspend low_mem_suspend = {
