@@ -96,17 +96,18 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	struct task_struct *tsk;
 	struct task_struct *selected = NULL;
 	const struct cred *cred = current_cred(), *pcred;
+	short min_score_adj = OOM_SCORE_ADJ_MAX + 1;
+	short selected_oom_score_adj;
+	unsigned int uid = 0;
 	int rem = 0;
 	int tasksize;
-	int i;
-	short min_score_adj = OOM_SCORE_ADJ_MAX + 1;
 	int selected_tasksize = 0;
-	short selected_oom_score_adj;
+	int i;
 	int array_size = ARRAY_SIZE(lowmem_adj);
 	int other_free = global_page_state(NR_FREE_PAGES);
 	int other_file = global_page_state(NR_FILE_PAGES) -
 						global_page_state(NR_SHMEM);
-	unsigned int uid = 0;
+
 	 
 	if (lowmem_adj_size < array_size)
 		array_size = lowmem_adj_size;
@@ -248,7 +249,7 @@ static void low_mem_late_resume(struct early_suspend *handler)
 	memcpy(lowmem_minfree, lowmem_minfree_screen_on, sizeof(lowmem_minfree_screen_on));
 
 	screen_off = false;
-	kfree(uids);
+	if (uids) kfree(uids);
 	counter = 0;
 	max_alloc = 10;
 }
