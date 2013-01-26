@@ -80,7 +80,7 @@ static int lowmem_minfree_screen_on[6] = {
 static int lowmem_minfree_size = 6;
 
 static unsigned long lowmem_deathpending_timeout;
-static unsigned int *uids;
+static unsigned int *uids = NULL;
 static unsigned int max_alloc = 10;
 static unsigned int counter = 0;
 static bool screen_off = false;
@@ -104,10 +104,10 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	int selected_tasksize = 0;
 	int i;
 	int array_size = ARRAY_SIZE(lowmem_adj);
-	int other_free = global_page_state(NR_FREE_PAGES);
+	int other_free = global_page_state(NR_FREE_PAGES) -
+						totalreserve_pages;
 	int other_file = global_page_state(NR_FILE_PAGES) -
 						global_page_state(NR_SHMEM);
-
 	 
 	if (lowmem_adj_size < array_size)
 		array_size = lowmem_adj_size;
@@ -210,8 +210,10 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			else if (counter == 0)
 				uids = kmalloc(max_alloc * sizeof(unsigned int), GFP_KERNEL);
 
-			if (uids)
-				memset(uids, uid, counter * sizeof(unsigned int));
+			if (uids) {
+				memset(&uids[counter], uid, counter * sizeof(unsigned int));
+				counter++;
+			}
 		}
 
 		lowmem_print(1, "send sigkill to %d (%s), adj %hd, size %d, uid %d, screen %d\n",
@@ -246,10 +248,13 @@ static void low_mem_early_suspend(struct early_suspend *handler)
 
 static void low_mem_late_resume(struct early_suspend *handler)
 {
+	int i;
+
 	memcpy(lowmem_minfree, lowmem_minfree_screen_on, sizeof(lowmem_minfree_screen_on));
 
 	screen_off = false;
-	if (uids) kfree(uids);
+	for (i = 0; i < counter; i++)
+		kfree(&uids[i]);
 	counter = 0;
 	max_alloc = 10;
 }
