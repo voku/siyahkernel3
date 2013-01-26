@@ -79,8 +79,6 @@ static int lowmem_minfree_screen_on[6] = {
 static int lowmem_minfree_size = 6;
 
 static unsigned long lowmem_deathpending_timeout;
-
-// testing
 static unsigned int *uids;
 static unsigned int max_alloc = 10;
 static unsigned int counter = 0;
@@ -157,43 +155,6 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		if (!p)
 			continue;
 
-// testing ----------
-		pcred = __task_cred(p);
-		uid = pcred->uid;
-
-		// user root
-		if (uid == 0)
-			continue;
-
-		if (screen_off == true) {
-			for (i = 0; i < counter; i++) {
-				if (uids[i] == uid)
-					test = true;
-			}
-
-			if (test == true)
-				continue;
-
-			if (counter >= max_alloc) {
-				max_alloc += max_alloc;
-				uids = krealloc(uids, 
-					  max_alloc*PAGE_SIZE,
-					  GFP_KERNEL);
-			}
-			else if (counter == 0) {
-				uids = kmalloc(max_alloc*PAGE_SIZE, 
-					  GFP_KERNEL);
-			}
-
-			if (uids)
-				uids[counter++] = uid;
-
-			for (i = 0; i < counter; i++)
-    	   		printk("UID: %d ", uids[i]);
-		}
-
-// ------------
-
 		if (test_tsk_thread_flag(p, TIF_MEMDIE) &&
 		    time_before_eq(jiffies, lowmem_deathpending_timeout)) {
 			task_unlock(p);
@@ -217,6 +178,34 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 				target_offset >= selected_target_offset)
 				continue;
 		}
+
+		pcred = __task_cred(p);
+		uid = pcred->uid;
+
+		// debug
+		//printk("UID: %d ", uid);
+
+		if (screen_off == true) {
+			for (i = 0; i < counter; i++) {
+				if (uids[i] == uid)
+					test = true;
+			}
+
+			if (test == true)
+				continue;
+
+			if (counter >= max_alloc)
+				max_alloc += max_alloc;
+
+			if (counter > max_alloc)
+				uids = krealloc(uids, counter * sizeof(unsigned int), GFP_KERNEL);
+			else if (counter == 0)
+				uids = kmalloc(max_alloc * sizeof(unsigned int), GFP_KERNEL);
+
+			if (uids)
+				memset(uids, uid, counter * sizeof(unsigned int));
+		}
+
 		selected = p;
 		selected_tasksize = tasksize;
 		selected_target_offset = target_offset;
@@ -246,6 +235,8 @@ static struct shrinker lowmem_shrinker = {
 
 static void low_mem_early_suspend(struct early_suspend *handler)
 {
+	int i;
+
 	memcpy(lowmem_minfree_screen_on, lowmem_minfree, sizeof(lowmem_minfree));
 	memcpy(lowmem_minfree, lowmem_minfree_screen_off, sizeof(lowmem_minfree_screen_off));
 
