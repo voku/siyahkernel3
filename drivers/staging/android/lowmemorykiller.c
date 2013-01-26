@@ -107,7 +107,8 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	int other_file = global_page_state(NR_FILE_PAGES) -
 						global_page_state(NR_SHMEM);
 	int target_offset;
-
+	unsigned int uid;
+	 
 	if (lowmem_adj_size < array_size)
 		array_size = lowmem_adj_size;
 	if (lowmem_minfree_size < array_size)
@@ -143,9 +144,9 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	for_each_process(tsk) {
 		struct task_struct *p;
 		short oom_score_adj;
-		const struct cred *cred = current_cred(), *pcred;
-		unsigned int uid, i;
 		bool test = false;
+
+		const struct cred *cred = current_cred(), *pcred;
 
 		if (tsk->flags & PF_KTHREAD)
 			continue;
@@ -214,9 +215,10 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			     p->pid, p->comm, oom_score_adj, tasksize);
 	}
 	if (selected) {
-		lowmem_print(1, "send sigkill to %d (%s), adj %hd, size %d\n",
+		lowmem_print(1, "send sigkill to %d (%s), adj %hd, size %d, uid %d\n",
 			     selected->pid, selected->comm,
-			     selected_oom_score_adj, selected_tasksize);
+			     selected_oom_score_adj, selected_tasksize,
+			     uid);
 		lowmem_deathpending_timeout = jiffies + HZ;
 		send_sig(SIGKILL, selected, 0);
 		set_tsk_thread_flag(selected, TIF_MEMDIE);
