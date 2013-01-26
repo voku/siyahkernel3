@@ -16,7 +16,6 @@
 #define __MODEM_UTILS_H__
 
 #include <linux/rbtree.h>
-#include "modem_prj.h"
 
 #define IS_CONNECTED(iod, ld) ((iod)->link_types & LINKTYPE((ld)->link_type))
 
@@ -99,8 +98,17 @@ struct mif_time_block {
 	char buff[MAX_TIM_LOG_SIZE];
 };
 
+struct utc_time {
+	u16 year;
+	u8 mon:4,
+	   day:4;
+	u8 hour;
+	u8 min;
+	u8 sec;
+	u16 msec;
+} __packed;
+
 void ts2utc(struct timespec *ts, struct utc_time *utc);
-int ns2us(long ns);
 void get_utc_time(struct utc_time *utc);
 
 int mif_dump_dpram(struct io_device *);

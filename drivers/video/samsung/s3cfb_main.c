@@ -1091,7 +1091,6 @@ void s3cfb_late_resume(struct early_suspend *h)
 		s5c1372_ldi_enable();
 #endif
 		s3c_mdnie_init_global(fbdev[i]);
-		set_mdnie_value(g_mdnie, 1);
 		s3c_mdnie_display_on(fbdev[i]);
 #endif
 		s3cfb_display_on(fbdev[i]);

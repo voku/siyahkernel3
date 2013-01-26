@@ -26,6 +26,7 @@
  * Contact Cypress Semiconductor at www.cypress.com <kev@cypress.com>
  *
  */
+#define CYTTSP4_SYSFS
 #define TOUCH_BOOST		0
 #include "cyttsp4_core.h"
 
@@ -634,6 +635,10 @@ static int _cyttsp4_set_mode(struct cyttsp4 *ts, u8 new_mode);
 static int _cyttsp4_calc_data_crc(struct cyttsp4 *ts,
 	size_t ndata, u8 *pdata, u8 *crc_h, u8 *crc_l, const char *name);
 #endif /* --CY_USE_TMA884 */
+
+static u32 config_part_fw_ver;
+static u32 config_phone_fw_ver;
+static bool firmware_upgrade_forced;
 
 static void _cyttsp4_pr_state(struct cyttsp4 *ts)
 {
@@ -3562,6 +3567,9 @@ static int _cyttsp4_boot_loader(struct cyttsp4 *ts, bool *upgraded)
 		if (new_fw_vers || new_fw_revctrl)
 			new_vers = true;
 
+		config_part_fw_ver = fw_revctrl_img_l;
+		config_phone_fw_ver = fw_revctrl_platform_l;
+
 		dev_vdbg(ts->dev,
 			"%s: fw_revctrl_platform_h=%08X"
 			" fw_revctrl_img_h=%08X\n", __func__,
@@ -3575,21 +3583,25 @@ static int _cyttsp4_boot_loader(struct cyttsp4 *ts, bool *upgraded)
 			__func__,
 			(int)new_fw_vers, (int)new_fw_revctrl, (int)new_vers);
 
-		if (new_vers) {
+		if ((new_vers || firmware_upgrade_forced)
+			&& (config_part_fw_ver >= 0x5ECEB)) {
 			dev_info(ts->dev,
-			"%s: upgrading firmware...\n", __func__);
+				"%s: upgrading firmware...\n", __func__);
 			retval = _cyttsp4_load_app(ts,
-				ts->platform_data->fw->img,
-				ts->platform_data->fw->size);
+			ts->platform_data->fw->img,
+			ts->platform_data->fw->size);
 			if (retval < 0) {
 				dev_err(ts->dev,
-			"%s: communication fail"
+					"%s: communication fail"
 					" on load fw r=%d\n",
 					__func__, retval);
 				_cyttsp4_change_state(ts, CY_IDLE_STATE);
 				retval = -EIO;
 			} else
 				*upgraded = true;
+
+			firmware_upgrade_forced = false;
+
 		} else {
 			dev_vdbg(ts->dev,
 				"%s: No auto firmware upgrade required\n",
@@ -3832,8 +3844,11 @@ static void get_fw_ver_ic(void *device_data)
 	u8 buf[2];
 
 	data->cmd_state = RUNNING;
-	buf[0] = *((u8 *)ts_data->sysinfo_ptr.ddata+21);
-	buf[1] = *((u8 *)ts_data->sysinfo_ptr.ddata+20);
+
+	if (ts_data->sysinfo_ptr.ddata) {
+		buf[0] = *((u8 *)ts_data->sysinfo_ptr.ddata+21);
+		buf[1] = *((u8 *)ts_data->sysinfo_ptr.ddata+20);
+	}
 
 	set_default_result(data);
 	sprintf(data->cmd_buff, "%.2x%.2x", buf[1], buf[0]);
@@ -4220,6 +4235,377 @@ static struct attribute *touchscreen_attributes[] = {
 static struct attribute_group touchscreen_attr_group = {
 	.attrs = touchscreen_attributes,
 };
+#endif
+
+#if defined(CYTTSP4_SYSFS)
+#define I2C_RETRY_CNT 2
+
+#define NODE_X_NUM 18
+#define NODE_Y_NUM 22
+
+#define GLOBAL_IDAC_NUM	10
+#define LOCAL_IDAC_START	 6
+#define GLOBAL_IDAC_START 7
+
+#define MIN_VALUE 4640
+#define MAX_VALUE 11040
+
+#define NODE_TOTAL_NUM 209
+#define ADC_TOP_VALUE 16384
+
+#define TSP_BUF_SIZE 1024
+
+#define TSP_CMD_STR_LEN 32
+#define TSP_CMD_RESULT_STR_LEN 512
+#define TSP_CMD_PARAM_NUM 8
+
+#define NODE_NUM	396	/* 18 * 22 */
+#define GLOBAL_IDAC_NUM	10
+
+static int led_status;
+
+struct device *sec_touchscreen;
+struct device *sec_touchkey;
+
+static ssize_t touchkey_led_control(struct device *dev,
+		struct device_attribute *attr, const char *buf,
+		size_t size)
+{
+	struct cyttsp4 *ts = dev_get_drvdata(dev);
+	int ret;
+
+	if (buf && buf[0] == '1' && led_status == 0) {
+		ret = ts->platform_data->led_power(1);
+		if (ret < 0)
+			pr_info("[TSP] %s : Led on Fail\n", __func__);
+
+		led_status = 1;
+
+	} else if (buf && buf[0] == '2' && led_status == 1) {
+		ret = ts->platform_data->led_power(0);
+		if (ret < 0)
+			pr_info("[TSP] %s : Led on Fail\n", __func__);
+
+		led_status = 0;
+	}
+
+	return size;
+}
+
+static ssize_t menu_sensitivity_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct cyttsp4 *ts = dev_get_drvdata(dev);
+
+	uint8_t buf0[1] = {0,};
+	uint8_t buf1[2] = {0,};
+	uint8_t buf2[8] = {0,};
+	uint8_t command[8] = {0,};
+	int i, j, k;
+	int ret;
+	uint16_t local_menu_sensitivity = 0;
+
+#ifdef CY_USE_WATCHDOG
+	_cyttsp4_stop_wd_timer(ts);
+#endif
+	disable_irq_nosync(ts->irq);
+
+	/* Step 5. enter Test mode : write 0x28 at 0x00 */
+	for (i = 0; i < I2C_RETRY_CNT; i++) {
+		buf0[0] = 0x28; /* value 0x28 */
+		ret = _cyttsp4_write_block_data(ts, CY_REG_BASE, 1, buf0,
+			ts->platform_data->addr[CY_LDR_ADDR_OFS], true);
+		if (ret >= 0)
+			break; /* i2c success */
+	}
+
+	/* Step 6. Delay 50ms*/
+	msleep(50);
+
+	/* Step 7. check the value of 0x00 address: 0x20 (O) */
+	for (i = 0; i < I2C_RETRY_CNT; i++) {
+		buf0[0] = 0x28; /* value 0x28 */
+		ret = _cyttsp4_read_block_data(ts, CY_REG_BASE, 1, buf1,
+			ts->platform_data->addr[CY_LDR_ADDR_OFS], true);
+		if (ret >= 0 && 0x20 == buf1[0])
+			break; /* i2c success && testmode O.K */
+	}
+
+	/* Step 8. Initialize Baselines write A0 00 0A 0F at 0x00 address */
+	command[0] = 0xA0;
+	command[1] = 0x00;
+	command[2] = 0x0A;
+	command[3] = 0x0F;
+
+	for (i = 0; i < I2C_RETRY_CNT; i++) {
+		ret = _cyttsp4_write_block_data(ts, CY_REG_BASE, 4, command,
+			ts->platform_data->addr[CY_LDR_ADDR_OFS], true);
+		if (ret >= 0)
+			break; /* i2c success */
+	}
+
+	/* Step 9. Delay 100ms & check the value of 0x02 address 0xCA (O) */
+	msleep(100);
+
+	for (i = 0; i < I2C_RETRY_CNT; i++) {
+		ret = _cyttsp4_read_block_data(ts, 0x02, 1, buf1,
+			ts->platform_data->addr[CY_LDR_ADDR_OFS], true);
+		if (ret >= 0 && 0xCA == buf1[0])
+			break; /* i2c success && testmode O.K */
+	}
+
+	/* Step 11. Button Raw counts reading */
+	/* Step 11-1 Write 20 00 0B 00 00 00 00 00 at 0x00 address */
+	command[0] = 0x20;
+	command[1] = 0x00;
+	command[2] = 0x0B;
+	command[3] = 0x00;
+	command[4] = 0x00;
+	command[5] = 0x00;
+	command[6] = 0x00;
+	command[7] = 0x00;
+
+	for (i = 0; i < I2C_RETRY_CNT; i++) {
+		ret = _cyttsp4_write_block_data(ts, CY_REG_BASE, 8, command,
+			ts->platform_data->addr[CY_LDR_ADDR_OFS], true);
+		if (ret >= 0)
+			break; /* i2c success */
+	}
+
+	/* Step 11-2 Delay 50ms & Check  Bit6 of 0x02 address( 0100 0000 == 0x40)*/
+	msleep(50);
+
+	for (i = 0; i < I2C_RETRY_CNT; i++) {
+		ret = _cyttsp4_read_block_data(ts, 0x02, 1, buf1,
+			ts->platform_data->addr[CY_LDR_ADDR_OFS], true);
+		if (ret >= 0 && (0x40 & buf1[0]))
+			break; /* i2c success && testmode O.K */
+	}
+
+	/* Step 11-3 Write A0 00 0C 00 00 00 10 09 at 0x00 address */
+	command[0] = 0xA0;
+	command[1] = 0x00;
+	command[2] = 0x0C;
+	command[3] = 0x00;
+	command[4] = 0x00;
+	command[5] = 0x00;
+	command[6] = 0x10;
+	command[7] = 0x09;
+
+	for (i = 0; i < I2C_RETRY_CNT; i++) {
+		ret = _cyttsp4_write_block_data(ts, CY_REG_BASE, 8, command,
+			ts->platform_data->addr[CY_LDR_ADDR_OFS], true);
+		if (ret >= 0)
+			break; /* i2c success */
+    }
+
+	/* Step 11-4 Delay 50ms & Check  Bit6 of 0x02 address( 0100 0000 == 0x40)*/
+	msleep(50);
+
+	for (i = 0; i < I2C_RETRY_CNT; i++) {
+		ret = _cyttsp4_read_block_data(ts, 0x02, 1, buf1,
+			ts->platform_data->addr[CY_LDR_ADDR_OFS], true);
+		if (ret >= 0 && (0x40 & buf1[0]))
+			break; /* i2c success && testmode O.K */
+	}
+
+	/* Step 11-5 Read button raw counts 2byte from 0x08 address*/
+	for (i = 0; i < I2C_RETRY_CNT; i++) {
+		ret = _cyttsp4_read_block_data(ts, 0x08, sizeof(buf2), buf2,
+			ts->platform_data->addr[CY_LDR_ADDR_OFS], true);
+		if (ret >= 0)
+			break; /* i2c success*/
+	}
+
+	/* Exit Test Mode */
+	command[0] = 0x0C;
+
+	for (i = 0; i < I2C_RETRY_CNT; i++) {
+		ret = _cyttsp4_write_block_data(ts, CY_REG_BASE, 1, command,
+			ts->platform_data->addr[CY_LDR_ADDR_OFS], true);
+		if (ret >= 0) {
+			break; /* i2c success */
+		}
+	}
+
+	enable_irq(ts->irq);
+
+	/* Processing Data */
+	/* buf2[0] LSB BTN0 Raw counts */
+	/* buf2[1] MSB BTN0 Raw counts */
+	local_menu_sensitivity = local_menu_sensitivity | buf2[1];
+	local_menu_sensitivity = local_menu_sensitivity << 8;
+	local_menu_sensitivity = local_menu_sensitivity | buf2[0];
+
+#ifdef CY_USE_WATCHDOG
+	_cyttsp4_start_wd_timer(ts);
+#endif
+
+	if (ret < 0)
+		return sprintf(buf, "%s\n", "fail to read menu_sensitivity.");
+    else
+		return sprintf(buf, "%d\n", local_menu_sensitivity);
+}
+
+static ssize_t back_sensitivity_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct cyttsp4 *ts = dev_get_drvdata(dev);
+
+	uint8_t buf0[1] = {0,};
+	uint8_t buf1[2] = {0,};
+	uint8_t buf2[8] = {0,};
+	uint8_t command[8] = {0,};
+	int i, j, k;
+	int ret;
+	uint16_t local_back_sensitivity = 0;
+
+#ifdef CY_USE_WATCHDOG
+	_cyttsp4_stop_wd_timer(ts);
+#endif
+
+	disable_irq_nosync(ts->irq);
+	/* Step 5. enter Test mode : write 0x28 at 0x00 */
+	for (i = 0; i < I2C_RETRY_CNT; i++) {
+		buf0[0] = 0x28; /* value 0x28 */
+		ret = _cyttsp4_write_block_data(ts, CY_REG_BASE, 1, buf0,
+			ts->platform_data->addr[CY_LDR_ADDR_OFS], true);
+		if (ret >= 0)
+			break; /* i2c success */
+	}
+
+	/* Step 6. Delay 50ms*/
+	msleep(50);
+
+	/* Step 7. check the value of 0x00 address: 0x20 (O) */
+	for (i = 0; i < I2C_RETRY_CNT; i++) {
+		buf0[0] = 0x28; /* value 0x28 */
+		ret = _cyttsp4_read_block_data(ts, CY_REG_BASE, 1, buf1,
+			ts->platform_data->addr[CY_LDR_ADDR_OFS], true);
+		if (ret >= 0 && 0x20 == buf1[0])
+			break; /* i2c success && testmode O.K */
+	}
+
+	/* Step 8. Initialize Baselines write A0 00 0A 0F at 0x00 address */
+	command[0] = 0xA0;
+	command[1] = 0x00;
+	command[2] = 0x0A;
+	command[3] = 0x0F;
+
+	for (i = 0; i < I2C_RETRY_CNT; i++) {
+		ret = _cyttsp4_write_block_data(ts, CY_REG_BASE, 4, command,
+			ts->platform_data->addr[CY_LDR_ADDR_OFS], true);
+		if (ret >= 0)
+			break; /* i2c success */
+	}
+
+	/* Step 9. Delay 100ms & check the value of 0x02 address 0xCA (O) */
+	msleep(100);
+
+	for (i = 0; i < I2C_RETRY_CNT; i++) {
+		ret = _cyttsp4_read_block_data(ts, 0x02, 1, buf1,
+			ts->platform_data->addr[CY_LDR_ADDR_OFS], true);
+		if (ret >= 0 && 0xCA == buf1[0])
+			break; /* i2c success && testmode O.K */
+	}
+
+	/* Step 11. Button Raw counts reading */
+	/* Step 11-1 Write 20 00 0B 00 00 00 00 00 at 0x00 address */
+	command[0] = 0x20;
+	command[1] = 0x00;
+	command[2] = 0x0B;
+	command[3] = 0x00;
+	command[4] = 0x00;
+	command[5] = 0x00;
+	command[6] = 0x00;
+	command[7] = 0x00;
+
+	for (i = 0; i < I2C_RETRY_CNT; i++) {
+		ret = _cyttsp4_write_block_data(ts, CY_REG_BASE, 8, command,
+			ts->platform_data->addr[CY_LDR_ADDR_OFS], true);
+		if (ret >= 0)
+			break; /* i2c success */
+	}
+
+	/* Step 11-2 Delay 50ms & Check  Bit6 of 0x02 address( 0100 0000 == 0x40)*/
+	msleep(50);
+
+	for (i = 0; i < I2C_RETRY_CNT; i++) {
+		ret = _cyttsp4_read_block_data(ts, 0x02, 1, buf1,
+			ts->platform_data->addr[CY_LDR_ADDR_OFS], true);
+		if (ret >= 0 && (0x40 & buf1[0]))
+			break; /* i2c success && testmode O.K */
+	}
+
+	/* Step 11-3 Write A0 00 0C 00 00 00 10 09 at 0x00 address */
+	command[0] = 0xA0;
+	command[1] = 0x00;
+	command[2] = 0x0C;
+	command[3] = 0x00;
+	command[4] = 0x00;
+	command[5] = 0x00;
+	command[6] = 0x10;
+	command[7] = 0x09;
+
+	for (i = 0; i < I2C_RETRY_CNT; i++) {
+		ret = _cyttsp4_write_block_data(ts, CY_REG_BASE, 8, command,
+			ts->platform_data->addr[CY_LDR_ADDR_OFS], true);
+		if (ret >= 0)
+			break; /* i2c success */
+	}
+
+	/* Step 11-4 Delay 50ms & Check  Bit6 of 0x02 address( 0100 0000 == 0x40)*/
+	msleep(50);
+
+	for (i = 0; i < I2C_RETRY_CNT; i++) {
+		ret = _cyttsp4_read_block_data(ts, 0x02, 1, buf1,
+			ts->platform_data->addr[CY_LDR_ADDR_OFS], true);
+		if (ret >= 0 && (0x40 & buf1[0]))
+			break; /* i2c success && testmode O.K */
+	}
+
+	/* Step 11-5 Read button raw counts 2byte from 0x010 address*/
+	for (i = 0; i < I2C_RETRY_CNT; i++) {
+		ret = _cyttsp4_read_block_data(ts, 0x10, sizeof(buf2), buf2,
+			ts->platform_data->addr[CY_LDR_ADDR_OFS], true);
+		if (ret >= 0)
+			break; /* i2c success*/
+	}
+
+	/* Exit Test Mode */
+	command[0] = 0x0C;
+
+	for (i = 0; i < I2C_RETRY_CNT; i++) {
+		ret = _cyttsp4_write_block_data(ts, CY_REG_BASE, 1, command,
+			ts->platform_data->addr[CY_LDR_ADDR_OFS], true);
+		if (ret >= 0)
+			break; /* i2c success */
+	}
+
+	enable_irq(ts->irq);
+
+	/* Processing Data */
+	/* buf2[0] LSB BTN0 Raw counts */
+	/* buf2[1] MSB BTN0 Raw counts */
+	local_back_sensitivity = local_back_sensitivity | buf2[1];
+	local_back_sensitivity = local_back_sensitivity << 8;
+	local_back_sensitivity = local_back_sensitivity | buf2[0];
+
+#ifdef CY_USE_WATCHDOG
+	_cyttsp4_start_wd_timer(ts);
+#endif
+
+	if (ret < 0)
+		return sprintf(buf, "%s\n", "fail to read back_sensitivity.");
+	else
+		return sprintf(buf, "%d\n", local_back_sensitivity);
+
+}
+
+static DEVICE_ATTR(brightness, S_IRUGO | S_IWUSR | S_IWGRP, NULL, touchkey_led_control);
+static DEVICE_ATTR(touchkey_menu, S_IRUGO, menu_sensitivity_show, NULL);
+static DEVICE_ATTR(touchkey_back, S_IRUGO, back_sensitivity_show, NULL);
+
 #endif
 
 #if TOUCH_BOOST
@@ -4913,9 +5299,7 @@ static int _cyttsp4_ldr_verify_chksum(struct cyttsp4 *ts, u8 *app_chksum)
 static int _cyttsp4_load_app(struct cyttsp4 *ts, const u8 *fw, int fw_size)
 {
 	u8 *p;
-#ifdef CY_USE_TMA884
 	u8 tries;
-#endif
 	int ret;
 	int retval;	/* need separate return value at exit stage */
 	struct cyttsp4_dev_id *file_id = NULL;
@@ -4981,10 +5365,17 @@ static int _cyttsp4_load_app(struct cyttsp4 *ts, const u8 *fw, int fw_size)
 		goto _cyttsp4_load_app_exit;
 	}
 
-	_cyttsp4_change_state(ts, CY_BL_STATE);
-	dev_info(ts->dev,
-			"%s: Send BL Loader Enter\n", __func__);
-	retval = _cyttsp4_ldr_enter(ts, dev_id);
+	tries = 0;
+	do {
+		_cyttsp4_change_state(ts, CY_BL_STATE);
+		dev_info(ts->dev,
+			"%s: Send BL Loader Enter, try %d\n",
+			__func__, tries);
+		retval = _cyttsp4_ldr_enter(ts, dev_id);
+		if (retval < 0)
+			msleep(20);
+	} while ((retval < 0) && tries++ < 5);
+
 	if (retval < 0) {
 		dev_err(ts->dev,
 			"%s: Error cannot start Loader (ret=%d)\n",
@@ -4999,7 +5390,14 @@ static int _cyttsp4_load_app(struct cyttsp4 *ts, const u8 *fw, int fw_size)
 
 #ifdef CY_USE_TMA400
 	udelay(1000);
-	retval = _cyttsp4_ldr_init(ts);
+
+	tries = 0;
+	do {
+		retval = _cyttsp4_ldr_init(ts);
+		if (retval < 0)
+			msleep(20);
+	} while ((retval < 0) && tries++ < 5);
+
 	if (retval < 0) {
 		dev_err(ts->dev,
 			"%s: Error cannot init Loader (ret=%d)\n",
@@ -5695,16 +6093,20 @@ _cyttsp4_startup_tma400_restart:
 					&table_crc[0], &table_crc[1]);
 			_cyttsp4_pr_buf(ts, table_crc, sizeof(table_crc),
 					"read_table_crc");
-			if ((ic_crc[0] != table_crc[0]) ||
-					(ic_crc[1] != table_crc[1])) {
+			if (((ic_crc[0] != table_crc[0]) || (ic_crc[1] != table_crc[1]))
+				&& (config_part_fw_ver >= 0x5ECEB)) {
 				retval = _cyttsp4_put_all_params_tma400(ts);
 				if (retval < 0) {
 					dev_err(ts->dev,
-							"%s: Fail put all params r=%d\n",
-							__func__, retval);
+						"%s: Fail put all params r=%d\n",
+						__func__, retval);
 					goto _cyttsp4_startup_tma400_bypass_crc_check;
 				}
 				put_all_params_done = true;
+
+				if (upgraded == false)
+					firmware_upgrade_forced = true;
+
 				goto _cyttsp4_startup_tma400_restart;
 			}
 		}
@@ -6633,6 +7035,25 @@ void *cyttsp4_core_init(struct cyttsp4_bus_ops *bus_ops,
 	ts->factory_data = factory_data;
 	ts->node_data = node_data;
 
+#endif
+
+#if defined(CYTTSP4_SYSFS)
+	sec_touchscreen = device_create(sec_class, NULL, 0, ts, "sec_touchscreen");
+	sec_touchkey = device_create(sec_class, NULL, 0, ts, "sec_touchkey");
+
+	if (IS_ERR(sec_touchscreen))
+		pr_err("[TSP] Failed to create device(sec_touchscreen)!\n");
+	if (IS_ERR(sec_touchkey))
+		pr_err("[TSP] Failed to create device(sec_touchkey)!\n");
+
+	led_status = 0;
+
+	if (device_create_file(sec_touchkey, &dev_attr_brightness) < 0)
+		pr_err("Failed to create device file(%s)!\n", dev_attr_brightness.attr.name);
+	if (device_create_file(sec_touchkey, &dev_attr_touchkey_menu) < 0)
+		pr_err("Failed to create device file(%s)!\n", dev_attr_touchkey_menu.attr.name);
+	if (device_create_file(sec_touchkey, &dev_attr_touchkey_back) < 0)
+		pr_err("Failed to create device file(%s)!\n", dev_attr_touchkey_back.attr.name);
 #endif
 
 #ifdef CONFIG_HAS_EARLYSUSPEND

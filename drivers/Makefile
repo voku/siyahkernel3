@@ -127,7 +127,7 @@ obj-y				+= ieee802154/
 #common clk code
 obj-y				+= clk/
 obj-$(CONFIG_HWSPINLOCK)	+= hwspinlock/
-obj-$(CONFIG_ANDROID_TIMED_OUTPUT)		+= motor/
+obj-$(CONFIG_VIBETONZ)		+= motor/
 
 obj-$(CONFIG_SENSORS_CORE)	+= sensor/
 obj-$(CONFIG_SENSORS_SSP)	+= sensorhub/

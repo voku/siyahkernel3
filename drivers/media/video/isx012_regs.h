@@ -11223,7 +11223,7 @@ static const isx012_regset_t ISX012_ae_manual_mode[] =
 static const isx012_regset_t ISX012_flash_fast_ae_awb[] =
 {
 {0x5E32,0x0A,0x01},
-{0x5E3D,0x05,0x01},
+{0x5E3D,0x05,0x01}, /* Don't fix me. 0x05 */
 
 {0x0181,0x01,0x01},    // CAP_HALF_AE_CTRL
 {0x00B2,0x03,0x01},    //AFMODE_MONI : AF OFF

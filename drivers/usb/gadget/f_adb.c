@@ -57,9 +57,6 @@ struct adb_dev {
 	int rx_done;
 };
 
-static void adb_ready_callback(void);
-static void adb_closed_callback(void);
-
 static struct usb_interface_descriptor adb_interface_desc = {
 	.bLength                = USB_DT_INTERFACE_SIZE,
 	.bDescriptorType        = USB_DT_INTERFACE,
@@ -488,6 +485,9 @@ static struct miscdevice adb_device = {
 	.name = adb_shortname,
 	.fops = &adb_fops,
 };
+
+
+
 
 static int
 adb_function_bind(struct usb_configuration *c, struct usb_function *f)

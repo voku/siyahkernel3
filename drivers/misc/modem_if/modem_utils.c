@@ -69,11 +69,6 @@ void ts2utc(struct timespec *ts, struct utc_time *utc)
 	utc->msec = (ts->tv_nsec > 0) ? (ts->tv_nsec / 1000000) : 0;
 }
 
-int ns2us(long ns)
-{
-	return (ns > 0) ? (ns / 1000) : 0;
-}
-
 void get_utc_time(struct utc_time *utc)
 {
 	struct timespec ts;
@@ -291,7 +286,6 @@ void pr_ipc(const char *tag, const char *data, size_t len)
 int pr_buffer(const char *tag, const char *data, size_t data_len,
 							size_t max_len)
 {
-#ifdef DEBUG
 	size_t len = min(data_len, max_len);
 	unsigned char str[len ? len * 3 : 1]; /* 1 <= sizeof <= max_len*3 */
 	dump2hex(str, data, len);
@@ -299,9 +293,6 @@ int pr_buffer(const char *tag, const char *data, size_t data_len,
 	/* don't change this printk to mif_debug for print this as level7 */
 	return printk(KERN_INFO "%s: %s(%u): %s%s\n", MIF_TAG, tag, data_len,
 			str, (len == data_len) ? "" : " ...");
-#else
-	return 0;
-#endif
 }
 
 /* flow control CM from CP, it use in serial devices */

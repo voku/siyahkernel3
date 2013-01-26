@@ -19,10 +19,6 @@
 #include <linux/clk.h>
 #include <linux/io.h>
 #include <linux/gpio.h>
-#include <linux/module.h>
-#include <linux/of.h>
-#include <linux/of_gpio.h>
-#include <linux/pm.h>
 
 #include <linux/mmc/host.h>
 
@@ -85,7 +81,7 @@ static void sdhci_s3c_check_sclk(struct sdhci_host *host)
 
 		tmp &= ~S3C_SDHCI_CTRL2_SELBASECLK_MASK;
 		tmp |= ourhost->cur_clk << S3C_SDHCI_CTRL2_SELBASECLK_SHIFT;
-		writel(tmp, host->ioaddr + S3C_SDHCI_CONTROL2);
+		writel(tmp, host->ioaddr + 0x80);
 	}
 }
 
@@ -613,14 +609,7 @@ static int __devinit sdhci_s3c_probe(struct platform_device *pdev)
 	 * SDHCI block, or a missing configuration that needs to be set. */
 	host->quirks |= SDHCI_QUIRK_NO_BUSY_IRQ;
 
-	/* This host supports the Auto CMD12 */
-	host->quirks |= SDHCI_QUIRK_MULTIBLOCK_READ_ACMD12;
-
-	/* Samsung SoCs need BROKEN_ADMA_ZEROLEN_DESC */
-	host->quirks |= SDHCI_QUIRK_BROKEN_ADMA_ZEROLEN_DESC;
-
-	if (pdata->cd_type == S3C_SDHCI_CD_NONE ||
-	    pdata->cd_type == S3C_SDHCI_CD_PERMANENT)
+	if (pdata->cd_type == S3C_SDHCI_CD_NONE)
 		host->quirks |= SDHCI_QUIRK_BROKEN_CARD_DETECTION;
 
 	if (pdata->cd_type == S3C_SDHCI_CD_PERMANENT)
@@ -632,11 +621,6 @@ static int __devinit sdhci_s3c_probe(struct platform_device *pdev)
 	/* if vmmc_name is in pdata */
 	if (pdata->vmmc_name)
 		host->vmmc_name = pdata->vmmc_name;
-
-	if (pdata->pm_caps) {
-		host->mmc->pm_caps |= pdata->pm_caps;
-		host->mmc->pm_flags = host->mmc->pm_caps;
-	}
 
 	host->quirks |= (SDHCI_QUIRK_32BIT_DMA_ADDR |
 			 SDHCI_QUIRK_32BIT_DMA_SIZE);
@@ -767,7 +751,7 @@ static int __devexit sdhci_s3c_remove(struct platform_device *pdev)
 
 	sdhci_remove_host(host, 1);
 
-	for (ptr = 0; ptr < MAX_BUS_CLK; ptr++) {
+	for (ptr = 0; ptr < 3; ptr++) {
 		if (sc->clk_bus[ptr]) {
 			clk_disable(sc->clk_bus[ptr]);
 			clk_put(sc->clk_bus[ptr]);
@@ -786,12 +770,16 @@ static int __devexit sdhci_s3c_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_PM_SLEEP
-static int sdhci_s3c_suspend(struct device *dev)
-{
-	struct sdhci_host *host = dev_get_drvdata(dev);
+#ifdef CONFIG_PM
 
-	return sdhci_suspend_host(host);
+static int sdhci_s3c_suspend(struct platform_device *dev, pm_message_t pm)
+{
+	struct sdhci_host *host = platform_get_drvdata(dev);
+	int ret = 0;
+
+	ret = sdhci_suspend_host(host, pm);
+
+	return ret;
 }
 
 static void sdhci_s3c_shutdown(struct platform_device *dev)
@@ -801,33 +789,29 @@ static void sdhci_s3c_shutdown(struct platform_device *dev)
 	sdhci_shutdown_host(host);
 }
 
-static int sdhci_s3c_resume(struct device *dev)
+static int sdhci_s3c_resume(struct platform_device *dev)
 {
-	struct sdhci_host *host = dev_get_drvdata(dev);
+	struct sdhci_host *host = platform_get_drvdata(dev);
+	int ret = 0;
 
-	return sdhci_resume_host(host);
+	ret = sdhci_resume_host(host);
+	return ret;
 }
-#endif
-
-#ifdef CONFIG_PM
-static const struct dev_pm_ops sdhci_s3c_pmops = {
-	SET_SYSTEM_SLEEP_PM_OPS(sdhci_s3c_suspend, sdhci_s3c_resume)
-};
-
-#define SDHCI_S3C_PMOPS (&sdhci_s3c_pmops)
 
 #else
-#define SDHCI_S3C_PMOPS NULL
+#define sdhci_s3c_suspend NULL
+#define sdhci_s3c_resume NULL
 #endif
 
 static struct platform_driver sdhci_s3c_driver = {
 	.probe		= sdhci_s3c_probe,
 	.remove		= __devexit_p(sdhci_s3c_remove),
+	.suspend	= sdhci_s3c_suspend,
+	.resume	        = sdhci_s3c_resume,
 	.shutdown	= sdhci_s3c_shutdown,
 	.driver		= {
 		.owner	= THIS_MODULE,
 		.name	= "s3c-sdhci",
-		.pm	= SDHCI_S3C_PMOPS,
 	},
 };
 

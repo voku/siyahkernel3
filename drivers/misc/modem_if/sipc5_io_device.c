@@ -926,7 +926,6 @@ static int rx_frame_from_skb(struct io_device *iod, struct link_device *ld,
 	/* Demux the frame */
 	if (rx_demux(ld, skb) < 0) {
 		mif_info("%s: ERR! rx_demux fail\n", ld->name);
-		dev_kfree_skb_any(skb);
 		return -EINVAL;
 	}
 
@@ -950,9 +949,11 @@ static int io_dev_recv_skb_from_link_dev(struct io_device *iod,
 			wake_lock_timeout(&iod->wakelock, iod->waketime);
 
 		err = rx_frame_from_skb(iod, ld, skb);
-		if (err < 0)
+		if (err < 0) {
+			dev_kfree_skb_any(skb);
 			mif_info("%s: ERR! rx_frame_from_skb fail (err %d)\n",
 				link, err);
+		}
 
 		return err;
 
@@ -1580,19 +1581,16 @@ int sipc5_init_io_device(struct io_device *iod)
 		ret = misc_register(&iod->miscdev);
 		if (ret)
 			mif_info("%s: ERR! misc_register fail\n", iod->name);
-
 		ret = device_create_file(iod->miscdev.this_device,
 					&attr_waketime);
 		if (ret)
 			mif_info("%s: ERR! device_create_file fail\n",
 				iod->name);
-
 		ret = device_create_file(iod->miscdev.this_device,
 				&attr_loopback);
 		if (ret)
 			mif_err("failed to create `loopback file' : %s\n",
 					iod->name);
-
 		ret = device_create_file(iod->miscdev.this_device,
 				&attr_txlink);
 		if (ret)

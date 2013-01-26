@@ -25,6 +25,7 @@
 #include <linux/ioctl.h>
 #include <linux/delay.h>
 
+#include <plat/gpio-cfg.h>
 #include <mach/gpio.h>
 
 #include "Si47xx_dev.h"
@@ -648,14 +649,12 @@ static int __devinit Si47xx_i2c_probe(struct i2c_client *client,
 	mutex_init(&Si47xx_dev->lock);
 
 	ret = Si47xx_dev_init(Si47xx_dev);
-	if (ret < 0) {
+	if (ret < 0)
 		error("Si47xx_dev_init failed");
-		goto dev_init_err;
-	}
 
 	return ret;
 
-dev_init_err:
+MISC_IRQ_DREG:
 	free_irq(client->irq, NULL);
 	mutex_destroy(&Si47xx_dev->lock);
 	kfree(Si47xx_dev);

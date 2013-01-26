@@ -8,9 +8,6 @@
 
 /* charger cable state */
 extern bool is_cable_attached;
-#ifdef CONFIG_MACH_GC1
-extern bool is_jig_attached;
-#endif
 static void sec_power_off(void)
 {
 	int poweroff_try = 0;
@@ -18,18 +15,10 @@ static void sec_power_off(void)
 	local_irq_disable();
 
 	pr_emerg("%s : cable state=%d\n", __func__, is_cable_attached);
-#ifdef CONFIG_MACH_GC1
-	pr_emerg("%s : jig state=%d\n", __func__, is_jig_attached);
-#endif
 
 	while (1) {
 		/* Check reboot charging */
-#ifdef CONFIG_MACH_GC1
-		if (is_jig_attached || is_cable_attached
-			|| (poweroff_try >= 5)) {
-#else
 		if (is_cable_attached || (poweroff_try >= 5)) {
-#endif
 			pr_emerg
 			    ("%s: charger connected(%d) or power"
 			     "off failed(%d), reboot!\n",
@@ -96,17 +85,17 @@ static void sec_reboot(char str, const char *cmd)
 		unsigned long value;
 		if (!strcmp(cmd, "fota"))
 			writel(REBOOT_MODE_PREFIX | REBOOT_MODE_FOTA,
-					S5P_INFORM3);
-		else if (!strcmp(cmd, "arm11_fota"))
-			writel(REBOOT_MODE_PREFIX | REBOOT_MODE_FOTA,
-					S5P_INFORM3);
+			       S5P_INFORM3);
 		else if (!strcmp(cmd, "fota_bl"))
 			writel(REBOOT_MODE_PREFIX | REBOOT_MODE_FOTA_BL,
 			       S5P_INFORM3);
 		else if (!strcmp(cmd, "recovery"))
 			writel(REBOOT_MODE_PREFIX | REBOOT_MODE_RECOVERY,
 			       S5P_INFORM3);
-		else if (!strcmp(cmd, "download") || !strcmp(cmd, "bootloader"))	
+		else if (!strcmp(cmd, "download"))
+			writel(REBOOT_MODE_PREFIX | REBOOT_MODE_DOWNLOAD,
+			       S5P_INFORM3);
+		else if (!strcmp(cmd, "bootloader"))
 			writel(REBOOT_MODE_PREFIX | REBOOT_MODE_DOWNLOAD,
 			       S5P_INFORM3);
 		else if (!strcmp(cmd, "upload"))

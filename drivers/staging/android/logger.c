@@ -655,11 +655,6 @@ static long logger_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			ret = -EBADF;
 			break;
 		}
-		if (!(in_egroup_p(file->f_dentry->d_inode->i_gid) ||
-				capable(CAP_SYSLOG))) {
-			ret = -EPERM;
-			break;
-		}
 		list_for_each_entry(reader, &log->readers, list)
 			reader->r_off = log->w_off;
 		log->head = log->w_off;
@@ -722,12 +717,12 @@ static struct logger_log VAR = { \
 	.size = SIZE, \
 };
 
-DEFINE_LOGGER_DEVICE(log_main, LOGGER_LOG_MAIN, 512*1024)
+DEFINE_LOGGER_DEVICE(log_main, LOGGER_LOG_MAIN, 2048*1024)
 DEFINE_LOGGER_DEVICE(log_events, LOGGER_LOG_EVENTS, 256*1024)
 #if defined(CONFIG_MACH_T0)
 DEFINE_LOGGER_DEVICE(log_radio, LOGGER_LOG_RADIO, 2048*1024)
 #else
-DEFINE_LOGGER_DEVICE(log_radio, LOGGER_LOG_RADIO, 512*1024)
+DEFINE_LOGGER_DEVICE(log_radio, LOGGER_LOG_RADIO, 1024*1024)
 #endif
 DEFINE_LOGGER_DEVICE(log_system, LOGGER_LOG_SYSTEM, 256*1024)
 DEFINE_LOGGER_DEVICE(log_sf, LOGGER_LOG_SF, 256*1024)

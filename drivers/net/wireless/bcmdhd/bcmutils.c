@@ -42,6 +42,7 @@
 #include <bcm_osl.h>
 #endif
 
+
 #endif /* !BCMDRIVER */
 
 #include <bcmendian.h>
@@ -53,7 +54,11 @@
 #include <proto/802.11.h>
 void *_bcmutils_dummy_fn = NULL;
 
+
 #ifdef BCMDRIVER
+
+
+
 /* copy a pkt buffer chain into a buffer */
 uint
 pktcopy(osl_t *osh, void *p, uint offset, int len, uchar *buf)
@@ -115,6 +120,8 @@ pktfrombuf(osl_t *osh, void *p, uint offset, int len, uchar *buf)
 	return ret;
 }
 
+
+
 /* return total length of buffer chain */
 uint BCMFASTPATH
 pkttotlen(osl_t *osh, void *p)
@@ -152,6 +159,7 @@ pktsegcnt(osl_t *osh, void *p)
 
 	return cnt;
 }
+
 
 /* count segments of a chained packet */
 uint BCMFASTPATH
@@ -1033,6 +1041,10 @@ bcm_mdelay(uint ms)
 	}
 }
 
+
+
+
+
 #if defined(DHD_DEBUG)
 /* pretty hex print a pkt buffer chain */
 void
@@ -1046,7 +1058,7 @@ prpkt(const char *msg, osl_t *osh, void *p0)
 	for (p = p0; p; p = PKTNEXT(osh, p))
 		prhex(NULL, PKTDATA(osh, p), PKTLEN(osh, p));
 }
-#endif
+#endif	
 
 /* Takes an Ethernet frame and sets out-of-bound PKTPRIO.
  * Also updates the inplace vlan tag if requested.
@@ -1135,6 +1147,8 @@ bcmerrorstr(int bcmerror)
 	return bcmerrorstrtable[-bcmerror];
 }
 
+
+
 /* iovar table lookup */
 const bcm_iovar_t*
 bcm_iovar_lookup(const bcm_iovar_t *table, const char *name)
@@ -1207,6 +1221,7 @@ bcm_iovar_lencheck(const bcm_iovar_t *vi, void *arg, int len, bool set)
 }
 
 #endif	/* BCMDRIVER */
+
 
 /*******************************************************************************
  * crc8
@@ -1633,7 +1648,7 @@ bcm_format_hex(char *str, const void *bytes, int len)
 	}
 	return (int)(p - str);
 }
-#endif
+#endif 
 
 /* pretty hex print a contiguous buffer */
 void
@@ -2025,7 +2040,7 @@ bcm_format_ssid(char* buf, const uchar ssid[], uint ssid_len)
 
 	return (int)(p - buf);
 }
-#endif
+#endif 
 
 #endif /* BCMDRIVER */
 

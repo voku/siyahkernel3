@@ -26,8 +26,6 @@
 #include <linux/cdev.h>
 #include <linux/types.h>
 
-#define CALLER	(__builtin_return_address(0))
-
 #define MAX_CPINFO_SIZE		512
 
 #define MAX_LINK_DEVTYPE	3
@@ -423,13 +421,6 @@ struct link_device {
 
 	struct sk_buff_head *skb_txq[MAX_IPC_DEV];
 
-	/* RX queue of socket buffers */
-	struct sk_buff_head sk_fmt_rx_q;
-	struct sk_buff_head sk_raw_rx_q;
-	struct sk_buff_head sk_rfs_rx_q;
-
-	struct sk_buff_head *skb_rxq[MAX_IPC_DEV];
-
 	bool raw_tx_suspended; /* for misc dev */
 	struct completion raw_tx_resumed_by_cp;
 
@@ -523,16 +514,6 @@ struct mif_storage {
 	char *addr;
 	unsigned int cnt;
 };
-
-struct utc_time {
-	u16 year;
-	u8 mon:4,
-	   day:4;
-	u8 hour;
-	u8 min;
-	u8 sec;
-	u16 msec;
-} __packed;
 
 /* modem_shared - shared data for all io/link devices and a modem ctl
  * msd : mc : iod : ld = 1 : 1 : M : N

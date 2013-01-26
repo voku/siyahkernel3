@@ -62,10 +62,8 @@
 #define TRANS_LOAD_H1_SCROFF 100
 
 #define BOOT_DELAY	60
-#define CHECK_DELAY_ON	HZ << 1
-#define CHECK_DELAY_OFF	HZ >> 1
-
-#define CPU1_ON_FREQ 800000
+#define CHECK_DELAY_ON	(.5*HZ * 4)
+#define CHECK_DELAY_OFF	(.5*HZ)
 #endif
 
 #if defined(CONFIG_MACH_MIDAS) || defined(CONFIG_MACH_SMDK4X12) \
@@ -187,11 +185,11 @@ bool hotplug_out_chk(unsigned int nr_online_cpu, unsigned int threshold_up,
 #if defined(CONFIG_MACH_P10)
 	return ((nr_online_cpu > 1) &&
 		(avg_load < threshold_up &&
-		cur_freq < freq_cpu1on));
+		cur_freq <= freq_min));
 #else
 	return ((nr_online_cpu > 1) &&
 		(avg_load < threshold_up ||
-		cur_freq < freq_cpu1on));
+		cur_freq <= freq_min));
 #endif
 }
 
@@ -212,16 +210,6 @@ standalone_hotplug(unsigned int load, unsigned long nr_rq_min, unsigned int cpu_
 		{0, 0}
 	};
 
-	unsigned int threshold_scroff[CPULOAD_TABLE][2] = {
-		{0, trans_load_h0_scroff},
-		{trans_load_l1_scroff, trans_load_h1_scroff},
-#if (NR_CPUS > 2)
-		{trans_load_l2_scroff, trans_load_h2_scroff},
-		{trans_load_l3_scroff, 100},
-#endif
-		{0, 0}
-	};
-
 	static void __iomem *clk_fimc;
 	unsigned char fimc_stat;
 
@@ -238,13 +226,12 @@ standalone_hotplug(unsigned int load, unsigned long nr_rq_min, unsigned int cpu_
 	if ((fimc_stat>>4 & 0x1) == 1)
 		return HOTPLUG_IN;
 
-	if (hotplug_out_chk(nr_online_cpu, (screen_off ? threshold_scroff[nr_online_cpu-1][0] : threshold[nr_online_cpu - 1][0] ),
+	if (hotplug_out_chk(nr_online_cpu, threshold[nr_online_cpu - 1][0],
 			    avg_load, cur_freq)) {
 		return HOTPLUG_OUT;
 		/* If total nr_running is less than cpu(on-state) number, hotplug do not hotplug-in */
 	} else if (nr_running() > nr_online_cpu &&
-		   avg_load > (screen_off ? threshold_scroff[nr_online_cpu-1][1] : threshold[nr_online_cpu - 1][1] )
-		   && cur_freq >= freq_cpu1on) {
+		   avg_load > threshold[nr_online_cpu - 1][1] && cur_freq > freq_min) {
 
 		return HOTPLUG_IN;
 #if defined(CONFIG_MACH_P10)
@@ -300,12 +287,12 @@ static void hotplug_timer(struct work_struct *work)
 
 		cur_idle_time = get_cpu_idle_time_us(i, &cur_wall_time);
 
-		idle_time = (unsigned int)
-				(cur_idle_time - tmp_info->prev_cpu_idle);
+		idle_time = (unsigned int)cputime64_sub(cur_idle_time,
+							tmp_info->prev_cpu_idle);
 		tmp_info->prev_cpu_idle = cur_idle_time;
 
-		wall_time = (unsigned int)
-				(cur_wall_time - tmp_info->prev_cpu_wall);
+		wall_time = (unsigned int)cputime64_sub(cur_wall_time,
+							tmp_info->prev_cpu_wall);
 		tmp_info->prev_cpu_wall = cur_wall_time;
 
 		if (wall_time < idle_time)
@@ -348,13 +335,12 @@ static void hotplug_timer(struct work_struct *work)
 		DBG_PRINT("cpu%d turning on!\n", select_off_cpu);
 		cpu_up(select_off_cpu);
 		DBG_PRINT("cpu%d on\n", select_off_cpu);
-		hotpluging_rate = check_rate_cpuon;
+		hotpluging_rate = CHECK_DELAY_ON;
 	} else if (flag_hotplug == HOTPLUG_OUT && cpu_online(cpu_rq_min) == CPU_ON) {
 		DBG_PRINT("cpu%d turnning off!\n", cpu_rq_min);
 		cpu_down(cpu_rq_min);
 		DBG_PRINT("cpu%d off!\n", cpu_rq_min);
-		if(!screen_off) hotpluging_rate = check_rate;
-		else hotpluging_rate = check_rate_scroff;
+		hotpluging_rate = CHECK_DELAY_OFF;
 	} 
 
 no_hotplug:
@@ -394,34 +380,6 @@ static int exynos4_pm_hotplug_notifier_event(struct notifier_block *this,
 
 static struct notifier_block exynos4_pm_hotplug_notifier = {
 	.notifier_call = exynos4_pm_hotplug_notifier_event,
-};
-
-static void hotplug_early_suspend(struct early_suspend *handler)
-{
-	mutex_lock(&hotplug_lock);
-	screen_off = true;
-	//Hotplug out all extra CPUs
-	while(num_online_cpus() > 1)
-	  cpu_down(num_online_cpus()-1);
-	hotpluging_rate = check_rate_scroff;
-	mutex_unlock(&hotplug_lock);
-}
-
-static void hotplug_late_resume(struct early_suspend *handler)
-{
-	printk(KERN_INFO "pm-hotplug: enable cpu auto-hotplug\n");
-
-	mutex_lock(&hotplug_lock);
-	screen_off = false;
-	hotpluging_rate = check_rate;
-	queue_delayed_work_on(0, hotplug_wq, &hotplug_work, hotpluging_rate);
-	mutex_unlock(&hotplug_lock);
-}
-
-static struct early_suspend hotplug_early_suspend_notifier = {
-	.suspend = hotplug_early_suspend,
-	.resume = hotplug_late_resume,
-	.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN,
 };
 
 static int hotplug_reboot_notifier_call(struct notifier_block *this,

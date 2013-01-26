@@ -214,7 +214,7 @@ static void smb347_charger_init(struct smb347_chg_data *chg)
 	smb347_i2c_write(chg->client, SMB347_INPUT_CURRENTLIMIT, 0x66);
 
 	/* Various func. : USBIN primary input, VCHG func. enable */
-	smb347_i2c_write(chg->client, SMB347_VARIOUS_FUNCTIONS, 0xA7);
+	smb347_i2c_write(chg->client, SMB347_VARIOUS_FUNCTIONS, 0xB7);
 
 	/* Float voltage : 4.2V */
 	smb347_i2c_write(chg->client, SMB347_FLOAT_VOLTAGE, 0x63);

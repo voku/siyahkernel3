@@ -1080,11 +1080,13 @@ static const unsigned short tune_warm_outdoor[] = {
 
 static const unsigned short tune_cold_outdoor[] = {
 	0x0000, 0x0000,	/*BANK 0*/
-	0x0008, 0x00ec,	/*Dither8 UC4 ABC2 CP1 | CC8 MCM4 SCR2 SCC1 | CS8 DE4 DNR2 HDR1*/
+	0x0008, 0x04ec,	/*Dither8 UC4 ABC2 CP1 | CC8 MCM4 SCR2 SCC1 | CS8 DE4 DNR2 HDR1*/
 	0x0000, 0x0001,	/*BANK 1*/
 	0x0001, 0x0064,	/*MCM 10000K*/
 	0x0009, 0xa08e,	/*MCM 5cb 1cr W*/
 	0x000b, 0x7979,	/*MCM 4cr 5cr W*/
+	0x00d0, 0x01a0,	/*UC y*/
+	0x00d1, 0x01ff,	/*UC cs*/
 	0x00ff, 0x0000,	/*Mask Release*/
 	END_SEQ, 0x0000,
 };

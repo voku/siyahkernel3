@@ -77,7 +77,6 @@ static int sprd8803_off(struct modem_ctl *mc)
 	}
 
 	gpio_set_value(mc->gpio_cp_on, 0);
-	gpio_set_value(mc->gpio_pda_active, 0);
 
 	spin_lock(&irq_lock);
 	if (irq_lock_flag) {

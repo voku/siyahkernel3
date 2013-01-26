@@ -188,22 +188,17 @@ struct battery_info {
 	bool is_unspec_phase;
 	bool is_unspec_recovery;
 #endif
-
-#ifdef CONFIG_FAST_BOOT
-	struct notifier_block fsd_notifier_block;
-	bool dup_power_off;
-	bool suspend_check;
-#endif
 };
 
 /* jig state */
 extern bool is_jig_attached;
-#if defined(CONFIG_MACH_GC1) && defined(CONFIG_TARGET_LOCALE_USA)
-	extern int activity_index;
-#endif
 
 /* charger detect source */
+#if defined(CONFIG_MACH_BAFFIN)
+#undef USE_CHGIN_INTR
+#else
 #define USE_CHGIN_INTR
+#endif
 
 /* extended online type */
 #if defined(CONFIG_MACH_T0)
@@ -219,10 +214,7 @@ enum online_property {
 };
 
 /* use 2step charge termination */
-#if defined(CONFIG_MACH_T0) || \
-	defined(CONFIG_MACH_BAFFIN_KOR_SKT) || \
-	defined(CONFIG_MACH_BAFFIN_KOR_KT) || \
-	defined(CONFIG_MACH_BAFFIN_KOR_LGT)
+#if defined(CONFIG_MACH_T0)
 #define USE_2STEP_TERM
 #else
 #undef USE_2STEP_TERM
@@ -410,7 +402,6 @@ enum event_type {
 	EVENT_TYPE_WIFI,
 	EVENT_TYPE_USE,
 
-	EVENT_TYPE_GPU,
 	EVENT_TYPE_MAX,
 };
 

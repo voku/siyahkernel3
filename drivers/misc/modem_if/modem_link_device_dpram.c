@@ -43,7 +43,7 @@ static void trigger_force_cp_crash(struct dpram_link_device *dpld);
  * @addr: address of the queue pointer
  * @val: value to be written to the queue pointer
  *
- * Writes a value to a pointer in a circular queue with verification.
+ * Writes a value to a pointer in a circular queue with verification
  */
 static inline void set_circ_pointer(struct dpram_link_device *dpld, int id,
 				int dir, int ptr, void __iomem *addr, u16 val)
@@ -84,7 +84,7 @@ static inline void set_circ_pointer(struct dpram_link_device *dpld, int id,
  * @name: name of the interrupt
  * @dpld: pointer to an instance of dpram_link_device structure
  *
- * Registers the ISR for the IRQ number.
+ * Registers the ISR for the IRQ number
  */
 static int register_isr(unsigned int irq, irqreturn_t (*isr)(int, void*),
 			unsigned long flags, const char *name,
@@ -111,7 +111,7 @@ static int register_isr(unsigned int irq, irqreturn_t (*isr)(int, void*),
  * clear_intr
  * @dpld: pointer to an instance of dpram_link_device structure
  *
- * Clears the CP-to-AP interrupt register in a DPRAM.
+ * Clears the CP-to-AP interrupt register in a DPRAM
  */
 static inline void clear_intr(struct dpram_link_device *dpld)
 {
@@ -120,42 +120,31 @@ static inline void clear_intr(struct dpram_link_device *dpld)
 }
 
 /**
- * recv_int2ap
+ * recv_intr
  * @dpld: pointer to an instance of dpram_link_device structure
  *
- * Returns the value of the CP-to-AP interrupt register in a DPRAM.
+ * Returns the value of the CP-to-AP interrupt register in a DPRAM
  */
-static inline u16 recv_int2ap(struct dpram_link_device *dpld)
+static inline u16 recv_intr(struct dpram_link_device *dpld)
 {
 	return ioread16(dpld->mbx2ap);
 }
 
 /**
- * send_int2cp
+ * send_intr
  * @dpld: pointer to an instance of dpram_link_device structure
  * @mask: value to be written to the AP-to-CP interrupt register in a DPRAM
  */
-static inline void send_int2cp(struct dpram_link_device *dpld, u16 mask)
+static inline void send_intr(struct dpram_link_device *dpld, u16 mask)
 {
 	iowrite16(mask, dpld->mbx2cp);
-}
-
-/**
- * read_int2cp
- * @dpld: pointer to an instance of dpram_link_device structure
- *
- * Returns the value of the AP-to-CP interrupt register in a DPRAM.
- */
-static inline u16 read_int2cp(struct dpram_link_device *dpld)
-{
-	return ioread16(dpld->mbx2cp);
 }
 
 /**
  * get_magic
  * @dpld: pointer to an instance of dpram_link_device structure
  *
- * Returns the value of the "magic code" field in a DPRAM.
+ * Returns the value of the "magic code" field in a DPRAM
  */
 static inline u16 get_magic(struct dpram_link_device *dpld)
 {
@@ -176,7 +165,7 @@ static inline void set_magic(struct dpram_link_device *dpld, u16 val)
  * get_access
  * @dpld: pointer to an instance of dpram_link_device structure
  *
- * Returns the value of the "access enable" field in a DPRAM.
+ * Returns the value of the "access enable" field in a DPRAM
  */
 static inline u16 get_access(struct dpram_link_device *dpld)
 {
@@ -194,149 +183,149 @@ static inline void set_access(struct dpram_link_device *dpld, u16 val)
 }
 
 /**
- * get_txq_head
+ * get_tx_head
  * @dpld: pointer to an instance of dpram_link_device structure
  * @id: IPC device (IPC_FMT, IPC_RAW, etc.)
  *
- * Returns the value of a head (in) pointer in a TX queue.
+ * Returns the value of a head (in) pointer in a TX queue
  */
-static inline u32 get_txq_head(struct dpram_link_device *dpld, int id)
+static inline u32 get_tx_head(struct dpram_link_device *dpld, int id)
 {
 	return ioread16(dpld->dev[id]->txq.head);
 }
 
 /**
- * get_txq_tail
+ * get_tx_tail
  * @dpld: pointer to an instance of dpram_link_device structure
  * @id: IPC device (IPC_FMT, IPC_RAW, etc.)
  *
- * Returns the value of a tail (out) pointer in a TX queue.
+ * Returns the value of a tail (out) pointer in a TX queue
  *
  * It is useless for an AP to read a tail pointer in a TX queue twice to verify
  * whether or not the value in the pointer is valid, because it can already have
  * been updated by a CP after the first access from the AP.
  */
-static inline u32 get_txq_tail(struct dpram_link_device *dpld, int id)
+static inline u32 get_tx_tail(struct dpram_link_device *dpld, int id)
 {
 	return ioread16(dpld->dev[id]->txq.tail);
 }
 
 /**
- * set_txq_head
+ * set_tx_head
  * @dpld: pointer to an instance of dpram_link_device structure
  * @id: IPC device (IPC_FMT, IPC_RAW, etc.)
  * @in: value to be written to the head pointer in a TXQ
  */
-static inline void set_txq_head(struct dpram_link_device *dpld, int id, u32 in)
+static inline void set_tx_head(struct dpram_link_device *dpld, int id, u32 in)
 {
 	set_circ_pointer(dpld, id, TX, HEAD, dpld->dev[id]->txq.head, in);
 }
 
 /**
- * set_txq_tail
+ * set_tx_tail
  * @dpld: pointer to an instance of dpram_link_device structure
  * @id: IPC device (IPC_FMT, IPC_RAW, etc.)
  * @out: value to be written to the tail pointer in a TXQ
  */
-static inline void set_txq_tail(struct dpram_link_device *dpld, int id, u32 out)
+static inline void set_tx_tail(struct dpram_link_device *dpld, int id, u32 out)
 {
 	set_circ_pointer(dpld, id, TX, TAIL, dpld->dev[id]->txq.tail, out);
 }
 
 /**
- * get_txq_buff
+ * get_tx_buff
  * @dpld: pointer to an instance of dpram_link_device structure
  * @id: IPC device (IPC_FMT, IPC_RAW, etc.)
  *
- * Returns the start address of the buffer in a TXQ.
+ * Returns the start address of the buffer in a TXQ
  */
-static inline u8 *get_txq_buff(struct dpram_link_device *dpld, int id)
+static inline u8 *get_tx_buff(struct dpram_link_device *dpld, int id)
 {
 	return dpld->dev[id]->txq.buff;
 }
 
 /**
- * get_txq_buff_size
+ * get_tx_buff_size
  * @dpld: pointer to an instance of dpram_link_device structure
  * @id: IPC device (IPC_FMT, IPC_RAW, etc.)
  *
- * Returns the size of the buffer in a TXQ.
+ * Returns the size of the buffer in a TXQ
  */
-static inline u32 get_txq_buff_size(struct dpram_link_device *dpld, int id)
+static inline u32 get_tx_buff_size(struct dpram_link_device *dpld, int id)
 {
 	return dpld->dev[id]->txq.size;
 }
 
 /**
- * get_rxq_head
+ * get_rx_head
  * @dpld: pointer to an instance of dpram_link_device structure
  * @id: IPC device (IPC_FMT, IPC_RAW, etc.)
  *
- * Returns the value of a head (in) pointer in an RX queue.
+ * Returns the value of a head (in) pointer in an RX queue
  *
  * It is useless for an AP to read a head pointer in an RX queue twice to verify
  * whether or not the value in the pointer is valid, because it can already have
  * been updated by a CP after the first access from the AP.
  */
-static inline u32 get_rxq_head(struct dpram_link_device *dpld, int id)
+static inline u32 get_rx_head(struct dpram_link_device *dpld, int id)
 {
 	return ioread16(dpld->dev[id]->rxq.head);
 }
 
 /**
- * get_rxq_tail
+ * get_rx_tail
  * @dpld: pointer to an instance of dpram_link_device structure
  * @id: IPC device (IPC_FMT, IPC_RAW, etc.)
  *
- * Returns the value of a tail (in) pointer in an RX queue.
+ * Returns the value of a tail (in) pointer in an RX queue
  */
-static inline u32 get_rxq_tail(struct dpram_link_device *dpld, int id)
+static inline u32 get_rx_tail(struct dpram_link_device *dpld, int id)
 {
 	return ioread16(dpld->dev[id]->rxq.tail);
 }
 
 /**
- * set_rxq_head
+ * set_rx_head
  * @dpld: pointer to an instance of dpram_link_device structure
  * @id: IPC device (IPC_FMT, IPC_RAW, etc.)
  * @in: value to be written to the head pointer in an RXQ
  */
-static inline void set_rxq_head(struct dpram_link_device *dpld, int id, u32 in)
+static inline void set_rx_head(struct dpram_link_device *dpld, int id, u32 in)
 {
-	set_circ_pointer(dpld, id, RX, HEAD, dpld->dev[id]->rxq.head, in);
+	set_circ_pointer(dpld, id, TX, HEAD, dpld->dev[id]->rxq.head, in);
 }
 
 /**
- * set_rxq_tail
+ * set_rx_tail
  * @dpld: pointer to an instance of dpram_link_device structure
  * @id: IPC device (IPC_FMT, IPC_RAW, etc.)
  * @out: value to be written to the tail pointer in an RXQ
  */
-static inline void set_rxq_tail(struct dpram_link_device *dpld, int id, u32 out)
+static inline void set_rx_tail(struct dpram_link_device *dpld, int id, u32 out)
 {
-	set_circ_pointer(dpld, id, RX, TAIL, dpld->dev[id]->rxq.tail, out);
+	set_circ_pointer(dpld, id, TX, TAIL, dpld->dev[id]->rxq.tail, out);
 }
 
 /**
- * get_rxq_buff
+ * get_rx_buff
  * @dpld: pointer to an instance of dpram_link_device structure
  * @id: IPC device (IPC_FMT, IPC_RAW, etc.)
  *
- * Returns the start address of the buffer in an RXQ.
+ * Returns the start address of the buffer in an RXQ
  */
-static inline u8 *get_rxq_buff(struct dpram_link_device *dpld, int id)
+static inline u8 *get_rx_buff(struct dpram_link_device *dpld, int id)
 {
 	return dpld->dev[id]->rxq.buff;
 }
 
 /**
- * get_rxq_buff_size
+ * get_rx_buff_size
  * @dpld: pointer to an instance of dpram_link_device structure
  * @id: IPC device (IPC_FMT, IPC_RAW, etc.)
  *
- * Returns the size of the buffer in an RXQ.
+ * Returns the size of the buffer in an RXQ
  */
-static inline u32 get_rxq_buff_size(struct dpram_link_device *dpld, int id)
+static inline u32 get_rx_buff_size(struct dpram_link_device *dpld, int id)
 {
 	return dpld->dev[id]->rxq.size;
 }
@@ -346,7 +335,7 @@ static inline u32 get_rxq_buff_size(struct dpram_link_device *dpld, int id)
  * @dpld: pointer to an instance of dpram_link_device structure
  * @id: IPC device (IPC_FMT, IPC_RAW, etc.)
  *
- * Returns the REQ_ACK mask value for the IPC device.
+ * Returns the REQ_ACK mask value for the IPC device
  */
 static inline u16 get_mask_req_ack(struct dpram_link_device *dpld, int id)
 {
@@ -358,7 +347,7 @@ static inline u16 get_mask_req_ack(struct dpram_link_device *dpld, int id)
  * @dpld: pointer to an instance of dpram_link_device structure
  * @id: IPC device (IPC_FMT, IPC_RAW, etc.)
  *
- * Returns the RES_ACK mask value for the IPC device.
+ * Returns the RES_ACK mask value for the IPC device
  */
 static inline u16 get_mask_res_ack(struct dpram_link_device *dpld, int id)
 {
@@ -370,81 +359,11 @@ static inline u16 get_mask_res_ack(struct dpram_link_device *dpld, int id)
  * @dpld: pointer to an instance of dpram_link_device structure
  * @id: IPC device (IPC_FMT, IPC_RAW, etc.)
  *
- * Returns the SEND mask value for the IPC device.
+ * Returns the SEND mask value for the IPC device
  */
 static inline u16 get_mask_send(struct dpram_link_device *dpld, int id)
 {
 	return dpld->dev[id]->mask_send;
-}
-
-/**
- * reset_txq_circ
- * @dpld: pointer to an instance of dpram_link_device structure
- * @dev: IPC device (IPC_FMT, IPC_RAW, etc.)
- *
- * Empties a TXQ by resetting the head (in) pointer with the value in the tail
- * (out) pointer.
- */
-static inline void reset_txq_circ(struct dpram_link_device *dpld, int dev)
-{
-	struct link_device *ld = &dpld->ld;
-	u32 head = get_txq_head(dpld, dev);
-	u32 tail = get_txq_tail(dpld, dev);
-
-	mif_info("%s: %s_TXQ: HEAD[%u] <== TAIL[%u]\n",
-		ld->name, get_dev_name(dev), head, tail);
-
-	set_txq_head(dpld, dev, tail);
-}
-
-/**
- * reset_rxq_circ
- * @dpld: pointer to an instance of dpram_link_device structure
- * @dev: IPC device (IPC_FMT, IPC_RAW, etc.)
- *
- * Empties an RXQ by resetting the tail (out) pointer with the value in the head
- * (in) pointer.
- */
-static inline void reset_rxq_circ(struct dpram_link_device *dpld, int dev)
-{
-	struct link_device *ld = &dpld->ld;
-	u32 head = get_rxq_head(dpld, dev);
-	u32 tail = get_rxq_tail(dpld, dev);
-
-	mif_info("%s: %s_RXQ: TAIL[%u] <== HEAD[%u]\n",
-		ld->name, get_dev_name(dev), tail, head);
-
-	set_rxq_tail(dpld, dev, head);
-}
-
-/**
- * get_dpram_status
- * @dpld: pointer to an instance of dpram_link_device structure
- * @dir: direction of communication (TX or RX)
- * @stat: pointer to an instance of mem_status structure
- *
- * Takes a snapshot of the current status of a DPRAM.
- */
-static void get_dpram_status(struct dpram_link_device *dpld,
-			enum circ_dir_type dir, struct mem_status *stat)
-{
-#ifndef CONFIG_SAMSUNG_PRODUCT_SHIP
-	getnstimeofday(&stat->ts);
-#endif
-
-	stat->dir = dir;
-	stat->magic = get_magic(dpld);
-	stat->access = get_access(dpld);
-	stat->head[IPC_FMT][TX] = get_txq_head(dpld, IPC_FMT);
-	stat->tail[IPC_FMT][TX] = get_txq_tail(dpld, IPC_FMT);
-	stat->head[IPC_FMT][RX] = get_rxq_head(dpld, IPC_FMT);
-	stat->tail[IPC_FMT][RX] = get_rxq_tail(dpld, IPC_FMT);
-	stat->head[IPC_RAW][TX] = get_txq_head(dpld, IPC_RAW);
-	stat->tail[IPC_RAW][TX] = get_txq_tail(dpld, IPC_RAW);
-	stat->head[IPC_RAW][RX] = get_rxq_head(dpld, IPC_RAW);
-	stat->tail[IPC_RAW][RX] = get_rxq_tail(dpld, IPC_RAW);
-	stat->int2ap = recv_int2ap(dpld);
-	stat->int2cp = read_int2cp(dpld);
 }
 
 /**
@@ -461,74 +380,43 @@ static void set_dpram_map(struct dpram_link_device *dpld,
 	map->magic = get_magic(dpld);
 	map->access = get_access(dpld);
 
-	map->fmt_tx_in = get_txq_head(dpld, IPC_FMT);
-	map->fmt_tx_out = get_txq_tail(dpld, IPC_FMT);
-	map->fmt_rx_in = get_rxq_head(dpld, IPC_FMT);
-	map->fmt_rx_out = get_rxq_tail(dpld, IPC_FMT);
-	map->raw_tx_in = get_txq_head(dpld, IPC_RAW);
-	map->raw_tx_out = get_txq_tail(dpld, IPC_RAW);
-	map->raw_rx_in = get_rxq_head(dpld, IPC_RAW);
-	map->raw_rx_out = get_rxq_tail(dpld, IPC_RAW);
+	map->fmt_tx_in = get_tx_head(dpld, IPC_FMT);
+	map->fmt_tx_out = get_tx_tail(dpld, IPC_FMT);
+	map->fmt_rx_in = get_rx_head(dpld, IPC_FMT);
+	map->fmt_rx_out = get_rx_tail(dpld, IPC_FMT);
+	map->raw_tx_in = get_tx_head(dpld, IPC_RAW);
+	map->raw_tx_out = get_tx_tail(dpld, IPC_RAW);
+	map->raw_rx_in = get_rx_head(dpld, IPC_RAW);
+	map->raw_rx_out = get_rx_tail(dpld, IPC_RAW);
 
-	map->cp2ap = recv_int2ap(dpld);
+	map->cp2ap = recv_intr(dpld);
 }
 
 #ifndef CONFIG_SAMSUNG_PRODUCT_SHIP
 /**
- * print_circ_status
+ * log_dpram_status
  * @dpld: pointer to an instance of dpram_link_device structure
- * @dev: IPC device (IPC_FMT, IPC_RAW, etc.)
- * @mst: pointer to an instance of mem_status structure
+ * @str: pointer to a string that will be printed with a DPRAM status log
  *
- * Prints a snapshot of the status of a DPRAM.
+ * Prints current DPRAM status with a string to a kernel log.
  */
-static void print_circ_status(struct dpram_link_device *dpld, int dev,
-			struct mem_status *mst)
+static inline void log_dpram_status(struct dpram_link_device *dpld, char *str)
 {
-	struct link_device *ld = &dpld->ld;
 	struct utc_time utc;
 
-	if (dev > IPC_RAW)
-		return;
+	get_utc_time(&utc);
 
-	ts2utc(&mst->ts, &utc);
-	pr_info("%s: [%02d:%02d:%02d.%06d] "
-		"[%s] <%s> %s | TXQ{in:%u out:%u} RXQ{in:%u out:%u} "
-		"INTR{RX:0x%X TX:0x%X}\n",
-		MIF_TAG, utc.hour, utc.min, utc.sec, ns2us(mst->ts.tv_nsec),
-		get_dir_str(mst->dir), ld->name, get_dev_name(dev),
-		mst->head[dev][TX], mst->tail[dev][TX],
-		mst->head[dev][RX], mst->tail[dev][RX],
-		mst->int2ap, mst->int2cp);
-}
-
-/**
- * print_dpram_status
- * @dpld: pointer to an instance of dpram_link_device structure
- * @mst: pointer to an instance of mem_status structure
- *
- * Prints a snapshot of the status of a DPRAM.
- */
-static void print_dpram_status(struct dpram_link_device *dpld,
-			struct mem_status *mst)
-{
-	struct link_device *ld = &dpld->ld;
-	int us = ns2us(mst->ts.tv_nsec);
-	struct utc_time utc;
-
-	ts2utc(&mst->ts, &utc);
-	pr_info("%s: %s: [%02d:%02d:%02d.%06d] "
-		"[%s] ACC{%X %d} "
-		"FMT{TI:%u TO:%u RI:%u RO:%u} "
-		"RAW{TI:%u TO:%u RI:%u RO:%u} "
-		"INTR{RX:0x%X TX:0x%X}\n",
-		MIF_TAG, ld->name, utc.hour, utc.min, utc.sec, us,
-		get_dir_str(mst->dir), mst->magic, mst->access,
-		mst->head[IPC_FMT][TX], mst->tail[IPC_FMT][TX],
-		mst->head[IPC_FMT][RX], mst->tail[IPC_FMT][RX],
-		mst->head[IPC_RAW][TX], mst->tail[IPC_RAW][TX],
-		mst->head[IPC_RAW][RX], mst->tail[IPC_RAW][RX],
-		mst->int2ap, mst->int2cp);
+	pr_info("%s: %s: %s: [%02d:%02d:%02d.%03d] "
+		"ACC{%X %d} FMT{TI:%u TO:%u RI:%u RO:%u} "
+		"RAW{TI:%u TO:%u RI:%u RO:%u} INTR{0x%X}\n",
+		MIF_TAG, dpld->ld.mc->name, str,
+		utc.hour, utc.min, utc.sec, utc.msec,
+		get_magic(dpld), get_access(dpld),
+		get_tx_head(dpld, IPC_FMT), get_tx_tail(dpld, IPC_FMT),
+		get_rx_head(dpld, IPC_FMT), get_rx_tail(dpld, IPC_FMT),
+		get_tx_head(dpld, IPC_RAW), get_tx_tail(dpld, IPC_RAW),
+		get_rx_head(dpld, IPC_RAW), get_rx_tail(dpld, IPC_RAW),
+		recv_intr(dpld));
 }
 
 /**
@@ -543,20 +431,16 @@ static void save_dpram_dump_work(struct work_struct *work)
 	struct link_device *ld;
 	struct trace_queue *trq;
 	struct trace_data *trd;
-	struct mem_stat_queue *msq;
-	struct mem_status *mst;
 	struct file *fp;
 	struct timespec *ts;
 	u8 *dump;
 	int rcvd;
 	char *path;
 	struct utc_time utc;
-	int us;
 
 	dpld = container_of(work, struct dpram_link_device, dump_dwork.work);
 	ld = &dpld->ld;
 	trq = &dpld->dump_list;
-	msq = &dpld->stat_list;
 	path = dpld->dump_path;
 
 	while (1) {
@@ -570,7 +454,7 @@ static void save_dpram_dump_work(struct work_struct *work)
 
 		ts2utc(ts, &utc);
 		snprintf(path, MIF_MAX_PATH_LEN,
-			"%s/%s_dump_%d%02d%02d-%02d%02d%02d.hex",
+			"%s/%s_dump_%d%02d%02d-%02d%02d%02d",
 			MIF_LOG_DIR, ld->name, utc.year, utc.mon, utc.day,
 			utc.hour, utc.min, utc.sec);
 
@@ -585,74 +469,18 @@ static void save_dpram_dump_work(struct work_struct *work)
 
 		kfree(dump);
 	}
-
-	dump = kmalloc(PAGE_SIZE, GFP_KERNEL);
-	if (!dump)
-		return;
-
-	snprintf(path, MIF_MAX_PATH_LEN,
-		"%s/%s_history_%d%02d%02d-%02d%02d%02d.lst",
-		MIF_LOG_DIR, ld->name, utc.year, utc.mon, utc.day,
-		utc.hour, utc.min, utc.sec);
-	fp = mif_open_file(path);
-	if (!fp)
-		mif_err("%s: ERR! %s open fail\n", ld->name, path);
-
-	while (1) {
-		mst = msq_get_data_slot(msq);
-		if (!mst)
-			break;
-
-		if (fp) {
-			memset(dump, 0, PAGE_SIZE);
-			ts2utc(&mst->ts, &utc);
-			us = ns2us(mst->ts.tv_nsec);
-			snprintf(dump, PAGE_SIZE, "[%02d:%02d:%02d.%06d] "
-				"[%s] ACC{%X %d} "
-				"FMT{TI:%u TO:%u RI:%u RO:%u} "
-				"RAW{TI:%u TO:%u RI:%u RO:%u} "
-				"INTR{RX:0x%X TX:0x%X}\n",
-				utc.hour, utc.min, utc.sec, us,
-				get_dir_str(mst->dir), mst->magic, mst->access,
-				mst->head[IPC_FMT][TX], mst->tail[IPC_FMT][TX],
-				mst->head[IPC_FMT][RX], mst->tail[IPC_FMT][RX],
-				mst->head[IPC_RAW][TX], mst->tail[IPC_RAW][TX],
-				mst->head[IPC_RAW][RX], mst->tail[IPC_RAW][RX],
-				mst->int2ap, mst->int2cp);
-			mif_save_file(fp, dump, strlen(dump));
-		} else {
-			print_dpram_status(dpld, mst);
-		}
-	}
-
-	if (fp)
-		mif_close_file(fp);
-
-	kfree(dump);
 }
 
 /**
  * save_dpram_dump
  * @dpld: pointer to an instance of dpram_link_device structure
  *
- * Saves DPRAM dumps.
+ * Saves a current DPRAM dump.
  *
  * Actual file operation (save) will be performed by save_dpram_dump_work() that
  * is invoked by a delayed work.
  */
 static void save_dpram_dump(struct dpram_link_device *dpld)
-{
-	queue_delayed_work(system_nrt_wq, &dpld->dump_dwork, 0);
-}
-
-/**
- * capture_dpram_dump
- * @dpld: pointer to an instance of dpram_link_device structure
- *
- * Captures current DPRAM dump.
- *
- */
-static void capture_dpram_dump(struct dpram_link_device *dpld)
 {
 	struct link_device *ld = &dpld->ld;
 	struct trace_data *trd;
@@ -680,6 +508,35 @@ static void capture_dpram_dump(struct dpram_link_device *dpld)
 	memcpy(&trd->ts, &ts, sizeof(struct timespec));
 	trd->data = buff;
 	trd->size = dpld->size;
+
+	queue_delayed_work(system_nrt_wq, &dpld->dump_dwork, 0);
+}
+
+/**
+ * pr_trace
+ * @dpld: pointer to an instance of dpram_link_device structure
+ * @dev: IPC device (IPC_FMT, IPC_RAW, etc.)
+ * @ts: pointer to an instance of timespec structure
+ * @buff: start address of a buffer into which RX IPC messages were copied
+ * @rcvd: size of data in the buffer
+ *
+ * Prints IPC messages in a local memory buffer to a kernel log.
+ */
+static void pr_trace(struct dpram_link_device *dpld, int dev,
+			struct timespec *ts, u8 *buff, u32 rcvd)
+{
+	struct link_device *ld = &dpld->ld;
+	struct utc_time utc;
+
+	ts2utc(ts, &utc);
+
+	pr_info("%s: [%d-%02d-%02d %02d:%02d:%02d.%03d] %s trace (%s)\n",
+		MIF_TAG, utc.year, utc.mon, utc.day, utc.hour, utc.min, utc.sec,
+		utc.msec, get_dev_name(dev), ld->name);
+
+	mif_print_dump(buff, rcvd, 4);
+
+	return;
 }
 
 /**
@@ -687,30 +544,23 @@ static void capture_dpram_dump(struct dpram_link_device *dpld)
  * @dpld: pointer to an instance of dpram_link_device structure
  * @dev: IPC device (IPC_FMT, IPC_RAW, etc.)
  * @stat: pointer to an instance of dpram_circ_status structure
- * @ts: pointer to an instance of timespec structure
- * @buff: start address of a buffer into which RX IPC messages were copied
- * @rcvd: size of data in the buffer
  *
- * Prints IPC messages in a local memory buffer to a kernel log.
+ * Prints IPC messages currently in an RX circular queue to a kernel log.
  */
 static void print_ipc_trace(struct dpram_link_device *dpld, int dev,
-			struct dpram_circ_status *stat, struct timespec *ts,
-			u8 *buff, u32 rcvd)
+			struct dpram_circ_status *stat)
 {
-	struct link_device *ld = &dpld->ld;
-	struct utc_time utc;
+	u8 *buff = dpld->buff;
+	struct timespec ts;
 
-	ts2utc(ts, &utc);
+	getnstimeofday(&ts);
 
-	pr_info("%s: [%d-%02d-%02d %02d:%02d:%02d.%03d] "
-		"%s %s_RXQ {IN:%u OUT:%u LEN:%d}\n",
-		MIF_TAG, utc.year, utc.mon, utc.day, utc.hour, utc.min, utc.sec,
-		utc.msec, ld->name, get_dev_name(dev), stat->in, stat->out,
-		stat->size);
+	/* Copy IPC messages from a DPRAM RXQ to a local buffer */
+	memset(buff, 0, dpld->size);
+	circ_read(buff, stat->buff, stat->qsize, stat->out, stat->size);
 
-	mif_print_dump(buff, rcvd, 4);
-
-	return;
+	/* Print IPC messages in the local buffer to a kernel log */
+	pr_trace(dpld, dev, &ts, buff, stat->size);
 }
 
 /**
@@ -725,7 +575,6 @@ static void save_ipc_trace_work(struct work_struct *work)
 	struct link_device *ld;
 	struct trace_queue *trq;
 	struct trace_data *trd;
-	struct dpram_circ_status *stat;
 	struct file *fp;
 	struct timespec *ts;
 	int dev;
@@ -749,10 +598,9 @@ static void save_ipc_trace_work(struct work_struct *work)
 
 			ts = &trd->ts;
 			dev = trd->dev;
-			stat = &trd->stat;
 			dump = trd->data;
 			rcvd = trd->size;
-			print_ipc_trace(dpld, dev, stat, ts, dump, rcvd);
+			pr_trace(dpld, dev, ts, dump, rcvd);
 
 			kfree(dump);
 		}
@@ -766,13 +614,12 @@ static void save_ipc_trace_work(struct work_struct *work)
 
 		ts = &trd->ts;
 		dev = trd->dev;
-		stat = &trd->stat;
 		dump = trd->data;
 		rcvd = trd->size;
 
 		ts2utc(ts, &utc);
 		snprintf(path, MIF_MAX_PATH_LEN,
-			"%s/%s_%s_%d%02d%02d-%02d%02d%02d.lst",
+			"%s/%s_%s_%d%02d%02d-%02d%02d%02d",
 			MIF_LOG_DIR, ld->name, get_dev_name(dev),
 			utc.year, utc.mon, utc.day, utc.hour, utc.min, utc.sec);
 
@@ -781,11 +628,9 @@ static void save_ipc_trace_work(struct work_struct *work)
 			int len;
 
 			snprintf(buff, MIF_MAX_PATH_LEN,
-				"[%d-%02d-%02d %02d:%02d:%02d.%03d] "
-				"%s %s_RXQ {IN:%u OUT:%u LEN:%d}\n",
+				"[%d-%02d-%02d %02d:%02d:%02d.%03d]\n",
 				utc.year, utc.mon, utc.day, utc.hour, utc.min,
-				utc.sec, utc.msec, ld->name, get_dev_name(dev),
-				stat->in, stat->out, stat->size);
+				utc.sec, utc.msec);
 			len = strlen(buff);
 			mif_dump2format4(dump, rcvd, (buff + len), NULL);
 			strcat(buff, "\n");
@@ -797,7 +642,7 @@ static void save_ipc_trace_work(struct work_struct *work)
 			mif_close_file(fp);
 		} else {
 			mif_err("%s: %s open fail\n", ld->name, path);
-			print_ipc_trace(dpld, dev, stat, ts, dump, rcvd);
+			pr_trace(dpld, dev, ts, dump, rcvd);
 		}
 
 		kfree(dump);
@@ -825,23 +670,15 @@ static void save_ipc_trace(struct dpram_link_device *dpld, int dev,
 	u8 *buff;
 	struct timespec ts;
 
-	getnstimeofday(&ts);
-
 	buff = kzalloc(stat->size, GFP_ATOMIC);
 	if (!buff) {
 		mif_err("%s: %s: ERR! kzalloc fail\n",
 			ld->name, get_dev_name(dev));
-
-		/* Copy IPC messages from a DPRAM RXQ to a local buffer */
-		buff = dpld->buff;
-		memset(buff, 0, dpld->size);
-		circ_read(buff, stat->buff, stat->qsize, stat->out, stat->size);
-
-		/* Print IPC messages in the local buffer to a kernel log */
-		print_ipc_trace(dpld, dev, stat, &ts, buff, stat->size);
-
+		print_ipc_trace(dpld, dev, stat);
 		return;
 	}
+
+	getnstimeofday(&ts);
 
 	circ_read(buff, stat->buff, stat->qsize, stat->out, stat->size);
 
@@ -849,14 +686,13 @@ static void save_ipc_trace(struct dpram_link_device *dpld, int dev,
 	if (!trd) {
 		mif_err("%s: %s: ERR! trq_get_free_slot fail\n",
 			ld->name, get_dev_name(dev));
-		print_ipc_trace(dpld, dev, stat, &ts, buff, stat->size);
+		pr_trace(dpld, dev, &ts, buff, stat->size);
 		kfree(buff);
 		return;
 	}
 
 	memcpy(&trd->ts, &ts, sizeof(struct timespec));
 	trd->dev = dev;
-	memcpy(&trd->stat, stat, sizeof(struct dpram_circ_status));
 	trd->data = buff;
 	trd->size = stat->size;
 
@@ -910,15 +746,15 @@ static bool ipc_active(struct dpram_link_device *dpld)
 
 	/* Check DPRAM mode */
 	if (ld->mode != LINK_MODE_IPC) {
-		mif_err("%s: <called by %pf> ERR! ld->mode != LINK_MODE_IPC\n",
-			ld->name, CALLER);
+		mif_err("%s: ERR! <%pf> ld->mode != LINK_MODE_IPC\n",
+			ld->name, __builtin_return_address(0));
 		return false;
 	}
 
 	/* Check "magic code" and "access enable" values */
 	if (check_magic_access(dpld) < 0) {
-		mif_err("%s: <called by %pf> ERR! check_magic_access fail\n",
-			ld->name, CALLER);
+		mif_err("%s: ERR! <%pf> check_magic_access fail\n",
+			ld->name, __builtin_return_address(0));
 		return false;
 	}
 
@@ -955,13 +791,21 @@ static int dpram_wake_up(struct dpram_link_device *dpld)
 		return 0;
 
 	if (dpld->ext_op->wakeup(dpld) < 0) {
-		mif_err("%s: <called by %pf> ERR! wakeup fail\n",
-			ld->name, CALLER);
-		return -EACCES;
+		mif_err("%s: ERR! <%pf> wakeup fail, once\n",
+			ld->name, __builtin_return_address(0));
+
+		dpld->ext_op->sleep(dpld);
+
+		udelay(10);
+
+		if (dpld->ext_op->wakeup(dpld) < 0) {
+			mif_err("%s: ERR! <%pf> wakeup fail, twice\n",
+				ld->name, __builtin_return_address(0));
+			return -EACCES;
+		}
 	}
 
 	atomic_inc(&dpld->accessing);
-
 	return 0;
 }
 
@@ -1020,30 +864,26 @@ static void trigger_force_cp_crash(struct dpram_link_device *dpld)
 {
 	struct link_device *ld = &dpld->ld;
 
-	dpld->forced_cp_crash = true;
-
 	if (ld->mode == LINK_MODE_ULOAD) {
 		mif_err("%s: CP crash is already in progress\n", ld->mc->name);
 		return;
 	}
 
-	ld->mode = LINK_MODE_ULOAD;
-
 	disable_irq_nosync(dpld->irq);
 
-	mif_info("%s: <called by %pf>\n", ld->name, CALLER);
+	ld->mode = LINK_MODE_ULOAD;
+	mif_info("%s: called by %pf\n", ld->name, __builtin_return_address(0));
 
 	dpram_wake_up(dpld);
 #ifndef CONFIG_SAMSUNG_PRODUCT_SHIP
 	/* Take a DPRAM dump */
-	capture_dpram_dump(dpld);
+	save_dpram_dump(dpld);
 #endif
 
 	enable_irq(dpld->irq);
 
 	/* Send CRASH_EXIT command to a CP */
-	send_int2cp(dpld, INT_CMD(INT_CMD_CRASH_EXIT));
-	get_dpram_status(dpld, TX, msq_get_free_slot(&dpld->stat_list));
+	send_intr(dpld, INT_CMD(INT_CMD_CRASH_EXIT));
 
 	/* If there is no CRASH_ACK from a CP in FORCE_CRASH_ACK_TIMEOUT,
 	   handle_no_cp_crash_ack() will be executed. */
@@ -1058,7 +898,7 @@ static void trigger_force_cp_crash(struct dpram_link_device *dpld)
  * @dpld: pointer to an instance of dpram_link_device structure
  * @cmd: extended DPRAM command from a CP
  *
- * Processes an extended command from a CP.
+ * Processes an extended command from a CP
  */
 static void ext_command_handler(struct dpram_link_device *dpld, u16 cmd)
 {
@@ -1070,7 +910,7 @@ static void ext_command_handler(struct dpram_link_device *dpld, u16 cmd)
 		if (dpld->dpctl->setup_speed) {
 			dpld->dpctl->setup_speed(DPRAM_SPEED_LOW);
 			resp = INT_EXT_CMD(EXT_CMD_SET_SPEED_LOW);
-			send_int2cp(dpld, resp);
+			send_intr(dpld, resp);
 		}
 		break;
 
@@ -1078,7 +918,7 @@ static void ext_command_handler(struct dpram_link_device *dpld, u16 cmd)
 		if (dpld->dpctl->setup_speed) {
 			dpld->dpctl->setup_speed(DPRAM_SPEED_MID);
 			resp = INT_EXT_CMD(EXT_CMD_SET_SPEED_MID);
-			send_int2cp(dpld, resp);
+			send_intr(dpld, resp);
 		}
 		break;
 
@@ -1086,7 +926,7 @@ static void ext_command_handler(struct dpram_link_device *dpld, u16 cmd)
 		if (dpld->dpctl->setup_speed) {
 			dpld->dpctl->setup_speed(DPRAM_SPEED_HIGH);
 			resp = INT_EXT_CMD(EXT_CMD_SET_SPEED_HIGH);
-			send_int2cp(dpld, resp);
+			send_intr(dpld, resp);
 		}
 		break;
 
@@ -1101,7 +941,7 @@ static void ext_command_handler(struct dpram_link_device *dpld, u16 cmd)
  * @dpld: pointer to an instance of dpram_link_device structure
  * @cmd: DPRAM upload/download command from a CP
  *
- * Processes a command for upload/download from a CP.
+ * Processes a command for upload/download from a CP
  */
 static void udl_command_handler(struct dpram_link_device *dpld, u16 cmd)
 {
@@ -1115,7 +955,7 @@ static void udl_command_handler(struct dpram_link_device *dpld, u16 cmd)
 	switch (UDL_CMD_MASK(cmd)) {
 	case UDL_CMD_RECV_READY:
 		mif_debug("%s: Send CP-->AP RECEIVE_READY\n", ld->name);
-		send_int2cp(dpld, CMD_IMG_START_REQ);
+		send_intr(dpld, CMD_IMG_START_REQ);
 		break;
 	default:
 		complete_all(&dpld->udl_cmd_complete);
@@ -1130,7 +970,7 @@ static void udl_command_handler(struct dpram_link_device *dpld, u16 cmd)
  */
 static void cmd_req_active_handler(struct dpram_link_device *dpld)
 {
-	send_int2cp(dpld, INT_CMD(INT_CMD_RES_ACTIVE));
+	send_intr(dpld, INT_CMD(INT_CMD_RES_ACTIVE));
 }
 
 /**
@@ -1180,19 +1020,12 @@ static void handle_cp_crash(struct dpram_link_device *dpld)
 	struct io_device *iod;
 	int i;
 
-	if (dpld->forced_cp_crash)
-		dpld->forced_cp_crash = false;
-
 	/* Stop network interfaces */
 	mif_netif_stop(ld);
 
 	/* Purge the skb_txq in every IPC device (IPC_FMT, IPC_RAW, etc.) */
 	for (i = 0; i < ld->max_ipc_dev; i++)
 		skb_queue_purge(ld->skb_txq[i]);
-
-#ifndef CONFIG_SAMSUNG_PRODUCT_SHIP
-	save_dpram_dump(dpld);
-#endif
 
 	/* Change the modem state to STATE_CRASH_EXIT for the FMT IO device */
 	iod = link_get_iod_with_format(ld, IPC_FMT);
@@ -1222,8 +1055,7 @@ static void cmd_crash_exit_handler(struct dpram_link_device *dpld)
 
 	dpram_wake_up(dpld);
 #ifndef CONFIG_SAMSUNG_PRODUCT_SHIP
-	if (!dpld->forced_cp_crash)
-		capture_dpram_dump(dpld);
+	save_dpram_dump(dpld);
 #endif
 
 	if (dpld->ext_op && dpld->ext_op->crash_log)
@@ -1252,10 +1084,10 @@ static int init_dpram_ipc(struct dpram_link_device *dpld)
 
 	/* Clear pointers in every circular queue */
 	for (i = 0; i < ld->max_ipc_dev; i++) {
-		set_txq_head(dpld, i, 0);
-		set_txq_tail(dpld, i, 0);
-		set_rxq_head(dpld, i, 0);
-		set_rxq_tail(dpld, i, 0);
+		set_tx_head(dpld, i, 0);
+		set_tx_tail(dpld, i, 0);
+		set_rx_head(dpld, i, 0);
+		set_rx_tail(dpld, i, 0);
 	}
 
 	/* Initialize variables for efficient TX/RX processing */
@@ -1296,17 +1128,20 @@ static int init_dpram_ipc(struct dpram_link_device *dpld)
 static void cmd_phone_start_handler(struct dpram_link_device *dpld)
 {
 	struct link_device *ld = &dpld->ld;
-	struct io_device *iod;
+	struct io_device *iod = NULL;
 
 	mif_info("%s: Recv 0xC8 (CP_START)\n", ld->name);
 
+	init_dpram_ipc(dpld);
+
 	iod = link_get_iod_with_format(ld, IPC_FMT);
 	if (!iod) {
-		mif_err("%s: ERR! no iod\n", ld->name);
+		mif_info("%s: ERR! no iod\n", ld->name);
 		return;
 	}
 
-	init_dpram_ipc(dpld);
+	if (dpld->ext_op && dpld->ext_op->cp_start_handler)
+		dpld->ext_op->cp_start_handler(dpld);
 
 	if (ld->mc->phone_state != STATE_ONLINE) {
 		mif_info("%s: phone_state: %d -> ONLINE\n",
@@ -1314,12 +1149,8 @@ static void cmd_phone_start_handler(struct dpram_link_device *dpld)
 		iod->modem_state_changed(iod, STATE_ONLINE);
 	}
 
-	if (dpld->ext_op && dpld->ext_op->cp_start_handler) {
-		dpld->ext_op->cp_start_handler(dpld);
-	} else {
-		mif_info("%s: Send 0xC2 (INIT_END)\n", ld->name);
-		send_int2cp(dpld, INT_CMD(INT_CMD_INIT_END));
-	}
+	mif_info("%s: Send 0xC2 (INIT_END)\n", ld->name);
+	send_intr(dpld, INT_CMD(INT_CMD_INIT_END));
 }
 
 /**
@@ -1392,27 +1223,17 @@ static void ipc_rx_task(unsigned long data)
 	struct link_device *ld = &dpld->ld;
 	struct io_device *iod;
 	struct mif_rxb *rxb;
-	struct sk_buff *skb;
 	int qlen;
 	int i;
 
 	for (i = 0; i < ld->max_ipc_dev; i++) {
 		iod = dpld->iod[i];
-		if (dpld->rx_with_skb) {
-			while (1) {
-				skb = skb_dequeue(ld->skb_rxq[i]);
-				if (!skb)
-					break;
-				iod->recv_skb(iod, ld, skb);
-			}
-		} else {
-			qlen = rxbq_size(&dpld->rxbq[i]);
-			while (qlen > 0) {
-				rxb = rxbq_get_data_rxb(&dpld->rxbq[i]);
-				iod->recv(iod, ld, rxb->data, rxb->len);
-				rxb_clear(rxb);
-				qlen--;
-			}
+		qlen = rxbq_size(&dpld->rxbq[i]);
+		while (qlen > 0) {
+			rxb = rxbq_get_data_rxb(&dpld->rxbq[i]);
+			iod->recv(iod, ld, rxb->data, rxb->len);
+			rxb_clear(rxb);
+			qlen--;
 		}
 	}
 }
@@ -1421,74 +1242,93 @@ static void ipc_rx_task(unsigned long data)
  * get_rxq_rcvd
  * @dpld: pointer to an instance of dpram_link_device structure
  * @dev: IPC device (IPC_FMT, IPC_RAW, etc.)
- * @mst: pointer to an instance of mem_status structure
- * OUT @dcst: pointer to an instance of dpram_circ_status structure
+ * OUT @stat: pointer to an instance of dpram_circ_status structure
  *
  * Stores {start address of the buffer in a RXQ, size of the buffer, in & out
  * pointer values, size of received data} into the 'stat' instance.
  *
- * Returns an error code.
+ * Returns the size of received data in the buffer or an error code.
  */
 static int get_rxq_rcvd(struct dpram_link_device *dpld, int dev,
-			struct mem_status *mst, struct dpram_circ_status *dcst)
+			struct dpram_circ_status *stat)
 {
 	struct link_device *ld = &dpld->ld;
+	int cnt = 0;
+	u32 qsize;
+	u32 head;
+	u32 tail;
+	int rcvd;
 
-	dcst->buff = get_rxq_buff(dpld, dev);
-	dcst->qsize = get_rxq_buff_size(dpld, dev);
-	dcst->in = mst->head[dev][RX];
-	dcst->out = mst->tail[dev][RX];
-	dcst->size = circ_get_usage(dcst->qsize, dcst->in, dcst->out);
+	while (1) {
+		qsize = get_rx_buff_size(dpld, dev);
+		head = get_rx_head(dpld, dev);
+		tail = get_rx_tail(dpld, dev);
+		rcvd = circ_get_usage(qsize, head, tail);
 
-	if (circ_valid(dcst->qsize, dcst->in, dcst->out)) {
 		mif_debug("%s: %s_RXQ qsize[%u] in[%u] out[%u] rcvd[%u]\n",
-			ld->name, get_dev_name(dev), dcst->qsize, dcst->in,
-			dcst->out, dcst->size);
-		return 0;
-	} else {
-		mif_err("%s: ERR! %s_RXQ invalid (qsize[%d] in[%d] out[%d])\n",
-			ld->name, get_dev_name(dev), dcst->qsize, dcst->in,
-			dcst->out);
-		return -EIO;
+			ld->name, get_dev_name(dev), qsize, head, tail, rcvd);
+
+		if (circ_valid(qsize, head, tail))
+			break;
+
+		cnt++;
+		mif_err("%s: ERR! <%pf> "
+			"%s_RXQ invalid (qsize:%d in:%d out:%d rcvd:%d), "
+			"count %d\n",
+			ld->name, __builtin_return_address(0),
+			get_dev_name(dev), qsize, head, tail, rcvd, cnt);
+		if (cnt >= MAX_RETRY_CNT) {
+			rcvd = -EIO;
+			break;
+		}
+
+		udelay(100);
 	}
+
+	stat->buff = get_rx_buff(dpld, dev);
+	stat->qsize = qsize;
+	stat->in = head;
+	stat->out = tail;
+	stat->size = rcvd;
+
+	return rcvd;
 }
 
 /**
  * recv_ipc_with_rxb: receives IPC messages from an RXQ with mif_rxb
  * @dpld: pointer to an instance of dpram_link_device structure
  * @dev: IPC device (IPC_FMT, IPC_RAW, etc.)
- * @mst: pointer to an instance of mem_status structure
  *
  * Returns
  *   ret < 0  : error
- *   ret == 0 : ILLEGAL status
+ *   ret == 0 : no data
  *   ret > 0  : valid data
- *
- * Must be invoked only when there is data in the corresponding RXQ.
  *
  * Requires a bottom half (e.g. ipc_rx_task) that will invoke the recv method in
  * the io_device instance.
  */
-static int recv_ipc_with_rxb(struct dpram_link_device *dpld, int dev,
-			struct mem_status *mst)
+static int recv_ipc_with_rxb(struct dpram_link_device *dpld, int dev)
 {
 	struct link_device *ld = &dpld->ld;
 	struct mif_rxb *rxb;
-	struct dpram_circ_status dcst;
+	struct dpram_circ_status stat;
 	int rcvd;
 	u8 *dst;
 	struct mif_irq_map map;
 
-	rcvd = get_rxq_rcvd(dpld, dev, mst, &dcst);
-	if (unlikely(rcvd < 0)) {
+	rcvd = get_rxq_rcvd(dpld, dev, &stat);
+	if (unlikely(rcvd <= 0)) {
 #ifndef CONFIG_SAMSUNG_PRODUCT_SHIP
-		trigger_force_cp_crash(dpld);
+		if (rcvd < 0)
+			trigger_force_cp_crash(dpld);
 #endif
 		goto exit;
 	}
-	rcvd = dcst.size;
 
 	if (dev == IPC_FMT) {
+#if 0
+		log_dpram_status(dpld, "CP2MIF");
+#endif
 		set_dpram_map(dpld, &map);
 		mif_irq_log(ld->mc->msd, map, "ipc_recv", sizeof("ipc_recv"));
 	}
@@ -1503,12 +1343,12 @@ static int recv_ipc_with_rxb(struct dpram_link_device *dpld, int dev,
 	}
 
 	/* Read data from the RXQ */
-	dst = rxb_put(rxb, rcvd);
-	circ_read(dst, dcst.buff, dcst.qsize, dcst.out, rcvd);
+	dst = rxb_put(rxb, stat.size);
+	circ_read(dst, stat.buff, stat.qsize, stat.out, stat.size);
 
 exit:
 	/* Update tail (out) pointer to empty out the RXQ */
-	set_rxq_tail(dpld, dev, dcst.in);
+	set_rx_tail(dpld, dev, stat.in);
 
 	return rcvd;
 }
@@ -1517,28 +1357,25 @@ exit:
  * recv_ipc_with_skb: receives SIPC5 messages from an RXQ with skb
  * @dpld: pointer to an instance of dpram_link_device structure
  * @dev: IPC device (IPC_FMT, IPC_RAW, etc.)
- * @mst: pointer to an instance of mem_status structure
  *
  * Returns
  *   ret < 0  : error
- *   ret == 0 : ILLEGAL status
+ *   ret == 0 : no data
  *   ret > 0  : valid data
- *
- * Must be invoked only when there is data in the corresponding RXQ.
  *
  * Requires a recv_skb method in the io_device instance, so this function must
  * be used for only SIPC5.
  */
-static int recv_ipc_with_skb(struct dpram_link_device *dpld, int dev,
-			struct mem_status *mst)
+static int recv_ipc_with_skb(struct dpram_link_device *dpld, int dev)
 {
 	struct link_device *ld = &dpld->ld;
+	struct io_device *iod = dpld->iod[dev];
 	struct sk_buff *skb;
 	/**
 	 * variables for the status of the circular queue
 	 */
 	u8 __iomem *src;
-	struct dpram_circ_status dcst;
+	struct dpram_circ_status stat;
 	/**
 	 * variables for RX processing
 	 */
@@ -1556,24 +1393,28 @@ static int recv_ipc_with_skb(struct dpram_link_device *dpld, int dev,
 	struct mif_irq_map map;
 
 	/* Get data size in the RXQ and in/out pointer values */
-	rcvd = get_rxq_rcvd(dpld, dev, mst, &dcst);
-	if (unlikely(rcvd < 0)) {
+	rcvd = get_rxq_rcvd(dpld, dev, &stat);
+	if (unlikely(rcvd <= 0)) {
 #ifndef CONFIG_SAMSUNG_PRODUCT_SHIP
-		trigger_force_cp_crash(dpld);
+		if (rcvd < 0)
+			trigger_force_cp_crash(dpld);
 #endif
 		goto exit;
 	}
-	rcvd = dcst.size;
 
+	/* Take a log for debugging */
 	if (dev == IPC_FMT) {
+#if 0
+		log_dpram_status(dpld, "CP2MIF");
+#endif
 		set_dpram_map(dpld, &map);
 		mif_irq_log(ld->mc->msd, map, "ipc_recv", sizeof("ipc_recv"));
 	}
 
-	src = dcst.buff;
-	qsize = dcst.qsize;
-	rest = dcst.size;
-	idx = dcst.out;
+	src = stat.buff;
+	qsize = stat.qsize;
+	rest = stat.size;
+	idx = stat.out;
 
 	while (rest > 0) {
 		/* Calculate the start of an SIPC5 frame */
@@ -1583,7 +1424,8 @@ static int recv_ipc_with_skb(struct dpram_link_device *dpld, int dev,
 		len = sipc5_check_frame_in_dev(ld, dev, frm, rest);
 		if (len <= 0) {
 #ifndef CONFIG_SAMSUNG_PRODUCT_SHIP
-			save_ipc_trace(dpld, dev, &dcst);
+			log_dpram_status(dpld, "CP2MIF");
+			save_ipc_trace(dpld, dev, &stat);
 			trigger_force_cp_crash(dpld);
 #endif
 			rcvd = -EBADMSG;
@@ -1629,19 +1471,19 @@ static int recv_ipc_with_skb(struct dpram_link_device *dpld, int dev,
 		/* Remove padding in the skb */
 		skb_trim(skb, len);
 
-		/* Store the frame to the corresponding skb_rxq */
-		skb_queue_tail(ld->skb_rxq[dev], skb);
+		/* Pass the frame to the corresponding IO device */
+		iod->recv_skb(iod, ld, skb);
 
 		/* Calculate new idx value */
 		rest -= tot;
 		idx += tot;
-		if (unlikely(idx >= qsize))
+		if (idx >= qsize)
 			idx -= qsize;
 	}
 
 exit:
 	/* Update tail (out) pointer to empty out the RXQ */
-	set_rxq_tail(dpld, dev, dcst.in);
+	set_rx_tail(dpld, dev, stat.in);
 
 	return rcvd;
 }
@@ -1649,107 +1491,85 @@ exit:
 /**
  * recv_ipc_msg: receives IPC messages from every RXQ
  * @dpld: pointer to an instance of dpram_link_device structure
- * @stat: pointer to an instance of mem_status structure
+ * @intr: interrupt value from a CP
  *
  * 1) Receives all IPC message frames currently in every DPRAM RXQ.
  * 2) Sends RES_ACK responses if there are REQ_ACK requests from a CP.
  * 3) Completes all threads waiting for the corresponding RES_ACK from a CP if
  *    there is any RES_ACK response.
  */
-static void recv_ipc_msg(struct dpram_link_device *dpld,
-			struct mem_status *stat)
+static void recv_ipc_msg(struct dpram_link_device *dpld, u16 intr)
 {
 	struct link_device *ld = &dpld->ld;
 	int i = 0;
 	int ret = 0;
 	u16 mask = 0;
-	u16 intr = stat->int2ap;
 
 	if (!ipc_active(dpld))
 		return;
 
 	/* Read data from DPRAM */
 	for (i = 0; i < ld->max_ipc_dev; i++) {
-		/* Invoke an RX function only when there is data in the RXQ */
-		if (unlikely(stat->head[i][RX] == stat->tail[i][RX])) {
-			mif_debug("%s: %s_RXQ is empty\n",
+		if (dpld->rx_with_skb)
+			ret = recv_ipc_with_skb(dpld, i);
+		else
+			ret = recv_ipc_with_rxb(dpld, i);
+
+		/* Check and process REQ_ACK (at this time, in == out) */
+		if (intr & get_mask_req_ack(dpld, i)) {
+			mif_debug("%s: send %s_RES_ACK\n",
 				ld->name, get_dev_name(i));
-		} else {
-			if (dpld->rx_with_skb)
-				ret = recv_ipc_with_skb(dpld, i, stat);
-			else
-				ret = recv_ipc_with_rxb(dpld, i, stat);
-			if (ret < 0)
-				reset_rxq_circ(dpld, i);
+			mask |= get_mask_res_ack(dpld, i);
 		}
 	}
 
-	/* Schedule soft IRQ for RX */
-	tasklet_hi_schedule(&dpld->rx_tsk);
-
-	/* Check and process REQ_ACK (at this time, in == out) */
-	if (unlikely(intr & INT_MASK_REQ_ACK_SET)) {
-		for (i = 0; i < ld->max_ipc_dev; i++) {
-			if (intr & get_mask_req_ack(dpld, i)) {
-				mif_debug("%s: set %s_RES_ACK\n",
-					ld->name, get_dev_name(i));
-				mask |= get_mask_res_ack(dpld, i);
-			}
-		}
-
-		send_int2cp(dpld, INT_NON_CMD(mask));
+	if (!dpld->rx_with_skb) {
+		/* Schedule soft IRQ for RX */
+		tasklet_hi_schedule(&dpld->rx_tsk);
 	}
 
-	/* Check and process RES_ACK */
-	if (unlikely(intr & INT_MASK_RES_ACK_SET)) {
-		for (i = 0; i < ld->max_ipc_dev; i++) {
-			if (intr & get_mask_res_ack(dpld, i)) {
-#ifndef CONFIG_SAMSUNG_PRODUCT_SHIP
-				mif_info("%s: recv %s_RES_ACK\n",
-					ld->name, get_dev_name(i));
-				print_circ_status(dpld, i, stat);
-#endif
-				complete(&dpld->req_ack_cmpl[i]);
-			}
-		}
+	if (mask) {
+		send_intr(dpld, INT_NON_CMD(mask));
+		mif_debug("%s: send intr 0x%04X\n", ld->name, mask);
+	}
+
+	if (intr && INT_MASK_RES_ACK_SET) {
+		if (intr && INT_MASK_RES_ACK_R)
+			complete_all(&dpld->req_ack_cmpl[IPC_RAW]);
+		else if (intr && INT_MASK_RES_ACK_F)
+			complete_all(&dpld->req_ack_cmpl[IPC_FMT]);
+		else
+			complete_all(&dpld->req_ack_cmpl[IPC_RFS]);
 	}
 }
 
 /**
  * cmd_msg_handler: processes a DPRAM command or receives IPC messages
  * @dpld: pointer to an instance of dpram_link_device structure
- * @stat: pointer to an instance of mem_status structure
+ * @intr: interrupt value from a CP
  *
  * Invokes command_handler for a DPRAM command or recv_ipc_msg for IPC messages.
  */
-static inline void cmd_msg_handler(struct dpram_link_device *dpld,
-			struct mem_status *stat)
+static inline void cmd_msg_handler(struct dpram_link_device *dpld, u16 intr)
 {
-	struct mem_status *mst = msq_get_free_slot(&dpld->stat_list);
-	u16 intr = stat->int2ap;
-
-	memcpy(mst, stat, sizeof(struct mem_status));
-
 	if (unlikely(INT_CMD_VALID(intr)))
 		command_handler(dpld, intr);
 	else
-		recv_ipc_msg(dpld, stat);
+		recv_ipc_msg(dpld, intr);
 }
 
 /**
  * intr_handler: processes an interrupt from a CP
  * @dpld: pointer to an instance of dpram_link_device structure
- * @stat: pointer to an instance of mem_status structure
+ * @intr: interrupt value from a CP
  *
  * Call flow for normal interrupt handling:
  *   cmd_msg_handler -> command_handler -> cmd_xxx_handler
  *   cmd_msg_handler -> recv_ipc_msg -> recv_ipc_with_skb/recv_ipc_with_rxb ...
  */
-static inline void intr_handler(struct dpram_link_device *dpld,
-			struct mem_status *stat)
+static inline void intr_handler(struct dpram_link_device *dpld, u16 intr)
 {
 	char *name = dpld->ld.name;
-	u16 intr = stat->int2ap;
 
 	if (unlikely(intr == INT_POWERSAFE_FAIL)) {
 		mif_info("%s: intr == INT_POWERSAFE_FAIL\n", name);
@@ -1773,7 +1593,7 @@ static inline void intr_handler(struct dpram_link_device *dpld,
 	}
 
 	if (likely(INT_VALID(intr)))
-		cmd_msg_handler(dpld, stat);
+		cmd_msg_handler(dpld, intr);
 	else
 		mif_info("%s: ERR! invalid intr 0x%04X\n", name, intr);
 }
@@ -1790,14 +1610,12 @@ static irqreturn_t ap_idpram_irq_handler(int irq, void *data)
 {
 	struct dpram_link_device *dpld = (struct dpram_link_device *)data;
 	struct link_device *ld = (struct link_device *)&dpld->ld;
-	struct mem_status stat;
+	u16 int2ap = recv_intr(dpld);
 
 	if (unlikely(ld->mode == LINK_MODE_OFFLINE))
 		return IRQ_HANDLED;
 
-	get_dpram_status(dpld, RX, &stat);
-
-	intr_handler(dpld, &stat);
+	intr_handler(dpld, int2ap);
 
 	return IRQ_HANDLED;
 }
@@ -1817,7 +1635,7 @@ static irqreturn_t cp_idpram_irq_handler(int irq, void *data)
 {
 	struct dpram_link_device *dpld = (struct dpram_link_device *)data;
 	struct link_device *ld = (struct link_device *)&dpld->ld;
-	struct mem_status stat;
+	u16 int2ap;
 
 	if (unlikely(ld->mode == LINK_MODE_OFFLINE))
 		return IRQ_HANDLED;
@@ -1827,9 +1645,9 @@ static irqreturn_t cp_idpram_irq_handler(int irq, void *data)
 		return IRQ_HANDLED;
 	}
 
-	get_dpram_status(dpld, RX, &stat);
+	int2ap = recv_intr(dpld);
 
-	intr_handler(dpld, &stat);
+	intr_handler(dpld, int2ap);
 
 	clear_intr(dpld);
 
@@ -1850,14 +1668,12 @@ static irqreturn_t ext_dpram_irq_handler(int irq, void *data)
 {
 	struct dpram_link_device *dpld = (struct dpram_link_device *)data;
 	struct link_device *ld = (struct link_device *)&dpld->ld;
-	struct mem_status stat;
+	u16 int2ap = recv_intr(dpld);
 
 	if (unlikely(ld->mode == LINK_MODE_OFFLINE))
 		return IRQ_HANDLED;
 
-	get_dpram_status(dpld, RX, &stat);
-
-	intr_handler(dpld, &stat);
+	intr_handler(dpld, int2ap);
 
 	return IRQ_HANDLED;
 }
@@ -1884,22 +1700,23 @@ static int get_txq_space(struct dpram_link_device *dpld, int dev,
 	int space;
 
 	while (1) {
-		qsize = get_txq_buff_size(dpld, dev);
-		head = get_txq_head(dpld, dev);
-		tail = get_txq_tail(dpld, dev);
+		qsize = get_tx_buff_size(dpld, dev);
+		head = get_tx_head(dpld, dev);
+		tail = get_tx_tail(dpld, dev);
 		space = circ_get_space(qsize, head, tail);
 
-		mif_debug("%s: %s_TXQ{qsize:%u in:%u out:%u space:%u}\n",
+		mif_debug("%s: %s_TXQ qsize[%u] in[%u] out[%u] space[%u]\n",
 			ld->name, get_dev_name(dev), qsize, head, tail, space);
 
 		if (circ_valid(qsize, head, tail))
 			break;
 
 		cnt++;
-		mif_err("%s: ERR! invalid %s_TXQ{qsize:%d in:%d out:%d "
-			"space:%d}, count %d\n",
-			ld->name, get_dev_name(dev), qsize, head, tail,
-			space, cnt);
+		mif_err("%s: ERR! <%pf> "
+			"%s_TXQ invalid (qsize:%d in:%d out:%d space:%d), "
+			"count %d\n",
+			ld->name, __builtin_return_address(0),
+			get_dev_name(dev), qsize, head, tail, space, cnt);
 		if (cnt >= MAX_RETRY_CNT) {
 			space = -EIO;
 			break;
@@ -1908,7 +1725,7 @@ static int get_txq_space(struct dpram_link_device *dpld, int dev,
 		udelay(100);
 	}
 
-	stat->buff = get_txq_buff(dpld, dev);
+	stat->buff = get_tx_buff(dpld, dev);
 	stat->qsize = qsize;
 	stat->in = head;
 	stat->out = tail;
@@ -1945,7 +1762,7 @@ static void write_ipc_to_txq(struct dpram_link_device *dpld, int dev,
 	inp = in + len;
 	if (inp >= qsize)
 		inp -= qsize;
-	set_txq_head(dpld, dev, inp);
+	set_tx_head(dpld, dev, inp);
 
 	/* Take a log for debugging */
 	if (dev == IPC_FMT) {
@@ -1953,6 +1770,9 @@ static void write_ipc_to_txq(struct dpram_link_device *dpld, int dev,
 		char tag[MIF_MAX_STR_LEN];
 		snprintf(tag, MIF_MAX_STR_LEN, "%s: MIF2CP", ld->mc->name);
 		pr_ipc(tag, src, (len > 20 ? 20 : len));
+#if 0
+		log_dpram_status(dpld, "MIF2CP");
+#endif
 #endif
 		set_dpram_map(dpld, &map);
 		mif_irq_log(ld->mc->msd, map, "ipc_write", sizeof("ipc_write"));
@@ -1999,7 +1819,7 @@ static int xmit_ipc_msg(struct dpram_link_device *dpld, int dev)
 			trigger_force_cp_crash(dpld);
 #endif
 			/* Empty out the TXQ */
-			reset_txq_circ(dpld, dev);
+			set_tx_head(dpld, dev, stat.out);
 			copied = -EIO;
 			break;
 		}
@@ -2010,23 +1830,13 @@ static int xmit_ipc_msg(struct dpram_link_device *dpld, int dev)
 
 		/* Check the free space size comparing with skb->len */
 		if (unlikely(space < skb->len)) {
-#ifndef CONFIG_SAMSUNG_PRODUCT_SHIP
-			struct mem_status mst;
-#endif
-			/* Set res_required flag for the "dev" */
 			atomic_set(&dpld->res_required[dev], 1);
-
 			/* Take the skb back to the skb_txq */
 			skb_queue_head(txq, skb);
-
-			mif_info("%s: <called by %pf> NOSPC in %s_TXQ"
-				"{qsize:%u in:%u out:%u}, free:%u < len:%u\n",
-				ld->name, CALLER, get_dev_name(dev),
-				stat.qsize, stat.in, stat.out, space, skb->len);
-#ifndef CONFIG_SAMSUNG_PRODUCT_SHIP
-			get_dpram_status(dpld, TX, &mst);
-			print_circ_status(dpld, dev, &mst);
-#endif
+			mif_info("%s: %s qsize[%u] "
+				"in[%u] out[%u] free[%u] < len[%u]\n",
+				ld->name, get_dev_name(dev), stat.qsize,
+				stat.in, stat.out, space, skb->len);
 			copied = -ENOSPC;
 			break;
 		}
@@ -2057,47 +1867,24 @@ static int wait_for_res_ack(struct dpram_link_device *dpld, int dev)
 {
 	struct link_device *ld = &dpld->ld;
 	struct completion *cmpl = &dpld->req_ack_cmpl[dev];
-	unsigned long timeout = msecs_to_jiffies(dpld->res_ack_wait_timeout);
+	unsigned long timeout = RES_ACK_WAIT_TIMEOUT;
 	int ret;
 	u16 mask;
 
-#ifndef CONFIG_SAMSUNG_PRODUCT_SHIP
-	mif_info("%s: send %s_REQ_ACK\n", ld->name, get_dev_name(dev));
-#endif
-
 	mask = get_mask_req_ack(dpld, dev);
-	send_int2cp(dpld, INT_NON_CMD(mask));
+	mif_info("%s: send %s_REQ_ACK\n", ld->name, get_dev_name(dev));
+	send_intr(dpld, INT_NON_CMD(mask));
 
 	ret = wait_for_completion_interruptible_timeout(cmpl, timeout);
 	/* ret == 0 on timeout, ret < 0 if interrupted */
-	if (ret < 0) {
-		mif_info("%s: %s: wait_for_completion interrupted! (ret %d)\n",
-			ld->name, get_dev_name(dev), ret);
-		goto exit;
-	}
-
 	if (ret == 0) {
-		struct mem_status mst;
-		get_dpram_status(dpld, TX, &mst);
-
-		mif_info("%s: wait_for_completion TIMEOUT! (no %s_RES_ACK)\n",
+		mif_info("%s: TIMEOUT! no %s_RES_ACK\n",
 			ld->name, get_dev_name(dev));
-
-		/*
-		** The TXQ must be checked whether or not it is empty, because
-		** an interrupt mask can be overwritten by the next interrupt.
-		*/
-		if (mst.head[dev][TX] == mst.tail[dev][TX]) {
-			ret = get_txq_buff_size(dpld, dev);
-#ifndef CONFIG_SAMSUNG_PRODUCT_SHIP
-			mif_info("%s: %s_TXQ has been emptied\n",
-				ld->name, get_dev_name(dev));
-			print_circ_status(dpld, dev, &mst);
-#endif
-		}
+	} else if (ret < 0) {
+		mif_info("%s: %s: interrupted (ret %d)\n",
+			ld->name, get_dev_name(dev), ret);
 	}
 
-exit:
 	return ret;
 }
 
@@ -2115,19 +1902,45 @@ exit:
  */
 static int process_res_ack(struct dpram_link_device *dpld, int dev)
 {
+	struct link_device *ld = &dpld->ld;
 	int ret;
 	u16 mask;
+
+	mif_info("%s: recv %s_RES_ACK\n", ld->name, get_dev_name(dev));
+#ifndef CONFIG_SAMSUNG_PRODUCT_SHIP
+	log_dpram_status(dpld, "LATEST");
+#endif
 
 	ret = xmit_ipc_msg(dpld, dev);
 	if (ret > 0) {
 		mask = get_mask_send(dpld, dev);
-		send_int2cp(dpld, INT_NON_CMD(mask));
-		get_dpram_status(dpld, TX, msq_get_free_slot(&dpld->stat_list));
+		send_intr(dpld, INT_NON_CMD(mask));
+		atomic_set(&dpld->res_required[dev], 0);
+#ifndef CONFIG_SAMSUNG_PRODUCT_SHIP
+		mif_info("%s: xmit_ipc_msg done (%d bytes)\n", ld->name, ret);
+#endif
+		goto exit;
 	}
 
-	if (ret >= 0)
+	if (ret == 0) {
+		mif_info("%s: %s skb_txq empty\n", ld->name, get_dev_name(dev));
 		atomic_set(&dpld->res_required[dev], 0);
+		goto exit;
+	}
 
+	/* At this point, ret < 0 */
+	if (ret == -ENOSPC) {
+		/*
+		** dpld->res_required[dev] is set in xmit_ipc_msg()
+		*/
+		mif_info("%s: xmit_ipc_msg fail (err -ENOSPC)\n", ld->name);
+		queue_delayed_work(ld->tx_wq, ld->tx_dwork[dev], 0);
+	} else {
+		mif_err("%s: ERR! xmit_ipc_msg fail (err %d)\n",
+			ld->name, ret);
+	}
+
+exit:
 	return ret;
 }
 
@@ -2144,32 +1957,20 @@ static void fmt_tx_work(struct work_struct *work)
 {
 	struct link_device *ld;
 	struct dpram_link_device *dpld;
-	unsigned long delay = 0;
+	unsigned long delay = REQ_ACK_DELAY;
 	int ret;
 
 	ld = container_of(work, struct link_device, fmt_tx_dwork.work);
 	dpld = to_dpram_link_device(ld);
 
 	ret = wait_for_res_ack(dpld, IPC_FMT);
-	/* ret < 0 if interrupted */
+	/* ret == 0 on timeout, ret < 0 if interrupted */
 	if (ret < 0)
 		return;
-
-	/* ret == 0 on timeout */
-	if (ret == 0) {
-		queue_delayed_work(ld->tx_wq, ld->tx_dwork[IPC_FMT], 0);
-		return;
-	}
-
-	ret = process_res_ack(dpld, IPC_FMT);
-	if (ret >= 0) {
-		dpram_allow_sleep(dpld);
-		return;
-	}
-
-	/* At this point, ret < 0 */
-	if (ret == -ENOSPC)
+	else if (ret == 0)
 		queue_delayed_work(ld->tx_wq, ld->tx_dwork[IPC_FMT], delay);
+	else
+		process_res_ack(dpld, IPC_FMT);
 }
 
 /**
@@ -2185,33 +1986,25 @@ static void raw_tx_work(struct work_struct *work)
 {
 	struct link_device *ld;
 	struct dpram_link_device *dpld;
-	unsigned long delay = 0;
+	unsigned long delay = REQ_ACK_DELAY;
 	int ret;
 
 	ld = container_of(work, struct link_device, raw_tx_dwork.work);
 	dpld = to_dpram_link_device(ld);
 
 	ret = wait_for_res_ack(dpld, IPC_RAW);
-	/* ret < 0 if interrupted */
+	/* ret == 0 on timeout, ret < 0 if interrupted */
 	if (ret < 0)
 		return;
 
-	/* ret == 0 on timeout */
 	if (ret == 0) {
-		queue_delayed_work(ld->tx_wq, ld->tx_dwork[IPC_RAW], 0);
+		queue_delayed_work(ld->tx_wq, ld->tx_dwork[IPC_RAW], delay);
 		return;
 	}
 
 	ret = process_res_ack(dpld, IPC_RAW);
-	if (ret >= 0) {
-		dpram_allow_sleep(dpld);
+	if (ret > 0)
 		mif_netif_wake(ld);
-		return;
-	}
-
-	/* At this point, ret < 0 */
-	if (ret == -ENOSPC)
-		queue_delayed_work(ld->tx_wq, ld->tx_dwork[IPC_RAW], delay);
 }
 
 /**
@@ -2227,32 +2020,20 @@ static void rfs_tx_work(struct work_struct *work)
 {
 	struct link_device *ld;
 	struct dpram_link_device *dpld;
-	unsigned long delay = 0;
+	unsigned long delay = REQ_ACK_DELAY;
 	int ret;
 
 	ld = container_of(work, struct link_device, rfs_tx_dwork.work);
 	dpld = to_dpram_link_device(ld);
 
 	ret = wait_for_res_ack(dpld, IPC_RFS);
-	/* ret < 0 if interrupted */
+	/* ret == 0 on timeout, ret < 0 if interrupted */
 	if (ret < 0)
 		return;
-
-	/* ret == 0 on timeout */
-	if (ret == 0) {
-		queue_delayed_work(ld->tx_wq, ld->tx_dwork[IPC_RFS], 0);
-		return;
-	}
-
-	ret = process_res_ack(dpld, IPC_RFS);
-	if (ret >= 0) {
-		dpram_allow_sleep(dpld);
-		return;
-	}
-
-	/* At this point, ret < 0 */
-	if (ret == -ENOSPC)
+	else if (ret == 0)
 		queue_delayed_work(ld->tx_wq, ld->tx_dwork[IPC_RFS], delay);
+	else
+		process_res_ack(dpld, IPC_RFS);
 }
 
 /**
@@ -2277,10 +2058,12 @@ static void dpram_send_ipc(struct dpram_link_device *dpld, int dev,
 	u16 mask;
 
 	if (unlikely(txq->qlen >= MAX_SKB_TXQ_DEPTH)) {
-		mif_info("%s: %s txq->qlen %d >= %d\n", ld->name,
+		mif_err("%s: %s txq->qlen %d >= %d\n", ld->name,
 			get_dev_name(dev), txq->qlen, MAX_SKB_TXQ_DEPTH);
-		dev_kfree_skb_any(skb);
-		return;
+		if (iod->io_typ == IODEV_NET || iod->format == IPC_MULTI_RAW) {
+			dev_kfree_skb_any(skb);
+			return;
+		}
 	}
 
 	skb_queue_tail(txq, skb);
@@ -2296,37 +2079,31 @@ static void dpram_send_ipc(struct dpram_link_device *dpld, int dev,
 	}
 
 	if (atomic_read(&dpld->res_required[dev]) > 0) {
-		mif_debug("%s: %s_TXQ is full\n", ld->name, get_dev_name(dev));
+		mif_info("%s: %s_TXQ is full\n", ld->name, get_dev_name(dev));
 		goto exit;
 	}
 
 	ret = xmit_ipc_msg(dpld, dev);
 	if (likely(ret > 0)) {
 		mask = get_mask_send(dpld, dev);
-		send_int2cp(dpld, INT_NON_CMD(mask));
-		get_dpram_status(dpld, TX, msq_get_free_slot(&dpld->stat_list));
+		send_intr(dpld, INT_NON_CMD(mask));
 		goto exit;
 	}
 
-	/* If there was no TX, just exit */
-	if (ret == 0)
+	if (ret == 0) {
+		mif_info("%s: %s skb_txq empty\n", ld->name, get_dev_name(dev));
 		goto exit;
+	}
 
 	/* At this point, ret < 0 */
 	if (ret == -ENOSPC) {
-		/* Prohibit DPRAM from sleeping until the TXQ buffer is empty */
-		if (dpram_wake_up(dpld) < 0) {
-			trigger_force_cp_crash(dpld);
-			goto exit;
-		}
-
-		/*----------------------------------------------------*/
-		/* dpld->res_required[dev] was set in xmit_ipc_msg(). */
-		/*----------------------------------------------------*/
-
+		/*
+		** dpld->res_required[dev] is set in xmit_ipc_msg()
+		*/
 		if (dev == IPC_RAW)
 			mif_netif_stop(ld);
-
+		mif_info("%s->%s: xmit_ipc_msg fail (err -ENOSPC)\n",
+			iod->name, ld->name);
 		queue_delayed_work(ld->tx_wq, ld->tx_dwork[dev], 0);
 	} else {
 		mif_err("%s->%s: ERR! xmit_ipc_msg fail (err %d)\n",
@@ -2574,28 +2351,27 @@ static int dpram_table_init(struct dpram_link_device *dpld)
 
 static void dpram_setup_common_op(struct dpram_link_device *dpld)
 {
-	dpld->recv_intr = recv_int2ap;
-	dpld->send_intr = send_int2cp;
+	dpld->recv_intr = recv_intr;
+	dpld->send_intr = send_intr;
 	dpld->get_magic = get_magic;
 	dpld->set_magic = set_magic;
 	dpld->get_access = get_access;
 	dpld->set_access = set_access;
-	dpld->get_txq_head = get_txq_head;
-	dpld->get_txq_tail = get_txq_tail;
-	dpld->set_txq_head = set_txq_head;
-	dpld->set_txq_tail = set_txq_tail;
-	dpld->get_txq_buff = get_txq_buff;
-	dpld->get_txq_buff_size = get_txq_buff_size;
-	dpld->get_rxq_head = get_rxq_head;
-	dpld->get_rxq_tail = get_rxq_tail;
-	dpld->set_rxq_head = set_rxq_head;
-	dpld->set_rxq_tail = set_rxq_tail;
-	dpld->get_rxq_buff = get_rxq_buff;
-	dpld->get_rxq_buff_size = get_rxq_buff_size;
+	dpld->get_tx_head = get_tx_head;
+	dpld->get_tx_tail = get_tx_tail;
+	dpld->set_tx_head = set_tx_head;
+	dpld->set_tx_tail = set_tx_tail;
+	dpld->get_tx_buff = get_tx_buff;
+	dpld->get_tx_buff_size = get_tx_buff_size;
+	dpld->get_rx_head = get_rx_head;
+	dpld->get_rx_tail = get_rx_tail;
+	dpld->set_rx_head = set_rx_head;
+	dpld->set_rx_tail = set_rx_tail;
+	dpld->get_rx_buff = get_rx_buff;
+	dpld->get_rx_buff_size = get_rx_buff_size;
 	dpld->get_mask_req_ack = get_mask_req_ack;
 	dpld->get_mask_res_ack = get_mask_res_ack;
 	dpld->get_mask_send = get_mask_send;
-	dpld->get_dpram_status = get_dpram_status;
 	dpld->ipc_rx_handler = cmd_msg_handler;
 }
 
@@ -2701,13 +2477,6 @@ struct link_device *dpram_create_link_device(struct platform_device *pdev)
 	ld->skb_txq[IPC_RAW] = &ld->sk_raw_tx_q;
 	ld->skb_txq[IPC_RFS] = &ld->sk_rfs_tx_q;
 
-	skb_queue_head_init(&ld->sk_fmt_rx_q);
-	skb_queue_head_init(&ld->sk_raw_rx_q);
-	skb_queue_head_init(&ld->sk_rfs_rx_q);
-	ld->skb_rxq[IPC_FMT] = &ld->sk_fmt_rx_q;
-	ld->skb_rxq[IPC_RAW] = &ld->sk_raw_rx_q;
-	ld->skb_rxq[IPC_RFS] = &ld->sk_rfs_rx_q;
-
 	/*
 	** Set up function pointers
 	*/
@@ -2770,11 +2539,6 @@ struct link_device *dpram_create_link_device(struct platform_device *pdev)
 		goto err;
 	}
 
-	if (dpctl->res_ack_wait_timeout > 0)
-		dpld->res_ack_wait_timeout = dpctl->res_ack_wait_timeout;
-	else
-		dpld->res_ack_wait_timeout = RES_ACK_WAIT_TIMEOUT;
-
 	/* Disable IPC */
 	if (!dpctl->disabled) {
 		set_magic(dpld, 0);
@@ -2792,7 +2556,6 @@ struct link_device *dpram_create_link_device(struct platform_device *pdev)
 	init_completion(&dpld->udl_cmd_complete);
 	init_completion(&dpld->crash_start_complete);
 	init_completion(&dpld->crash_recv_done);
-
 	for (i = 0; i < ld->max_ipc_dev; i++)
 		init_completion(&dpld->req_ack_cmpl[i]);
 
@@ -2821,7 +2584,7 @@ struct link_device *dpram_create_link_device(struct platform_device *pdev)
 	/* Prepare RXB queue */
 	qsize = DPRAM_MAX_RXBQ_SIZE;
 	for (i = 0; i < ld->max_ipc_dev; i++) {
-		bsize = rxbq_get_page_size(get_rxq_buff_size(dpld, i));
+		bsize = rxbq_get_page_size(get_rx_buff_size(dpld, i));
 		dpld->rxbq[i].size = qsize;
 		dpld->rxbq[i].in = 0;
 		dpld->rxbq[i].out = 0;

@@ -181,7 +181,6 @@ static int irda_fw_update(struct ir_remocon_data *ir_data)
 		data->pdata->ir_wake_en(0);
 		data->pdata->ir_vdd_onoff(0);
 		data->on_off = 0;
-		msleep(100);
 
 	} else {
 		if (ret != DUMMY)
@@ -190,7 +189,6 @@ static int irda_fw_update(struct ir_remocon_data *ir_data)
 		data->pdata->ir_wake_en(0);
 		data->pdata->ir_vdd_onoff(0);
 		data->on_off = 0;
-		msleep(100);
 
 		if (ret == FW_VERSION)
 			download_pass = 1;

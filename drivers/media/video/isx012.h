@@ -458,12 +458,12 @@ struct regset_table {
 	const char	*const name;
 };
 
-#define ISX012_REGSET(x, y)		\
+#define ISX012_REGSET(x, y, z)		\
 	[(x)] = {			\
 		.name		= #y,	\
 	}
 
-#define ISX012_REGSET_TABLE(y)	\
+#define ISX012_REGSET_TABLE(y, z)	\
 	{				\
 		.name		= #y,	\
 	}
@@ -476,31 +476,36 @@ struct regset_table {
 #ifdef DEBUG_WRITE_REGS
 	const char	* const name;
 #endif
+	const u32	burst;	/* on/off */
 };
 
 #ifdef DEBUG_WRITE_REGS
-#define ISX012_REGSET(x, y)		\
+#define ISX012_REGSET(x, y, z)		\
 	[(x)] = {					\
 		.reg		= (y),			\
 		.array_size	= ARRAY_SIZE((y)),	\
 		.name		= #y,			\
+		.burst		= z,			\
 	}
-#define ISX012_REGSET_TABLE(y)		\
+#define ISX012_REGSET_TABLE(y, z)		\
 	{					\
 		.reg		= (y),			\
 		.array_size	= ARRAY_SIZE((y)),	\
 		.name		= #y,			\
+		.burst		= z,			\
 	}
 #else /* !DEBUG_WRITE_REGS */
-#define ISX012_REGSET(x, y)		\
+#define ISX012_REGSET(x, y, z)		\
 	[(x)] = {					\
 		.reg		= (y),			\
 		.array_size	= ARRAY_SIZE((y)),	\
+		.burst		= z,			\
 	}
-#define ISX012_REGSET_TABLE(y)		\
+#define ISX012_REGSET_TABLE(y, z)		\
 	{					\
 		.reg		= (y),			\
 		.array_size	= ARRAY_SIZE((y)),	\
+		.burst		= z,			\
 	}
 #endif /* DEBUG_WRITE_REGS */
 
@@ -558,6 +563,11 @@ struct isx012_regs {
 
 	struct regset_table init_reg;
 	struct regset_table set_pll_4;
+	struct regset_table shading_0;
+	struct regset_table shading_1;
+	struct regset_table shading_2;
+	struct regset_table shading_nocal;
+
 #ifdef CONFIG_VIDEO_ISX012_P8
 	struct regset_table antibanding;
 #endif /* CONFIG_VIDEO_ISX012_P8 */

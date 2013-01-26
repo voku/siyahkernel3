@@ -217,6 +217,10 @@ static irqreturn_t wm8994_irq_thread(int irq, void *data)
 	u16 status[WM8994_NUM_IRQ_REGS];
 	int ret;
 
+	/* this debugging msg add for check unlimited irq
+	 and will be removed after verification */
+	printk(KERN_DEBUG"Entered [%s]\n", __func__);
+
 	ret = wm8994_bulk_read(wm8994, WM8994_INTERRUPT_STATUS_1,
 			       WM8994_NUM_IRQ_REGS, status);
 	if (ret < 0) {

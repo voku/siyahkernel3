@@ -305,6 +305,7 @@ retry:
 			return ret;
 		}
 	}
+
 #ifndef CONFIG_MACH_GC1
 	/* "0" argument means preview init for s5k4ea */
 	ret = v4l2_subdev_call(cam->sd, core, init, 0);
@@ -817,7 +818,6 @@ static int fimc_configure_subdev(struct fimc_control *ctrl)
 	if (!sd) {
 		fimc_err("%s: v4l2 subdev board registering failed\n",
 				__func__);
-		return -ENODEV;
 	}
 	/* Assign subdev to proper camera device pointer */
 	ctrl->cam->sd = sd;
@@ -3145,11 +3145,9 @@ int fimc_qbuf_capture(void *fh, struct v4l2_buffer *b)
 		return -ENODEV;
 	}
 
-	mutex_lock(&ctrl->v4l2_lock);
 	if (pdata->hw_ver >= 0x51) {
 		if (cap->bufs[idx].state != VIDEOBUF_IDLE) {
 			fimc_err("%s: invalid state idx : %d\n", __func__, idx);
-			mutex_unlock(&ctrl->v4l2_lock);
 			return -EINVAL;
 		} else {
 			if (b->memory == V4L2_MEMORY_USERPTR) {
@@ -3171,7 +3169,6 @@ int fimc_qbuf_capture(void *fh, struct v4l2_buffer *b)
 				if (ret < 0) {
 					fimc_err("%s: _qbuf_dmabuf error.\n",
 						__func__);
-					mutex_unlock(&ctrl->v4l2_lock);
 					return -ENODEV;
 				}
 				for (i = 0; i < vb->num_planes; i++) {
@@ -3185,7 +3182,6 @@ int fimc_qbuf_capture(void *fh, struct v4l2_buffer *b)
 					} else {
 						fimc_err("%s: Wrong sg value.\n",
 							__func__);
-						mutex_unlock(&ctrl->v4l2_lock);
 						return -ENODEV;
 					}
 				}
@@ -3223,12 +3219,11 @@ int fimc_qbuf_capture(void *fh, struct v4l2_buffer *b)
 				}
 			}
 			spin_unlock_irqrestore(&ctrl->inq_lock, spin_flags);
+
 		}
 	} else {
 		fimc_add_inqueue(ctrl, b->index);
 	}
-
-	mutex_unlock(&ctrl->v4l2_lock);
 
 	if (!cap->cacheable)
 		return 0;
@@ -3306,6 +3301,15 @@ int fimc_dqbuf_capture(void *fh, struct v4l2_buffer *b)
 	}
 
 	if (pdata->hw_ver >= 0x51) {
+
+#ifdef CONFIG_MACH_GC1
+		if (cap->outgoing_q.next == NULL) {
+			fimc_err("%s: No cap->outgoing_q.\n", __func__);
+		return -ENODEV;
+	}
+#endif
+
+
 		spin_lock_irqsave(&ctrl->outq_lock, spin_flags);
 
 		if (list_empty(&cap->outgoing_q)) {

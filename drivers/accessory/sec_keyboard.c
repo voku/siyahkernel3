@@ -44,6 +44,73 @@ static void sec_keyboard_remapkey(struct work_struct *work)
 	data->remap_key = 0;
 }
 
+/* power supply name for set state */
+#define PSY_NAME	"battery"
+static void acc_dock_psy(struct sec_keyboard_drvdata *data)
+{
+	struct power_supply *psy = power_supply_get_by_name(PSY_NAME);
+	union power_supply_propval value;
+
+/* only support p4note(high current charging) */
+#ifndef CONFIG_MACH_P4NOTE
+	return;
+#endif
+
+	if (!psy || !psy->set_property) {
+		pr_err("%s: fail to get %s psy\n", __func__, PSY_NAME);
+		return;
+	}
+	value.intval = 0;
+	value.intval = (data->cable_type << 16) + (data->cable_sub_type << 8) +
+			(data->cable_pwr_type << 0);
+	pr_info("[BATT]keyboard cx(%d), sub(%d), pwr(%d) val_int(%d)\n",
+		data->cable_type, data->cable_sub_type, data->cable_pwr_type,
+		value.intval);
+	psy->set_property(psy, POWER_SUPPLY_PROP_ONLINE, &value);
+}
+
+static void sec_keyboard_ack(struct work_struct *work)
+{
+	unsigned int ackcode = 0;
+	char *envp[3];
+	struct sec_keyboard_drvdata *data = container_of(work,
+			struct sec_keyboard_drvdata, ack_dwork.work);
+
+	if (data->ack_code) {
+		ackcode = data->ack_code;
+		sec_keyboard_tx(data, ackcode);
+	}
+	printk(KERN_DEBUG "[Keyboard] Ack code to KBD 0x%x\n", ackcode);
+
+	switch (data->ack_code) {
+	case 0x68: /*dock is con*/
+		data->noti_univ_kbd_dock(true);
+		data->cable_type = POWER_SUPPLY_TYPE_DOCK;
+		data->cable_sub_type = ONLINE_SUB_TYPE_KBD;
+		acc_dock_psy(data);
+		break;
+	case 0x69: /*usb charging*/
+		data->cable_pwr_type = ONLINE_POWER_TYPE_USB;
+		acc_dock_psy(data);
+		break;
+	case 0x6a: /*what is this. same as usb charging*/
+		data->noti_univ_kbd_dock(false);
+		data->cable_pwr_type = ONLINE_POWER_TYPE_USB;
+		acc_dock_psy(data);
+		break;
+	case 0x6b: /*TA connection*/
+		data->cable_pwr_type = ONLINE_POWER_TYPE_TA;
+		acc_dock_psy(data);
+		break;
+	case 0x6c: /* current is not support*/
+		data->cable_pwr_type = ONLINE_POWER_TYPE_BATTERY;
+		acc_dock_psy(data);
+		break;
+	}
+
+	data->ack_code = 0;
+}
+
 static void release_all_keys(struct sec_keyboard_drvdata *data)
 {
 	int i;
@@ -105,7 +172,16 @@ static void sec_keyboard_process_data(
 			data->pressed[scan_code] = true;
 			schedule_delayed_work(&data->remap_dwork, HZ/3);
 			break;
-
+		case 0x68:
+		case 0x69:
+		case 0x6a:
+		case 0x6b:
+		case 0x6c:
+			data->ack_code = scan_code;
+			schedule_delayed_work(&data->ack_dwork, HZ/200);
+			printk(KERN_DEBUG "[Keyboard] scan_code %d Received.\n",
+				scan_code);
+			break;
 		case 0xc5:
 		case 0xc8:
 			keycode = (scan_code & 0x7f);
@@ -355,11 +431,13 @@ static int __devinit sec_keyboard_probe(struct platform_device *pdev)
 	ddata->callbacks.check_keyboard_dock = check_keyboard_dock;
 	if (pdata->register_cb)
 		pdata->register_cb(&ddata->callbacks);
+	ddata->noti_univ_kbd_dock = pdata->noti_univ_kbd_dock;
 
 	memcpy(ddata->keycode, sec_keycodes, sizeof(sec_keycodes));
 
 	INIT_DELAYED_WORK(&ddata->remap_dwork, sec_keyboard_remapkey);
 	INIT_DELAYED_WORK(&ddata->power_dwork, sec_keyboard_power);
+	INIT_DELAYED_WORK(&ddata->ack_dwork, sec_keyboard_ack);
 
 	platform_set_drvdata(pdev, ddata);
 	input_set_drvdata(input, ddata);
@@ -443,6 +521,7 @@ err_input_allocate_device:
 	input_free_device(input);
 	del_timer_sync(&ddata->remap_dwork.timer);
 	del_timer_sync(&ddata->power_dwork.timer);
+	del_timer_sync(&ddata->ack_dwork.timer);
 err_free_mem:
 	kfree(ddata);
 	return error;

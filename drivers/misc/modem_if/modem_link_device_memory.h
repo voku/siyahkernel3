@@ -84,11 +84,11 @@
 #define INT_MASK_RES_ACK_RFS	0x0200 /* Response of REQ_ACK_RFS	*/
 #define INT_MASK_SEND_RFS	0x0100 /* Indicate sending RFS data	*/
 
-#define INT_MASK_REQ_ACK_SET \
-	(INT_MASK_REQ_ACK_F | INT_MASK_REQ_ACK_R | INT_MASK_REQ_ACK_RFS)
-
 #define INT_MASK_RES_ACK_SET \
 	(INT_MASK_RES_ACK_F | INT_MASK_RES_ACK_R | INT_MASK_RES_ACK_RFS)
+
+#define INT_MASK_SEND_SET \
+	(INT_MASK_SEND_F | INT_MASK_SEND_R | INT_MASK_SEND_RFS)
 
 #define INT_CMD_MASK(x)		((x) & 0xF)
 #define INT_CMD_INIT_START	0x1
@@ -119,13 +119,12 @@
 
 #define UDL_TIMEOUT		(50 * HZ)
 #define UDL_SEND_TIMEOUT	(200 * HZ)
-#define FORCE_CRASH_ACK_TIMEOUT	(30 * HZ)
+#define FORCE_CRASH_ACK_TIMEOUT	(5 * HZ)
 #define DUMP_TIMEOUT		(30 * HZ)
 #define DUMP_START_TIMEOUT	(100 * HZ)
 #define DUMP_WAIT_TIMEOUT	(HZ >> 10)	/* 1/1024 second */
-
-#define RES_ACK_WAIT_TIMEOUT	10		/* 10 ms */
-#define REQ_ACK_DELAY		10		/* 10 ms */
+#define RES_ACK_WAIT_TIMEOUT	(HZ >> 8)	/* 1/256 second */
+#define REQ_ACK_DELAY		(HZ >> 7)	/* 1/128 second */
 
 #ifndef CONFIG_SAMSUNG_PRODUCT_SHIP
 #define MAX_RETRY_CNT	1
@@ -148,7 +147,6 @@ enum dpram_init_status {
 enum circ_dir_type {
 	TX,
 	RX,
-	MAX_DIR,
 };
 
 enum circ_ptr_type {
@@ -360,21 +358,6 @@ static const inline char *circ_ptr(enum circ_ptr_type ptr)
 		return "tail";
 }
 
-/**
- * get_dir_str
- * @dir: communication direction (enum circ_dir_type)
- *
- * Returns the direction of a circular queue
- *
- */
-static const inline char *get_dir_str(enum circ_dir_type dir)
-{
-	if (dir == TX)
-		return "AP->CP";
-	else
-		return "CP->AP";
-}
-
 #if 1
 #define DPRAM_MAX_RXBQ_SIZE	256
 
@@ -492,99 +475,12 @@ static inline void rxb_clear(struct mif_rxb *rxb)
 }
 #endif
 
-#define MAX_MEM_LOG_CNT	8192
-
-struct mem_status {
-	/* Timestamp */
-	struct timespec ts;
-
-	/* Direction (TX or RX) */
-	enum circ_dir_type dir;
-
-	/* The status of memory interface at the time */
-	u16 magic;
-	u16 access;
-
-	u32 head[MAX_IPC_DEV][MAX_DIR];
-	u32 tail[MAX_IPC_DEV][MAX_DIR];
-
-	u16 int2ap;
-	u16 int2cp;
-};
-
-struct mem_stat_queue {
-	spinlock_t lock;
-	u32 in;
-	u32 out;
-	struct mem_status stat[MAX_MEM_LOG_CNT];
-};
-
-static inline struct mem_status *msq_get_free_slot(struct mem_stat_queue *msq)
-{
-	int qsize = MAX_MEM_LOG_CNT;
-	int in;
-	unsigned long int flags;
-	struct mem_status *stat;
-
-	spin_lock_irqsave(&msq->lock, flags);
-
-	in = msq->in;
-
-	while (circ_get_space(qsize, in, msq->out) < 1) {
-		msq->out++;
-		if (unlikely(msq->out >= qsize))
-			msq->out = 0;
-	}
-
-	stat = &msq->stat[in];
-
-	in++;
-	if (in == qsize)
-		msq->in = 0;
-	else
-		msq->in = in;
-
-	spin_unlock_irqrestore(&msq->lock, flags);
-
-	return stat;
-}
-
-static inline struct mem_status *msq_get_data_slot(struct mem_stat_queue *msq)
-{
-	int qsize = MAX_MEM_LOG_CNT;
-	int out;
-	unsigned long int flags;
-	struct mem_status *stat;
-
-	spin_lock_irqsave(&msq->lock, flags);
-
-	out = msq->out;
-
-	if (circ_get_usage(qsize, msq->in, out) < 1) {
-		spin_unlock_irqrestore(&msq->lock, flags);
-		return NULL;
-	}
-
-	stat = &msq->stat[out];
-
-	out++;
-	if (out == qsize)
-		msq->out = 0;
-	else
-		msq->out = out;
-
-	spin_unlock_irqrestore(&msq->lock, flags);
-
-	return stat;
-}
-
 #ifndef CONFIG_SAMSUNG_PRODUCT_SHIP
 #define MAX_TRACE_SIZE	1024
 
 struct trace_data {
 	struct timespec ts;
 	enum dev_format dev;
-	struct dpram_circ_status stat;
 	u8 *data;
 	int size;
 };
@@ -598,16 +494,13 @@ struct trace_queue {
 
 static inline struct trace_data *trq_get_free_slot(struct trace_queue *trq)
 {
-	int in;
-	int out;
+	int in = trq->in;
+	int out = trq->out;
 	int qsize = MAX_TRACE_SIZE;
 	struct trace_data *trd = NULL;
 	unsigned long int flags;
 
 	spin_lock_irqsave(&trq->lock, flags);
-
-	in = trq->in;
-	out = trq->out;
 
 	if (circ_get_space(qsize, in, out) < 1) {
 		spin_unlock_irqrestore(&trq->lock, flags);
@@ -629,16 +522,13 @@ static inline struct trace_data *trq_get_free_slot(struct trace_queue *trq)
 
 static inline struct trace_data *trq_get_data_slot(struct trace_queue *trq)
 {
-	int in;
-	int out;
+	int in = trq->in;
+	int out = trq->out;
 	int qsize = MAX_TRACE_SIZE;
 	struct trace_data *trd = NULL;
 	unsigned long int flags;
 
 	spin_lock_irqsave(&trq->lock, flags);
-
-	in = trq->in;
-	out = trq->out;
 
 	if (circ_get_usage(qsize, in, out) < 1) {
 		spin_unlock_irqrestore(&trq->lock, flags);

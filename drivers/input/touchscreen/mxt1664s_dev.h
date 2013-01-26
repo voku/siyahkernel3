@@ -34,6 +34,7 @@
 #define PRESS_MSG_MASK		0x40
 #define RELEASE_MSG_MASK	0x20
 #define MOVE_MSG_MASK		0x10
+#define VECTOR_MSG_MASK	0x08
 #define AMPLITUDE_MSG_MASK	0x04
 #define SUPPRESS_MSG_MASK	0x02
 
@@ -105,7 +106,17 @@
 * because it use other write permission. it will be cause
 * failure of CTS
 */
-#define TSP_ITDEV		1
+#define TSP_ITDEV		0
+
+#define MXT_T7_IDLE_ACQ_INT	0
+#define MXT_T7_ACT_ACQ_INT	1
+
+#if CHECK_ANTITOUCH
+#define MXT_T61_TIMER_ONESHOT	0
+#define MXT_T61_TIMER_REPEAT	1
+#define MXT_T61_TIMER_CMD_START		1
+#define MXT_T61_TIMER_CMD_STOP		2
+#endif
 
 #define MXT_T7_IDLE_ACQ_INT	0
 #define MXT_T7_ACT_ACQ_INT	1
