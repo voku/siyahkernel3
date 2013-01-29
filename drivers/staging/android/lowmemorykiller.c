@@ -38,7 +38,6 @@
 #include <linux/rcupdate.h>
 #include <linux/profile.h>
 #include <linux/notifier.h>
-#include <linux/compaction.h>
 #include <linux/swap.h>
 #include <linux/earlysuspend.h>
 #include <linux/slab.h>
@@ -146,6 +145,8 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		struct task_struct *p;
 		short oom_score_adj;
 		bool test = false;
+		char process1[] = "android.process.media";
+		char process2[] = "android.process.acore";
 
 		if (tsk->flags & PF_KTHREAD)
 			continue;
@@ -154,6 +155,13 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 
 		if (!p)
 			continue;
+
+		if (strcmp(p->comm, process1) == 0) {
+			continue;
+		}
+		if (strcmp(p->comm, process2) == 0) {
+			continue;
+		}
 
 		if (test_tsk_thread_flag(p, TIF_MEMDIE) &&
 		    time_before_eq(jiffies, lowmem_deathpending_timeout)) {
@@ -184,11 +192,13 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 
 		if (screen_off == true) {
 			for (i = 0; i < counter; i++) {
-				if (uids[i] == uid)
+				if (uids[i] == uid) {
 					test = true;
+				}
 			}
-			if (test == true)
+			if (test == true) {
 				continue;
+			}
 		}
 
 		selected_tasksize = tasksize;
@@ -201,11 +211,13 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		uid = pcred->uid;
 
 		if (screen_off == true) {
-			if (counter >= max_alloc)
+			if (counter >= max_alloc) {
 				max_alloc += ALLOC_SIZE;
-				uids = (unsigned int *)krealloc(uids, max_alloc*sizeof(unsigned int), GFP_KERNEL);
-			if (uids == NULL)
+			}
+			uids = (unsigned int *)krealloc(uids, max_alloc*sizeof(unsigned int), GFP_KERNEL);
+			if (uids == NULL) {
 				goto no_mem;
+			}
 			uids[counter++] = uid;
 		}
 no_mem:
@@ -222,8 +234,6 @@ no_mem:
 	lowmem_print(4, "lowmem_shrink %lu, %x, return %d\n",
 		     sc->nr_to_scan, sc->gfp_mask, rem);
 	rcu_read_unlock();
-	if (selected)
-		compact_nodes(false);
 	return rem;
 }
 
