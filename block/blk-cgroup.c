@@ -64,8 +64,11 @@ struct cgroup_subsys blkio_subsys = {
 	.can_attach = blkiocg_can_attach,
 	.attach = blkiocg_attach,
 	.destroy = blkiocg_destroy,
-	.populate = blkiocg_populate,
+#ifdef CONFIG_BLK_CGROUP
+	/* note: blkio_subsys_id is otherwise defined in blk-cgroup.h */
 	.subsys_id = blkio_subsys_id,
+#endif
+	.base_cftypes = blkio_files,
 	.use_id = 1,
 	.module = THIS_MODULE,
 };
@@ -1670,22 +1673,6 @@ static void blkiocg_attach(struct cgroup *cgrp, struct cgroup_taskset *tset)
 		put_io_context(ioc);
 	}
 }
-
-struct cgroup_subsys blkio_subsys = {
-	.name = "blkio",
-	.create = blkiocg_create,
-	.can_attach = blkiocg_can_attach,
-	.attach = blkiocg_attach,
-	.destroy = blkiocg_destroy,
-#ifdef CONFIG_BLK_CGROUP
-	/* note: blkio_subsys_id is otherwise defined in blk-cgroup.h */
-	.subsys_id = blkio_subsys_id,
-#endif
-	.base_cftypes = blkio_files,
-	.use_id = 1,
-	.module = THIS_MODULE,
-};
-EXPORT_SYMBOL_GPL(blkio_subsys);
 
 void blkio_policy_register(struct blkio_policy_type *blkiop)
 {
