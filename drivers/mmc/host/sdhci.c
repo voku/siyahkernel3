@@ -57,6 +57,7 @@ static void sdhci_send_command(struct sdhci_host *, struct mmc_command *);
 static void sdhci_finish_command(struct sdhci_host *);
 static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode);
 static void sdhci_tuning_timer(unsigned long data);
+static void sdhci_enable_preset_value(struct sdhci_host *host, bool enable);
 
 #define MAX_BUS_CLK	(4)
 
@@ -1113,6 +1114,37 @@ static void sdhci_finish_command(struct sdhci_host *host)
 	}
 }
 
+static u16 sdhci_get_preset_value(struct sdhci_host *host)
+{
+	u16 ctrl, preset = 0;
+
+	ctrl = sdhci_readw(host, SDHCI_HOST_CONTROL2);
+
+	switch (ctrl & SDHCI_CTRL_UHS_MASK) {
+	case SDHCI_CTRL_UHS_SDR12:
+		preset = sdhci_readw(host, SDHCI_PRESET_FOR_SDR12);
+		break;
+	case SDHCI_CTRL_UHS_SDR25:
+		preset = sdhci_readw(host, SDHCI_PRESET_FOR_SDR25);
+		break;
+	case SDHCI_CTRL_UHS_SDR50:
+		preset = sdhci_readw(host, SDHCI_PRESET_FOR_SDR50);
+		break;
+	case SDHCI_CTRL_UHS_SDR104:
+		preset = sdhci_readw(host, SDHCI_PRESET_FOR_SDR104);
+		break;
+	case SDHCI_CTRL_UHS_DDR50:
+		preset = sdhci_readw(host, SDHCI_PRESET_FOR_DDR50);
+		break;
+	default:
+		pr_warn("%s: Invalid UHS-I mode selected\n",
+			mmc_hostname(host->mmc));
+		preset = sdhci_readw(host, SDHCI_PRESET_FOR_SDR12);
+		break;
+	}
+	return preset;
+}
+
 static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 {
 	int div = 0; /* Initialized for compiler warning */
@@ -1137,35 +1169,43 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 		goto out;
 
 	if (host->version >= SDHCI_SPEC_300) {
+		if (sdhci_readw(host, SDHCI_HOST_CONTROL2) &
+			SDHCI_CTRL_PRESET_VAL_ENABLE) {
+			u16 pre_val;
+
+			clk = sdhci_readw(host, SDHCI_CLOCK_CONTROL);
+			pre_val = sdhci_get_preset_value(host);
+			div = (pre_val & SDHCI_PRESET_SDCLK_FREQ_MASK)
+				>> SDHCI_PRESET_SDCLK_FREQ_SHIFT;
+			if (host->clk_mul &&
+				(pre_val & SDHCI_PRESET_CLKGEN_SEL_MASK)) {
+				clk = SDHCI_PROG_CLOCK_MODE;
+				real_div = div + 1;
+				clk_mul = host->clk_mul;
+			} else {
+				real_div = max_t(int, 1, div << 1);
+			}
+			goto clock_set;
+		}
+
 		/*
 		 * Check if the Host Controller supports Programmable Clock
 		 * Mode.
 		 */
 		if (host->clk_mul) {
-			u16 ctrl;
-
-			/*
-			 * We need to figure out whether the Host Driver needs
-			 * to select Programmable Clock Mode, or the value can
-			 * be set automatically by the Host Controller based on
-			 * the Preset Value registers.
-			 */
-			ctrl = sdhci_readw(host, SDHCI_HOST_CONTROL2);
-			if (!(ctrl & SDHCI_CTRL_PRESET_VAL_ENABLE)) {
-				for (div = 1; div <= 1024; div++) {
-					if (((host->max_clk * host->clk_mul) /
-					      div) <= clock)
-						break;
-				}
-				/*
-				 * Set Programmable Clock Mode in the Clock
-				 * Control register.
-				 */
-				clk = SDHCI_PROG_CLOCK_MODE;
-				real_div = div;
-				clk_mul = host->clk_mul;
-				div--;
+			for (div = 1; div <= 1024; div++) {
+				if ((host->max_clk * host->clk_mul / div)
+					<= clock)
+					break;
 			}
+			/*
+			 * Set Programmable Clock Mode in the Clock
+			 * Control register.
+			 */
+			clk = SDHCI_PROG_CLOCK_MODE;
+			real_div = div;
+			clk_mul = host->clk_mul;
+			div--;
 		} else {
 			/* Version 3.00 divisors must be a multiple of 2. */
 			if (host->max_clk <= clock)
@@ -1190,6 +1230,7 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 		div >>= 1;
 	}
 
+clock_set:
 	if (real_div)
 		host->mmc->actual_clock = (host->max_clk * clk_mul) / real_div;
 
@@ -1402,6 +1443,10 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 		sdhci_reinit(host);
 	}
 
+	if (host->version >= SDHCI_SPEC_300 &&
+		(ios->power_mode == MMC_POWER_UP))
+		sdhci_enable_preset_value(host, false);
+
 	sdhci_set_clock(host, ios->clock);
 
 	if (ios->power_mode == MMC_POWER_OFF)
@@ -1514,6 +1559,20 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 			else if (ios->timing == MMC_TIMING_UHS_DDR50)
 				ctrl_2 |= SDHCI_CTRL_UHS_DDR50;
 			sdhci_writew(host, ctrl_2, SDHCI_HOST_CONTROL2);
+		}
+
+		if (!(host->quirks2 & SDHCI_QUIRK2_PRESET_VALUE_BROKEN) &&
+				((ios->timing == MMC_TIMING_UHS_SDR12) ||
+				 (ios->timing == MMC_TIMING_UHS_SDR25) ||
+				 (ios->timing == MMC_TIMING_UHS_SDR50) ||
+				 (ios->timing == MMC_TIMING_UHS_SDR104) ||
+				 (ios->timing == MMC_TIMING_UHS_DDR50))) {
+			u16 preset;
+
+			sdhci_enable_preset_value(host, true);
+			preset = sdhci_get_preset_value(host);
+			ios->drv_type = (preset & SDHCI_PRESET_DRV_MASK)
+				>> SDHCI_PRESET_DRV_SHIFT;
 		}
 
 		/* Re-enable SD Clock */
@@ -1666,7 +1725,7 @@ static void sdhci_enable_sdio_irq(struct mmc_host *mmc, int enable)
 }
 
 static int sdhci_do_start_signal_voltage_switch(struct sdhci_host *host,
-						int signal_voltage)
+						struct mmc_ios *ios)
 {
 	u16 ctrl;
 	int ret;
@@ -1680,7 +1739,7 @@ static int sdhci_do_start_signal_voltage_switch(struct sdhci_host *host,
 
 	ctrl = sdhci_readw(host, SDHCI_HOST_CONTROL2);
 
-	switch (signal_voltage) {
+	switch (ios->signal_voltage) {
 	case MMC_SIGNAL_VOLTAGE_330:
 		/* Set 1.8V Signal Enable in the Host Control2 register to 0 */
 		ctrl &= ~SDHCI_CTRL_VDD_180;
@@ -1753,7 +1812,7 @@ static int sdhci_do_start_signal_voltage_switch(struct sdhci_host *host,
 }
 
 static int sdhci_start_signal_voltage_switch(struct mmc_host *mmc,
-	int signal_voltage)
+	struct mmc_ios *ios)
 {
 	struct sdhci_host *host = mmc_priv(mmc);
 	int err;
@@ -1761,7 +1820,7 @@ static int sdhci_start_signal_voltage_switch(struct mmc_host *mmc,
 	if (host->version < SDHCI_SPEC_300)
 		return 0;
 	sdhci_runtime_pm_get(host);
-	err = sdhci_do_start_signal_voltage_switch(host, signal_voltage);
+	err = sdhci_do_start_signal_voltage_switch(host, ios);
 	sdhci_runtime_pm_put(host);
 	return err;
 }
@@ -1975,16 +2034,14 @@ out:
 	return err;
 }
 
-static void sdhci_do_enable_preset_value(struct sdhci_host *host, bool enable)
+
+static void sdhci_enable_preset_value(struct sdhci_host *host, bool enable)
 {
 	u16 ctrl;
-	unsigned long flags;
 
 	/* Host Controller v3.00 defines preset value registers */
 	if (host->version < SDHCI_SPEC_300)
 		return;
-
-	spin_lock_irqsave(&host->lock, flags);
 
 	ctrl = sdhci_readw(host, SDHCI_HOST_CONTROL2);
 
@@ -2001,17 +2058,6 @@ static void sdhci_do_enable_preset_value(struct sdhci_host *host, bool enable)
 		sdhci_writew(host, ctrl, SDHCI_HOST_CONTROL2);
 		host->flags &= ~SDHCI_PV_ENABLED;
 	}
-
-	spin_unlock_irqrestore(&host->lock, flags);
-}
-
-static void sdhci_enable_preset_value(struct mmc_host *mmc, bool enable)
-{
-	struct sdhci_host *host = mmc_priv(mmc);
-
-	sdhci_runtime_pm_get(host);
-	sdhci_do_enable_preset_value(host, enable);
-	sdhci_runtime_pm_put(host);
 }
 
 static void sdhci_card_event(struct mmc_host *mmc)
@@ -2047,7 +2093,6 @@ static const struct mmc_host_ops sdhci_ops = {
 	.enable_sdio_irq = sdhci_enable_sdio_irq,
 	.start_signal_voltage_switch	= sdhci_start_signal_voltage_switch,
 	.execute_tuning			= sdhci_execute_tuning,
-	.enable_preset_value		= sdhci_enable_preset_value,
 	.card_event			= sdhci_card_event,
 	.card_busy	= sdhci_card_busy,
 };
@@ -2113,10 +2158,6 @@ static void sdhci_tasklet_finish(unsigned long param)
 		   controllers do not like that. */
 		sdhci_reset(host, SDHCI_RESET_CMD);
 		sdhci_reset(host, SDHCI_RESET_DATA);
-#ifdef CONFIG_MACH_PX
-		pr_debug("%s: Controller is resetted!\n",
-			mmc_hostname(host->mmc));
-#endif
 	}
 
 	host->mrq = NULL;
@@ -2198,10 +2239,6 @@ static void sdhci_cmd_irq(struct sdhci_host *host, u32 intmask)
 	}
 
 	if (intmask & SDHCI_INT_TIMEOUT) {
-/*
-		pr_info("%s: cmd %d command timeout error\n",
-			 mmc_hostname(host->mmc), host->cmd->opcode);
-*/
 		host->cmd->error = -ETIMEDOUT;
 	} else if (intmask & (SDHCI_INT_CRC | SDHCI_INT_END_BIT |
 			SDHCI_INT_INDEX)) {
@@ -2213,13 +2250,8 @@ static void sdhci_cmd_irq(struct sdhci_host *host, u32 intmask)
 		host->cmd->error = -EILSEQ;
 	}
 
-
 	if (host->cmd->error) {
 		tasklet_schedule(&host->finish_tasklet);
-#ifdef CONFIG_MACH_PX
-		pr_debug("%s: finish tasklet schedule\n",
-			mmc_hostname(host->mmc));
-#endif
 		return;
 	}
 
@@ -2585,20 +2617,6 @@ void sdhci_shutdown_host(struct sdhci_host *host)
 	sdhci_disable_card_detection(host);
 
 	free_irq(host->irq, host);
-
-	if (host->vmmc) {
-		if (regulator_is_enabled(host->vmmc)) {
-#ifdef CONFIG_MIDAS_COMMON
-			if (host->ops->set_power)
-				host->ops->set_power(0);
-#endif
-			regulator_disable(host->vmmc);
-			pr_info("%s : MMC Card OFF\n", __func__);
-#if defined(CONFIG_TARGET_LOCALE_KOR)
-			mdelay(5);
-#endif
-		}
-	}
 }
 EXPORT_SYMBOL_GPL(sdhci_shutdown_host);
 
@@ -2654,13 +2672,6 @@ int sdhci_resume_host(struct sdhci_host *host)
 	if (host->flags & SDHCI_USING_RETUNING_TIMER)
 		host->flags |= SDHCI_NEEDS_RETUNING;
 
-#ifdef CONFIG_MACH_PX
-	/* host has a card and the card is SDIO type */
-	if (host->mmc->card && mmc_card_sdio(host->mmc->card)) {
-		/* enable sdio interrupt */
-		sdhci_enable_sdio_irq(host->mmc, 1);
-	}
-#endif
 	return ret;
 }
 
@@ -2723,8 +2734,12 @@ int sdhci_runtime_resume_host(struct sdhci_host *host)
 	sdhci_do_set_ios(host, &host->mmc->ios);
 
 	sdhci_do_start_signal_voltage_switch(host, &host->mmc->ios);
-	if (host_flags & SDHCI_PV_ENABLED)
-		sdhci_do_enable_preset_value(host, true);
+	if ((host_flags & SDHCI_PV_ENABLED) &&
+		!(host->quirks2 & SDHCI_QUIRK2_PRESET_VALUE_BROKEN)) {
+		spin_lock_irqsave(&host->lock, flags);
+		sdhci_enable_preset_value(host, true);
+		spin_unlock_irqrestore(&host->lock, flags);
+	}
 
 	/* Set the re-tuning expiration flag */
 	if (host->flags & SDHCI_USING_RETUNING_TIMER)
@@ -2991,12 +3006,17 @@ int sdhci_add_host(struct sdhci_host *host)
 			host->vqmmc = NULL;
 		}
 	} else {
-		regulator_enable(host->vqmmc);
+		ret = regulator_enable(host->vqmmc);
 		if (!regulator_is_supported_voltage(host->vqmmc, 1700000,
 			1950000))
 			caps[1] &= ~(SDHCI_SUPPORT_SDR104 |
 					SDHCI_SUPPORT_SDR50 |
 					SDHCI_SUPPORT_DDR50);
+		if (ret) {
+			pr_warn("%s: Failed to enable vqmmc regulator: %d\n",
+				mmc_hostname(mmc), ret);
+			host->vqmmc = NULL;
+		}
 	}
 
 	if (host->quirks2 & SDHCI_QUIRK2_NO_1_8_V)
@@ -3078,7 +3098,11 @@ int sdhci_add_host(struct sdhci_host *host)
 	}
 
 #ifdef CONFIG_REGULATOR
-	if (host->vmmc) {
+	/*
+	 * Voltage range check makes sense only if regulator reports
+	 * any voltage value.
+	 */
+	if (host->vmmc && regulator_get_voltage(host->vmmc) > 0) {
 		ret = regulator_is_supported_voltage(host->vmmc, 2700000,
 			3600000);
 		if ((ret <= 0) || (!(caps[0] & SDHCI_CAN_VDD_330)))
