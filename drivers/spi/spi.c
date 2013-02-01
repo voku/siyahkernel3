@@ -671,10 +671,10 @@ void spi_unregister_master(struct spi_master *master)
 }
 EXPORT_SYMBOL_GPL(spi_unregister_master);
 
-static int __spi_master_match(struct device *dev, void *data)
+static int __spi_master_match(struct device *dev, const void *data)
 {
 	struct spi_master *m;
-	u16 *bus_num = data;
+	const u16 *bus_num = data;
 
 	m = container_of(dev, struct spi_master, dev);
 	return m->bus_num == *bus_num;
