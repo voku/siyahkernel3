@@ -4504,7 +4504,7 @@ static inline void update_sg_lb_stats(struct lb_env *env,
 		avg_load_per_task = sgs->sum_weighted_load / sgs->sum_nr_running;
 
 	if ((max_cpu_load - min_cpu_load) >= avg_load_per_task &&
-			(max_nr_running - min_nr_running) > 1)
+	    (max_nr_running - min_nr_running) > 1)
 		sgs->group_imb = 1;
 
 	sgs->group_capacity = DIV_ROUND_CLOSEST(group->sgp->power,
@@ -5728,10 +5728,10 @@ static void task_tick_fair(struct rq *rq, struct task_struct *curr, int queued)
 		entity_tick(cfs_rq, se, queued);
 	}
 
-	update_rq_runnable_avg(rq, 1);
-
 	if (sched_feat_numa(NUMA))
 		task_tick_numa(rq, curr);
+
+	update_rq_runnable_avg(rq, 1);
 }
 
 /*
