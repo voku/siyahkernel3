@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: wl_android.c 363784 2012-10-19 06:44:03Z $
+ * $Id: wl_android.c 372668 2012-12-04 14:07:12Z $
  */
 
 #include <linux/module.h>
@@ -1153,7 +1153,7 @@ static int wl_android_set_pno_setup(struct net_device *dev, char *command, int t
 exit_proc:
 	return res;
 }
-#endif 
+#endif /* PNO_SUPPORT */
 
 static int wl_android_get_p2p_dev_addr(struct net_device *ndev, char *command, int total_len)
 {
@@ -1625,6 +1625,7 @@ int wl_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 		ret = -EFAULT;
 		goto exit;
 	}
+
 	DHD_INFO(("%s: Android private cmd \"%s\" on %s\n", __FUNCTION__, command, ifr->ifr_name));
 
 	if (strnicmp(command, CMD_START, strlen(CMD_START)) == 0) {
@@ -1845,7 +1846,7 @@ int wl_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 		uint pfn_enabled = *(command + strlen(CMD_PNOENABLE_SET) + 1) - '0';
 		bytes_written = dhd_dev_pno_enable(net, pfn_enabled);
 	}
-#endif 
+#endif /* PNO_SUPPORT && !WL_SCHED_SCAN */
 	else if (strnicmp(command, CMD_P2P_DEV_ADDR, strlen(CMD_P2P_DEV_ADDR)) == 0) {
 		bytes_written = wl_android_get_p2p_dev_addr(net, command, priv_cmd.total_len);
 	}
@@ -2346,7 +2347,7 @@ static struct platform_driver wifi_device_legacy = {
 
 static int wifi_add_dev(void)
 {
-	int ret = 0;
+	int ret;
 	DHD_TRACE(("## Calling platform_driver_register\n"));
 	ret = platform_driver_register(&wifi_device);
 	if (ret)

@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd_common.c 359280 2012-09-27 07:15:15Z $
+ * $Id: dhd_common.c 373873 2012-12-10 20:45:58Z $
  */
 #include <typedefs.h>
 #include <osl.h>
@@ -967,6 +967,12 @@ wl_show_host_event(wl_event_msg_t *event, void *event_data)
 		DHD_EVENT(("MACEVENT: %s %d\n", event_name, ntoh32(*((int *)event_data))));
 		break;
 
+	case WLC_E_SERVICE_FOUND:
+	case WLC_E_P2PO_ADD_DEVICE:
+	case WLC_E_P2PO_DEL_DEVICE:
+		DHD_EVENT(("MACEVENT: %s, MAC: %s\n", event_name, eabuf));
+		break;
+
 	default:
 		DHD_EVENT(("MACEVENT: %s %d, MAC %s, status %d, reason %d, auth %d\n",
 		       event_name, event_type, eabuf, (int)status, (int)reason,
@@ -1197,6 +1203,7 @@ dhd_print_buf(void *pbuf, int len, int bytes_per_line)
 	printf("\n");
 #endif /* DHD_DEBUG */
 }
+
 #ifndef strtoul
 #define strtoul(nptr, endptr, base) bcm_strtoul((nptr), (endptr), (base))
 #endif
@@ -1933,6 +1940,7 @@ dhd_pno_enable(dhd_pub_t *dhd, int pfn_enabled)
 		return ret;
 	}
 
+#ifndef WL_SCHED_SCAN
 	if (!dhd_support_sta_mode(dhd))
 		return (ret);
 
@@ -1942,6 +1950,7 @@ dhd_pno_enable(dhd_pub_t *dhd, int pfn_enabled)
 		DHD_ERROR(("%s pno is NOT enable : called in assoc mode , ignore\n", __FUNCTION__));
 		return ret;
 	}
+#endif /* !WL_SCHED_SCAN */
 
 	/* Enable/disable PNO */
 	if ((ret = bcm_mkiovar("pfn", (char *)&pfn_enabled, 4, iovbuf, sizeof(iovbuf))) > 0) {
@@ -1981,8 +1990,10 @@ dhd_pno_set(dhd_pub_t *dhd, wlc_ssid_t* ssids_local, int nssid, ushort scan_fr,
 		err = -1;
 		return err;
 	}
+#ifndef WL_SCHED_SCAN
 	if (!dhd_support_sta_mode(dhd))
 		return err;
+#endif /* !WL_SCHED_SCAN */
 
 	/* Check for broadcast ssid */
 	for (k = 0; k < nssid; k++) {
@@ -2109,7 +2120,7 @@ int dhd_keep_alive_onoff(dhd_pub_t *dhd)
 	strncpy(buf, str, str_len);
 	buf[ str_len ] = '\0';
 	mkeep_alive_pktp = (wl_mkeep_alive_pkt_t *) (buf + str_len + 1);
-	mkeep_alive_pkt.period_msec = KEEP_ALIVE_PERIOD;
+	mkeep_alive_pkt.period_msec = CUSTOM_KEEP_ALIVE_SETTING;
 	buf_len = str_len + 1;
 	mkeep_alive_pkt.version = htod16(WL_MKEEP_ALIVE_VERSION);
 	mkeep_alive_pkt.length = htod16(WL_MKEEP_ALIVE_FIXED_LEN);

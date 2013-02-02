@@ -109,7 +109,7 @@ si_kattach(osl_t *osh)
 	static bool ksii_attached = FALSE;
 
 	if (!ksii_attached) {
-		void *regs = NULL;
+		void *regs;
 		regs = REG_MAP(SI_ENUM_BASE, SI_CORE_SIZE);
 
 		if (si_doattach(&ksii, BCM4710_DEVICE_ID, osh, regs,

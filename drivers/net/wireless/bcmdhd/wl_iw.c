@@ -3615,7 +3615,6 @@ static void wl_iw_send_scan_complete(iscan_info_t *iscan)
 
 	memset(&wrqu, 0, sizeof(wrqu));
 
-
 	wireless_send_event(iscan->dev, SIOCGIWSCAN, &wrqu, NULL);
 }
 
