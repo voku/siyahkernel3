@@ -459,7 +459,11 @@ extern int dhd_dongle_memsize;
 module_param(dhd_dongle_memsize, int, 0);
 #endif /* DHDTHREAD */
 /* Control fw roaming */
+#ifdef BCMCCX
 uint dhd_roam_disable = 0;
+#else
+uint dhd_roam_disable = 0;
+#endif /* BCMCCX */
 
 /* Control radio state */
 uint dhd_radio_up = 1;
