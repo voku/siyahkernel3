@@ -393,9 +393,9 @@ module_param(dhd_msg_level, int, 0);
 module_param(disable_proptx, int, 0644);
 
 /* load firmware and/or nvram values from the filesystem */
-module_param_string(firmware_path, firmware_path, MOD_PARAM_PATHLEN, 0660);
+module_param_string(firmware_path, firmware_path, MOD_PARAM_PATHLEN, 0664);
 #ifdef CUSTOMER_HW4
-module_param_string(nvram_path, nvram_path, MOD_PARAM_PATHLEN, 0660);
+module_param_string(nvram_path, nvram_path, MOD_PARAM_PATHLEN, 0664);
 #else
 module_param_string(nvram_path, nvram_path, MOD_PARAM_PATHLEN, 0);
 #endif /* CUSTOMER_HW4 */
@@ -2827,16 +2827,6 @@ dhd_open(struct net_device *net)
 		firmware_path[0] = '\0';
 	}
 
-#ifdef CUSTOMER_HW4
-	/* Update NVRAM path if it was changed */
-	if (!dhd_download_fw_on_driverload && (strlen(nvram_path) != 0)) {
-		if (nvram_path[strlen(nvram_path)-1] == '\n')
-			nvram_path[strlen(nvram_path)-1] = '\0';
-		strcpy(nv_path, nvram_path);
-		nvram_path[0] = '\0';
-	}
-#endif /* CUSTOMER_HW4 */
-
 	dhd->pub.dongle_trap_occured = 0;
 	dhd->pub.hang_was_sent = 0;
 #if !defined(WL_CFG80211)
@@ -3931,8 +3921,6 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 	setbit(eventmask, WLC_E_ESCAN_RESULT);
 	if (dhd->op_mode & DHD_FLAG_P2P_MODE) {
 		setbit(eventmask, WLC_E_ACTION_FRAME_RX);
-		setbit(eventmask, WLC_E_ACTION_FRAME_COMPLETE);
-		setbit(eventmask, WLC_E_ACTION_FRAME_OFF_CHAN_COMPLETE);
 		setbit(eventmask, WLC_E_P2P_DISC_LISTEN_COMPLETE);
 	}
 #if defined(CUSTOMER_HW4) && defined(WES_SUPPORT)
@@ -5404,14 +5392,14 @@ int net_os_send_hang_message(struct net_device *dev)
 }
 #endif /* (OEM_ANDROID) */
 
-void dhd_bus_country_set(struct net_device *dev, wl_country_t *cspec)
+void dhd_bus_country_set(struct net_device *dev, wl_country_t *cspec, bool notify)
 {
 	dhd_info_t *dhd = *(dhd_info_t **)netdev_priv(dev);
 
 	if (dhd && dhd->pub.up) {
 		memcpy(&dhd->pub.dhd_cspec, cspec, sizeof(wl_country_t));
 #ifdef WL_CFG80211
-		wl_update_wiphybands(NULL);
+		wl_update_wiphybands(NULL, notify);
 #endif
 	}
 }
@@ -5421,7 +5409,7 @@ void dhd_bus_band_set(struct net_device *dev, uint band)
 	dhd_info_t *dhd = *(dhd_info_t **)netdev_priv(dev);
 	if (dhd && dhd->pub.up) {
 #ifdef WL_CFG80211
-		wl_update_wiphybands(NULL);
+		wl_update_wiphybands(NULL, true);
 #endif
 	}
 }

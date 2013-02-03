@@ -35,10 +35,6 @@
 #include <linux/delay.h>
 #include <pcicfg.h>
 
-#ifdef BCMASSERT_LOG
-#include <bcm_assert_log.h>
-#endif
-
 
 #include <linux/fs.h>
 
@@ -1020,12 +1016,10 @@ osl_assert(const char *exp, const char *file, int line)
 	if (!basename)
 		basename = file;
 
-#ifdef BCMASSERT_LOG
 	snprintf(tempbuf, 64, "\"%s\": file \"%s\", line %d\n",
 		exp, basename, line);
 
-	bcm_assert_log(tempbuf);
-#endif 
+	printk("%s", tempbuf);
 
 
 }

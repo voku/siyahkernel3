@@ -7422,10 +7422,10 @@ dhdsdio_release_dongle(dhd_bus_t *bus, osl_t *osh, bool dongle_isolation, bool r
 		return;
 
 	if (bus->sih) {
+#if !defined(BCMLXSDMMC)
 		if (bus->dhd) {
 			dhdsdio_clkctl(bus, CLK_AVAIL, FALSE);
 		}
-#if !defined(BCMLXSDMMC)
 		if (KSO_ENAB(bus) && (dongle_isolation == FALSE))
 			si_watchdog(bus->sih, 4);
 #endif /* !defined(BCMLXSDMMC) */

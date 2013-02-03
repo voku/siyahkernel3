@@ -6170,7 +6170,8 @@ wl_cfg80211_reg_notifier(
 		return -ENOTSUPP;
 	}
 
-	if ((ret = wldev_set_country(wl_to_prmry_ndev(wl), request->alpha2)) < 0) {
+	if ((ret = wldev_set_country(wl_to_prmry_ndev(wl), request->alpha2,
+		false)) < 0) {
 		WL_ERR(("set country Failed :%d\n", ret));
 	}
 
@@ -9561,7 +9562,7 @@ static int wl_construct_reginfo(struct wl_priv *wl, s32 bw_cap)
 	return err;
 }
 
-s32 wl_update_wiphybands(struct wl_priv *wl)
+s32 wl_update_wiphybands(struct wl_priv *wl, bool notify)
 {
 	struct wiphy *wiphy;
 	struct net_device *dev;
@@ -9615,7 +9616,7 @@ s32 wl_update_wiphybands(struct wl_priv *wl)
 
 	err = wl_construct_reginfo(wl, bw_cap);
 	if (err) {
-		WL_ERR(("wl_construct_reginfo() fails err=%d\n", err));
+		/* WL_ERR(("wl_construct_reginfo() fails err=%d\n", err)); */
 		if (err != BCME_UNSUPPORTED)
 			goto end_bands;
 		/* Ignore error if "chanspecs" command is not supported */
@@ -9656,7 +9657,8 @@ s32 wl_update_wiphybands(struct wl_priv *wl)
 	wiphy->bands[IEEE80211_BAND_2GHZ] = bands[IEEE80211_BAND_2GHZ];
 	wiphy->bands[IEEE80211_BAND_5GHZ] = bands[IEEE80211_BAND_5GHZ];
 
-	wiphy_apply_custom_regulatory(wiphy, &brcm_regdom);
+	if (notify)
+		wiphy_apply_custom_regulatory(wiphy, &brcm_regdom);
 
 end_bands:
 	if (rollback_lock)
@@ -9680,7 +9682,7 @@ static s32 __wl_cfg80211_up(struct wl_priv *wl)
 	if (unlikely(err && err != -EINPROGRESS)) {
 		WL_ERR(("wl_config_ifmode failed\n"));
 	}
-	err = wl_update_wiphybands(wl);
+	err = wl_update_wiphybands(wl, true);
 	if (unlikely(err)) {
 		WL_ERR(("wl_update_wiphybands failed\n"));
 	}
