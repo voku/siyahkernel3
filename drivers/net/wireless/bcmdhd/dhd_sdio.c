@@ -5704,7 +5704,6 @@ deliver:
 		else
 			pkt_count = 1;
 
-
 		/* Unlock during rx call */
 		dhd_os_sdunlock(bus->dhd);
 		dhd_rx_frame(bus->dhd, ifidx, pkt, pkt_count, chan);
@@ -6198,7 +6197,7 @@ dhdsdio_isr(void *arg)
 #else
 	bus->dpc_sched = TRUE;
 	dhd_sched_dpc(bus->dhd);
-#endif 
+#endif
 
 }
 
@@ -7410,7 +7409,6 @@ dhdsdio_release_malloc(dhd_bus_t *bus, osl_t *osh)
 	}
 
 }
-
 
 static void
 dhdsdio_release_dongle(dhd_bus_t *bus, osl_t *osh, bool dongle_isolation, bool reset_flag)

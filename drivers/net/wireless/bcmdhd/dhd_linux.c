@@ -78,6 +78,7 @@
 #define HTSF_BUS_DELAY 150 /* assume a fix propagation in us  */
 #define TSMAX  1000        /* max no. of timing record kept   */
 #define NUMBIN 34
+
 static uint32 tsidx = 0;
 static uint32 htsf_seqnum = 0;
 uint32 tsfsync;
@@ -503,8 +504,6 @@ extern void dhd_dbg_init(dhd_pub_t *dhdp);
 extern void dhd_dbg_remove(void);
 #endif /* BCMDBGFS */
 
-
-
 #ifdef SDTEST
 /* Echo packet generator (pkts/s) */
 uint dhd_pktgen = 0;
@@ -555,7 +554,6 @@ int dhd_monitor_uninit(void);
 bool g_pm_control;
 void sec_control_pm(dhd_pub_t *dhd, uint *);
 #endif
-
 
 #if defined(CONFIG_WIRELESS_EXT)
 struct iw_statistics *dhd_get_wireless_stats(struct net_device *dev);
@@ -4622,7 +4620,7 @@ dhd_module_init(void)
 		DHD_ERROR(("Invalid module parameters.\n"));
 		return -EINVAL;
 	} while (0);
-#endif 
+#endif
 
 #if 1 && defined(BCMLXSDMMC) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))
 	do {
@@ -4661,13 +4659,11 @@ dhd_module_init(void)
 		goto fail_1;
 #endif /* defined(CONFIG_WIFI_CONTROL_FUNC) */
 
-#endif 
+#endif
 
 #if 1 && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))
 	sema_init(&dhd_registration_sem, 0);
-#endif 
-
-
+#endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) */
 	error = dhd_bus_register();
 
 	if (!error)
@@ -4706,7 +4702,7 @@ fail_1:
 
 #if defined(CONFIG_WIFI_CONTROL_FUNC)
 	wl_android_wifictrl_func_del();
-#endif 
+#endif
 
 	/* Call customer gpio to turn off power with WL_REG_ON signal */
 	dhd_customer_gpio_wlan_ctrl(WLAN_POWER_OFF);
@@ -4873,7 +4869,6 @@ dhd_os_close_image(void *image)
 	if (image)
 		filp_close((struct file *)image, NULL);
 }
-
 
 void
 dhd_os_sdlock(dhd_pub_t *pub)
@@ -5144,7 +5139,7 @@ void dhd_wait_for_event(dhd_pub_t *dhd, bool *lockvar)
 	dhd_os_sdunlock(dhd);
 	wait_event_timeout(dhdinfo->ctrl_wait, (*lockvar == FALSE), timeout);
 	dhd_os_sdlock(dhd);
-#endif 
+#endif
 	return;
 }
 
@@ -6012,7 +6007,6 @@ dhd_debugfs_write(struct file *file, const char __user *ubuf, size_t count, loff
 	return count;
 }
 
-
 loff_t
 dhd_debugfs_lseek(struct file *file, loff_t off, int whence)
 {
@@ -6271,7 +6265,6 @@ static void dhd_dump_latency(void)
 	maxdelayts.t4 - maxdelayts.t3,
 	maxdelayts.t4 - maxdelayts.t1);
 }
-
 
 static int
 dhd_ioctl_htsf_get(dhd_info_t *dhd, int ifidx)

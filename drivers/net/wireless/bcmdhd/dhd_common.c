@@ -187,6 +187,15 @@ const bcm_iovar_t dhd_iovars[] = {
 void
 dhd_common_init(osl_t *osh)
 {
+
+	/* Init global variables at run-time, not as part of the declaration.
+	 * This is required to support init/de-init of the driver. Initialization
+	 * of globals as part of the declaration results in non-deterministic
+	 * behavior since the value of the globals may be different on the
+	 * first time that the driver is initialized vs subsequent initializations.
+	 */
+	/* Allocate private bus interface state */
+
 #ifdef CONFIG_BCMDHD_FW_PATH
 	bcm_strncpy_s(fw_path, sizeof(fw_path), CONFIG_BCMDHD_FW_PATH, MOD_PARAM_PATHLEN-1);
 #else /* CONFIG_BCMDHD_FW_PATH */
@@ -1123,7 +1132,7 @@ wl_host_event(dhd_pub_t *dhd_pub, int *ifidx, void *pktdata,
 		memcpy((void *)(&pvt_data->event.event_type), &temp,
 		       sizeof(pvt_data->event.event_type));
 	}
-#endif 
+#endif
 		/* These are what external supplicant/authenticator wants */
 		/* fall through */
 	case WLC_E_LINK:
