@@ -166,7 +166,7 @@ static int dm_io_async_bvec(unsigned int num_regions, struct dm_io_region
 	struct cache_c *dmc = job->dmc;
 	struct dm_io_request iorq;
 
-	iorq.bi_rw = (rw | REQ_RW_SYNC);
+	iorq.bi_rw = (rw | REQ_SYNC);
 	iorq.mem.type = DM_IO_BVEC;
 	iorq.mem.ptr.bvec = bvec;
 	iorq.notify.fn = fn;
@@ -1488,14 +1488,14 @@ static int cache_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 		goto bad2;
 	}
 
-	dmc->io_client = dm_io_client_create(DMCACHE_COPY_PAGES);
+	dmc->io_client = dm_io_client_create();
 	if (IS_ERR(dmc->io_client)) {
 		r = PTR_ERR(dmc->io_client);
 		ti->error = "Failed to create io client\n";
 		goto bad3;
 	}
 
-	r = dm_kcopyd_client_create(DMCACHE_COPY_PAGES, &dmc->kcp_client);
+	r = (int)dm_kcopyd_client_create();
 	if (r) {
 		ti->error = "Failed to initialize kcopyd client\n";
 		goto bad4;
