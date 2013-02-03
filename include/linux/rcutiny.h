@@ -99,6 +99,7 @@ static inline int rcu_needs_cpu(int cpu, unsigned long *delta_jiffies)
 
 #else /* #ifdef CONFIG_TINY_RCU */
 
+extern void exit_rcu(void);
 void rcu_preempt_note_context_switch(void);
 int rcu_preempt_needs_cpu(void);
 
