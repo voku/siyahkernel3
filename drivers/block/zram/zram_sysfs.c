@@ -135,12 +135,40 @@ static ssize_t initstate_show(struct device *dev,
 	return sprintf(buf, "%u\n", zram->init_done);
 }
 
+#ifdef CONFIG_ZRAM_FOR_ANDROID
+extern int swapon(const char*specialfile, int swap_flags);
+
+static ssize_t initstate_store(struct device *dev,
+			       struct device_attribute *attr, const char *buf,
+			       size_t len)
+{
+	int ret;
+	unsigned long do_init;
+	struct zram *zram = dev_to_zram(dev);
+
+	if (zram->init_done) {
+		pr_info("the device is initialized device\n");
+		return -EBUSY;
+	}
+
+	ret = strict_strtoul(buf, 10, &do_init);
+	if (ret)
+		return ret;
+	if (!do_init)
+		return -EINVAL;
+
+	zram_init_device(zram);
+	swapon("/dev/block/zram0", 0);
+	return len;
+}
+#else
 static inline ssize_t initstate_store(struct device *dev,
 				      struct device_attribute *attr,
 				      const char *buf, size_t len)
 {
 	return 0;
 }
+#endif /* CONFIG_ZRAM_FOR_ANDROID */
 
 static ssize_t reset_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t len)
