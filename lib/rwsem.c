@@ -3,7 +3,11 @@
  * Written by David Howells (dhowells@redhat.com).
  * Derived from arch/i386/kernel/semaphore.c
  *
+<<<<<<< HEAD
  * Writer lock-stealing by Alex Shi <alex.shi@intel.com>
+=======
+ * Steal writing sem. Alex Shi <alex.shi@intel.com>
+>>>>>>> a08718f... rwsem: steal writing sem for better performance
  */
 #include <linux/rwsem.h>
 #include <linux/sched.h>
@@ -74,7 +78,11 @@ __rwsem_do_wake(struct rw_semaphore *sem, int wake_type)
 		 */
 		goto out;
 
+<<<<<<< HEAD
 	/* Wake up the writing waiter and let the task grab the sem: */
+=======
+	/* wake up the writing waiter and let the task grap sem */
+>>>>>>> a08718f... rwsem: steal writing sem for better performance
 	wake_up_process(waiter->task);
 	goto out;
 
@@ -139,7 +147,11 @@ __rwsem_do_wake(struct rw_semaphore *sem, int wake_type)
 	return sem;
 }
 
+<<<<<<< HEAD
 /* Try to get write sem, caller holds sem->wait_lock: */
+=======
+/* try to get write sem,  caller hold sem->wait_lock */
+>>>>>>> a08718f... rwsem: steal writing sem for better performance
 static int try_get_writer_sem(struct rw_semaphore *sem,
 					struct rwsem_waiter *waiter)
 {
@@ -152,14 +164,22 @@ static int try_get_writer_sem(struct rw_semaphore *sem,
 		return 0;
 
 	adjustment = RWSEM_ACTIVE_WRITE_BIAS;
+<<<<<<< HEAD
 	/* Only one waiter in the queue: */
+=======
+	/* only one waiter in queue */
+>>>>>>> a08718f... rwsem: steal writing sem for better performance
 	if (fwaiter == waiter && waiter->list.next == &sem->wait_list)
 		adjustment -= RWSEM_WAITING_BIAS;
 
 try_again_write:
 	oldcount = rwsem_atomic_update(adjustment, sem) - adjustment;
 	if (!(oldcount & RWSEM_ACTIVE_MASK)) {
+<<<<<<< HEAD
 		/* No active lock: */
+=======
+		/* no active lock */
+>>>>>>> a08718f... rwsem: steal writing sem for better performance
 		struct task_struct *tsk = waiter->task;
 
 		list_del(&waiter->list);
@@ -220,7 +240,11 @@ rwsem_down_failed_common(struct rw_semaphore *sem,
 			break;
 
 		raw_spin_lock_irq(&sem->wait_lock);
+<<<<<<< HEAD
 		/* Try to get the writer sem, may steal from the head writer: */
+=======
+		/* try to get the writer sem, may steal from the head writer */
+>>>>>>> a08718f... rwsem: steal writing sem for better performance
 		if (flags == RWSEM_WAITING_FOR_WRITE)
 			if (try_get_writer_sem(sem, &waiter)) {
 				raw_spin_unlock_irq(&sem->wait_lock);
