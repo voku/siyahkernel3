@@ -84,7 +84,7 @@ static int noop_dispatch(struct request_queue *q, int force)
 {
 	struct noop_data *nd = q->elevator->elevator_data;
 
-	if (!noop_queue_empty(q)) {
+	if (!list_empty(&nd->queue)) {
 		struct request *rq;
 		rq = list_entry(nd->queue.next, struct request, queuelist);
 		noop_dispatch_request(q, rq);
