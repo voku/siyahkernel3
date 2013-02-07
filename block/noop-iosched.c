@@ -17,7 +17,7 @@ static void noop_dispatch_request(struct request_queue *, struct request *);
 
 static void noop_add_rq_rb(struct noop_data *nd, struct request *rq)
 {
-	elv_rb_add(&nd->sort_list, rq));
+	elv_rb_add(&nd->sort_list, rq);
 }
 
 static inline void noop_del_rq_rb(struct noop_data *nd, struct request *rq)
