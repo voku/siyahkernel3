@@ -41,6 +41,7 @@
 #include <linux/mutex.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
+#include <linux/string.h>
 #include <linux/earlysuspend.h>
 
 static uint32_t lowmem_debug_level = 1;
@@ -250,6 +251,11 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		if (!p)
 			continue;
 
+		//if (strcmp(p->comm, "android.process.acore") == 0)
+		//	continue;
+
+		// android.process.media
+
 		if (test_tsk_thread_flag(p, TIF_MEMDIE) &&
 		    time_before_eq(jiffies, lowmem_deathpending_timeout)) {
 			task_unlock(p);
@@ -312,13 +318,13 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 				goto no_mem;
 			}
 			uids[counter++] = uid;
+			lowmem_print(2, "skip next time for %d (%s), adj %hd, size %d, uid %d, screen %d\n",
+					     selected->pid, selected->comm, selected_oom_score_adj, selected_tasksize, uid, screen_off);
 		}
 no_mem:
 
 		lowmem_print(1, "send sigkill to %d (%s), adj %hd, size %d, uid %d, screen %d\n",
-			     selected->pid, selected->comm,
-			     selected_oom_score_adj, selected_tasksize,
-			     uid, screen_off);
+			     selected->pid, selected->comm, selected_oom_score_adj, selected_tasksize, uid, screen_off);
 		lowmem_deathpending_timeout = jiffies + HZ;
 		send_sig(SIGKILL, selected, 0);
 		set_tsk_thread_flag(selected, TIF_MEMDIE);
@@ -342,6 +348,8 @@ static void low_mem_early_suspend(struct early_suspend *handler)
 {
 	memcpy(lowmem_minfree_screen_on, lowmem_minfree, sizeof(lowmem_minfree));
 	memcpy(lowmem_minfree, lowmem_minfree_screen_off, sizeof(lowmem_minfree_screen_off));
+
+	screen_off = true;
 }
 
 static void low_mem_late_resume(struct early_suspend *handler)
