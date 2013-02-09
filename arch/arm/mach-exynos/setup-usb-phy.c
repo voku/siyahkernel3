@@ -331,11 +331,6 @@ static int exynos4_usb_phy1_resume(struct platform_device *pdev)
 	u32 phypwr;
 	int err;
 
-	if (!strcmp(pdev->name, "s5p-ohci")) {
-		if (!exynos4_usb_host_phy_is_on())
-			return 1;
-	}
-
 	if (exynos4_usb_host_phy_is_on()) {
 		/* set to resume HSIC 0 and 1 and standard of PHY1 */
 		phypwr = readl(EXYNOS4_PHYPWR);
