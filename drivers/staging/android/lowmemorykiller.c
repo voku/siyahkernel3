@@ -197,7 +197,6 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			return 0;
 	}
 
-//	other_free = global_page_state(NR_FREE_PAGES) - totalreserve_pages;
 	other_free = global_page_state(NR_FREE_PAGES);
 	other_file = global_page_state(NR_FILE_PAGES) - global_page_state(NR_SHMEM);
 
@@ -251,10 +250,11 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		if (!p)
 			continue;
 
-		//if (strcmp(p->comm, "android.process.acore") == 0)
-		//	continue;
+		if (strcmp(p->comm, "d.process.acore") == 0)
+			continue;
 
-		// android.process.media
+		if (strcmp(p->comm, "d.process.media") == 0)
+			continue;
 
 		if (test_tsk_thread_flag(p, TIF_MEMDIE) &&
 		    time_before_eq(jiffies, lowmem_deathpending_timeout)) {
