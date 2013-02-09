@@ -41,7 +41,6 @@
 #include <linux/mutex.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
-#include <linux/string.h>
 #include <linux/earlysuspend.h>
 
 static uint32_t lowmem_debug_level = 1;
@@ -248,12 +247,6 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 
 		p = find_lock_task_mm(tsk);
 		if (!p)
-			continue;
-
-		if (strcmp(p->comm, "d.process.acore") == 0)
-			continue;
-
-		if (strcmp(p->comm, "d.process.media") == 0)
 			continue;
 
 		if (test_tsk_thread_flag(p, TIF_MEMDIE) &&
