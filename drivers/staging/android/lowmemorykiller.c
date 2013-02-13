@@ -40,8 +40,6 @@
 #include <linux/swap.h>
 #include <linux/mutex.h>
 #include <linux/delay.h>
-#include <linux/slab.h>
-#include <linux/string.h>
 #include <linux/earlysuspend.h>
 
 static uint32_t lowmem_debug_level = 1;
@@ -80,13 +78,8 @@ static int lowmem_minfree_screen_on[6] = {
 };
 static int lowmem_minfree_size = 6;
 static int lmk_fast_run = 1;
-static bool screen_off = false;
-static unsigned int *uids = NULL;
-static unsigned int max_alloc = 0;
-static unsigned int counter = 0;
-static unsigned long lowmem_deathpending_timeout;
 
-#define ALLOC_SIZE 32
+static unsigned long lowmem_deathpending_timeout;
 
 #define lowmem_print(level, x...)			\
 	do {						\
@@ -159,14 +152,14 @@ void tune_lmk_param(int *other_free, int *other_file, struct shrink_control *sc)
 		else
 			*other_free -= zone_page_state(preferred_zone,
 						      NR_FREE_PAGES);
-		lowmem_print(4, "lowmemkill: lowmem_shrink of kswapd tunning for highmem ofree %d, %d\n",
-			     *other_free, *other_file);
+		lowmem_print(4, "lowmem_shrink of kswapd tunning for highmem "
+			     "ofree %d, %d\n", *other_free, *other_file);
 	} else {
 		tune_lmk_zone_param(zonelist, classzone_idx, other_free,
 			       other_file);
 
-		lowmem_print(4, "lowmemkill: lowmem_shrink tunning for others ofree %d, %d\n",
-			     *other_free, *other_file);
+		lowmem_print(4, "lowmem_shrink tunning for others ofree %d, "
+			     "%d\n", *other_free, *other_file);
 	}
 }
 
@@ -176,8 +169,6 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 {
 	struct task_struct *tsk;
 	struct task_struct *selected = NULL;
-	const struct cred *cred = current_cred(), *pcred;
-	unsigned int uid = 0;
 	int rem = 0;
 	int tasksize;
 	int i;
@@ -197,7 +188,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			return 0;
 	}
 
-	other_free = global_page_state(NR_FREE_PAGES);
+	other_free = global_page_state(NR_FREE_PAGES) - totalreserve_pages;
 	other_file = global_page_state(NR_FILE_PAGES) - global_page_state(NR_SHMEM);
 
 	tune_lmk_param(&other_free, &other_file, sc);
@@ -219,7 +210,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		}
 	}
 	if (nr_to_scan > 0)
-		lowmem_print(3, "lowmemkill: lowmem_shrink %lu, %x, ofree %d %d, ma %hd\n",
+		lowmem_print(3, "lowmem_shrink %lu, %x, ofree %d %d, ma %hd\n",
 				nr_to_scan, sc->gfp_mask, other_free,
 				other_file, min_score_adj);
 	rem = global_page_state(NR_ACTIVE_ANON) +
@@ -227,7 +218,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		global_page_state(NR_INACTIVE_ANON) +
 		global_page_state(NR_INACTIVE_FILE);
 	if (nr_to_scan <= 0 || min_score_adj == OOM_SCORE_ADJ_MAX + 1) {
-		lowmem_print(5, "lowmemkill: lowmem_shrink %lu, %x, return %d\n",
+		lowmem_print(5, "lowmem_shrink %lu, %x, return %d\n",
 			     nr_to_scan, sc->gfp_mask, rem);
 
 		if (nr_to_scan > 0)
@@ -241,7 +232,6 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	for_each_process(tsk) {
 		struct task_struct *p;
 		short oom_score_adj;
-		bool uid_test = false;
 
 		if (tsk->flags & PF_KTHREAD)
 			continue;
@@ -259,45 +249,15 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			mutex_unlock(&scan_mutex);
 			return 0;
 		}
-
-		if (	strcmp(p->comm, "d.process.acore") == 0 ||
-			strcmp(p->comm, "d.process.media") == 0 ||
-			strcmp(p->comm, "putmethod.latin") == 0 ||
-			strcmp(p->comm, "ainfire.supersu") == 0
-		) {
-			task_unlock(p);
-			continue;
-		}
-
-		pcred = __task_cred(p);
-		uid = pcred->uid;
-
-		if (screen_off == true) {
-			for (i = 0; i < counter; i++) {
-				if (uids[i] == uid) {
-					uid_test = true;
-				}
-			}
-			if (uid_test == true) {
-				uid_test = false;
-				lowmem_print(1, "lowmemkill: skiped %d (%s), adj %hd, size %d, uid %d, screen_off %d\n",
-					p->pid, p->comm, oom_score_adj, tasksize, uid, screen_off);
-				task_unlock(p);
-				continue;
-			}
-		}
-
 		oom_score_adj = p->signal->oom_score_adj;
 		if (oom_score_adj < min_score_adj) {
 			task_unlock(p);
 			continue;
 		}
-
 		tasksize = get_mm_rss(p->mm);
 		task_unlock(p);
 		if (tasksize <= 0)
 			continue;
-
 		target_offset = abs(target_free - tasksize);
 		if (selected) {
 			if (oom_score_adj < selected_oom_score_adj)
@@ -310,39 +270,21 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		selected_tasksize = tasksize;
 		selected_target_offset = target_offset;
 		selected_oom_score_adj = oom_score_adj;
-		lowmem_print(2, "lowmemkill: select %d (%s), adj %hd, size %d, uid %d, screen_off %d, to kill\n",
-			p->pid, p->comm, oom_score_adj, tasksize, uid, screen_off);
+		lowmem_print(2, "select %d (%s), adj %hd, size %d, to kill\n",
+			     p->pid, p->comm, oom_score_adj, tasksize);
 	}
 	if (selected) {
-		pcred = __task_cred(selected);
-		uid = pcred->uid;
-
-		if (screen_off == true) {
-			if (counter >= max_alloc) {
-				max_alloc += ALLOC_SIZE;
-			}
-			uids = (unsigned int *)krealloc(uids, max_alloc*sizeof(unsigned int), GFP_KERNEL);
-			if (uids == NULL) {
-				goto no_mem;
-			}
-			uids[counter++] = uid;
-			lowmem_print(2, "lowmemkill: skip next time for %s, uid %d, screen_off %d\n",
-				selected->comm, uid, screen_off);
-		}
-no_mem:
-
-		lowmem_print(1, "lowmemkill: send sigkill to %d (%s), adj %hd, size %d, uid %d, screen_off %d\n",
-			selected->pid, selected->comm, selected_oom_score_adj, selected_tasksize,
-				uid, screen_off);
+		lowmem_print(1, "send sigkill to %d (%s), adj %hd, size %d\n",
+			     selected->pid, selected->comm,
+			     selected_oom_score_adj, selected_tasksize);
 		lowmem_deathpending_timeout = jiffies + HZ;
-		//send_sig(SIGKILL, selected, 0);
-		force_sig(SIGKILL, selected);
+		send_sig(SIGKILL, selected, 0);
 		set_tsk_thread_flag(selected, TIF_MEMDIE);
 		rem -= selected_tasksize;
 		/* give the system time to free up the memory */
 		msleep_interruptible(20);
 	}
-	lowmem_print(4, "lowmemkill: lowmem_shrink %lu, %x, return %d\n",
+	lowmem_print(4, "lowmem_shrink %lu, %x, return %d\n",
 		     nr_to_scan, sc->gfp_mask, rem);
 	rcu_read_unlock();
 	mutex_unlock(&scan_mutex);
@@ -358,21 +300,11 @@ static void low_mem_early_suspend(struct early_suspend *handler)
 {
 	memcpy(lowmem_minfree_screen_on, lowmem_minfree, sizeof(lowmem_minfree));
 	memcpy(lowmem_minfree, lowmem_minfree_screen_off, sizeof(lowmem_minfree_screen_off));
-
-	screen_off = true;
 }
 
 static void low_mem_late_resume(struct early_suspend *handler)
 {
 	memcpy(lowmem_minfree, lowmem_minfree_screen_on, sizeof(lowmem_minfree_screen_on));
-
-	screen_off = false;
-	counter = 0;
-	max_alloc = 0;
-	if (uids != NULL) {
-		kfree(uids);
-		uids = NULL;
-	}
 }
 
 static struct early_suspend low_mem_suspend = {
@@ -425,12 +357,12 @@ static void lowmem_autodetect_oom_adj_values(void)
 	if (oom_score_adj <= OOM_ADJUST_MAX)
 		return;
 
-	lowmem_print(1, "lowmemkill: lowmem_shrink => convert oom_adj to oom_score_adj:\n");
+	lowmem_print(1, "lowmem_shrink: convert oom_adj to oom_score_adj:\n");
 	for (i = 0; i < array_size; i++) {
 		oom_adj = lowmem_adj[i];
 		oom_score_adj = lowmem_oom_adj_to_oom_score_adj(oom_adj);
 		lowmem_adj[i] = oom_score_adj;
-		lowmem_print(1, "lowmemkill: oom_adj %d => oom_score_adj %d\n",
+		lowmem_print(1, "oom_adj %d => oom_score_adj %d\n",
 			     oom_adj, oom_score_adj);
 	}
 }
