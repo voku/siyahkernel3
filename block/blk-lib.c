@@ -120,7 +120,7 @@ int blkdev_issue_discard(struct block_device *bdev, sector_t sector,
 
 	/* Wait for bios in-flight */
 	if (!atomic_dec_and_test(&bb.done))
-		wait_for_completion(&wait);
+		wait_for_completion_io(&wait);
 
 	if (!test_bit(BIO_UPTODATE, &bb.flags))
 		ret = -EIO;
@@ -182,7 +182,7 @@ int blkdev_issue_zeroout(struct block_device *bdev, sector_t sector,
 
 	/* Wait for bios in-flight */
 	if (!atomic_dec_and_test(&bb.done))
-		wait_for_completion(&wait);
+		wait_for_completion_io(&wait);
 
 	if (!test_bit(BIO_UPTODATE, &bb.flags))
 		/* One of bios in the batch was completed with error.*/
