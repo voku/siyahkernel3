@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm 3.1.0-R62 Kernel Configuration
+# Linux/arm 3.1.0-R63 Kernel Configuration
 #
 CONFIG_ARM=y
 CONFIG_HAVE_PWM=y
@@ -64,7 +64,6 @@ CONFIG_GENERIC_HARDIRQS=y
 CONFIG_HAVE_SPARSE_IRQ=y
 CONFIG_GENERIC_IRQ_SHOW=y
 CONFIG_GENERIC_IRQ_CHIP=y
-CONFIG_IRQ_DOMAIN=y
 # CONFIG_SPARSE_IRQ is not set
 
 #
