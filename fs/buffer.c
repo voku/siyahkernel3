@@ -1038,7 +1038,6 @@ grow_buffers(struct block_device *bdev, sector_t block, int size)
 static struct buffer_head *
 __getblk_slow(struct block_device *bdev, sector_t block, int size)
 {
-
 	int ret;
 	struct buffer_head *bh;
 
