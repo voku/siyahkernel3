@@ -305,9 +305,9 @@ int exynos_mem_mmap(struct file *filp, struct vm_area_struct *vma)
 			 */
 			
 			if(strcmp(b->name, "s3c-fimc") == 0 ||
-					strcmp(b->name, "fimc1") == 0 ||
-					strcmp(b->name, "fimc2") == 0 ||
-					strcmp(b->name, "fimc3") == 0) {
+					strcmp(b->name, "s3c-fimc1") == 0 ||
+					strcmp(b->name, "s3c-fimc2") == 0 ||
+					strcmp(b->name, "s3c-fimc3") == 0) {
 				allowed = true;
 				pr_info("[%s] Accessing space 0x%08x/0x%08x for '%s'\n",
 					__func__, b->start, b->size, b->name);
