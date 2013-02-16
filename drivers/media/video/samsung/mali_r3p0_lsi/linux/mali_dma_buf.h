@@ -8,25 +8,19 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#ifndef __MALI_KERNEL_SYSFS_H__
-#define __MALI_KERNEL_SYSFS_H__
+#ifndef __MALI_DMA_BUF_H__
+#define __MALI_DMA_BUF_H__
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
-#include <linux/device.h>
+#include "mali_osk.h"
 
-#define MALI_PROC_DIR "driver/mali"
-
-extern struct device *mali_device;
-struct mali_dev;
-
-int mali_sysfs_register(struct mali_dev *mali_class, dev_t dev, const char *mali_dev_name);
-
-int mali_sysfs_unregister(struct mali_dev *mali_class, dev_t dev, const char *mali_dev_name);
-
+int mali_attach_dma_buf(struct mali_session_data *session, _mali_uk_attach_dma_buf_s __user *arg);
+int mali_release_dma_buf(struct mali_session_data *session, _mali_uk_release_dma_buf_s __user *arg);
+int mali_dma_buf_get_size(struct mali_session_data *session, _mali_uk_dma_buf_get_size_s __user *arg);
 
 #ifdef __cplusplus
 }
