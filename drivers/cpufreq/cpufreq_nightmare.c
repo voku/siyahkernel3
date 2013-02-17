@@ -1200,8 +1200,12 @@ standalone_hotplug(struct cpufreq_nightmare_cpuinfo *this_nightmare_cpuinfo)
 	static void __iomem *clk_fimc;
 	unsigned char fimc_stat;
 
-	policy = this_nightmare_cpuinfo->cur_policy;
+	policy = cpufreq_cpu_get(0);
+	if (!policy)
+		return HOTPLUG_NOP;
+
 	cur_freq = policy->cur;
+	cpufreq_cpu_put(policy);
 
 	avg_load = hotplug_histories->usage[num_hist].avg_load;
 	nr_rq_min = hotplug_histories->usage[num_hist].nr_rq_min;
