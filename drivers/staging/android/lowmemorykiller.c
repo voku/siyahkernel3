@@ -290,6 +290,8 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		if (	strcmp(p->comm, "d.process.acore") == 0 ||
 			strcmp(p->comm, "d.process.media") == 0 ||
 			strcmp(p->comm, "putmethod.latin") == 0 ||
+			strcmp(p->comm, "ndroid.systemui") == 0 ||
+			strcmp(p->comm, "m.android.phone") == 0 ||
 			strcmp(p->comm, "ainfire.supersu") == 0
 		) {
 			task_unlock(p);
