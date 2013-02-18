@@ -57,11 +57,19 @@ static void __timer_udelay(unsigned long usecs)
 
 void __init init_current_timer_delay(unsigned long freq)
 {
-	pr_info("Switching to timer-based delay loop\n");
-	lpj_fine			= freq / HZ;
-	arm_delay_ops.delay		= __timer_delay;
-	arm_delay_ops.const_udelay	= __timer_const_udelay;
-	arm_delay_ops.udelay		= __timer_udelay;
+	if (!delay_calibrated) {
+		pr_info("Switching to timer-based delay loop\n");
+		delay_timer			= timer;
+		lpj_fine			= timer->freq / HZ;
+		loops_per_jiffy			= lpj_fine;
+		arm_delay_ops.delay		= __timer_delay;
+		arm_delay_ops.const_udelay	= __timer_const_udelay;
+		arm_delay_ops.udelay		= __timer_udelay;
+		arm_delay_ops.const_clock	= true;
+		delay_calibrated		= true;
+	} else {
+		pr_info("Ignoring duplicate/late registration of read_current_timer delay\n");
+	}
 }
 
 unsigned long __cpuinit calibrate_delay_is_known(void)
