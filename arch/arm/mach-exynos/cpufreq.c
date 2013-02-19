@@ -677,7 +677,6 @@ static int exynos_cpufreq_notifier_event(struct notifier_block *this,
 
 static struct notifier_block exynos_cpufreq_notifier = {
 	.notifier_call = exynos_cpufreq_notifier_event,
-	.priority = INT_MIN, /* done last - originally by arighi */
 };
 
 static int exynos_cpufreq_policy_notifier_call(struct notifier_block *this,
@@ -712,14 +711,12 @@ static struct notifier_block exynos_cpufreq_policy_notifier = {
 
 static int exynos_cpufreq_cpu_init(struct cpufreq_policy *policy)
 {
-	policy->cur = policy->min = policy->max = 
-		policy->max_suspend = policy->min_suspend = 
-			exynos_getspeed(policy->cpu);
+	policy->cur = policy->min = policy->max = exynos_getspeed(policy->cpu);
 
 	cpufreq_frequency_table_get_attr(exynos_info->freq_table, policy->cpu);
 
 	/* set the transition latency value */
-	policy->cpuinfo.transition_latency = 60 * 1000;
+	policy->cpuinfo.transition_latency = 100000;
 
 	/*
 	 * EXYNOS4 multi-core processors has 2 cores

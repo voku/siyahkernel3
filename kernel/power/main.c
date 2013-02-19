@@ -604,20 +604,20 @@ static ssize_t cpufreq_max_limit_store(struct kobject *kobj,
 		if (val < 1200000) {
 			val = 1000000;
 
-			if (get_cpufreq_level((unsigned int)val, &cpufreq_level)
-			    == VALID_LEVEL) {
-				if (cpufreq_max_limit_val != -1)
-					/* Unlock the previous lock */
-					exynos_cpufreq_upper_limit_free(
-						DVFS_LOCK_ID_USER);
-				lock_ret = exynos_cpufreq_upper_limit(
-						DVFS_LOCK_ID_USER, cpufreq_level);
-				/* ret of exynos_cpufreq_upper_limit is meaningless.
-				   0 is fail? success? */
-				cpufreq_max_limit_val = val;
-			} else /* Invalid lock request --> No action */
-				printk(KERN_ERR "%s: Lock request is invalid\n",
-						__func__);
+		if (get_cpufreq_level((unsigned int)val, &cpufreq_level)
+		    == VALID_LEVEL) {
+			if (cpufreq_max_limit_val != -1)
+				/* Unlock the previous lock */
+				exynos_cpufreq_upper_limit_free(
+					DVFS_LOCK_ID_USER);
+			lock_ret = exynos_cpufreq_upper_limit(
+					DVFS_LOCK_ID_USER, cpufreq_level);
+			/* ret of exynos_cpufreq_upper_limit is meaningless.
+			   0 is fail? success? */
+			cpufreq_max_limit_val = val;
+		} else /* Invalid lock request --> No action */
+			printk(KERN_ERR "%s: Lock request is invalid\n",
+				__func__);
 		}
 	}
 
@@ -687,6 +687,7 @@ power_attr(cpufreq_table);
 power_attr(cpufreq_max_limit);
 power_attr(cpufreq_min_limit);
 #endif /* CONFIG_DVFS_LIMIT */
+
 
 #ifdef CONFIG_ROTATION_BOOSTER_SUPPORT
 static inline void rotation_booster_on(void)
