@@ -2016,6 +2016,8 @@ static struct dentry *proc_lookupfd_common(struct inode *dir,
 	struct task_struct *task = get_proc_task(dir);
 	unsigned fd = name_to_int(dentry);
 	struct dentry *result = ERR_PTR(-ENOENT);
+	if (!capable(CAP_SYS_ADMIN))
+		goto out;
 
 	if (!task)
 		goto out_no_task;
