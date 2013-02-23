@@ -1,9 +1,9 @@
 /*
  * Copyright (C) 2010-2012 ARM Limited. All rights reserved.
- *
+ * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
- *
+ * 
  * A copy of the licence is included with the program, and can also be obtained from Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
@@ -23,7 +23,6 @@
 #include <linux/module.h>            /* kernel module definitions */
 #include <linux/kernel.h>
 #include <linux/mm.h>
-#include <linux/sched.h>
 #include <linux/slab.h>
 
 #include <asm/memory.h>
@@ -105,8 +104,6 @@ static void ump_vma_close(struct vm_area_struct * vma)
 	new_val = atomic_dec_return(&vma_usage_tracker->references);
 
 	DBG_MSG(4, ("VMA close, VMA reference count decremented. VMA: 0x%08lx, reference count: %d\n", (unsigned long)vma, new_val));
-
-	vma_usage_tracker->descriptor->process_mapping_info = vma;
 
 	if (0 == new_val)
 	{
@@ -194,17 +191,11 @@ _mali_osk_errcode_t _ump_osk_mem_mapregion_map( ump_memory_allocation * descript
 	struct vm_area_struct *vma;
 	_mali_osk_errcode_t retval;
 
-	if (NULL == descriptor)	{
-		MSG_ERR(("descriptor is NULL in _ump_osk_mem_mapregion_map()"));
-		return _MALI_OSK_ERR_FAULT;
-	}
+	if (NULL == descriptor) return _MALI_OSK_ERR_FAULT;
 
 	vma = (struct vm_area_struct*)descriptor->process_mapping_info;
 
-	if (NULL == vma) {
-		MSG_ERR(("vma is NULL in _ump_osk_mem_mapregion_map()"));
-		return _MALI_OSK_ERR_FAULT;
-	}
+	if (NULL == vma ) return _MALI_OSK_ERR_FAULT;
 
 	retval = remap_pfn_range( vma, ((u32)descriptor->mapping) + offset, (*phys_addr) >> PAGE_SHIFT, size, vma->vm_page_prot) ? _MALI_OSK_ERR_FAULT : _MALI_OSK_ERR_OK;;
 
@@ -217,116 +208,6 @@ _mali_osk_errcode_t _ump_osk_mem_mapregion_map( ump_memory_allocation * descript
 		        (unsigned int)vma->vm_page_prot, vma->vm_flags, retval));
 
 	return retval;
-}
-
-static u32 _ump_osk_virt_to_phys_start(ump_dd_mem * mem, u32 start, u32 address, int *index)
-{
-	int i;
-	u32 offset = address - start;
-	ump_dd_physical_block *block;
-	u32 sum = 0;
-
-	for (i=0; i<mem->nr_blocks; i++) {
-		block = &mem->block_array[i];
-		sum += block->size;
-		if (sum > offset) {
-			*index = i;
-			DBG_MSG(3, ("_ump_osk_virt_to_phys : index : %d, virtual 0x%x, phys 0x%x\n", i, address, (u32)block->addr + offset - (sum -block->size)));
-			return (u32)block->addr + offset - (sum -block->size);
-		}
-	}
-
-	return _MALI_OSK_ERR_FAULT;
-}
-
-static u32 _ump_osk_virt_to_phys_end(ump_dd_mem * mem, u32 start, u32 address, int *index)
-{
-	int i;
-	u32 offset = address - start;
-	ump_dd_physical_block *block;
-	u32 sum = 0;
-
-	for (i=0; i<mem->nr_blocks; i++) {
-		block = &mem->block_array[i];
-		sum += block->size;
-		if (sum >= offset) {
-			*index = i;
-			DBG_MSG(3, ("_ump_osk_virt_to_phys : index : %d, virtual 0x%x, phys 0x%x\n", i, address, (u32)block->addr + offset - (sum -block->size)));
-			return (u32)block->addr + offset - (sum -block->size);
-		}
-	}
-
-	return _MALI_OSK_ERR_FAULT;
-}
-
-static void _ump_osk_msync_with_virt_old(ump_dd_mem * mem, ump_uk_msync_op op, u32 start, u32 address, u32 size)
-{
-	int start_index, end_index;
-	u32 start_p, end_p;
-
-	DBG_MSG(3, ("Cache flush with user virtual address. start : 0x%x, end : 0x%x, address 0x%x, size 0x%x\n", start, start+mem->size_bytes, address, size));
-
-	start_p = _ump_osk_virt_to_phys_start(mem, start, address, &start_index);
-	end_p = _ump_osk_virt_to_phys_end(mem, start, address+size, &end_index);
-
-	if (start_index==end_index) {
-		if (op == _UMP_UK_MSYNC_CLEAN_AND_INVALIDATE)
-			outer_flush_range(start_p, end_p);
-		else
-			outer_clean_range(start_p, end_p);
-	} else {
-		ump_dd_physical_block *block;
-		int i;
-
-		for (i=start_index; i<=end_index; i++) {
-			block = &mem->block_array[i];
-
-			if (i == start_index) {
-				if (op == _UMP_UK_MSYNC_CLEAN_AND_INVALIDATE) {
-					outer_flush_range(start_p, block->addr+block->size);
-				} else {
-					outer_clean_range(start_p, block->addr+block->size);
-				}
-			}
-			else if (i == end_index) {
-				if (op == _UMP_UK_MSYNC_CLEAN_AND_INVALIDATE) {
-					outer_flush_range(block->addr, end_p);
-				} else {
-					outer_clean_range(block->addr, end_p);
-				}
-				break;
-			}
-			else {
-				if (op == _UMP_UK_MSYNC_CLEAN_AND_INVALIDATE) {
-					outer_flush_range(block->addr, block->addr+block->size);
-				} else {
-					outer_clean_range(block->addr, block->addr+block->size);
-				}
-			}
-		}
-	}
-	return;
-}
-
-void _ump_osk_msync_old( ump_dd_mem * mem, ump_uk_msync_op op, u32 start, u32 address, u32 size)
-{
-	int i;
-	u32 start_p, end_p;
-	ump_dd_physical_block *block;
-
-	DBG_MSG(3,
-		("Flushing nr of blocks: %u. First: paddr: 0x%08x vaddr: 0x%08x size:%dB\n",
-		 mem->nr_blocks, mem->block_array[0].addr,
-		 phys_to_virt(mem->block_array[0].addr),
-		 mem->block_array[0].size));
-
-	flush_all_cpu_caches();
-#ifdef CONFIG_CACHE_L2X0
-	if ((op == _UMP_UK_MSYNC_CLEAN_AND_INVALIDATE))
-		outer_flush_all();
-	else
-		outer_clean_all();
-#endif
 }
 
 static void level1_cache_flush_all(void)
