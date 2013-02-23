@@ -42,13 +42,9 @@
 #include <linux/delay.h>
 #include <linux/slab.h>
 #include <linux/string.h>
+#ifdef CONFIG_LMK_SCREEN_STATE
 #include <linux/earlysuspend.h>
-
-#define ENHANCED_LMK_ROUTINE
-
-#ifdef ENHANCED_LMK_ROUTINE
-#define LOWMEM_DEATHPENDING_DEPTH 3
-#endif /* ENHANCED_LMK_ROUTINE */
+#endif
 
 static uint32_t lowmem_debug_level = 1;
 static short lowmem_adj[6] = {
@@ -68,6 +64,7 @@ static int lowmem_minfree[6] = {
 	8 * 1024,	/* 32MB */
 	16 * 1024,	/* 64MB */
 };
+#ifdef CONFIG_LMK_SCREEN_STATE
 static int lowmem_minfree_screen_off[6] = {
 	3 * 512,	/* 6MB */
 	2 * 1024,	/* 8MB */
@@ -84,15 +81,22 @@ static int lowmem_minfree_screen_on[6] = {
 	8 * 1024,	/* 32MB */
 	16 * 1024,	/* 64MB */
 };
+#endif
 static int lowmem_minfree_size = 6;
+#ifdef CONFIG_SHRINKER_TARGET_ZONE
 static int lmk_fast_run = 1;
+#endif
+#ifdef CONFIG_KILL_ONCE_IF_SCREEN_OFF
 static bool screen_off = false;
 static unsigned int *uids = NULL;
 static unsigned int max_alloc = 0;
 static unsigned int counter = 0;
+#endif
 static unsigned long lowmem_deathpending_timeout;
 
+#ifdef CONFIG_KILL_ONCE_IF_SCREEN_OFF
 #define ALLOC_SIZE 32
+#endif
 
 #define lowmem_print(level, x...)			\
 	do {						\
@@ -100,6 +104,7 @@ static unsigned long lowmem_deathpending_timeout;
 			printk(x);			\
 	} while (0)
 
+#ifdef CONFIG_SHRINKER_TARGET_ZONE
 void tune_lmk_zone_param(struct zonelist *zonelist, int classzone_idx,
 					int *other_free, int *other_file)
 {
@@ -164,28 +169,31 @@ void tune_lmk_param(int *other_free, int *other_file, struct shrink_control *sc)
 			     *other_free, *other_file);
 	}
 }
+#endif
 
 static DEFINE_MUTEX(scan_mutex);
 
 static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 {
 	struct task_struct *tsk;
-#ifdef ENHANCED_LMK_ROUTINE
-	struct task_struct *selected[LOWMEM_DEATHPENDING_DEPTH] = {NULL,};
+#ifdef CONFIG_ENHANCED_LMK_ROUTINE
+	struct task_struct *selected[CONFIG_LOWMEM_DEATHPENDING_DEPTH] = {NULL,};
 #else
 	struct task_struct *selected = NULL;
 #endif
+#ifdef CONFIG_KILL_ONCE_IF_SCREEN_OFF
 	const struct cred *cred = current_cred(), *pcred;
 	unsigned int uid = 0;
+#endif
 	int rem = 0;
 	int tasksize;
 	int i;
 	short min_score_adj = OOM_SCORE_ADJ_MAX + 1;
 	int target_free = 0;
-#ifdef ENHANCED_LMK_ROUTINE
-	int selected_tasksize[LOWMEM_DEATHPENDING_DEPTH] = {0,};
-	short selected_oom_score_adj[LOWMEM_DEATHPENDING_DEPTH] = {OOM_ADJUST_MAX,};
-	int selected_target_offset[LOWMEM_DEATHPENDING_DEPTH] = {OOM_ADJUST_MAX,};
+#ifdef CONFIG_ENHANCED_LMK_ROUTINE
+	int selected_tasksize[CONFIG_LOWMEM_DEATHPENDING_DEPTH] = {0,};
+	short selected_oom_score_adj[CONFIG_LOWMEM_DEATHPENDING_DEPTH] = {OOM_ADJUST_MAX,};
+	int selected_target_offset[CONFIG_LOWMEM_DEATHPENDING_DEPTH] = {OOM_ADJUST_MAX,};
 	int all_selected_oom = 0;
 	int max_selected_oom_idx = 0;
 #else
@@ -204,10 +212,16 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			return 0;
 	}
 
+#ifdef CONFIG_SHRINKER_TARGET_ZONE
 	other_free = global_page_state(NR_FREE_PAGES);
+#else
+	other_free = global_page_state(NR_FREE_PAGES) - totalreserve_pages;
+#endif
 	other_file = global_page_state(NR_FILE_PAGES) - global_page_state(NR_SHMEM);
 
+#ifdef CONFIG_SHRINKER_TARGET_ZONE
 	tune_lmk_param(&other_free, &other_file, sc);
+#endif
 
 	if (lowmem_adj_size < array_size)
 		array_size = lowmem_adj_size;
@@ -242,8 +256,8 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		return rem;
 	}
 
-#ifdef ENHANCED_LMK_ROUTINE
-	for (i = 0; i < LOWMEM_DEATHPENDING_DEPTH; i++)
+#ifdef CONFIG_ENHANCED_LMK_ROUTINE
+	for (i = 0; i < CONFIG_LOWMEM_DEATHPENDING_DEPTH; i++)
 		selected_oom_score_adj[i] = min_score_adj;
 #else
 	selected_oom_score_adj = min_score_adj;
@@ -253,10 +267,12 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	for_each_process(tsk) {
 		struct task_struct *p;
 		short oom_score_adj;
-#ifdef ENHANCED_LMK_ROUTINE
+#ifdef CONFIG_ENHANCED_LMK_ROUTINE
 		int is_exist_oom_task = 0;
 #endif
+#ifdef CONFIG_KILL_ONCE_IF_SCREEN_OFF
 		bool uid_test = false;
+#endif
 
 		if (tsk->flags & PF_KTHREAD)
 			continue;
@@ -275,6 +291,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			return 0;
 		}
 
+#ifdef CONFIG_LMK_APP_PROTECTION
 		if (	strcmp(p->comm, "d.process.acore") == 0 ||
 			strcmp(p->comm, "d.process.media") == 0 ||
 			strcmp(p->comm, "putmethod.latin") == 0 ||
@@ -283,7 +300,15 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			task_unlock(p);
 			continue;
 		}
+#endif
 
+		oom_score_adj = p->signal->oom_score_adj;
+		if (oom_score_adj < min_score_adj) {
+			task_unlock(p);
+			continue;
+		}
+
+#ifdef CONFIG_KILL_ONCE_IF_SCREEN_OFF
 		pcred = __task_cred(p);
 		uid = pcred->uid;
 
@@ -295,27 +320,22 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			}
 			if (uid_test == true) {
 				uid_test = false;
-				lowmem_print(1, "lowmemkill: skiped %d (%s), adj %hd, size %d, uid %d, screen_off %d\n",
-			    		     p->pid, p->comm, oom_score_adj, tasksize, uid, screen_off);
+				lowmem_print(1, "lowmemkill: skiped %d (%s), adj %hd, uid %d, screen_off %d\n",
+			    		     p->pid, p->comm, oom_score_adj, uid, screen_off);
 				task_unlock(p);
 				continue;
 			}
 		}
-
-		oom_score_adj = p->signal->oom_score_adj;
-		if (oom_score_adj < min_score_adj) {
-			task_unlock(p);
-			continue;
-		}
+#endif
 
 		tasksize = get_mm_rss(p->mm);
 		task_unlock(p);
 		if (tasksize <= 0)
 			continue;
 
-#ifdef ENHANCED_LMK_ROUTINE
-		if (all_selected_oom < LOWMEM_DEATHPENDING_DEPTH) {
-			for (i = 0; i < LOWMEM_DEATHPENDING_DEPTH; i++) {
+#ifdef CONFIG_ENHANCED_LMK_ROUTINE
+		if (all_selected_oom < CONFIG_LOWMEM_DEATHPENDING_DEPTH) {
+			for (i = 0; i < CONFIG_LOWMEM_DEATHPENDING_DEPTH; i++) {
 				if (!selected[i]) {
 					is_exist_oom_task = 1;
 					max_selected_oom_idx = i;
@@ -334,11 +354,11 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			selected_tasksize[max_selected_oom_idx] = tasksize;
 			selected_oom_score_adj[max_selected_oom_idx] = oom_score_adj;
 
-			if (all_selected_oom < LOWMEM_DEATHPENDING_DEPTH)
+			if (all_selected_oom < CONFIG_LOWMEM_DEATHPENDING_DEPTH)
 				all_selected_oom++;
 
-			if (all_selected_oom == LOWMEM_DEATHPENDING_DEPTH) {
-				for (i = 0; i < LOWMEM_DEATHPENDING_DEPTH; i++) {
+			if (all_selected_oom == CONFIG_LOWMEM_DEATHPENDING_DEPTH) {
+				for (i = 0; i < CONFIG_LOWMEM_DEATHPENDING_DEPTH; i++) {
 					if (selected_oom_score_adj[i] < selected_oom_score_adj[max_selected_oom_idx])
 						max_selected_oom_idx = i;
 					else if (selected_oom_score_adj[i] == selected_oom_score_adj[max_selected_oom_idx] &&
@@ -349,7 +369,8 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 
 			selected_target_offset[max_selected_oom_idx] = target_offset;
 
-			lowmem_print(2, "select %d (%s), adj %d, size %d, to kill\n", p->pid, p->comm, oom_score_adj, tasksize);
+			lowmem_print(2, "lowmemkill: select %d (%s), adj %d, size %d, screen_off %d, to kill\n", 
+					 p->pid, p->comm, oom_score_adj, tasksize, screen_off);
 		}
 #else
 		target_offset = abs(target_free - tasksize);
@@ -363,13 +384,27 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		selected_tasksize = tasksize;
 		selected_target_offset = target_offset;
 		selected_oom_score_adj = oom_score_adj;
+#ifdef CONFIG_KILL_ONCE_IF_SCREEN_OFF
 		lowmem_print(2, "lowmemkill: select %d (%s), adj %hd, size %d, uid %d, screen_off %d, to kill\n",
 			     p->pid, p->comm, oom_score_adj, tasksize, uid, screen_off);
-#endif
+#else
+#ifdef CONFIG_LMK_SCREEN_STATE
+		lowmem_print(2, "lowmemkill: select %d (%s), adj %hd, size %d, screen_off %d, to kill\n",
+			     p->pid, p->comm, oom_score_adj, tasksize, screen_off);                             	
+#else
+		lowmem_print(2, "lowmemkill: select %d (%s), adj %hd, size %d, to kill\n",
+			     p->pid, p->comm, oom_score_adj, tasksize);
+#endif /* CONFIG_LMK_SCREEN_STATE */                         	
+#endif /* CONFIG_KILL_ONCE_IF_SCREEN_OFF */
+#endif /* CONFIG_ENHANCED_LMK_ROUTINE */
 	}
-#ifdef ENHANCED_LMK_ROUTINE
-	for (i = 0; i < LOWMEM_DEATHPENDING_DEPTH; i++) {
+#ifdef CONFIG_ENHANCED_LMK_ROUTINE
+	for (i = 0; i < CONFIG_LOWMEM_DEATHPENDING_DEPTH; i++) {
 		if (selected[i]) {
+
+#ifdef CONFIG_KILL_ONCE_IF_SCREEN_OFF
+			pcred = __task_cred(selected[i]);
+			uid = pcred->uid;
 
 			if (screen_off == true) {
 				if (counter >= max_alloc) {
@@ -381,21 +416,29 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 				}
 				uids[counter++] = uid;
 				lowmem_print(2, "lowmemkill: skip next time for %s, uid %d, screen_off %d\n",
-						     selected[i]->comm, uid, screen_off);
+					     selected[i]->comm, uid, screen_off);
 			}
 no_mem:
-
-			lowmem_print(1, "send sigkill to %d (%s), adj %hd, size %d\n",
-				selected[i]->pid, selected[i]->comm,
-				selected_oom_score_adj[i], selected_tasksize[i]);
+#endif /* CONFIG_KILL_ONCE_IF_SCREEN_OFF */
+#ifdef CONFIG_LMK_SCREEN_STATE
+			lowmem_print(1, "lowmemkill: send sigkill to %d (%s), adj %hd, size %d screen_off %d\n",
+					selected[i]->pid, selected[i]->comm,
+					selected_oom_score_adj[i], selected_tasksize[i],
+					screen_off);
+#else
+			lowmem_print(1, "lowmemkill: send sigkill to %d (%s), adj %hd, size %d\n",
+					selected[i]->pid, selected[i]->comm,
+					selected_oom_score_adj[i], selected_tasksize[i]);
+#endif
 			lowmem_deathpending_timeout = jiffies + HZ;
-			send_sig(SIGKILL, selected[i], 0);
+			force_sig(SIGKILL, selected[i]);
 			set_tsk_thread_flag(selected[i], TIF_MEMDIE);
 			rem -= selected_tasksize[i];
 		}
 	}
 #else
 	if (selected) {
+#ifdef CONFIG_KILL_ONCE_IF_SCREEN_OFF
 		pcred = __task_cred(selected);
 		uid = pcred->uid;
 
@@ -409,21 +452,30 @@ no_mem:
 			}
 			uids[counter++] = uid;
 			lowmem_print(2, "lowmemkill: skip next time for %s, uid %d, screen_off %d\n",
-			     	     selected->comm, uid, screen_off);
+		     	     selected->comm, uid, screen_off);
 		}
 no_mem:
 
 		lowmem_print(1, "lowmemkill: send sigkill to %d (%s), adj %hd, size %d, uid %d, screen_off %d\n",
 			     selected->pid, selected->comm, selected_oom_score_adj, selected_tasksize, uid, screen_off);
+#else
+#ifdef CONFIG_LMK_SCREEN_STATE
+		lowmem_print(1, "lowmemkill: send sigkill to %d (%s), adj %hd, size %d, screen_off %d\n",
+			     selected->pid, selected->comm, selected_oom_score_adj, selected_tasksize, screen_off);
+#else
+		lowmem_print(1, "lowmemkill: send sigkill to %d (%s), adj %hd, size %d\n",
+			     selected->pid, selected->comm, selected_oom_score_adj, selected_tasksize);
+#endif /* CONFIG_LMK_SCREEN_STATE */
+#endif /* CONFIG_KILL_ONCE_IF_SCREEN_OFF */
+
 		lowmem_deathpending_timeout = jiffies + HZ;
-		//send_sig(SIGKILL, selected, 0);
 		force_sig(SIGKILL, selected);
 		set_tsk_thread_flag(selected, TIF_MEMDIE);
 		rem -= selected_tasksize;
 		/* give the system time to free up the memory */
 		msleep_interruptible(20);
 	}
-#endif
+#endif /* CONFIG_ENHANCED_LMK_ROUTINE */
 	lowmem_print(4, "lowmemkill: lowmem_shrink %lu, %x, return %d\n",
 		     nr_to_scan, sc->gfp_mask, rem);
 	rcu_read_unlock();
@@ -436,6 +488,7 @@ static struct shrinker lowmem_shrinker = {
 	.seeks = DEFAULT_SEEKS * 16
 };
 
+#ifdef CONFIG_LMK_SCREEN_STATE
 static void low_mem_early_suspend(struct early_suspend *handler)
 {
 	memcpy(lowmem_minfree_screen_on, lowmem_minfree, sizeof(lowmem_minfree));
@@ -449,23 +502,27 @@ static void low_mem_late_resume(struct early_suspend *handler)
 	memcpy(lowmem_minfree, lowmem_minfree_screen_on, sizeof(lowmem_minfree_screen_on));
 
 	screen_off = false;
+#ifdef CONFIG_KILL_ONCE_IF_SCREEN_OFF
 	counter = 0;
 	max_alloc = 0;
 	if (uids != NULL) {
 		kfree(uids);
 		uids = NULL;
 	}
+#endif
 }
 
 static struct early_suspend low_mem_suspend = {
 	.suspend = low_mem_early_suspend,
 	.resume = low_mem_late_resume,
 };
+#endif
 
 static int __init lowmem_init(void)
 {
+#ifdef CONFIG_LMK_SCREEN_STATE
 	register_early_suspend(&low_mem_suspend);
-
+#endif
 	register_shrinker(&lowmem_shrinker);
 
 	return 0;
@@ -477,7 +534,6 @@ static void __exit lowmem_exit(void)
 }
 
 #ifdef CONFIG_ANDROID_LOW_MEMORY_KILLER_AUTODETECT_OOM_ADJ_VALUES
-
 static int lowmem_oom_adj_to_oom_score_adj(int oom_adj)
 {
 	if (oom_adj == OOM_ADJUST_MAX)
@@ -567,10 +623,14 @@ module_param_array_named(adj, lowmem_adj, short, &lowmem_adj_size,
 #endif
 module_param_array_named(minfree, lowmem_minfree, uint, &lowmem_minfree_size,
 			 S_IRUGO | S_IWUSR);
+#ifdef CONFIG_LMK_SCREEN_STATE
 module_param_array_named(minfree_screen_off, lowmem_minfree_screen_off, uint, &lowmem_minfree_size,
 			 S_IRUGO | S_IWUSR);
+#endif
 module_param_named(debug_level, lowmem_debug_level, uint, S_IRUGO | S_IWUSR);
+#ifdef CONFIG_SHRINKER_TARGET_ZONE
 module_param_named(lmk_fast_run, lmk_fast_run, int, S_IRUGO | S_IWUSR);
+#endif
 
 module_init(lowmem_init);
 module_exit(lowmem_exit);
