@@ -355,10 +355,14 @@ unsigned long vm_mmap_pgoff(struct file *file, unsigned long addr,
 {
 	unsigned long ret;
 	struct mm_struct *mm = current->mm;
+	bool populate;
 
 	down_write(&mm->mmap_sem);
-	ret = do_mmap_pgoff(file, addr, len, prot, flag, pgoff);
+	ret = do_mmap_pgoff(file, addr, len, prot, flag, pgoff,
+		&populate);
 	up_write(&mm->mmap_sem);
+	if (!IS_ERR_VALUE(ret) && populate)
+		mm_populate(ret, len);
 
 	return ret;
 }
