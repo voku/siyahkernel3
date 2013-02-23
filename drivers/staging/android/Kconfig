@@ -110,6 +110,8 @@ config KILL_ONCE_IF_SCREEN_OFF
 	bool "Kill Apps only once, if the screen is off"
 	depends on LMK_SCREEN_STATE
 	default y
+	---help---
+	  debug via: echo "2" > /sys/module/lowmemorykiller/parameters/debug_level;
 
 config LOWMEM_DEATHPENDING_DEPTH
 	int "How many apps we kill at the same time"
