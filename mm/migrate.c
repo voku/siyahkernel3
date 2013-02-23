@@ -1472,7 +1472,7 @@ int migrate_vmas(struct mm_struct *mm, const nodemask_t *to,
  * pages. Currently it only checks the watermarks which crude
  */
 static bool migrate_balanced_pgdat(struct pglist_data *pgdat,
-				   int nr_migrate_pages)
+				   unsigned long nr_migrate_pages)
 {
 	int z;
 	for (z = pgdat->nr_zones - 1; z >= 0; z--) {
@@ -1536,6 +1536,70 @@ bool migrate_ratelimited(int node)
 		return false;
 
 	return true;
+}
+
+/* Returns true if the node is migrate rate-limited after the update */
+bool numamigrate_update_ratelimit(pg_data_t *pgdat, unsigned long nr_pages)
+{
+	bool rate_limited = false;
+
+	/*
+	 * Rate-limit the amount of data that is being migrated to a node.
+	 * Optimal placement is no good if the memory bus is saturated and
+	 * all the time is being spent migrating!
+	 */
+	spin_lock(&pgdat->numabalancing_migrate_lock);
+	if (time_after(jiffies, pgdat->numabalancing_migrate_next_window)) {
+		pgdat->numabalancing_migrate_nr_pages = 0;
+		pgdat->numabalancing_migrate_next_window = jiffies +
+			msecs_to_jiffies(migrate_interval_millisecs);
+	}
+	if (pgdat->numabalancing_migrate_nr_pages > ratelimit_pages)
+		rate_limited = true;
+	else
+		pgdat->numabalancing_migrate_nr_pages += nr_pages;
+	spin_unlock(&pgdat->numabalancing_migrate_lock);
+	
+	return rate_limited;
+}
+
+int numamigrate_isolate_page(pg_data_t *pgdat, struct page *page)
+{
+	int ret = 0;
+
+	VM_BUG_ON(compound_order(page) && !PageTransHuge(page));
+
+	/* Avoid migrating to a node that is nearly full */
+	if (migrate_balanced_pgdat(pgdat, 1UL << compound_order(page))) {
+		int page_lru;
+
+		if (isolate_lru_page(page)) {
+			put_page(page);
+			return 0;
+		}
+
+		/* Page is isolated */
+		ret = 1;
+		page_lru = page_is_file_cache(page);
+		if (!PageTransHuge(page))
+			inc_zone_page_state(page, NR_ISOLATED_ANON + page_lru);
+		else
+			mod_zone_page_state(page_zone(page),
+					NR_ISOLATED_ANON + page_lru,
+					HPAGE_PMD_NR);
+	}
+
+	/*
+	 * Page is either isolated or there is not enough space on the target
+	 * node. If isolated, then it has taken a reference count and the
+	 * callers reference can be safely dropped without the page
+	 * disappearing underneath us during migration. Otherwise the page is
+	 * not to be migrated but the callers reference should still be
+	 * dropped so it does not leak.
+	 */
+	put_page(page);
+
+	return ret;
 }
 
 /*
