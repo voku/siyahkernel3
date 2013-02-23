@@ -57,6 +57,9 @@
 #include <linux/pipe_fs_i.h>
 #include <linux/oom.h>
 #include <linux/kmod.h>
+#include <linux/capability.h>
+#include <linux/binfmts.h>
+#include <linux/sched/sysctl.h>
 
 #include <asm/uaccess.h>
 #include <asm/processor.h>
@@ -237,7 +240,6 @@ extern int late_mali_driver_init(void);
 #ifdef CONFIG_MALI_CONTROL
 extern int register_mali_control(void);
 #endif
-extern int u1_audio_init_jbsammy(void);
 extern int u1_audio_init(void);
 
 int
@@ -270,22 +272,13 @@ rom_feature_set_sysctl(struct ctl_table *table, int write,
 #else
 		late_mali_driver_init();
 #endif
-
-#ifdef CONFIG_SND_SAMSUNG_RP
-		// RELOAD AUDIO DRIVERS JBSAMMY
-		if (rom_feature_set == 2) {
-			u1_audio_init_jbsammy();
-		} else {
-			u1_audio_init();
-		}
-#endif
-
 #ifdef CONFIG_MALI_CONTROL
 		register_mali_control();
 #endif
 #ifndef CONFIG_CPU_EXYNOS4210
 		mfc_late_init();
 #endif
+		u1_audio_init();
 	}
 	return 0;
 }
@@ -480,6 +473,13 @@ static struct ctl_table kern_table[] = {
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
 		.proc_handler	= sched_rt_handler,
+	},
+	{
+		.procname	= "sched_rr_timeslice_ms",
+		.data		= &sched_rr_timeslice,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= sched_rr_handler,
 	},
 #ifdef CONFIG_SCHED_AUTOGROUP
 	{

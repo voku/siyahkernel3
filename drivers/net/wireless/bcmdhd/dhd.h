@@ -91,22 +91,22 @@ enum dhd_op_flags {
 	DHD_FLAG_MBSS_MODE				= BIT(7) /* MBSS in future */
 };
 
-#define MANUFACTRING_FW 	"WLTEST"
+#define MANUFACTRING_FW			"WLTEST"
 
 /* max sequential rxcntl timeouts to set HANG event */
 #ifndef MAX_CNTL_TIMEOUT
-#define MAX_CNTL_TIMEOUT  2
+#define MAX_CNTL_TIMEOUT		2
 #endif
 
-#define DHD_SCAN_ASSOC_ACTIVE_TIME	40 /* ms: Embedded default Active setting from DHD */
-#define DHD_SCAN_UNASSOC_ACTIVE_TIME 80 /* ms: Embedded def. Unassoc Active setting from DHD */
-#define DHD_SCAN_PASSIVE_TIME		130 /* ms: Embedded default Passive setting from DHD */
+#define DHD_SCAN_ASSOC_ACTIVE_TIME	40	/* ms: Embedded default Active setting from DHD */
+#define DHD_SCAN_UNASSOC_ACTIVE_TIME	80	/* ms: Embedded def. Unassoc Active setting from DHD */
+#define DHD_SCAN_PASSIVE_TIME		130	/* ms: Embedded default Passive setting from DHD */
 
 #ifndef POWERUP_MAX_RETRY
-#define POWERUP_MAX_RETRY	5 /* how many times we retry to power up the chip */
+#define POWERUP_MAX_RETRY		10	/* how many times we retry to power up the chip */
 #endif
 #ifndef POWERUP_WAIT_MS
-#define POWERUP_WAIT_MS		2000	 /* ms: time out in waiting wifi to come up */
+#define POWERUP_WAIT_MS			2000	/* ms: time out in waiting wifi to come up */
 #endif
 
 enum dhd_bus_wake_state {
@@ -303,11 +303,7 @@ typedef struct dhd_pub {
 				wait_event_interruptible_timeout(a, !dhd_mmc_suspend, 1); \
 			} \
 		} 	while (0)
-#ifdef CUSTOMER_HW4
-	#define DHD_PM_RESUME_WAIT(a)		_DHD_PM_RESUME_WAIT(a, 500)
-#else
 	#define DHD_PM_RESUME_WAIT(a) 		_DHD_PM_RESUME_WAIT(a, 200)
-#endif /* CUSTOMER_HW4 */
 	#define DHD_PM_RESUME_WAIT_FOREVER(a) 	_DHD_PM_RESUME_WAIT(a, ~0)
 #ifdef CUSTOMER_HW4
 	#define DHD_PM_RESUME_RETURN_ERROR(a)   do { \
