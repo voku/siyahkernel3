@@ -620,6 +620,20 @@ asmlinkage ssize_t compat_sys_process_vm_writev(compat_pid_t pid,
 		const struct compat_iovec __user *lvec,
 		unsigned long liovcnt, const struct compat_iovec __user *rvec,
 		unsigned long riovcnt, unsigned long flags);
+
+asmlinkage long compat_sys_sendfile(int out_fd, int in_fd,
+				    compat_off_t __user *offset, compat_size_t count);
+asmlinkage long compat_sys_sendfile64(int out_fd, int in_fd,
+				    compat_loff_t __user *offset, compat_size_t count);
+asmlinkage long compat_sys_sigaltstack(const compat_stack_t __user *uss_ptr,
+				       compat_stack_t __user *uoss_ptr);
+
+int compat_restore_altstack(const compat_stack_t __user *uss);
+int __compat_save_altstack(compat_stack_t __user *, unsigned long);
+
+asmlinkage long compat_sys_sched_rr_get_interval(compat_pid_t pid,
+						 struct compat_timespec __user *interval);
+
 #else
 
 #define is_compat_task() (0)
