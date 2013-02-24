@@ -46,69 +46,6 @@ static char *sb_writers_name[SB_FREEZE_LEVELS] = {
 	"sb_internal",
 };
 
-/*
- * One thing we have to be careful of with a per-sb shrinker is that we don't
- * drop the last active reference to the superblock from within the shrinker.
- * If that happens we could trigger unregistering the shrinker from within the
- * shrinker path and that leads to deadlock on the shrinker_rwsem. Hence we
- * take a passive reference to the superblock to avoid this from occurring.
- */
-static int prune_super(struct shrinker *shrink, struct shrink_control *sc)
-{
-	struct super_block *sb;
-	int	fs_objects = 0;
-	int	total_objects;
-
-	sb = container_of(shrink, struct super_block, s_shrink);
-
-	/*
-	 * Deadlock avoidance.  We may hold various FS locks, and we don't want
-	 * to recurse into the FS that called us in clear_inode() and friends..
-	 */
-	if (sc->nr_to_scan && !(sc->gfp_mask & __GFP_FS))
-		return -1;
-
-	if (!grab_super_passive(sb))
-		return !sc->nr_to_scan ? 0 : -1;
-
-	if (sb->s_op && sb->s_op->nr_cached_objects)
-		fs_objects = sb->s_op->nr_cached_objects(sb);
-
-	total_objects = sb->s_nr_dentry_unused +
-			sb->s_nr_inodes_unused + fs_objects + 1;
-
-	if (sc->nr_to_scan) {
-		int	dentries;
-		int	inodes;
-
-		/* proportion the scan between the caches */
-		dentries = (sc->nr_to_scan * sb->s_nr_dentry_unused) /
-							total_objects;
-		inodes = (sc->nr_to_scan * sb->s_nr_inodes_unused) /
-							total_objects;
-		if (fs_objects)
-			fs_objects = (sc->nr_to_scan * fs_objects) /
-							total_objects;
-		/*
-		 * prune the dcache first as the icache is pinned by it, then
-		 * prune the icache, followed by the filesystem specific caches
-		 */
-		prune_dcache_sb(sb, dentries);
-		prune_icache_sb(sb, inodes);
-
-		if (fs_objects && sb->s_op->free_cached_objects) {
-			sb->s_op->free_cached_objects(sb, fs_objects);
-			fs_objects = sb->s_op->nr_cached_objects(sb);
-		}
-		total_objects = sb->s_nr_dentry_unused +
-				sb->s_nr_inodes_unused + fs_objects;
-	}
-
-	total_objects = (total_objects / 100) * sysctl_vfs_cache_pressure;
-	drop_super(sb);
-	return total_objects;
-}
-
 static int init_sb_writers(struct super_block *s, struct file_system_type *type)
 {
 	int err;
