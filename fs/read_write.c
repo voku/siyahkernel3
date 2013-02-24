@@ -16,6 +16,7 @@
 #include <linux/syscalls.h>
 #include <linux/pagemap.h>
 #include <linux/splice.h>
+#include <linux/compat.h>
 #include "read_write.h"
 
 #include <asm/uaccess.h>
@@ -253,6 +254,13 @@ bad:
 	return retval;
 }
 
+#ifdef CONFIG_COMPAT
+COMPAT_SYSCALL_DEFINE3(lseek, unsigned int, fd, compat_off_t, offset, unsigned int, whence)
+{
+	return sys_lseek(fd, offset, whence);
+}
+#endif
+
 #ifdef __ARCH_WANT_SYS_LLSEEK
 SYSCALL_DEFINE5(llseek, unsigned int, fd, unsigned long, offset_high,
 		unsigned long, offset_low, loff_t __user *, result,
@@ -287,7 +295,6 @@ bad:
 	return retval;
 }
 #endif
-
 
 /*
  * rw_verify_area doesn't like huge counts. We limit
