@@ -326,6 +326,16 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 				continue;
 			}
 		}
+		else {
+			if (uids != NULL) {
+				lowmem_print(3, "lowmemkill: free memory from uids: %d\n",
+							 counter);
+				kfree(uids);
+				uids = NULL;
+				max_alloc = 0;
+				counter = 0;
+			}
+	}
 #endif
 
 		tasksize = get_mm_rss(p->mm);
@@ -502,14 +512,6 @@ static void low_mem_late_resume(struct early_suspend *handler)
 	memcpy(lowmem_minfree, lowmem_minfree_screen_on, sizeof(lowmem_minfree_screen_on));
 
 	screen_off = false;
-#ifdef CONFIG_KILL_ONCE_IF_SCREEN_OFF
-	counter = 0;
-	max_alloc = 0;
-	if (uids != NULL) {
-		kfree(uids);
-		uids = NULL;
-	}
-#endif
 }
 
 static struct early_suspend low_mem_suspend = {
