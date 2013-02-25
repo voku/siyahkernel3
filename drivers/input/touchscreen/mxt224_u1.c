@@ -99,7 +99,7 @@
 
 #define MXT224_AUTOCAL_WAIT_TIME		2000
 // no debug !!!
-//#define printk(arg, ...)
+#define printk(arg, ...)
 #define TOUCH_LOCK_FREQ			500000
 
 #if defined(U1_EUR_TARGET)
