@@ -38,8 +38,6 @@
 #include <linux/rcupdate.h>
 #include <linux/notifier.h>
 #include <linux/swap.h>
-#include <linux/mutex.h>
-#include <linux/delay.h>
 #include <linux/slab.h>
 #include <linux/string.h>
 #ifdef CONFIG_LMK_SCREEN_STATE
@@ -171,8 +169,6 @@ void tune_lmk_param(int *other_free, int *other_file, struct shrink_control *sc)
 }
 #endif
 
-static DEFINE_MUTEX(scan_mutex);
-
 static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 {
 	struct task_struct *tsk;
@@ -202,21 +198,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	int selected_target_offset;
 #endif
 	int array_size = ARRAY_SIZE(lowmem_adj);
-	int other_free;
-	int other_file;
-	int target_offset;
-	unsigned long nr_to_scan = sc->nr_to_scan;
-
-	if (nr_to_scan > 0) {
-		if (mutex_lock_interruptible(&scan_mutex) < 0)
-			return 0;
-	}
-
-#ifdef CONFIG_SHRINKER_TARGET_ZONE
 	other_free = global_page_state(NR_FREE_PAGES);
-#else
-	other_free = global_page_state(NR_FREE_PAGES) - totalreserve_pages;
-#endif
 	other_file = global_page_state(NR_FILE_PAGES) - global_page_state(NR_SHMEM);
 
 #ifdef CONFIG_SHRINKER_TARGET_ZONE
@@ -239,20 +221,16 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			break;
 		}
 	}
-	if (nr_to_scan > 0)
+	if (sc->nr_to_scan > 0)
 		lowmem_print(3, "lowmemkill: lowmem_shrink %lu, %x, ofree %d %d, ma %hd\n",
-			     nr_to_scan, sc->gfp_mask, other_free, other_file, min_score_adj);
+			     sc->nr_to_scan, sc->gfp_mask, other_free, other_file, min_score_adj);
 	rem = global_page_state(NR_ACTIVE_ANON) +
 		global_page_state(NR_ACTIVE_FILE) +
 		global_page_state(NR_INACTIVE_ANON) +
 		global_page_state(NR_INACTIVE_FILE);
-	if (nr_to_scan <= 0 || min_score_adj == OOM_SCORE_ADJ_MAX + 1) {
+	if (sc->nr_to_scan <= 0 || min_score_adj == OOM_SCORE_ADJ_MAX + 1) {
 		lowmem_print(5, "lowmemkill: lowmem_shrink %lu, %x, return %d\n",
-			     nr_to_scan, sc->gfp_mask, rem);
-
-		if (nr_to_scan > 0)
-			mutex_unlock(&scan_mutex);
-
+			     sc->nr_to_scan, sc->gfp_mask, rem);
 		return rem;
 	}
 
@@ -285,9 +263,6 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		    time_before_eq(jiffies, lowmem_deathpending_timeout)) {
 			task_unlock(p);
 			rcu_read_unlock();
-			/* give the system time to free up the memory */
-			msleep_interruptible(20);
-			mutex_unlock(&scan_mutex);
 			return 0;
 		}
 
@@ -482,14 +457,11 @@ no_mem:
 		force_sig(SIGKILL, selected);
 		set_tsk_thread_flag(selected, TIF_MEMDIE);
 		rem -= selected_tasksize;
-		/* give the system time to free up the memory */
-		msleep_interruptible(20);
 	}
 #endif /* CONFIG_ENHANCED_LMK_ROUTINE */
 	lowmem_print(4, "lowmemkill: lowmem_shrink %lu, %x, return %d\n",
-		     nr_to_scan, sc->gfp_mask, rem);
+		     sc->nr_to_scan, sc->gfp_mask, rem);
 	rcu_read_unlock();
-	mutex_unlock(&scan_mutex);
 	return rem;
 }
 
