@@ -40,9 +40,6 @@
 #include <linux/swap.h>
 #include <linux/slab.h>
 #include <linux/string.h>
-// test
-#include <linux/time.h>
-// end test
 #ifdef CONFIG_LMK_SCREEN_STATE
 #include <linux/earlysuspend.h>
 #endif
@@ -101,17 +98,6 @@ static unsigned long lowmem_deathpending_timeout;
 		if (lowmem_debug_level >= (level))	\
 			printk(x);			\
 	} while (0)
-
-// test
-void show_string_speed(struct timeval *start, struct timeval *stop)
-{
-        s64 elapsed_centisecs64;
-		unsigned long long time;
-
-		time = (long long)((long)stop - (long)start);
-        printk(KERN_INFO "string-speed: %lld (usecs)\n", time);
-}
-// end test
 
 static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 {
@@ -197,11 +183,6 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 #ifdef CONFIG_KILL_ONCE_IF_SCREEN_OFF
 		bool uid_test = false;
 #endif
-		// test
-		struct timeval start;
-		struct timeval stop;
-		int i, y;
-		// end test
 
 		if (tsk->flags & PF_KTHREAD)
 			continue;
@@ -219,18 +200,6 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		}
 
 #ifdef CONFIG_LMK_APP_PROTECTION
-
-		// test
-		do_gettimeofday(&start);
-		for (y=0; y<=80000; y++) {
-			for (i=0; i<=80000; i++) {
-				strcmp(p->comm, "d.process.acore");
-			}
-		}
-		do_gettimeofday(&stop);
-		show_string_speed(&start, &stop);
-		// end test
-
 		if (	strcmp(p->comm, "d.process.acore") == 0 ||
 				strcmp(p->comm, "d.process.media") == 0 ||
 				strcmp(p->comm, "putmethod.latin") == 0 ||
