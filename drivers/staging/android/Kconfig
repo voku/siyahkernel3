@@ -122,13 +122,9 @@ config ENHANCED_LMK_ROUTINE
 	bool "Kill more Apps at the same time"
 	default y
 
-config SHRINKER_TARGET_ZONE
-	bool "Add lmk parameters tunning code"
-	default n
-
 config LMK_APP_PROTECTION
 	bool "EXPERIMENTAL: string-compare some apps"
-	default n
+	default y
 	---help---
 	  Do not kill e.g.: d.process.acore, d.process.media ...
 
