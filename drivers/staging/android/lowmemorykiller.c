@@ -81,9 +81,6 @@ static int lowmem_minfree_screen_on[6] = {
 };
 #endif
 static int lowmem_minfree_size = 6;
-#ifdef CONFIG_SHRINKER_TARGET_ZONE
-static int lmk_fast_run = 1;
-#endif
 #ifdef CONFIG_KILL_ONCE_IF_SCREEN_OFF
 static bool screen_off = false;
 static unsigned int *uids = NULL;
@@ -101,73 +98,6 @@ static unsigned long lowmem_deathpending_timeout;
 		if (lowmem_debug_level >= (level))	\
 			printk(x);			\
 	} while (0)
-
-#ifdef CONFIG_SHRINKER_TARGET_ZONE
-void tune_lmk_zone_param(struct zonelist *zonelist, int classzone_idx,
-					int *other_free, int *other_file)
-{
-	struct zone *zone;
-	struct zoneref *zoneref;
-	int zone_idx;
-
-	for_each_zone_zonelist(zone, zoneref, zonelist, MAX_NR_ZONES) {
-		if ((zone_idx = zonelist_zone_idx(zoneref)) == ZONE_MOVABLE)
-			continue;
-
-		if (zone_idx > classzone_idx) {
-			if (other_free != NULL)
-				*other_free -= zone_page_state(zone, NR_FREE_PAGES);
-			if (other_file != NULL)
-				*other_file -= zone_page_state(zone, NR_FILE_PAGES) - zone_page_state(zone, NR_SHMEM);
-		} else if (zone_idx < classzone_idx) {
-			if (zone_watermark_ok(zone, 0, 0, classzone_idx, 0))
-				*other_free -= zone->lowmem_reserve[classzone_idx];
-			else
-				*other_free -= zone_page_state(zone, NR_FREE_PAGES);
-		}
-	}
-}
-
-void tune_lmk_param(int *other_free, int *other_file, struct shrink_control *sc)
-{
-	gfp_t gfp_mask;
-	struct zone *preferred_zone;
-	struct zonelist *zonelist;
-	enum zone_type high_zoneidx, classzone_idx;
-	unsigned long balance_gap;
-
-	gfp_mask = sc->gfp_mask;
-	zonelist = node_zonelist(0, gfp_mask);
-	high_zoneidx = gfp_zone(gfp_mask);
-	first_zones_zonelist(zonelist, high_zoneidx, NULL, &preferred_zone);
-	classzone_idx = zone_idx(preferred_zone);
-
-	balance_gap = min(low_wmark_pages(preferred_zone),
-			  (preferred_zone->present_pages +
-			   KSWAPD_ZONE_BALANCE_GAP_RATIO-1) /
-			   KSWAPD_ZONE_BALANCE_GAP_RATIO);
-
-	if (likely(current_is_kswapd() && zone_watermark_ok(preferred_zone, 0,
-			  high_wmark_pages(preferred_zone) + SWAP_CLUSTER_MAX + balance_gap, 0, 0))) {
-		if (lmk_fast_run)
-			tune_lmk_zone_param(zonelist, classzone_idx, other_free, other_file);
-		else
-			tune_lmk_zone_param(zonelist, classzone_idx, other_free, NULL);
-
-		if (zone_watermark_ok(preferred_zone, 0, 0, ZONE_HIGHMEM, 0))
-			*other_free -= preferred_zone->lowmem_reserve[ZONE_HIGHMEM];
-		else
-			*other_free -= zone_page_state(preferred_zone, NR_FREE_PAGES);
-		lowmem_print(4, "lowmemkill: lowmem_shrink of kswapd tunning for highmem ofree %d, %d\n",
-			     *other_free, *other_file);
-	} else {
-		tune_lmk_zone_param(zonelist, classzone_idx, other_free, other_file);
-
-		lowmem_print(4, "lowmemkill: lowmem_shrink tunning for others ofree %d, %d\n", 
-			     *other_free, *other_file);
-	}
-}
-#endif
 
 static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 {
@@ -197,40 +127,42 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	short selected_oom_score_adj;
 	int selected_target_offset;
 #endif
+	int target_offset;
 	int array_size = ARRAY_SIZE(lowmem_adj);
-	other_free = global_page_state(NR_FREE_PAGES);
-	other_file = global_page_state(NR_FILE_PAGES) - global_page_state(NR_SHMEM);
-
-#ifdef CONFIG_SHRINKER_TARGET_ZONE
-	tune_lmk_param(&other_free, &other_file, sc);
-#endif
+	int other_free = global_page_state(NR_FREE_PAGES);
+	int other_file = global_page_state(NR_FILE_PAGES) - global_page_state(NR_SHMEM);
 
 	if (lowmem_adj_size < array_size)
 		array_size = lowmem_adj_size;
+
 	if (lowmem_minfree_size < array_size)
 		array_size = lowmem_minfree_size;
+
 	for (i = 0; i < array_size; i++) {
 #if defined(CONFIG_VMWARE_MVP)
 		if (other_file < lowmem_minfree[i]) {
 #else
-		if (other_free < lowmem_minfree[i] &&
-		    other_file < lowmem_minfree[i]) {
+		if (other_free < lowmem_minfree[i] && other_file < lowmem_minfree[i]) {
 #endif
 			min_score_adj = lowmem_adj[i];
 			target_free = lowmem_minfree[i] - (other_free + other_file);
 			break;
 		}
 	}
+
 	if (sc->nr_to_scan > 0)
 		lowmem_print(3, "lowmemkill: lowmem_shrink %lu, %x, ofree %d %d, ma %hd\n",
 			     sc->nr_to_scan, sc->gfp_mask, other_free, other_file, min_score_adj);
+
 	rem = global_page_state(NR_ACTIVE_ANON) +
 		global_page_state(NR_ACTIVE_FILE) +
 		global_page_state(NR_INACTIVE_ANON) +
 		global_page_state(NR_INACTIVE_FILE);
+
 	if (sc->nr_to_scan <= 0 || min_score_adj == OOM_SCORE_ADJ_MAX + 1) {
 		lowmem_print(5, "lowmemkill: lowmem_shrink %lu, %x, return %d\n",
 			     sc->nr_to_scan, sc->gfp_mask, rem);
+
 		return rem;
 	}
 
@@ -263,6 +195,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		    time_before_eq(jiffies, lowmem_deathpending_timeout)) {
 			task_unlock(p);
 			rcu_read_unlock();
+
 			return 0;
 		}
 
@@ -310,7 +243,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 				max_alloc = 0;
 				counter = 0;
 			}
-	}
+		}
 #endif
 
 		tasksize = get_mm_rss(p->mm);
@@ -462,6 +395,7 @@ no_mem:
 	lowmem_print(4, "lowmemkill: lowmem_shrink %lu, %x, return %d\n",
 		     sc->nr_to_scan, sc->gfp_mask, rem);
 	rcu_read_unlock();
+
 	return rem;
 }
 
@@ -602,9 +536,6 @@ module_param_array_named(minfree_screen_off, lowmem_minfree_screen_off, uint, &l
 			 S_IRUGO | S_IWUSR);
 #endif
 module_param_named(debug_level, lowmem_debug_level, uint, S_IRUGO | S_IWUSR);
-#ifdef CONFIG_SHRINKER_TARGET_ZONE
-module_param_named(lmk_fast_run, lmk_fast_run, int, S_IRUGO | S_IWUSR);
-#endif
 
 module_init(lowmem_init);
 module_exit(lowmem_exit);
