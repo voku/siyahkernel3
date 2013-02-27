@@ -40,7 +40,9 @@
 #include <linux/swap.h>
 #include <linux/slab.h>
 #include <linux/string.h>
+// test
 #include <linux/time.h>
+// end test
 #ifdef CONFIG_LMK_SCREEN_STATE
 #include <linux/earlysuspend.h>
 #endif
@@ -100,13 +102,16 @@ static unsigned long lowmem_deathpending_timeout;
 			printk(x);			\
 	} while (0)
 
+// test
 void show_string_speed(struct timeval *start, struct timeval *stop)
 {
         s64 elapsed_centisecs64;
+		unsigned long long time;
 
-        elapsed_centisecs64 = timeval_to_ns(stop) - timeval_to_ns(start);
-        printk(KERN_INFO "string-speed: %10lld\n", (long long)elapsed_centisecs64);
+		time = (long long)((long)stop - (long)start);
+        printk(KERN_INFO "string-speed: %lld (usecs)\n", time);
 }
+// end test
 
 static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 {
@@ -192,10 +197,11 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 #ifdef CONFIG_KILL_ONCE_IF_SCREEN_OFF
 		bool uid_test = false;
 #endif
+		// test
 		struct timeval start;
 		struct timeval stop;
 		int i, y;
-
+		// end test
 
 		if (tsk->flags & PF_KTHREAD)
 			continue;
