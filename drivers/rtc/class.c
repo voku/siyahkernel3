@@ -159,8 +159,6 @@ struct rtc_device *rtc_device_register(const char *name, struct device *dev,
 	if (err < 0)
 		goto exit;
 
-	id = id & MAX_IDR_MASK;
-
 	rtc = kzalloc(sizeof(struct rtc_device), GFP_KERNEL);
 	if (rtc == NULL) {
 		err = -ENOMEM;
