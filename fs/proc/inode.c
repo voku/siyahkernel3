@@ -12,6 +12,7 @@
 #include <linux/stat.h>
 #include <linux/completion.h>
 #include <linux/poll.h>
+#include <linux/printk.h>
 #include <linux/file.h>
 #include <linux/limits.h>
 #include <linux/init.h>
@@ -479,17 +480,20 @@ int proc_fill_super(struct super_block *s)
 	
 	pde_get(&proc_root);
 	root_inode = proc_get_inode(s, &proc_root);
-	if (!root_inode)
+	if (!root_inode) {
+		pr_err("proc_fill_super: get root inode failed\n"); 
 		goto out_no_root;
+	}
 	root_inode->i_uid = 0;
 	root_inode->i_gid = 0;
 	s->s_root = d_alloc_root(root_inode);
-	if (!s->s_root)
+	if (!s->s_root) {
+		pr_err("proc_fill_super: allocate dentry failed\n"); 
 		goto out_no_root;
+	}
 	return 0;
 
 out_no_root:
-	printk("proc_read_super: get root inode failed\n");
 	iput(root_inode);
 	pde_put(&proc_root);
 	return -ENOMEM;
