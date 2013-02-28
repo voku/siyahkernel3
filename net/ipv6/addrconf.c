@@ -1278,11 +1278,10 @@ int ipv6_chk_addr(struct net *net, const struct in6_addr *addr,
 		  struct net_device *dev, int strict)
 {
 	struct inet6_ifaddr *ifp;
-	struct hlist_node *node;
 	unsigned int hash = ipv6_addr_hash(addr);
 
 	rcu_read_lock_bh();
-	hlist_for_each_entry_rcu(ifp, node, &inet6_addr_lst[hash], addr_lst) {
+	hlist_for_each_entry_rcu(ifp, &inet6_addr_lst[hash], addr_lst) {
 		if (!net_eq(dev_net(ifp->idev->dev), net))
 			continue;
 		if (ipv6_addr_equal(&ifp->addr, addr) &&
@@ -1304,9 +1303,8 @@ static bool ipv6_chk_same_addr(struct net *net, const struct in6_addr *addr,
 {
 	unsigned int hash = ipv6_addr_hash(addr);
 	struct inet6_ifaddr *ifp;
-	struct hlist_node *node;
 
-	hlist_for_each_entry(ifp, node, &inet6_addr_lst[hash], addr_lst) {
+	hlist_for_each_entry(ifp, &inet6_addr_lst[hash], addr_lst) {
 		if (!net_eq(dev_net(ifp->idev->dev), net))
 			continue;
 		if (ipv6_addr_equal(&ifp->addr, addr)) {
@@ -1347,10 +1345,9 @@ struct inet6_ifaddr *ipv6_get_ifaddr(struct net *net, const struct in6_addr *add
 {
 	struct inet6_ifaddr *ifp, *result = NULL;
 	unsigned int hash = ipv6_addr_hash(addr);
-	struct hlist_node *node;
 
 	rcu_read_lock_bh();
-	hlist_for_each_entry_rcu_bh(ifp, node, &inet6_addr_lst[hash], addr_lst) {
+	hlist_for_each_entry_rcu_bh(ifp, &inet6_addr_lst[hash], addr_lst) {
 		if (!net_eq(dev_net(ifp->idev->dev), net))
 			continue;
 		if (ipv6_addr_equal(&ifp->addr, addr)) {
@@ -2747,11 +2744,10 @@ static int addrconf_ifdown(struct net_device *dev, int how)
 	/* Step 2: clear hash table */
 	for (i = 0; i < IN6_ADDR_HSIZE; i++) {
 		struct hlist_head *h = &inet6_addr_lst[i];
-		struct hlist_node *n;
 
 		spin_lock_bh(&addrconf_hash_lock);
 	restart:
-		hlist_for_each_entry_rcu(ifa, n, h, addr_lst) {
+		hlist_for_each_entry_rcu(ifa, h, addr_lst) {
 			if (ifa->idev == idev) {
 				hlist_del_init_rcu(&ifa->addr_lst);
 				addrconf_del_timer(ifa);
@@ -3053,7 +3049,7 @@ static struct inet6_ifaddr *if6_get_first(struct seq_file *seq)
 
 	for (state->bucket = 0; state->bucket < IN6_ADDR_HSIZE; ++state->bucket) {
 		struct hlist_node *n;
-		hlist_for_each_entry_rcu_bh(ifa, n, &inet6_addr_lst[state->bucket],
+		hlist_for_each_entry_rcu_bh(ifa, &inet6_addr_lst[state->bucket],
 					 addr_lst)
 			if (net_eq(dev_net(ifa->idev->dev), net))
 				return ifa;
@@ -3066,14 +3062,13 @@ static struct inet6_ifaddr *if6_get_next(struct seq_file *seq,
 {
 	struct if6_iter_state *state = seq->private;
 	struct net *net = seq_file_net(seq);
-	struct hlist_node *n = &ifa->addr_lst;
 
-	hlist_for_each_entry_continue_rcu_bh(ifa, n, addr_lst)
+	hlist_for_each_entry_continue_rcu_bh(ifa, addr_lst)
 		if (net_eq(dev_net(ifa->idev->dev), net))
 			return ifa;
 
 	while (++state->bucket < IN6_ADDR_HSIZE) {
-		hlist_for_each_entry_rcu_bh(ifa, n,
+		hlist_for_each_entry_rcu_bh(ifa,
 				     &inet6_addr_lst[state->bucket], addr_lst) {
 			if (net_eq(dev_net(ifa->idev->dev), net))
 				return ifa;
@@ -3183,11 +3178,10 @@ int ipv6_chk_home_addr(struct net *net, const struct in6_addr *addr)
 {
 	int ret = 0;
 	struct inet6_ifaddr *ifp = NULL;
-	struct hlist_node *n;
 	unsigned int hash = ipv6_addr_hash(addr);
 
 	rcu_read_lock_bh();
-	hlist_for_each_entry_rcu_bh(ifp, n, &inet6_addr_lst[hash], addr_lst) {
+	hlist_for_each_entry_rcu_bh(ifp, &inet6_addr_lst[hash], addr_lst) {
 		if (!net_eq(dev_net(ifp->idev->dev), net))
 			continue;
 		if (ipv6_addr_equal(&ifp->addr, addr) &&
@@ -3209,7 +3203,6 @@ static void addrconf_verify(unsigned long foo)
 {
 	unsigned long now, next, next_sec, next_sched;
 	struct inet6_ifaddr *ifp;
-	struct hlist_node *node;
 	int i;
 
 	rcu_read_lock_bh();
@@ -3221,7 +3214,7 @@ static void addrconf_verify(unsigned long foo)
 
 	for (i = 0; i < IN6_ADDR_HSIZE; i++) {
 restart:
-		hlist_for_each_entry_rcu_bh(ifp, node,
+		hlist_for_each_entry_rcu_bh(ifp,
 					 &inet6_addr_lst[i], addr_lst) {
 			unsigned long age;
 
@@ -3692,7 +3685,6 @@ static int inet6_dump_addr(struct sk_buff *skb, struct netlink_callback *cb,
 	struct net_device *dev;
 	struct inet6_dev *idev;
 	struct hlist_head *head;
-	struct hlist_node *node;
 
 	s_h = cb->args[0];
 	s_idx = idx = cb->args[1];
@@ -3702,7 +3694,7 @@ static int inet6_dump_addr(struct sk_buff *skb, struct netlink_callback *cb,
 	for (h = s_h; h < NETDEV_HASHENTRIES; h++, s_idx = 0) {
 		idx = 0;
 		head = &net->dev_index_head[h];
-		hlist_for_each_entry_rcu(dev, node, head, index_hlist) {
+		hlist_for_each_entry_rcu(dev, head, index_hlist) {
 			if (idx < s_idx)
 				goto cont;
 			if (h > s_h || idx > s_idx)
@@ -4049,7 +4041,6 @@ static int inet6_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
 	struct net_device *dev;
 	struct inet6_dev *idev;
 	struct hlist_head *head;
-	struct hlist_node *node;
 
 	s_h = cb->args[0];
 	s_idx = cb->args[1];
@@ -4058,7 +4049,7 @@ static int inet6_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
 	for (h = s_h; h < NETDEV_HASHENTRIES; h++, s_idx = 0) {
 		idx = 0;
 		head = &net->dev_index_head[h];
-		hlist_for_each_entry_rcu(dev, node, head, index_hlist) {
+		hlist_for_each_entry_rcu(dev, head, index_hlist) {
 			if (idx < s_idx)
 				goto cont;
 			idev = __in6_dev_get(dev);
