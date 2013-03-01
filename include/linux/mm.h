@@ -1415,24 +1415,6 @@ int add_from_early_node_map(struct range *range, int az,
 				   int nr_range, int nid);
 extern void sparse_memory_present_with_active_regions(int nid);
 
-#define MOVABLEMEM_MAP_MAX MAX_NUMNODES
-struct movablemem_entry {
-	unsigned long start_pfn;    /* start pfn of memory segment */
-	unsigned long end_pfn;      /* end pfn of memory segment (exclusive) */
-};
-
-struct movablemem_map {
-	bool acpi;	/* true if using SRAT info */
-	int nr_map;
-	struct movablemem_entry map[MOVABLEMEM_MAP_MAX];
-	nodemask_t numa_nodes_hotplug;	/* on which nodes we specify memory */
-	nodemask_t numa_nodes_kernel;	/* on which nodes kernel resides in */
-};
-
-extern void __init insert_movablemem_map(unsigned long start_pfn,
-					 unsigned long end_pfn);
-extern int __init movablemem_map_overlap(unsigned long start_pfn,
-					 unsigned long end_pfn);
 #endif /* CONFIG_HAVE_MEMBLOCK_NODE_MAP */
 
 #if !defined(CONFIG_HAVE_MEMBLOCK_NODE_MAP) && \
