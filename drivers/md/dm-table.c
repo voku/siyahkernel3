@@ -825,8 +825,8 @@ int dm_table_add_target(struct dm_table *t, const char *type,
 
 	t->highs[t->num_targets++] = tgt->begin + tgt->len - 1;
 
-	if (!tgt->num_discard_requests && tgt->discards_supported)
-		DMWARN("%s: %s: ignoring discards_supported because num_discard_requests is zero.",
+	if (!tgt->num_discard_bios && tgt->discards_supported)
+		DMWARN("%s: %s: ignoring discards_supported because num_discard_bios is zero.",
 		       dm_device_name(t->md), type);
 
 	return 0;
@@ -1361,7 +1361,7 @@ static bool dm_table_supports_flush(struct dm_table *t, unsigned flush)
 	while (i < dm_table_get_num_targets(t)) {
 		ti = dm_table_get_target(t, i++);
 
-		if (!ti->num_flush_requests)
+		if (!ti->num_flush_bios)
 			continue;
 
 		if (ti->type->iterate_devices &&
@@ -1411,6 +1411,33 @@ static bool dm_table_is_nonrot(struct dm_table *t)
 	}
 
 	return 1;
+}
+
+static int device_not_write_same_capable(struct dm_target *ti, struct dm_dev *dev,
+					 sector_t start, sector_t len, void *data)
+{
+	struct request_queue *q = bdev_get_queue(dev->bdev);
+
+	return q && !q->limits.max_write_same_sectors;
+}
+
+static bool dm_table_supports_write_same(struct dm_table *t)
+{
+	struct dm_target *ti;
+	unsigned i = 0;
+
+	while (i < dm_table_get_num_targets(t)) {
+		ti = dm_table_get_target(t, i++);
+
+		if (!ti->num_write_same_bios)
+			return false;
+
+		if (!ti->type->iterate_devices ||
+		    !ti->type->iterate_devices(ti, device_not_write_same_capable, NULL))
+			return false;
+	}
+
+	return true;
 }
 
 void dm_table_set_restrictions(struct dm_table *t, struct request_queue *q,
@@ -1607,7 +1634,7 @@ bool dm_table_supports_discards(struct dm_table *t)
 	while (i < dm_table_get_num_targets(t)) {
 		ti = dm_table_get_target(t, i++);
 
-		if (!ti->num_discard_requests)
+		if (!ti->num_discard_bios)
 			continue;
 
 		if (ti->discards_supported)
