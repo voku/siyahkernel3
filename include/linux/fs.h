@@ -777,7 +777,7 @@ struct file {
 	} f_u;
 	struct path		f_path;
 #define f_dentry	f_path.dentry
-#define f_vfsmnt	f_path.mnt
+	struct inode		*f_inode;	/* cached value */
 	const struct file_operations	*f_op;
 
 	/*
@@ -2237,7 +2237,7 @@ static inline bool execute_ok(struct inode *inode)
 
 static inline struct inode *file_inode(struct file *f)
 {
-	return f->f_path.dentry->d_inode;
+	return f->f_inode;
 }
 
 static inline void file_start_write(struct file *file)
