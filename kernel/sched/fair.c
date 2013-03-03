@@ -3252,6 +3252,7 @@ find_idlest_cpu(struct sched_group *group, struct task_struct *p, int this_cpu)
 static int select_idle_sibling(struct task_struct *p, int target)
 {
 	struct sched_domain *sd;
+	struct sched_group *sg;
 	int i = task_cpu(p); 
 
 	if (idle_cpu(target))
@@ -3264,16 +3265,29 @@ static int select_idle_sibling(struct task_struct *p, int target)
 		return i;
 
 	/*
-	 * Otherwise, check assigned siblings to find an elegible idle cpu.
+	 * Otherwise, iterate the domains and find an elegible idle cpu.
 	 */
 	sd = rcu_dereference(per_cpu(sd_llc, target));
 	for_each_lower_domain(sd) {
-		if (!cpumask_test_cpu(sd->idle_buddy, tsk_cpus_allowed(p)))
-			continue;
-		if (idle_cpu(sd->idle_buddy))
-			return sd->idle_buddy;
-	}
+		sg = sd->groups;
+		do {
+			if (!cpumask_intersects(sched_group_cpus(sg),
+						tsk_cpus_allowed(p)))
+				goto next;
 
+			for_each_cpu(i, sched_group_cpus(sg)) {
+				if (i == target || !idle_cpu(i))
+					goto next;
+			}
+
+			target = cpumask_first_and(sched_group_cpus(sg),
+					tsk_cpus_allowed(p));
+			goto done;
+next:
+			sg = sg->next;
+		} while (sg != sd->groups);
+	}
+done:
 	return target;
 }
 
