@@ -395,7 +395,6 @@ efivar_unregister(struct efivar_entry *var)
 	kobject_put(&var->kobj);
 }
 
-
 static ssize_t efivar_create(struct file *filp, struct kobject *kobj,
 			     struct bin_attribute *bin_attr,
 			     char *buf, loff_t pos, size_t count)
