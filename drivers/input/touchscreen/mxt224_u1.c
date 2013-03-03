@@ -106,8 +106,6 @@
 static bool gbfilter;
 #endif
 
-static unsigned int level = ~0;
-
 struct object_t {
 	u8 object_type;
 	u16 i2c_address;
@@ -1345,6 +1343,7 @@ static unsigned int flash_timeout = 0;
 static void report_input_data(struct mxt224_data *data)
 {
 	int i;
+	static unsigned int level = ~0;
 	bool tsp_state = false;
 	bool check_press = false;
 	int64_t nr_running_tmp = 0;
