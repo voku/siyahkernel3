@@ -2545,9 +2545,10 @@ static int shmem_parse_options(char *options, struct shmem_sb_info *sbinfo,
 				goto bad_val;
 		} else if (!strcmp(this_char,"mpol")) {
 			mpol_put(mpol);
-			if (mpol_parse_str(value, &mpol, 1)) {
+			if (mpol_parse_str(value, &mpol)) {
 				mpol = NULL;
 				goto bad_val;
+			}
 		} else {
 			printk(KERN_ERR "tmpfs: Bad mount option %s\n",
 			       this_char);
