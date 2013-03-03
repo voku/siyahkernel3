@@ -7618,7 +7618,8 @@ static void __init exynos4_reserve_mem(void)
 			.start = 0,
 		},
 #endif
-/* #ifndef CONFIG_ION_EXYNOS_CONTIGHEAP_SIZE // removed to support AOKP NEW MALI + JB SAMMY, Dorimanx */
+/* Free FIMC1 allocation, to get more RAM for CM/AOKP builds, this define brake camera support for all JB/ICS SAMMY */
+#ifndef CONFIG_ION_EXYNOS_CONTIGHEAP_SIZE
 #ifdef CONFIG_VIDEO_SAMSUNG_MEMSIZE_FIMC1
 		{
 			.name = "fimc1",
@@ -7626,7 +7627,7 @@ static void __init exynos4_reserve_mem(void)
 			.start = 0,
 		},
 #endif
-/* #endif */
+#endif
 #ifdef CONFIG_VIDEO_SAMSUNG_MEMSIZE_FIMC2
 		{
 			.name = "fimc2",
