@@ -351,7 +351,7 @@ no_mem:
 					selected[i]->pid, selected[i]->comm,
 					selected_oom_score_adj[i], selected_tasksize[i]);
 #endif
-			lowmem_deathpending_timeout = jiffies + HZ;
+			lowmem_deathpending_timeout = jiffies + 100;
 			force_sig(SIGKILL, selected[i]);
 			set_tsk_thread_flag(selected[i], TIF_MEMDIE);
 			rem -= selected_tasksize[i];
@@ -388,8 +388,7 @@ no_mem:
 			     selected->pid, selected->comm, selected_oom_score_adj, selected_tasksize);
 #endif /* CONFIG_LMK_SCREEN_STATE */
 #endif /* CONFIG_KILL_ONCE_IF_SCREEN_OFF */
-
-		lowmem_deathpending_timeout = jiffies + HZ;
+		lowmem_deathpending_timeout = jiffies + 100;
 		force_sig(SIGKILL, selected);
 		set_tsk_thread_flag(selected, TIF_MEMDIE);
 		rem -= selected_tasksize;
