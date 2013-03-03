@@ -69,15 +69,15 @@ typedef struct mali_dvfs_stepTag{
 }mali_dvfs_step;
 
 mali_dvfs_step step[MALI_DVFS_STEPS]={
-	/*step 0 clk*/ {66,   900000},
+	/*step 0 clk*/ {108,   950000},
 #if (MALI_DVFS_STEPS > 1)
-	/*step 1 clk*/ {108,   900000},
+	/*step 1 clk*/ {160,   950000},
 #if (MALI_DVFS_STEPS > 2)
-	/*step 2 clk*/ {160,   950000},
+	/*step 2 clk*/ {200,  1000000},
 #if (MALI_DVFS_STEPS > 3)
-	/*step 3 clk*/ {200,  950000},
+	/*step 3 clk*/ {267,  1050000},
 #if (MALI_DVFS_STEPS > 4)
-	/*step 4 clk*/ {267,  1000000}
+	/*step 4 clk*/ {267,  1050000}
 #endif
 #endif
 #endif
@@ -107,26 +107,26 @@ mali_dvfs_staycount_table mali_dvfs_staycount[MALI_DVFS_STEPS]={
 // L3 = 266Mhz, 0.90V
 // L4 = 160Mhz, 0.875V
 
-int step0_clk = 66;
-int step0_vol = 900000;
+int step0_clk = 108;
+int step0_vol = 950000;
 #if (MALI_DVFS_STEPS > 1)
-int step1_clk = 108;
-int step1_vol = 900000;
+int step1_clk = 160;
+int step1_vol = 950000;
 int step0_up = 60;
 int step1_down = 50;
 #if (MALI_DVFS_STEPS > 2)
-int step2_clk = 160;
-int step2_vol = 950000;
+int step2_clk = 200;
+int step2_vol = 1000000;
 int step1_up = 60;
 int step2_down = 50;;
 #if (MALI_DVFS_STEPS > 3)
-int step3_clk = 200;
-int step3_vol = 950000;
+int step3_clk = 267;
+int step3_vol = 1050000;
 int step2_up = 85;
 int step3_down = 50;
 #if (MALI_DVFS_STEPS > 4)
 int step4_clk = 267;
-int step4_vol = 1000000;
+int step4_vol = 1050000;
 int step3_up = 85;
 int step4_down = 70;
 #endif
@@ -135,22 +135,22 @@ int step4_down = 70;
 #endif
 
 mali_dvfs_table mali_dvfs_all[MAX_MALI_DVFS_STEPS]={
-	{ 66   ,1000000   ,  900000},
-	{108   ,1000000   ,  900000},
+	{108   ,1000000   ,  950000},
 	{160   ,1000000   ,  950000},
-	{200   ,1000000   ,  950000},
-	{267   ,1000000   , 1000000} };
+	{200   ,1000000   , 1000000},
+	{267   ,1000000   , 1050000},
+	{267   ,1000000   , 1050000} };
 
 mali_dvfs_table mali_dvfs[MALI_DVFS_STEPS]={
-	{ 66  ,1000000    , 900000},
+	{108  ,1000000    , 950000},
 #if (MALI_DVFS_STEPS > 1)
-	{108  ,1000000    , 900000},
-#if (MALI_DVFS_STEPS > 2)
 	{160  ,1000000    , 950000},
+#if (MALI_DVFS_STEPS > 2)
+	{200  ,1000000    ,1000000},
 #if (MALI_DVFS_STEPS > 3)
-	{200  ,1000000    , 950000},
+	{267  ,1000000    ,1050000},
 #if (MALI_DVFS_STEPS > 4)
-	{267  ,1000000    ,1000000}
+	{267  ,1000000    ,1050000}
 #endif
 #endif
 #endif
