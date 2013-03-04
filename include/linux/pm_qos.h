@@ -8,6 +8,7 @@
 #include <linux/notifier.h>
 #include <linux/miscdevice.h>
 #include <linux/device.h>
+#include <linux/workqueue.h>
 
 #define PM_QOS_RESERVED 0
 #define PM_QOS_CPU_DMA_LATENCY 1
@@ -43,6 +44,12 @@ enum pm_qos_flags_status {
 struct pm_qos_request {
 	struct plist_node node;
 	int pm_qos_class;
+	struct delayed_work work; /* for pm_qos_update_request_timeout */
+};
+
+struct pm_qos_flags_request {
+	struct list_head node;
+	s32 flags;	/* Do not change to 64 bit */
 };
 
 enum dev_pm_qos_req_type {
@@ -66,8 +73,8 @@ enum pm_qos_type {
 };
 
 /*
- * Note: The lockless read path depends on the CPU accessing
- * target_value atomically.  Atomic access is only guaranteed on all CPU
+ * Note: The lockless read path depends on the CPU accessing target_value
+ * or effective_flags atomically.  Atomic access is only guaranteed on all CPU
  * types linux supports for 32 bit quantites
  */
 struct pm_qos_constraints {
@@ -76,6 +83,11 @@ struct pm_qos_constraints {
 	s32 default_value;
 	enum pm_qos_type type;
 	struct blocking_notifier_head *notifiers;
+};
+
+struct pm_qos_flags {
+	struct list_head list;
+	s32 effective_flags;	/* Do not change to 64 bit */
 };
 
 struct dev_pm_qos {
@@ -99,10 +111,15 @@ static inline int dev_pm_qos_request_active(struct dev_pm_qos_request *req)
 
 int pm_qos_update_target(struct pm_qos_constraints *c, struct plist_node *node,
 			 enum pm_qos_req_action action, int value);
+bool pm_qos_update_flags(struct pm_qos_flags *pqf,
+			 struct pm_qos_flags_request *req,
+			 enum pm_qos_req_action action, s32 val);
 void pm_qos_add_request(struct pm_qos_request *req, int pm_qos_class,
 			s32 value);
 void pm_qos_update_request(struct pm_qos_request *req,
 			   s32 new_value);
+void pm_qos_update_request_timeout(struct pm_qos_request *req,
+				   s32 new_value, unsigned long timeout_us);
 void pm_qos_remove_request(struct pm_qos_request *req);
 
 int pm_qos_request(int pm_qos_class);
