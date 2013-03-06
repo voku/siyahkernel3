@@ -1270,8 +1270,12 @@ static int __ref __offline_pages(unsigned long start_pfn,
 		goto out;
 
 	/* set above range as isolated */
+#ifndef CONFIG_DMA_CMA
+	ret = start_isolate_page_range(start_pfn, end_pfn);
+#else
 	ret = start_isolate_page_range(start_pfn, end_pfn,
 				       MIGRATE_MOVABLE, true);
+#endif
 	if (ret)
 		goto out;
 
@@ -1334,7 +1338,11 @@ repeat:
 	   We cannot do rollback at this point. */
 	offline_isolated_pages(start_pfn, end_pfn);
 	/* reset pagetype flags and makes migrate type to be MOVABLE */
+#ifndef CONFIG_DMA_CMA
+	undo_isolate_page_range(start_pfn, end_pfn);
+#else
 	undo_isolate_page_range(start_pfn, end_pfn, MIGRATE_MOVABLE);
+#endif
 	/* removal success */
 	zone->managed_pages -= offlined_pages;
 	zone->present_pages -= offlined_pages;
@@ -1368,7 +1376,11 @@ failed_removal:
 	       ((unsigned long long) end_pfn << PAGE_SHIFT) - 1);
 	memory_notify(MEM_CANCEL_OFFLINE, &arg);
 	/* pushback to free area */
+#ifndef CONFIG_DMA_CMA
+	undo_isolate_page_range(start_pfn, end_pfn);
+#else
 	undo_isolate_page_range(start_pfn, end_pfn, MIGRATE_MOVABLE);
+#endif
 
 out:
 	unlock_memory_hotplug();
