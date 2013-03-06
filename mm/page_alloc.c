@@ -336,7 +336,7 @@ static void bad_page(struct page *page)
 out:
 	/* Leave bad fields for debug, except PageBuddy could make trouble */
 	page_mapcount_reset(page); /* remove PageBuddy */
-	add_taint(TAINT_BAD_PAGE);
+	add_taint(TAINT_BAD_PAGE, LOCKDEP_NOW_UNRELIABLE);
 }
 
 /*
@@ -759,29 +759,22 @@ static void __free_pages_ok(struct page *page, unsigned int order)
  */
 void __meminit __free_pages_bootmem(struct page *page, unsigned int order)
 {
-	if (order == 0) {
-		__ClearPageReserved(page);
-		set_page_count(page, 0);
-		set_page_refcounted(page);
-		__free_page(page);
-	} else {
-		unsigned int nr_pages = 1 << order;
-		unsigned int loop;
+	unsigned int nr_pages = 1 << order;
+	unsigned int loop;
 
-		prefetchw(page);
-		for (loop = 0; loop < nr_pages; loop++) {
-			struct page *p = &page[loop];
+	prefetchw(page);
+	for (loop = 0; loop < nr_pages; loop++) {
+		struct page *p = &page[loop];
 
-			if (loop + 1 < nr_pages)
-				prefetchw(p + 1);
-			__ClearPageReserved(p);
-			set_page_count(p, 0);
-		}
-
-		page_zone(page)->managed_pages += 1 << order;
-		set_page_refcounted(page);
-		__free_pages(page, order);
+		if (loop + 1 < nr_pages)
+			prefetchw(p + 1);
+		__ClearPageReserved(p);
+		set_page_count(p, 0);
 	}
+
+	page_zone(page)->managed_pages += 1 << order;
+	set_page_refcounted(page);
+	__free_pages(page, order);
 }
 
 #ifdef CONFIG_DMA_CMA
@@ -2568,7 +2561,7 @@ rebalance:
 		 * invoking OOM. Bail if we are suspending
 		 */
 		if (pm_suspending())
-			goto nopage;
+			goto nopage_suspend;
 	}
 
 	/* Check if we should retry the allocation */
@@ -2596,10 +2589,16 @@ rebalance:
 			goto got_pg;
 	}
 
+nopage_suspend:
+	if (gfp_mask & __GFP_WAIT)
+		up_read(&page_alloc_slow_rwsem);
+
+	return page;
 nopage:
 	warn_alloc_failed(gfp_mask, order, NULL);
 	if (gfp_mask & __GFP_WAIT)
 		up_read(&page_alloc_slow_rwsem);
+
 	return page;
 got_pg:
 	if (kmemcheck_enabled)
@@ -4262,18 +4261,6 @@ void __init free_bootmem_with_active_regions(int nid, unsigned long max_low_pfn)
 	}
 }
 
-int __init add_from_early_node_map(struct range *range, int az,
-				   int nr_range, int nid)
-{
-	unsigned long start_pfn, end_pfn;
-	int i;
-
-	/* need to go over early_node_map to find out good range for node */
-	for_each_mem_pfn_range(i, nid, &start_pfn, &end_pfn, NULL)
-		nr_range = add_range(range, az, nr_range, start_pfn, end_pfn);
-	return nr_range;
-}
-
 /**
  * sparse_memory_present_with_active_regions - Call memory_present for each active range
  * @nid: The node to call memory_present for. If MAX_NUMNODES, all nodes will be used.
@@ -4613,6 +4600,11 @@ static void __paginginit free_area_init_core(struct pglist_data *pgdat,
 	int ret;
 
 	pgdat_resize_init(pgdat);
+#ifdef CONFIG_NUMA_BALANCING
+	spin_lock_init(&pgdat->numabalancing_migrate_lock);
+	pgdat->numabalancing_migrate_nr_pages = 0;
+	pgdat->numabalancing_migrate_next_window = jiffies;
+#endif
 	init_waitqueue_head(&pgdat->kswapd_wait);
 	init_waitqueue_head(&pgdat->pfmemalloc_wait);
 	pgdat_page_cgroup_init(pgdat);
