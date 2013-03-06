@@ -105,7 +105,7 @@ extern void prep_compound_page(struct page *page, unsigned long order);
 extern bool is_free_buddy_page(struct page *page);
 #endif
 
-#if defined CONFIG_COMPACTION || defined CONFIG_CMA
+#ifdef CONFIG_DMA_CMA
 
 /*
  * in mm/compaction.c
