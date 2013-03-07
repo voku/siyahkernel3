@@ -598,8 +598,8 @@ KBUILD_CFLAGS	+= -fdiagnostics-show-option -Werror \
 		   -Wno-error=unused-variable \
 		   -Wno-error=unused-value \
 		   -Wno-error=unused-label \
-		   -Wno-error=uninitialized \
-		   -Wno-error=address \
+		   -Wno-error=uninitialized
+#		   -Wno-error=address \
 		   -Wno-error=enum-compare
 endif
 
