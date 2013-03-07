@@ -7,6 +7,8 @@
  * Copyright (C) 2008 Fabio Checconi <fabio@gandalf.sssup.it>
  *		      Paolo Valente <paolo.valente@unimore.it>
  *
+ * Copyright (C) 2010 Paolo Valente <paolo.valente@unimore.it>
+ *
  * Licensed under the GPL-2 as detailed in the accompanying COPYING.BFQ file.
  */
 
@@ -276,6 +278,9 @@ static void bfq_bfqq_move(struct bfq_data *bfqd, struct bfq_queue *bfqq,
 
 	if (busy && resume)
 		bfq_activate_bfqq(bfqd, bfqq);
+
+	if (bfqd->active_queue == NULL && !bfqd->rq_in_driver)
+		bfq_schedule_dispatch(bfqd);
 }
 
 /**
@@ -694,7 +699,7 @@ static struct cgroup_subsys_state *bfqio_create(struct cgroup *cgroup)
 }
 
 /*
- * We cannot support shared io contexts, as we have no mean to support
+ * We cannot support shared io contexts, as we have no means to support
  * two tasks with the same ioc in two different groups without major rework
  * of the main bic/bfqq data structures.  By now we allow a task to change
  * its cgroup only if it's the only owner of its ioc; the drawback of this
