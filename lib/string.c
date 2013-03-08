@@ -23,7 +23,6 @@
 #include <linux/string.h>
 #include <linux/ctype.h>
 #include <linux/kernel.h>
-#include <linux/export.h>
 #include <linux/bug.h>
 #include <linux/errno.h>
 #include <linux/module.h>
