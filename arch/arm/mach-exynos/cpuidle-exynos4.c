@@ -589,10 +589,12 @@ static int exynos4_enter_core0_aftr(struct cpuidle_device *dev,
 		exynos4_reset_assert_ctrl(0);
 
 #ifdef CONFIG_EXYNOS4_CPUFREQ
+#ifdef CONFIG_CPU_EXYNOS4212
 	if (!soc_is_exynos4210()) {
 		abb_val = exynos4x12_get_abb_member(ABB_ARM);
 		exynos4x12_set_abb_member(ABB_ARM, ABB_MODE_075V);
 	}
+#endif
 #endif
 
 	if (exynos4_enter_lp(0, PLAT_PHYS_OFFSET - PAGE_OFFSET) == 0) {
@@ -619,8 +621,10 @@ static int exynos4_enter_core0_aftr(struct cpuidle_device *dev,
 
 early_wakeup:
 #ifdef CONFIG_EXYNOS4_CPUFREQ
+#ifdef CONFIG_CPU_EXYNOS4212
 	if ((exynos_result_of_asv > 1) && !soc_is_exynos4210())
 		exynos4x12_set_abb_member(ABB_ARM, abb_val);
+#endif
 #endif
 
 	if (!soc_is_exynos4210())
@@ -707,12 +711,14 @@ static int exynos4_enter_core0_lpa(struct cpuidle_device *dev,
 	} while (exynos4_check_enter());
 
 #ifdef CONFIG_EXYNOS4_CPUFREQ
+#ifdef CONFIG_CPU_EXYNOS4212
 	if (!soc_is_exynos4210()) {
 		abb_val = exynos4x12_get_abb_member(ABB_ARM);
 		abb_val_int = exynos4x12_get_abb_member(ABB_INT);
 		exynos4x12_set_abb_member(ABB_ARM, ABB_MODE_075V);
 		exynos4x12_set_abb_member(ABB_INT, ABB_MODE_075V);
 	}
+#endif
 #endif
 
 	if (exynos4_enter_lp(0, PLAT_PHYS_OFFSET - PAGE_OFFSET) == 0) {
@@ -745,10 +751,12 @@ early_wakeup:
 			       ARRAY_SIZE(exynos4_lpa_save));
 
 #ifdef CONFIG_EXYNOS4_CPUFREQ
+#ifdef CONFIG_CPU_EXYNOS4212
 	if ((exynos_result_of_asv > 1) && !soc_is_exynos4210()) {
 		exynos4x12_set_abb_member(ABB_ARM, abb_val);
 		exynos4x12_set_abb_member(ABB_INT, abb_val_int);
 	}
+#endif
 #endif
 
 	if (!soc_is_exynos4210())
