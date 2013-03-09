@@ -527,8 +527,7 @@ static int _request_firmware_prepare(const struct firmware **firmware_p,
 	if (!firmware) {
 		dev_err(device, "%s: kmalloc(struct firmware) failed\n",
 			__func__);
-		retval = -ENOMEM;
-		goto out;
+		return -ENOMEM;
 	}
 
 	if (fw_get_builtin_firmware(firmware, name)) {
