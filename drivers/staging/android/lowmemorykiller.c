@@ -36,6 +36,7 @@
 #include <linux/oom.h>
 #include <linux/sched.h>
 #include <linux/rcupdate.h>
+#include <linux/profile.h>
 #include <linux/notifier.h>
 #include <linux/swap.h>
 #include <linux/slab.h>
@@ -352,7 +353,7 @@ no_mem:
 					selected_oom_score_adj[i], selected_tasksize[i]);
 #endif
 			lowmem_deathpending_timeout = jiffies + 100;
-			force_sig(SIGKILL, selected[i]);
+			send_sig(SIGKILL, selected[i], 0);
 			set_tsk_thread_flag(selected[i], TIF_MEMDIE);
 			rem -= selected_tasksize[i];
 		}
@@ -389,7 +390,7 @@ no_mem:
 #endif /* CONFIG_LMK_SCREEN_STATE */
 #endif /* CONFIG_KILL_ONCE_IF_SCREEN_OFF */
 		lowmem_deathpending_timeout = jiffies + 100;
-		force_sig(SIGKILL, selected);
+		send_sig(SIGKILL, selected, 0);
 		set_tsk_thread_flag(selected, TIF_MEMDIE);
 		rem -= selected_tasksize;
 	}

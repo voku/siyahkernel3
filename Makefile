@@ -245,8 +245,8 @@ CONFIG_SHELL := $(shell if [ -x "$$BASH" ]; then echo $$BASH; \
 
 HOSTCC       = gcc
 HOSTCXX      = g++
-HOSTCFLAGS   = -Wall -Wmissing-prototypes -Wstrict-prototypes -O2 -fomit-frame-pointer
-HOSTCXXFLAGS = -O2
+HOSTCFLAGS   = -Wall -Wmissing-prototypes -Wstrict-prototypes -O3 -fno-tree-vectorize -fomit-frame-pointer
+HOSTCXXFLAGS = -O3 -fno-tree-vectorize
 
 # Decide whether to build built-in, modular, or both.
 # Normally, just do built-in.
@@ -351,31 +351,17 @@ CC		= $(srctree)/scripts/gcc-wrapper.py $(REAL_CC)
 
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
+OPTIMIZATION_FLAGS = -pipe -march=armv7-a -mtune=cortex-a9 -mfpu=neon \
+                     -ffast-math -fsingle-precision-constant \
+                     -fgcse-lm -fgcse-sm -fsched-spec-load -fforce-addr \
+		  			 -mvectorize-with-neon-quad
+CFLAGS_MODULE   = $(OPTIMIZATION_FLAGS)
+AFLAGS_MODULE   = $(OPTIMIZATION_FLAGS)
+LDFLAGS_MODULE  =
+CFLAGS_KERNEL   = $(OPTIMIZATION_FLAGS)
+AFLAGS_KERNEL   = $(OPTIMIZATION_FLAGS)
+CFLAGS_GCOV     = -fprofile-arcs -ftest-coverage
 
-LOW_ARM_FLAGS	= -pipe -march=armv7-a -mtune=cortex-a9 \
-		  -mfpu=neon -mfloat-abi=softfp \
-		  -funsafe-math-optimizations \
-		  -mvectorize-with-neon-quad
-
-#ARM_FLAGS       = -pipe -marm -march=armv7-a -mtune=cortex-a9 \
-		   -fsingle-precision-constant -mvectorize-with-neon-quad
-#LOOPS		= -funswitch-loops -fpredictive-commoning
-#LOOPS_4_6	= -floop-strip-mine -floop-block -floop-interchange
-
-MODULES		= -fmodulo-sched -fmodulo-sched-allow-regmoves
-
-DISABLED_STORE	= 
-
-MODFLAGS        = -DMODULE
-CFLAGS_MODULE   = $(MODFLAGS)
-AFLAGS_MODULE   = $(MODFLAGS)
-LDFLAGS_MODULE  = -T $(srctree)/scripts/module-common.lds
-CFLAGS_KERNEL	=
-AFLAGS_KERNEL	=
-CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage
-
-KERNEL_MODS	= $(LOW_ARM_FLAGS) $(MODULES)
-#DISABLED_KERNEL_MODS	= $(ARM_FLAGS) $(LOOPS) $(LOOPS_4_6)
 
 # Use LINUXINCLUDE when you must reference the include/ directory.
 # Needed to be compatible with the O= option
@@ -390,8 +376,7 @@ KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -fno-strict-aliasing -fno-common \
 		   -Werror-implicit-function-declaration \
 		   -Wno-format-security \
-		   -fno-delete-null-pointer-checks \
-		   $(KERNEL_MODS)
+		   -fno-delete-null-pointer-checks
 
 KBUILD_AFLAGS_KERNEL :=
 KBUILD_CFLAGS_KERNEL :=
@@ -590,6 +575,12 @@ KBUILD_CFLAGS	+= -O2
 endif
 ifdef CONFIG_CC_OPTIMIZE_ALOT
 KBUILD_CFLAGS	+= -O3
+endif
+ifdef CONFIG_CC_OPTIMIZE_MORE
+KBUILD_CFLAGS += -O3 -fmodulo-sched -fmodulo-sched-allow-regmoves -fno-tree-vectorize
+endif
+ifdef CONFIG_CC_OPTIMIZE_FAST
+KBUILD_CFLAGS += -Ofast
 endif
 
 ifdef CONFIG_CC_CHECK_WARNING_STRICTLY
