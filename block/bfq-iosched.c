@@ -2902,6 +2902,7 @@ static void *bfq_init_queue(struct request_queue *q)
 	return bfqd;
 }
 
+#if 0
 static void bfq_slab_kill(void)
 {
 	if (bfq_pool != NULL)
@@ -2915,6 +2916,7 @@ static int __init bfq_slab_setup(void)
 		return -ENOMEM;
 	return 0;
 }
+#endif
 
 static ssize_t bfq_var_show(unsigned int var, char *page)
 {
@@ -3181,6 +3183,8 @@ static struct elevator_type iosched_bfq = {
 
 static int __init bfq_init(void)
 {
+	int ret;
+
 	/*
 	 * Can be 0 on HZ < 1000 setups.
 	 */
@@ -3190,10 +3194,15 @@ static int __init bfq_init(void)
 	if (bfq_timeout_async == 0)
 		bfq_timeout_async = 1;
 
-	if (bfq_slab_setup())
+	bfq_pool = KMEM_CACHE(bfq_queue, 0);
+	if (bfq_pool == NULL)
 		return -ENOMEM;
 
-	elv_register(&iosched_bfq);
+	ret = elv_register(&iosched_bfq);
+	if (ret) {
+		kmem_cache_destroy(bfq_pool);
+		return ret;
+	}
 
 	return 0;
 }
@@ -3201,7 +3210,7 @@ static int __init bfq_init(void)
 static void __exit bfq_exit(void)
 {
 	elv_unregister(&iosched_bfq);
-	bfq_slab_kill();
+	kmem_cache_destroy(bfq_pool);
 }
 
 module_init(bfq_init);
