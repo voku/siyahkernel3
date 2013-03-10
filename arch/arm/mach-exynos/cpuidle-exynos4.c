@@ -1090,7 +1090,7 @@ static int __init exynos4_init_cpuidle(void)
 		return ret;
 	}
 
-	for_each_cpu(cpu_id, cpu_online_mask) {
+	for_each_online_cpu(cpu_id) {
 		device = &per_cpu(exynos4_cpuidle_device, cpu_id);
 		device->cpu = cpu_id;
 
@@ -1108,10 +1108,11 @@ static int __init exynos4_init_cpuidle(void)
 
 		device->safe_state = &device->states[0];
 
-		if (cpuidle_register_device(device)) {
+		ret = cpuidle_register_device(device);
+		if (ret) {
 			cpuidle_unregister_driver(&exynos4_idle_driver);
 			printk(KERN_ERR "CPUidle register device failed\n,");
-			return -EIO;
+			return ret;
 		}
 	}
 
