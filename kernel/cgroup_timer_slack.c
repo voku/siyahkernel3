@@ -96,17 +96,12 @@ static struct cftype files[] = {
 	},
 };
 
-static int tslack_populate(struct cgroup_subsys *subsys, struct cgroup *cgroup)
-{
-	return cgroup_add_files(cgroup, subsys, files, ARRAY_SIZE(files));
-}
-
 struct cgroup_subsys timer_slack_subsys = {
 	.name		= "timer_slack",
 	.subsys_id	= timer_slack_subsys_id,
 	.create		= tslack_create,
 	.destroy	= tslack_destroy,
-	.populate	= tslack_populate,
+	.base_cftypes	= files,
 };
 
 unsigned long task_get_effective_timer_slack(struct task_struct *tsk)

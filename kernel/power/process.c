@@ -17,11 +17,12 @@
 #include <linux/delay.h>
 #include <linux/workqueue.h>
 #include <linux/wakelock.h>
+#include <linux/kmod.h>
 
 /* 
  * Timeout for stopping processes
  */
-#define TIMEOUT	(20 * HZ)
+unsigned int __read_mostly freeze_timeout_msecs = 20 * MSEC_PER_SEC;
 
 static int try_to_freeze_tasks(bool user_only)
 {
@@ -36,7 +37,7 @@ static int try_to_freeze_tasks(bool user_only)
 
 	do_gettimeofday(&start);
 
-	end_time = jiffies + TIMEOUT;
+	end_time = jiffies + msecs_to_jiffies(freeze_timeout_msecs);
 
 	if (!user_only)
 		freeze_workqueues_begin();
@@ -48,18 +49,7 @@ static int try_to_freeze_tasks(bool user_only)
 			if (p == current || !freeze_task(p))
 				continue;
 
-			/*
-			 * Now that we've done set_freeze_flag, don't
-			 * perturb a task in TASK_STOPPED or TASK_TRACED.
-			 * It is "frozen enough".  If the task does wake
-			 * up, it will immediately call try_to_freeze.
-			 *
-			 * Because freeze_task() goes through p's scheduler lock, it's
-			 * guaranteed that TASK_STOPPED/TRACED -> TASK_RUNNING
-			 * transition can't race with task state testing here.
-			 */
-			if (!task_is_stopped_or_traced(p) &&
-			    !freezer_should_skip(p))
+			if (!freezer_should_skip(p))
 				todo++;
 		} while_each_thread(g, p);
 		read_unlock(&tasklist_lock);
@@ -83,7 +73,7 @@ static int try_to_freeze_tasks(bool user_only)
 
 		/*
 		 * We need to retry, but first give the freezing tasks some
-		 * time to enter the regrigerator.
+		 * time to enter the refrigerator.
 		 */
 		msleep(10);
 	}
@@ -133,6 +123,10 @@ int freeze_processes(void)
 {
 	int error;
 
+	error = __usermodehelper_disable(UMH_FREEZING);
+	if (error)
+		return error;
+
 	if (!pm_freezing)
 		atomic_inc(&system_freezing_cnt);
 
@@ -141,6 +135,7 @@ int freeze_processes(void)
 	error = try_to_freeze_tasks(true);
 	if (!error) {
 		printk("done.");
+		__usermodehelper_set_disable_depth(UMH_DISABLED);
 		oom_killer_disable();
 	}
 	printk("\n");
@@ -197,6 +192,8 @@ void thaw_processes(void)
 		__thaw_task(p);
 	} while_each_thread(g, p);
 	read_unlock(&tasklist_lock);
+
+	usermodehelper_enable();
 
 	schedule();
 	printk("done.\n");

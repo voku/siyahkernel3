@@ -671,13 +671,16 @@ static struct cftype bfqio_files[] = {
 		.read_u64 = bfqio_cgroup_ioprio_class_read,
 		.write_u64 = bfqio_cgroup_ioprio_class_write,
 	},
+	{ }  /* terminate */
 };
 
+#if 0
 static int bfqio_populate(struct cgroup_subsys *subsys, struct cgroup *cgroup)
 {
 	return cgroup_add_files(cgroup, subsys, bfqio_files,
 				ARRAY_SIZE(bfqio_files));
 }
+#endif
 
 static struct cgroup_subsys_state *bfqio_create(struct cgroup *cgroup)
 {
@@ -788,8 +791,9 @@ struct cgroup_subsys bfqio_subsys = {
 	.can_attach = bfqio_can_attach,
 	.attach = bfqio_attach,
 	.destroy = bfqio_destroy,
-	.populate = bfqio_populate,
+//	.populate = bfqio_populate,
 	.subsys_id = bfqio_subsys_id,
+	.base_cftypes = bfqio_files,
 };
 #else
 static inline void bfq_init_entity(struct bfq_entity *entity,

@@ -39,7 +39,7 @@ bool freezing_slow_path(struct task_struct *p)
 	if (pm_nosig_freezing || cgroup_freezing(p))
 		return true;
 
-	if (pm_freezing && !(p->flags & PF_FREEZER_NOSIG))
+	if (pm_freezing && !(p->flags & PF_KTHREAD))
 		return true;
 
 	return false;
@@ -52,39 +52,25 @@ bool __refrigerator(bool check_kthr_stop)
 	/* Hmm, should we be allowed to suspend when there are realtime
 	   processes around? */
 	bool was_frozen = false;
-	long save;
+	long save = current->state;
 
-	/*
-	 * No point in checking freezing() again - the caller already did.
-	 * Proceed to enter FROZEN.
-	 */
-	spin_lock_irq(&freezer_lock);
-repeat:
-	current->flags |= PF_FROZEN;
-	spin_unlock_irq(&freezer_lock);
-
-	save = current->state;
 	pr_debug("%s entered refrigerator\n", current->comm);
-
-	spin_lock_irq(&current->sighand->siglock);
-	recalc_sigpending(); /* We sent fake signal, clean it up */
-	spin_unlock_irq(&current->sighand->siglock);
 
 	for (;;) {
 		set_current_state(TASK_UNINTERRUPTIBLE);
+
+		spin_lock_irq(&freezer_lock);
+		current->flags |= PF_FROZEN;
 		if (!freezing(current) ||
 		    (check_kthr_stop && kthread_should_stop()))
+			current->flags &= ~PF_FROZEN;
+		spin_unlock_irq(&freezer_lock);
+
+		if (!(current->flags & PF_FROZEN))
 			break;
 		was_frozen = true;
 		schedule();
 	}
-
-	/* leave FROZEN */
-	spin_lock_irq(&freezer_lock);
-	if (freezing(current))
-		goto repeat;
-	current->flags &= ~PF_FROZEN;
-	spin_unlock_irq(&freezer_lock);
 
 	pr_debug("%s left refrigerator\n", current->comm);
 
@@ -103,9 +89,10 @@ static void fake_signal_wake_up(struct task_struct *p)
 {
 	unsigned long flags;
 
-	spin_lock_irqsave(&p->sighand->siglock, flags);
-	signal_wake_up(p, 0);
-	spin_unlock_irqrestore(&p->sighand->siglock, flags);
+	if (lock_task_sighand(p, &flags)) {
+		signal_wake_up(p, 0);
+		unlock_task_sighand(p, &flags);
+	}
 }
 
 /**
@@ -129,17 +116,10 @@ bool freeze_task(struct task_struct *p)
 		return false;
 	}
 
-	if (should_send_signal(p)) {
+	if (!(p->flags & PF_KTHREAD))
 		fake_signal_wake_up(p);
-		/*
-		 * fake_signal_wake_up() goes through p's scheduler
-		 * lock and guarantees that TASK_STOPPED/TRACED ->
-		 * TASK_RUNNING transition can't race with task state
-		 * testing in try_to_freeze_tasks().
-		 */
-	} else {
+	else
 		wake_up_state(p, TASK_INTERRUPTIBLE);
-	}
 
 	spin_unlock_irqrestore(&freezer_lock, flags);
 	return true;
@@ -154,17 +134,31 @@ void __thaw_task(struct task_struct *p)
 	 * be visible to @p as waking up implies wmb.  Waking up inside
 	 * freezer_lock also prevents wakeups from leaking outside
 	 * refrigerator.
-	 *
-	 * If !FROZEN, @p hasn't reached refrigerator, recalc sigpending to
-	 * avoid leaving dangling TIF_SIGPENDING behind.
 	 */
 	spin_lock_irqsave(&freezer_lock, flags);
-	if (frozen(p)) {
+	if (frozen(p))
 		wake_up_process(p);
-	} else {
-		spin_lock(&p->sighand->siglock);
-		recalc_sigpending_and_wake(p);
-		spin_unlock(&p->sighand->siglock);
-	}
 	spin_unlock_irqrestore(&freezer_lock, flags);
 }
+
+/**
+ * set_freezable - make %current freezable
+ *
+ * Mark %current freezable and enter refrigerator if necessary.
+ */
+bool set_freezable(void)
+{
+	might_sleep();
+
+	/*
+	 * Modify flags while holding freezer_lock.  This ensures the
+	 * freezer notices that we aren't frozen yet or the freezing
+	 * condition is visible to try_to_freeze() below.
+	 */
+	spin_lock_irq(&freezer_lock);
+	current->flags &= ~PF_NOFREEZE;
+	spin_unlock_irq(&freezer_lock);
+
+	return try_to_freeze();
+}
+EXPORT_SYMBOL(set_freezable);

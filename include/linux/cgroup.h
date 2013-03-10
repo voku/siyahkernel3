@@ -16,6 +16,8 @@
 #include <linux/prio_heap.h>
 #include <linux/rwsem.h>
 #include <linux/idr.h>
+#include <linux/workqueue.h>
+#include <linux/xattr.h>
 
 #ifdef CONFIG_CGROUPS
 
@@ -32,7 +34,6 @@ extern int cgroup_lock_is_held(void);
 extern bool cgroup_lock_live_group(struct cgroup *cgrp);
 extern void cgroup_unlock(void);
 extern void cgroup_fork(struct task_struct *p);
-extern void cgroup_fork_callbacks(struct task_struct *p);
 extern void cgroup_post_fork(struct task_struct *p);
 extern void cgroup_exit(struct task_struct *p, int run_callbacks);
 extern int cgroupstats_build(struct cgroupstats *stats,
@@ -46,7 +47,7 @@ extern const struct file_operations proc_cgroup_operations;
 #define SUBSYS(_x) _x ## _subsys_id,
 enum cgroup_subsys_id {
 #include <linux/cgroup_subsys.h>
-	CGROUP_BUILTIN_SUBSYS_COUNT
+	__CGROUP_TEMPORARY_PLACEHOLDER
 };
 #undef SUBSYS
 /*
@@ -76,12 +77,16 @@ struct cgroup_subsys_state {
 	unsigned long flags;
 	/* ID for this css, if possible */
 	struct css_id __rcu *id;
+
+	/* Used to put @cgroup->dentry on the last css_put() */
+	struct work_struct dput_work;
 };
 
 /* bits in struct cgroup_subsys_state flags field */
 enum {
 	CSS_ROOT, /* This CSS is the root of the subsystem */
 	CSS_REMOVED, /* This CSS is dead */
+	CSS_CLEAR_CSS_REFS,		/* @ss->__DEPRECATED_clear_css_refs */
 };
 
 /*
@@ -110,16 +115,12 @@ static inline bool css_is_removed(struct cgroup_subsys_state *css)
  * the css has been destroyed.
  */
 
+extern bool __css_tryget(struct cgroup_subsys_state *css);
 static inline bool css_tryget(struct cgroup_subsys_state *css)
 {
 	if (test_bit(CSS_ROOT, &css->flags))
 		return true;
-	while (!atomic_inc_not_zero(&css->refcnt)) {
-		if (test_bit(CSS_REMOVED, &css->flags))
-			return false;
-		cpu_relax();
-	}
-	return true;
+	return __css_tryget(css);
 }
 
 /*
@@ -127,11 +128,11 @@ static inline bool css_tryget(struct cgroup_subsys_state *css)
  * css_get() or css_tryget()
  */
 
-extern void __css_put(struct cgroup_subsys_state *css, int count);
+extern void __css_put(struct cgroup_subsys_state *css);
 static inline void css_put(struct cgroup_subsys_state *css)
 {
 	if (!test_bit(CSS_ROOT, &css->flags))
-		__css_put(css, 1);
+		__css_put(css);
 }
 
 /* bits in struct cgroup flags field */
@@ -167,6 +168,7 @@ struct cgroup {
 	 */
 	struct list_head sibling;	/* my parent's children */
 	struct list_head children;	/* my children */
+	struct list_head files;		/* my files */
 
 	struct cgroup *parent;		/* my parent */
 	struct dentry __rcu *dentry;	/* cgroup fs entry, RCU protected */
@@ -206,6 +208,9 @@ struct cgroup {
 	/* List of events which userspace want to receive */
 	struct list_head event_list;
 	spinlock_t event_list_lock;
+
+	/* directory xattrs */
+	struct simple_xattrs xattrs;
 };
 
 /*
@@ -300,6 +305,9 @@ struct cftype {
 	/* CFTYPE_* flags */
 	unsigned int flags;
 
+	/* file xattrs */
+	struct simple_xattrs xattrs;
+
 	int (*open)(struct inode *inode, struct file *file);
 	ssize_t (*read)(struct cgroup *cgrp, struct cftype *cft,
 			struct file *file,
@@ -385,7 +393,7 @@ struct cftype {
  */
 struct cftype_set {
 	struct list_head		node;	/* chained at subsys->cftsets */
-	const struct cftype		*cfts;
+	struct cftype			*cfts;
 };
 
 struct cgroup_scanner {
@@ -397,23 +405,8 @@ struct cgroup_scanner {
 	void *data;
 };
 
-/*
- * Add a new file to the given cgroup directory. Should only be
- * called by subsystems from within a populate() method
- */
-int cgroup_add_file(struct cgroup *cgrp, struct cgroup_subsys *subsys,
-		       const struct cftype *cft);
-
-/*
- * Add a set of new files to the given cgroup directory. Should
- * only be called by subsystems from within a populate() method
- */
-int cgroup_add_files(struct cgroup *cgrp,
-			struct cgroup_subsys *subsys,
-			const struct cftype cft[],
-			int count);
-
-int cgroup_add_cftypes(struct cgroup_subsys *ss, const struct cftype *cfts);
+int cgroup_add_cftypes(struct cgroup_subsys *ss, struct cftype *cfts);
+int cgroup_rm_cftypes(struct cgroup_subsys *ss, struct cftype *cfts);
 
 int cgroup_is_removed(const struct cgroup *cgrp);
 
@@ -479,7 +472,6 @@ struct cgroup_subsys {
 	void (*fork)(struct task_struct *task);
 	void (*exit)(struct cgroup *cgrp, struct cgroup *old_cgrp,
 		     struct task_struct *task);
-	int (*populate)(struct cgroup_subsys *ss, struct cgroup *cgrp);
 	void (*post_clone)(struct cgroup *cgrp);
 	void (*bind)(struct cgroup *root);
 
@@ -492,25 +484,24 @@ struct cgroup_subsys {
 	 * (not available in early_init time.)
 	 */
 	bool use_id;
+
+	/*
+	 * If %true, cgroup removal will try to clear css refs by retrying
+	 * ss->pre_destroy() until there's no css ref left.  This behavior
+	 * is strictly for backward compatibility and will be removed as
+	 * soon as the current user (memcg) is updated.
+	 *
+	 * If %false, ss->pre_destroy() can't fail and cgroup removal won't
+	 * wait for css refs to drop to zero before proceeding.
+	 */
+	bool __DEPRECATED_clear_css_refs;
+
 #define MAX_CGROUP_TYPE_NAMELEN 32
 	const char *name;
 
 	/*
-	 * Protects sibling/children links of cgroups in this
-	 * hierarchy, plus protects which hierarchy (or none) the
-	 * subsystem is a part of (i.e. root/sibling).  To avoid
-	 * potential deadlocks, the following operations should not be
-	 * undertaken while holding any hierarchy_mutex:
-	 *
-	 * - allocating memory
-	 * - initiating hotplug events
-	 */
-	struct mutex hierarchy_mutex;
-	struct lock_class_key subsys_key;
-
-	/*
 	 * Link to parent, and list entry in parent's children.
-	 * Protected by this->hierarchy_mutex and cgroup_lock()
+	 * Protected by cgroup_lock()
 	 */
 	struct cgroupfs_root *root;
 	struct list_head sibling;
@@ -603,7 +594,7 @@ static inline int cgroup_attach_task_current_cg(struct task_struct *tsk)
  * the lifetime of cgroup_subsys_state is subsys's matter.
  *
  * Looking up and scanning function should be called under rcu_read_lock().
- * Taking cgroup_mutex()/hierarchy_mutex() is not necessary for following calls.
+ * Taking cgroup_mutex is not necessary for following calls.
  * But the css returned by this routine can be "not populated yet" or "being
  * destroyed". The caller should check css and cgroup's status.
  */
