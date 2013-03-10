@@ -793,22 +793,22 @@ static int exynos4_enter_idle(struct cpuidle_device *dev,
 static int exynos4_enter_lowpower(struct cpuidle_device *dev,
 				  struct cpuidle_state *state);
 
-static struct cpuidle_state exynos4_cpuidle_set[] = {
+static struct cpuidle_state exynos4_cpuidle_set[] __initdata = {
 	[0] = {
 		.enter			= exynos4_enter_idle,
 		.exit_latency		= 1,
-		.target_residency	= 10000,
+		.target_residency	= 100000,
 		.flags			= CPUIDLE_FLAG_TIME_VALID,
-		.name			= "IDLE",
+		.name			= "Co",
 		.desc			= "ARM clock gating(WFI)",
 	},
 #ifdef CONFIG_EXYNOS4_LOWPWR_IDLE
 	[1] = {
 		.enter			= exynos4_enter_lowpower,
 		.exit_latency		= 300,
-		.target_residency	= 10000,
+		.target_residency	= 100000,
 		.flags			= CPUIDLE_FLAG_TIME_VALID,
-		.name			= "LOW_POWER",
+		.name			= "C1",
 		.desc			= "ARM power down",
 	},
 #endif
