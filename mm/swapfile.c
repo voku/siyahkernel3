@@ -21,7 +21,6 @@
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/init.h>
-#include <linux/module.h>
 #include <linux/ksm.h>
 #include <linux/rmap.h>
 #include <linux/security.h>
@@ -34,6 +33,7 @@
 #include <linux/oom.h>
 #include <linux/frontswap.h>
 #include <linux/swapfile.h>
+#include <linux/module.h>
 
 #include <asm/pgtable.h>
 #include <asm/tlbflush.h>
@@ -722,10 +722,10 @@ int try_to_free_swap(struct page *page)
 	 * original page might be freed under memory pressure, then
 	 * later read back in from swap, now with the wrong data.
 	 *
-	 * Hibration suspends storage while it is writing the image 
+	 * Hibration suspends storage while it is writing the image
 	 * to disk so check that here.
 	 */
-	if (pm_suspending())
+	if (pm_suspended_storage())
 		return 0;
 
 	delete_from_swap_cache(page);
@@ -2134,9 +2134,9 @@ SYSCALL_DEFINE2(swapon, const char __user *, specialfile, int, swap_flags)
 	enable_swap_info(p, prio, swap_map, frontswap_map);
 
 	printk(KERN_INFO "Adding %uk swap on %s.  "
-	    "Priority:%d extents:%d across:%lluk %s%s%s\n",
+			"Priority:%d extents:%d across:%lluk %s%s%s\n",
 		p->pages << (PAGE_SHIFT - 10), name, p->prio,
-		nr_extents, (unsigned long long)span << (PAGE_SHIFT - 10),
+		nr_extents, (unsigned long long)span<<(PAGE_SHIFT-10),
 		(p->flags & SWP_SOLIDSTATE) ? "SS" : "",
 		(p->flags & SWP_DISCARDABLE) ? "D" : "",
 		(frontswap_map) ? "FS" : "");

@@ -143,7 +143,7 @@ void pm_restrict_gfp_mask(void)
 	gfp_allowed_mask &= ~GFP_IOFS;
 }
 
-bool pm_suspending(void)
+bool pm_suspended_storage(void)
 {
 	if ((gfp_allowed_mask & GFP_IOFS) == GFP_IOFS)
 		return false;
@@ -152,7 +152,7 @@ bool pm_suspending(void)
 
 #else
 
-bool pm_suspending(void)
+bool pm_suspended_storage(void)
 {
 	return false;
 }
@@ -2067,7 +2067,7 @@ should_alloc_retry(gfp_t gfp_mask, unsigned int order,
 	 * making forward progress without invoking OOM. Suspend also disables
 	 * storage devices so kswapd will not help. Bail if we are suspending.
 	 */
-	if (!did_some_progress && pm_suspending())
+	if (!did_some_progress && pm_suspended_storage())
 		return 0;
 
 	/*
@@ -2560,7 +2560,7 @@ rebalance:
 		 * prevent reclaim making forward progress without
 		 * invoking OOM. Bail if we are suspending
 		 */
-		if (pm_suspending())
+		if (pm_suspended_storage())
 			goto nopage_suspend;
 	}
 
