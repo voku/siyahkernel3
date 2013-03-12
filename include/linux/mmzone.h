@@ -67,7 +67,9 @@ enum {
 	 * a single pageblock.
 	 */
 	MIGRATE_CMA,
+#ifdef CONFIG_MEMORY_ISOLATION
 	MIGRATE_ISOLATE,	/* can't allocate from here */
+#endif
 	MIGRATE_TYPES
 };
 
@@ -75,9 +77,9 @@ bool is_cma_pageblock(struct page *page);
 #endif
 
 #ifdef CONFIG_DMA_CMA
-#define is_migrate_cma(migratetype) unlikely((migratetype) == MIGRATE_CMA)
+#  define is_migrate_cma(migratetype) unlikely((migratetype) == MIGRATE_CMA)
 #else
-#define is_migrate_cma(migratetype) false
+#  define is_migrate_cma(migratetype) false
 #endif
 
 #define for_each_migratetype_order(order, type) \

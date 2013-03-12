@@ -3479,6 +3479,18 @@ static int do_nonlinear_fault(struct mm_struct *mm, struct vm_area_struct *vma,
 	return __do_fault(mm, vma, address, pmd, pgoff, flags, orig_pte);
 }
 
+int numa_migrate_prep(struct page *page, struct vm_area_struct *vma,
+				unsigned long addr, int current_nid)
+{
+	get_page(page);
+
+	count_vm_numa_event(NUMA_HINT_FAULTS);
+	if (current_nid == numa_node_id())
+		count_vm_numa_event(NUMA_HINT_FAULTS_LOCAL);
+
+	return mpol_misplaced(page, vma, addr);
+}
+
 int do_numa_page(struct mm_struct *mm, struct vm_area_struct *vma,
 		   unsigned long addr, pte_t pte, pte_t *ptep, pmd_t *pmd)
 {
@@ -3514,9 +3526,8 @@ int do_numa_page(struct mm_struct *mm, struct vm_area_struct *vma,
 		return 0;
 	}
 
-	get_page(page);
 	current_nid = page_to_nid(page);
-	target_nid = mpol_misplaced(page, vma, addr);
+	target_nid = numa_migrate_prep(page, vma, addr, current_nid);
 	pte_unmap_unlock(ptep, ptl);
 	if (target_nid == -1) {
 		/*
@@ -3624,10 +3635,11 @@ static int do_pmd_numa_page(struct mm_struct *mm, struct vm_area_struct *vma,
 	return 0;
 }
 #else
-static void do_pmd_numa_page(struct mm_struct *mm, struct vm_area_struct *vma,
+static int do_pmd_numa_page(struct mm_struct *mm, struct vm_area_struct *vma,
 		     unsigned long addr, pmd_t *pmdp)
 {
 	BUG();
+	return 0;
 }
 #endif /* CONFIG_NUMA_BALANCING */
 
@@ -3668,6 +3680,9 @@ int handle_pte_fault(struct mm_struct *mm,
 		return do_swap_page(mm, vma, address,
 					pte, pmd, flags, entry);
 	}
+
+	if (pte_numa(entry))
+		return do_numa_page(mm, vma, address, entry, pte, pmd);
 
 	ptl = pte_lockptr(mm, pmd);
 	spin_lock(ptl);
@@ -3747,6 +3762,10 @@ retry:
 			if (pmd_trans_splitting(orig_pmd))
 				return 0;
 
+			if (pmd_numa(orig_pmd))
+				return do_huge_pmd_numa_page(mm, vma, address,
+							     orig_pmd, pmd);
+
 			if (dirty && !pmd_write(orig_pmd)) {
 				ret = do_huge_pmd_wp_page(mm, vma, address, pmd,
 							  orig_pmd);
@@ -3762,9 +3781,13 @@ retry:
 				huge_pmd_set_accessed(mm, vma, address, pmd,
 						      orig_pmd, dirty);
 			}
+
 			return 0;
 		}
 	}
+
+	if (pmd_numa(*pmd))
+		return do_pmd_numa_page(mm, vma, address, pmd);
 
 	/*
 	 * Use __pte_alloc instead of pte_alloc_map, because we can't
