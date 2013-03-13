@@ -823,12 +823,11 @@ do_alignment(unsigned long addr, unsigned int fsr, struct pt_regs *regs)
 		break;
 
 	case 0x08000000:	/* ldm or stm, or thumb-2 32bit instruction */
-		if (thumb2_32b) {
-			offset.un = 0;
+		if (thumb2_32b)
 			handler = do_alignment_t32_to_handler(&instr, regs, &offset);
-		} else {
-			offset.un = 0;
+		else {
 			handler = do_alignment_ldmstm;
+			offset.un = 0;
 		}
 		break;
 

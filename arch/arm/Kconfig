@@ -25,6 +25,9 @@ config ARM
 	select GENERIC_IRQ_PROBE
 	select HAVE_IRQ_WORK
 	select HAVE_PERF_EVENTS
+	select HAVE_UID16
+	select VIRT_TO_BUS
+	select KTIME_SCALAR
 	select PERF_USE_VMALLOC
 	select HAVE_REGS_AND_STACK_ACCESS_API
 	select HAVE_HW_BREAKPOINT if (PERF_EVENTS && (CPU_V6 || CPU_V6K || CPU_V7))
@@ -1669,6 +1672,7 @@ config FORCE_MAX_ZONEORDER
 	int "Maximum zone order" if ARCH_SHMOBILE
 	range 11 64 if ARCH_SHMOBILE
 	default "9" if SA1111
+	default "12" if ARCH_EXYNOS
 	default "11"
 	help
 	  The kernel memory allocator divides physically contiguous memory

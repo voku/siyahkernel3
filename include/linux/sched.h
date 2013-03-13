@@ -1330,10 +1330,9 @@ struct task_struct {
 	/* Canary value for the -fstack-protector gcc feature */
 	unsigned long stack_canary;
 #endif
-
-	/* 
+	/*
 	 * pointers to (original) parent process, youngest child, younger sibling,
-	 * older sibling, respectively.  (p->father can be replaced with 
+	 * older sibling, respectively.  (p->father can be replaced with
 	 * p->real_parent->pid)
 	 */
 	struct task_struct __rcu *real_parent; /* real parent process */
@@ -1961,7 +1960,7 @@ static inline int set_cpus_allowed(struct task_struct *p, cpumask_t new_mask)
 extern unsigned long long notrace sched_clock(void);
 extern unsigned long long notrace sched_clock_clksrc(void);
 /*
- * See the comment in kernel/sched_clock.c
+ * See the comment in kernel/sched/clock.c
  */
 extern u64 cpu_clock(int cpu);
 extern u64 local_clock(void);
@@ -2062,9 +2061,6 @@ extern int sched_setscheduler(struct task_struct *, int,
 extern int sched_setscheduler_nocheck(struct task_struct *, int,
 				      const struct sched_param *);
 extern struct task_struct *idle_task(int cpu);
-extern struct task_struct *curr_task(int cpu);
-extern void set_curr_task(int cpu, struct task_struct *p);
-
 /**
  * is_idle_task - is the specified task an idle task?
  * @p: the task in question.
@@ -2073,6 +2069,8 @@ static inline bool is_idle_task(const struct task_struct *p)
 {
 	return p->pid == 0;
 }
+extern struct task_struct *curr_task(int cpu);
+extern void set_curr_task(int cpu, struct task_struct *p);
 
 void yield(void);
 
@@ -2162,7 +2160,7 @@ static inline int dequeue_signal_lock(struct task_struct *tsk, sigset_t *mask, s
 	spin_unlock_irqrestore(&tsk->sighand->siglock, flags);
 
 	return ret;
-}	
+}
 
 extern void block_all_signals(int (*notifier)(void *priv), void *priv,
 			      sigset_t *mask);
@@ -2350,7 +2348,7 @@ static inline int task_detached(struct task_struct *p)
  * Protects ->fs, ->files, ->mm, ->group_info, ->comm, keyring
  * subscriptions and synchronises with wait4().  Also used in procfs.  Also
  * pins the final release of task.io_context.  Also protects ->cpuset and
- * ->cgroup.subsys[].
+ * ->cgroup.subsys[]. And ->vfork_done.
  *
  * Nests both inside and outside of read_lock(&tasklist_lock).
  * It must not be nested with write_lock_irq(&tasklist_lock),
@@ -2674,7 +2672,10 @@ extern long sched_getaffinity(pid_t pid, struct cpumask *mask);
 extern struct task_group root_task_group;
 
 extern struct task_group *sched_create_group(struct task_group *parent);
+extern void sched_online_group(struct task_group *tg,
+			       struct task_group *parent);
 extern void sched_destroy_group(struct task_group *tg);
+extern void sched_offline_group(struct task_group *tg);
 extern void sched_move_task(struct task_struct *tsk);
 #ifdef CONFIG_FAIR_GROUP_SCHED
 extern int sched_group_set_shares(struct task_group *tg, unsigned long shares);
