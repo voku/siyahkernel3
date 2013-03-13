@@ -75,7 +75,7 @@ mali_dvfs_step step[MALI_DVFS_STEPS]={
 #if (MALI_DVFS_STEPS > 2)
 	/*step 2 clk*/ {200,  1000000},
 #if (MALI_DVFS_STEPS > 3)
-	/*step 3 clk*/ {267,  1050000},
+	/*step 3 clk*/ {267,  1000000},
 #if (MALI_DVFS_STEPS > 4)
 	/*step 4 clk*/ {267,  1050000}
 #endif
@@ -121,7 +121,7 @@ int step1_up = 60;
 int step2_down = 50;;
 #if (MALI_DVFS_STEPS > 3)
 int step3_clk = 267;
-int step3_vol = 1050000;
+int step3_vol = 1000000;
 int step2_up = 85;
 int step3_down = 50;
 #if (MALI_DVFS_STEPS > 4)
@@ -138,7 +138,7 @@ mali_dvfs_table mali_dvfs_all[MAX_MALI_DVFS_STEPS]={
 	{108   ,1000000   ,  950000},
 	{160   ,1000000   ,  950000},
 	{200   ,1000000   , 1000000},
-	{267   ,1000000   , 1050000},
+	{267   ,1000000   , 1000000},
 	{267   ,1000000   , 1050000} };
 
 mali_dvfs_table mali_dvfs[MALI_DVFS_STEPS]={
@@ -148,7 +148,7 @@ mali_dvfs_table mali_dvfs[MALI_DVFS_STEPS]={
 #if (MALI_DVFS_STEPS > 2)
 	{200  ,1000000    ,1000000},
 #if (MALI_DVFS_STEPS > 3)
-	{267  ,1000000    ,1050000},
+	{267  ,1000000    ,1000000},
 #if (MALI_DVFS_STEPS > 4)
 	{267  ,1000000    ,1050000}
 #endif
