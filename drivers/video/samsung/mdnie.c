@@ -48,11 +48,15 @@
 #include "mdnie_color_tone_4210.h"
 #else	/* CONFIG_CPU_EXYNOS4210 */
 #if defined(CONFIG_FB_S5P_S6E8AA0)
-#include "mdnie_table_c1m0.h"
+#if defined(CONFIG_S6E8AA0_AMS465XX)
+#include "mdnie_table_superior.h"
+#else
+#include "mdnie_table_m0.h"
+#endif
 #elif defined(CONFIG_FB_S5P_EA8061) || defined(CONFIG_FB_S5P_S6EVR02)
 #include "mdnie_table_t0.h"
 #elif defined(CONFIG_FB_S5P_S6E63M0)
-#include "mdnie_table_c1m0.h"
+#include "mdnie_table_m0.h"
 #elif defined(CONFIG_FB_S5P_S6C1372)
 #include "mdnie_table_p4note.h"
 #elif defined(CONFIG_FB_S5P_S6D6AA1)
@@ -64,8 +68,9 @@
 #endif
 #include "mdnie_color_tone_4412.h"
 #endif
-
-#if defined(CONFIG_TDMB) || defined(CONFIG_TARGET_LOCALE_NTT)
+#if defined(CONFIG_FB_S5P_LMS501XX)
+#include "mdnie_dmb_baffin.h"
+#elif defined(CONFIG_TDMB) || defined(CONFIG_TARGET_LOCALE_NTT)
 #include "mdnie_dmb.h"
 #endif
 
@@ -870,13 +875,12 @@ static struct device_attribute mdnie_attributes[] = {
 void mdnie_early_suspend(struct early_suspend *h)
 {
 	struct mdnie_info *mdnie = container_of(h, struct mdnie_info, early_suspend);
-	struct lcd_platform_data *pd = NULL;
-
+#if defined(CONFIG_FB_MDNIE_PWM)
+	struct lcd_platform_data *pd = mdnie->lcd_pd;
+#endif
 	dev_info(mdnie->dev, "+%s\n", __func__);
 
 #if defined(CONFIG_FB_MDNIE_PWM)
-	pd = mdnie->lcd_pd;
-
 	mdnie->bd_enable = FALSE;
 
 	if (mdnie->enable)
@@ -893,20 +897,20 @@ void mdnie_early_suspend(struct early_suspend *h)
 
 	dev_info(mdnie->dev, "-%s\n", __func__);
 
-	return ;
+	return;
 }
 
 void mdnie_late_resume(struct early_suspend *h)
 {
 	u32 i;
 	struct mdnie_info *mdnie = container_of(h, struct mdnie_info, early_suspend);
-	struct lcd_platform_data *pd = NULL;
+#if defined(CONFIG_FB_MDNIE_PWM)
+	struct lcd_platform_data *pd = mdnie->lcd_pd;
+#endif
 
 	dev_info(mdnie->dev, "+%s\n", __func__);
 
 #if defined(CONFIG_FB_MDNIE_PWM)
-	pd = mdnie->lcd_pd;
-
 	if (mdnie->enable)
 		mdnie_pwm_control(mdnie, 0);
 
@@ -919,7 +923,7 @@ void mdnie_late_resume(struct early_suspend *h)
 		pd->power_on(NULL, 1);
 
 	if (mdnie->enable) {
-		dev_info(&mdnie->bd->dev, "brightness=%d\n", mdnie->bd->props.brightness);
+		dev_dbg(&mdnie->bd->dev, "brightness=%d\n", mdnie->bd->props.brightness);
 		update_brightness(mdnie);
 	}
 
@@ -934,7 +938,7 @@ void mdnie_late_resume(struct early_suspend *h)
 
 	dev_info(mdnie->dev, "-%s\n", __func__);
 
-	return ;
+	return;
 }
 #endif
 #endif

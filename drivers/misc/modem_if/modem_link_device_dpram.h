@@ -141,6 +141,7 @@ struct dpram_link_device {
 	struct dpram_udl_param udl_param;
 
 	/* For CP crash dump */
+	bool forced_cp_crash;
 	struct timer_list crash_ack_timer;
 	struct completion crash_start_complete;
 	struct completion crash_recv_done;
@@ -150,7 +151,9 @@ struct dpram_link_device {
 	/* For locking TX process */
 	spinlock_t tx_lock[MAX_IPC_DEV];
 
-	/* For TX under DPRAM flow control */
+	/* For retransmission under DPRAM flow control after TXQ full state */
+	unsigned long res_ack_wait_timeout;
+	atomic_t res_required[MAX_IPC_DEV];
 	struct completion req_ack_cmpl[MAX_IPC_DEV];
 
 	/* For efficient RX process */
@@ -158,9 +161,6 @@ struct dpram_link_device {
 	struct mif_rxb_queue rxbq[MAX_IPC_DEV];
 	struct io_device *iod[MAX_IPC_DEV];
 	bool rx_with_skb;
-
-	/* For retransmission after buffer full state */
-	atomic_t res_required[MAX_IPC_DEV];
 
 	/* For wake-up/sleep control */
 	atomic_t accessing;
@@ -177,6 +177,9 @@ struct dpram_link_device {
 
 	/* Alias to DPRAM IRQ handler */
 	irqreturn_t (*irq_handler)(int irq, void *data);
+
+	/* For logging DPRAM status */
+	struct mem_stat_queue stat_list;
 
 	/* For DPRAM dump */
 	void (*dpram_dump)(struct link_device *ld, char *buff);
@@ -196,22 +199,25 @@ struct dpram_link_device {
 	void (*set_magic)(struct dpram_link_device *dpld, u16 value);
 	u16 (*get_access)(struct dpram_link_device *dpld);
 	void (*set_access)(struct dpram_link_device *dpld, u16 value);
-	u32 (*get_tx_head)(struct dpram_link_device *dpld, int id);
-	u32 (*get_tx_tail)(struct dpram_link_device *dpld, int id);
-	void (*set_tx_head)(struct dpram_link_device *dpld, int id, u32 head);
-	void (*set_tx_tail)(struct dpram_link_device *dpld, int id, u32 tail);
-	u8 *(*get_tx_buff)(struct dpram_link_device *dpld, int id);
-	u32 (*get_tx_buff_size)(struct dpram_link_device *dpld, int id);
-	u32 (*get_rx_head)(struct dpram_link_device *dpld, int id);
-	u32 (*get_rx_tail)(struct dpram_link_device *dpld, int id);
-	void (*set_rx_head)(struct dpram_link_device *dpld, int id, u32 head);
-	void (*set_rx_tail)(struct dpram_link_device *dpld, int id, u32 tail);
-	u8 *(*get_rx_buff)(struct dpram_link_device *dpld, int id);
-	u32 (*get_rx_buff_size)(struct dpram_link_device *dpld, int id);
+	u32 (*get_txq_head)(struct dpram_link_device *dpld, int id);
+	u32 (*get_txq_tail)(struct dpram_link_device *dpld, int id);
+	void (*set_txq_head)(struct dpram_link_device *dpld, int id, u32 in);
+	void (*set_txq_tail)(struct dpram_link_device *dpld, int id, u32 out);
+	u8 *(*get_txq_buff)(struct dpram_link_device *dpld, int id);
+	u32 (*get_txq_buff_size)(struct dpram_link_device *dpld, int id);
+	u32 (*get_rxq_head)(struct dpram_link_device *dpld, int id);
+	u32 (*get_rxq_tail)(struct dpram_link_device *dpld, int id);
+	void (*set_rxq_head)(struct dpram_link_device *dpld, int id, u32 in);
+	void (*set_rxq_tail)(struct dpram_link_device *dpld, int id, u32 out);
+	u8 *(*get_rxq_buff)(struct dpram_link_device *dpld, int id);
+	u32 (*get_rxq_buff_size)(struct dpram_link_device *dpld, int id);
 	u16 (*get_mask_req_ack)(struct dpram_link_device *dpld, int id);
 	u16 (*get_mask_res_ack)(struct dpram_link_device *dpld, int id);
 	u16 (*get_mask_send)(struct dpram_link_device *dpld, int id);
-	void (*ipc_rx_handler)(struct dpram_link_device *dpld, u16 int2ap);
+	void (*get_dpram_status)(struct dpram_link_device *dpld,
+			enum circ_dir_type, struct mem_status *stat);
+	void (*ipc_rx_handler)(struct dpram_link_device *dpld,
+			struct mem_status *stat);
 
 	/* Extended operations for various modems */
 	struct dpram_ext_op *ext_op;

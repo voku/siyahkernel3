@@ -327,10 +327,6 @@ static struct regulator_consumer_supply ldo12_supply[] = {
 static struct regulator_consumer_supply ldo13_supply[] = {
 	REGULATOR_SUPPLY("vusbhub_osc_1.8v", NULL),
 };
-#elif defined(CONFIG_MACH_M3_USA_TMO)
-static struct regulator_consumer_supply ldo13_supply[] = {
-	REGULATOR_SUPPLY("vcc_adc_1.8v", NULL),
-};
 #endif
 
 static struct regulator_consumer_supply ldo14_supply[] = {
@@ -449,9 +445,6 @@ REGULATOR_INIT(ldo12, "VUOTG_3.0V", 3000000, 3000000, 1,
 	defined(CONFIG_MACH_M0_DUOSCTC) || defined(CONFIG_MACH_M0_GRANDECTC)
 REGULATOR_INIT(ldo13, "VUSBHUB_OSC_1.8V", 1800000, 1800000, 0,
 	       REGULATOR_CHANGE_STATUS, 1);
-#elif defined(CONFIG_MACH_M3_USA_TMO)
-REGULATOR_INIT(ldo13, "VCC_ADC_1.8V", 1800000, 1800000, 0,
-	       REGULATOR_CHANGE_STATUS, 1);
 #endif
 REGULATOR_INIT(ldo14, "VABB2_1.95V", 1950000, 1950000, 1,
 	       REGULATOR_CHANGE_STATUS, 1);
@@ -523,15 +516,11 @@ static struct regulator_init_data ldo25_redwood_init_data = {
 static struct regulator_init_data max77686_buck1_data = {
 	.constraints = {
 		.name = "vdd_mif range",
-		.min_uV = 850000,
+		.min_uV = 600000,
 #ifdef CONFIG_SLP
 		.max_uV = 1100000,
 #else
-#if defined(CONFIG_MACH_M3_JPN_DCM)
-		.max_uV = 1200000,
-#else
 		.max_uV = 1050000,
-#endif
 #endif
 		.always_on = 1,
 		.boot_on = 1,
@@ -544,7 +533,7 @@ static struct regulator_init_data max77686_buck1_data = {
 static struct regulator_init_data max77686_buck2_data = {
 	.constraints = {
 		.name = "vdd_arm range",
-		.min_uV = 850000,
+		.min_uV = 600000,
 		.max_uV = 1500000,
 		.apply_uV = 1,
 		.always_on = 1,
@@ -558,19 +547,11 @@ static struct regulator_init_data max77686_buck2_data = {
 static struct regulator_init_data max77686_buck3_data = {
 	.constraints = {
 		.name = "vdd_int range",
-#if defined(CONFIG_MACH_M3_JPN_DCM)
-		.min_uV = 825000,
-#else
-		.min_uV = 850000,
-#endif
+		.min_uV = 600000,
 #ifdef CONFIG_SLP
 		.max_uV = 1150000,
 #else
-#if defined(CONFIG_MACH_M3_JPN_DCM)
-		.max_uV = 1300000,
-#else
 		.max_uV = 1100000,
-#endif
 #endif
 		.always_on = 1,
 		.boot_on = 1,
@@ -583,15 +564,11 @@ static struct regulator_init_data max77686_buck3_data = {
 static struct regulator_init_data max77686_buck4_data = {
 	.constraints = {
 		.name = "vdd_g3d range",
-		.min_uV = 850000,
+		.min_uV = 600000,
 #ifdef CONFIG_SLP
 		.max_uV = 1100000,
 #else
-#if defined(CONFIG_MACH_M3_JPN_DCM)
-		.max_uV = 1200000,
-#else
-		.max_uV = 1075000,
-#endif
+		.max_uV = 1400000,
 #endif
 		.boot_on = 1,
 		.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE |
@@ -645,9 +622,7 @@ static struct max77686_regulator_data max77686_regulators[] = {
 	{MAX77686_LDO12, &ldo12_init_data,},
 #if defined(CONFIG_MACH_C1_KOR_SKT) || defined(CONFIG_MACH_C1_KOR_KT) || \
 	defined(CONFIG_MACH_C1_KOR_LGT) || defined(CONFIG_MACH_C1) || \
-	defined(CONFIG_MACH_M0_DUOSCTC) || \
-	defined(CONFIG_MACH_M0_GRANDECTC) || \
-	defined(CONFIG_MACH_M3_USA_TMO)
+	defined(CONFIG_MACH_M0_DUOSCTC) || defined(CONFIG_MACH_M0_GRANDECTC)
 	{MAX77686_LDO13, &ldo13_init_data,},
 #endif
 	{MAX77686_LDO14, &ldo14_init_data,},
@@ -670,9 +645,7 @@ struct max77686_opmode_data max77686_opmode_data[MAX77686_REG_MAX] = {
 	[MAX77686_LDO12] = {MAX77686_LDO12, MAX77686_OPMODE_STANDBY},
 #if defined(CONFIG_MACH_C1_KOR_SKT) || defined(CONFIG_MACH_C1_KOR_KT) || \
 	defined(CONFIG_MACH_C1_KOR_LGT) || defined(CONFIG_MACH_C1) || \
-	defined(CONFIG_MACH_M0_DUOSCTC) || \
-	defined(CONFIG_MACH_M0_GRANDECTC) || \
-	defined(CONFIG_MACH_M3_USA_TMO)
+	defined(CONFIG_MACH_M0_DUOSCTC) || defined(CONFIG_MACH_M0_GRANDECTC)
 	[MAX77686_LDO13] = {MAX77686_LDO13, MAX77686_OPMODE_NORMAL},
 #endif
 	[MAX77686_LDO14] = {MAX77686_LDO14, MAX77686_OPMODE_STANDBY},

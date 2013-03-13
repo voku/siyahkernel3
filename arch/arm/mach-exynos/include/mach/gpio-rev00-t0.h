@@ -338,9 +338,12 @@ extern int s3c_gpio_slp_setpull_updown(unsigned int pin, unsigned int config);
 #define GPIO_ISDBT_SPI_MOSI	EXYNOS4_GPC1(4)
 
 #if defined(CONFIG_ISDBT_ANT_DET)
-#define GPIO_ISDBT_ANT_DET          EXYNOS4_GPL2(4)
-#define GPIO_ISDBT_IRQ_ANT_DET      gpio_to_irq(GPIO_ISDBT_ANT_DET)
+#define GPIO_ISDBT_ANT_DET		EXYNOS4_GPL2(4)
+#define GPIO_ISDBT_IRQ_ANT_DET		gpio_to_irq(GPIO_ISDBT_ANT_DET)
+#define GPIO_ISDBT_ANT_DET_REV08	EXYNOS4_GPX1(3)
+#define GPIO_ISDBT_IRQ_ANT_DET_REV08	gpio_to_irq(GPIO_ISDBT_ANT_DET_REV08)
 #endif
+
 #endif
 
 /*BARCODE_EMUL*/

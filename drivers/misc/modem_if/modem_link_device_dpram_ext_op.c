@@ -1031,7 +1031,7 @@ static void qc_crash_log(struct dpram_link_device *dpld)
 	static unsigned char buf[151];
 	u8 __iomem *data = NULL;
 
-	data = dpld->get_rx_buff(dpld, IPC_FMT);
+	data = dpld->get_rxq_buff(dpld, IPC_FMT);
 	memcpy(buf, data, (sizeof(buf) - 1));
 
 	mif_info("PHONE ERR MSG\t| %s Crash\n", ld->mdm_data->name);
@@ -1219,12 +1219,14 @@ static irqreturn_t qc_dpram_irq_handler(int irq, void *data)
 {
 	struct dpram_link_device *dpld = (struct dpram_link_device *)data;
 	struct link_device *ld = (struct link_device *)&dpld->ld;
+	struct mem_status stat;
 	u16 int2ap = 0;
 
 	if (unlikely(ld->mode == LINK_MODE_OFFLINE))
 		return IRQ_HANDLED;
 
-	int2ap = dpld->recv_intr(dpld);
+	dpld->get_dpram_status(dpld, RX, &stat);
+	int2ap = stat.int2ap;
 
 	if (int2ap == INT_POWERSAFE_FAIL) {
 		mif_info("%s: int2ap == INT_POWERSAFE_FAIL\n", ld->name);
@@ -1240,7 +1242,7 @@ static irqreturn_t qc_dpram_irq_handler(int irq, void *data)
 	}
 
 	if (likely(INT_VALID(int2ap)))
-		dpld->ipc_rx_handler(dpld, int2ap);
+		dpld->ipc_rx_handler(dpld, &stat);
 	else
 		mif_info("%s: ERR! invalid intr 0x%04X\n", ld->name, int2ap);
 

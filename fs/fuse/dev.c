@@ -151,8 +151,7 @@ static struct fuse_req *get_reserved_req(struct fuse_conn *fc,
 		if (ff->reserved_req) {
 			req = ff->reserved_req;
 			ff->reserved_req = NULL;
-			get_file(file);
-			req->stolen_file = file;
+			req->stolen_file = get_file(file);
 		}
 		spin_unlock(&fc->lock);
 	} while (!req);
@@ -242,27 +241,26 @@ static u64 fuse_get_unique(struct fuse_conn *fc)
 
 static inline int is_rt(struct fuse_conn *fc)
 {
-	/*
-	* Returns 1 if a process is RT class.
-	*/
+	/* Returns 1 if request is RT class                     */
+	/* && FUSE_HANDLE_RT_CLASS bit of fc->flags is set.     */
+	/* FUSE_HANDLE_RT_CLASS bit is set by 'handle_rt_class' */
+	/* mount option while mounting a file system.           */
 	struct io_context *ioc;
-	int ret = 0;
+	struct task_struct *tsk = current;
 
 	if (!fc)
 		return 0;
+
 	if (!(fc->flags & FUSE_HANDLE_RT_CLASS)) /* Don't handle RT class */
 		return 0;
 
-	ioc = get_io_context(GFP_NOWAIT, 0);
-	if(!ioc)
-		return 0;
+	ioc = get_task_io_context(tsk, GFP_NOWAIT, 0);
+	if (ioc && IOPRIO_PRIO_CLASS(ioc->ioprio) == IOPRIO_CLASS_RT)
+		return 1;
 
-	if(IOPRIO_PRIO_CLASS(ioc->ioprio) == IOPRIO_CLASS_RT)
-		ret = 1;
-
-	put_io_context(ioc);
-	return ret;
+	return 0;
 }
+
 
 static void queue_request(struct fuse_conn *fc, struct fuse_req *req)
 {
@@ -868,10 +866,10 @@ static int fuse_copy_page(struct fuse_copy_state *cs, struct page **pagep,
 			}
 		}
 		if (page) {
-			void *mapaddr = kmap_atomic(page, KM_USER0);
+			void *mapaddr = kmap_atomic(page);
 			void *buf = mapaddr + offset;
 			offset += fuse_copy_do(cs, &buf, &count);
-			kunmap_atomic(mapaddr, KM_USER0);
+			kunmap_atomic(mapaddr);
 		} else
 			offset += fuse_copy_do(cs, NULL, &count);
 	}
@@ -1555,6 +1553,7 @@ static int fuse_retrieve(struct fuse_conn *fc, struct inode *inode,
 		req->pages[req->num_pages] = page;
 		req->num_pages++;
 
+		offset = 0;
 		num -= this_num;
 		total_len += this_num;
 		index++;

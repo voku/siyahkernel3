@@ -37,6 +37,10 @@
 #include <mach/gpufreq.h>
 #endif
 
+#ifdef CONFIG_FAST_BOOT
+#include <linux/fake_shut_down.h>
+#endif
+
 #include "power.h"
 
 DEFINE_MUTEX(pm_mutex);
@@ -61,8 +65,9 @@ EXPORT_SYMBOL_GPL(unregister_pm_notifier);
 
 int pm_notifier_call_chain(unsigned long val)
 {
-	return (blocking_notifier_call_chain(&pm_chain_head, val, NULL)
-			== NOTIFY_BAD) ? -EINVAL : 0;
+	int ret = blocking_notifier_call_chain(&pm_chain_head, val, NULL);
+
+	return notifier_to_errno(ret);
 }
 
 /* If set, devices may be suspended and resumed asynchronously. */
@@ -136,7 +141,7 @@ static ssize_t pm_test_store(struct kobject *kobj, struct kobj_attribute *attr,
 	p = memchr(buf, '\n', n);
 	len = p ? p - buf : n;
 
-	mutex_lock(&pm_mutex);
+	lock_system_sleep();
 
 	level = TEST_FIRST;
 	for (s = &pm_tests[level]; level <= TEST_MAX; s++, level++)
@@ -146,7 +151,7 @@ static ssize_t pm_test_store(struct kobject *kobj, struct kobj_attribute *attr,
 			break;
 		}
 
-	mutex_unlock(&pm_mutex);
+	unlock_system_sleep();
 
 	return error ? error : n;
 }
@@ -288,9 +293,26 @@ static ssize_t state_show(struct kobject *kobj, struct kobj_attribute *attr,
 #endif
 	return (s - buf);
 }
+
 #ifdef CONFIG_FAST_BOOT
-bool fake_shut_down = false;
+bool fake_shut_down;
 EXPORT_SYMBOL(fake_shut_down);
+
+RAW_NOTIFIER_HEAD(fsd_notifier_list);
+
+int register_fake_shut_down_notifier(struct notifier_block *nb)
+{
+	return raw_notifier_chain_register(&fsd_notifier_list, nb);
+}
+EXPORT_SYMBOL(register_fake_shut_down_notifier);
+
+int unregister_fake_shut_down_notifier(struct notifier_block *nb)
+{
+	return raw_notifier_chain_unregister(&fsd_notifier_list, nb);
+}
+EXPORT_SYMBOL(unregister_fake_shut_down_notifier);
+
+extern void wakelock_force_suspend(void);
 #endif
 
 static ssize_t state_store(struct kobject *kobj, struct kobj_attribute *attr,
@@ -354,6 +376,11 @@ static ssize_t state_store(struct kobject *kobj, struct kobj_attribute *attr,
 #endif
 #else
 		error = enter_state(state);
+		if (error) {
+			suspend_stats.fail++;
+			dpm_save_failed_errno(error);
+		} else
+			suspend_stats.success++;
 #endif
 	}
 #endif
@@ -574,20 +601,24 @@ static ssize_t cpufreq_max_limit_store(struct kobject *kobj,
 			printk(KERN_ERR "%s: Unlock request is ignored\n",
 				__func__);
 	} else { /* Lock request */
-		if (get_cpufreq_level((unsigned int)val, &cpufreq_level)
-		    == VALID_LEVEL) {
-			if (cpufreq_max_limit_val != -1)
-				/* Unlock the previous lock */
-				exynos_cpufreq_upper_limit_free(
-					DVFS_LOCK_ID_USER);
-			lock_ret = exynos_cpufreq_upper_limit(
-					DVFS_LOCK_ID_USER, cpufreq_level);
-			/* ret of exynos_cpufreq_upper_limit is meaningless.
-			   0 is fail? success? */
-			cpufreq_max_limit_val = val;
-		} else /* Invalid lock request --> No action */
-			printk(KERN_ERR "%s: Lock request is invalid\n",
-				__func__);
+		if (val < 1200000) {
+			val = 1000000;
+
+			if (get_cpufreq_level((unsigned int)val, &cpufreq_level)
+			    == VALID_LEVEL) {
+				if (cpufreq_max_limit_val != -1)
+					/* Unlock the previous lock */
+					exynos_cpufreq_upper_limit_free(
+						DVFS_LOCK_ID_USER);
+				lock_ret = exynos_cpufreq_upper_limit(
+						DVFS_LOCK_ID_USER, cpufreq_level);
+				/* ret of exynos_cpufreq_upper_limit is meaningless.
+				   0 is fail? success? */
+				cpufreq_max_limit_val = val;
+			} else /* Invalid lock request --> No action */
+				printk(KERN_ERR "%s: Lock request is invalid\n",
+						__func__);
+		}
 	}
 
 	ret = n;
@@ -629,11 +660,11 @@ static ssize_t cpufreq_min_limit_store(struct kobject *kobj,
 	} else { /* Lock request */
 		if (get_cpufreq_level((unsigned int)val, &cpufreq_level)
 			== VALID_LEVEL) {
-			if (cpufreq_min_limit_val != -1)
+//			if (cpufreq_min_limit_val != -1)
 				/* Unlock the previous lock */
-				exynos_cpufreq_lock_free(DVFS_LOCK_ID_USER);
-			lock_ret = exynos_cpufreq_lock(
-					DVFS_LOCK_ID_USER, cpufreq_level);
+//				exynos_cpufreq_lock_free(DVFS_LOCK_ID_USER);
+//			lock_ret = exynos_cpufreq_lock(
+//					DVFS_LOCK_ID_USER, cpufreq_level);
 			/* ret of exynos_cpufreq_lock is meaningless.
 			   0 is fail? success? */
 			cpufreq_min_limit_val = val;
@@ -656,7 +687,6 @@ power_attr(cpufreq_table);
 power_attr(cpufreq_max_limit);
 power_attr(cpufreq_min_limit);
 #endif /* CONFIG_DVFS_LIMIT */
-
 
 #ifdef CONFIG_ROTATION_BOOSTER_SUPPORT
 static inline void rotation_booster_on(void)

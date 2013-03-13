@@ -8,12 +8,6 @@
 #ifdef CONFIG_SENSORS_AK8963C
 #include <linux/sensor/ak8963.h>
 #endif
-#ifdef CONFIG_INPUT_MPU6050
-#include <linux/mpu6050_input.h>
-#endif
-#ifdef CONFIG_SENSORS_AK8963
-#include <linux/akm8963.h>
-#endif
 #include <linux/sensor/k3dh.h>
 #include <linux/sensor/gp2a.h>
 #include <linux/sensor/lsm330dlc_accel.h>
@@ -47,16 +41,6 @@ static struct accel_platform_data accel_pdata = {
 static struct gyro_platform_data gyro_pdata = {
 	.gyro_get_position = stm_get_position,
 	.axis_adjust = true,
-};
-#endif
-
-#ifdef CONFIG_INPUT_MPU6050
-static struct mpu6050_input_platform_data mpu6050_pdata = {
-	.orientation = {-1, 0, 0,
-				0, 1, 0,
-				0, 0, -1},
-	.acc_cal_path = "/efs/calibration_data",
-	.gyro_cal_path = "/efs/gyro_cal_data",
 };
 #endif
 
@@ -96,11 +80,6 @@ static struct i2c_board_info i2c_devs1[] __initdata = {
 		I2C_BOARD_INFO("ssp", 0x18),
 		.platform_data = &ssp_pdata,
 		.irq = GPIO_MCU_AP_INT,
-	},
-#elif defined(CONFIG_INPUT_MPU6050)
-	{
-		I2C_BOARD_INFO("mpu6050_input", 0x68),
-		.platform_data = &mpu6050_pdata,
 	},
 #endif
 };
@@ -177,11 +156,7 @@ static int stm_get_position(void)
 	int position = 0;
 
 #if defined(CONFIG_MACH_M3) /* C2_SPR, M3 */
-#if defined(CONFIG_MACH_M3_USA_TMO)
-	position = 4;
-#else
-	position = 2; /* top/lower-right */
-#endif
+		position = 2; /* top/lower-right */
 #elif defined(CONFIG_MACH_M0_CMCC)
 	if (system_rev == 2)
 		position = 0; /* top/upper-left */
@@ -223,13 +198,8 @@ static int stm_get_position(void)
 		position = 1; /* top/upper-right */
 	else
 		position = 0; /* top/upper-left */
-#elif defined(CONFIG_MACH_BAFFIN_KOR_SKT) || defined(CONFIG_MACH_BAFFIN_KOR_KT)
-	if (system_rev >= 2)
-		position = 3; /* top/lower-left */
-	else
-		position = 2; /* top/lower-right */
-#elif defined(CONFIG_MACH_BAFFIN_KOR_LGT)
-		position = 3; /* top/lower-left */
+#elif defined(CONFIG_MACH_BAFFIN)
+		position = 6; /* bottom/lower-right */
 #else /* Common */
 	position = 2; /* top/lower-right */
 #endif
@@ -259,7 +229,7 @@ static int accel_gpio_init(void)
 }
 #endif
 
-#if defined(CONFIG_SENSORS_LSM330DLC)
+#ifdef CONFIG_SENSORS_LSM330DLC
 static int gyro_gpio_init(void)
 {
 	int ret = gpio_request(GPIO_GYRO_INT, "lsm330dlc_gyro_irq");
@@ -305,32 +275,6 @@ static int gyro_gpio_init(void)
 	return ret;
 }
 #endif
-
-#ifdef CONFIG_INPUT_MPU6050
-static int mpu_gpio_init(void)
-{
-	int ret = gpio_request(GPIO_GYRO_INT, "mpu_irq");
-
-	pr_info("%s\n", __func__);
-
-	if (ret) {
-		pr_err("%s, Failed to request gpio mpu_irq(%d)\n",
-			__func__, ret);
-		return ret;
-	}
-
-	/* Accelerometer sensor interrupt pin initialization */
-	s5p_register_gpio_interrupt(GPIO_GYRO_INT);
-	s3c_gpio_cfgpin(GPIO_GYRO_INT, S3C_GPIO_INPUT);
-	gpio_set_value(GPIO_GYRO_INT, 2);
-	s3c_gpio_setpull(GPIO_GYRO_INT, S3C_GPIO_PULL_NONE);
-	s5p_gpio_set_drvstr(GPIO_GYRO_INT, S5P_GPIO_DRVSTR_LV1);
-	i2c_devs1[0].irq = gpio_to_irq(GPIO_GYRO_INT);
-
-	return ret;
-}
-#endif
-
 
 #if defined(CONFIG_SENSORS_GP2A) || defined(CONFIG_SENSORS_CM36651) || \
 	defined(CONFIG_SENSORS_CM3663)
@@ -524,50 +468,7 @@ static int ak8963c_gpio_init(void)
 	return ret;
 }
 #endif
-#ifdef CONFIG_SENSORS_AK8963
-static struct akm8963_platform_data akm8963_pdata = {
-	.layout = 4,
-	.outbit = 1,
-	.gpio_RST = GPIO_MSENSE_RST_N,
-};
 
-static struct i2c_board_info i2c_devs10_emul[] __initdata = {
-	{
-		I2C_BOARD_INFO("akm8963", 0x0C),
-		.platform_data = &akm8963_pdata,
-	},
-};
-
-static int ak8963c_gpio_init(void)
-{
-	int ret;
-
-	pr_info("%s\n", __func__);
-
-	ret = gpio_request(GPIO_MSENSOR_INT, "gpio_akm_int");
-	if (ret) {
-		pr_err("%s, Failed to request gpio akm_int.(%d)\n",
-			__func__, ret);
-		return ret;
-	}
-	s5p_register_gpio_interrupt(GPIO_MSENSOR_INT);
-	s3c_gpio_setpull(GPIO_MSENSOR_INT, S3C_GPIO_PULL_DOWN);
-	s3c_gpio_cfgpin(GPIO_MSENSOR_INT, S3C_GPIO_SFN(0xF));
-	i2c_devs10_emul[0].irq = gpio_to_irq(GPIO_MSENSOR_INT);
-
-	ret = gpio_request(GPIO_MSENSE_RST_N, "gpio_akm_rst");
-	if (ret) {
-		pr_err("%s, Failed to request gpio akm_rst.(%d)\n",
-			__func__, ret);
-		return ret;
-	}
-	s3c_gpio_cfgpin(GPIO_MSENSE_RST_N, S3C_GPIO_OUTPUT);
-	s3c_gpio_setpull(GPIO_MSENSE_RST_N, S3C_GPIO_PULL_NONE);
-	gpio_direction_output(GPIO_MSENSE_RST_N, 1);
-
-	return ret;
-}
-#endif
 
 #ifdef CONFIG_SENSORS_LPS331
 static int lps331_gpio_init(void)
@@ -621,12 +522,6 @@ static int __init midas_sensor_init(void)
 	ret = accel_gpio_init();
 	if (ret < 0) {
 		pr_err("%s, accel_gpio_init fail(err=%d)\n", __func__, ret);
-		return ret;
-	}
-#elif defined(CONFIG_INPUT_MPU6050)
-	ret = mpu_gpio_init();
-	if (ret < 0) {
-		pr_err("%s, mpu_gpio_init fail(err=%d)\n", __func__, ret);
 		return ret;
 	}
 #elif defined(CONFIG_SENSORS_SSP)
@@ -696,21 +591,7 @@ static int __init midas_sensor_init(void)
 			return ret;
 		}
 #endif
-#ifdef CONFIG_SENSORS_AK8963
-		ret = ak8963c_gpio_init();
-		if (ret < 0) {
-			pr_err("%s, ak8963c_gpio_init fail(err=%d)\n",
-							 __func__, ret);
-			return ret;
-		}
-		ret = i2c_add_devices(10, i2c_devs10_emul,
-						ARRAY_SIZE(i2c_devs10_emul));
-		if (ret < 0) {
-			pr_err("%s, i2c10 adding i2c fail(err=%d)\n",
-							__func__, ret);
-			return ret;
-		}
-#endif
+
 	/* Pressure Sensor */
 #ifdef CONFIG_SENSORS_LPS331
 	ret = lps331_gpio_init();

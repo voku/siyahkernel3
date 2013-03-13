@@ -296,7 +296,7 @@ static s32 large_file;
 #elif defined(CONFIG_MACH_U1_KOR_LGT)
 #include  "s5k5bafx_setfile_lgt.h"
 #else
-#include  "s5k5bafx_setfile.h"
+#include  "s5k5bafx_setfile-v2.h"
 #endif
 
 #endif /* __S5K5BAFX_H */

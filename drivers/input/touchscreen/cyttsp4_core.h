@@ -56,16 +56,16 @@
 
 /*
  * use the following define to allow auto load of firmware at startup
- */
 #define CY_AUTO_LOAD_FW
+ */
 
 /* use the following define to allow auto load of Touch Params at startup
-*/
 #define CY_AUTO_LOAD_TOUCH_PARAMS
+ */
 
 /* use the following define to allow auto load of Design Data at startup
 #define CY_AUTO_LOAD_DDATA
-*/
+ */
 
 /*
  * use the following define to allow auto load of Manufacturing Data at startup
@@ -76,7 +76,7 @@
  * use the following define to allow autoload firmware for any version diffs;
  * otherwise only autoload if load version is greater than device image version
 #define CY_ANY_DIFF_NEW_VER
-*/
+ */
 
 /* use the following define to include loader application
 #define CY_USE_FORCE_LOAD
@@ -99,6 +99,7 @@
 
 /*
  * use the following define to enable driver watchdog timer
+#define CY_USE_WATCHDOG
  */
 #define CY_USE_WATCHDOG
 

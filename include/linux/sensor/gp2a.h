@@ -28,11 +28,6 @@
 
 #define ADC_BUFFER_NUM	6
 
-#define DEFAULT_LO_THR	0x07 /* sharp recommand Loff */
-#define DEFAULT_HI_THR	0x08 /* sharp recommand Lon */
-
-#define OFFSET_ARRAY_LENGTH		10
-
 /* 16 level for premium model*/
 enum {
 	LIGHT_DIM   = 0,

@@ -15,6 +15,7 @@
 #include <linux/suspend.h>
 #include <linux/platform_device.h>
 #include <linux/gpio.h>
+#include <asm/cp15.h>
 
 #include <asm/proc-fns.h>
 #include <asm/tlbflush.h>
@@ -375,11 +376,17 @@ static int check_idpram_op(void)
 {
 #ifdef CONFIG_SEC_MODEM_U1_SPR
 	/* This pin is high when CP might be accessing dpram */
-	/* return !!gpio_get_value(GPIO_CP_DUMP_INT); */
-	int x1_2 = __raw_readl(S5P_VA_GPIO2 + 0xC24) & 4; /* GPX1(2) */
-	if (x1_2 != 0)
-		pr_info("%s x1_2 is %s\n", __func__, x1_2 ? "high" : "low");
-	return x1_2;
+	/* int val = gpio_get_value(GPIO_CP_DUMP_INT); */
+	/* int val = __raw_readl(S5P_VA_GPIO2 + 0xC24) & 4; */ /* GPX1(2) */
+	int val = gpio_get_value(GPIO_PDA_ACTIVE);
+	static int prev_val = -1;
+
+	if (prev_val != val) {
+		prev_val = val;
+		pr_info("%s GPIO_PDA_ACTIVE = %d\n", __func__, val);
+	}
+
+	return val;
 #else
 	/* This pin is high when CP might be accessing dpram */
 	int cp_int = gpio_get_value(GPIO_CP_AP_DPRAM_INT);
@@ -387,6 +394,18 @@ static int check_idpram_op(void)
 		pr_info("%s cp_int is high.\n", __func__);
 	return cp_int;
 #endif
+}
+#endif
+
+#if defined(CONFIG_ISDBT)
+static int check_isdbt_op(void)
+{
+	/* This pin is high when isdbt is working */
+	int isdbt_is_running = gpio_get_value(GPIO_ISDBT_EN);
+
+	if (isdbt_is_running != 0)
+		printk(KERN_INFO "isdbt_is_running is high\n");
+	return isdbt_is_running;
 }
 #endif
 
@@ -426,6 +445,11 @@ static int exynos4_check_operation(void)
 #endif
 	if (check_usb_op())
 		return 1;
+
+#if defined(CONFIG_ISDBT)
+	if (check_isdbt_op())
+		return 1;
+#endif
 
 #if defined(CONFIG_BT)
 	if (check_bt_op())
@@ -565,10 +589,12 @@ static int exynos4_enter_core0_aftr(struct cpuidle_device *dev,
 		exynos4_reset_assert_ctrl(0);
 
 #ifdef CONFIG_EXYNOS4_CPUFREQ
+#ifdef CONFIG_CPU_EXYNOS4212
 	if (!soc_is_exynos4210()) {
 		abb_val = exynos4x12_get_abb_member(ABB_ARM);
 		exynos4x12_set_abb_member(ABB_ARM, ABB_MODE_075V);
 	}
+#endif
 #endif
 
 	if (exynos4_enter_lp(0, PLAT_PHYS_OFFSET - PAGE_OFFSET) == 0) {
@@ -595,8 +621,10 @@ static int exynos4_enter_core0_aftr(struct cpuidle_device *dev,
 
 early_wakeup:
 #ifdef CONFIG_EXYNOS4_CPUFREQ
+#ifdef CONFIG_CPU_EXYNOS4212
 	if ((exynos_result_of_asv > 1) && !soc_is_exynos4210())
 		exynos4x12_set_abb_member(ABB_ARM, abb_val);
+#endif
 #endif
 
 	if (!soc_is_exynos4210())
@@ -683,12 +711,14 @@ static int exynos4_enter_core0_lpa(struct cpuidle_device *dev,
 	} while (exynos4_check_enter());
 
 #ifdef CONFIG_EXYNOS4_CPUFREQ
+#ifdef CONFIG_CPU_EXYNOS4212
 	if (!soc_is_exynos4210()) {
 		abb_val = exynos4x12_get_abb_member(ABB_ARM);
 		abb_val_int = exynos4x12_get_abb_member(ABB_INT);
 		exynos4x12_set_abb_member(ABB_ARM, ABB_MODE_075V);
 		exynos4x12_set_abb_member(ABB_INT, ABB_MODE_075V);
 	}
+#endif
 #endif
 
 	if (exynos4_enter_lp(0, PLAT_PHYS_OFFSET - PAGE_OFFSET) == 0) {
@@ -721,10 +751,12 @@ early_wakeup:
 			       ARRAY_SIZE(exynos4_lpa_save));
 
 #ifdef CONFIG_EXYNOS4_CPUFREQ
+#ifdef CONFIG_CPU_EXYNOS4212
 	if ((exynos_result_of_asv > 1) && !soc_is_exynos4210()) {
 		exynos4x12_set_abb_member(ABB_ARM, abb_val);
 		exynos4x12_set_abb_member(ABB_INT, abb_val_int);
 	}
+#endif
 #endif
 
 	if (!soc_is_exynos4210())
@@ -761,22 +793,22 @@ static int exynos4_enter_idle(struct cpuidle_device *dev,
 static int exynos4_enter_lowpower(struct cpuidle_device *dev,
 				  struct cpuidle_state *state);
 
-static struct cpuidle_state exynos4_cpuidle_set[] = {
+static struct cpuidle_state exynos4_cpuidle_set[] __initdata = {
 	[0] = {
 		.enter			= exynos4_enter_idle,
 		.exit_latency		= 1,
-		.target_residency	= 10000,
+		.target_residency	= 100000,
 		.flags			= CPUIDLE_FLAG_TIME_VALID,
-		.name			= "IDLE",
+		.name			= "Co",
 		.desc			= "ARM clock gating(WFI)",
 	},
 #ifdef CONFIG_EXYNOS4_LOWPWR_IDLE
 	[1] = {
 		.enter			= exynos4_enter_lowpower,
 		.exit_latency		= 300,
-		.target_residency	= 10000,
+		.target_residency	= 100000,
 		.flags			= CPUIDLE_FLAG_TIME_VALID,
-		.name			= "LOW_POWER",
+		.name			= "C1",
 		.desc			= "ARM power down",
 	},
 #endif
@@ -1053,12 +1085,12 @@ static int __init exynos4_init_cpuidle(void)
 
 	ret = cpuidle_register_driver(&exynos4_idle_driver);
 
-	if(ret < 0){
+	if (ret < 0) {
 		printk(KERN_ERR "exynos4 idle register driver failed\n");
 		return ret;
 	}
 
-	for_each_cpu(cpu_id, cpu_online_mask) {
+	for_each_online_cpu(cpu_id) {
 		device = &per_cpu(exynos4_cpuidle_device, cpu_id);
 		device->cpu = cpu_id;
 
@@ -1076,10 +1108,11 @@ static int __init exynos4_init_cpuidle(void)
 
 		device->safe_state = &device->states[0];
 
-		if (cpuidle_register_device(device)) {
+		ret = cpuidle_register_device(device);
+		if (ret) {
 			cpuidle_unregister_driver(&exynos4_idle_driver);
 			printk(KERN_ERR "CPUidle register device failed\n,");
-			return -EIO;
+			return ret;
 		}
 	}
 

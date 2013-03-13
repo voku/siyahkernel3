@@ -31,6 +31,12 @@
 
 #include <linux/i2c.h>
 #include <linux/slab.h>
+/* key led */
+#include <linux/regulator/consumer.h>
+#define PRESS_KEY 1	/* Fixed value */
+#define RELEASE_KEY 0	/* Fixed value */
+static int led_status;
+extern struct class *sec_class;
 
 #define CY_I2C_DATA_SIZE  (3 * 256)
 
@@ -40,6 +46,42 @@ struct cyttsp4_i2c {
 	void *ttsp_client;
 	u8 wr_buf[CY_I2C_DATA_SIZE];
 };
+
+/* key led */
+static ssize_t touchkey_led_control(struct device *dev,
+		struct device_attribute *attr, const char *buf,
+		size_t size)
+{
+	struct regulator *vreg_led = NULL;
+	int ret;
+	int data;
+	sscanf(buf, "%d\n", &data);
+
+	pr_info("[TSP] %s : LED buf is %d\n", __func__, data);
+
+	if (vreg_led == NULL) {
+		vreg_led = regulator_get(NULL, "KEYLED_3P3V");
+		if (IS_ERR(vreg_led)) {
+			pr_err("tsp: Fail to register vreg_led(KEYLED_3P3V) in touch driver\n");
+			return size;
+		}
+	}
+	if (data == 1 && led_status == 0) {
+		ret = regulator_enable(vreg_led);
+		if (ret)
+			pr_err("tsp: Fail to enable led\n");
+		led_status = 1;
+	} else if (data == 2 && led_status == 1) {
+		ret = regulator_disable(vreg_led);
+		if (ret)
+			pr_err("tsp: Fail to disable led\n");
+		led_status = 0;
+	}
+
+	return size;
+}
+static DEVICE_ATTR(brightness, S_IRUGO | S_IWUSR | S_IWGRP, NULL,
+		touchkey_led_control);
 
 static s32 cyttsp4_i2c_read_block_data(void *handle, u16 subaddr,
 	size_t length, void *values, int i2c_addr, bool use_subaddr)
@@ -93,8 +135,11 @@ static s32 cyttsp4_i2c_write_block_data(void *handle, u16 subaddr,
 static int __devinit cyttsp4_i2c_probe(struct i2c_client *client,
 	const struct i2c_device_id *id)
 {
+	struct regulator *vreg_led = NULL;
 	struct cyttsp4_i2c *ts;
 	int retval = 0;
+	/* key led */
+	struct device *sec_touchkey;
 
 	pr_info("%s: Starting %s probe...\n", __func__, CY_I2C_NAME);
 
@@ -134,21 +179,39 @@ static int __devinit cyttsp4_i2c_probe(struct i2c_client *client,
 	dev_info(ts->ops.dev,
 			"%s: Registration complete\n", __func__);
 
+	/* key led */
+	vreg_led = regulator_get(NULL, "KEYLED_3P3V");
+	if (IS_ERR(vreg_led))
+		goto err_vreg_led;
+	led_status = 0;
+	sec_touchkey = device_create(sec_class, NULL, 0, NULL, "sec_touchkey");
+	if (device_create_file(sec_touchkey,
+				&dev_attr_brightness) < 0) {
+		pr_err("Failed to create device file(%s)!\n",
+				dev_attr_brightness.attr.name);
+	}
+
 	return 0;
 
 cyttsp4_i2c_probe_exit:
 	return retval;
 
+err_vreg_led:
+	pr_err("tsp: Fail to register vreg_led(KEYLED_3P3V) in touch driver\n");
+	regulator_put(vreg_led);
+	return retval;
 }
 
 /* registered in driver struct */
 static int __devexit cyttsp4_i2c_remove(struct i2c_client *client)
 {
+	struct regulator *vreg_led = NULL;
 	struct cyttsp4_i2c *ts;
 
 	ts = i2c_get_clientdata(client);
 	cyttsp4_core_release(ts->ttsp_client);
 	kfree(ts);
+	regulator_put(vreg_led);
 	return 0;
 }
 

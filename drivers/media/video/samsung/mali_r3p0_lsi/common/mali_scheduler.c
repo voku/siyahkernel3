@@ -34,4 +34,3 @@ u32 mali_scheduler_get_new_id(void)
 	u32 job_id = _mali_osk_atomic_inc_return(&mali_job_autonumber);
 	return job_id;
 }
-

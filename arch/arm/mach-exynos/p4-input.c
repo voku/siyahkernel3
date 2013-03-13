@@ -344,8 +344,6 @@ static int ts_power_reset(void)
 	Configuration for MXT1664-S
 */
 #define MXT1664S_CONFIG_DATE		"N80XX_ATM_0703"
-#define MXT1664S_CONFIG_DATE_FOR_OVER_HW9	"N80XX_LTE_ATM_0905"
-
 #define MXT1664S_MAX_MT_FINGERS	10
 #define MXT1664S_BLEN_BATT		112
 #define MXT1664S_CHRGTIME_BATT	180
@@ -362,7 +360,7 @@ static u8 t8_config_s[] = { GEN_ACQUISITIONCONFIG_T8,
 };
 
 static u8 t9_config_s[] = { TOUCH_MULTITOUCHSCREEN_T9,
-	0x8B, 0, 0, P4_NOTE_X_NUM, P4_NOTE_Y_NUM,
+	0x83, 0, 0, P4_NOTE_X_NUM, P4_NOTE_Y_NUM,
 	0, MXT1664S_BLEN_BATT, MXT1664S_THRESHOLD_BATT, 1, 1,
 	10, 15, 1, 65, MXT1664S_MAX_MT_FINGERS, 20, 30, 20, 255, 15,
 	255, 15, 5, 246, 5, 5, 0, 0, 0, 0,
@@ -551,9 +549,7 @@ static void switch_config(u32 rev)
 
 		t8_config_s[1] = 1;
 
-		t9_config_s[7] = 116;
 		t9_config_s[8] = 55;
-		t9_config_s[14] = 50;
 		t9_config_s[27] = 64;
 
 		t40_config_s[4] = 2;
@@ -590,9 +586,8 @@ static void switch_config(u32 rev)
 		t62_config_s[20] = 136;
 		t62_config_s[22] = 35;
 		t62_config_s[35] = 80;
-		t62_config_s[36] = 40;
+		t62_config_s[36] = 50;
 		t62_config_s[38] = 5;
-		t62_config_s[40] = 50;
 		t62_config_s[42] = 30;
 		t62_config_s[43] = 40;
 		t62_config_s[44] = 10;
@@ -600,10 +595,6 @@ static void switch_config(u32 rev)
 		t62_config_s[48] = 30;
 		t62_config_s[49] = 30;
 		t62_config_s[53] = 20;
-
-		/* Change Config Name for LTE */
-		mxt1664s_pdata.config_version =
-			MXT1664S_CONFIG_DATE_FOR_OVER_HW9;
 	}
 }
 
@@ -678,7 +669,6 @@ static int wacom_resume_hw(void);
 static int wacom_early_suspend_hw(void);
 static int wacom_late_resume_hw(void);
 static int wacom_reset_hw(void);
-static void wacom_compulsory_flash_mode(bool en);
 static void wacom_register_callbacks(struct wacom_g5_callbacks *cb);
 
 static struct wacom_g5_platform_data wacom_platform_data = {
@@ -690,7 +680,7 @@ static struct wacom_g5_platform_data wacom_platform_data = {
 	.gpio_pen_insert = GPIO_S_PEN_IRQ,
 #endif
 #ifdef WACOM_HAVE_FWE_PIN
-	.compulsory_flash_mode = wacom_compulsory_flash_mode,
+	.gpio_fwe = GPIO_PEN_FWE0,
 #endif
 	.init_platform_hw = wacom_init_hw,
 	.suspend_platform_hw = wacom_suspend_hw,
@@ -761,14 +751,6 @@ static int wacom_init_hw(void)
 
 	return 0;
 }
-
-#ifdef WACOM_HAVE_FWE_PIN
-static void wacom_compulsory_flash_mode(bool en)
-{
-	gpio_set_value(GPIO_PEN_FWE0, en);
-}
-
-#endif
 
 static int wacom_suspend_hw(void)
 {

@@ -167,6 +167,7 @@ config PHANTOM
 
 config INTEL_MID_PTI
 	tristate "Parallel Trace Interface for MIPI P1149.7 cJTAG standard"
+	depends on PCI
 	default n
 	help
 	  The PTI (Parallel Trace Interface) driver directs
@@ -420,14 +421,6 @@ config SENSORS_AK8975
 	  If you say yes here you get support for Asahi Kasei's
 	  orientation sensor AK8975.
 
-config SENSORS_AK8963
-	tristate "AK8963 compass support"
-	default n
-	depends on I2C
-	help
-	  If you say yes here you get support for Asahi Kasei's
-	  orientation sensor AK8963.
-
 config EP93XX_PWM
 	tristate "EP93xx PWM support"
 	depends on ARCH_EP93XX
@@ -575,12 +568,6 @@ config SWITCH_DUAL_MODEM
 	 Need to change UI at *#7284# also to have effect on this.
 	 Use a combination of MAX77693 switch function and GPIO control.
 
-config SWITCH_USB_PATH_AUTO
-	bool "Switch USB path automatically"
-	default n
-	help
-	 This feature can be switch the path of USB automatically when switching the USB path by using the sysfs node
-
 config WIMAX_CMC
         bool "SUB PMIC FOR WIMAX CMC"
         depends on I2C
@@ -716,6 +703,15 @@ config MPU_SENSORS_MPU6050
     tristate "MPU6050"
     depends on I2C
 
+config USB_SWITCH_FSA9480
+	tristate "FSA9480 USB Switch"
+	depends on I2C
+	help
+	  The FSA9480 is a USB port accessory detector and switch.
+	  The FSA9480 is fully controlled using I2C and enables USB data,
+	  stereo and mono audio, video, microphone and UART data to use
+	  a common connector port.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
@@ -732,7 +728,6 @@ source "drivers/misc/carma/Kconfig"
 source "drivers/misc/c2c/Kconfig"
 source "drivers/misc/modem_if/Kconfig"
 source "drivers/misc/modem_if_na/Kconfig"
-source "drivers/misc/modem_if_na_spr/Kconfig"
 
 config SLP_LOWMEM_NOTIFY
 	bool "Driver for SLP Low Memory Notification"
@@ -747,4 +742,17 @@ config SLP_PROCESS_MON
 	  Providing monitoring important processes. Users can register the process
 	  with sysfs.
 
+config CPU_UNDERVOLTING
+	tristate "Several undervolting interfaces"
+	default y
+
+config MALI_CONTROL
+	tristate "mali gpu control interfaces"
+	depends on VIDEO_MALI400MP_UMP
+	default y
+
+config M0_MODS
+	tristate "i9300 specific modifications"
+	depends on VIDEO_MALI400MP_UMP
+	default m
 endif # MISC_DEVICES

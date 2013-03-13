@@ -51,14 +51,6 @@
 #define SIOP_ACTIVE_CHARGE_CURRENT		450
 #define SIOP_DEACTIVE_CHARGE_CURRENT		1500
 
-#if defined(CONFIG_TARGET_LOCALE_KOR)
-#define ADC_TA_TH_L	800
-#define ADC_TA_TH_H	2100
-#else
-#define ADC_TA_TH_L	800
-#define ADC_TA_TH_H	1800
-#endif
-
 enum {
 	SIOP_DEACTIVE = 0,
 	SIOP_ACTIVE,
@@ -82,22 +74,11 @@ static char *supply_list[] = {
 
 /* Get LP charging mode state */
 unsigned int lpcharge;
-#if defined(CONFIG_MACH_P4NOTE) && defined(CONFIG_QC_MODEM)
-static int battery_get_lpm_state(char *str)
-{
-	get_option(&str, &lpcharge);
-	pr_info("%s: Low power charging mode: %d\n", __func__, lpcharge);
-
-	return lpcharge;
-}
-__setup("lpcharge=", battery_get_lpm_state);
-#endif
 
 static enum power_supply_property sec_battery_properties[] = {
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_HEALTH,
 	POWER_SUPPLY_PROP_PRESENT,
-	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_TECHNOLOGY,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_CURRENT_AVG,
@@ -185,10 +166,6 @@ struct battery_data {
 	int pmic_cable_state;
 	int dock_type;
 	bool is_low_batt_alarm;
-	/*for extended charger type*/
-	int cable_sub_type;
-	int cable_pwr_type;
-	int cable_type;
 };
 
 struct battery_data *debug_batterydata;
@@ -269,12 +246,8 @@ static int check_ta_conn(struct battery_data *battery)
 #ifdef CONFIG_SAMSUNG_LPM_MODE
 static void lpm_mode_check(struct battery_data *battery)
 {
-#if defined(CONFIG_MACH_P4NOTE) && defined(CONFIG_QC_MODEM)
-	battery->charging_mode_booting = lpcharge;
-#else
 	battery->charging_mode_booting = lpcharge =
 				battery->pdata->check_lp_charging_boot();
-#endif
 	pr_info("%s : charging_mode_booting(%d)\n", __func__,
 			battery->charging_mode_booting);
 }
@@ -335,55 +308,9 @@ enum charger_type sec_get_dedicted_charger_type(struct battery_data *battery)
 	int adc_1, adc_2;
 	int vol_1, vol_2;
 	int accessory_line;
-#if defined(P4_CHARGING_FEATURE_01)
-	int online_val;
-	int i;
-#endif
+
 	mutex_lock(&battery->work_lock);
 
-/*check */
-#if defined(P4_CHARGING_FEATURE_01)
-	accessory_line = gpio_get_value(
-			battery->pdata->charger.accessory_line);
-	if (!accessory_line && !(lpcharge) &&
-		battery->cable_type == POWER_SUPPLY_TYPE_DOCK &&
-		battery->cable_sub_type == ONLINE_SUB_TYPE_KBD) {
-		for (i = 0; i < 5; i++) {
-			msleep(200);
-			if (battery->cable_type ==
-				POWER_SUPPLY_TYPE_DOCK) {
-				if (battery->cable_sub_type ==
-					ONLINE_SUB_TYPE_KBD) {
-					if (battery->cable_pwr_type ==
-						ONLINE_POWER_TYPE_TA)
-						result = CHARGER_AC;
-					else if (battery->cable_pwr_type ==
-						ONLINE_POWER_TYPE_USB)
-							result = CHARGER_USB;
-					else
-						result = CHARGER_BATTERY;
-					pr_info("%s: m(%d), s(%d), p(%d)\n",
-						__func__, battery->cable_type,
-						battery->cable_sub_type,
-						battery->cable_pwr_type);
-					goto update_finish;
-				} else if (battery->cable_sub_type ==
-						ONLINE_SUB_TYPE_DESK)
-						result = CHARGER_DOCK;
-						break;
-			}
-		}
-	}
-
-	if ((lpcharge) &&
-		battery->cable_type == POWER_SUPPLY_TYPE_DOCK) {
-		battery->cable_sub_type == ONLINE_SUB_TYPE_DESK;
-		pr_info("[BATT]%s: m(%d), s(%d), p(%d) acc(%d) pwr(%d)\n",
-			__func__, battery->cable_type, battery->cable_sub_type,
-			battery->cable_pwr_type, accessory_line,
-			battery->charging_mode_booting);
-	}
-#endif
 	/* ADC check margin (300~500ms) */
 	msleep(300);
 
@@ -405,16 +332,19 @@ enum charger_type sec_get_dedicted_charger_type(struct battery_data *battery)
 #endif
 	avg_vol = (vol_1 + vol_2)/2;
 
-	if ((avg_vol > ADC_TA_TH_L) && (avg_vol < ADC_TA_TH_H)) {
+	if ((avg_vol > 800) && (avg_vol < 1800)) {
 #if defined(P4_CHARGING_FEATURE_01)
-		if (battery->cable_type == POWER_SUPPLY_TYPE_DOCK &&
-			battery->cable_sub_type == ONLINE_SUB_TYPE_DESK) {
-				pr_info("%s: deskdock(%d) charging\n",
-					__func__, battery->cable_sub_type);
-				result = CHARGER_DOCK;
-			} else {
-				result = CHARGER_AC;
-			}
+		accessory_line = gpio_get_value(
+			battery->pdata->charger.accessory_line);
+		pr_info("%s: accessory line(%d)\n", __func__, accessory_line);
+
+		if (battery->dock_type == DOCK_DESK) {
+			pr_info("%s: deskdock(%d) charging\n",
+					__func__, battery->dock_type);
+			result = CHARGER_DOCK;
+		} else {
+			result = CHARGER_AC;
+		}
 #else
 		result = CHARGER_AC;                      /* TA connected. */
 #endif
@@ -425,7 +355,7 @@ enum charger_type sec_get_dedicted_charger_type(struct battery_data *battery)
 
 	usb_switch_clr_path(USB_PATH_ADCCHECK);
 	usb_switch_unlock();
-update_finish:
+
 	mutex_unlock(&battery->work_lock);
 
 	pr_info("%s : result(%d), avg_vol(%d)\n", __func__, result, avg_vol);
@@ -444,14 +374,8 @@ static void sec_get_cable_status(struct battery_data *battery)
 	}
 
 	if (battery->pdata->inform_charger_connection)
-#if defined(P4_CHARGING_FEATURE_01)
-		battery->pdata->inform_charger_connection(
-					battery->current_cable_status,
-					battery->cable_sub_type);
-#else
 		battery->pdata->inform_charger_connection(
 					battery->current_cable_status);
-#endif
 
 	pr_info("%s: current_status : %d\n",
 		__func__, battery->current_cable_status);
@@ -944,21 +868,10 @@ static void sec_set_chg_en(struct battery_data *battery, int enable)
 		else if (battery->current_cable_status == CHARGER_MISC)
 			battery->pdata->set_charging_state(enable,
 			CABLE_TYPE_STATION);
-		else if (battery->current_cable_status == CHARGER_DOCK) {
-			if (battery->cable_sub_type == ONLINE_SUB_TYPE_KBD) {
-				if (battery->cable_pwr_type ==
-					ONLINE_POWER_TYPE_TA)
-					battery->pdata->set_charging_state(
-					enable, CABLE_TYPE_TA);
-				else if  (battery->cable_pwr_type ==
-					ONLINE_POWER_TYPE_USB)
-					battery->pdata->set_charging_state(
-					enable, CABLE_TYPE_USB);
-			} else {
-				battery->pdata->set_charging_state(enable,
-				CABLE_TYPE_DESKDOCK);
-			}
-		} else
+		else if (battery->current_cable_status == CHARGER_DOCK)
+			battery->pdata->set_charging_state(enable,
+			CABLE_TYPE_DESKDOCK);
+		else
 			battery->pdata->set_charging_state(enable,
 			CABLE_TYPE_USB);
 	}
@@ -1130,8 +1043,8 @@ static int sec_bat_get_charging_status(struct battery_data *battery)
 {
 	switch (battery->info.charging_source) {
 	case CHARGER_BATTERY:
-		return POWER_SUPPLY_STATUS_DISCHARGING;
 	case CHARGER_USB:
+		return POWER_SUPPLY_STATUS_DISCHARGING;
 	case CHARGER_AC:
 	case CHARGER_MISC:
 	case CHARGER_DOCK:
@@ -1152,36 +1065,19 @@ static int sec_bat_set_property(struct power_supply *ps,
 				enum power_supply_property psp,
 				const union power_supply_propval *val)
 {
-	int online_val;
 	struct battery_data *battery = container_of(ps,
 				struct battery_data, psy_battery);
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
 #if defined(CONFIG_MACH_P4NOTE)
-		pr_info("[BATT] get val (%d)\n", val->intval);
-		online_val = val->intval;
-		online_val &= ~(ONLINE_TYPE_RSVD_MASK);
-		battery->cable_type = ((online_val &
-				ONLINE_TYPE_MAIN_MASK) >>
-				ONLINE_TYPE_MAIN_SHIFT);
-		battery->cable_sub_type = ((online_val &
-				ONLINE_TYPE_SUB_MASK) >>
-				ONLINE_TYPE_SUB_SHIFT);
-		battery->cable_pwr_type = ((online_val &
-				ONLINE_TYPE_PWR_MASK) >>
-				ONLINE_TYPE_PWR_SHIFT);
-
-		if (battery->cable_type == POWER_SUPPLY_TYPE_DOCK) {
-			sec_get_cable_status(battery);
-			sec_cable_changed(battery);
-		}
-		/*battery->dock_type = val->intval;
+		battery->dock_type = val->intval;
 		pr_info("dock type(%d)\n", battery->dock_type);
+		/* if need current update state, set */
 		if (battery->dock_type == DOCK_DESK) {
 			sec_get_cable_status(battery);
 			sec_cable_changed(battery);
-		}*/
+		}
 #else
 		battery->pmic_cable_state = val->intval;
 		pr_info("PMIC cable state: %d\n", battery->pmic_cable_state);
@@ -1217,9 +1113,6 @@ static int sec_bat_get_property(struct power_supply *bat_ps,
 		break;
 	case POWER_SUPPLY_PROP_PRESENT:
 		val->intval = battery->present;
-		break;
-	case POWER_SUPPLY_PROP_ONLINE: /*add here for online prop*/
-		val->intval = battery->cable_type;
 		break;
 	case POWER_SUPPLY_PROP_TECHNOLOGY:
 		val->intval = POWER_SUPPLY_TECHNOLOGY_LION;

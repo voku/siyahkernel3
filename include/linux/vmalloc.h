@@ -32,11 +32,7 @@ struct vm_struct {
 	struct page		**pages;
 	unsigned int		nr_pages;
 	phys_addr_t		phys_addr;
-	void			*caller;
-#ifdef CONFIG_DEBUG_VMALLOC
-	unsigned int		pid;
-	unsigned char		*task_name;
-#endif
+	const void		*caller;
 };
 
 /*

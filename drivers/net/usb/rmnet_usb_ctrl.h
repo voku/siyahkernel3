@@ -46,10 +46,6 @@ struct rmnet_ctrl_dev {
 	wait_queue_head_t	open_wait_queue;
 
 	unsigned		is_opened;
-	atomic_t		open_cnt;
-
-	bool			is_connected;
-	bool			rx_stop_by_close;
 
 	bool			is_connected;
 

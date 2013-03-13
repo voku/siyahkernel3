@@ -22,6 +22,7 @@
 #include <plat/gpio-cfg.h>
 #include <plat/regs-sdhci.h>
 #include <plat/sdhci.h>
+#include "u1.h"
 
 #if defined(CONFIG_ARCH_EXYNOS4)
 void exynos4_setup_sdhci0_cfg_gpio(struct platform_device *dev, int width)
@@ -161,7 +162,7 @@ void exynos4_setup_sdhci3_cfg_gpio(struct platform_device *dev, int width)
 #if defined(CONFIG_MACH_U1) || defined(CONFIG_MACH_TRATS)
 		s3c_gpio_setpull(gpio, S3C_GPIO_PULL_NONE);
 		s5p_gpio_set_drvstr(gpio, S5P_GPIO_DRVSTR_LV2);
-#elif defined(CONFIG_MACH_M0) || defined(CONFIG_MACH_C1_USA_ATT) || \
+#elif defined(CONFIG_MACH_M0) || defined(CONFIG_MACH_C1) || \
 	defined(CONFIG_MACH_T0) || defined(CONFIG_MACH_M3)
 		s3c_gpio_setpull(gpio, S3C_GPIO_PULL_NONE);
 		s5p_gpio_set_drvstr(gpio, S5P_GPIO_DRVSTR_LV2);
@@ -187,7 +188,7 @@ void exynos4_setup_sdhci3_cfg_gpio(struct platform_device *dev, int width)
 #if defined(CONFIG_MACH_U1) || defined(CONFIG_MACH_TRATS)
 		s3c_gpio_setpull(gpio, S3C_GPIO_PULL_NONE);
 		s5p_gpio_set_drvstr(gpio, S5P_GPIO_DRVSTR_LV2);
-#elif defined(CONFIG_MACH_M0) || defined(CONFIG_MACH_C1_USA_ATT) || \
+#elif defined(CONFIG_MACH_M0) || defined(CONFIG_MACH_C1) || \
 	defined(CONFIG_MACH_T0) || defined(CONFIG_MACH_M3)
 		s3c_gpio_setpull(gpio, S3C_GPIO_PULL_NONE);
 		s5p_gpio_set_drvstr(gpio, S5P_GPIO_DRVSTR_LV2);

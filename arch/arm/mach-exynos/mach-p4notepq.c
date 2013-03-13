@@ -654,13 +654,10 @@ static void __init smdk4212_usbgadget_init(void)
 	struct android_usb_platform_data *android_pdata =
 		s3c_device_android_usb.dev.platform_data;
 	if (android_pdata) {
-		unsigned int newluns = 0;
-		unsigned int cdfs = 1;
-
+		unsigned int newluns = 2;
 		printk(KERN_DEBUG "usb: %s: default luns=%d, new luns=%d\n",
 				__func__, android_pdata->nluns, newluns);
 		android_pdata->nluns = newluns;
-		android_pdata->cdfs_support = cdfs;
 	} else {
 		printk(KERN_DEBUG "usb: %s android_pdata is not available\n",
 				__func__);
@@ -1006,9 +1003,7 @@ static struct i2c_board_info i2c_devs21_emul[] __initdata = {
 static void irda_wake_en(bool onoff)
 {
 	gpio_direction_output(GPIO_IRDA_WAKE, onoff);
-#if 0
 	printk(KERN_ERR "%s: irda_wake_en : %d\n", __func__, onoff);
-#endif
 }
 
 static void irda_device_init(void)
@@ -1025,10 +1020,6 @@ static void irda_device_init(void)
 	}
 	gpio_direction_output(GPIO_IRDA_WAKE, 0);
 
-	s3c_gpio_cfgpin(GPIO_IRDA_IRQ, S3C_GPIO_INPUT);
-	s3c_gpio_setpull(GPIO_IRDA_IRQ, S3C_GPIO_PULL_UP);
-	gpio_direction_input(GPIO_IRDA_IRQ);
-
 	return;
 }
 
@@ -1036,6 +1027,7 @@ static int vled_ic_onoff;
 
 static void irda_vdd_onoff(bool onoff)
 {
+	int ret = 0;
 	static struct regulator *vled_ic;
 
 	if (onoff) {
@@ -1069,6 +1061,7 @@ struct platform_device s3c_device_i2c22 = {
 };
 
 static struct mc96_platform_data mc96_pdata = {
+	.ir_remote_init = irda_device_init,
 	.ir_wake_en = irda_wake_en,
 	.ir_vdd_onoff = irda_vdd_onoff,
 };
@@ -1189,7 +1182,7 @@ void sec_bat_gpio_init(void)
 	pr_info("BAT : Battery GPIO initialized.\n");
 }
 
-static void  sec_charger_cb(int set_cable_type, int cable_sub_type)
+static void  sec_charger_cb(int set_cable_type)
 {
 	struct usb_gadget *gadget = platform_get_drvdata(&s3c_device_usbgadget);
 	bool cable_state_to_tsp;
@@ -1203,40 +1196,8 @@ static void  sec_charger_cb(int set_cable_type, int cable_sub_type)
 		is_cable_attached = true;
 		is_usb_lpm_enter = false;
 		break;
-	case CHARGER_DOCK:
-		switch (cable_sub_type) {
-		case ONLINE_SUB_TYPE_KBD:
-			cable_state_to_tsp = true;
-			cable_state_to_usb = false;
-			is_cable_attached = true;
-			is_usb_lpm_enter = true;
-			pr_info("%s: key dock is detected\n", __func__);
-			break;
-		case ONLINE_SUB_TYPE_UNKNOWN:
-		case ONLINE_SUB_TYPE_MHL:
-		case ONLINE_SUB_TYPE_AUDIO:
-		case ONLINE_SUB_TYPE_DESK:
-		case ONLINE_SUB_TYPE_SMART_NOTG:
-		case ONLINE_SUB_TYPE_SMART_OTG:
-		default:
-			cable_state_to_tsp = true;
-			cable_state_to_usb = false;
-			is_cable_attached = true;
-			is_usb_lpm_enter = true;
-
-			usb_path = usb_switch_get_path();
-			if (usb_path != USB_PATH_AP) {
-				usb_switch_lock();
-				usb_switch_set_path(USB_PATH_TA);
-				usb_switch_unlock();
-			} else {
-				pr_info("%s: sub cx is detected and ap path\n",
-					__func__);
-			}
-			break;
-		}
-		break;
 	case CHARGER_AC:
+	case CHARGER_DOCK:
 	case CHARGER_MISC:
 		cable_state_to_tsp = true;
 		cable_state_to_usb = false;
@@ -1316,31 +1277,15 @@ static struct sec_battery_platform_data sec_battery_platform = {
 	.inform_charger_connection = sec_charger_cb,
 
 #if defined(CONFIG_TARGET_LOCALE_USA)
-#if defined(CONFIG_MACH_P4NOTELTE_USA_ATT)
-	.temp_high_threshold = 48000,	/* 50c */
-	.temp_high_recovery = 43000,	/* 42c */
-	.temp_low_recovery = 0,		/* 0c */
-	.temp_low_threshold = -3000,	/* -5c */
-#else
 	.temp_high_threshold = 50000,	/* 50c */
 	.temp_high_recovery = 42000,	/* 42c */
-	.temp_low_recovery = 0,		/* 0c */
+	.temp_low_recovery = 0,			/* 0c */
 	.temp_low_threshold = -5000,	/* -5c */
-#endif
 #elif defined(CONFIG_TARGET_LOCALE_KOR)
-#if defined(CONFIG_MACH_P4NOTELTE_KOR_SKT) || \
-	defined(CONFIG_MACH_P4NOTELTE_KOR_KT) || \
-	defined(CONFIG_MACH_P4NOTELTE_KOR_LGT)
-	.temp_high_threshold = 61400,	/* 62c */
-	.temp_high_recovery = 43000,	/* 42c */
-	.temp_low_recovery = -1000,		/* 0c */
-	.temp_low_threshold = -4000,	/* -5c */
-#else
 	.temp_high_threshold = 61400,	/* 65c */
 	.temp_high_recovery = 43500,	/* 42c */
 	.temp_low_recovery = 0,			/* 0c */
 	.temp_low_threshold = -5000,	/* -5c */
-#endif
 #else
 	.temp_high_threshold = 50000,	/* 50c */
 	.temp_high_recovery = 42000,	/* 42c */
@@ -1441,7 +1386,7 @@ void smdk_accessory_power(u8 token, bool active)
 		acc_en_token |= (1 << token);
 		enable = true;
 		gpio_direction_output(gpio_acc_en, 1);
-		usleep_range(2000, 2000);
+
 		if (0 != gpio_acc_5v) {
 			/* prevent the overcurrent */
 			while (!gpio_get_value(gpio_acc_5v)) {
@@ -1495,16 +1440,6 @@ static int check_sec_keyboard_dock(bool attached)
 	return 0;
 }
 
-/* call 30pin func. from sec_keyboard */
-static struct sec_30pin_callbacks *s30pin_callbacks;
-static int noti_sec_univ_kbd_dock(bool attached)
-{
-	if (s30pin_callbacks && s30pin_callbacks->noti_univ_kdb_dock)
-		return s30pin_callbacks->
-			noti_univ_kdb_dock(s30pin_callbacks, attached);
-	return 0;
-}
-
 static void check_uart_path(bool en)
 {
 	int gpio_uart_sel;
@@ -1535,7 +1470,7 @@ static void check_uart_path(bool en)
 		gpio_direction_output(gpio_uart_sel2, 1);
 		printk(KERN_DEBUG "[Keyboard] uart_sel : 1, 1\n");
 	} else {
-		gpio_direction_output(gpio_uart_sel, 1);
+		gpio_direction_output(gpio_uart_sel, 0);
 		gpio_direction_output(gpio_uart_sel2, 0);
 		printk(KERN_DEBUG "[Keyboard] uart_sel : 0, 0\n");
 	}
@@ -1550,11 +1485,6 @@ static void check_uart_path(bool en)
 #endif
 }
 
-static void sec_30pin_register_cb(struct sec_30pin_callbacks *cb)
-{
-	s30pin_callbacks = cb;
-}
-
 static void sec_keyboard_register_cb(struct sec_keyboard_callbacks *cb)
 {
 	keyboard_callbacks = cb;
@@ -1565,7 +1495,6 @@ static struct sec_keyboard_platform_data kbd_pdata = {
 	.acc_power = smdk_accessory_power,
 	.check_uart_path = check_uart_path,
 	.register_cb = sec_keyboard_register_cb,
-	.noti_univ_kbd_dock = noti_sec_univ_kbd_dock,
 	.wakeup_key = NULL,
 };
 
@@ -1635,7 +1564,6 @@ struct acc_con_platform_data acc_con_pdata = {
 #ifdef CONFIG_SEC_KEYBOARD_DOCK
 	.check_keyboard = check_sec_keyboard_dock,
 #endif
-	.register_cb = sec_30pin_register_cb,
 	.accessory_irq_gpio = GPIO_ACCESSORY_INT,
 	.dock_irq_gpio = GPIO_DOCK_INT,
 #if defined(CONFIG_SAMSUNG_MHL_9290)
@@ -1718,27 +1646,10 @@ static struct platform_device s3c_device_i2c10 = {
 };
 #endif
 
-#ifdef CONFIG_SENSORS_AK8963C
-static struct i2c_gpio_platform_data i2c10_platdata = {
-	.sda_pin	= GPIO_MSENSOR_SDA_18V,
-	.scl_pin	= GPIO_MSENSOR_SCL_18V,
-	.udelay	= 2, /* 250KHz */
-	.sda_is_open_drain	= 0,
-	.scl_is_open_drain	= 0,
-	.scl_is_output_only = 0,
-};
-
-static struct platform_device s3c_device_i2c10 = {
-	.name	= "i2c-gpio",
-	.id	= 10,
-	.dev.platform_data	= &i2c10_platdata,
-};
-#endif
-
 #ifdef CONFIG_SENSORS_LPS331
 static struct i2c_gpio_platform_data i2c11_platdata = {
 	.sda_pin	= GPIO_BSENSE_SDA_18V,
-	.scl_pin	= GPIO_BSENSE_SCL_18V,
+	.scl_pin	= GPIO_BENSE_SCL_18V,
 	.udelay	= 2, /* 250KHz */
 	.sda_is_open_drain	= 0,
 	.scl_is_open_drain	= 0,
@@ -1915,9 +1826,6 @@ static struct platform_device *midas_devices[] __initdata = {
 #endif
 	/* &s3c_device_i2c9, */
 #ifdef CONFIG_SENSORS_AK8975C
-	&s3c_device_i2c10,
-#endif
-#ifdef CONFIG_SENSORS_AK8963C
 	&s3c_device_i2c10,
 #endif
 #ifdef CONFIG_SENSORS_LPS331
@@ -2831,13 +2739,11 @@ static void __init midas_machine_init(void)
 	__raw_writel((__raw_readl(EXYNOS4_CLKDIV_FSYS1) & 0xfff0fff0)
 		     | 0x80008, EXYNOS4_CLKDIV_FSYS1);
 
+#if defined(CONFIG_IR_REMOCON_GPIO)
 /* IR_LED */
-#if defined(CONFIG_IR_REMOCON_MC96)
-	irda_device_init();
-#elif defined(CONFIG_IR_REMOCON_GPIO)
 	ir_rc_init_hw();
-#endif
 /* IR_LED */
+#endif
 }
 
 #ifdef CONFIG_EXYNOS_C2C

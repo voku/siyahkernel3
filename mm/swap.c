@@ -456,7 +456,6 @@ EXPORT_SYMBOL(mark_page_accessed);
  */
 void __lru_cache_add(struct page *page, enum lru_list lru)
 {
-#ifndef CONFIG_DMA_CMA
 	struct pagevec *pvec = &get_cpu_var(lru_add_pvecs)[lru];
 
 	page_cache_get(page);
@@ -464,20 +463,6 @@ void __lru_cache_add(struct page *page, enum lru_list lru)
 		__pagevec_lru_add(pvec, lru);
 	pagevec_add(pvec, page);
 	put_cpu_var(lru_add_pvecs);
-#else
-	struct pagevec *pvec;
-	int is_cma;
-
-	/* FIXME: too slow */
-	is_cma = is_cma_pageblock(page);
-
-	pvec = &get_cpu_var(lru_add_pvecs)[lru];
-
-	page_cache_get(page);
-	if (!pagevec_add(pvec, page) || is_cma)
-		____pagevec_lru_add(pvec, lru);
-	put_cpu_var(lru_add_pvecs);
-#endif
 }
 EXPORT_SYMBOL(__lru_cache_add);
 

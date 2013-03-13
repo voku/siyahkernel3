@@ -174,10 +174,9 @@ if [ -e ${KERNELDIR}/arch/arm/boot/zImage ]; then
 	if [ "$STATUS" == "device" ]; then
 		read -p "push kernel to android (y/n)?"
 		if [ "$REPLY" == "y" ]; then
-			adb push ${KERNELDIR}/READY-JB/Kernel_*-JB*.zip /sdcard/;
+			adb push ${KERNELDIR}/READY-JB/Kernel_*ICS-JB*.zip /sdcard/;
 		fi;
 	fi;
 else
 	echo "Kernel STUCK in BUILD! no zImage exist"
 fi;
-

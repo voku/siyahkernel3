@@ -337,7 +337,7 @@ static void max17042_get_soc(struct i2c_client *client)
 	if (chip->is_enable) {
 		if (max17042_read_reg(client, MAX17042_REG_SOC_VF, data) < 0)
 			return;
-#ifndef PRODUCT_SHIP
+#ifndef CONFIG_SAMSUNG_PRODUCT_SHIP
 		dev_info(&chip->client->dev, "%s : soc(%02x%02x)\n",
 				__func__, data[1], data[0]);
 #endif
@@ -413,7 +413,7 @@ static void max17042_get_soc(struct i2c_client *client)
 
 	chip->soc = soc;
 
-#ifndef PRODUCT_SHIP
+#ifndef CONFIG_SAMSUNG_PRODUCT_SHIP
 	dev_info(&client->dev, "%s : use raw (%d), soc (%d)\n",
 		__func__, chip->raw_soc, soc);
 #endif
@@ -941,7 +941,7 @@ static int __devinit max17042_probe(struct i2c_client *client,
 	/* create fuelgauge attributes */
 	fuelgauge_create_attrs(chip->battery.dev);
 
-	INIT_DELAYED_WORK_DEFERRABLE(&chip->work, max17042_work);
+	INIT_DEFERRABLE_WORK(&chip->work, max17042_work);
 	schedule_delayed_work(&chip->work, MAX17042_SHORT_DELAY);
 
 	dev_info(&client->dev, "%s: MAX17042 Driver Loaded\n", __func__);

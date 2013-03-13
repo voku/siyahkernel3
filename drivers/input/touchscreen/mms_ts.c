@@ -556,7 +556,6 @@ static void mms_set_noise_mode(struct mms_ts_info *info)
 	} else {
 		dev_notice(&client->dev, "noise_mode & TA disconnect!!!\n");
 		i2c_smbus_write_byte_data(info->client, 0x30, 0x2);
-		info->noise_mode = 0;
 	}
 }
 
@@ -2485,11 +2484,7 @@ static void get_fw_ver_bin(void *device_data)
 
 	set_default_result(info);
 
-#if defined(CONFIG_MACH_M3_USA_TMO)
-	snprintf(buff, sizeof(buff), "ME0045%02x", FW_VERSION_4_8);
-#else
-	snprintf(buff, sizeof(buff), "%02x", FW_VERSION_4_8);
-#endif
+	snprintf(buff, sizeof(buff), "%#02x", FW_VERSION_4_8);
 
 	set_cmd_result(info, buff, strnlen(buff, sizeof(buff)));
 	info->cmd_state = 2;
@@ -2507,12 +2502,8 @@ static void get_fw_ver_ic(void *device_data)
 	set_default_result(info);
 
 	ver = info->fw_ic_ver;
+	snprintf(buff, sizeof(buff), "%#02x", ver);
 
-#if defined(CONFIG_MACH_M3_USA_TMO)
-	snprintf(buff, sizeof(buff), "ME0045%02x", ver);
-#else
-	snprintf(buff, sizeof(buff), "%02x", ver);
-#endif
 	set_cmd_result(info, buff, strnlen(buff, sizeof(buff)));
 	info->cmd_state = 2;
 	dev_info(&info->client->dev, "%s: %s(%d)\n", __func__,
@@ -3500,7 +3491,7 @@ static int __devinit mms_ts_probe(struct i2c_client *client,
 		info->register_cb(&info->callbacks);
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
-	info->early_suspend.level = EARLY_SUSPEND_LEVEL_STOP_DRAWING;
+	info->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
 	info->early_suspend.suspend = mms_ts_early_suspend;
 	info->early_suspend.resume = mms_ts_late_resume;
 	register_early_suspend(&info->early_suspend);

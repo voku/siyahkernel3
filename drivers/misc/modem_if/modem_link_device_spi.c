@@ -67,8 +67,7 @@ static irqreturn_t spi_srdy_irq_handler(int irq, void *p_ld)
 	if (!spild->boot_done)
 		return result;
 
-	if (!wake_lock_active(&spild->spi_wake_lock)
-		&&  spild->send_modem_spi != 1) {
+	if (!wake_lock_active(&spild->spi_wake_lock)) {
 		wake_lock(&spild->spi_wake_lock);
 		pr_debug("[SPI] [%s](%d) spi_wakelock locked . spild->spi_state[%d]\n",
 			__func__, __LINE__, (int)spild->spi_state);
@@ -1453,6 +1452,9 @@ static int link_pm_notifier_event(struct notifier_block *this,
 		pr_err("no iodevice for modem control\n");
 		return NOTIFY_BAD;
 	}
+
+	if (!gpio_get_value(iod->mc->gpio_phone_active))
+		return NOTIFY_DONE;
 
 	switch (event) {
 	case PM_SUSPEND_PREPARE:

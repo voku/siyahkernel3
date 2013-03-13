@@ -636,7 +636,7 @@ static void mxt224_ta_probe(bool ta_status)
 		size_one = 1;
 		write_mem(copy_data, obj_address + (u16) register_address,
 			  size_one, &value);
-#if !defined(PRODUCT_SHIP)
+#if !defined(CONFIG_SAMSUNG_PRODUCT_SHIP)
 		read_mem(copy_data, obj_address + (u16) register_address,
 			 (u8) size_one, &val);
 		printk(KERN_ERR "[TSP]TA_probe MXT224E T%d Byte%d is %d\n", 48,
@@ -654,7 +654,7 @@ static void mxt224_ta_probe(bool ta_status)
 			value = copy_data->blen_charging_e;
 			write_mem(copy_data, obj_address + 34, size_one,
 				  &value);
-#if !defined(PRODUCT_SHIP)
+#if !defined(CONFIG_SAMSUNG_PRODUCT_SHIP)
 			read_mem(copy_data, obj_address + 34, (u8) size_one,
 				 &val);
 			printk(KERN_DEBUG
@@ -665,7 +665,7 @@ static void mxt224_ta_probe(bool ta_status)
 			value = 40;
 			write_mem(copy_data, obj_address + 35, size_one,
 				  &value);
-#if !defined(PRODUCT_SHIP)
+#if !defined(CONFIG_SAMSUNG_PRODUCT_SHIP)
 			read_mem(copy_data, obj_address + 35, (u8) size_one,
 				 &val);
 			printk(KERN_DEBUG
@@ -694,7 +694,7 @@ static void mxt224_ta_probe(bool ta_status)
 		value = calcfg_en;
 		write_mem(copy_data, obj_address + (u16) register_address,
 			  size_one, &value);
-#if !defined(PRODUCT_SHIP)
+#if !defined(CONFIG_SAMSUNG_PRODUCT_SHIP)
 		read_mem(copy_data, obj_address + (u16) register_address,
 			 (u8) size_one, &val);
 		printk(KERN_ERR "[TSP]TA_probe MXT224E T%d Byte%d is %d\n", 48,
@@ -743,10 +743,10 @@ static void mxt224_ta_probe(bool ta_status)
 		value = (u8) copy_data->threshold;
 		write_mem(copy_data, obj_address + (u16) register_address,
 			  size_one, &value);
-#if !defined(PRODUCT_SHIP)
+#if !defined(CONFIG_SAMSUNG_PRODUCT_SHIP)
 		read_mem(copy_data, obj_address + (u16) register_address,
 			 (u8) size_one, &val);
-		printk(KERN_ERR "[TSP]TA_probe MXT224 T%d Byte%d is %d\n", 9,
+		printk(KERN_ERR "[TSP] TA_probe MXT224 T%d Byte%d is %d\n", 9,
 		       register_address, val);
 #endif
 
@@ -1228,7 +1228,7 @@ static int __devinit mxt224_init_touch_driver(struct mxt224_data *data)
 {
 	struct object_t *object_table;
 	u32 read_crc = 0;
-	u32 calc_crc;
+	u32 calc_crc = 0;
 	u16 crc_address;
 	u16 dummy;
 	int i;
@@ -1895,7 +1895,7 @@ static void median_err_setting(void)
 				    get_object_info(copy_data,
 						    SPT_CTECONFIG_T46,
 						    &size_one, &obj_address);
-				value = 48;  /* 32;*/
+				value = 48; /*32;*/
 				write_mem(copy_data, obj_address + 3, 1,
 					  &value);
 				ret |=
@@ -1923,15 +1923,13 @@ static void median_err_setting(void)
 				value = 100; /*38;*/
 				write_mem(copy_data, obj_address + 25, 1,
 					  &value);
-#if 0
 				value = 16;
 				write_mem(copy_data, obj_address + 34, 1,
 					  &value);
-#endif
 				value = 40;
 				write_mem(copy_data, obj_address + 35, 1,
 					  &value);
-				value = 81; /*80;*/
+				value = 81; /* 80;*/
 				write_mem(copy_data, obj_address + 39, 1,
 					  &value);
 #endif
@@ -2040,14 +2038,14 @@ static irqreturn_t mxt224_irq_thread(int irq, void *ptr)
 
 		if ((msg[0] == 0x1) &&
 			((msg[1] & 0x10) == 0x10)) {	/* caliration */
-			printk(KERN_ERR "[TSP] Calibration!!!!!!");
+			printk(KERN_ERR "[TSP] Calibration!!!!!!\n");
 			Doing_calibration_flag = 1;
 		} else if ((msg[0] == 0x1) &&
 			((msg[1] & 0x40) == 0x40)) { /* overflow */
 			printk(KERN_ERR "[TSP] Overflow!!!!!!");
 		} else if ((msg[0] == 0x1) &&
 			((msg[1] & 0x10) == 0x00)) {	/* caliration */
-			printk(KERN_ERR "[TSP] Calibration End!!!!!!");
+			printk(KERN_ERR "[TSP] Calibration End!!!!!!\n");
 
 			Doing_calibration_flag = 0;
 			if (cal_check_flag == 1) {
@@ -2097,6 +2095,7 @@ static irqreturn_t mxt224_irq_thread(int irq, void *ptr)
 				}
 			}
 		}
+#if 0
 #ifdef CLEAR_MEDIAN_FILTER_ERROR
 		if ((msg[0] == 18) && (data->family_id == 0x81)) {
 			if ((msg[4] & 0x5) == 0x5) {
@@ -2125,6 +2124,7 @@ static irqreturn_t mxt224_irq_thread(int irq, void *ptr)
 				}
 			}
 		}
+#endif
 #endif
 		if (msg[0] > 1 && msg[0] < 12) {
 
@@ -2210,7 +2210,7 @@ static irqreturn_t mxt224_irq_thread(int irq, void *ptr)
 			report_input_data(data);
 
 		if (touch_message_flag && (cal_check_flag)
-			&& !Doing_calibration_flag)
+			&& !Doing_calibration_flag && !s2w_enabled)
 			check_chip_calibration(1);
 	} while (!gpio_get_value(data->gpio_read_done));
 

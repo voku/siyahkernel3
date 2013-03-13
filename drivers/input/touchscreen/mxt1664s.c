@@ -844,10 +844,9 @@ static void mxt_treat_T9_object(struct mxt_data *data, u8 *msg)
 		data->fingers[id].state = MXT_STATE_RELEASE;
 		data->finger_mask |= 1U << id;
 	} else {
-		/* ignore changed amplitude/vector message */
+		/* ignore changed amplitude message */
 		if (!((msg[1] & DETECT_MSG_MASK)
-				&& ((msg[1] & AMPLITUDE_MSG_MASK)
-				|| (msg[1] & VECTOR_MSG_MASK))))
+				&& (msg[1] & AMPLITUDE_MSG_MASK)))
 			dev_err(&data->client->dev, "Unknown state %#02x %#02x\n",
 				msg[0], msg[1]);
 	}

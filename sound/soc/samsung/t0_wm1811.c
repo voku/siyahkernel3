@@ -668,6 +668,7 @@ static int t0_wm1811_aif2_hw_params(struct snd_pcm_substream *substream,
 					struct snd_pcm_hw_params *params)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_codec *codec = rtd->codec;
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 	int ret;
 	int prate;
@@ -726,6 +727,14 @@ static int t0_wm1811_aif2_hw_params(struct snd_pcm_substream *substream,
 				     prate * 256, SND_SOC_CLOCK_IN);
 	if (ret < 0)
 		dev_err(codec_dai->dev, "Unable to switch to FLL2: %d\n", ret);
+
+	if (!(snd_soc_read(codec, WM8994_INTERRUPT_RAW_STATUS_2)
+		& WM8994_FLL2_LOCK_STS)) {
+		dev_info(codec_dai->dev, "%s: use mclk1 for FLL2\n", __func__);
+		ret = snd_soc_dai_set_pll(codec_dai, WM8994_FLL2,
+			WM8994_FLL_SRC_MCLK1,
+			MIDAS_DEFAULT_MCLK1, prate * 256);
+	}
 
 	dev_info(codec_dai->dev, "%s --\n", __func__);
 	return 0;

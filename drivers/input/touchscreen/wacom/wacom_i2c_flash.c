@@ -283,18 +283,6 @@ int wacom_i2c_flash_write(struct wacom_i2c *wac_i2c, unsigned long startAddr,
 		buf[2] = (u8) ((ulAddr & 0xff00) >> 8);
 		buf[3] = size;
 		buf[4] = bank;
-#ifdef CONFIG_MACH_T0
-		/*Pass Garbage*/
-		for (i = 0; i < BLOCK_SIZE_W; i++) {
-			if (Binary[ulAddr+i] != 0xff)
-				break;
-		}
-		if (i == BLOCK_SIZE_W) {
-			printk(KERN_DEBUG"[E-PEN] Pass ulAddr %u\n",
-				(unsigned int)ulAddr);
-			continue;
-		}
-#endif
 
 		for (i = 0; i < 5; i++)
 			sum += buf[i];
@@ -546,9 +534,6 @@ int wacom_i2c_flash(struct wacom_i2c *wac_i2c)
 	}
 #endif
 
-#ifdef WACOM_HAVE_FWE_PIN
-	wac_i2c->wac_pdata->compulsory_flash_mode(true);
-#endif
 	wake_lock(&wac_i2c->wakelock);
 
 	ret = wacom_i2c_flash_cmd(wac_i2c);
@@ -648,9 +633,6 @@ mcu_type_error:
 
 fw_update_error:
 	wake_unlock(&wac_i2c->wakelock);
-#ifdef WACOM_HAVE_FWE_PIN
-	wac_i2c->wac_pdata->compulsory_flash_mode(false);
-#endif
 	return ret;
 }
 

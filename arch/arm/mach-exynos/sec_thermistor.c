@@ -32,7 +32,7 @@ struct sec_therm_info {
 };
 
 #if defined(CONFIG_MACH_C1_KOR_SKT) || defined(CONFIG_MACH_C1_KOR_KT) || \
-	defined(CONFIG_MACH_C1_KOR_LGT)
+	defined(CONFIG_MACH_C1_KOR_LGT)  || defined(CONFIG_MACH_BAFFIN)
 static void notify_change_of_temperature(struct sec_therm_info *info);
 int siopLevellimit;
 EXPORT_SYMBOL(siopLevellimit);
@@ -57,7 +57,7 @@ static ssize_t sec_therm_show_temp_adc(struct device *dev,
 }
 
 #if defined(CONFIG_MACH_C1_KOR_SKT) || defined(CONFIG_MACH_C1_KOR_KT) || \
-	defined(CONFIG_MACH_C1_KOR_LGT)
+	defined(CONFIG_MACH_C1_KOR_LGT) || defined(CONFIG_MACH_BAFFIN)
 static ssize_t sec_therm_show_sioplevel(struct device *dev,
 				   struct device_attribute *attr,
 				   char *buf)
@@ -91,7 +91,7 @@ static struct attribute *sec_therm_attributes[] = {
 	&dev_attr_temperature.attr,
 	&dev_attr_temp_adc.attr,
 #if defined(CONFIG_MACH_C1_KOR_SKT) || defined(CONFIG_MACH_C1_KOR_KT) || \
-	defined(CONFIG_MACH_C1_KOR_LGT)
+	defined(CONFIG_MACH_C1_KOR_LGT) || defined(CONFIG_MACH_BAFFIN)
 	&dev_attr_sioplevel.attr,
 #endif
 	NULL
@@ -246,7 +246,7 @@ static __devinit int sec_therm_probe(struct platform_device *pdev)
 			"failed to create sysfs attribute group\n");
 	}
 
-	INIT_DELAYED_WORK_DEFERRABLE(&info->polling_work,
+	INIT_DEFERRABLE_WORK(&info->polling_work,
 			sec_therm_polling_work);
 	schedule_delayed_work(&info->polling_work,
 			msecs_to_jiffies(info->pdata->polling_interval));
