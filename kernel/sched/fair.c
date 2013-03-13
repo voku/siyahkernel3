@@ -1032,13 +1032,13 @@ static inline long calc_tg_weight(struct task_group *tg, struct cfs_rq *cfs_rq)
 	long tg_weight;
 
 	/*
-	 * Use this CPU's actual load instead of the last load_contribution
-	 * to gain a more accurate current total load. See
-	 * __update_cfs_rq_tg_load_contrib().
+	 * Use this CPU's actual weight instead of the last load_contribution
+	 * to gain a more accurate current total weight. See
+	 * update_cfs_rq_load_contribution().
 	 */
 	tg_weight = atomic64_read(&tg->load_avg);
 	tg_weight -= cfs_rq->tg_load_contrib;
-	tg_weight += cfs_rq->runnable_load_avg + cfs_rq->blocked_load_avg;
+	tg_weight += cfs_rq->load.weight;
 
 	return tg_weight;
 }
@@ -1048,7 +1048,7 @@ static long calc_cfs_shares(struct cfs_rq *cfs_rq, struct task_group *tg)
 	long tg_weight, load, shares;
 
 	tg_weight = calc_tg_weight(tg, cfs_rq);
-	load = cfs_rq->runnable_load_avg + cfs_rq->blocked_load_avg;
+	load = cfs_rq->load.weight;
 
 	shares = (tg->shares * load);
 	if (tg_weight)
@@ -1898,25 +1898,26 @@ static struct sched_entity *pick_next_entity(struct cfs_rq *cfs_rq)
 	struct sched_entity *left = se;
 
 	/*
-	 * Someone really wants next to run. If it's not unfair, run it.
+	 * Avoid running the skip buddy, if running something else can
+	 * be done without getting too unfair.
 	 */
-	if (cfs_rq->next && wakeup_preempt_entity(cfs_rq->next, left) < 1) {
-		se = cfs_rq->next;
-	} else if (cfs_rq->last && wakeup_preempt_entity(cfs_rq->last, left) < 1) {
-		/*
-		 * Prefer last buddy, try to return the CPU to a preempted
-		 * task.
-		 */
-		se = cfs_rq->last;
-	} else if (cfs_rq->skip == left) {
-		/*
-		 * Avoid running the skip buddy, if running something else
-		 * can be done without getting too unfair.
-		 */
-		struct sched_entity *second = __pick_next_entity(left);
+	if (cfs_rq->skip == se) {
+		struct sched_entity *second = __pick_next_entity(se);
 		if (second && wakeup_preempt_entity(second, left) < 1)
 			se = second;
 	}
+
+	/*
+	 * Prefer last buddy, try to return the CPU to a preempted task.
+	 */
+	if (cfs_rq->last && wakeup_preempt_entity(cfs_rq->last, left) < 1)
+		se = cfs_rq->last;
+
+	/*
+	 * Someone really wants this to run. If it's not unfair, run it.
+	 */
+	if (cfs_rq->next && wakeup_preempt_entity(cfs_rq->next, left) < 1)
+		se = cfs_rq->next;
 
 	clear_buddies(cfs_rq, se);
 
@@ -3253,7 +3254,7 @@ static int select_idle_sibling(struct task_struct *p, int target)
 {
 	struct sched_domain *sd;
 	struct sched_group *sg;
-	int i = task_cpu(p); 
+	int i = task_cpu(p);
 
 	if (idle_cpu(target))
 		return target;
@@ -5393,20 +5394,15 @@ static inline void set_cpu_sd_state_busy(void)
 {
 	struct sched_domain *sd;
 	int cpu = smp_processor_id();
-	int clear = 0;
 
 	if (!test_bit(NOHZ_IDLE, nohz_flags(cpu)))
 		return;
+	clear_bit(NOHZ_IDLE, nohz_flags(cpu));
 
 	rcu_read_lock();
-	for_each_domain(cpu, sd) {
+	for_each_domain(cpu, sd)
 		atomic_inc(&sd->groups->sgp->nr_busy_cpus);
-		clear = 1;
-	}
 	rcu_read_unlock();
-
-	if (likely(clear))
-		clear_bit(NOHZ_IDLE, nohz_flags(cpu));
 }
 
 void set_cpu_sd_state_idle(void)
