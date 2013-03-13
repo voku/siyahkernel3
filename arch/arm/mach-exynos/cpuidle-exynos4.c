@@ -797,7 +797,7 @@ static struct cpuidle_state exynos4_cpuidle_set[] __initdata = {
 	[0] = {
 		.enter			= exynos4_enter_idle,
 		.exit_latency		= 1,
-		.target_residency	= 100000,
+		.target_residency	= 10000,
 		.flags			= CPUIDLE_FLAG_TIME_VALID,
 		.name			= "Co",
 		.desc			= "ARM clock gating(WFI)",
@@ -805,7 +805,7 @@ static struct cpuidle_state exynos4_cpuidle_set[] __initdata = {
 #ifdef CONFIG_EXYNOS4_LOWPWR_IDLE
 	[1] = {
 		.enter			= exynos4_enter_lowpower,
-		.exit_latency		= 300,
+		.exit_latency		= 100,
 		.target_residency	= 100000,
 		.flags			= CPUIDLE_FLAG_TIME_VALID,
 		.name			= "C1",
