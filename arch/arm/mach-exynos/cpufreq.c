@@ -92,7 +92,7 @@ static unsigned int exynos_get_safe_armvolt(unsigned int old_index, unsigned int
 	return safe_arm_volt;
 }
 
-unsigned int smooth_level = L10; /* L10 = 800Mhz */
+unsigned int smooth_level = L8; /* L8 = 800Mhz */
 
 static int exynos_target(struct cpufreq_policy *policy,
 			  unsigned int target_freq,
