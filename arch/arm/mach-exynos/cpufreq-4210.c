@@ -411,7 +411,6 @@ static void __init set_volt_table(void)
 
 	if (for_1000)
 		exynos4210_freq_table[L4].frequency = CPUFREQ_ENTRY_INVALID; /* 1200Mhz */
-		printk(KERN_INFO "DVFS : VDD_ARM Voltage table set with %d Group\n", asv_group);
 
 	if (for_1400) {
 		for (i = 0 ; i < CPUFREQ_LEVEL_END ; i++) {
@@ -424,6 +423,7 @@ static void __init set_volt_table(void)
 					asv_voltage_A[i][asv_group];
 		}
 	}
+	printk(KERN_INFO "DVFS : VDD_ARM Voltage table set with %d Group\n", asv_group);
 }
 
 #if defined(CONFIG_REGULATOR_MAX8997)
