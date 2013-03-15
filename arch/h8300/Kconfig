@@ -12,11 +12,17 @@ config H8300
 =======
 	select GENERIC_CPU_DEVICES
 	select MODULES_USE_ELF_RELA
+<<<<<<< HEAD
 >>>>>>> 786d35d... Make most arch asm/module.h files use asm-generic/module.h
 
 config SYMBOL_PREFIX
 	string
 	default "_"
+=======
+	select OLD_SIGSUSPEND3
+	select OLD_SIGACTION
+	select HAVE_UNDERSCORE_SYMBOL_PREFIX
+>>>>>>> b92021b... CONFIG_SYMBOL_PREFIX: cleanup.
 
 config MMU
 	bool
