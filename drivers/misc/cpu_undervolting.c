@@ -332,7 +332,7 @@ static ssize_t customvoltage_intvolt_write(struct device * dev, struct device_at
 	int i = 0, j = 0, next_freq = 0;
 	unsigned long voltage;
 
-	char buffer[26]; /* freq steps from L0 to L24 + L25 0 end freq*/
+	char buffer[16]; /* freq steps from L0 to L15 + L16 0 end freq*/
 
 	while (1) {
 		buffer[j] = buf[i];

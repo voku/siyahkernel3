@@ -207,15 +207,15 @@ static unsigned int asv_3d_volt_9_table[MALI_DVFS_STEPS][ASV_LEVEL] = {
 };
 
 static unsigned int asv_3d_volt_9_table_for_prime[MALI_DVFS_STEPS][ASV_LEVEL_PRIME] = {
-	{  962500,  937500,  925000,  912500,  900000,  887500,  875000,  862500,  875000,  862500,  850000,  850000,  850000},  /* L4(160Mhz) */
+	{  950000,  937500,  925000,  912500,  900000,  887500,  875000,  862500,  875000,  862500,  850000,  850000,  850000},  /* L4(160Mhz) */
 #if (MALI_DVFS_STEPS > 1)
-	{  987500,  962500,  950000,  937500,  925000,  912500,  900000,  887500,  900000,  887500,  875000,  875000,  875000},	/* L3(266Mhz) */
+	{  975000,  962500,  950000,  937500,  925000,  912500,  900000,  887500,  900000,  887500,  875000,  875000,  875000},	/* L3(266Mhz) */
 #if (MALI_DVFS_STEPS > 2)
-	{ 1037500, 1012500, 1000000,  987500,  975000,  962500,  950000,  937500,  950000,  937500,  912500,  900000,  887500},	/* L2(350Mhz) */
+	{ 1025000, 1012500, 1000000,  987500,  975000,  962500,  950000,  937500,  950000,  937500,  912500,  900000,  887500},	/* L2(350Mhz) */
 #if (MALI_DVFS_STEPS > 3)
-	{ 1100000, 1075000, 1062500, 1050000, 1037500, 1025000, 1012500, 1000000, 1012500, 1000000,  975000,  962500,  950000},	/* L1(440Mhz) */
+	{ 1087500, 1075000, 1062500, 1050000, 1037500, 1025000, 1012500, 1000000, 1012500, 1000000,  975000,  962500,  950000},	/* L1(440Mhz) */
 #if (MALI_DVFS_STEPS > 4)
-	{ 1162500, 1137500, 1125000, 1112500, 1100000, 1087500, 1075000, 1062500, 1075000, 1062500, 1037500, 1025000, 1012500},	/* L0(533Mhz) */
+	{ 1150000, 1137500, 1125000, 1112500, 1100000, 1087500, 1075000, 1062500, 1075000, 1062500, 1037500, 1025000, 1012500},	/* L0(533Mhz) */
 #endif
 #endif
 #endif
@@ -466,6 +466,7 @@ static unsigned int decideNextStatus(unsigned int utilization)
 		if (utilization > (int)(255 * mali_dvfs_threshold[maliDvfsStatus.currentStep].upthreshold / 100) &&
 				level < MALI_DVFS_STEPS - 1) {
 			level++;
+// this prevents the usage of 5th step -gm
 //			if ((samsung_rev() < EXYNOS4412_REV_2_0) && (maliDvfsStatus.currentStep == 3)) {
 //				level=get_mali_dvfs_status();
 //			}
@@ -798,8 +799,8 @@ int change_dvfs_tableset(int change_clk, int change_step)
 			err = cpufreq_lock_by_mali(1000);
 		else
 			cpufreq_unlock_by_mali();
-	}
 #endif
+	}
 
 	return mali_dvfs[change_step].clock;
 }
