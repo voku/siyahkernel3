@@ -100,7 +100,6 @@
 #define MXT224_AUTOCAL_WAIT_TIME		2000
 // no debug !!!
 #define printk(arg, ...)
-#define TOUCH_LOCK_FREQ			500000
 
 #if defined(U1_EUR_TARGET)
 static bool gbfilter;
@@ -248,8 +247,6 @@ DECLARE_WAIT_QUEUE_HEAD(gestures_wq);
 static spinlock_t gestures_lock;
 #endif
 
-static u8 mov_hysti = 255;
-unsigned int lock_freq = TOUCH_LOCK_FREQ;
 int lock_dyn = 0;
 
 #define CLEAR_MEDIAN_FILTER_ERROR
@@ -756,15 +753,6 @@ static void mxt224_ta_probe(bool ta_status)
 			  size_one, &value);
 		read_mem(copy_data, obj_address + (u16) register_address, (u8) size_one, &val);
 		printk(KERN_ERR "[TSP] TA_probe MXT224 T%d Byte%d is %d\n", 9, register_address, val);
-		
-		// if 255, it's not modified. by tegrak
-		if (mov_hysti != 255) {
-			value = (u8)mov_hysti;
-			register_address = 11;
-			write_mem(copy_data, obj_address+(u16)register_address, size_one, &value);
-			read_mem(copy_data, obj_address+(u16)register_address, (u8)size_one, &val);
-			printk(KERN_ERR "[TSP] TA_probe MXT224 T%d Byte%d is %d\n", 9, register_address, val);
-		}
 
 		value = noise_threshold;
 		register_address = 8;
@@ -887,7 +875,7 @@ void check_chip_calibration(unsigned char one_touch_input_flag)
 			}
 		}
 
-		pr_debug("[TSP] t: %d, a: %d\n", tch_ch, atch_ch);
+		printk(KERN_ERR "[TSP] t: %d, a: %d\n", tch_ch, atch_ch);
 
 		/* send page up command so we can detect
 		when data updates next time, page byte will sit at 1
@@ -1369,14 +1357,13 @@ static void report_input_data(struct mxt224_data *data)
 
 	if (lock_dyn == 1) {
 		if (level == ~0 && nr_running_tmp > 1) {
-			// DEBUG
-			printk("lock_freq: old -> %u\n", lock_freq);
+			printk("500000: old -> %u\n", 500000);
 	
-			new_lock_freq = lock_freq / 10 * nr_running_tmp;
+			new_lock_freq = 500000 / 10 * nr_running_tmp;
 	
 			for (i=100000; i <= 1000000; i=i+100000) {
-				 if (i >= lock_freq) {
-					new_lock_freq = lock_freq;
+				 if (i >= 500000) {
+					new_lock_freq = 500000;
 					break;
 				}
 				else if (new_lock_freq <= i ) {
@@ -1384,16 +1371,15 @@ static void report_input_data(struct mxt224_data *data)
 					break;
 				}
 			}
-		
-			// DEBUG
-			printk("lock_freq: new -> %u\n", new_lock_freq);
+
+			printk("500000: new -> %u\n", new_lock_freq);
 				
 			exynos_cpufreq_get_level(new_lock_freq, &level);
 		}
 	}
 	else {
 		if (level == ~0)
-			exynos_cpufreq_get_level(lock_freq, &level);
+			exynos_cpufreq_get_level(500000, &level);
 	}
 
 	for (i = 0; i < data->num_fingers; i++) {
@@ -2479,58 +2465,6 @@ static ssize_t qt602240_object_setting(struct device *dev,
 
 	return count;
 
-}
-
-/* 
- * write MOVHYSTI of TOUCH_MULTITOUCHSCREEN_T9
- * by tegrak, found by vitalij@XDA
- */
-static ssize_t mov_hysti_store(struct device *dev,
-					struct device_attribute *attr,
-					const char *buf, size_t count)
-{
-	unsigned int register_value;
-	char buff[50];
-	int i;
-
-	sscanf(buf, "%u", &register_value);
-
-	// store value in global variable
-	mov_hysti = register_value;
-	
-	//do not apply if the screen is not active,
-	//it will be applied after turning on the screen anyway -gm
-	if (copy_data->mxt224_enabled == 1) {
-		i = sprintf(buff, "%u %u %u", TOUCH_MULTITOUCHSCREEN_T9, 11, register_value);
-		qt602240_object_setting(dev, attr, buff, i);
-	}
-	return count;
-}
-
-/* 
- * read MOVHYSTI of TOUCH_MULTITOUCHSCREEN_T9
- * by tegrak, found by vitalij@XDA
- */
- 
-static ssize_t mov_hysti_show(struct device* dev, 
-							 struct device_attribute *attr,
-							 char *buf)
-{
-	struct mxt224_data *data = dev_get_drvdata(dev);
-	unsigned int object_type = TOUCH_MULTITOUCHSCREEN_T9;
-	u8 val;
-	int ret;
-	u16 address;
-	u16 size;
-	
-	ret = get_object_info(data, (u8)object_type, &size, &address);
-	if (ret || size <= 11) {
-		printk(KERN_ERR "[TSP] fail to get object_info\n");
-		return -EINVAL;
-	}
-	
-	read_mem(data, address+11, 1, &val);
-	return sprintf(buf, "%u\n", val);
 }
 
 static ssize_t qt602240_object_show(struct device *dev,
@@ -3654,29 +3588,6 @@ static ssize_t tsp_touchtype_show(struct device *dev,
 	return strlen(buf);
 }
 
-static ssize_t touch_lock_freq_show(struct device *dev,
-				struct device_attribute *attr, char *buf)
-{
-	return sprintf(buf, "%u\n", lock_freq);
-}
-
-static ssize_t touch_lock_freq_store(struct device *dev,
-				struct device_attribute *attr,
-				const char *buf, size_t size)
-{
-	int ret;
-	unsigned int value;
-
-	ret = sscanf(buf, "%d\n", &value);
-
-	if (ret != 1)
-		return -EINVAL;
-	else
-		lock_freq = value;
-
-	return size;
-}
-
 static ssize_t touch_lock_dyn_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
@@ -3820,13 +3731,8 @@ static DEVICE_ATTR(object_write, S_IRUGO | S_IWUSR | S_IWGRP, NULL,
 		   qt602240_object_setting);
 static DEVICE_ATTR(dbg_switch, S_IRUGO | S_IWUSR | S_IWGRP, NULL,
 		   mxt224_debug_setting);
-static DEVICE_ATTR(mov_hysti, S_IRUGO | S_IWUSR | S_IWGRP, 
-		mov_hysti_show, mov_hysti_store);
-
 static DEVICE_ATTR(tsp_touch_config, S_IRUGO | S_IWUSR | S_IWGRP,
 	touch_config_show, touch_config_store);
-static DEVICE_ATTR(tsp_touch_freq, S_IRUGO | S_IWUSR | S_IWGRP,
-	touch_lock_freq_show, touch_lock_freq_store);
 static DEVICE_ATTR(tsp_touch_dyn, S_IRUGO | S_IWUSR | S_IWGRP,
 	touch_lock_dyn_show, touch_lock_dyn_store);
 #ifdef CONFIG_KEYBOARD_CYPRESS_AOKP
@@ -3900,7 +3806,6 @@ static struct attribute *qt602240_attrs[] = {
 	&dev_attr_object_show.attr,
 	&dev_attr_object_write.attr,
 	&dev_attr_dbg_switch.attr,
-	&dev_attr_mov_hysti.attr,
 	NULL
 };
 
@@ -4521,10 +4426,6 @@ static int __devinit mxt224_probe(struct i2c_client *client,
 	if (device_create_file(sec_touchscreen, &dev_attr_tsp_touch_config) < 0)
 		printk(KERN_ERR "Failed to create device file(%s)!\n",
 		       dev_attr_tsp_touch_config.attr.name);
-
-	if (device_create_file(sec_touchscreen, &dev_attr_tsp_touch_freq) < 0)
-		printk(KERN_ERR "Failed to create device file(%s)!\n",
-			dev_attr_tsp_touch_freq.attr.name);
 
 	if (device_create_file(sec_touchscreen, &dev_attr_tsp_touch_dyn) < 0)
 		printk(KERN_ERR "Failed to create device file(%s)!\n",
