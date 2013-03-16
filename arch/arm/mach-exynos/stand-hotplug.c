@@ -340,7 +340,7 @@ static void hotplug_timer(struct work_struct *work)
 	flag_hotplug = standalone_hotplug(load, nr_rq_min, cpu_rq_min);
 
 	/*do not ever hotplug out CPU 0*/
-	if((cpu_rq_min == 0) && (flag_hotplug == HOTPLUG_OUT))
+	if ((cpu_rq_min == 0) && (flag_hotplug == HOTPLUG_OUT))
 		goto no_hotplug;
 
 	/*cpu hotplug*/
@@ -353,7 +353,7 @@ static void hotplug_timer(struct work_struct *work)
 		DBG_PRINT("cpu%d turnning off!\n", cpu_rq_min);
 		cpu_down(cpu_rq_min);
 		DBG_PRINT("cpu%d off!\n", cpu_rq_min);
-		if(!screen_off) hotpluging_rate = check_rate;
+		if (!screen_off) hotpluging_rate = check_rate;
 		else hotpluging_rate = check_rate_scroff;
 	} 
 
@@ -398,24 +398,16 @@ static struct notifier_block exynos4_pm_hotplug_notifier = {
 
 static void hotplug_early_suspend(struct early_suspend *handler)
 {
-	mutex_lock(&hotplug_lock);
 	screen_off = true;
-	//Hotplug out all extra CPUs
-	while(num_online_cpus() > 1)
-	  cpu_down(num_online_cpus()-1);
 	hotpluging_rate = check_rate_scroff;
-	mutex_unlock(&hotplug_lock);
 }
 
 static void hotplug_late_resume(struct early_suspend *handler)
 {
 	printk(KERN_INFO "pm-hotplug: enable cpu auto-hotplug\n");
 
-	mutex_lock(&hotplug_lock);
 	screen_off = false;
 	hotpluging_rate = check_rate;
-	queue_delayed_work_on(0, hotplug_wq, &hotplug_work, hotpluging_rate);
-	mutex_unlock(&hotplug_lock);
 }
 
 static struct early_suspend hotplug_early_suspend_notifier = {
