@@ -1361,11 +1361,9 @@ static void report_input_data(struct mxt224_data *data)
 	
 			for (i=100000; i <= 1000000; i=i+100000) {
 				if (new_lock_freq <= i ) {
-					new_lock_freq = i;
 					break;
-				} else {
-					new_lock_freq = i;
 				}
+				new_lock_freq = i;
 			}
 
 			printk("touch-feq | old: TOUCH_LOCK_FREQ -> new: %u\n", new_lock_freq);
@@ -1374,7 +1372,7 @@ static void report_input_data(struct mxt224_data *data)
 	}
 	else {
 		if (level == ~0)
-			exynos_cpufreq_get_level(500000, &level);
+			exynos_cpufreq_get_level(TOUCH_LOCK_FREQ, &level);
 	}
 
 	for (i = 0; i < data->num_fingers; i++) {
