@@ -99,7 +99,8 @@
 
 #define MXT224_AUTOCAL_WAIT_TIME		2000
 // no debug !!!
-#define printk(arg, ...)
+//#define printk(arg, ...)
+#define TOUCH_LOCK_FREQ		500000
 
 #if defined(U1_EUR_TARGET)
 static bool gbfilter;
@@ -1350,30 +1351,24 @@ static void report_input_data(struct mxt224_data *data)
 
 	track_gestures = copy_data->mxt224_enabled;
 #endif
-
 	touch_is_pressed = 0;
 
-	nr_running_tmp = nr_running();
-
 	if (lock_dyn == 1) {
+		nr_running_tmp = nr_running();
 		if (level == ~0 && nr_running_tmp > 1) {
-			printk("500000: old -> %u\n", 500000);
-	
-			new_lock_freq = 500000 / 10 * nr_running_tmp;
+			nr_running_tmp = nr_running_tmp << 1;
+			new_lock_freq = TOUCH_LOCK_FREQ / 10 * nr_running_tmp;
 	
 			for (i=100000; i <= 1000000; i=i+100000) {
-				 if (i >= 500000) {
-					new_lock_freq = 500000;
-					break;
-				}
-				else if (new_lock_freq <= i ) {
+				if (new_lock_freq <= i ) {
 					new_lock_freq = i;
 					break;
+				} else {
+					new_lock_freq = i;
 				}
 			}
 
-			printk("500000: new -> %u\n", new_lock_freq);
-				
+			printk("touch-feq | old: TOUCH_LOCK_FREQ -> new: %u\n", new_lock_freq);
 			exynos_cpufreq_get_level(new_lock_freq, &level);
 		}
 	}
