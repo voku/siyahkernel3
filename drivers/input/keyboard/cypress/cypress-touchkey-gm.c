@@ -27,7 +27,9 @@
 #include <linux/gpio.h>
 #include <linux/miscdevice.h>
 #include <linux/uaccess.h>
+#ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
+#endif
 #include <linux/io.h>
 #include <linux/regulator/consumer.h>
 #include <linux/regulator/driver.h>
@@ -191,7 +193,9 @@ static struct wake_lock bln_wake_lock;
 struct i2c_touchkey_driver {
 	struct i2c_client *client;
 	struct input_dev *input_dev;
+#ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend early_suspend;
+#endif
 };
 struct i2c_touchkey_driver *touchkey_driver;
 struct work_struct touchkey_work;
@@ -1109,6 +1113,7 @@ static void touchkey_deactivate(void) {
 	mutex_unlock(&touchkey_enable_mutex);
 }
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
 static void bln_late_resume(struct early_suspend *h) {
 
 	/* the lights should be off */
@@ -1125,6 +1130,7 @@ static struct early_suspend bln_suspend_data = {
 	.level = EARLY_SUSPEND_LEVEL_DISABLE_FB + 1,
 	.resume = bln_late_resume,
 };
+#endif
 
 static void enable_touchkey_backlights(void) {
 	int status = 1;
@@ -1733,8 +1739,10 @@ static int i2c_touchkey_probe(struct i2c_client *client,
             } 
         }
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
         /* BLN early suspend */
         register_early_suspend(&bln_suspend_data);
+#endif
 
 	//this miscdevice is for cm9
 	err = misc_register(&led_device);

@@ -203,7 +203,6 @@ static struct wacom_g5_callbacks *wacom_callbacks;
 #include <linux/i2c/touchkey_i2c.h>
 #endif
 
-
 #if defined(CONFIG_TDMB) || defined(CONFIG_TDMB_MODULE)
 #include <mach/tdmb_pdata.h>
 #endif

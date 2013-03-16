@@ -963,10 +963,14 @@ check_ri_err:
 
 static void s5p_hdcp_work(void *arg)
 {
+#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CLOCK_GATING_ON_EARLY_SUSPEND)
 	s5p_tvout_mutex_lock();
+#endif
 	if (!hdcp_info.hdcp_enable || s5p_hdmi_ctrl_status() == false ||
 	    !s5p_hdmi_reg_get_hpd_status() || on_stop_process) {
+#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CLOCK_GATING_ON_EARLY_SUSPEND)
 		s5p_tvout_mutex_unlock();
+#endif
 		return;
 	}
 
@@ -997,16 +1001,22 @@ static void s5p_hdcp_work(void *arg)
 		else
 			hdcp_info.event &= ~HDCP_EVENT_CHECK_RI_START;
 	}
+#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CLOCK_GATING_ON_EARLY_SUSPEND)
 	s5p_tvout_mutex_unlock();
+#endif
 	return;
 work_err:
 	if (!hdcp_info.hdcp_enable || s5p_hdmi_ctrl_status() == false ||
 	    !s5p_hdmi_reg_get_hpd_status() || on_stop_process)	{
+#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CLOCK_GATING_ON_EARLY_SUSPEND)
 		s5p_tvout_mutex_unlock();
+#endif
 		return;
 	}
 	s5p_hdcp_reset_auth();
+#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CLOCK_GATING_ON_EARLY_SUSPEND)
 	s5p_tvout_mutex_unlock();
+#endif
 }
 
 irqreturn_t s5p_hdcp_irq_handler(int irq, void *dev_id)

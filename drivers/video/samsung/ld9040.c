@@ -99,7 +99,9 @@ struct lcd_info  {
 	struct lcd_device		*ld;
 	struct backlight_device		*bd;
 	struct lcd_platform_data	*lcd_pd;
+#ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend		early_suspend;
+#endif
 
 #ifdef SMART_DIMMING
 	unsigned char			id[3];

@@ -39,7 +39,9 @@
 #include <linux/profile.h>
 #include <linux/notifier.h>
 #include <linux/swap.h>
+#ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
+#endif
 #include <linux/mutex.h>
 #include <linux/delay.h>
 #include <linux/ktime.h>
@@ -232,6 +234,7 @@ static struct shrinker lowmem_shrinker = {
 	.seeks = DEFAULT_SEEKS * 16
 };
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
 static void low_mem_early_suspend(struct early_suspend *handler)
 {
 	memcpy(lowmem_minfree_screen_on, lowmem_minfree, sizeof(lowmem_minfree));
@@ -247,10 +250,13 @@ static struct early_suspend low_mem_suspend = {
 	.suspend = low_mem_early_suspend,
 	.resume = low_mem_late_resume,
 };
+#endif
 
 static int __init lowmem_init(void)
 {
+#ifdef CONFIG_HAS_EARLYSUSPEND
 	register_early_suspend(&low_mem_suspend);
+#endif
 
 	register_shrinker(&lowmem_shrinker);
 

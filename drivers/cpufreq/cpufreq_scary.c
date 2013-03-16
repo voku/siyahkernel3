@@ -18,7 +18,9 @@
 #include <linux/tick.h>
 #include <linux/ktime.h>
 #include <linux/sched.h>
+#ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
+#endif
 #include <asm/cputime.h>
 #include <linux/cpumask.h>
 #include <linux/timer.h>
@@ -445,6 +447,7 @@ static void smartass_suspend(int cpu, int suspend)
     
 }
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
 static void smartass_early_suspend(struct early_suspend *handler) 
 {
     int i;
@@ -466,7 +469,7 @@ static struct early_suspend smartass_power_suspend =
     .suspend = smartass_early_suspend,
     .resume = smartass_late_resume,
 };
-
+#endif
 
 static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 {
@@ -802,7 +805,9 @@ static int __init cpufreq_gov_dbs_init(void)
 		printk(KERN_ERR "Creation of kconservative failed\n");
 		return -EFAULT;
 	}
+#ifdef CONFIG_HAS_EARLYSUSPEND
     register_early_suspend(&smartass_power_suspend);
+#endif
 	err = cpufreq_register_governor(&cpufreq_gov_scary);
 	if (err)
 		destroy_workqueue(kconservative_wq);
