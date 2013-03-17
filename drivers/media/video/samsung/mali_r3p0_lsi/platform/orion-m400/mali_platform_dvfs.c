@@ -40,7 +40,7 @@
 static int bMaliDvfsRun = 0;
 
 static _mali_osk_atomic_t bottomlock_status;
-extern int bottom_lock_step;
+static int bottom_lock_step = 0;
 
 typedef struct mali_dvfs_tableTag{
 	unsigned int clock;
