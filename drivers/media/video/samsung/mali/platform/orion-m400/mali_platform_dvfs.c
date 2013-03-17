@@ -201,7 +201,7 @@ static unsigned int asv_3d_volt_8_table[ASV_8_LEVEL][MALI_DVFS_STEPS] = {
 
 /*dvfs status*/
 mali_dvfs_currentstatus maliDvfsStatus;
-int mali_dvfs_control=0;
+int mali_dvfs_control = 0;
 
 u32 mali_dvfs_utilization = 255;
 
@@ -425,9 +425,9 @@ static unsigned int decideNextStatus(unsigned int utilization)
 		for (i = 0; i < MALI_DVFS_STEPS; i++) {
 			step[i].clk = mali_dvfs_all[i].clock;
 		}
-#ifdef EXYNOS4_ASV_ENABLED
+//#ifdef EXYNOS4_ASV_ENABLED
 //		mali_dvfs_table_update();
-#endif
+//#endif
 		i = 0;
 		for (i = 0; i < MALI_DVFS_STEPS; i++) {
 			mali_dvfs[i].clock = step[i].clk;
@@ -521,7 +521,7 @@ static mali_bool mali_dvfs_status(u32 utilization)
 	unsigned int nextStatus = 0;
 	unsigned int curStatus = 0;
 	mali_bool boostup = MALI_FALSE;
-	static int stay_count = 0;
+	static int stay_count = 0; /* to prevent frequent switch */
 
 	MALI_DEBUG_PRINT(1, ("> mali_dvfs_status: %d \n",utilization));
 
@@ -553,7 +553,6 @@ static mali_bool mali_dvfs_status(u32 utilization)
 int mali_dvfs_is_running(void)
 {
 	return bMaliDvfsRun;
-
 }
 
 void mali_dvfs_late_resume(void)
@@ -640,7 +639,6 @@ static void mali_dvfs_work_handler(struct work_struct *w)
 #endif
 #endif
 
-
 #ifdef DEBUG
 	mali_dvfs[0].vol = step0_vol;
 	mali_dvfs[1].vol = step1_vol;
@@ -676,11 +674,12 @@ mali_bool init_mali_dvfs_status(int step)
 
 void deinit_mali_dvfs_status(void)
 {
-	if (mali_dvfs_wq)
-		destroy_workqueue(mali_dvfs_wq);
 
 	_mali_osk_atomic_term(&bottomlock_status);
 
+
+	if (mali_dvfs_wq)
+		destroy_workqueue(mali_dvfs_wq);
 	mali_dvfs_wq = NULL;
 }
 
