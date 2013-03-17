@@ -87,20 +87,20 @@
 /* TSP state */
 #define TSP_STATE_INACTIVE		-1
 #define TSP_STATE_RELEASE		0
-#define TSP_STATE_PRESS		1
-#define TSP_STATE_MOVE		2
+#define TSP_STATE_PRESS			1
+#define TSP_STATE_MOVE			2
 
 #define ID_BLOCK_SIZE			7
 
 #define DRIVER_FILTER
 #define U1_EUR_TARGET
 
-#define MAX_USING_FINGER_NUM 10
+#define MAX_USING_FINGER_NUM 		10
 
-#define MXT224_AUTOCAL_WAIT_TIME		2000
+#define MXT224_AUTOCAL_WAIT_TIME	2000
 // no debug !!!
-//#define printk(arg, ...)
-#define TOUCH_LOCK_FREQ		500000
+#define printk(arg, ...)
+#define TOUCH_LOCK_FREQ 		500000
 
 #if defined(U1_EUR_TARGET)
 static bool gbfilter;
