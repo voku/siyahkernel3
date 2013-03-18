@@ -29,9 +29,7 @@
 #include <linux/completion.h>
 #include <linux/mutex.h>
 #include <linux/syscore_ops.h>
-#ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
-#endif
 
 #include <trace/events/power.h>
 
@@ -1901,7 +1899,6 @@ int cpufreq_unregister_driver(struct cpufreq_driver *driver)
 }
 EXPORT_SYMBOL_GPL(cpufreq_unregister_driver);
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
 static void powersave_early_suspend(struct early_suspend *handler)
 {
 	int cpu;
@@ -1957,7 +1954,6 @@ static struct early_suspend _powersave_early_suspend = {
 	.resume = powersave_late_resume,
 	.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN,
 };
-#endif
 
 static int __init cpufreq_core_init(void)
 {
@@ -1971,9 +1967,7 @@ static int __init cpufreq_core_init(void)
 	cpufreq_global_kobject = kobject_create_and_add("cpufreq", &cpu_subsys.dev_root->kobj);
 	BUG_ON(!cpufreq_global_kobject);
 	register_syscore_ops(&cpufreq_syscore_ops);
-#ifdef CONFIG_HAS_EARLYSUSPEND
 	register_early_suspend(&_powersave_early_suspend);
-#endif
 
 	return 0;
 }

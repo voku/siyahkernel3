@@ -53,9 +53,8 @@ struct lcdfreq_info {
 	struct notifier_block	reboot_noti;
 
 	struct delayed_work	work;
-#ifdef CONFIG_HAS_EARLYSUSPEND
+
 	struct early_suspend	early_suspend;
-#endif
 };
 
 int get_div(struct s3cfb_global *ctrl)
@@ -378,7 +377,6 @@ static struct attribute_group lcdfreq_attr_group = {
 	.attrs = lcdfreq_attributes,
 };
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
 static void lcdfreq_early_suspend(struct early_suspend *h)
 {
 	struct lcdfreq_info *lcdfreq =
@@ -408,7 +406,6 @@ static void lcdfreq_late_resume(struct early_suspend *h)
 
 	return;
 }
-#endif
 
 static int lcdfreq_pm_notifier_event(struct notifier_block *this,
 	unsigned long event, void *ptr)
@@ -533,13 +530,12 @@ int lcdfreq_init(struct fb_info *fb)
 		pr_err("fail to add sysfs entries, %d\n", __LINE__);
 		goto err_2;
 	}
-#ifdef CONFIG_HAS_EARLYSUSPEND
+
 	lcdfreq->early_suspend.suspend = lcdfreq_early_suspend;
 	lcdfreq->early_suspend.resume = lcdfreq_late_resume;
 	lcdfreq->early_suspend.level = EARLY_SUSPEND_LEVEL_STOP_DRAWING + 1;
 
 	register_early_suspend(&lcdfreq->early_suspend);
-#endif
 
 	lcdfreq->pm_noti.notifier_call = lcdfreq_pm_notifier_event;
 	lcdfreq->reboot_noti.notifier_call = lcdfreq_reboot_notify;

@@ -30,9 +30,7 @@
 #include <linux/cpufreq.h>
 #include <linux/device.h>       //for second_core by tegrak
 #include <linux/miscdevice.h>   //for second_core by tegrak
-#ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
-#endif
 
 #include <plat/map-base.h>
 #include <plat/gpio-cfg.h>
@@ -394,7 +392,6 @@ static struct notifier_block exynos4_pm_hotplug_notifier = {
 	.notifier_call = exynos4_pm_hotplug_notifier_event,
 };
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
 static void hotplug_early_suspend(struct early_suspend *handler)
 {
 	screen_off = true;
@@ -412,7 +409,6 @@ static struct early_suspend hotplug_early_suspend_notifier = {
 	.resume = hotplug_late_resume,
 	.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN,
 };
-#endif
 
 static int hotplug_reboot_notifier_call(struct notifier_block *this,
 					unsigned long code, void *_cmd)
@@ -596,9 +592,7 @@ static int __init exynos4_pm_hotplug_init(void)
 		printk(KERN_ERR "failed at(%d)\n", __LINE__);
 		return ret;
 	}
-#ifdef CONFIG_HAS_EARLYSUSPEND
 	register_early_suspend(&hotplug_early_suspend_notifier);
-#endif
 
 	return 0;
 }

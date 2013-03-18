@@ -173,9 +173,7 @@ struct touchkey_platform_data {
 struct touchkey_i2c {
 	struct i2c_client *client;
 	struct input_dev *input_dev;
-#ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend early_suspend;
-#endif
 	struct mutex lock;
 	struct device	*dev;
     struct work_struct	work;

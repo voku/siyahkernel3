@@ -203,6 +203,7 @@ static struct wacom_g5_callbacks *wacom_callbacks;
 #include <linux/i2c/touchkey_i2c.h>
 #endif
 
+
 #if defined(CONFIG_TDMB) || defined(CONFIG_TDMB_MODULE)
 #include <mach/tdmb_pdata.h>
 #endif
@@ -5139,7 +5140,7 @@ struct gpio_keys_button u1_buttons[] = {
 	},			/* power key */
 #if !defined(CONFIG_MACH_U1_NA_SPR) && !defined(CONFIG_MACH_U1_NA_USCC)
 	{
-		.code = KEY_HOMEPAGE,
+		.code = KEY_HOME,
 		.gpio = GPIO_OK_KEY,
 		.active_low = 1,
 		.type = EV_KEY,

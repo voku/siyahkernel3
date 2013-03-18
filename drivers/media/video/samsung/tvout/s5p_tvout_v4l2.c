@@ -1020,13 +1020,9 @@ static int s5p_tvout_tvif_release(struct file *file)
 	atomic_dec(&s5p_tvout_v4l2_private.tvif_use);
 
 	if (atomic_read(&s5p_tvout_v4l2_private.tvif_use) == 0) {
-#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CLOCK_GATING_ON_EARLY_SUSPEND)
 		s5p_tvout_mutex_lock();
-#endif
 		s5p_tvif_ctrl_stop();
-#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CLOCK_GATING_ON_EARLY_SUSPEND)
 		s5p_tvout_mutex_unlock();
-#endif
 
 		free_vp_buff();
 	}

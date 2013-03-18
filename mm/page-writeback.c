@@ -37,9 +37,7 @@
 #include <linux/timer.h>
 #include <linux/sched/rt.h>
 #include <trace/events/writeback.h>
-#ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
-#endif
 
 /*
  * Sleep at most 200ms at a time in balance_dirty_pages().
@@ -1642,7 +1640,6 @@ static struct notifier_block __cpuinitdata ratelimit_nb = {
 	.next		= NULL,
 };
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
 static void dirty_early_suspend(struct early_suspend *handler)
 {
 	dirty_writeback_interval = 15 * 100;
@@ -1657,7 +1654,6 @@ static struct early_suspend dirty_suspend = {
 	.suspend = dirty_early_suspend,
 	.resume = dirty_late_resume,
 };
-#endif
 
 /*
  * Called early on to tune the page writeback dirty limits.
@@ -1679,9 +1675,8 @@ static struct early_suspend dirty_suspend = {
  */
 void __init page_writeback_init(void)
 {
-#ifdef CONFIG_HAS_EARLYSUSPEND
 	register_early_suspend(&dirty_suspend);
-#endif
+
 	writeback_set_ratelimit();
 	register_cpu_notifier(&ratelimit_nb);
 

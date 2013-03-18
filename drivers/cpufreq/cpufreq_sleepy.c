@@ -24,9 +24,7 @@
 #include <linux/ktime.h>
 #include <linux/sched.h>
 #include <linux/notifier.h>
-#ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
-#endif
 
 #include <asm/idle.h>
 
@@ -177,7 +175,6 @@ static void sleepy_suspend(int suspend)
         }
 }
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
 static void sleepy_early_suspend(struct early_suspend *handler) {
        sleepy_suspend(1);
 }
@@ -191,7 +188,6 @@ static struct early_suspend sleepy_power_suspend = {
         .resume = sleepy_late_resume,
         .level = EARLY_SUSPEND_LEVEL_DISABLE_FB + 1,
 };
-#endif
 
 static inline u64 get_cpu_idle_time_jiffy(unsigned int cpu, u64 *wall)
 {
@@ -874,9 +870,7 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 
                 mutex_init(&this_dbs_info->timer_mutex);
                 dbs_timer_init(this_dbs_info);
-#ifdef CONFIG_HAS_EARLYSUSPEND
                 register_early_suspend(&sleepy_power_suspend);
-#endif
                 pr_info("[sleepy] sleepy active\n");
                 break;
 
@@ -890,9 +884,7 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
                 if (!dbs_enable)
                         sysfs_remove_group(cpufreq_global_kobject,
                                            &dbs_attr_group);
-#ifdef CONFIG_HAS_EARLYSUSPEND
                 unregister_early_suspend(&sleepy_power_suspend);
-#endif
                 pr_info("[sleepy] sleepy inactive\n");
                 break;
 
