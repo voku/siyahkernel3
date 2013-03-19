@@ -32,6 +32,7 @@
 #include <asm/cacheflush.h>
 #include <asm/cpu.h>
 #include <asm/cputype.h>
+#include <asm/exception.h>
 #include <asm/idmap.h>
 #include <asm/topology.h>
 #include <asm/mmu_context.h>
@@ -315,9 +316,10 @@ asmlinkage void __cpuinit secondary_start_kernel(void)
 	current->active_mm = mm;
 	cpumask_set_cpu(cpu, mm_cpumask(mm));
 
+	cpu_init();
+
 	/* printk(KERN_INFO "CPU%u: Booted secondary processor\n", cpu); */
 
-	cpu_init();
 	preempt_disable();
 	trace_hardirqs_off();
 
@@ -385,8 +387,7 @@ void __init smp_prepare_cpus(unsigned int max_cpus)
 	 */
 	if (max_cpus > ncores)
 		max_cpus = ncores;
-
-	if (ncores > 1 && max_cpus) {	
+	if (ncores > 1 && max_cpus) {
 		/*
 		 * Enable the local timer or broadcast device for the
 		 * boot CPU, but only if we have more than one CPU.
@@ -396,8 +397,8 @@ void __init smp_prepare_cpus(unsigned int max_cpus)
 		/*
 		 * Initialise the present map, which describes the set of CPUs
 		 * actually populated at the present time. A platform should
-		 * re-initialize the map in platform_smp_prepare_cpus() if
-		 * present != possible (e.g. physical hotplug).
+		 * re-initialize the map in the platforms smp_prepare_cpus()
+		 * if present != possible (e.g. physical hotplug).
 		 */
 		init_cpu_present(cpu_possible_mask);
 
@@ -443,7 +444,7 @@ void show_ipi_list(struct seq_file *p, int prec)
 	for (i = 0; i < NR_IPI; i++) {
 		seq_printf(p, "%*s%u: ", prec - 1, "IPI", i);
 
-		for_each_present_cpu(cpu)
+		for_each_online_cpu(cpu)
 			seq_printf(p, "%10u ",
 				   __get_irq_stat(cpu, ipi_irqs[i]));
 
@@ -507,7 +508,7 @@ static void __cpuinit broadcast_timer_setup(struct clock_event_device *evt)
 	evt->features	= CLOCK_EVT_FEAT_ONESHOT |
 			  CLOCK_EVT_FEAT_PERIODIC |
 			  CLOCK_EVT_FEAT_DUMMY;
-	evt->rating	= 400;
+	evt->rating	= 100;
 	evt->mult	= 1;
 	evt->set_mode	= broadcast_timer_set_mode;
 
