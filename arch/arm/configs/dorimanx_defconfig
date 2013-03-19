@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm 3.1.0-R68 Kernel Configuration
+# Linux/arm 3.1.0-R69 Kernel Configuration
 #
 CONFIG_ARM=y
 CONFIG_HAVE_PWM=y
@@ -148,7 +148,7 @@ CONFIG_SLUB=y
 # CONFIG_SLOB is not set
 # CONFIG_PROFILING is not set
 # CONFIG_KPROBES is not set
-CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS=y
+# CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS is not set
 CONFIG_HAVE_KPROBES=y
 CONFIG_HAVE_KRETPROBES=y
 CONFIG_USE_GENERIC_SMP_HELPERS=y
