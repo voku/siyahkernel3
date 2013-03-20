@@ -2517,7 +2517,7 @@ static int check_modinfo(struct module *mod, struct load_info *info)
 	}
 
 	if (!get_modinfo(info, "intree"))
-		add_taint_module(mod, TAINT_OOT_MODULE);
+		add_taint_module(mod, TAINT_OOT_MODULE, LOCKDEP_STILL_OK);
 
 	if (get_modinfo(info, "staging")) {
 		add_taint_module(mod, TAINT_CRAP, LOCKDEP_STILL_OK);
