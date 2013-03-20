@@ -16,6 +16,7 @@
 #include <linux/kobject.h>
 #include <linux/moduleparam.h>
 #include <linux/tracepoint.h>
+#include <linux/export.h>
 
 #include <linux/percpu.h>
 #include <asm/module.h>
@@ -34,12 +35,6 @@
 #endif
 
 #define MODULE_NAME_LEN MAX_PARAM_PREFIX_LEN
-
-struct kernel_symbol
-{
-	unsigned long value;
-	const char *name;
-};
 
 struct modversion_info
 {

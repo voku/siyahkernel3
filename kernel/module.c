@@ -3247,7 +3247,7 @@ static int load_module(struct load_info *info, const char __user *uargs,
 			    "%s: module verification failed: signature and/or"
 			    " required key missing - tainting kernel\n",
 			    mod->name);
-		add_taint_module(mod, TAINT_FORCED_MODULE);
+		add_taint_module(mod, TAINT_FORCED_MODULE, LOCKDEP_STILL_OK);
 	}
 #endif
 
