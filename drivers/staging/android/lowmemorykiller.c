@@ -40,18 +40,15 @@
 #include <linux/notifier.h>
 #include <linux/swap.h>
 #include <linux/earlysuspend.h>
-#include <linux/mutex.h>
-#include <linux/delay.h>
-#include <linux/ktime.h>
 
 static uint32_t lowmem_debug_level = 1;
 static short lowmem_adj[6] = {
 	0,
 	1,
-	3,
-	9,
+	6,
 	12,
 	16,
+	17,
 };
 static int lowmem_adj_size = 6;
 static int lowmem_minfree[6] = {
@@ -80,7 +77,7 @@ static int lowmem_minfree_screen_on[6] = {
 };
 static int lowmem_minfree_size = 6;
 
-static ktime_t lowmem_deathpending_timeout;
+static unsigned long lowmem_deathpending_timeout;
 
 #define lowmem_print(level, x...)			\
 	do {						\
@@ -88,8 +85,6 @@ static ktime_t lowmem_deathpending_timeout;
 			printk(x);			\
 	} while (0)
 
-static DEFINE_MUTEX(scan_mutex);
-	
 static int test_task_flag(struct task_struct *p, int flag)
 {
 	struct task_struct *t = p;
@@ -117,16 +112,10 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	int selected_tasksize = 0;
 	short selected_oom_score_adj;
 	int array_size = ARRAY_SIZE(lowmem_adj);
-	unsigned long nr_to_scan = sc->nr_to_scan;
 	int other_free = global_page_state(NR_FREE_PAGES) -
 						totalreserve_pages;
 	int other_file = global_page_state(NR_FILE_PAGES) -
 						global_page_state(NR_SHMEM);
-
-	if (nr_to_scan > 0) {
-		if (mutex_lock_interruptible(&scan_mutex) < 0)
-			return 0;
-	}
 
 	if (lowmem_adj_size < array_size)
 		array_size = lowmem_adj_size;
@@ -139,21 +128,17 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			break;
 		}
 	}
-	if (nr_to_scan > 0)
-		lowmem_print(3, "lowmem_shrink %lu, %x, ofree %d %d, ma %d\n",
-				nr_to_scan, sc->gfp_mask, other_free,
+	if (sc->nr_to_scan > 0)
+		lowmem_print(3, "lowmem_shrink %lu, %x, ofree %d %d, ma %hd\n",
+				sc->nr_to_scan, sc->gfp_mask, other_free,
 				other_file, min_score_adj);
 	rem = global_page_state(NR_ACTIVE_ANON) +
 		global_page_state(NR_ACTIVE_FILE) +
 		global_page_state(NR_INACTIVE_ANON) +
 		global_page_state(NR_INACTIVE_FILE);
-	if (nr_to_scan <= 0 || min_score_adj == OOM_SCORE_ADJ_MAX + 1) {
+	if (sc->nr_to_scan <= 0 || min_score_adj == OOM_SCORE_ADJ_MAX + 1) {
 		lowmem_print(5, "lowmem_shrink %lu, %x, return %d\n",
-			   nr_to_scan, sc->gfp_mask, rem);
-
-		if (nr_to_scan > 0)
-			mutex_unlock(&scan_mutex);
-			
+			     sc->nr_to_scan, sc->gfp_mask, rem);
 		return rem;
 	}
 	selected_oom_score_adj = min_score_adj;
@@ -175,12 +160,9 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			continue;
 
 		if (test_tsk_thread_flag(p, TIF_MEMDIE) &&
-				ktime_us_delta(ktime_get(),lowmem_deathpending_timeout) < 0) {
+		    time_before_eq(jiffies, lowmem_deathpending_timeout)) {
 			task_unlock(p);
 			rcu_read_unlock();
-			/* give the system time to free up the memory */
-			msleep_interruptible(20);
-			mutex_unlock(&scan_mutex);
 			return 0;
 		}
 		oom_score_adj = p->signal->oom_score_adj;
@@ -209,21 +191,17 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		lowmem_print(1, "send sigkill to %d (%s), adj %hd, size %d\n",
 			     selected->pid, selected->comm,
 			     selected_oom_score_adj, selected_tasksize);
-		lowmem_deathpending_timeout = ktime_add_ns(ktime_get(),
-			NSEC_PER_SEC/2);
+		lowmem_deathpending_timeout = jiffies + HZ;
 		send_sig(SIGKILL, selected, 0);
 		set_tsk_thread_flag(selected, TIF_MEMDIE);
 		rem -= selected_tasksize;
 		rcu_read_unlock();
-		/* give the system time to free up the memory */
-		msleep_interruptible(20);
 	} else
 		rcu_read_unlock();
 
 	lowmem_print(4, "lowmem_shrink %lu, %x, return %d\n",
-		     nr_to_scan, sc->gfp_mask, rem);
+		     sc->nr_to_scan, sc->gfp_mask, rem);
 	rcu_read_unlock();
-	mutex_unlock(&scan_mutex);
 	return rem;
 }
 
@@ -345,7 +323,7 @@ module_param_named(cost, lowmem_shrinker.seeks, int, S_IRUGO | S_IWUSR);
 __module_param_call(MODULE_PARAM_PREFIX, adj,
 		    &lowmem_adj_array_ops,
 		    .arr = &__param_arr_adj,
-		    S_IRUGO | S_IWUSR, 0);
+		    S_IRUGO | S_IWUSR, 0644);
 __MODULE_PARM_TYPE(adj, "array of int");
 #else
 module_param_array_named(adj, lowmem_adj, short, &lowmem_adj_size,
