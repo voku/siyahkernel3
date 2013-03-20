@@ -277,9 +277,6 @@ static int k3dh_accel_disable(struct k3dh_data *data)
 /*  open command for K3DH device file  */
 static int k3dh_open(struct inode *inode, struct file *file)
 {
-	struct k3dh_data *data = container_of(file->private_data,
-		struct k3dh_data, k3dh_device);
-	k3dh_accel_enable(data);
 	k3dh_infomsg("is called.\n");
 	return 0;
 }
@@ -287,9 +284,6 @@ static int k3dh_open(struct inode *inode, struct file *file)
 /*  release command for K3DH device file */
 static int k3dh_close(struct inode *inode, struct file *file)
 {
-	struct k3dh_data *data = container_of(file->private_data,
-		struct k3dh_data, k3dh_device);
-	k3dh_accel_disable(data);
 	k3dh_infomsg("is called.\n");
 	return 0;
 }
