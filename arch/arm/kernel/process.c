@@ -169,7 +169,7 @@ void soft_restart(unsigned long addr)
 
 	/* Flush the console to make sure all the relevant messages make it
 	* out to the console drivers */
-        arm_machine_flush_console();
+	arm_machine_flush_console();
 
 	/* Disable interrupts first */
 	local_irq_disable();
