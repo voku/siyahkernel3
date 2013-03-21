@@ -18,7 +18,7 @@
 #include <linux/acct.h>
 #include <linux/capability.h>
 #include <linux/cpumask.h>
-#include <linux/module.h>
+#include <linux/export.h>
 #include <linux/sysfs.h>
 #include <linux/seq_file.h>
 #include <linux/mnt_namespace.h>
