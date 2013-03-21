@@ -219,4 +219,12 @@ void idle_notifier_register(struct notifier_block *n);
 void idle_notifier_unregister(struct notifier_block *n);
 void idle_notifier_call_chain(unsigned long val);
 
+enum cpuhp_state {
+	CPUHP_OFFLINE,
+	CPUHP_ONLINE,
+};
+
+void cpu_startup_entry(enum cpuhp_state state);
+void cpu_idle(void);
+
 #endif /* _LINUX_CPU_H_ */
