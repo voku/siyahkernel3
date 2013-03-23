@@ -1463,6 +1463,10 @@ struct task_struct {
 	struct uprobe_task *utask;
 	int uprobe_srcu_id;
 #endif
+#if defined(CONFIG_BCACHE) || defined(CONFIG_BCACHE_MODULE)
+	unsigned int	sequential_io;
+	unsigned int	sequential_io_avg;
+#endif
 };
 
 /* Future-safe accessor for struct task_struct's cpus_allowed. */
