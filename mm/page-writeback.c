@@ -85,7 +85,7 @@ int vm_highmem_is_dirtyable;
 /*
  * The generator of dirty data starts writeback at this percentage
  */
-int vm_dirty_ratio = 10;
+int vm_dirty_ratio = 15;
 
 /*
  * vm_dirty_bytes starts at 0 (disabled) so that it is a function of
@@ -2004,8 +2004,6 @@ int __set_page_dirty_no_writeback(struct page *page)
  */
 void account_page_dirtied(struct page *page, struct address_space *mapping)
 {
-	/* trace_writeback_dirty_page(page, mapping); (not implemented) */
-
 	if (mapping_cap_account_dirty(mapping)) {
 		__inc_zone_page_state(page, NR_FILE_DIRTY);
 		__inc_zone_page_state(page, NR_DIRTIED);
