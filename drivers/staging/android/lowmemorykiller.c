@@ -41,7 +41,7 @@
 #include <linux/swap.h>
 #include <linux/earlysuspend.h>
 
-static uint32_t lowmem_debug_level = 1;
+static uint32_t lowmem_debug_level = 2;
 static short lowmem_adj[6] = {
 	0,
 	1,
@@ -85,22 +85,6 @@ static unsigned long lowmem_deathpending_timeout;
 			printk(x);			\
 	} while (0)
 
-static int test_task_flag(struct task_struct *p, int flag)
-{
-	struct task_struct *t = p;
-
-	do {
-		task_lock(t);
-		if (test_tsk_thread_flag(t, flag)) {
-			task_unlock(t);
-			return 1;
-		}
-		task_unlock(t);
-	} while_each_thread(p, t);
-
-	return 0;
-}
-
 static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 {
 	struct task_struct *tsk;
@@ -112,8 +96,12 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	int selected_tasksize = 0;
 	short selected_oom_score_adj;
 	int array_size = ARRAY_SIZE(lowmem_adj);
+#ifndef CONFIG_DMA_CMA
+	int other_free = global_page_state(NR_FREE_PAGES);
+#else
 	int other_free = global_page_state(NR_FREE_PAGES) -
-						totalreserve_pages;
+					global_page_state(NR_FREE_CMA_PAGES);
+#endif
 	int other_file = global_page_state(NR_FILE_PAGES) -
 						global_page_state(NR_SHMEM);
 
@@ -155,10 +143,6 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		if (!p)
 			continue;
 
-		/* if task no longer has any memory ignore it */
-		if (test_task_flag(tsk, TIF_MM_RELEASED))
-			continue;
-
 		if (test_tsk_thread_flag(p, TIF_MEMDIE) &&
 		    time_before_eq(jiffies, lowmem_deathpending_timeout)) {
 			task_unlock(p);
@@ -174,11 +158,12 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		task_unlock(p);
 		if (tasksize <= 0)
 			continue;
+
 		if (selected) {
 			if (oom_score_adj < selected_oom_score_adj)
 				continue;
 			if (oom_score_adj == selected_oom_score_adj &&
-				tasksize <= selected_tasksize)
+ 				tasksize <= selected_tasksize)
 				continue;
 		}
 		selected = p;
@@ -195,10 +180,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		send_sig(SIGKILL, selected, 0);
 		set_tsk_thread_flag(selected, TIF_MEMDIE);
 		rem -= selected_tasksize;
-		rcu_read_unlock();
-	} else
-		rcu_read_unlock();
-
+	}
 	lowmem_print(4, "lowmem_shrink %lu, %x, return %d\n",
 		     sc->nr_to_scan, sc->gfp_mask, rem);
 	rcu_read_unlock();
@@ -229,9 +211,7 @@ static struct early_suspend low_mem_suspend = {
 static int __init lowmem_init(void)
 {
 	register_early_suspend(&low_mem_suspend);
-
 	register_shrinker(&lowmem_shrinker);
-
 	return 0;
 }
 

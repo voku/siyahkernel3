@@ -40,6 +40,8 @@ config ARM
 	select GENERIC_STRNCPY_FROM_USER
 	select GENERIC_STRNLEN_USER
 	select GENERIC_SMP_IDLE_THREAD
+	select HAVE_MOD_ARCH_SPECIFIC if ARM_UNWIND
+	select MODULES_USE_ELF_REL
 	help
 	  The ARM series is a line of low-power-consumption RISC chip designs
 	  licensed by ARM Ltd and targeted at embedded applications and
@@ -223,6 +225,13 @@ config ARM_PATCH_PHYS_VIRT_16BIT
 
 config ARCH_HIBERNATION_POSSIBLE
 	def_bool y
+
+config GENERIC_TIME_VSYSCALL
+	bool "Enable gettimeofday updates"
+	depends on CPU_V7
+	help
+	  Enables updating the kernel user helper area with the xtime struct
+	  data for gettimeofday via kernel user helpers.
 
 source "init/Kconfig"
 
