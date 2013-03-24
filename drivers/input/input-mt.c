@@ -39,7 +39,7 @@ static void copy_abs(struct input_dev *dev, unsigned int dst, unsigned int src)
  * reinitialize with a different number of slots.
  */
 int input_mt_init_slots(struct input_dev *dev, unsigned int num_slots,
-	unsigned int flags)
+			unsigned int flags)
 {
 	struct input_mt *mt = dev->mt;
 	int i;

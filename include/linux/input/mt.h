@@ -76,7 +76,7 @@ static inline bool input_mt_is_used(const struct input_mt *mt,
 }
 
 int input_mt_init_slots(struct input_dev *dev, unsigned int num_slots,
-	unsigned int flags);
+			unsigned int flags);
 void input_mt_destroy_slots(struct input_dev *dev);
 
 static inline int input_mt_new_trkid(struct input_mt *mt)
