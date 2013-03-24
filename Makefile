@@ -352,28 +352,30 @@ CC		= $(srctree)/scripts/gcc-wrapper.py $(REAL_CC)
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
 
-#KERNEL_FLAGS	= 	-pipe \
-					-march=armv7-a \
-					-mtune=cortex-a9 \
-					-mfpu=neon \
-					-mfloat-abi=softfp \
+LOW_ARM_FLAGS	= -pipe -march=armv7-a -mtune=cortex-a9 \
+		  -mfpu=neon -mfloat-abi=softfp \
+		  -funsafe-math-optimizations \
+		  -mvectorize-with-neon-quad
 
-#	-funsafe-math-optimizations
-#	-funswitch-loops -fpredictive-commoning
-#	-floop-strip-mine -floop-block -floop-interchange
-#	-fmodulo-sched -fmodulo-sched-allow-regmoves
-#	-mvectorize-with-neon-quad 
-#	-fsingle-precision-constant
+#ARM_FLAGS       = -pipe -marm -march=armv7-a -mtune=cortex-a9 \
+		   -fsingle-precision-constant -mvectorize-with-neon-quad
+#LOOPS		= -funswitch-loops -fpredictive-commoning
+#LOOPS_4_6	= -floop-strip-mine -floop-block -floop-interchange
+
+MODULES		= -fmodulo-sched -fmodulo-sched-allow-regmoves
 
 DISABLED_STORE	= 
 
-CFLAGS_MODULE   =
-AFLAGS_MODULE   =
-LDFLAGS_MODULE  =
+MODFLAGS        = -DMODULE
+CFLAGS_MODULE   = $(MODFLAGS)
+AFLAGS_MODULE   = $(MODFLAGS)
+LDFLAGS_MODULE  = -T $(srctree)/scripts/module-common.lds
 CFLAGS_KERNEL	=
 AFLAGS_KERNEL	=
 CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage
 
+KERNEL_MODS	= $(LOW_ARM_FLAGS) $(MODULES)
+#DISABLED_KERNEL_MODS	= $(ARM_FLAGS) $(LOOPS) $(LOOPS_4_6)
 
 # Use LINUXINCLUDE when you must reference the include/ directory.
 # Needed to be compatible with the O= option
@@ -388,7 +390,9 @@ KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -fno-strict-aliasing -fno-common \
 		   -Werror-implicit-function-declaration \
 		   -Wno-format-security \
-		   -fno-delete-null-pointer-checks
+		   -fno-delete-null-pointer-checks \
+		   $(KERNEL_MODS)
+
 KBUILD_AFLAGS_KERNEL :=
 KBUILD_CFLAGS_KERNEL :=
 KBUILD_AFLAGS   := -D__ASSEMBLY__
