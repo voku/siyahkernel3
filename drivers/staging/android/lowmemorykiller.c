@@ -35,45 +35,45 @@
 #include <linux/mm.h>
 #include <linux/oom.h>
 #include <linux/sched.h>
+#include <linux/swap.h>
 #include <linux/rcupdate.h>
 #include <linux/profile.h>
 #include <linux/notifier.h>
-#include <linux/swap.h>
 #include <linux/earlysuspend.h>
 
-static uint32_t lowmem_debug_level = 2;
+static uint32_t lowmem_debug_level = 1;
 static short lowmem_adj[6] = {
 	0,
 	1,
-	6,
-	12,
-	16,
-	17,
+	2,
+	4,
+	9,
+	15,
 };
 static int lowmem_adj_size = 6;
 static int lowmem_minfree[6] = {
-	3 * 512,	/* 6MB */
 	2 * 1024,	/* 8MB */
-	4 * 1024,	/* 16MB */
-	5 * 1024,	/* 20MB */
-	6 * 1024,	/* 24MB */
+	5 * 512,	/* 10MB */
+	3 * 1024,	/* 12MB */
+	7 * 512,	/* 14MB */
 	8 * 1024,	/* 32MB */
+	16 * 1024,	/* 64MB */
 };
 static int lowmem_minfree_screen_off[6] = {
-	3 * 512,	/* 6MB */
-	2 * 1024,	/* 8MB */
-	4 * 1024,	/* 16MB */
-	5 * 1024,	/* 20MB */
-	6 * 1024,	/* 24MB */
-	8 * 1024,	/* 32MB */
+        2 * 1024,	/* 8MB */
+        5 * 512,	/* 10MB */
+        3 * 1024,	/* 12MB */
+        7 * 512,	/* 14MB */
+        8 * 1024,	/* 32MB */
+        16 * 1024,	/* 64MB */
 };
 static int lowmem_minfree_screen_on[6] = {
-	3 * 512,	/* 6MB */
-	2 * 1024,	/* 8MB */
-	4 * 1024,	/* 16MB */
-	5 * 1024,	/* 20MB */
-	6 * 1024,	/* 24MB */
-	8 * 1024,	/* 32MB */
+        2 * 1024,	/* 8MB */
+        5 * 512,	/* 10MB */
+        3 * 1024,	/* 12MB */
+        7 * 512,	/* 14MB */
+        8 * 1024,	/* 32MB */
+        16 * 1024,	/* 64MB */
 };
 static int lowmem_minfree_size = 6;
 
@@ -93,10 +93,14 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	int tasksize;
 	int i;
 	short min_score_adj = OOM_SCORE_ADJ_MAX + 1;
+	int target_free = 0;
 	int selected_tasksize = 0;
+	int selected_target_offset = 0;
 	short selected_oom_score_adj;
 	int array_size = ARRAY_SIZE(lowmem_adj);
 #ifndef CONFIG_DMA_CMA
+/*	int other_free = global_page_state(NR_FREE_PAGES) -
+					totalreserve_pages; WILL SOD IF USED! */
 	int other_free = global_page_state(NR_FREE_PAGES);
 #else
 	int other_free = global_page_state(NR_FREE_PAGES) -
@@ -104,6 +108,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 #endif
 	int other_file = global_page_state(NR_FILE_PAGES) -
 						global_page_state(NR_SHMEM);
+	int target_offset;
 
 	if (lowmem_adj_size < array_size)
 		array_size = lowmem_adj_size;
@@ -113,6 +118,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		if (other_free < lowmem_minfree[i] &&
 		    other_file < lowmem_minfree[i]) {
 			min_score_adj = lowmem_adj[i];
+			target_free = lowmem_minfree[i] - (other_free + other_file);
 			break;
 		}
 	}
@@ -158,16 +164,17 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		task_unlock(p);
 		if (tasksize <= 0)
 			continue;
-
+		target_offset = abs(target_free - tasksize);
 		if (selected) {
 			if (oom_score_adj < selected_oom_score_adj)
 				continue;
 			if (oom_score_adj == selected_oom_score_adj &&
- 				tasksize <= selected_tasksize)
+				target_offset >= selected_target_offset)
 				continue;
 		}
 		selected = p;
 		selected_tasksize = tasksize;
+		selected_target_offset = target_offset;
 		selected_oom_score_adj = oom_score_adj;
 		lowmem_print(2, "select %d (%s), adj %hd, size %d, to kill\n",
 			     p->pid, p->comm, oom_score_adj, tasksize);
@@ -221,7 +228,6 @@ static void __exit lowmem_exit(void)
 }
 
 #ifdef CONFIG_ANDROID_LOW_MEMORY_KILLER_AUTODETECT_OOM_ADJ_VALUES
-
 static int lowmem_oom_adj_to_oom_score_adj(int oom_adj)
 {
 	if (oom_adj == OOM_ADJUST_MAX)
@@ -303,7 +309,7 @@ module_param_named(cost, lowmem_shrinker.seeks, int, S_IRUGO | S_IWUSR);
 __module_param_call(MODULE_PARAM_PREFIX, adj,
 		    &lowmem_adj_array_ops,
 		    .arr = &__param_arr_adj,
-		    S_IRUGO | S_IWUSR, 0644);
+		    S_IRUGO | S_IWUSR, 0444);
 __MODULE_PARM_TYPE(adj, "array of int");
 #else
 module_param_array_named(adj, lowmem_adj, short, &lowmem_adj_size,
