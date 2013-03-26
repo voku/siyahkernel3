@@ -1706,7 +1706,7 @@ static void rcu_prepare_for_idle(int cpu)
 		return;
 
 	/* If this is a no-CBs CPU, no callbacks, just return. */
-	if (is_nocb_cpu(cpu))
+	if (rcu_is_nocb_cpu(cpu))
 		return;
 
 	/*
@@ -1748,7 +1748,7 @@ static void rcu_cleanup_after_idle(int cpu)
 	struct rcu_data *rdp;
 	struct rcu_state *rsp;
 
-	if (is_nocb_cpu(cpu))
+	if (rcu_is_nocb_cpu(cpu))
 		return;
 	rcu_try_advance_all_cbs();
 	for_each_rcu_flavor(rsp) {
@@ -2053,7 +2053,7 @@ static void rcu_init_one_nocb(struct rcu_node *rnp)
 }
 
 /* Is the specified CPU a no-CPUs CPU? */
-static bool is_nocb_cpu(int cpu)
+bool rcu_is_nocb_cpu(int cpu)
 {
 	if (have_rcu_nocb_mask)
 		return cpumask_test_cpu(cpu, rcu_nocb_mask);
@@ -2111,7 +2111,7 @@ static bool __call_rcu_nocb(struct rcu_data *rdp, struct rcu_head *rhp,
 			    bool lazy)
 {
 
-	if (!is_nocb_cpu(rdp->cpu))
+	if (!rcu_is_nocb_cpu(rdp->cpu))
 		return 0;
 	__call_rcu_nocb_enqueue(rdp, rhp, &rhp->next, 1, lazy);
 	if (__is_kfree_rcu_offset((unsigned long)rhp->func))
@@ -2135,7 +2135,7 @@ static bool __maybe_unused rcu_nocb_adopt_orphan_cbs(struct rcu_state *rsp,
 	long qll = rsp->qlen_lazy;
 
 	/* If this is not a no-CBs CPU, tell the caller to do it the old way. */
-	if (!is_nocb_cpu(smp_processor_id()))
+	if (!rcu_is_nocb_cpu(smp_processor_id()))
 		return 0;
 	rsp->qlen = 0;
 	rsp->qlen_lazy = 0;
