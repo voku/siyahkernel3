@@ -32,10 +32,11 @@
  * Thomas Hellström <thomas-at-tungstengraphics-dot-com>
  */
 
-#include "drmP.h"
-#include "drm_hashtab.h"
+#include <drm/drmP.h>
+#include <drm/drm_hashtab.h>
 #include <linux/hash.h>
 #include <linux/slab.h>
+#include <linux/export.h>
 
 int drm_ht_create(struct drm_open_hash *ht, unsigned int order)
 {
@@ -65,14 +66,8 @@ void drm_ht_verbose_list(struct drm_open_hash *ht, unsigned long key)
 	hashed_key = hash_long(key, ht->order);
 	DRM_DEBUG("Key is 0x%08lx, Hashed key is 0x%08x\n", key, hashed_key);
 	h_list = &ht->table[hashed_key];
-<<<<<<< HEAD
-	hlist_for_each(list, h_list) {
-		entry = hlist_entry(list, struct drm_hash_item, head);
-=======
 	hlist_for_each_entry(entry, h_list, head)
->>>>>>> b67bfe0... hlist: drop the node parameter from iterators
 		DRM_DEBUG("count %d, key: 0x%08lx\n", count++, entry->key);
-	}
 }
 
 static struct hlist_node *drm_ht_find_key(struct drm_open_hash *ht,
@@ -84,12 +79,7 @@ static struct hlist_node *drm_ht_find_key(struct drm_open_hash *ht,
 
 	hashed_key = hash_long(key, ht->order);
 	h_list = &ht->table[hashed_key];
-<<<<<<< HEAD
-	hlist_for_each(list, h_list) {
-		entry = hlist_entry(list, struct drm_hash_item, head);
-=======
 	hlist_for_each_entry(entry, h_list, head) {
->>>>>>> b67bfe0... hlist: drop the node parameter from iterators
 		if (entry->key == key)
 			return &entry->head;
 		if (entry->key > key)
@@ -98,8 +88,6 @@ static struct hlist_node *drm_ht_find_key(struct drm_open_hash *ht,
 	return NULL;
 }
 
-<<<<<<< HEAD
-=======
 static struct hlist_node *drm_ht_find_key_rcu(struct drm_open_hash *ht,
 					      unsigned long key)
 {
@@ -117,7 +105,6 @@ static struct hlist_node *drm_ht_find_key_rcu(struct drm_open_hash *ht,
 	}
 	return NULL;
 }
->>>>>>> b67bfe0... hlist: drop the node parameter from iterators
 
 int drm_ht_insert_item(struct drm_open_hash *ht, struct drm_hash_item *item)
 {
@@ -130,12 +117,7 @@ int drm_ht_insert_item(struct drm_open_hash *ht, struct drm_hash_item *item)
 	hashed_key = hash_long(key, ht->order);
 	h_list = &ht->table[hashed_key];
 	parent = NULL;
-<<<<<<< HEAD
-	hlist_for_each(list, h_list) {
-		entry = hlist_entry(list, struct drm_hash_item, head);
-=======
 	hlist_for_each_entry(entry, h_list, head) {
->>>>>>> b67bfe0... hlist: drop the node parameter from iterators
 		if (entry->key == key)
 			return -EINVAL;
 		if (entry->key > key)
@@ -143,9 +125,9 @@ int drm_ht_insert_item(struct drm_open_hash *ht, struct drm_hash_item *item)
 		parent = &entry->head;
 	}
 	if (parent) {
-		hlist_add_after(parent, &item->head);
+		hlist_add_after_rcu(parent, &item->head);
 	} else {
-		hlist_add_head(&item->head, h_list);
+		hlist_add_head_rcu(&item->head, h_list);
 	}
 	return 0;
 }
@@ -185,7 +167,7 @@ int drm_ht_find_item(struct drm_open_hash *ht, unsigned long key,
 {
 	struct hlist_node *list;
 
-	list = drm_ht_find_key(ht, key);
+	list = drm_ht_find_key_rcu(ht, key);
 	if (!list)
 		return -EINVAL;
 
@@ -200,7 +182,7 @@ int drm_ht_remove_key(struct drm_open_hash *ht, unsigned long key)
 
 	list = drm_ht_find_key(ht, key);
 	if (list) {
-		hlist_del_init(list);
+		hlist_del_init_rcu(list);
 		return 0;
 	}
 	return -EINVAL;
@@ -208,7 +190,7 @@ int drm_ht_remove_key(struct drm_open_hash *ht, unsigned long key)
 
 int drm_ht_remove_item(struct drm_open_hash *ht, struct drm_hash_item *item)
 {
-	hlist_del_init(&item->head);
+	hlist_del_init_rcu(&item->head);
 	return 0;
 }
 EXPORT_SYMBOL(drm_ht_remove_item);

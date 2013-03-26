@@ -10,8 +10,8 @@
  * published by the Free Software Foundation.
 */
 
-#ifndef SAMSUNG_REGS_FIMC_H
-#define SAMSUNG_REGS_FIMC_H
+#ifndef EXYNOS_REGS_FIMC_H
+#define EXYNOS_REGS_FIMC_H
 
 /*
  * Register part
@@ -661,9 +661,8 @@
 #define EXYNOS_CLKSRC_SCLK				(1 << 1)
 
 /* SYSREG for FIMC writeback */
-#define SYSREG_CAMERA_BLK			(S3C_VA_SYS + 0x0218)
-#define SYSREG_ISP_BLK				(S3C_VA_SYS + 0x020c)
-#define SYSREG_FIMD0WB_DEST_MASK	(0x3 << 23)
-#define SYSREG_FIMD0WB_DEST_SHIFT	23
+#define SYSREG_CAMERA_BLK			(0x0218)
+#define SYSREG_FIMD0WB_DEST_MASK		(0x3 << 23)
+#define SYSREG_FIMD0WB_DEST_SHIFT		23
 
-#endif /* SAMSUNG_REGS_FIMC_H */
+#endif /* EXYNOS_REGS_FIMC_H */

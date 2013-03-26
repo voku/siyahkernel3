@@ -1,5 +1,6 @@
-#include "drmP.h"
+#include <drm/drmP.h>
 #include <linux/usb.h>
+#include <linux/module.h>
 
 int drm_get_usb_dev(struct usb_interface *interface,
 		    const struct usb_device_id *id,
@@ -32,6 +33,12 @@ int drm_get_usb_dev(struct usb_interface *interface,
 	if (ret)
 		goto err_g1;
 
+	if (drm_core_check_feature(dev, DRIVER_RENDER) && drm_rnodes) {
+		ret = drm_get_minor(dev, &dev->render, DRM_MINOR_RENDER);
+		if (ret)
+			goto err_g11;
+	}
+
 	ret = drm_get_minor(dev, &dev->primary, DRM_MINOR_LEGACY);
 	if (ret)
 		goto err_g2;
@@ -61,6 +68,9 @@ int drm_get_usb_dev(struct usb_interface *interface,
 err_g3:
 	drm_put_minor(&dev->primary);
 err_g2:
+	if (dev->render)
+		drm_put_minor(&dev->render);
+err_g11:
 	drm_put_minor(&dev->control);
 err_g1:
 	kfree(dev);
@@ -113,3 +123,7 @@ void drm_usb_exit(struct drm_driver *driver,
 	usb_deregister(udriver);
 }
 EXPORT_SYMBOL(drm_usb_exit);
+
+MODULE_AUTHOR("David Airlie");
+MODULE_DESCRIPTION("USB DRM support");
+MODULE_LICENSE("GPL and additional rights");

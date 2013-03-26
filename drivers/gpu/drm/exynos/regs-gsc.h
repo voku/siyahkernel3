@@ -10,28 +10,8 @@
  * published by the Free Software Foundation.
  */
 
-#ifndef REGS_GSC_H_
-#define REGS_GSC_H_
-
-/* SYSCON. GSCBLK_CFG */
-#include <plat/map-base.h>
-#include <plat/cpu.h>
-#define SYSREG_DISP1BLK_CFG		(S3C_VA_SYS + 0x0214)
-#define FIFORST_DISP1			(1 << 23)
-#define GSC_OUT_MIXER0			(1 << 7)
-#define GSC_OUT_MIXER0_GSC3		(3 << 5)
-#define SYSREG_GSCBLK_CFG0		(S3C_VA_SYS + 0x0220)
-#define GSC_OUT_DST_FIMD_SEL(x)		(1 << (8 + 2 * (x)))
-#define GSC_OUT_DST_MXR_SEL(x)		(2 << (8 + 2 * (x)))
-#define GSC_PXLASYNC_RST(x)		(1 << (x))
-#define PXLASYNC_LO_MASK_CAMIF_TOP	(1 << 20)
-#define SYSREG_GSCBLK_CFG1		(S3C_VA_SYS + 0x0224)
-#define GSC_BLK_DISP1WB_DEST(x)		(x << 10)
-#define GSC_BLK_SW_RESET_WB_DEST(x)	(1 << (18 + x))
-#define GSC_BLK_PXLASYNC_LO_MASK_WB(x)	(0 << (14 + x))
-#define GSC_BLK_GSCL_WB_IN_SRC_SEL(x)	(1 << (2 * x))
-#define SYSREG_GSCBLK_CFG2		(S3C_VA_SYS + 0x2000)
-#define PXLASYNC_LO_MASK_CAMIF_GSCL(x)	(1 << (x))
+#ifndef EXYNOS_REGS_GSC_H_
+#define EXYNOS_REGS_GSC_H_
 
 /* G-Scaler enable */
 #define GSC_ENABLE			0x00
@@ -292,4 +272,13 @@
 #define GSC_CLK_SNOOP_COUNT		0xC04
 #define GSC_CLK_GATE_MODE_SNOOP_CNT(x)	((x) << 0)
 
-#endif /* REGS_GSC_H_ */
+/* SYSCON. GSCBLK_CFG */
+#define SYSREG_GSCBLK_CFG1		(S3C_VA_SYS + 0x0224)
+#define GSC_BLK_DISP1WB_DEST(x)		(x << 10)
+#define GSC_BLK_SW_RESET_WB_DEST(x)	(1 << (18 + x))
+#define GSC_BLK_PXLASYNC_LO_MASK_WB(x)	(0 << (14 + x))
+#define GSC_BLK_GSCL_WB_IN_SRC_SEL(x)	(1 << (2 * x))
+#define SYSREG_GSCBLK_CFG2		(S3C_VA_SYS + 0x2000)
+#define PXLASYNC_LO_MASK_CAMIF_GSCL(x)	(1 << (x))
+
+#endif /* EXYNOS_REGS_GSC_H_ */

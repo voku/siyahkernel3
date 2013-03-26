@@ -3,24 +3,10 @@
  * Copyright (c) 2011 Samsung Electronics Co., Ltd.
  * Authoer: Inki Dae <inki.dae@samsung.com>
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice (including the next
- * paragraph) shall be included in all copies or substantial portions of the
- * Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
- * VA LINUX SYSTEMS AND/OR ITS SUPPLIERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
- * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
- * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
- * OTHER DEALINGS IN THE SOFTWARE.
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
  */
 
 #ifndef _EXYNOS_DRM_GEM_H_
@@ -29,33 +15,7 @@
 #define to_exynos_gem_obj(x)	container_of(x,\
 			struct exynos_drm_gem_obj, base)
 
-/* FIMD/HDMI/G2D/FIMC/G3D */
-#define MAX_IOMMU_NR	5
-
-#define IS_NONCONTIG_BUFFER(f)	((f & EXYNOS_BO_NONCONTIG) ||\
-					(f & EXYNOS_BO_USERPTR))
-
-struct exynos_drm_private_cb {
-	unsigned int (*get_handle)(unsigned int id);
-	int (*add_buffer)(void *obj, unsigned int *handle, unsigned int *id);
-	void (*release_buffer)(unsigned int handle);
-};
-
-/*
- * exynos drm iommu information structure.
- *
- * @mapped: flag a bit of indicating whether any driver's device address
- *	is mapped to its own iommu or not.
- * @dma_addrs: contain device address to each device driver using iommu.
- * @devs: device objects that requested mapping to iommu.
- */
-struct exynos_drm_iommu_info {
-	unsigned int		mapped;
-	dma_addr_t		dma_addrs[MAX_IOMMU_NR];
-	struct device		*devs[MAX_IOMMU_NR];
-	struct list_head	*iommu_lists[MAX_IOMMU_NR];
-	/* TODO. */
-};
+#define IS_NONCONTIG_BUFFER(f)		(f & EXYNOS_BO_NONCONTIG)
 
 /*
  * exynos drm gem buffer structure.
@@ -63,31 +23,24 @@ struct exynos_drm_iommu_info {
  * @kvaddr: kernel virtual address to allocated memory region.
  * *userptr: user space address.
  * @dma_addr: bus address(accessed by dma) to allocated memory region.
- * @dev_addr: device address for IOMMU.
- * @paddr: physical address to allocated buffer.
+ *	- this address could be physical address without IOMMU and
+ *	device address with IOMMU.
  * @write: whether pages will be written to by the caller.
+ * @pages: Array of backing pages.
  * @sgt: sg table to transfer page data.
- * @pages: contain all pages to allocated memory region.
- * @page_size: could be 4K, 64K or 1MB.
  * @size: size of allocated memory region.
- * @shared: indicate shared mfc memory region.
- *	(temporarily used and it should be removed later.)
  * @pfnmap: indicate whether memory region from userptr is mmaped with
  *	VM_PFNMAP or not.
  */
 struct exynos_drm_gem_buf {
-	struct device		*dev;
 	void __iomem		*kvaddr;
 	unsigned long		userptr;
 	dma_addr_t		dma_addr;
-	dma_addr_t		dev_addr;
-	dma_addr_t		paddr;
+	struct dma_attrs	dma_attrs;
 	unsigned int		write;
-	struct sg_table		*sgt;
 	struct page		**pages;
-	unsigned long		page_size;
+	struct sg_table		*sgt;
 	unsigned long		size;
-	bool			shared;
 	bool			pfnmap;
 };
 
@@ -102,16 +55,10 @@ struct exynos_drm_gem_buf {
  *	by user request or at framebuffer creation.
  *	continuous memory region allocated by user request
  *	or at framebuffer creation.
- * @iommu_info: contain iommu mapping information to each device driver
- *	using its own iommu.
  * @size: size requested from user, in bytes and this size is aligned
  *	in page unit.
- * @packed_size: real size of the gem object, in bytes and
- *	this size isn't aligned in page unit.
+ * @vma: a pointer to vm_area.
  * @flags: indicate memory type to allocated buffer and cache attruibute.
- * @vmm: vmm object for iommu framework.
- * @priv_handle: handle to specific buffer object.
- * @priv_id: unique id to specific buffer object.
  *
  * P.S. this object would be transfered to user as kms_bo.handle so
  *	user can access the buffer through kms_bo.handle.
@@ -119,27 +66,12 @@ struct exynos_drm_gem_buf {
 struct exynos_drm_gem_obj {
 	struct drm_gem_object		base;
 	struct exynos_drm_gem_buf	*buffer;
-	struct exynos_drm_iommu_info	iommu_info;
 	unsigned long			size;
-	unsigned long			packed_size;
 	struct vm_area_struct		*vma;
 	unsigned int			flags;
-	void				*vmm;
-	unsigned int			priv_handle;
-	unsigned int			priv_id;
 };
 
-/* register private callback. */
-void exynos_drm_priv_cb_register(struct exynos_drm_private_cb *cb);
-
-/* register a buffer object to private buffer manager. */
-int register_buf_to_priv_mgr(struct exynos_drm_gem_obj *obj,
-		unsigned int *priv_handle, unsigned int *priv_id);
-
 struct page **exynos_gem_get_pages(struct drm_gem_object *obj, gfp_t gfpmask);
-
-int exynos_drm_gem_user_limit_ioctl(struct drm_device *dev, void *data,
-				      struct drm_file *filp);
 
 /* destroy a buffer with gem object */
 void exynos_drm_gem_destroy(struct exynos_drm_gem_obj *exynos_gem_obj);
@@ -166,17 +98,18 @@ int exynos_drm_gem_create_ioctl(struct drm_device *dev, void *data,
  * other drivers such as 2d/3d acceleration drivers.
  * with this function call, gem object reference count would be increased.
  */
-void *exynos_drm_gem_get_dma_addr(struct drm_device *dev,
+dma_addr_t *exynos_drm_gem_get_dma_addr(struct drm_device *dev,
 					unsigned int gem_handle,
-					struct drm_file *filp,
-					unsigned int *gem_obj);
+					struct drm_file *filp);
 
 /*
  * put dma address from gem handle and this function could be used for
  * other drivers such as 2d/3d acceleration drivers.
  * with this function call, gem object reference count would be decreased.
  */
-void exynos_drm_gem_put_dma_addr(struct drm_device *dev, void *gem_obj);
+void exynos_drm_gem_put_dma_addr(struct drm_device *dev,
+					unsigned int gem_handle,
+					struct drm_file *filp);
 
 /* get buffer offset to map to user space. */
 int exynos_drm_gem_map_offset_ioctl(struct drm_device *dev, void *data,
@@ -218,42 +151,42 @@ int exynos_drm_gem_dumb_map_offset(struct drm_file *file_priv,
 				   struct drm_device *dev, uint32_t handle,
 				   uint64_t *offset);
 
-/*
- * destroy memory region allocated.
- *	- a gem handle and physical memory region pointed by a gem object
- *	would be released by drm_gem_handle_delete().
- */
-int exynos_drm_gem_dumb_destroy(struct drm_file *file_priv,
-				struct drm_device *dev,
-				unsigned int handle);
-
 /* page fault handler and mmap fault address(virtual) to physical memory. */
 int exynos_drm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf);
 
 /* set vm_flags and we can change the vm attribute to other one at here. */
 int exynos_drm_gem_mmap(struct file *filp, struct vm_area_struct *vma);
 
-/* get ump sequre id for UMP. */
-int exynos_drm_gem_export_ump_ioctl(struct drm_device *dev, void *data,
-		struct drm_file *file);
+static inline int vma_is_io(struct vm_area_struct *vma)
+{
+	return !!(vma->vm_flags & (VM_IO | VM_PFNMAP));
+}
 
-/* do user desired cache operation. */
-int exynos_drm_gem_cache_op_ioctl(struct drm_device *drm_dev, void *data,
-		struct drm_file *file_priv);
+/* get a copy of a virtual memory region. */
+struct vm_area_struct *exynos_gem_get_vma(struct vm_area_struct *vma);
 
-/* temporary functions. */
-/* get physical address from a gem. */
-int exynos_drm_gem_get_phy_ioctl(struct drm_device *drm_dev, void *data,
-		struct drm_file *file_priv);
-/* import physical memory to a gem. */
-int exynos_drm_gem_phy_imp_ioctl(struct drm_device *drm_dev, void *data,
-		struct drm_file *file_priv);
+/* release a userspace virtual memory area. */
+void exynos_gem_put_vma(struct vm_area_struct *vma);
 
-void exynos_drm_gem_close_object(struct drm_gem_object *obj,
-				struct drm_file *file);
+/* get pages from user space. */
+int exynos_gem_get_pages_from_userptr(unsigned long start,
+						unsigned int npages,
+						struct page **pages,
+						struct vm_area_struct *vma);
 
-struct exynos_drm_gem_obj *exynos_drm_gem_get_obj(struct drm_device *dev,
-						unsigned int gem_handle,
-						struct drm_file *file_priv);
+/* drop the reference to pages. */
+void exynos_gem_put_pages_to_userptr(struct page **pages,
+					unsigned int npages,
+					struct vm_area_struct *vma);
+
+/* map sgt with dma region. */
+int exynos_gem_map_sgt_with_dma(struct drm_device *drm_dev,
+				struct sg_table *sgt,
+				enum dma_data_direction dir);
+
+/* unmap sgt from dma region. */
+void exynos_gem_unmap_sgt_from_dma(struct drm_device *drm_dev,
+				struct sg_table *sgt,
+				enum dma_data_direction dir);
 
 #endif
