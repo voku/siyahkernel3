@@ -325,9 +325,7 @@ int platform_device_add(struct platform_device *pdev)
 		}
 
 		if (p && insert_resource(p, r)) {
-			printk(KERN_ERR
-			       "%s: failed to claim resource %d\n",
-			       dev_name(&pdev->dev), i);
+			dev_err(&pdev->dev, "failed to claim resource %d\n", i);
 			ret = -EBUSY;
 			goto failed;
 		}
@@ -683,7 +681,7 @@ static int platform_uevent(struct device *dev, struct kobj_uevent_env *env)
 	int rc;
 
 	/* Some devices have extra OF data and an OF-style MODALIAS */
-	rc = of_device_uevent_modalias(dev,env);
+	rc = of_device_uevent_modalias(dev, env);
 	if (rc != -ENODEV)
 		return rc;
 
@@ -1122,8 +1120,8 @@ static int __init early_platform_driver_probe_id(char *class_str,
 
 		switch (match_id) {
 		case EARLY_PLATFORM_ID_ERROR:
-			pr_warning("%s: unable to parse %s parameter\n",
-				   class_str, epdrv->pdrv->driver.name);
+			pr_warn("%s: unable to parse %s parameter\n",
+				class_str, epdrv->pdrv->driver.name);
 			/* fall-through */
 		case EARLY_PLATFORM_ID_UNSET:
 			match = NULL;
@@ -1154,8 +1152,8 @@ static int __init early_platform_driver_probe_id(char *class_str,
 			}
 
 			if (epdrv->pdrv->probe(match))
-				pr_warning("%s: unable to probe %s early.\n",
-					   class_str, match->name);
+				pr_warn("%s: unable to probe %s early.\n",
+					class_str, match->name);
 			else
 				n++;
 		}
