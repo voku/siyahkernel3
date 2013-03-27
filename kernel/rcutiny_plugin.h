@@ -873,14 +873,6 @@ static void show_tiny_preempt_stats(struct seq_file *m)
 
 /*
  * Because preemptible RCU does not exist, it never has any callbacks
- * to check.
- */
-static void rcu_preempt_check_callbacks(void)
-{
-}
-
-/*
- * Because preemptible RCU does not exist, it never has any callbacks
  * to remove.
  */
 static void rcu_preempt_remove_callbacks(struct rcu_ctrlblk *rcp)
