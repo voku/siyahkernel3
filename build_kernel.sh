@@ -34,7 +34,7 @@ export OLDMODULES=`find -name *.ko`
 
 # system compiler
 # gcc x.x.x
-#export CROSS_COMPILE=$PARENT_DIR/toolchain/bin/arm-none-eabi-
+#export CROSS_COMPILE=/usr/bin/arm-linux-gnueabi-
 
 # gcc 4.4.3 (CM9)
 # export CROSS_COMPILE=/media/Source-Code/android/system/prebuilt/linux-x86/toolchain/arm-eabi-4.4.3/bin/arm-eabi-
@@ -174,7 +174,7 @@ if [ -e ${KERNELDIR}/arch/arm/boot/zImage ]; then
 	if [ "$STATUS" == "device" ]; then
 		read -p "push kernel to android (y/n)?"
 		if [ "$REPLY" == "y" ]; then
-			adb push ${KERNELDIR}/READY-JB/Kernel_*ICS-JB*.zip /sdcard/;
+			adb push ${KERNELDIR}/READY-JB/Kernel_*JB*.zip /sdcard/;
 		fi;
 	fi;
 else
