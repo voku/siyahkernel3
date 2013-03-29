@@ -172,9 +172,14 @@ if [ -e ${KERNELDIR}/arch/arm/boot/zImage ]; then
 	zip -r Kernel_${GETVER}-`date +"[%H-%M]-[%d-%m]-JB-CM-AOKP-SGII-PWR-CORE"`.zip .
 	STATUS=`adb get-state`;
 	if [ "$STATUS" == "device" ]; then
-		read -p "push kernel to android (y/n)?"
+		read -p "push kernel to android (y/n)?";
 		if [ "$REPLY" == "y" ]; then
 			adb push ${KERNELDIR}/READY-JB/Kernel_*JB*.zip /sdcard/;
+			
+			read -p "reboot to recovery (y/n)?";
+			if [ "$REPLY" == "y" ]; then
+				adb reboot recovery;
+			fi;
 		fi;
 	fi;
 else
