@@ -837,7 +837,7 @@ static int irq_thread(void *data)
 
 	sched_setscheduler(current, SCHED_FIFO, &param);
 
-	init_task_work(&on_exit_work, irq_thread_dtor, NULL);
+	init_task_work(&on_exit_work, irq_thread_dtor);
 	task_work_add(current, &on_exit_work, false);
 
 	while (!irq_wait_for_interrupt(action)) {
@@ -863,36 +863,6 @@ static int irq_thread(void *data)
 	 */
 	task_work_cancel(current, irq_thread_dtor);
 	return 0;
-}
-
-/*
- * Called from do_exit()
- */
-void exit_irq_thread(void)
-{
-	struct task_struct *tsk = current;
-	struct irq_desc *desc;
-	struct irqaction *action;
-
-	if (!tsk->irq_thread)
-		return;
-
-	action = kthread_data(tsk);
-
-	pr_err("exiting task \"%s\" (%d) is an active IRQ thread (irq %d)\n",
-	       tsk->comm ? tsk->comm : "", tsk->pid, action->irq);
-
-	desc = irq_to_desc(action->irq);
-
-	/*
-	 * If IRQTF_RUNTHREAD is set, we need to decrement
-	 * desc->threads_active and wake possible waiters.
-	 */
-	if (test_and_clear_bit(IRQTF_RUNTHREAD, &action->thread_flags))
-		wake_threads_waitq(desc);
-
-	/* Prevent a stale desc->threads_oneshot */
-	irq_finalize_oneshot(desc, action);
 }
 
 static void irq_setup_forced_threading(struct irqaction *new)
@@ -931,6 +901,7 @@ __setup_irq(unsigned int irq, struct irq_desc *desc, struct irqaction *new)
 
 	if (!try_module_get(desc->owner))
 		return -ENODEV;
+
 	/*
 	 * Check whether the interrupt nests into another interrupt
 	 * thread.
@@ -1168,13 +1139,13 @@ __setup_irq(unsigned int irq, struct irq_desc *desc, struct irqaction *new)
 	return 0;
 
 mismatch:
+#ifdef CONFIG_DEBUG_SHIRQ
 	if (!(new->flags & IRQF_PROBE_SHARED)) {
 		pr_err("Flags mismatch irq %d. %08x (%s) vs. %08x (%s)\n",
 		       irq, new->flags, new->name, old->flags, old->name);
-#ifdef CONFIG_DEBUG_SHIRQ
 		dump_stack();
-#endif
 	}
+#endif
 	ret = -EBUSY;
 
 out_mask:
