@@ -651,6 +651,9 @@ static struct attribute *dbs_attributes[] = {
 	&powersave_bias.attr,
 	&io_is_busy.attr,
 	&down_differential.attr,
+	&boostpulse.attr,
+	&boosttime.attr,
+	&boostfreq.attr,
 	&freq_step.attr,
 	&freq_responsiveness.attr,
 	NULL
