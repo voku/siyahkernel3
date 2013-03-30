@@ -30,7 +30,9 @@
 #ifndef CONFIG_DECOMPRESS_LZO
 # define unlzo NULL
 #endif
-
+#ifndef CONFIG_DECOMPRESS_LZ4
+# define unlz4 NULL
+#endif
 static const struct compress_format {
 	unsigned char magic[2];
 	const char *name;
@@ -42,6 +44,7 @@ static const struct compress_format {
 	{ {0x5d, 0x00}, "lzma", unlzma },
 	{ {0xfd, 0x37}, "xz", unxz },
 	{ {0x89, 0x4c}, "lzo", unlzo },
+	{ {0x02, 0x21}, "lz4", unlz4 },
 	{ {0, 0}, NULL, NULL }
 };
 
