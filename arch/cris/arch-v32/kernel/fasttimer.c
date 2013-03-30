@@ -464,6 +464,15 @@ void schedule_usleep(unsigned long us)
 }
 
 #ifdef CONFIG_PROC_FS
+<<<<<<< HEAD
+=======
+static int proc_fasttimer_read(char *buf, char **start, off_t offset, int len
+                       ,int *eof, void *data_unused);
+#endif /* CONFIG_PROC_FS */
+
+#ifdef CONFIG_PROC_FS
+
+>>>>>>> e784788... get rid of a bunch of open-coded create_proc_read_entry()
 /* This value is very much based on testing */
 #define BIG_BUF_SIZE (500 + NUM_TIMER_STATS * 300)
 
@@ -783,7 +792,11 @@ int fast_timer_init(void)
     printk("fast_timer_init()\n");
 
 #ifdef CONFIG_PROC_FS
+<<<<<<< HEAD
     proc_create("fasttimer", 0, NULL, &proc_fasttimer_fops);
+=======
+    create_proc_read_entry("fasttimer", 0, NULL, proc_fasttimer_read, NULL);
+>>>>>>> e784788... get rid of a bunch of open-coded create_proc_read_entry()
 #endif /* PROC_FS */
 		if (request_irq(TIMER0_INTR_VECT, timer_trig_interrupt,
 				IRQF_SHARED | IRQF_DISABLED,

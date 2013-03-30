@@ -79,6 +79,7 @@ static int comedi_read(struct seq_file *m, void *v)
  */
 static int comedi_proc_open(struct inode *inode, struct file *file)
 {
+<<<<<<< HEAD
 	return single_open(file, comedi_read, NULL);
 }
 
@@ -92,6 +93,10 @@ static const struct file_operations comedi_proc_fops = {
 void comedi_proc_init(void)
 {
 	proc_create("comedi", 0644, NULL, &comedi_proc_fops);
+=======
+	create_proc_read_entry("comedi", S_IFREG | S_IRUGO, NULL,
+				comedi_read, NULL);
+>>>>>>> e784788... get rid of a bunch of open-coded create_proc_read_entry()
 }
 
 void comedi_proc_cleanup(void)
