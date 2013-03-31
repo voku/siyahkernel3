@@ -2039,7 +2039,7 @@ static void udp_seq_stop(struct seq_file *seq, void *v)
 
 static int udp_seq_open(struct inode *inode, struct file *file)
 {
-	struct udp_seq_afinfo *afinfo = PDE(inode)->data;
+	struct udp_seq_afinfo *afinfo = PDE_DATA(inode);
 	struct udp_iter_state *s;
 	int err;
 
