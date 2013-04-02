@@ -271,7 +271,7 @@ static int __init default_bdi_init(void)
 	bdi_arm_supers_timer();
 
 	bdi_wq = alloc_workqueue("writeback", WQ_MEM_RECLAIM | WQ_FREEZABLE |
-					      WQ_UNBOUND, 0);
+					      WQ_UNBOUND | WQ_SYSFS, 0);
 	if (!bdi_wq)
 		return -ENOMEM;
 
