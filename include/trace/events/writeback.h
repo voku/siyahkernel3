@@ -5,7 +5,6 @@
 #define _TRACE_WRITEBACK_H
 
 #include <linux/backing-dev.h>
-#include <linux/device.h>
 #include <linux/writeback.h>
 
 #define show_inode_state(state)					\
@@ -20,6 +19,16 @@
 		{I_SYNC,		"I_SYNC"},		\
 		{I_REFERENCED,		"I_REFERENCED"}		\
 	)
+
+#define WB_WORK_REASON							\
+		{WB_REASON_BACKGROUND,		"background"},		\
+		{WB_REASON_TRY_TO_FREE_PAGES,	"try_to_free_pages"},	\
+		{WB_REASON_SYNC,		"sync"},		\
+		{WB_REASON_PERIODIC,		"periodic"},		\
+		{WB_REASON_LAPTOP_TIMER,	"laptop_timer"},	\
+		{WB_REASON_FREE_MORE_MEM,	"free_more_memory"},	\
+		{WB_REASON_FS_FREE_SPACE,	"fs_free_space"},	\
+		{WB_REASON_FORKER_THREAD,	"forker_thread"}
 
 struct wb_writeback_work;
 
@@ -167,14 +176,13 @@ DECLARE_EVENT_CLASS(writeback_work_class,
 		  __entry->for_kupdate,
 		  __entry->range_cyclic,
 		  __entry->for_background,
-		  wb_reason_name[__entry->reason]
+		  __print_symbolic(__entry->reason, WB_WORK_REASON)
 	)
 );
 #define DEFINE_WRITEBACK_WORK_EVENT(name) \
 DEFINE_EVENT(writeback_work_class, name, \
 	TP_PROTO(struct backing_dev_info *bdi, struct wb_writeback_work *work), \
 	TP_ARGS(bdi, work))
-DEFINE_WRITEBACK_WORK_EVENT(writeback_nothread);
 DEFINE_WRITEBACK_WORK_EVENT(writeback_queue);
 DEFINE_WRITEBACK_WORK_EVENT(writeback_exec);
 DEFINE_WRITEBACK_WORK_EVENT(writeback_start);
@@ -213,12 +221,8 @@ DEFINE_EVENT(writeback_class, name, \
 
 DEFINE_WRITEBACK_EVENT(writeback_nowork);
 DEFINE_WRITEBACK_EVENT(writeback_wake_background);
-DEFINE_WRITEBACK_EVENT(writeback_wake_thread);
-DEFINE_WRITEBACK_EVENT(writeback_wake_forker_thread);
 DEFINE_WRITEBACK_EVENT(writeback_bdi_register);
 DEFINE_WRITEBACK_EVENT(writeback_bdi_unregister);
-DEFINE_WRITEBACK_EVENT(writeback_thread_start);
-DEFINE_WRITEBACK_EVENT(writeback_thread_stop);
 
 DECLARE_EVENT_CLASS(wbc_class,
 	TP_PROTO(struct writeback_control *wbc, struct backing_dev_info *bdi),
@@ -296,7 +300,8 @@ TRACE_EVENT(writeback_queue_io,
 		__entry->older,	/* older_than_this in jiffies */
 		__entry->age,	/* older_than_this in relative milliseconds */
 		__entry->moved,
-		wb_reason_name[__entry->reason])
+		__print_symbolic(__entry->reason, WB_WORK_REASON)
+	)
 );
 
 TRACE_EVENT(global_dirty_state,
@@ -471,6 +476,35 @@ TRACE_EVENT(balance_dirty_pages,
 	  )
 );
 
+TRACE_EVENT(writeback_sb_inodes_requeue,
+
+	TP_PROTO(struct inode *inode),
+	TP_ARGS(inode),
+
+	TP_STRUCT__entry(
+		__array(char, name, 32)
+		__field(unsigned long, ino)
+		__field(unsigned long, state)
+		__field(unsigned long, dirtied_when)
+	),
+
+	TP_fast_assign(
+		strncpy(__entry->name,
+		        dev_name(inode_to_bdi(inode)->dev), 32);
+		__entry->ino		= inode->i_ino;
+		__entry->state		= inode->i_state;
+		__entry->dirtied_when	= inode->dirtied_when;
+	),
+
+	TP_printk("bdi %s: ino=%lu state=%s dirtied_when=%lu age=%lu",
+		  __entry->name,
+		  __entry->ino,
+		  show_inode_state(__entry->state),
+		  __entry->dirtied_when,
+		  (jiffies - __entry->dirtied_when) / HZ
+	)
+);
+
 DECLARE_EVENT_CLASS(writeback_congest_waited_template,
 
 	TP_PROTO(unsigned int usec_timeout, unsigned int usec_delayed),
@@ -527,7 +561,7 @@ DECLARE_EVENT_CLASS(writeback_single_inode_template,
 
 	TP_fast_assign(
 		strncpy(__entry->name,
-			dev_name(inode->i_mapping->backing_dev_info->dev), 32);
+			dev_name(inode_to_bdi(inode)->dev), 32);
 		__entry->ino		= inode->i_ino;
 		__entry->state		= inode->i_state;
 		__entry->dirtied_when	= inode->dirtied_when;
@@ -549,14 +583,14 @@ DECLARE_EVENT_CLASS(writeback_single_inode_template,
 	)
 );
 
-DEFINE_EVENT(writeback_single_inode_template, writeback_single_inode_start,
+DEFINE_EVENT(writeback_single_inode_template, writeback_single_inode_requeue,
 	TP_PROTO(struct inode *inode,
 		 struct writeback_control *wbc,
 		 unsigned long nr_to_write),
 	TP_ARGS(inode, wbc, nr_to_write)
 );
 
-DEFINE_EVENT(writeback_single_inode_template, writeback_single_inode_requeue,
+DEFINE_EVENT(writeback_single_inode_template, writeback_single_inode_start,
 	TP_PROTO(struct inode *inode,
 		 struct writeback_control *wbc,
 		 unsigned long nr_to_write),
