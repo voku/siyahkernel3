@@ -1322,6 +1322,7 @@ static void sdhci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 			regulator_disable(host->vmmc);
 			pr_info("%s : MMC Card OFF %s\n", __func__,
 					host->hw_name);
+			mdelay(5);
 		}
 	} else if (mmc_host_sd_present(mmc) &&
 			!mmc_host_sd_prev_stat(mmc)) {
@@ -2348,6 +2349,7 @@ int sdhci_suspend_host(struct sdhci_host *host)
 #endif
 			ret = regulator_disable(host->vmmc);
 			pr_info("%s : MMC Card OFF\n", __func__);
+			mdelay(5);
 		}
 	}
 
