@@ -210,6 +210,11 @@ __create_page_tables:
 	orrne	r6, r7, r0
 	strne	r6, [r3]
 
+#if defined(CONFIG_ARM_LPAE) && defined(CONFIG_CPU_ENDIAN_BE8)
+	sub	r4, r4, #4			@ Fixup page table pointer
+						@ for 64-bit descriptors
+#endif
+
 #ifdef CONFIG_DEBUG_LL
 #ifndef CONFIG_DEBUG_ICEDCC
 	/*
