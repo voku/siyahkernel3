@@ -1603,7 +1603,7 @@ void task_dirty_inc(struct task_struct *tsk);
 /* readahead.c in kbytes, for max 64GB cards*/
 #define VM_MAX_READAHEAD	2048
 /* kbytes (includes current page) */
-#define VM_MIN_READAHEAD	32
+#define VM_MIN_READAHEAD	16
 
 extern unsigned long max_readahead_pages;
 
