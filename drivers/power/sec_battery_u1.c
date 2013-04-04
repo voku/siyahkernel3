@@ -3350,12 +3350,12 @@ static int sec_bat_probe(struct platform_device *pdev)
 	/* create sec detail attributes */
 	sec_bat_create_attrs(info->psy_bat.dev);
 
-	info->entry = create_proc_entry("batt_info_proc", S_IRUGO, NULL);
+	info->entry = create_proc_read_entry("batt_info_proc", S_IRUGO, NULL,
+					sec_bat_read_proc, NULL);
 	if (!info->entry)
 		dev_err(info->dev, "%s: failed to create proc_entry\n",
 			__func__);
 	else {
-		info->entry->read_proc = sec_bat_read_proc;
 		info->entry->data = (struct sec_bat_info *)info;
 	}
 
