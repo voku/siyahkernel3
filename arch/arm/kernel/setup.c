@@ -59,7 +59,6 @@
 #include <asm/virt.h>
 
 #include "atags.h"
-#include "tcm.h"
 
 
 #if defined(CONFIG_FPE_NWFPE) || defined(CONFIG_FPE_FASTFPE)
@@ -787,7 +786,6 @@ void __init setup_arch(char **cmdline_p)
 	reserve_crashkernel();
 
 	cpu_init();
-	tcm_init();
 
 #ifdef CONFIG_MULTI_IRQ_HANDLER
 	handle_arch_irq = mdesc->handle_irq;
