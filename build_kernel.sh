@@ -34,7 +34,7 @@ export OLDMODULES=`find -name *.ko`
 
 # system compiler
 # gcc x.x.x
-#export CROSS_COMPILE=/usr/bin/arm-linux-gnueabi-
+#export CROSS_COMPILE=$PARENT_DIR/toolchain/bin/arm-none-eabi-
 
 # gcc 4.4.3 (CM9)
 # export CROSS_COMPILE=/media/Source-Code/android/system/prebuilt/linux-x86/toolchain/arm-eabi-4.4.3/bin/arm-eabi-
@@ -166,20 +166,15 @@ if [ -e ${KERNELDIR}/arch/arm/boot/zImage ]; then
 	rm ${KERNELDIR}/READY-JB/boot/zImage
 	rm ${KERNELDIR}/READY-JB/Kernel_*
 	stat ${KERNELDIR}/zImage
-	GETVER=`grep 'Siyah-.*-V' arch/arm/configs/${KERNEL_CONFIG} | sed 's/.*".//g' | cut -c 1-20`
+	GETVER=`grep 'Siyah-.*-V' arch/arm/configs/${KERNEL_CONFIG} | sed 's/.*".//g' | sed 's/-J.*//g'`
 	cp ${KERNELDIR}/zImage /${KERNELDIR}/READY-JB/boot/
 	cd ${KERNELDIR}/READY-JB/
 	zip -r Kernel_${GETVER}-`date +"[%H-%M]-[%d-%m]-JB-CM-AOKP-SGII-PWR-CORE"`.zip .
 	STATUS=`adb get-state`;
 	if [ "$STATUS" == "device" ]; then
-		read -p "push kernel to android (y/n)?";
+		read -p "push kernel to android (y/n)?"
 		if [ "$REPLY" == "y" ]; then
 			adb push ${KERNELDIR}/READY-JB/Kernel_*JB*.zip /sdcard/;
-			
-			read -p "reboot to recovery (y/n)?";
-			if [ "$REPLY" == "y" ]; then
-				adb reboot recovery;
-			fi;
 		fi;
 	fi;
 else

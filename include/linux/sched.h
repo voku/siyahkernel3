@@ -285,10 +285,27 @@ extern void init_idle_bootup_task(struct task_struct *idle);
 
 extern int runqueue_is_locked(int cpu);
 
+#ifdef CONFIG_SMP
+extern int sched_select_non_idle_cpu(void);
+#else
+static inline int sched_select_non_idle_cpu(void)
+{
+	return smp_processor_id();
+}
+#endif
+
 #if defined(CONFIG_SMP) && defined(CONFIG_NO_HZ)
 extern void nohz_balance_enter_idle(int cpu);
 extern void set_cpu_sd_state_idle(void);
-extern int get_nohz_timer_target(void);
+/*
+ * In the semi idle case, use the nearest busy cpu for migrating timers
+ * from an idle cpu.  This is good for power-savings.
+ *
+ * We don't do similar optimization for completely idle system, as
+ * selecting an idle cpu will add more delays to the timers than intended
+ * (as that cpu's timer base may not be uptodate wrt jiffies etc).
+ */
+#define get_nohz_timer_target() sched_select_non_idle_cpu()
 #else
 static inline void nohz_balance_enter_idle(int cpu) { }
 static inline void set_cpu_sd_state_idle(void) { }
@@ -1416,6 +1433,8 @@ struct task_struct {
 	int (*notifier)(void *priv);
 	void *notifier_data;
 	sigset_t *notifier_mask;
+	struct callback_head *task_works;
+
 	struct audit_context *audit_context;
 #ifdef CONFIG_AUDITSYSCALL
 	uid_t loginuid;
@@ -1429,11 +1448,6 @@ struct task_struct {
 /* Protection of (de-)allocation: mm, files, fs, tty, keyrings, mems_allowed,
  * mempolicy */
 	spinlock_t alloc_lock;
-
-#ifdef CONFIG_GENERIC_HARDIRQS
-	/* IRQ handler threads */
-	struct irqaction *irqaction;
-#endif
 
 	/* Protection of the PI data structures: */
 	raw_spinlock_t pi_lock;

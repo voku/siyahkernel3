@@ -945,8 +945,6 @@ NORET_TYPE void do_exit(long code)
 		schedule();
 	}
 
-	exit_irq_thread();
-
 	exit_signals(tsk);  /* sets PF_EXITING */
 	/*
 	 * tsk->flags are checked in the futex code to protect against
@@ -990,6 +988,7 @@ NORET_TYPE void do_exit(long code)
 	exit_shm(tsk);
 	exit_files(tsk);
 	exit_fs(tsk);
+	exit_task_work(tsk);
 	check_stack_usage();
 	exit_thread();
 
