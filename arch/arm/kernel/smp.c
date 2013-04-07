@@ -261,8 +261,7 @@ void __ref cpu_die(void)
 	 * actual CPU shutdown procedure is at least platform (if not
 	 * CPU) specific.
 	 */
-	if (smp_ops.cpu_die)
-		smp_ops.cpu_die(cpu);
+	platform_cpu_die(cpu);
 
 	/*
 	 * Do not return to the idle loop - jump back to the secondary
@@ -341,8 +340,7 @@ asmlinkage void __cpuinit secondary_start_kernel(void)
 	/*
 	 * Give the platform a chance to do its own initialisation.
 	 */
-	if (smp_ops.smp_secondary_init)
-		smp_ops.smp_secondary_init(cpu);
+	platform_secondary_init(cpu);
 
 	notify_cpu_starting(cpu);
 
@@ -425,8 +423,7 @@ void __init smp_prepare_cpus(unsigned int max_cpus)
 		 * Initialise the SCU if there are more than one CPU
 		 * and let them know where to start.
 		 */
-		if (smp_ops.smp_prepare_cpus)
-			smp_ops.smp_prepare_cpus(max_cpus);
+		platform_smp_prepare_cpus(max_cpus);
 	}
 }
 
