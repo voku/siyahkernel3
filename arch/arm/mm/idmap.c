@@ -65,6 +65,9 @@ static int __init init_static_idmap(void)
 		(long long)idmap_start, (long long)idmap_end);
 	identity_mapping_add(idmap_pgd, idmap_start, idmap_end);
 
+	/* Flush L1 for the hardware to see this page table content */
+	flush_cache_louis();
+
 	return 0;
 }
 early_initcall(init_static_idmap);
