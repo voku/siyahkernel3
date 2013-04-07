@@ -37,8 +37,6 @@
 #include <plat/regs-watchdog.h>
 #endif
 
-#include "common.h"
-
 extern void exynos_secondary_startup(void);
 extern unsigned int gic_bank_offset;
 
@@ -72,7 +70,7 @@ static void __iomem *scu_base_addr(void)
 
 static DEFINE_SPINLOCK(boot_lock);
 
-static void __cpuinit exynos_secondary_init(unsigned int cpu)
+void __cpuinit platform_secondary_init(unsigned int cpu)
 {
 	void __iomem *dist_base = S5P_VA_GIC_DIST +
 				 (gic_bank_offset * cpu);
@@ -134,7 +132,7 @@ static int exynos_power_up_cpu(unsigned int cpu)
 	return 0;
 }
 
-static int __cpuinit exynos_boot_secondary(unsigned int cpu, struct task_struct *idle)
+int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
 {
 	unsigned long timeout;
 	int ret;
@@ -224,8 +222,7 @@ static inline unsigned long exynos5_get_core_count(void)
  * Initialise the CPU possible map early - this describes the CPUs
  * which may be present or become present in the system.
  */
-
-static void __init exynos_smp_init_cpus(void)
+void __init smp_init_cpus(void)
 {
 	unsigned int i, ncores;
 
@@ -247,7 +244,7 @@ static void __init exynos_smp_init_cpus(void)
 		set_cpu_possible(i, true);
 }
 
-static void __init exynos_smp_prepare_cpus(unsigned int max_cpus)
+void __init platform_smp_prepare_cpus(unsigned int max_cpus)
 {
 	int i;
 
@@ -278,13 +275,3 @@ static void __init exynos_smp_prepare_cpus(unsigned int max_cpus)
 		cpu_boot_info[i].power_base = S5P_ARM_CORE_CONFIGURATION(i);
 	}
 }
-
-struct smp_operations exynos_smp_ops __initdata = {
-	.smp_init_cpus		= exynos_smp_init_cpus,
-	.smp_prepare_cpus	= exynos_smp_prepare_cpus,
-	.smp_secondary_init	= exynos_secondary_init,
-	.smp_boot_secondary	= exynos_boot_secondary,
-#ifdef CONFIG_HOTPLUG_CPU
-	.cpu_die		= exynos_cpu_die,
-#endif
-};

@@ -206,8 +206,7 @@ static void __init armlex4210_machine_init(void)
 
 MACHINE_START(ARMLEX4210, "ARMLEX4210")
 	/* Maintainer: Alim Akhtar <alim.akhtar@samsung.com> */
-	.atag_offset	= 0x100,
-	.smp		= smp_ops(exynos_smp_ops),
+	.boot_params	= S5P_PA_SDRAM + 0x100,
 	.init_irq	= exynos4_init_irq,
 	.map_io		= armlex4210_map_io,
 	.init_machine	= armlex4210_machine_init,
