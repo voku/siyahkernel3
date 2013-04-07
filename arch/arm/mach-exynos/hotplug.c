@@ -22,6 +22,8 @@
 #include <plat/cpu.h>
 #include <mach/regs-pmu.h>
 
+extern volatile int pen_release;
+
 static inline void cpu_enter_lowpower_a9(void)
 {
 	unsigned int v;
