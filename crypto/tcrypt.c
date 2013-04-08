@@ -1278,6 +1278,14 @@ static int do_test(int m)
 		ret += tcrypt_test("rfc4543(gcm(aes))");
 		break;
 
+	case 153:
+		ret += tcrypt_test("cmac(aes)");
+		break;
+
+	case 154:
+		ret += tcrypt_test("cmac(des3_ede)");
+		break;
+
 	case 200:
 		test_cipher_speed("ecb(aes)", ENCRYPT, sec, NULL, 0,
 				speed_template_16_24_32);
