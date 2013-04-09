@@ -91,7 +91,8 @@ static inline struct proc_dir_entry *proc_create(const char *name, umode_t mode,
 	return proc_create_data(name, mode, parent, proc_fops, NULL);
 }
 
-extern struct proc_dir_entry *create_proc_read_entry(const char *name,
+extern __deprecated
+struct proc_dir_entry *create_proc_read_entry(const char *name,
 	umode_t mode, struct proc_dir_entry *base, 
 	read_proc_t *read_proc, void *data);
  
@@ -141,7 +142,8 @@ static inline void proc_set_size(struct proc_dir_entry *de, loff_t size) {}
 static inline void proc_set_user(struct proc_dir_entry *de, kuid_t uid, kgid_t gid) {}
 static inline void *PDE_DATA(const struct inode *inode) {BUG(); return NULL;}
 
-static inline struct proc_dir_entry *create_proc_read_entry(const char *name,
+static inline __deprecated
+struct proc_dir_entry *create_proc_read_entry(const char *name,
 	umode_t mode, struct proc_dir_entry *base, 
 	read_proc_t *read_proc, void * data) { return NULL; }
 
