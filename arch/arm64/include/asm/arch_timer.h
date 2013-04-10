@@ -120,4 +120,9 @@ static inline int arch_timer_arch_init(void)
 	return 0;
 }
 
+static inline int arch_timer_arch_init(void)
+{
+	return 0;
+}
+
 #endif

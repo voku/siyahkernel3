@@ -93,6 +93,14 @@ static void __init highbank_timer_init(void)
 	WARN_ON(!sregs_base);
 
 	of_clk_init(NULL);
+<<<<<<< HEAD
+=======
+	lookup.clk = of_clk_get(np, 0);
+	clkdev_add(&lookup);
+
+	sp804_clocksource_and_sched_clock_init(timer_base + 0x20, "timer1");
+	sp804_clockevents_init(timer_base, irq, "timer0");
+>>>>>>> 0583fe4... ARM: convert arm/arm64 arch timer to use CLKSRC_OF init
 
 	clocksource_of_init();
 }

@@ -19,6 +19,7 @@
 #include <linux/io.h>
 
 #include <asm/arch_timer.h>
+#include <asm/virt.h>
 
 #include <clocksource/arm_arch_timer.h>
 
@@ -336,21 +337,14 @@ out:
 	return err;
 }
 
-static const struct of_device_id arch_timer_of_match[] __initconst = {
-	{ .compatible	= "arm,armv7-timer",	},
-	{},
-};
-
-int __init arch_timer_init(void)
+static void __init arch_timer_init(struct device_node *np)
 {
-	struct device_node *np;
 	u32 freq;
 	int i;
 
-	np = of_find_matching_node(NULL, arch_timer_of_match);
-	if (!np) {
-		pr_err("arch_timer: can't find DT node\n");
-		return -ENODEV;
+	if (arch_timer_get_rate()) {
+		pr_warn("arch_timer: multiple nodes in dt, skipping\n");
+		return;
 	}
 
 	/* Try to determine the frequency from the device tree or CNTFRQ */
@@ -363,16 +357,20 @@ int __init arch_timer_init(void)
 	of_node_put(np);
 
 	/*
+	 * If HYP mode is available, we know that the physical timer
+	 * has been configured to be accessible from PL1. Use it, so
+	 * that a guest can use the virtual timer instead.
+	 *
 	 * If no interrupt provided for virtual timer, we'll have to
 	 * stick to the physical timer. It'd better be accessible...
 	 */
-	if (!arch_timer_ppi[VIRT_PPI]) {
+	if (is_hyp_mode_available() || !arch_timer_ppi[VIRT_PPI]) {
 		arch_timer_use_virtual = false;
 
 		if (!arch_timer_ppi[PHYS_SECURE_PPI] ||
 		    !arch_timer_ppi[PHYS_NONSECURE_PPI]) {
 			pr_warn("arch_timer: No interrupt available, giving up\n");
-			return -EINVAL;
+			return;
 		}
 	}
 
@@ -381,5 +379,8 @@ int __init arch_timer_init(void)
 	else
 		arch_timer_read_counter = arch_counter_get_cntpct;
 
-	return arch_timer_register();
+	arch_timer_register();
+	arch_timer_arch_init();
 }
+CLOCKSOURCE_OF_DECLARE(armv7_arch_timer, "arm,armv7-timer", arch_timer_init);
+CLOCKSOURCE_OF_DECLARE(armv8_arch_timer, "arm,armv8-timer", arch_timer_init);

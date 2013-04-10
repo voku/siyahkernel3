@@ -206,6 +206,12 @@ DT_MACHINE_START(EMEV2_DT, "Generic Emma Mobile EV2 (Flattened Device Tree)")
 	.smp		= smp_ops(emev2_smp_ops),
 	.map_io		= emev2_map_io,
 	.init_early	= emev2_init_delay,
+<<<<<<< HEAD
+=======
+	.nr_irqs	= NR_IRQS_LEGACY,
+	.init_irq	= irqchip_init,
+	.init_machine	= emev2_add_standard_devices_dt,
+>>>>>>> 0583fe4... ARM: convert arm/arm64 arch timer to use CLKSRC_OF init
 	.dt_compat	= emev2_boards_compat_dt,
 MACHINE_END
 

@@ -59,3 +59,10 @@ void __init shmobile_earlytimer_init(void)
 	late_time_init = shmobile_late_time_init;
 }
 
+<<<<<<< HEAD
+=======
+void __init shmobile_timer_init(void)
+{
+	clocksource_of_init();
+}
+>>>>>>> 0583fe4... ARM: convert arm/arm64 arch timer to use CLKSRC_OF init

@@ -36,6 +36,10 @@ static const char *virt_dt_match[] = {
 };
 
 DT_MACHINE_START(VIRT, "Dummy Virtual Machine")
+<<<<<<< HEAD
+=======
+	.init_irq	= irqchip_init,
+>>>>>>> 0583fe4... ARM: convert arm/arm64 arch timer to use CLKSRC_OF init
 	.init_machine	= virt_init,
 	.dt_compat	= virt_dt_match,
 MACHINE_END

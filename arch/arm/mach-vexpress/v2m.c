@@ -429,6 +429,18 @@ static void __init v2m_dt_timer_init(void)
 	of_clk_init(NULL);
 
 	clocksource_of_init();
+<<<<<<< HEAD
+=======
+	do {
+		node = of_find_compatible_node(node, NULL, "arm,sp804");
+	} while (node && vexpress_get_site_by_node(node) != VEXPRESS_SITE_MB);
+	if (node) {
+		pr_info("Using SP804 '%s' as a clock & events source\n",
+				node->full_name);
+		v2m_sp804_init(of_iomap(node, 0),
+				irq_of_parse_and_map(node, 0));
+	}
+>>>>>>> 0583fe4... ARM: convert arm/arm64 arch timer to use CLKSRC_OF init
 
 	versatile_sched_clock_init(vexpress_get_24mhz_clock_base(),
 				24000000);

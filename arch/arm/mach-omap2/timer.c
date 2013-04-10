@@ -634,7 +634,11 @@ void __init omap5_realtime_timer_init(void)
 	omap4_sync32k_timer_init();
 	realtime_counter_init();
 
+<<<<<<< HEAD
 	clocksource_of_init();
+=======
+        clocksource_of_init();
+>>>>>>> 0583fe4... ARM: convert arm/arm64 arch timer to use CLKSRC_OF init
 }
 #endif /* CONFIG_SOC_OMAP5 */
 
