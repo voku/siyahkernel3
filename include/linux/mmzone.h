@@ -15,6 +15,7 @@
 #include <linux/seqlock.h>
 #include <linux/nodemask.h>
 #include <linux/pageblock-flags.h>
+#include <linux/page-flags-layout.h>
 #include <linux/timer.h>
 #include <generated/bounds.h>
 #include <linux/atomic.h>
