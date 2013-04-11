@@ -550,7 +550,8 @@ config ARM_AUTO_HOTPLUG
 
 config INTELLI_PLUG
 	bool "Enable intelli-plug cpu hotplug driver"
-	default n
+	depends on EXYNOS_PM_HOTPLUG
+	depends on HOTPLUG_CPU
 	help
 	  Generic Intelli-plug cpu hotplug driver for ARM SOCs
 
