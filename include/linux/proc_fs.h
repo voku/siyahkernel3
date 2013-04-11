@@ -189,6 +189,8 @@ static inline struct proc_dir_entry *proc_mkdir(const char *name,
 	struct proc_dir_entry *parent) {return NULL;}
 static inline struct proc_dir_entry *proc_mkdir_mode(const char *name,
 	umode_t mode, struct proc_dir_entry *parent) { return NULL; }
+static inline void proc_set_size(struct proc_dir_entry *de, loff_t size) {}
+static inline void proc_set_user(struct proc_dir_entry *de, kuid_t uid, kgid_t gid) {}
 
 static inline struct proc_dir_entry *create_proc_read_entry(const char *name,
 	umode_t mode, struct proc_dir_entry *base, 

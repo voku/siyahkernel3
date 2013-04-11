@@ -4507,73 +4507,109 @@ static int setup_proc_entry( struct net_device *dev,
 					    airo_entry);
 	if (!apriv->proc_entry)
 		goto fail;
+<<<<<<< HEAD
 	apriv->proc_entry->uid = proc_uid;
 	apriv->proc_entry->gid = proc_gid;
+=======
+	proc_set_user(apriv->proc_entry, proc_kuid, proc_kgid);
+>>>>>>> 271a15e... proc: Supply PDE attribute setting accessor functions
 
 	/* Setup the StatsDelta */
 	entry = proc_create_data("StatsDelta", S_IRUGO & proc_perm,
 				 apriv->proc_entry, &proc_statsdelta_ops, dev);
 	if (!entry)
 		goto fail_stats_delta;
+<<<<<<< HEAD
 	entry->uid = proc_uid;
 	entry->gid = proc_gid;
+=======
+	proc_set_user(entry, proc_kuid, proc_kgid);
+>>>>>>> 271a15e... proc: Supply PDE attribute setting accessor functions
 
 	/* Setup the Stats */
 	entry = proc_create_data("Stats", S_IRUGO & proc_perm,
 				 apriv->proc_entry, &proc_stats_ops, dev);
 	if (!entry)
 		goto fail_stats;
+<<<<<<< HEAD
 	entry->uid = proc_uid;
 	entry->gid = proc_gid;
+=======
+	proc_set_user(entry, proc_kuid, proc_kgid);
+>>>>>>> 271a15e... proc: Supply PDE attribute setting accessor functions
 
 	/* Setup the Status */
 	entry = proc_create_data("Status", S_IRUGO & proc_perm,
 				 apriv->proc_entry, &proc_status_ops, dev);
 	if (!entry)
 		goto fail_status;
+<<<<<<< HEAD
 	entry->uid = proc_uid;
 	entry->gid = proc_gid;
+=======
+	proc_set_user(entry, proc_kuid, proc_kgid);
+>>>>>>> 271a15e... proc: Supply PDE attribute setting accessor functions
 
 	/* Setup the Config */
 	entry = proc_create_data("Config", proc_perm,
 				 apriv->proc_entry, &proc_config_ops, dev);
 	if (!entry)
 		goto fail_config;
+<<<<<<< HEAD
 	entry->uid = proc_uid;
 	entry->gid = proc_gid;
+=======
+	proc_set_user(entry, proc_kuid, proc_kgid);
+>>>>>>> 271a15e... proc: Supply PDE attribute setting accessor functions
 
 	/* Setup the SSID */
 	entry = proc_create_data("SSID", proc_perm,
 				 apriv->proc_entry, &proc_SSID_ops, dev);
 	if (!entry)
 		goto fail_ssid;
+<<<<<<< HEAD
 	entry->uid = proc_uid;
 	entry->gid = proc_gid;
+=======
+	proc_set_user(entry, proc_kuid, proc_kgid);
+>>>>>>> 271a15e... proc: Supply PDE attribute setting accessor functions
 
 	/* Setup the APList */
 	entry = proc_create_data("APList", proc_perm,
 				 apriv->proc_entry, &proc_APList_ops, dev);
 	if (!entry)
 		goto fail_aplist;
+<<<<<<< HEAD
 	entry->uid = proc_uid;
 	entry->gid = proc_gid;
+=======
+	proc_set_user(entry, proc_kuid, proc_kgid);
+>>>>>>> 271a15e... proc: Supply PDE attribute setting accessor functions
 
 	/* Setup the BSSList */
 	entry = proc_create_data("BSSList", proc_perm,
 				 apriv->proc_entry, &proc_BSSList_ops, dev);
 	if (!entry)
 		goto fail_bsslist;
+<<<<<<< HEAD
 	entry->uid = proc_uid;
 	entry->gid = proc_gid;
+=======
+	proc_set_user(entry, proc_kuid, proc_kgid);
+>>>>>>> 271a15e... proc: Supply PDE attribute setting accessor functions
 
 	/* Setup the WepKey */
 	entry = proc_create_data("WepKey", proc_perm,
 				 apriv->proc_entry, &proc_wepkey_ops, dev);
 	if (!entry)
 		goto fail_wepkey;
+<<<<<<< HEAD
 	entry->uid = proc_uid;
 	entry->gid = proc_gid;
 
+=======
+	proc_set_user(entry, proc_kuid, proc_kgid);
+>>>>>>> 271a15e... proc: Supply PDE attribute setting accessor functions
 	return 0;
 
 fail_wepkey:
@@ -5690,10 +5726,15 @@ static int __init airo_init_module( void )
 
 	airo_entry = proc_mkdir_mode("driver/aironet", airo_perm, NULL);
 
+<<<<<<< HEAD
 	if (airo_entry) {
 		airo_entry->uid = proc_uid;
 		airo_entry->gid = proc_gid;
 	}
+=======
+	if (airo_entry)
+		proc_set_user(airo_entry, proc_kuid, proc_kgid);
+>>>>>>> 271a15e... proc: Supply PDE attribute setting accessor functions
 
 	for (i = 0; i < 4 && io[i] && irq[i]; i++) {
 		airo_print_info("", "Trying to configure ISA adapter at irq=%d "
