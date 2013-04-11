@@ -109,6 +109,9 @@ enum pageflags {
 #ifdef CONFIG_TRANSPARENT_HUGEPAGE
 	PG_compound_lock,
 #endif
+#ifdef CONFIG_CLEANCACHE
+	PG_was_active, 
+#endif 
 	__NR_PAGEFLAGS,
 
 	/* Filesystems */
@@ -261,6 +264,9 @@ PAGEFLAG(SwapBacked, swapbacked) __CLEARPAGEFLAG(SwapBacked, swapbacked)
 
 __PAGEFLAG(SlobFree, slob_free)
 
+#ifdef CONFIG_CLEANCACHE 
+PAGEFLAG(WasActive, was_active) 
+#endif 
 /*
  * Private page markings that may be used by the filesystem that owns the page
  * for its own purposes.

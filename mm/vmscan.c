@@ -551,6 +551,8 @@ void putback_lru_page(struct page *page)
 	int was_unevictable = PageUnevictable(page);
 
 	VM_BUG_ON(PageLRU(page));
+	if (active) 
+	SetPageWasActive(page); 
 
 redo:
 	ClearPageUnevictable(page);
@@ -1531,6 +1533,7 @@ static void shrink_active_list(unsigned long nr_to_scan,
 		}
 
 		ClearPageActive(page);	/* we are de-activating */
+		SetPageWasActive(page);
 		list_add(&page->lru, &l_inactive);
 	}
 
