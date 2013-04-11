@@ -63,28 +63,6 @@ struct proc_dir_entry {
 	char name[];
 };
 
-enum kcore_type {
-	KCORE_TEXT,
-	KCORE_VMALLOC,
-	KCORE_RAM,
-	KCORE_VMEMMAP,
-	KCORE_OTHER,
-};
-
-struct kcore_list {
-	struct list_head list;
-	unsigned long addr;
-	size_t size;
-	int type;
-};
-
-struct vmcore {
-	struct list_head list;
-	unsigned long long paddr;
-	unsigned long long size;
-	loff_t offset;
-};
-
 #ifdef CONFIG_PROC_FS
 
 extern void proc_root_init(void);
@@ -179,15 +157,6 @@ static inline struct proc_dir_entry *create_proc_read_entry(const char *name,
 	read_proc_t *read_proc, void * data) { return NULL; }
 
 #endif /* CONFIG_PROC_FS */
-
-#if !defined(CONFIG_PROC_KCORE)
-static inline void
-kclist_add(struct kcore_list *new, void *addr, size_t size, int type)
-{
-}
-#else
-extern void kclist_add(struct kcore_list *, void *, size_t, int type);
-#endif
 
 union proc_op {
 	int (*proc_get_link)(struct dentry *, struct path *);
