@@ -3154,9 +3154,9 @@ asmlinkage void __sched schedule_user(void)
 	 * we haven't yet exited the RCU idle mode. Do it here manually until
 	 * we find a better solution.
 	 */
-	rcu_user_exit();
+	user_exit();
 	schedule();
-	rcu_user_enter();
+	user_enter();
 }
 #endif
 
@@ -3978,11 +3978,8 @@ static bool check_same_owner(struct task_struct *p)
 
 	rcu_read_lock();
 	pcred = __task_cred(p);
-	if (cred->user_ns == pcred->user_ns)
-		match = (cred->euid == pcred->euid ||
-			 cred->euid == pcred->uid);
-	else
-		match = false;
+	match = (uid_eq(cred->euid, pcred->euid) ||
+		 uid_eq(cred->euid, pcred->uid));
 	rcu_read_unlock();
 	return match;
 }

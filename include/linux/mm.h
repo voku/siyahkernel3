@@ -697,6 +697,10 @@ static inline enum zone_type page_zonenum(const struct page *page)
 	return (page->flags >> ZONES_PGSHIFT) & ZONES_MASK;
 }
 
+#if defined(CONFIG_SPARSEMEM) && !defined(CONFIG_SPARSEMEM_VMEMMAP)
+#define SECTION_IN_PAGE_FLAGS
+#endif
+
 /*
  * The identification function is only used by the buddy allocator for
  * determining if two pages could be buddies. We are not really
@@ -780,7 +784,7 @@ static inline struct zone *page_zone(const struct page *page)
 	return &NODE_DATA(page_to_nid(page))->node_zones[page_zonenum(page)];
 }
 
-#if defined(CONFIG_SPARSEMEM) && !defined(CONFIG_SPARSEMEM_VMEMMAP)
+#ifdef SECTION_IN_PAGE_FLAGS
 static inline void set_page_section(struct page *page, unsigned long section)
 {
 	page->flags &= ~(SECTIONS_MASK << SECTIONS_PGSHIFT);
@@ -810,7 +814,7 @@ static inline void set_page_links(struct page *page, enum zone_type zone,
 {
 	set_page_zone(page, zone);
 	set_page_node(page, node);
-#if defined(CONFIG_SPARSEMEM) && !defined(CONFIG_SPARSEMEM_VMEMMAP)
+#ifdef SECTION_IN_PAGE_FLAGS
 	set_page_section(page, pfn_to_section_nr(pfn));
 #endif
 }
@@ -1600,8 +1604,23 @@ extern int filemap_page_mkwrite(struct vm_area_struct *vma, struct vm_fault *vmf
 int write_one_page(struct page *page, int wait);
 void task_dirty_inc(struct task_struct *tsk);
 
-/* readahead.c in kbytes, for max 64GB cards*/
-#define VM_MAX_READAHEAD	2048
+/*
+* Limit default readahead size for small devices.
+*        disk size    readahead size
+*               1M                8k
+*               4M               16k
+*              16M               32k
+*              64M               64k
+*             256M              128k
+*               1G              256k
+*               4G              512k
+*              16G             1024k
+*              64G             2048k
+*             256G             4096k
+*/
+
+/* readahead.c in kbytes, for 16GB cards*/
+#define VM_MAX_READAHEAD	1024
 /* kbytes (includes current page) */
 #define VM_MIN_READAHEAD	16
 

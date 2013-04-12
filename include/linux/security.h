@@ -1668,12 +1668,10 @@ int security_capset(struct cred *new, const struct cred *old,
 		    const kernel_cap_t *effective,
 		    const kernel_cap_t *inheritable,
 		    const kernel_cap_t *permitted);
-int security_capable(struct user_namespace *ns, const struct cred *cred,
+int security_capable(const struct cred *cred, struct user_namespace *ns,
 			int cap);
-int security_real_capable(struct task_struct *tsk, struct user_namespace *ns,
-			int cap);
-int security_real_capable_noaudit(struct task_struct *tsk,
-			struct user_namespace *ns, int cap);
+int security_capable_noaudit(const struct cred *cred, struct user_namespace *ns,
+			     int cap);
 int security_quotactl(int cmds, int type, int id, struct super_block *sb);
 int security_quota_on(struct dentry *dentry);
 int security_syslog(int type);
@@ -1868,32 +1866,10 @@ static inline int security_capset(struct cred *new,
 	return cap_capset(new, old, effective, inheritable, permitted);
 }
 
-static inline int security_capable(struct user_namespace *ns,
-				   const struct cred *cred, int cap)
+static inline int security_capable(const struct cred *cred,
+				   struct user_namespace *ns, int cap)
 {
 	return cap_capable(current, cred, ns, cap, SECURITY_CAP_AUDIT);
-}
-
-static inline int security_real_capable(struct task_struct *tsk, struct user_namespace *ns, int cap)
-{
-	int ret;
-
-	rcu_read_lock();
-	ret = cap_capable(tsk, __task_cred(tsk), ns, cap, SECURITY_CAP_AUDIT);
-	rcu_read_unlock();
-	return ret;
-}
-
-static inline
-int security_real_capable_noaudit(struct task_struct *tsk, struct user_namespace *ns, int cap)
-{
-	int ret;
-
-	rcu_read_lock();
-	ret = cap_capable(tsk, __task_cred(tsk), ns, cap,
-			       SECURITY_CAP_NOAUDIT);
-	rcu_read_unlock();
-	return ret;
 }
 
 static inline int security_quotactl(int cmds, int type, int id,

@@ -2823,7 +2823,7 @@ ext4_mb_mark_diskspace_used(struct ext4_allocation_context *ac,
 	if (sbi->s_log_groups_per_flex) {
 		ext4_group_t flex_group = ext4_flex_group(sbi,
 							  ac->ac_b_ex.fe_group);
-		atomic64_sub(ac->ac_b_ex.fe_len,
+		atomic_sub(ac->ac_b_ex.fe_len,
 			   &sbi->s_flex_groups[flex_group].free_clusters);
 	}
 
@@ -3439,7 +3439,7 @@ ext4_mb_new_inode_pa(struct ext4_allocation_context *ac)
 			win = offs;
 
 		ac->ac_b_ex.fe_logical = ac->ac_o_ex.fe_logical -
-			EXT4_NUM_B2C(sbi, win);
+			EXT4_B2C(sbi, win);
 		BUG_ON(ac->ac_o_ex.fe_logical < ac->ac_b_ex.fe_logical);
 		BUG_ON(ac->ac_o_ex.fe_len > ac->ac_b_ex.fe_len);
 	}
@@ -4579,7 +4579,7 @@ do_more:
 			EXT4_BLOCKS_PER_GROUP(sb);
 		count -= overflow;
 	}
-	count_clusters = EXT4_NUM_B2C(sbi, count);
+	count_clusters = EXT4_B2C(sbi, count);
 	bitmap_bh = ext4_read_block_bitmap(sb, block_group);
 	if (!bitmap_bh) {
 		err = -EIO;
@@ -4669,7 +4669,7 @@ do_more:
 
 	if (sbi->s_log_groups_per_flex) {
 		ext4_group_t flex_group = ext4_flex_group(sbi, block_group);
-		atomic64_add(count_clusters,
+		atomic_add(count_clusters,
 			   &sbi->s_flex_groups[flex_group].free_clusters);
 	}
 
@@ -4814,7 +4814,7 @@ int ext4_group_add_blocks(handle_t *handle, struct super_block *sb,
 
 	if (sbi->s_log_groups_per_flex) {
 		ext4_group_t flex_group = ext4_flex_group(sbi, block_group);
-		atomic64_add(EXT4_B2C(sbi, blocks_freed),
+		atomic_add(EXT4_B2C(sbi, blocks_freed),
 			   &sbi->s_flex_groups[flex_group].free_clusters);
 	}
 

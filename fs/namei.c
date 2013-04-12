@@ -183,9 +183,6 @@ static int acl_permission_check(struct inode *inode, int mask, unsigned int flag
 
 	mask &= MAY_READ | MAY_WRITE | MAY_EXEC;
 
-	if (current_user_ns() != inode_userns(inode))
-		goto other_perms;
-
 	if (likely(current_fsuid() == inode->i_uid))
 		mode >>= 6;
 	else {
@@ -199,7 +196,6 @@ static int acl_permission_check(struct inode *inode, int mask, unsigned int flag
 			mode >>= 3;
 	}
 
-other_perms:
 	/*
 	 * If the DACs are ok we don't need any capability check.
 	 */
@@ -236,21 +232,30 @@ int generic_permission(struct inode *inode, int mask, unsigned int flags,
 	if (ret != -EACCES)
 		return ret;
 
+	if (S_ISDIR(inode->i_mode)) {
+		/* DACs are overridable for directories */
+		if (inode_capable(inode, CAP_DAC_OVERRIDE))
+			return 0;
+		if (!(mask & MAY_WRITE))
+			if (inode_capable(inode, CAP_DAC_READ_SEARCH))
+				return 0;
+		return -EACCES;
+	}
 	/*
 	 * Read/write DACs are always overridable.
 	 * Executable DACs are overridable for all directories and
 	 * for non-directories that have least one exec bit set.
 	 */
-	if (!(mask & MAY_EXEC) || execute_ok(inode))
-		if (ns_capable(inode_userns(inode), CAP_DAC_OVERRIDE))
+	if (!(mask & MAY_EXEC) || (inode->i_mode & S_IXUGO))
+		if (inode_capable(inode, CAP_DAC_OVERRIDE))
 			return 0;
 
 	/*
 	 * Searching includes executable on directories, else just read.
 	 */
 	mask &= MAY_READ | MAY_WRITE | MAY_EXEC;
-	if (mask == MAY_READ || (S_ISDIR(inode->i_mode) && !(mask & MAY_WRITE)))
-		if (ns_capable(inode_userns(inode), CAP_DAC_READ_SEARCH))
+	if (mask == MAY_READ)
+		if (inode_capable(inode, CAP_DAC_READ_SEARCH))
 			return 0;
 
 	return -EACCES;
@@ -580,7 +585,6 @@ static int complete_walk(struct nameidata *nd)
 static inline int exec_permission(struct inode *inode, unsigned int flags)
 {
 	int ret;
-	struct user_namespace *ns = inode_userns(inode);
 
 	if (inode->i_op->permission) {
 		ret = inode->i_op->permission(inode, MAY_EXEC, flags);
@@ -593,8 +597,8 @@ static inline int exec_permission(struct inode *inode, unsigned int flags)
 	if (ret == -ECHILD)
 		return ret;
 
-	if (ns_capable(ns, CAP_DAC_OVERRIDE) ||
-			ns_capable(ns, CAP_DAC_READ_SEARCH))
+	if (inode_capable(inode, CAP_DAC_OVERRIDE) ||
+			inode_capable(inode, CAP_DAC_READ_SEARCH))
 		goto ok;
 
 	return ret;
@@ -1848,15 +1852,11 @@ static inline int check_sticky(struct inode *dir, struct inode *inode)
 
 	if (!(dir->i_mode & S_ISVTX))
 		return 0;
-	if (current_user_ns() != inode_userns(inode))
-		goto other_userns;
 	if (inode->i_uid == fsuid)
 		return 0;
 	if (dir->i_uid == fsuid)
 		return 0;
-
-other_userns:
-	return !ns_capable(inode_userns(inode), CAP_FOWNER);
+	return !inode_capable(inode, CAP_FOWNER);
 }
 
 /*
@@ -2454,7 +2454,7 @@ int vfs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 		return error;
 
 	if ((S_ISCHR(mode) || S_ISBLK(mode)) &&
-	    !ns_capable(inode_userns(dir), CAP_MKNOD))
+	    !inode_capable(dir, CAP_MKNOD))
 		return -EPERM;
 
 	if (!dir->i_op->mknod)
