@@ -680,7 +680,6 @@ void rtl8192_proc_module_remove(void)
 	remove_proc_entry(RTL819xU_MODULE_NAME, init_net.proc_net);
 }
 
-
 void rtl8192_proc_remove_one(struct net_device *dev)
 {
 	struct r8192_priv *priv = (struct r8192_priv *)ieee80211_priv(dev);

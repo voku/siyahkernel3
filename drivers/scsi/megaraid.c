@@ -3105,8 +3105,97 @@ proc_rdrv(adapter_t *adapter, char *page, int start, int end )
 
 	mega_free_inquiry(inquiry, dma_handle, pdev);
 
-	pci_free_consistent(pdev, array_sz, disk_array,
-			disk_array_dma_handle);
+
+/**
+ * proc_show_rdrv_30()
+ * @m - Synthetic file construction data
+ * @v - File iterator
+ *
+ * Display real time information about the logical drives 0 through 9.
+ */
+static int
+proc_show_rdrv_30(struct seq_file *m, void *v)
+{
+	return proc_show_rdrv(m, m->private, 20, 29);
+}
+
+
+/**
+ * proc_show_rdrv_40()
+ * @m - Synthetic file construction data
+ * @v - File iterator
+ *
+ * Display real time information about the logical drives 0 through 9.
+ */
+static int
+proc_show_rdrv_40(struct seq_file *m, void *v)
+{
+	return proc_show_rdrv(m, m->private, 30, 39);
+}
+
+
+/*
+ * seq_file wrappers for procfile show routines.
+ */
+static int mega_proc_open(struct inode *inode, struct file *file)
+{
+	adapter_t *adapter = proc_get_parent_data(inode);
+	int (*show)(struct seq_file *, void *) = PDE_DATA(inode);
+
+	return single_open(file, show, adapter);
+}
+
+static const struct file_operations mega_proc_fops = {
+	.open		= mega_proc_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= seq_release,
+};
+
+/*
+ * Table of proc files we need to create.
+ */
+struct mega_proc_file {
+	const char *name;
+	unsigned short ptr_offset;
+	int (*show) (struct seq_file *m, void *v);
+};
+
+static const struct mega_proc_file mega_proc_files[] = {
+	{ "config",	      offsetof(adapter_t, proc_read), proc_show_config },
+	{ "stat",	      offsetof(adapter_t, proc_stat), proc_show_stat },
+	{ "mailbox",	      offsetof(adapter_t, proc_mbox), proc_show_mbox },
+#if MEGA_HAVE_ENH_PROC
+	{ "rebuild-rate",     offsetof(adapter_t, proc_rr), proc_show_rebuild_rate },
+	{ "battery-status",   offsetof(adapter_t, proc_battery), proc_show_battery },
+	{ "diskdrives-ch0",   offsetof(adapter_t, proc_pdrvstat[0]), proc_show_pdrv_ch0 },
+	{ "diskdrives-ch1",   offsetof(adapter_t, proc_pdrvstat[1]), proc_show_pdrv_ch1 },
+	{ "diskdrives-ch2",   offsetof(adapter_t, proc_pdrvstat[2]), proc_show_pdrv_ch2 },
+	{ "diskdrives-ch3",   offsetof(adapter_t, proc_pdrvstat[3]), proc_show_pdrv_ch3 },
+	{ "raiddrives-0-9",   offsetof(adapter_t, proc_rdrvstat[0]), proc_show_rdrv_10 },
+	{ "raiddrives-10-19", offsetof(adapter_t, proc_rdrvstat[1]), proc_show_rdrv_20 },
+	{ "raiddrives-20-29", offsetof(adapter_t, proc_rdrvstat[2]), proc_show_rdrv_30 },
+	{ "raiddrives-30-39", offsetof(adapter_t, proc_rdrvstat[3]), proc_show_rdrv_40 },
+#endif
+	{ NULL }
+};
+
+/**
+ * mega_create_proc_entry()
+ * @index - index in soft state array
+ * @parent - parent node for this /proc entry
+ *
+ * Creates /proc entries for our controllers.
+ */
+static void
+mega_create_proc_entry(int index, struct proc_dir_entry *parent)
+{
+	const struct mega_proc_file *f;
+	adapter_t	*adapter = hba_soft_state[index];
+	struct proc_dir_entry	*dir, *de, **ppde;
+	u8		string[16];
+
+	sprintf(string, "hba%d", adapter->host->host_no);
 
 	dir = adapter->controller_proc_dir_entry =
 		proc_mkdir_data(string, 0, parent, adapter);
