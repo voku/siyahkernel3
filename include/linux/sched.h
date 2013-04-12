@@ -1204,9 +1204,10 @@ struct sched_statistics {
 
 struct sched_entity {
 	struct load_weight	load;		/* for load-balancing */
-	struct rb_node		run_node;
+	struct list_head	run_node;
 	struct list_head	group_node;
 	unsigned int		on_rq;
+	int					node_pos;
 
 	u64			exec_start;
 	u64			sum_exec_runtime;
