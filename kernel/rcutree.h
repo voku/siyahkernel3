@@ -329,6 +329,11 @@ struct rcu_data {
 	struct task_struct *nocb_kthread;
 #endif /* #ifdef CONFIG_RCU_NOCB_CPU */
 
+	/* 8) RCU CPU stall data. */
+#ifdef CONFIG_RCU_CPU_STALL_INFO
+	unsigned int softirq_snap;	/* Snapshot of softirq activity. */
+#endif /* #ifdef CONFIG_RCU_CPU_STALL_INFO */
+
 	int cpu;
 	struct rcu_state *rsp;
 };
@@ -535,6 +540,7 @@ static bool rcu_nocb_adopt_orphan_cbs(struct rcu_state *rsp,
 				      struct rcu_data *rdp);
 static void rcu_boot_init_nocb_percpu_data(struct rcu_data *rdp);
 static void rcu_spawn_nocb_kthreads(struct rcu_state *rsp);
+static void rcu_kick_nohz_cpu(int cpu);
 static bool init_nocb_callback_list(struct rcu_data *rdp);
 
 #endif /* #ifndef RCU_TREE_NONCORE */

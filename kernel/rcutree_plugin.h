@@ -28,7 +28,7 @@
 #include <linux/gfp.h>
 #include <linux/oom.h>
 #include <linux/smpboot.h>
-#include <linux/oom.h>
+#include <linux/tick.h>
 
 #define RCU_KTHREAD_PRIO 1
 
@@ -453,9 +453,11 @@ static void rcu_print_detail_task_stall_rnp(struct rcu_node *rnp)
 	unsigned long flags;
 	struct task_struct *t;
 
-	if (!rcu_preempt_blocked_readers_cgp(rnp))
-		return;
 	raw_spin_lock_irqsave(&rnp->lock, flags);
+	if (!rcu_preempt_blocked_readers_cgp(rnp)) {
+		raw_spin_unlock_irqrestore(&rnp->lock, flags);
+		return;
+	}
 	t = list_entry(rnp->gp_tasks,
 		       struct task_struct, rcu_node_entry);
 	list_for_each_entry_continue(t, &rnp->blkd_tasks, rcu_node_entry)
@@ -615,17 +617,23 @@ static int rcu_preempt_offline_tasks(struct rcu_state *rsp,
 		raw_spin_unlock(&rnp_root->lock); /* irqs still disabled */
 	}
 
+	rnp->gp_tasks = NULL;
+	rnp->exp_tasks = NULL;
 #ifdef CONFIG_RCU_BOOST
-	/* In case root is being boosted and leaf is not. */
+	rnp->boost_tasks = NULL;
+	/*
+	 * In case root is being boosted and leaf was not.  Make sure
+	 * that we boost the tasks blocking the current grace period
+	 * in this case.
+	 */
 	raw_spin_lock(&rnp_root->lock); /* irqs already disabled */
 	if (rnp_root->boost_tasks != NULL &&
-	    rnp_root->boost_tasks != rnp_root->gp_tasks)
+	    rnp_root->boost_tasks != rnp_root->gp_tasks &&
+	    rnp_root->boost_tasks != rnp_root->exp_tasks)
 		rnp_root->boost_tasks = rnp_root->gp_tasks;
 	raw_spin_unlock(&rnp_root->lock); /* irqs still disabled */
 #endif /* #ifdef CONFIG_RCU_BOOST */
 
-	rnp->gp_tasks = NULL;
-	rnp->exp_tasks = NULL;
 	return retval;
 }
 
@@ -713,7 +721,7 @@ void synchronize_rcu(void)
 EXPORT_SYMBOL_GPL(synchronize_rcu);
 
 static DECLARE_WAIT_QUEUE_HEAD(sync_rcu_preempt_exp_wq);
-static long sync_rcu_preempt_exp_count;
+static unsigned long sync_rcu_preempt_exp_count;
 static DEFINE_MUTEX(sync_rcu_preempt_exp_mutex);
 
 /*
@@ -829,7 +837,7 @@ void synchronize_rcu_expedited(void)
 	unsigned long flags;
 	struct rcu_node *rnp;
 	struct rcu_state *rsp = &rcu_preempt_state;
-	long snap;
+	unsigned long snap;
 	int trycount = 0;
 
 	smp_mb(); /* Caller's modifications seen first by other CPUs. */
@@ -837,11 +845,26 @@ void synchronize_rcu_expedited(void)
 	smp_mb(); /* Above access cannot bleed into critical section. */
 
 	/*
+	 * Block CPU-hotplug operations.  This means that any CPU-hotplug
+	 * operation that finds an rcu_node structure with tasks in the
+	 * process of being boosted will know that all tasks blocking
+	 * this expedited grace period will already be in the process of
+	 * being boosted.  This simplifies the process of moving tasks
+	 * from leaf to root rcu_node structures.
+	 */
+	get_online_cpus();
+
+	/*
 	 * Acquire lock, falling back to synchronize_rcu() if too many
 	 * lock-acquisition failures.  Of course, if someone does the
 	 * expedited grace period for us, just leave.
 	 */
 	while (!mutex_trylock(&sync_rcu_preempt_exp_mutex)) {
+		if (ULONG_CMP_LT(snap,
+		    ACCESS_ONCE(sync_rcu_preempt_exp_count))) {
+			put_online_cpus();
+			goto mb_ret; /* Others did our work for us. */
+		}
 		if (trycount++ < 10) {
 			udelay(trycount * num_online_cpus());
 		} else {
@@ -849,22 +872,20 @@ void synchronize_rcu_expedited(void)
 			wait_rcu_gp(call_rcu);
 			return;
 		}
-		if ((ACCESS_ONCE(sync_rcu_preempt_exp_count) - snap) > 0)
-			goto mb_ret; /* Others did our work for us. */
 	}
-	if ((ACCESS_ONCE(sync_rcu_preempt_exp_count) - snap) > 0)
+	if (ULONG_CMP_LT(snap, ACCESS_ONCE(sync_rcu_preempt_exp_count))) {
+		put_online_cpus();
 		goto unlock_mb_ret; /* Others did our work for us. */
+	}
 
 	/* force all RCU readers onto ->blkd_tasks lists. */
 	synchronize_sched_expedited();
 
-	raw_spin_lock_irqsave(&rsp->orphan_lock, flags);
-
 	/* Initialize ->expmask for all non-leaf rcu_node structures. */
 	rcu_for_each_nonleaf_node_breadth_first(rsp, rnp) {
-		raw_spin_lock(&rnp->lock); /* irqs already disabled. */
+		raw_spin_lock_irqsave(&rnp->lock, flags);
 		rnp->expmask = rnp->qsmaskinit;
-		raw_spin_unlock(&rnp->lock); /* irqs remain disabled. */
+		raw_spin_unlock_irqrestore(&rnp->lock, flags);
 	}
 
 	/* Snapshot current state of ->blkd_tasks lists. */
@@ -873,7 +894,7 @@ void synchronize_rcu_expedited(void)
 	if (NUM_RCU_NODES > 1)
 		sync_rcu_preempt_exp_init(rsp, rcu_get_root(rsp));
 
-	raw_spin_unlock_irqrestore(&rsp->orphan_lock, flags);
+	put_online_cpus();
 
 	/* Wait for snapshotted ->blkd_tasks lists to drain. */
 	rnp = rcu_get_root(rsp);
@@ -1235,9 +1256,9 @@ static int rcu_boost_kthread(void *arg)
  * kthread to start boosting them.  If there is an expedited grace
  * period in progress, it is always time to boost.
  *
- * The caller must hold rnp->lock, which this function releases,
- * but irqs remain disabled.  The ->boost_kthread_task is immortal,
- * so we don't need to worry about it going away.
+ * The caller must hold rnp->lock, which this function releases.
+ * The ->boost_kthread_task is immortal, so we don't need to worry
+ * about it going away.
  */
 static void rcu_initiate_boost(struct rcu_node *rnp, unsigned long flags)
 {
@@ -1841,12 +1862,13 @@ early_initcall(rcu_register_oom_notifier);
 static void print_cpu_stall_fast_no_hz(char *cp, int cpu)
 {
 	struct rcu_dynticks *rdtp = &per_cpu(rcu_dynticks, cpu);
-	struct timer_list *tltp = &rdtp->idle_gp_timer;
+	unsigned long nlpd = rdtp->nonlazy_posted - rdtp->nonlazy_posted_snap;
 
-	sprintf(cp, "drain=%d %c timer=%lu",
-		rdtp->dyntick_drain,
-		rdtp->dyntick_holdoff == jiffies ? 'H' : '.',
-		timer_pending(tltp) ? tltp->expires - jiffies : -1);
+	sprintf(cp, "last_accelerate: %04lx/%04lx, nonlazy_posted: %ld, %c%c",
+		rdtp->last_accelerate & 0xffff, jiffies & 0xffff,
+		ulong2long(nlpd),
+		rdtp->all_lazy ? 'L' : '.',
+		rdtp->tick_nohz_enabled_snap ? '.' : 'D');
 }
 
 #else /* #ifdef CONFIG_RCU_FAST_NO_HZ */
@@ -1892,10 +1914,11 @@ static void print_cpu_stall_info(struct rcu_state *rsp, int cpu)
 		ticks_value = rsp->gpnum - rdp->gpnum;
 	}
 	print_cpu_stall_fast_no_hz(fast_no_hz, cpu);
-	printk(KERN_ERR "\t%d: (%lu %s) idle=%03x/%llx/%d %s\n",
+	printk(KERN_ERR "\t%d: (%lu %s) idle=%03x/%llx/%d softirq=%u/%u %s\n",
 	       cpu, ticks_value, ticks_title,
 	       atomic_read(&rdtp->dynticks) & 0xfff,
 	       rdtp->dynticks_nesting, rdtp->dynticks_nmi_nesting,
+	       rdp->softirq_snap, kstat_softirqs_cpu(RCU_SOFTIRQ, cpu),
 	       fast_no_hz);
 }
 
@@ -1909,16 +1932,16 @@ static void print_cpu_stall_info_end(void)
 static void zero_cpu_stall_ticks(struct rcu_data *rdp)
 {
 	rdp->ticks_this_gp = 0;
+	rdp->softirq_snap = kstat_softirqs_cpu(RCU_SOFTIRQ, smp_processor_id());
 }
 
 /* Increment ->ticks_this_gp for all flavors of RCU. */
 static void increment_cpu_stall_ticks(void)
 {
-	__get_cpu_var(rcu_sched_data).ticks_this_gp++;
-	__get_cpu_var(rcu_bh_data).ticks_this_gp++;
-#ifdef CONFIG_TREE_PREEMPT_RCU
-	__get_cpu_var(rcu_preempt_data).ticks_this_gp++;
-#endif /* #ifdef CONFIG_TREE_PREEMPT_RCU */
+	struct rcu_state *rsp;
+
+	for_each_rcu_flavor(rsp)
+		__this_cpu_ptr(rsp->rda)->ticks_this_gp++;
 }
 
 #else /* #ifdef CONFIG_RCU_CPU_STALL_INFO */
@@ -2284,11 +2307,6 @@ static void rcu_init_one_nocb(struct rcu_node *rnp)
 {
 }
 
-static bool is_nocb_cpu(int cpu)
-{
-	return false;
-}
-
 static bool __call_rcu_nocb(struct rcu_data *rdp, struct rcu_head *rhp,
 			    bool lazy)
 {
@@ -2315,3 +2333,20 @@ static bool init_nocb_callback_list(struct rcu_data *rdp)
 }
 
 #endif /* #else #ifdef CONFIG_RCU_NOCB_CPU */
+
+/*
+ * An adaptive-ticks CPU can potentially execute in kernel mode for an
+ * arbitrarily long period of time with the scheduling-clock tick turned
+ * off.  RCU will be paying attention to this CPU because it is in the
+ * kernel, but the CPU cannot be guaranteed to be executing the RCU state
+ * machine because the scheduling-clock tick has been disabled.  Therefore,
+ * if an adaptive-ticks CPU is failing to respond to the current grace
+ * period and has not be idle from an RCU perspective, kick it.
+ */
+static void rcu_kick_nohz_cpu(int cpu)
+{
+#ifdef CONFIG_NO_HZ_FULL
+	if (tick_nohz_full_cpu(cpu))
+		smp_send_reschedule(cpu);
+#endif /* #ifdef CONFIG_NO_HZ_FULL */
+}
