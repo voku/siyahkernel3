@@ -1672,6 +1672,9 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.alg = "__cbc-serpent-avx",
 		.test = alg_test_null,
 	}, {
+		.alg = "__cbc-serpent-avx2",
+		.test = alg_test_null,
+	}, {
 		.alg = "__cbc-serpent-sse2",
 		.test = alg_test_null,
 	}, {
@@ -1700,6 +1703,9 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.alg = "__driver-cbc-serpent-avx",
 		.test = alg_test_null,
 	}, {
+		.alg = "__driver-cbc-serpent-avx2",
+		.test = alg_test_null,
+	}, {
 		.alg = "__driver-cbc-serpent-sse2",
 		.test = alg_test_null,
 	}, {
@@ -1726,6 +1732,9 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_null,
 	}, {
 		.alg = "__driver-ecb-serpent-avx",
+		.test = alg_test_null,
+	}, {
+		.alg = "__driver-ecb-serpent-avx2",
 		.test = alg_test_null,
 	}, {
 		.alg = "__driver-ecb-serpent-sse2",
@@ -1998,6 +2007,9 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.alg = "cryptd(__driver-cbc-camellia-aesni)",
 		.test = alg_test_null,
 	}, {
+		.alg = "cryptd(__driver-cbc-serpent-avx2)",
+		.test = alg_test_null,
+	}, {
 		.alg = "cryptd(__driver-ecb-aes-aesni)",
 		.test = alg_test_null,
 		.fips_allowed = 1,
@@ -2015,6 +2027,9 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_null,
 	}, {
 		.alg = "cryptd(__driver-ecb-serpent-avx)",
+		.test = alg_test_null,
+	}, {
+		.alg = "cryptd(__driver-ecb-serpent-avx2)",
 		.test = alg_test_null,
 	}, {
 		.alg = "cryptd(__driver-ecb-serpent-sse2)",

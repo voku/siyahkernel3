@@ -38,6 +38,7 @@ obj-$(CONFIG_CRYPTO_SHA1_SSSE3) += sha1-ssse3.o
 # These modules require assembler to support AVX2.
 ifeq ($(avx2_supported),yes)
 	obj-$(CONFIG_CRYPTO_BLOWFISH_AVX2_X86_64) += blowfish-avx2.o
+	obj-$(CONFIG_CRYPTO_SERPENT_AVX2_X86_64) += serpent-avx2.o
 	obj-$(CONFIG_CRYPTO_TWOFISH_AVX2_X86_64) += twofish-avx2.o
 endif
 
@@ -62,6 +63,7 @@ serpent-avx-x86_64-y := serpent-avx-x86_64-asm_64.o serpent_avx_glue.o
 
 ifeq ($(avx2_supported),yes)
 	blowfish-avx2-y := blowfish-avx2-asm_64.o blowfish_avx2_glue.o
+	serpent-avx2-y := serpent-avx2-asm_64.o serpent_avx2_glue.o
 	twofish-avx2-y := twofish-avx2-asm_64.o twofish_avx2_glue.o
 endif
 

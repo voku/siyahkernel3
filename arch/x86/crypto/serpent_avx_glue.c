@@ -44,11 +44,40 @@
 #include <linux/workqueue.h>
 #include <linux/spinlock.h>
 
+<<<<<<< HEAD
 struct async_serpent_ctx {
 	struct cryptd_ablkcipher *cryptd_tfm;
 };
 
 static inline bool serpent_fpu_begin(bool fpu_enabled, unsigned int nbytes)
+=======
+/* 8-way parallel cipher functions */
+asmlinkage void serpent_ecb_enc_8way_avx(struct serpent_ctx *ctx, u8 *dst,
+					 const u8 *src);
+EXPORT_SYMBOL_GPL(serpent_ecb_enc_8way_avx);
+
+asmlinkage void serpent_ecb_dec_8way_avx(struct serpent_ctx *ctx, u8 *dst,
+					 const u8 *src);
+EXPORT_SYMBOL_GPL(serpent_ecb_dec_8way_avx);
+
+asmlinkage void serpent_cbc_dec_8way_avx(struct serpent_ctx *ctx, u8 *dst,
+					 const u8 *src);
+EXPORT_SYMBOL_GPL(serpent_cbc_dec_8way_avx);
+
+asmlinkage void serpent_ctr_8way_avx(struct serpent_ctx *ctx, u8 *dst,
+				     const u8 *src, le128 *iv);
+EXPORT_SYMBOL_GPL(serpent_ctr_8way_avx);
+
+asmlinkage void serpent_xts_enc_8way_avx(struct serpent_ctx *ctx, u8 *dst,
+					 const u8 *src, le128 *iv);
+EXPORT_SYMBOL_GPL(serpent_xts_enc_8way_avx);
+
+asmlinkage void serpent_xts_dec_8way_avx(struct serpent_ctx *ctx, u8 *dst,
+					 const u8 *src, le128 *iv);
+EXPORT_SYMBOL_GPL(serpent_xts_dec_8way_avx);
+
+void __serpent_crypt_ctr(void *ctx, u128 *dst, const u128 *src, le128 *iv)
+>>>>>>> 56d76c9... crypto: serpent - add AVX2/x86_64 assembler implementation of serpent cipher
 {
 	if (fpu_enabled)
 		return true;
@@ -62,13 +91,20 @@ static inline bool serpent_fpu_begin(bool fpu_enabled, unsigned int nbytes)
 	kernel_fpu_begin();
 	return true;
 }
+EXPORT_SYMBOL_GPL(__serpent_crypt_ctr);
 
+<<<<<<< HEAD
 static inline void serpent_fpu_end(bool fpu_enabled)
+=======
+void serpent_xts_enc(void *ctx, u128 *dst, const u128 *src, le128 *iv)
+>>>>>>> 56d76c9... crypto: serpent - add AVX2/x86_64 assembler implementation of serpent cipher
 {
 	if (fpu_enabled)
 		kernel_fpu_end();
 }
+EXPORT_SYMBOL_GPL(serpent_xts_enc);
 
+<<<<<<< HEAD
 static int ecb_crypt(struct blkcipher_desc *desc, struct blkcipher_walk *walk,
 		     bool enc)
 {
@@ -77,6 +113,54 @@ static int ecb_crypt(struct blkcipher_desc *desc, struct blkcipher_walk *walk,
 	const unsigned int bsize = SERPENT_BLOCK_SIZE;
 	unsigned int nbytes;
 	int err;
+=======
+void serpent_xts_dec(void *ctx, u128 *dst, const u128 *src, le128 *iv)
+{
+	glue_xts_crypt_128bit_one(ctx, dst, src, iv,
+				  GLUE_FUNC_CAST(__serpent_decrypt));
+}
+EXPORT_SYMBOL_GPL(serpent_xts_dec);
+
+
+static const struct common_glue_ctx serpent_enc = {
+	.num_funcs = 2,
+	.fpu_blocks_limit = SERPENT_PARALLEL_BLOCKS,
+
+	.funcs = { {
+		.num_blocks = SERPENT_PARALLEL_BLOCKS,
+		.fn_u = { .ecb = GLUE_FUNC_CAST(serpent_ecb_enc_8way_avx) }
+	}, {
+		.num_blocks = 1,
+		.fn_u = { .ecb = GLUE_FUNC_CAST(__serpent_encrypt) }
+	} }
+};
+
+static const struct common_glue_ctx serpent_ctr = {
+	.num_funcs = 2,
+	.fpu_blocks_limit = SERPENT_PARALLEL_BLOCKS,
+
+	.funcs = { {
+		.num_blocks = SERPENT_PARALLEL_BLOCKS,
+		.fn_u = { .ctr = GLUE_CTR_FUNC_CAST(serpent_ctr_8way_avx) }
+	}, {
+		.num_blocks = 1,
+		.fn_u = { .ctr = GLUE_CTR_FUNC_CAST(__serpent_crypt_ctr) }
+	} }
+};
+
+static const struct common_glue_ctx serpent_enc_xts = {
+	.num_funcs = 2,
+	.fpu_blocks_limit = SERPENT_PARALLEL_BLOCKS,
+
+	.funcs = { {
+		.num_blocks = SERPENT_PARALLEL_BLOCKS,
+		.fn_u = { .xts = GLUE_XTS_FUNC_CAST(serpent_xts_enc_8way_avx) }
+	}, {
+		.num_blocks = 1,
+		.fn_u = { .xts = GLUE_XTS_FUNC_CAST(serpent_xts_enc) }
+	} }
+};
+>>>>>>> 56d76c9... crypto: serpent - add AVX2/x86_64 assembler implementation of serpent cipher
 
 	err = blkcipher_walk_virt(desc, walk);
 	desc->flags &= ~CRYPTO_TFM_REQ_MAY_SLEEP;
@@ -431,13 +515,8 @@ static void decrypt_callback(void *priv, u8 *srcdst, unsigned int nbytes)
 		__serpent_decrypt(ctx->ctx, srcdst, srcdst);
 }
 
-struct serpent_lrw_ctx {
-	struct lrw_table_ctx lrw_table;
-	struct serpent_ctx serpent_ctx;
-};
-
-static int lrw_serpent_setkey(struct crypto_tfm *tfm, const u8 *key,
-			      unsigned int keylen)
+int lrw_serpent_setkey(struct crypto_tfm *tfm, const u8 *key,
+		       unsigned int keylen)
 {
 	struct serpent_lrw_ctx *ctx = crypto_tfm_ctx(tfm);
 	int err;
@@ -450,6 +529,7 @@ static int lrw_serpent_setkey(struct crypto_tfm *tfm, const u8 *key,
 	return lrw_init_table(&ctx->lrw_table, key + keylen -
 						SERPENT_BLOCK_SIZE);
 }
+EXPORT_SYMBOL_GPL(lrw_serpent_setkey);
 
 static int lrw_encrypt(struct blkcipher_desc *desc, struct scatterlist *dst,
 		       struct scatterlist *src, unsigned int nbytes)
@@ -503,20 +583,16 @@ static int lrw_decrypt(struct blkcipher_desc *desc, struct scatterlist *dst,
 	return ret;
 }
 
-static void lrw_exit_tfm(struct crypto_tfm *tfm)
+void lrw_serpent_exit_tfm(struct crypto_tfm *tfm)
 {
 	struct serpent_lrw_ctx *ctx = crypto_tfm_ctx(tfm);
 
 	lrw_free_table(&ctx->lrw_table);
 }
+EXPORT_SYMBOL_GPL(lrw_serpent_exit_tfm);
 
-struct serpent_xts_ctx {
-	struct serpent_ctx tweak_ctx;
-	struct serpent_ctx crypt_ctx;
-};
-
-static int xts_serpent_setkey(struct crypto_tfm *tfm, const u8 *key,
-			      unsigned int keylen)
+int xts_serpent_setkey(struct crypto_tfm *tfm, const u8 *key,
+		       unsigned int keylen)
 {
 	struct serpent_xts_ctx *ctx = crypto_tfm_ctx(tfm);
 	u32 *flags = &tfm->crt_flags;
@@ -538,6 +614,7 @@ static int xts_serpent_setkey(struct crypto_tfm *tfm, const u8 *key,
 	/* second half of xts-key is for tweak */
 	return __serpent_setkey(&ctx->tweak_ctx, key + keylen / 2, keylen / 2);
 }
+EXPORT_SYMBOL_GPL(xts_serpent_setkey);
 
 static int xts_encrypt(struct blkcipher_desc *desc, struct scatterlist *dst,
 		       struct scatterlist *src, unsigned int nbytes)
@@ -764,8 +841,12 @@ static struct crypto_alg serpent_algs[10] = { {
 	.cra_alignmask		= 0,
 	.cra_type		= &crypto_blkcipher_type,
 	.cra_module		= THIS_MODULE,
+<<<<<<< HEAD
 	.cra_list		= LIST_HEAD_INIT(serpent_algs[3].cra_list),
 	.cra_exit		= lrw_exit_tfm,
+=======
+	.cra_exit		= lrw_serpent_exit_tfm,
+>>>>>>> 56d76c9... crypto: serpent - add AVX2/x86_64 assembler implementation of serpent cipher
 	.cra_u = {
 		.blkcipher = {
 			.min_keysize	= SERPENT_MIN_KEY_SIZE +
