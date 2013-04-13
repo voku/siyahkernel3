@@ -46,17 +46,43 @@
 
 #define TWOFISH_PARALLEL_BLOCKS 8
 
+<<<<<<< HEAD
 /* regular block cipher functions from twofish_x86_64 module */
 asmlinkage void twofish_enc_blk(struct twofish_ctx *ctx, u8 *dst,
 				const u8 *src);
 asmlinkage void twofish_dec_blk(struct twofish_ctx *ctx, u8 *dst,
 				const u8 *src);
+=======
+/* 8-way parallel cipher functions */
+asmlinkage void twofish_ecb_enc_8way(struct twofish_ctx *ctx, u8 *dst,
+				     const u8 *src);
+EXPORT_SYMBOL_GPL(twofish_ecb_enc_8way);
+
+asmlinkage void twofish_ecb_dec_8way(struct twofish_ctx *ctx, u8 *dst,
+				     const u8 *src);
+EXPORT_SYMBOL_GPL(twofish_ecb_dec_8way);
+>>>>>>> cf1521a... crypto: twofish - add AVX2/x86_64 assembler implementation of twofish cipher
 
 /* 3-way parallel cipher functions from twofish_x86_64-3way module */
 asmlinkage void __twofish_enc_blk_3way(struct twofish_ctx *ctx, u8 *dst,
 				       const u8 *src, bool xor);
 asmlinkage void twofish_dec_blk_3way(struct twofish_ctx *ctx, u8 *dst,
 				     const u8 *src);
+<<<<<<< HEAD
+=======
+EXPORT_SYMBOL_GPL(twofish_cbc_dec_8way);
+
+asmlinkage void twofish_ctr_8way(struct twofish_ctx *ctx, u8 *dst,
+				 const u8 *src, le128 *iv);
+EXPORT_SYMBOL_GPL(twofish_ctr_8way);
+
+asmlinkage void twofish_xts_enc_8way(struct twofish_ctx *ctx, u8 *dst,
+				     const u8 *src, le128 *iv);
+EXPORT_SYMBOL_GPL(twofish_xts_enc_8way);
+asmlinkage void twofish_xts_dec_8way(struct twofish_ctx *ctx, u8 *dst,
+				     const u8 *src, le128 *iv);
+EXPORT_SYMBOL_GPL(twofish_xts_dec_8way);
+>>>>>>> cf1521a... crypto: twofish - add AVX2/x86_64 assembler implementation of twofish cipher
 
 static inline void twofish_enc_blk_3way(struct twofish_ctx *ctx, u8 *dst,
 					const u8 *src)
@@ -64,6 +90,7 @@ static inline void twofish_enc_blk_3way(struct twofish_ctx *ctx, u8 *dst,
 	__twofish_enc_blk_3way(ctx, dst, src, false);
 }
 
+<<<<<<< HEAD
 static inline void twofish_enc_blk_3way_xor(struct twofish_ctx *ctx, u8 *dst,
 					    const u8 *src)
 {
@@ -84,15 +111,24 @@ static inline void twofish_enc_blk_xway(struct twofish_ctx *ctx, u8 *dst,
 
 static inline void twofish_enc_blk_xway_xor(struct twofish_ctx *ctx, u8 *dst,
 					    const u8 *src)
+=======
+void twofish_xts_enc(void *ctx, u128 *dst, const u128 *src, le128 *iv)
+>>>>>>> cf1521a... crypto: twofish - add AVX2/x86_64 assembler implementation of twofish cipher
 {
 	__twofish_enc_blk_8way(ctx, dst, src, true);
 }
+EXPORT_SYMBOL_GPL(twofish_xts_enc);
 
+<<<<<<< HEAD
 static inline void twofish_dec_blk_xway(struct twofish_ctx *ctx, u8 *dst,
 					const u8 *src)
+=======
+void twofish_xts_dec(void *ctx, u128 *dst, const u128 *src, le128 *iv)
+>>>>>>> cf1521a... crypto: twofish - add AVX2/x86_64 assembler implementation of twofish cipher
 {
 	twofish_dec_blk_8way(ctx, dst, src);
 }
+EXPORT_SYMBOL_GPL(twofish_xts_dec);
 
 
 
