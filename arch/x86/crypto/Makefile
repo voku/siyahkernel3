@@ -2,6 +2,16 @@
 # Arch-specific CryptoAPI modules.
 #
 
+<<<<<<< HEAD
+=======
+avx_supported := $(call as-instr,vpxor %xmm0$(comma)%xmm0$(comma)%xmm0,yes,no)
+avx2_supported := $(call as-instr,vpgatherdd %ymm0$(comma)(%eax$(comma)%ymm1\
+					$(comma)4)$(comma)%ymm2,yes,no)
+
+obj-$(CONFIG_CRYPTO_ABLK_HELPER_X86) += ablk_helper.o
+obj-$(CONFIG_CRYPTO_GLUE_HELPER_X86) += glue_helper.o
+
+>>>>>>> 6048801... crypto: blowfish - add AVX2/x86_64 implementation of blowfish cipher
 obj-$(CONFIG_CRYPTO_AES_586) += aes-i586.o
 obj-$(CONFIG_CRYPTO_TWOFISH_586) += twofish-i586.o
 obj-$(CONFIG_CRYPTO_SALSA20_586) += salsa20-i586.o
@@ -25,6 +35,11 @@ obj-$(CONFIG_CRYPTO_GHASH_CLMUL_NI_INTEL) += ghash-clmulni-intel.o
 obj-$(CONFIG_CRYPTO_CRC32C_INTEL) += crc32c-intel.o
 obj-$(CONFIG_CRYPTO_SHA1_SSSE3) += sha1-ssse3.o
 
+# These modules require assembler to support AVX2.
+ifeq ($(avx2_supported),yes)
+	obj-$(CONFIG_CRYPTO_BLOWFISH_AVX2_X86_64) += blowfish-avx2.o
+endif
+
 aes-i586-y := aes-i586-asm_32.o aes_glue.o
 twofish-i586-y := twofish-i586-asm_32.o twofish_glue.o
 salsa20-i586-y := salsa20-i586-asm_32.o salsa20_glue.o
@@ -43,6 +58,10 @@ twofish-avx-x86_64-y := twofish-avx-x86_64-asm_64.o twofish_avx_glue.o
 salsa20-x86_64-y := salsa20-x86_64-asm_64.o salsa20_glue.o
 serpent-sse2-x86_64-y := serpent-sse2-x86_64-asm_64.o serpent_sse2_glue.o
 serpent-avx-x86_64-y := serpent-avx-x86_64-asm_64.o serpent_avx_glue.o
+
+ifeq ($(avx2_supported),yes)
+	blowfish-avx2-y := blowfish-avx2-asm_64.o blowfish_avx2_glue.o
+endif
 
 aesni-intel-y := aesni-intel_asm.o aesni-intel_glue.o fpu.o
 ghash-clmulni-intel-y := ghash-clmulni-intel_asm.o ghash-clmulni-intel_glue.o

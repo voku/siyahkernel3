@@ -1682,6 +1682,9 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_null,
 		.fips_allowed = 1,
 	}, {
+		.alg = "__driver-cbc-blowfish-avx2",
+		.test = alg_test_null,
+	}, {
 		.alg = "__driver-cbc-camellia-aesni",
 		.test = alg_test_null,
 	}, {
@@ -1703,6 +1706,9 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.alg = "__driver-ecb-aes-aesni",
 		.test = alg_test_null,
 		.fips_allowed = 1,
+	}, {
+		.alg = "__driver-ecb-blowfish-avx2",
+		.test = alg_test_null,
 	}, {
 		.alg = "__driver-ecb-camellia-aesni",
 		.test = alg_test_null,
@@ -1977,12 +1983,18 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_null,
 		.fips_allowed = 1,
 	}, {
+		.alg = "cryptd(__driver-cbc-blowfish-avx2)",
+		.test = alg_test_null,
+	}, {
 		.alg = "cryptd(__driver-cbc-camellia-aesni)",
 		.test = alg_test_null,
 	}, {
 		.alg = "cryptd(__driver-ecb-aes-aesni)",
 		.test = alg_test_null,
 		.fips_allowed = 1,
+	}, {
+		.alg = "cryptd(__driver-ecb-blowfish-avx2)",
+		.test = alg_test_null,
 	}, {
 		.alg = "cryptd(__driver-ecb-camellia-aesni)",
 		.test = alg_test_null,
