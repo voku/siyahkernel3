@@ -20,7 +20,6 @@
 #include <linux/sched.h>
 #include <linux/mutex.h>
 #include <linux/module.h>
-#include <linux/rq_stats.h>
 
 #define INTELLI_PLUG_MAJOR_VERSION	1
 #define INTELLI_PLUG_MINOR_VERSION	5
@@ -77,7 +76,6 @@ static int mp_decision(void)
 	int new_state = 0;
 	int nr_cpu_online;
 	int index;
-	unsigned int rq_depth;
 	static cputime64_t total_time = 0;
 	static cputime64_t last_time;
 	cputime64_t current_time;
@@ -91,20 +89,16 @@ static int mp_decision(void)
 	}
 	total_time += this_time;
 
-	rq_depth = rq_info.rq_avg;
-	//pr_info(" rq_deptch = %u", rq_depth);
 	nr_cpu_online = num_online_cpus();
 
 	if (nr_cpu_online) {
 		index = (nr_cpu_online - 1) * 2;
-		if ((nr_cpu_online < 4) && (rq_depth >= NwNs_Threshold[index])) {
+		if (nr_cpu_online < 2) {
 			if (total_time >= TwTs_Threshold[index]) {
 				new_state = 1;
 			}
-		} else if (rq_depth <= NwNs_Threshold[index+1]) {
-			if (total_time >= TwTs_Threshold[index+1] ) {
-				new_state = 0;
-			}
+		} if (total_time >= TwTs_Threshold[index+1] ) {
+			new_state = 0;
 		} else {
 			total_time = 0;
 		}
@@ -119,7 +113,6 @@ static int mp_decision(void)
 
 static unsigned int calculate_thread_stats(void)
 {
-	unsigned int avg_nr_run = avg_nr_running();
 	unsigned int nr_run;
 	unsigned int threshold_size;
 
@@ -145,8 +138,6 @@ static unsigned int calculate_thread_stats(void)
 
 		if (nr_run_last <= nr_run)
 			nr_threshold += nr_run_hysteresis;
-		if (avg_nr_run <= (nr_threshold << (FSHIFT - nr_fshift)))
-			break;
 	}
 	nr_run_last = nr_run;
 
@@ -156,7 +147,6 @@ static unsigned int calculate_thread_stats(void)
 static void __cpuinit intelli_plug_work_fn(struct work_struct *work)
 {
 	unsigned int nr_run_stat;
-	unsigned int rq_stat;
 	unsigned int cpu_count = 0;
 	unsigned int nr_cpus = 0;
 
@@ -164,8 +154,6 @@ static void __cpuinit intelli_plug_work_fn(struct work_struct *work)
 
 	if (intelli_plug_active == 1) {
 		nr_run_stat = calculate_thread_stats();
-		//pr_info("nr_run_stat: %u\n", nr_run_stat);
-		rq_stat = rq_info.rq_avg;
 
 		cpu_count = nr_run_stat;
 		// detect artificial loads or constant loads

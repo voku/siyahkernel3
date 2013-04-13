@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm 3.1.0-R72 Kernel Configuration
+# Linux/arm 3.1.0-R73 Kernel Configuration
 #
 CONFIG_ARM=y
 CONFIG_HAVE_PWM=y
@@ -566,6 +566,7 @@ CONFIG_BT_MGMT=y
 CONFIG_USB_CDFS_SUPPORT=y
 CONFIG_SAMSUNG_PRODUCT_SHIP=y
 # CONFIG_CORESIGHT_ETM is not set
+CONFIG_INTELLI_PLUG=y
 
 #
 # Processor Type
