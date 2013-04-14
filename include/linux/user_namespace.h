@@ -20,6 +20,7 @@ struct uid_gid_map {	/* 64 bytes -- 1 cache line */
 struct user_namespace {
 	struct uid_gid_map	uid_map;
 	struct uid_gid_map	gid_map;
+	struct uid_gid_map	projid_map;
 	struct kref		kref;
 	struct user_namespace	*parent;
 	kuid_t			owner;
@@ -49,8 +50,10 @@ static inline void put_user_ns(struct user_namespace *ns)
 struct seq_operations;
 extern struct seq_operations proc_uid_seq_operations;
 extern struct seq_operations proc_gid_seq_operations;
+extern struct seq_operations proc_projid_seq_operations;
 extern ssize_t proc_uid_map_write(struct file *, const char __user *, size_t, loff_t *);
 extern ssize_t proc_gid_map_write(struct file *, const char __user *, size_t, loff_t *);
+extern ssize_t proc_projid_map_write(struct file *, const char __user *, size_t, loff_t *);
 #else
 
 static inline struct user_namespace *get_user_ns(struct user_namespace *ns)
@@ -70,15 +73,15 @@ static inline void put_user_ns(struct user_namespace *ns)
 #endif
 
 static inline uid_t user_ns_map_uid(struct user_namespace *to,
-	const struct cred *cred, uid_t uid)
+	const struct cred *cred, kuid_t uid)
 {
-	return from_kuid_munged(to, make_kuid(cred->user_ns, uid));
+	return from_kuid_munged(to, uid);
 }
 
 static inline gid_t user_ns_map_gid(struct user_namespace *to,
-	const struct cred *cred, gid_t gid)
+	const struct cred *cred, kgid_t gid)
 {
-	return from_kgid_munged(to, make_kgid(cred->user_ns, gid));
+	return from_kgid_munged(to, gid);
 }
 
 #endif /* _LINUX_USER_H */
