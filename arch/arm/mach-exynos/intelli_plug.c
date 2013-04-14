@@ -1,5 +1,7 @@
 /*
  * Author: Paul Reioux aka Faux123 <reioux@gmail.com>
+ * 
+ * edit by voku
  *
  * Copyright 2013 Paul Reioux
  * Copyright 2012 Paul Reioux
@@ -25,14 +27,21 @@
 #define INTELLI_PLUG_MAJOR_VERSION	1
 #define INTELLI_PLUG_MINOR_VERSION	5
 
+#define CPUS_AVAILABLE		num_possible_cpus()
+
 #define DEF_SAMPLING_RATE		(50000)
-#define DEF_SAMPLING_MS			(200)
+
+#define MIN_SAMPLING_RATE		(200)
+static unsigned int min_sampling_rate = MIN_SAMPLING_RATE;
+module_param(min_sampling_rate, uint, 0644);
 
 #define DUAL_CORE_PERSISTENCE		15
 
 #define RUN_QUEUE_THRESHOLD		38
 
 #define CPU_DOWN_FACTOR			3
+
+static unsigned int debug = 0;
 
 static DEFINE_MUTEX(intelli_plug_mutex);
 
@@ -51,14 +60,16 @@ static bool suspended = false;
 static unsigned int nr_fshift = NR_FSHIFT;
 module_param(nr_fshift, uint, 0644);
 
+/* avg run threads * 2 (e.g., 9 = 2.25 threads) */
+
 static unsigned int nr_run_thresholds_full[] = {
-/* 	1,  2 - on-line cpus target */
-	4,  UINT_MAX /* avg run threads * 2 (e.g., 9 = 2.25 threads) */
+// 	1,  2 - on-line cpus target
+	4,  UINT_MAX
 };
 
 static unsigned int nr_run_thresholds_eco[] = {
-/*  1,  2 - on-line cpus target */
-    5,  UINT_MAX /* avg run threads * 2 (e.g., 9 = 2.25 threads) */
+//  1,  2 - on-line cpus target
+    5,  UINT_MAX
 };
 
 #ifndef CONFIG_CPU_EXYNOS4210
@@ -190,8 +201,10 @@ static unsigned int calculate_thread_stats(void)
 
 		nr_threshold = nr_threshold << nr_fshift;
 
-		// DEBUG - if "avg_nr_run" is more then "nr_threshold", then the 2-core wake up
-		//pr_info("intelli_plug: avg_nr_run %u | nr_threshold %u\n", avg_nr_run, nr_threshold);
+		if (debug) {
+			// DEBUG - if "avg_nr_run" is more then "nr_threshold", then the 2-core wake up
+			pr_info("intelli_plug: avg_nr_run %u | nr_threshold %u\n", avg_nr_run, nr_threshold);
+		}
 
 		if (avg_nr_run <= nr_threshold)
 			break;
@@ -203,9 +216,11 @@ static unsigned int calculate_thread_stats(void)
 
 static void __cpuinit intelli_plug_work_fn(struct work_struct *work)
 {
-	unsigned int nr_run_stat;
+	unsigned int nr_run_stat, sampling_rate, online_cpus;
+	unsigned int min_sampling_rate_jiffies = 0;
 
 	if (intelli_plug_active == 1) {
+		online_cpus = num_online_cpus();
 		nr_run_stat = calculate_thread_stats();
 
 		if (!suspended) {
@@ -214,13 +229,13 @@ static void __cpuinit intelli_plug_work_fn(struct work_struct *work)
 					if (persist_count > 0) {
 						persist_count--;
 					}
-					else if (num_online_cpus() == 2) {
+					else if (online_cpus == 2) {
 						cpu_down(1);
 					}
 					break;
 				case 2:
 					persist_count = DUAL_CORE_PERSISTENCE / CPU_DOWN_FACTOR;
-					if (num_online_cpus() == 1)
+					if (online_cpus == 1)
 						cpu_up(1);
 					break;
 				default:
@@ -228,16 +243,26 @@ static void __cpuinit intelli_plug_work_fn(struct work_struct *work)
 					break;
 			}
 		}
+
+		/*
+		 * increase the sampling rate dynamically based on online cpus
+		 */
+		min_sampling_rate_jiffies = msecs_to_jiffies(min_sampling_rate);
+		sampling_rate = min_sampling_rate_jiffies * online_cpus;
+	} else {
+		sampling_rate = msecs_to_jiffies(min_sampling_rate);
 	}
-	schedule_delayed_work_on(0, &intelli_plug_work,
-		msecs_to_jiffies(DEF_SAMPLING_MS));
+
+	if (debug) {
+		pr_info("sampling_rate is: %d\n", jiffies_to_msecs(sampling_rate));
+	}
+	schedule_delayed_work_on(0, &intelli_plug_work, sampling_rate);
 }
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static void intelli_plug_early_suspend(struct early_suspend *handler)
 {
 	int i;
-	int num_of_active_cores = 2;
 	
 	cancel_delayed_work_sync(&intelli_plug_work);
 
@@ -248,7 +273,7 @@ static void intelli_plug_early_suspend(struct early_suspend *handler)
 	stop_rq_work();
 
 	// put rest of the cores to sleep!
-	for (i=1; i<num_of_active_cores; i++) {
+	for (i=1; i<CPUS_AVAILABLE; i++) {
 		if (cpu_online(i))
 			cpu_down(i);
 	}
@@ -260,23 +285,19 @@ static void __cpuinit intelli_plug_late_resume(struct early_suspend *handler)
 	int i;
 
 	mutex_lock(&intelli_plug_mutex);
-	/* keep cores awake long enough for faster wake up */
+	// keep cores awake long enough for faster wake up
 	persist_count = DUAL_CORE_PERSISTENCE;
 	suspended = false;
 	mutex_unlock(&intelli_plug_mutex);
 
 	start_rq_work();
 
-	/* wake up everyone */
-	num_of_active_cores = 2;
-
-	for (i=1; i<num_of_active_cores; i++) {
+	for (i=1; i<CPUS_AVAILABLE; i++) {
 		if (!cpu_online(i))
 			cpu_up(i);
 	}
 
-	schedule_delayed_work_on(0, &intelli_plug_work,
-		msecs_to_jiffies(10));
+	schedule_delayed_work_on(0, &intelli_plug_work, msecs_to_jiffies(10));
 }
 
 static struct early_suspend intelli_plug_early_suspend_struct_driver = {
@@ -295,13 +316,13 @@ int __init intelli_plug_init(void)
 
 	start_rq_work();
 
-	/* we want all CPUs to do sampling nearly on same jiffy */
+	// we want all CPUs to do sampling nearly on same jiffy
 	delay = usecs_to_jiffies(DEF_SAMPLING_RATE);
 
 	if (num_online_cpus() > 1)
 		delay -= jiffies % delay;
 
-	pr_info("intelli_plug: version %d.%d by faux123\n",
+	pr_info("intelli_plug: version %d.%d by faux123 edit by voku\n",
 		 INTELLI_PLUG_MAJOR_VERSION,
 		 INTELLI_PLUG_MINOR_VERSION);
 
@@ -313,6 +334,14 @@ int __init intelli_plug_init(void)
 #endif
 	return 0;
 }
+
+fs_initcall(intelli_plug_init);
+
+static void __exit intelli_plug_exit(void)
+{
+	kfree(rq_data);
+}
+module_exit(intelli_plug_exit);
 
 MODULE_AUTHOR("Paul Reioux <reioux@gmail.com>");
 MODULE_DESCRIPTION("'intell_plug' - An intelligent cpu hotplug driver for "
