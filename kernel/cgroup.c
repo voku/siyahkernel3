@@ -194,8 +194,7 @@ static int cgroup_root_count;
  * rules as other root ops - both cgroup_mutex and cgroup_root_mutex for
  * writes, either for reads.
  */
-static DEFINE_IDA(hierarchy_ida);
-static int next_hierarchy_id;
+static DEFINE_IDR(cgroup_hierarchy_idr);
 
 static struct cgroup_name root_cgroup_name = { .name = "/" };
 
