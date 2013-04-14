@@ -16,7 +16,9 @@
  * GNU General Public License for more details.
  *
  */
+#ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
+#endif
 #include <linux/workqueue.h>
 #include <linux/cpu.h>
 #include <linux/sched.h>
@@ -61,14 +63,13 @@ static unsigned int nr_fshift = NR_FSHIFT;
 module_param(nr_fshift, uint, 0644);
 
 /* avg run threads * 2 (e.g., 9 = 2.25 threads) */
-
 static unsigned int nr_run_thresholds_full[] = {
-// 	1,  2 - on-line cpus target
+/* 	1,  2 - on-line cpus target */
 	4,  UINT_MAX
 };
 
 static unsigned int nr_run_thresholds_eco[] = {
-//  1,  2 - on-line cpus target
+/*  1,  2 - on-line cpus target */
     5,  UINT_MAX
 };
 
@@ -202,7 +203,7 @@ static unsigned int calculate_thread_stats(void)
 		nr_threshold = nr_threshold << nr_fshift;
 
 		if (debug) {
-			// DEBUG - if "avg_nr_run" is more then "nr_threshold", then the 2-core wake up
+			/* DEBUG - if "avg_nr_run" is more then "nr_threshold", then the 2-core wake up */
 			pr_info("intelli_plug: avg_nr_run %u | nr_threshold %u\n", avg_nr_run, nr_threshold);
 		}
 
@@ -244,11 +245,11 @@ static void __cpuinit intelli_plug_work_fn(struct work_struct *work)
 			}
 		}
 
-		// increase the sampling rate dynamically based on online cpus
+		/* increase the sampling rate dynamically based on online cpus */
 		min_sampling_rate_jiffies = msecs_to_jiffies(min_sampling_rate);
 		sampling_rate = min_sampling_rate_jiffies * online_cpus;
 	} else {
-		// increase the sampling rate for screen-off
+		/* increase the sampling rate for screen-off */
 		sampling_rate = msecs_to_jiffies(min_sampling_rate) << 3;
 	}
 
@@ -271,7 +272,7 @@ static void intelli_plug_early_suspend(struct early_suspend *handler)
 
 	stop_rq_work();
 
-	// put rest of the cores to sleep!
+	/* put rest of the cores to sleep! */
 	for (i=1; i<CPUS_AVAILABLE; i++) {
 		if (cpu_online(i))
 			cpu_down(i);
@@ -284,14 +285,14 @@ static void __cpuinit intelli_plug_late_resume(struct early_suspend *handler)
 	int i;
 
 	mutex_lock(&intelli_plug_mutex);
-	// keep cores awake long enough for faster wake up
+	/* keep cores awake long enough for faster wake up */
 	persist_count = DUAL_CORE_PERSISTENCE;
 	suspended = false;
 	mutex_unlock(&intelli_plug_mutex);
 
 	start_rq_work();
 
-	for (i=1; i<CPUS_AVAILABLE; i++) {
+	for (i = 1; i < CPUS_AVAILABLE; i++) {
 		if (!cpu_online(i))
 			cpu_up(i);
 	}
@@ -315,7 +316,7 @@ int __init intelli_plug_init(void)
 
 	start_rq_work();
 
-	// we want all CPUs to do sampling nearly on same jiffy
+	/* we want all CPUs to do sampling nearly on same jiffy */
 	delay = usecs_to_jiffies(DEF_SAMPLING_RATE);
 
 	if (num_online_cpus() > 1)
