@@ -548,6 +548,12 @@ config ARM_AUTO_HOTPLUG
 	depends on HOTPLUG_CPU
 	depends on ARCH_EXYNOS4
 
+config INTELLI_PLUG
+	bool "Enable intelli-plug cpu hotplug driver"
+	default n
+	help
+	  Generic Intelli-plug cpu hotplug driver for ARM SOCs
+
 config WITH_DVFS_POLICY
 	depends on EXYNOS4_CPUFREQ
 	bool "Intergrated DVFS CPU hotplug"
@@ -1838,10 +1844,3 @@ config CPU_FREQ_TETHERING
 	bool "Lock cpu freq & bus clock when tethering mode turn on"
 	depends on QC_MODEM
 	default n
-
-config INTELLI_PLUG
-	bool "Enable intelli-plug cpu hotplug driver"
-	default n
-	help
-	  Generic Intelli-plug cpu hotplug driver for ARM SOCs
-
