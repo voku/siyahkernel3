@@ -47,22 +47,19 @@ module_param(eco_mode_active, uint, 0644);
 static unsigned int persist_count = 0;
 static bool suspended = false;
 
-#define NR_FSHIFT	3
+#define NR_FSHIFT  6
 static unsigned int nr_fshift = NR_FSHIFT;
 module_param(nr_fshift, uint, 0644);
 
 static unsigned int nr_run_thresholds_full[] = {
 /* 	1,  2 - on-line cpus target */
-	5,  UINT_MAX /* avg run threads * 2 (e.g., 9 = 2.25 threads) */
+	4,  UINT_MAX /* avg run threads * 2 (e.g., 9 = 2.25 threads) */
 };
 
 static unsigned int nr_run_thresholds_eco[] = {
 /*  1,  2 - on-line cpus target */
-    3,  UINT_MAX /* avg run threads * 2 (e.g., 9 = 2.25 threads) */
+    5,  UINT_MAX /* avg run threads * 2 (e.g., 9 = 2.25 threads) */
 };
-
-static unsigned int nr_run_hysteresis = 4;  /* 0.5 thread */
-module_param(nr_run_hysteresis, uint, 0644);
 
 #ifndef CONFIG_CPU_EXYNOS4210
 #define RQ_AVG_TIMER_RATE	10
@@ -170,20 +167,19 @@ static unsigned int nr_run_last;
 static unsigned int calculate_thread_stats(void)
 {
 	unsigned int avg_nr_run = get_nr_run_avg();
-	unsigned int nr_run;
-	unsigned int threshold_size;
+	unsigned int nr_run, threshold_size;
+	unsigned int nr_run_hysteresis, nr_threshold;
 
 	if (!eco_mode_active) {
 		threshold_size =  ARRAY_SIZE(nr_run_thresholds_full);
-		nr_run_hysteresis = 8;
+		nr_run_hysteresis = 4;
 	}
 	else {
 		threshold_size =  ARRAY_SIZE(nr_run_thresholds_eco);
-		nr_run_hysteresis = 4;
+		nr_run_hysteresis = 5;
 	}
 
 	for (nr_run = 1; nr_run < threshold_size; nr_run++) {
-		unsigned int nr_threshold;
 		if (!eco_mode_active)
 			nr_threshold = nr_run_thresholds_full[nr_run - 1];
 		else
@@ -192,7 +188,12 @@ static unsigned int calculate_thread_stats(void)
 		if (nr_run_last <= nr_run)
 			nr_threshold += nr_run_hysteresis;
 
-		if (avg_nr_run <= (nr_threshold << (FSHIFT - nr_fshift)))
+		nr_threshold = nr_threshold << nr_fshift;
+
+		// DEBUG - if "avg_nr_run" is more then "nr_threshold", then the 2-core wake up
+		//pr_info("intelli_plug: avg_nr_run %u | nr_threshold %u\n", avg_nr_run, nr_threshold);
+
+		if (avg_nr_run <= nr_threshold)
 			break;
 	}
 	nr_run_last = nr_run;
@@ -244,6 +245,8 @@ static void intelli_plug_early_suspend(struct early_suspend *handler)
 	suspended = true;
 	mutex_unlock(&intelli_plug_mutex);
 
+	stop_rq_work();
+
 	// put rest of the cores to sleep!
 	for (i=1; i<num_of_active_cores; i++) {
 		if (cpu_online(i))
@@ -261,6 +264,8 @@ static void __cpuinit intelli_plug_late_resume(struct early_suspend *handler)
 	persist_count = DUAL_CORE_PERSISTENCE;
 	suspended = false;
 	mutex_unlock(&intelli_plug_mutex);
+
+	start_rq_work();
 
 	/* wake up everyone */
 	num_of_active_cores = 2;
@@ -287,6 +292,8 @@ int __init intelli_plug_init(void)
 
 	ret = init_rq_avg();
 	if (ret) return ret;
+
+	start_rq_work();
 
 	/* we want all CPUs to do sampling nearly on same jiffy */
 	delay = usecs_to_jiffies(DEF_SAMPLING_RATE);
