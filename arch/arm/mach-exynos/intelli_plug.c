@@ -244,13 +244,12 @@ static void __cpuinit intelli_plug_work_fn(struct work_struct *work)
 			}
 		}
 
-		/*
-		 * increase the sampling rate dynamically based on online cpus
-		 */
+		// increase the sampling rate dynamically based on online cpus
 		min_sampling_rate_jiffies = msecs_to_jiffies(min_sampling_rate);
 		sampling_rate = min_sampling_rate_jiffies * online_cpus;
 	} else {
-		sampling_rate = msecs_to_jiffies(min_sampling_rate);
+		// increase the sampling rate for screen-off
+		sampling_rate = msecs_to_jiffies(min_sampling_rate) << 3;
 	}
 
 	if (debug) {
@@ -335,10 +334,9 @@ int __init intelli_plug_init(void)
 	return 0;
 }
 
-fs_initcall(intelli_plug_init);
-
 static void __exit intelli_plug_exit(void)
 {
+	stop_rq_work();
 	kfree(rq_data);
 }
 module_exit(intelli_plug_exit);
