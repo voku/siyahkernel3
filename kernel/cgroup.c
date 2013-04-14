@@ -189,9 +189,13 @@ struct cgroup_event {
 static LIST_HEAD(cgroup_roots);
 static int cgroup_root_count;
 
+/*
+ * Hierarchy ID allocation and mapping.  It follows the same exclusion
+ * rules as other root ops - both cgroup_mutex and cgroup_root_mutex for
+ * writes, either for reads.
+ */
 static DEFINE_IDA(hierarchy_ida);
 static int next_hierarchy_id;
-static DEFINE_SPINLOCK(hierarchy_id_lock);
 
 static struct cgroup_name root_cgroup_name = { .name = "/" };
 
