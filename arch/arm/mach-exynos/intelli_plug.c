@@ -31,7 +31,7 @@
 
 #define CPUS_AVAILABLE		num_possible_cpus()
 
-#define DEF_SAMPLING_RATE		(50000)
+#define DEF_SAMPLING_RATE		(60000)
 
 #define MIN_SAMPLING_RATE		(200)
 static unsigned int min_sampling_rate = MIN_SAMPLING_RATE;
@@ -64,13 +64,13 @@ module_param(nr_fshift, uint, 0644);
 
 /* avg run threads * 2 (e.g., 9 = 2.25 threads) */
 static unsigned int nr_run_thresholds_full[] = {
-/* 	1,  2 - on-line cpus target */
+/*	1,  2 - on-line cpus target */
 	4,  UINT_MAX
 };
 
 static unsigned int nr_run_thresholds_eco[] = {
-/*  1,  2 - on-line cpus target */
-    5,  UINT_MAX
+/*	1,  2 - on-line cpus target */
+	5,  UINT_MAX
 };
 
 #ifndef CONFIG_CPU_EXYNOS4210
@@ -273,7 +273,7 @@ static void intelli_plug_early_suspend(struct early_suspend *handler)
 	stop_rq_work();
 
 	/* put rest of the cores to sleep! */
-	for (i=1; i<CPUS_AVAILABLE; i++) {
+	for (i = 1; i < CPUS_AVAILABLE; i++) {
 		if (cpu_online(i))
 			cpu_down(i);
 	}
@@ -296,7 +296,6 @@ static void __cpuinit intelli_plug_late_resume(struct early_suspend *handler)
 		if (!cpu_online(i))
 			cpu_up(i);
 	}
-
 	schedule_delayed_work_on(0, &intelli_plug_work, msecs_to_jiffies(10));
 }
 
