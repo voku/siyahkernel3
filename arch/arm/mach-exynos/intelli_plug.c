@@ -1,9 +1,6 @@
 /*
  * Author: Paul Reioux aka Faux123 <reioux@gmail.com>
  * 
-=======
- *
->>>>>>> .merge_file_HHcsOI
  * edit by voku
  *
  * Copyright 2013 Paul Reioux
@@ -249,18 +246,15 @@ static void __cpuinit intelli_plug_work_fn(struct work_struct *work)
 			}
 		}
 
-		// increase the sampling rate dynamically based on online cpus
+		/* increase the sampling rate dynamically based on online cpus */
 		min_sampling_rate_jiffies = msecs_to_jiffies(min_sampling_rate);
 		sampling_rate = min_sampling_rate_jiffies * online_cpus;
 	} else {
-		// increase the sampling rate for screen-off
-=======
 		/* increase the sampling rate dynamically based on online cpus */
 		min_sampling_rate_jiffies = msecs_to_jiffies(min_sampling_rate);
 		sampling_rate = min_sampling_rate_jiffies * online_cpus;
 	} else {
 		/* increase the sampling rate for screen-off */
->>>>>>> .merge_file_HHcsOI
 		sampling_rate = msecs_to_jiffies(min_sampling_rate) << 3;
 	}
 
@@ -283,7 +277,7 @@ static void intelli_plug_early_suspend(struct early_suspend *handler)
 
 	stop_rq_work();
 
-	// put rest of the cores to sleep!
+	/* put rest of the cores to sleep! */
 	for (i=1; i<CPUS_AVAILABLE; i++) {
 		if (cpu_online(i))
 			cpu_down(i);
