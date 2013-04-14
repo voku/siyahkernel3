@@ -31,14 +31,19 @@
 #include <linux/slab.h>
 #include <linux/kernel_stat.h>
 #include <asm/cputime.h>
+#ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
+#endif
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/cpufreq_interactive.h>
 
 static int active_count;
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
 static unsigned int suspended = 0;
+static unsigned long stored_timer_rate;
+#endif
 
 struct cpufreq_interactive_cpuinfo {
 	struct timer_list cpu_timer;
@@ -118,11 +123,14 @@ static u64 boostpulse_endtime;
 #define DEFAULT_TIMER_SLACK (4 * DEFAULT_TIMER_RATE)
 static int timer_slack_val = DEFAULT_TIMER_SLACK;
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
 /*
  * Early suspend max frequency
  */
-#define DEFAULT_SCREEN_OFF_MAX 810000
+#define DEFAULT_SCREEN_OFF_MAX 800000
 static unsigned long screen_off_max = DEFAULT_SCREEN_OFF_MAX;
+#endif
+
 static bool io_is_busy;
 
 static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
@@ -132,7 +140,7 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 static
 #endif
 struct cpufreq_governor cpufreq_gov_interactive = {
-	.name = "interactiveX",
+	.name = "interactive",
 	.governor = cpufreq_governor_interactive,
 	.max_transition_latency = 10000000,
 	.owner = THIS_MODULE,
@@ -569,8 +577,14 @@ static int cpufreq_interactive_speedchange_task(void *data)
 				cpufreq_notify_utilization(pcpu->policy, (pcpu->cpu_load * pcpu->policy->cur) / pcpu->policy->cpuinfo.max_freq);
 			}
 
-			if (suspended && (max_freq > screen_off_max))
-				max_freq = screen_off_max;
+#ifdef CONFIG_HAS_EARLYSUSPEND
+			if (suspended) {
+				if (max_freq > screen_off_max)
+					max_freq = screen_off_max;
+				//if (num_online_cpus() == 2)
+				//	cpu_down(1);
+			}
+#endif
 
 			if (max_freq != pcpu->policy->cur)
 				__cpufreq_driver_target(pcpu->policy,
@@ -973,6 +987,7 @@ static ssize_t store_boostpulse_duration(
 
 define_one_global_rw(boostpulse_duration);
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
 static ssize_t show_screen_off_maxfreq(struct kobject *kobj,
                                         struct attribute *attr, char *buf)
 {
@@ -987,15 +1002,20 @@ static ssize_t store_screen_off_maxfreq(struct kobject *kobj,
         unsigned long val;
 
         ret = strict_strtoul(buf, 0, &val);
-        if (ret < 0) return ret;
-	if (val < 384000) screen_off_max = 1512000;
-        else screen_off_max = val;
+	if (ret < 0) return ret;
+
+	if (val < 384000) 
+		screen_off_max = 1512000;
+        else 
+		screen_off_max = val;
+
         return count;
 }
 
 static struct global_attr screen_off_maxfreq =
 	__ATTR(screen_off_maxfreq, 0666, show_screen_off_maxfreq, 
 		store_screen_off_maxfreq);
+#endif
 
 static ssize_t show_io_is_busy(struct kobject *kobj,
 			struct attribute *attr, char *buf)
@@ -1030,7 +1050,9 @@ static struct attribute *interactive_attributes[] = {
 	&boost.attr,
 	&boostpulse.attr,
 	&boostpulse_duration.attr,
+#ifdef CONFIG_HAS_EARLYSUSPEND
 	&screen_off_maxfreq.attr,
+#endif
 	&io_is_busy_attr.attr,
 	NULL,
 };
@@ -1059,13 +1081,28 @@ static int cpufreq_interactive_idle_notifier(struct notifier_block *nb,
 static struct notifier_block cpufreq_interactive_idle_nb = {
 	.notifier_call = cpufreq_interactive_idle_notifier,
 };
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
 static void interactive_early_suspend(struct early_suspend *handler) {
 	suspended = 1;
+
+	/*
+	 * During passive use-cases, i.e. when display is OFF,
+	 * value of timer, which is used for frequency increasing,
+	 * may be increased. This will significantly reduce the amount
+	 * of OPP switching during passive use-cases.
+	 */
+	stored_timer_rate = timer_rate;
+	timer_rate = DEFAULT_TIMER_RATE * 10;
+
 	pr_info("[imoseyon] interactive early suspend\n");
 }
 
 static void interactive_late_resume(struct early_suspend *handler) {
 	suspended = 0;
+
+	timer_rate = stored_timer_rate;
+
 	pr_info("[imoseyon] interactive late resume\n");
 }
 
@@ -1074,6 +1111,7 @@ static struct early_suspend interactive_power_suspend = {
         .resume = interactive_late_resume,
         .level = EARLY_SUSPEND_LEVEL_DISABLE_FB + 1,
 };
+#endif
 
 static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 		unsigned int event)
@@ -1136,8 +1174,10 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 			return rc;
 		}
 
-                register_early_suspend(&interactive_power_suspend);
-                pr_info("[imoseyon] interactive start\n");
+#ifdef CONFIG_HAS_EARLYSUSPEND
+		register_early_suspend(&interactive_power_suspend);
+#endif
+		pr_info("[imoseyon] interactive start\n");
 
 		idle_notifier_register(&cpufreq_interactive_idle_nb);
 		cpufreq_register_notifier(
@@ -1169,8 +1209,10 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 				&interactive_attr_group);
 		mutex_unlock(&gov_lock);
 
-                unregister_early_suspend(&interactive_power_suspend);
-                pr_info("[imoseyon] interactive inactive\n");
+#ifdef CONFIG_HAS_EARLYSUSPEND
+		unregister_early_suspend(&interactive_power_suspend);
+#endif
+		pr_info("[imoseyon] interactive inactive\n");
 
 		break;
 
