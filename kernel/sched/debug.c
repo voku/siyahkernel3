@@ -171,6 +171,12 @@ static void print_rq(struct seq_file *m, struct rq *rq, int rq_cpu)
 
 void print_cfs_rq(struct seq_file *m, int cpu, struct cfs_rq *cfs_rq)
 {
+	s64 MIN_vruntime = -1, min_vruntime, max_vruntime = -1,
+		spread, rq0_min_vruntime, spread0;
+	struct rq *rq = cpu_rq(cpu);
+	struct sched_entity *last;
+	unsigned long flags;
+
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	SEQ_printf(m, "\ncfs_rq[%d]:%s\n", cpu, task_group_path(cfs_rq->tg));
 #else
@@ -178,6 +184,30 @@ void print_cfs_rq(struct seq_file *m, int cpu, struct cfs_rq *cfs_rq)
 #endif
 	SEQ_printf(m, "  .%-30s: %Ld.%06ld\n", "exec_clock",
 			SPLIT_NS(cfs_rq->exec_clock));
+
+	raw_spin_lock_irqsave(&rq->lock, flags);
+	if (cfs_rq->rb_leftmost)
+		MIN_vruntime = (__pick_first_entity(cfs_rq))->vruntime;
+	last = __pick_last_entity(cfs_rq);
+	if (last)
+		max_vruntime = last->vruntime;
+	min_vruntime = cfs_rq->min_vruntime;
+	rq0_min_vruntime = cpu_rq(0)->cfs.min_vruntime;
+	raw_spin_unlock_irqrestore(&rq->lock, flags);
+	SEQ_printf(m, "  .%-30s: %Ld.%06ld\n", "MIN_vruntime",
+			SPLIT_NS(MIN_vruntime));
+	SEQ_printf(m, "  .%-30s: %Ld.%06ld\n", "min_vruntime",
+			SPLIT_NS(min_vruntime));
+	SEQ_printf(m, "  .%-30s: %Ld.%06ld\n", "max_vruntime",
+			SPLIT_NS(max_vruntime));
+	spread = max_vruntime - MIN_vruntime;
+	SEQ_printf(m, "  .%-30s: %Ld.%06ld\n", "spread",
+			SPLIT_NS(spread));
+	spread0 = min_vruntime - rq0_min_vruntime;
+	SEQ_printf(m, "  .%-30s: %Ld.%06ld\n", "spread0",
+			SPLIT_NS(spread0));
+	SEQ_printf(m, "  .%-30s: %d\n", "nr_spread_over",
+			cfs_rq->nr_spread_over);
 	SEQ_printf(m, "  .%-30s: %d\n", "nr_running", cfs_rq->nr_running);
 	SEQ_printf(m, "  .%-30s: %ld\n", "load", cfs_rq->load.weight);
 #ifdef CONFIG_FAIR_GROUP_SCHED

@@ -213,10 +213,8 @@ struct cfs_rq {
 	u64 min_vruntime_copy;
 #endif
 
-	struct list_head rqlist;
-	struct sched_entity *rqlist_mid;
-	int rqlist_even;
-	unsigned long rqlist_ct;
+	struct rb_root tasks_timeline;
+	struct rb_node *rb_leftmost;
 
 	/*
 	 * 'curr' points to currently running entity on this cfs_rq.

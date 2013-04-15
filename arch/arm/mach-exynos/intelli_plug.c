@@ -63,7 +63,6 @@ static unsigned int nr_fshift = NR_FSHIFT;
 module_param(nr_fshift, uint, 0644);
 
 /* avg run threads * 2 (e.g., 9 = 2.25 threads) */
-
 static unsigned int nr_run_thresholds_full[] = {
 /*	1,  2 - on-line cpus target */
 	4,  UINT_MAX
@@ -246,10 +245,6 @@ static void __cpuinit intelli_plug_work_fn(struct work_struct *work)
 			}
 		}
 
-		/* increase the sampling rate dynamically based on online cpus */
-		min_sampling_rate_jiffies = msecs_to_jiffies(min_sampling_rate);
-		sampling_rate = min_sampling_rate_jiffies * online_cpus;
-	} else {
 		/* increase the sampling rate dynamically based on online cpus */
 		min_sampling_rate_jiffies = msecs_to_jiffies(min_sampling_rate);
 		sampling_rate = min_sampling_rate_jiffies * online_cpus;

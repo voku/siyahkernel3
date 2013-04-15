@@ -29,7 +29,6 @@
 #include <linux/mempolicy.h>
 #include <linux/migrate.h>
 #include <linux/task_work.h>
-#include <linux/printk.h>
 
 #include <trace/events/sched.h>
 
@@ -463,9 +462,10 @@ static void update_min_vruntime(struct cfs_rq *cfs_rq)
 	if (cfs_rq->curr)
 		vruntime = cfs_rq->curr->vruntime;
 
-	if (!list_empty(&cfs_rq->rqlist)) {
-		struct sched_entity *se = list_first_entry(
-				&cfs_rq->rqlist, struct sched_entity, run_node);
+	if (cfs_rq->rb_leftmost) {
+		struct sched_entity *se = rb_entry(cfs_rq->rb_leftmost,
+						   struct sched_entity,
+						   run_node);
 
 		if (!cfs_rq->curr)
 			vruntime = se->vruntime;
@@ -480,122 +480,86 @@ static void update_min_vruntime(struct cfs_rq *cfs_rq)
 #endif
 }
 
-#define RQLIST_NOT_BEFORE_MID 0
-#define RQLIST_BEFORE_MID 1
-#define RQLIST_MID 2
-
-static void check_rqlist(struct cfs_rq *cfs_rq);
-
 /*
  * Enqueue an entity into the rb-tree:
  */
-noinline void __enqueue_entity(struct cfs_rq *cfs_rq, struct sched_entity *se)
+static void __enqueue_entity(struct cfs_rq *cfs_rq, struct sched_entity *se)
 {
-	struct list_head *rq_list = &cfs_rq->rqlist;
-	if (unlikely(list_empty(rq_list))) {
-		cfs_rq->rqlist_mid = se;
-		list_add(&se->run_node, rq_list);
-		se->node_pos = RQLIST_MID;
-	} else {
-		if (likely((s64)(cfs_rq->rqlist_mid->vruntime - se->vruntime) > 0)) {
-			list_add_tail(&se->run_node, &cfs_rq->rqlist_mid->run_node);
-			if (cfs_rq->rqlist_even) {
-				cfs_rq->rqlist_mid->node_pos
-					= RQLIST_NOT_BEFORE_MID;
-				cfs_rq->rqlist_mid = se;
-				se->node_pos = RQLIST_MID;
-			} else {
-				se->node_pos = RQLIST_BEFORE_MID;
-			}
+	struct rb_node **link = &cfs_rq->tasks_timeline.rb_node;
+	struct rb_node *parent = NULL;
+	struct sched_entity *entry;
+	int leftmost = 1;
+
+	/*
+	 * Find the right place in the rbtree:
+	 */
+	while (*link) {
+		parent = *link;
+		entry = rb_entry(parent, struct sched_entity, run_node);
+		/*
+		 * We dont care about collisions. Nodes with
+		 * the same key stay together.
+		 */
+		if (entity_before(se, entry)) {
+			link = &parent->rb_left;
 		} else {
-			list_add_tail(&se->run_node, rq_list);
-			se->node_pos = RQLIST_NOT_BEFORE_MID;
-			if (!cfs_rq->rqlist_even) {
-				cfs_rq->rqlist_mid->node_pos
-					= RQLIST_BEFORE_MID;
-				cfs_rq->rqlist_mid = list_entry(
-						cfs_rq->rqlist_mid->run_node.next,
-						struct sched_entity,
-						run_node);
-				cfs_rq->rqlist_mid->node_pos = RQLIST_MID;
-			}
+			link = &parent->rb_right;
+			leftmost = 0;
 		}
 	}
 
-	++cfs_rq->rqlist_ct;
-	cfs_rq->rqlist_even = !cfs_rq->rqlist_even;
+	/*
+	 * Maintain a cache of leftmost tree entries (it is frequently
+	 * used):
+	 */
+	if (leftmost)
+		cfs_rq->rb_leftmost = &se->run_node;
+
+	rb_link_node(&se->run_node, parent, link);
+	rb_insert_color(&se->run_node, &cfs_rq->tasks_timeline);
 }
 
-noinline void __dequeue_entity(struct cfs_rq *cfs_rq, struct sched_entity *se)
+static void __dequeue_entity(struct cfs_rq *cfs_rq, struct sched_entity *se)
 {
-	if (likely(--cfs_rq->rqlist_ct != 0)) {
-		switch (se->node_pos) {
-		case RQLIST_BEFORE_MID:
-			if (!cfs_rq->rqlist_even) {
-				cfs_rq->rqlist_mid->node_pos = RQLIST_BEFORE_MID;
-				cfs_rq->rqlist_mid = list_entry(
-						cfs_rq->rqlist_mid->run_node.next,
-						struct sched_entity, run_node);
-				cfs_rq->rqlist_mid->node_pos = RQLIST_MID;
-			}
-			break;
-		case RQLIST_MID:
-			if (cfs_rq->rqlist_even) {
-				cfs_rq->rqlist_mid = list_entry(
-						cfs_rq->rqlist_mid->run_node.prev,
-						struct sched_entity, run_node);
-			} else {
-				cfs_rq->rqlist_mid = list_entry(
-						cfs_rq->rqlist_mid->run_node.next,
-						struct sched_entity, run_node);
-			}
-			cfs_rq->rqlist_mid->node_pos = RQLIST_MID;
-			break;
-		case RQLIST_NOT_BEFORE_MID:
-			if (cfs_rq->rqlist_even) {
-				cfs_rq->rqlist_mid->node_pos = RQLIST_NOT_BEFORE_MID;
-				cfs_rq->rqlist_mid = list_entry(
-						cfs_rq->rqlist_mid->run_node.prev,
-						struct sched_entity, run_node);
-				cfs_rq->rqlist_mid->node_pos = RQLIST_MID;
-			}
-			break;
-		default:
-			BUG();
-			break;
-		}
-	} else {
-		cfs_rq->rqlist_mid = NULL;
+	if (cfs_rq->rb_leftmost == &se->run_node) {
+		struct rb_node *next_node;
+
+		next_node = rb_next(&se->run_node);
+		cfs_rq->rb_leftmost = next_node;
 	}
 
-	cfs_rq->rqlist_even = !cfs_rq->rqlist_even;
-	list_del(&se->run_node);
+	rb_erase(&se->run_node, &cfs_rq->tasks_timeline);
 }
 
-noinline struct sched_entity *__pick_first_entity(struct cfs_rq *cfs_rq)
+struct sched_entity *__pick_first_entity(struct cfs_rq *cfs_rq)
 {
-	if (unlikely(list_empty(&cfs_rq->rqlist))) {
-		return NULL;
-	}
+	struct rb_node *left = cfs_rq->rb_leftmost;
 
-	return list_first_entry(&cfs_rq->rqlist, struct sched_entity, run_node);
+	if (!left)
+		return NULL;
+
+	return rb_entry(left, struct sched_entity, run_node);
 }
 
-noinline struct sched_entity *__pick_next_entity(struct sched_entity *se)
+static struct sched_entity *__pick_next_entity(struct sched_entity *se)
 {
-	if (se->run_node.next == &cfs_rq_of(se)->rqlist)
+	struct rb_node *next = rb_next(&se->run_node);
+
+	if (!next)
 		return NULL;
 
-	return list_first_entry(&se->run_node, struct sched_entity, run_node);
+	return rb_entry(next, struct sched_entity, run_node);
 }
 
 #ifdef CONFIG_SCHED_DEBUG
-noinline struct sched_entity *__pick_last_entity(struct cfs_rq *cfs_rq)
+struct sched_entity *__pick_last_entity(struct cfs_rq *cfs_rq)
 {
-	if (list_empty(&cfs_rq->rqlist))
+	struct rb_node *last = rb_last(&cfs_rq->tasks_timeline);
+
+	if (!last)
 		return NULL;
 
-	return list_entry(cfs_rq->rqlist.prev, struct sched_entity, run_node);
+	return rb_entry(last, struct sched_entity, run_node);
 }
 
 /**************************************************************
@@ -1985,35 +1949,9 @@ static void put_prev_entity(struct cfs_rq *cfs_rq, struct sched_entity *prev)
 	cfs_rq->curr = NULL;
 }
 
-static __attribute__((unused)) void check_rqlist(struct cfs_rq *cfs_rq) {
-	struct sched_entity *se;
-	static u64 max_vdiff = 0;
-	u64 min_vtime = 0;
-	u64 max_vtime = 0;
-	int first = 1;
-	if (list_empty(&cfs_rq->rqlist))
-		return;
-	list_for_each_entry(se, &cfs_rq->rqlist, run_node) {
-		if (first) {
-			first = 0;
-			min_vtime = se->vruntime;
-			max_vtime = se->vruntime;
-			continue;
-		}
-		min_vtime = min_vruntime(min_vtime, se->vruntime);
-		max_vtime = max_vruntime(max_vtime, se->vruntime);
-	}
-	if (max_vtime - min_vtime > max_vdiff) {
-		max_vdiff = max_vtime - min_vtime;
-		printk(KERN_INFO ">>>> new max vdiff: %llu\n", max_vdiff);
-	}
-}
-
 static void
 entity_tick(struct cfs_rq *cfs_rq, struct sched_entity *curr, int queued)
 {
-	//check_rqlist(cfs_rq);
-
 	/*
 	 * Update run-time statistics of the 'current'.
 	 */
@@ -5932,9 +5870,7 @@ static void set_curr_task_fair(struct rq *rq)
 
 void init_cfs_rq(struct cfs_rq *cfs_rq)
 {
-	INIT_LIST_HEAD(&cfs_rq->rqlist);
-	cfs_rq->rqlist_even = 1;
-	cfs_rq->rqlist_ct = 0;
+	cfs_rq->tasks_timeline = RB_ROOT;
 	cfs_rq->min_vruntime = (u64)(-(1LL << 20));
 #ifndef CONFIG_64BIT
 	cfs_rq->min_vruntime_copy = cfs_rq->min_vruntime;

@@ -1845,10 +1845,3 @@ config CPU_FREQ_TETHERING
 	bool "Lock cpu freq & bus clock when tethering mode turn on"
 	depends on QC_MODEM
 	default n
-
-
-
-
-
-
-
