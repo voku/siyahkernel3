@@ -179,26 +179,28 @@ static unsigned int nr_run_last;
 static unsigned int calculate_thread_stats(void)
 {
 	unsigned int avg_nr_run = get_nr_run_avg();
-	unsigned int nr_run, threshold_size;
-	unsigned int nr_run_hysteresis, nr_threshold;
+	unsigned int nr_run, threshold_size, nr_threshold;
 
 	if (!eco_mode_active) {
 		threshold_size =  ARRAY_SIZE(nr_run_thresholds_full);
-		nr_run_hysteresis = 4;
 	}
 	else {
 		threshold_size =  ARRAY_SIZE(nr_run_thresholds_eco);
-		nr_run_hysteresis = 5;
 	}
 
 	for (nr_run = 1; nr_run < threshold_size; nr_run++) {
-		if (!eco_mode_active)
+		if (!eco_mode_active) {
 			nr_threshold = nr_run_thresholds_full[nr_run - 1];
-		else
+
+			if (nr_run_last <= nr_run)
+				nr_threshold += nr_run_thresholds_full[0];
+		}
+		else {
 			nr_threshold = nr_run_thresholds_eco[nr_run - 1];
 
-		if (nr_run_last <= nr_run)
-			nr_threshold += nr_run_hysteresis;
+			if (nr_run_last <= nr_run)
+				nr_threshold += nr_run_thresholds_eco[0];
+		}
 
 		nr_threshold = nr_threshold << nr_fshift;
 

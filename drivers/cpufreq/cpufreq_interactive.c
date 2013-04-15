@@ -23,6 +23,7 @@
 #include <linux/moduleparam.h>
 #include <linux/rwsem.h>
 #include <linux/sched.h>
+#include <linux/sched/rt.h>
 #include <linux/tick.h>
 #include <linux/time.h>
 #include <linux/timer.h>
@@ -76,11 +77,11 @@ static struct mutex gov_lock;
 static unsigned int hispeed_freq;
 
 /* Go to hi speed when CPU load at or above this value. */
-#define DEFAULT_GO_HISPEED_LOAD 99
+#define DEFAULT_GO_HISPEED_LOAD 98
 static unsigned long go_hispeed_load = DEFAULT_GO_HISPEED_LOAD;
 
 /* Target load.  Lower values result in higher CPU speeds. */
-#define DEFAULT_TARGET_LOAD 90
+#define DEFAULT_TARGET_LOAD 80
 static unsigned int default_target_loads[] = {DEFAULT_TARGET_LOAD};
 static spinlock_t target_loads_lock;
 static unsigned int *target_loads = default_target_loads;
@@ -579,10 +580,9 @@ static int cpufreq_interactive_speedchange_task(void *data)
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 			if (suspended) {
-				if (max_freq > screen_off_max)
+				if (max_freq > screen_off_max) {
 					max_freq = screen_off_max;
-				//if (num_online_cpus() == 2)
-				//	cpu_down(1);
+				}
 			}
 #endif
 
@@ -751,6 +751,7 @@ static ssize_t store_target_loads(
 	target_loads = new_target_loads;
 	ntarget_loads = ntokens;
 	spin_unlock_irqrestore(&target_loads_lock, flags);
+
 	return count;
 }
 
@@ -766,13 +767,13 @@ static ssize_t show_above_hispeed_delay(
 	unsigned long flags;
 
 	spin_lock_irqsave(&above_hispeed_delay_lock, flags);
-
 	for (i = 0; i < nabove_hispeed_delay; i++)
 		ret += sprintf(buf + ret, "%u%s", above_hispeed_delay[i],
 			       i & 0x1 ? ":" : " ");
 
 	ret += sprintf(buf + ret, "\n");
 	spin_unlock_irqrestore(&above_hispeed_delay_lock, flags);
+
 	return ret;
 }
 
@@ -794,8 +795,8 @@ static ssize_t store_above_hispeed_delay(
 	above_hispeed_delay = new_above_hispeed_delay;
 	nabove_hispeed_delay = ntokens;
 	spin_unlock_irqrestore(&above_hispeed_delay_lock, flags);
-	return count;
 
+	return count;
 }
 
 static struct global_attr above_hispeed_delay_attr =
@@ -818,7 +819,9 @@ static ssize_t store_hispeed_freq(struct kobject *kobj,
 	ret = strict_strtoul(buf, 0, &val);
 	if (ret < 0)
 		return ret;
+
 	hispeed_freq = val;
+
 	return count;
 }
 
@@ -841,7 +844,9 @@ static ssize_t store_go_hispeed_load(struct kobject *kobj,
 	ret = strict_strtoul(buf, 0, &val);
 	if (ret < 0)
 		return ret;
+
 	go_hispeed_load = val;
+
 	return count;
 }
 
@@ -863,7 +868,9 @@ static ssize_t store_min_sample_time(struct kobject *kobj,
 	ret = strict_strtoul(buf, 0, &val);
 	if (ret < 0)
 		return ret;
+
 	min_sample_time = val;
+
 	return count;
 }
 
@@ -885,7 +892,9 @@ static ssize_t store_timer_rate(struct kobject *kobj,
 	ret = strict_strtoul(buf, 0, &val);
 	if (ret < 0)
 		return ret;
+
 	timer_rate = val;
+
 	return count;
 }
 
@@ -910,6 +919,7 @@ static ssize_t store_timer_slack(
 		return ret;
 
 	timer_slack_val = val;
+
 	return count;
 }
 
@@ -982,6 +992,7 @@ static ssize_t store_boostpulse_duration(
 		return ret;
 
 	boostpulse_duration_val = val;
+
 	return count;
 }
 
@@ -998,18 +1009,16 @@ static ssize_t store_screen_off_maxfreq(struct kobject *kobj,
                                          struct attribute *attr,
                                          const char *buf, size_t count)
 {
-        int ret;
-        unsigned long val;
+	int ret;
+	unsigned long val;
 
-        ret = strict_strtoul(buf, 0, &val);
-	if (ret < 0) return ret;
+	ret = strict_strtoul(buf, 0, &val);
+	if (ret < 0)
+		return ret;
 
-	if (val < 384000) 
-		screen_off_max = 1512000;
-        else 
-		screen_off_max = val;
+	screen_off_max = val;
 
-        return count;
+	return count;
 }
 
 static struct global_attr screen_off_maxfreq =
@@ -1032,7 +1041,9 @@ static ssize_t store_io_is_busy(struct kobject *kobj,
 	ret = kstrtoul(buf, 0, &val);
 	if (ret < 0)
 		return ret;
+
 	io_is_busy = val;
+
 	return count;
 }
 
