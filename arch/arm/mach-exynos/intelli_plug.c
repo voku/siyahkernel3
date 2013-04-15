@@ -179,7 +179,7 @@ static unsigned int nr_run_last;
 static unsigned int calculate_thread_stats(void)
 {
 	unsigned int avg_nr_run = get_nr_run_avg();
-	unsigned int nr_run, threshold_sizei, nr_threshold;
+	unsigned int nr_run, threshold_size, nr_threshold;
 
 	if (!eco_mode_active) {
 		threshold_size =  ARRAY_SIZE(nr_run_thresholds_full);
