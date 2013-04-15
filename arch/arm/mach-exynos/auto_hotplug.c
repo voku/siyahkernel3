@@ -67,9 +67,9 @@
  * DISABLE is the load at which a CPU is disabled
  * These two are scaled based on num_online_cpus()
  */
-#define ENABLE_ALL_LOAD_THRESHOLD	200
+#define ENABLE_ALL_LOAD_THRESHOLD	110
 #define ENABLE_LOAD_THRESHOLD		200
-#define DISABLE_LOAD_THRESHOLD		90
+#define DISABLE_LOAD_THRESHOLD		95
 
 /* Control flags */
 unsigned char flags;
