@@ -3286,9 +3286,9 @@ int kswapd_run(int nid)
 		/* failure at boot is fatal */
 		del_timer(wt);
 		BUG_ON(system_state == SYSTEM_BOOTING);
-		pgdat->kswapd = NULL;
 		pr_err("Failed to start kswapd on node %d\n", nid);
 		ret = PTR_ERR(pgdat->kswapd);
+		pgdat->kswapd = NULL;
 	}
 	return ret;
 }
