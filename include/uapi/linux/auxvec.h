@@ -1,5 +1,5 @@
-#ifndef _LINUX_AUXVEC_H
-#define _LINUX_AUXVEC_H
+#ifndef _UAPI_LINUX_AUXVEC_H
+#define _UAPI_LINUX_AUXVEC_H
 
 #include <asm/auxvec.h>
 
@@ -32,9 +32,5 @@
 
 #define AT_EXECFN  31	/* filename of program */
 
-#ifdef __KERNEL__
-#define AT_VECTOR_SIZE_BASE 19 /* NEW_AUX_ENT entries in auxiliary table */
-  /* number of "#define AT_.*" above, minus {AT_NULL, AT_IGNORE, AT_NOTELF} */
-#endif
 
-#endif /* _LINUX_AUXVEC_H */
+#endif /* _UAPI_LINUX_AUXVEC_H */
