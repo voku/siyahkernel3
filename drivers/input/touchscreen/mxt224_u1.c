@@ -1336,7 +1336,7 @@ static void report_input_data(struct mxt224_data *data)
 	bool tsp_state = false;
 	bool check_press = false;
 	int64_t nr_running_tmp = 0;
-	unsigned int new_lock_freq = 0;
+	unsigned int new_lock_freq = 0, cur_freq = 0, max_freq = 0;
 	u16 object_address = 0;
 	u16 size = 1;
 	u8 value;
@@ -1353,17 +1353,31 @@ static void report_input_data(struct mxt224_data *data)
 #endif
 	touch_is_pressed = 0;
 
-	if (lock_dyn == 1) {
+	// Disable touchbooster if the current frequency is higher than the touchbooster dvfs freq
+	// Helps in avoiding stuttering and lags while using heavy tasks
+	// by simone201
+	cur_freq = exynos_cpufreq_get_curfreq();
+	if (cur_freq < TOUCH_LOCK_FREQ && lock_dyn == 1) {
 		nr_running_tmp = nr_running();
 		if (level == ~0 && nr_running_tmp > 1) {
-			nr_running_tmp = nr_running_tmp << 1;
+			nr_running_tmp = nr_running_tmp << 2;
 			new_lock_freq = TOUCH_LOCK_FREQ / 10 * nr_running_tmp;
+
+			// Setting policy->max freq set by user as touchbooster freq
+			// only if it is less than the default touchbooster freq set by the kernel define
+			// by simone201
+			max_freq = exynos_cpufreq_get_maxfreq();
+			if (new_lock_freq > max_freq) {
+				new_lock_freq = max_freq;
+			}
+			else {
 	
-			for (i=100000; i <= 1000000; i=i+100000) {
-				if (new_lock_freq <= i ) {
-					break;
+				for (i=100000; i <= 1000000; i=i+100000) {
+					if (new_lock_freq <= i ) {
+						break;
+					}
+					new_lock_freq = i;
 				}
-				new_lock_freq = i;
 			}
 
 			printk("touch-feq | old: TOUCH_LOCK_FREQ -> new: %u\n", new_lock_freq);
