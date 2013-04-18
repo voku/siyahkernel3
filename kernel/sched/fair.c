@@ -5238,8 +5238,6 @@ void idle_balance(int this_cpu, struct rq *this_rq)
 	if (this_rq->avg_idle < sysctl_sched_migration_cost)
 		return;
 
-	update_rq_runnable_avg(this_rq, 1);
-
 	/*
 	 * Drop the rq->lock, but keep IRQ/preempt disabled.
 	 */
