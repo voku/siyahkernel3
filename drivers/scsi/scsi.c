@@ -94,7 +94,6 @@ EXPORT_SYMBOL(scsi_logging_level);
 
 #if IS_ENABLED(CONFIG_PM) || IS_ENABLED(CONFIG_BLK_DEV_SD)
 /* sd and scsi_pm need to coordinate flushing async actions */
-LIST_HEAD(scsi_sd_probe_domain);
 ASYNC_DOMAIN(scsi_sd_probe_domain);
 EXPORT_SYMBOL(scsi_sd_probe_domain);
 #endif
