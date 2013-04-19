@@ -100,7 +100,7 @@
 #define MXT224_AUTOCAL_WAIT_TIME	2000
 // no debug !!!
 #define printk(arg, ...)
-#define TOUCH_LOCK_FREQ 		500000
+#define TOUCH_LOCK_FREQ		500000
 
 #if defined(U1_EUR_TARGET)
 static bool gbfilter;
@@ -1357,36 +1357,40 @@ static void report_input_data(struct mxt224_data *data)
 	// Helps in avoiding stuttering and lags while using heavy tasks
 	// by simone201
 	cur_freq = exynos_cpufreq_get_curfreq();
-	if (cur_freq < TOUCH_LOCK_FREQ && lock_dyn == 1) {
-		nr_running_tmp = nr_running();
-		if (level == ~0 && nr_running_tmp > 1) {
-			nr_running_tmp = nr_running_tmp << 2;
-			new_lock_freq = TOUCH_LOCK_FREQ / 10 * nr_running_tmp;
+	if (cur_freq < TOUCH_LOCK_FREQ && level == ~0) {
+		if (lock_dyn == 1) {
+
+			nr_running_tmp = nr_running() << 1;
+
+			if (nr_running_tmp > 5) {
+				new_lock_freq = TOUCH_LOCK_FREQ;
+			}
+			else {
+				new_lock_freq = TOUCH_LOCK_FREQ  / 5 * nr_running_tmp;
+			}
 
 			// Setting policy->max freq set by user as touchbooster freq
 			// only if it is less than the default touchbooster freq set by the kernel define
 			// by simone201
 			max_freq = exynos_cpufreq_get_maxfreq();
+
 			if (new_lock_freq > max_freq) {
 				new_lock_freq = max_freq;
 			}
-			else {
-	
-				for (i=100000; i <= 1000000; i=i+100000) {
-					if (new_lock_freq <= i ) {
-						break;
-					}
-					new_lock_freq = i;
-				}
-			}
 
-			printk("touch-feq | old: TOUCH_LOCK_FREQ -> new: %u\n", new_lock_freq);
-			exynos_cpufreq_get_level(new_lock_freq, &level);
+			// DEBUG
+			printk("touch-feq | old: %u - new: %u - cur: %u - max: %u\n", TOUCH_LOCK_FREQ, new_lock_freq, cur_freq, max_freq);
+
+			if (cur_freq < new_lock_freq) {
+				exynos_cpufreq_get_level(new_lock_freq, &level);
+			}
 		}
-	}
-	else {
-		if (level == ~0)
+		else {
+			// DEBUG
+			printk("touch-feq | static: %u\n", TOUCH_LOCK_FREQ);
+
 			exynos_cpufreq_get_level(TOUCH_LOCK_FREQ, &level);
+		}
 	}
 
 	for (i = 0; i < data->num_fingers; i++) {
