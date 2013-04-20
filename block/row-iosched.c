@@ -92,7 +92,7 @@ static const struct row_queue_params row_queues_def[] = {
 	{true, 4, true},	/* ROWQ_PRIO_REG_SWRITE */
 	{true, 4, true},	/* ROWQ_PRIO_REG_WRITE */
 	{true, 3, true},	/* ROWQ_PRIO_LOW_READ */
-	{true, 12, true}	/* ROWQ_PRIO_LOW_SWRITE */
+	{true, 2, true}		/* ROWQ_PRIO_LOW_SWRITE */
 };
 
 /* Default values for idling on read queues (in msec) */
