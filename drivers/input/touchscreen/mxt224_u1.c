@@ -1357,18 +1357,18 @@ static void report_input_data(struct mxt224_data *data)
 	// Helps in avoiding stuttering and lags while using heavy tasks
 	// by simone201
 	cur_freq = exynos_cpufreq_get_curfreq();
-	if (cur_freq < TOUCH_LOCK_FREQ && level == ~0) {
+	if (cur_freq < TOUCH_LOCK_FREQ) {
+
 		// if dynamic touch-freq
 		if (lock_dyn == 1) {
 
-			// touch == TSP_STATE_PRESS
+			nr_running_tmp = nr_running();
+
 			if (copy_data->touch_is_pressed_arr[0] == 1)
-				nr_running_tmp = nr_running() << 2;
-			// touch == TSP_STATE_MOVE
-			else if (copy_data->touch_is_pressed_arr[0] == 2)
-				nr_running_tmp = nr_running() << 1;
-			else 
-				nr_running_tmp = nr_running();
+				nr_running_tmp = nr_running_tmp << 1;
+
+			if (copy_data->touch_is_pressed_arr[1] == 1)
+				nr_running_tmp = nr_running_tmp << 1;
 
 			// fix max nr_running
 			if (nr_running_tmp > 5)
@@ -1384,18 +1384,23 @@ static void report_input_data(struct mxt224_data *data)
 			if (new_lock_freq > max_freq)
 				new_lock_freq = max_freq;
 
-			// DEBUG
-			printk("touch-feq | old: %u - new: %u - cur: %u - max: %u\n", TOUCH_LOCK_FREQ, new_lock_freq, cur_freq, max_freq);
+			// reset lock via "level" if we need it
+			if (cur_freq != new_lock_freq) {
+				level = ~0;
 
-			if (cur_freq < new_lock_freq)
-				exynos_cpufreq_get_level(new_lock_freq, &level);
+				// DEBUG
+				printk("touch-feq | old: %u - new: %u - cur: %u - max: %u\n", TOUCH_LOCK_FREQ, new_lock_freq, cur_freq, max_freq);
+			}
 		}
 		else {
-			// DEBUG
-			printk("touch-feq | static: %u\n", TOUCH_LOCK_FREQ);
+			new_lock_freq = TOUCH_LOCK_FREQ;
 
-			exynos_cpufreq_get_level(TOUCH_LOCK_FREQ, &level);
+			// DEBUG
+			printk("touch-feq | static: %u\n", new_lock_freq);
 		}
+ 
+		if (level == ~0)
+			exynos_cpufreq_get_level(new_lock_freq, &level);
 	}
 
 	for (i = 0; i < data->num_fingers; i++) {
@@ -1656,9 +1661,7 @@ static void report_input_data(struct mxt224_data *data)
 		copy_data->lock_status = 0;
 	} else if ((copy_data->lock_status == 0) && check_press) {
 		if (level != ~0) {
-			exynos_cpufreq_lock(
-				DVFS_LOCK_ID_TSP,
-				level);
+			exynos_cpufreq_lock(DVFS_LOCK_ID_TSP, level);
 			copy_data->lock_status = 1;
 			level = ~0;
 		}
