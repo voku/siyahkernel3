@@ -99,7 +99,7 @@
 
 #define MXT224_AUTOCAL_WAIT_TIME	2000
 // no debug !!!
-#define printk(arg, ...)
+//#define printk(arg, ...)
 #define TOUCH_LOCK_FREQ		500000
 
 #if defined(U1_EUR_TARGET)
@@ -1358,32 +1358,37 @@ static void report_input_data(struct mxt224_data *data)
 	// by simone201
 	cur_freq = exynos_cpufreq_get_curfreq();
 	if (cur_freq < TOUCH_LOCK_FREQ && level == ~0) {
+		// if dynamic touch-freq
 		if (lock_dyn == 1) {
 
-			nr_running_tmp = nr_running() << 1;
+			// touch == TSP_STATE_PRESS
+			if (copy_data->touch_is_pressed_arr[0] == 1)
+				nr_running_tmp = nr_running() << 2;
+			// touch == TSP_STATE_MOVE
+			else if (copy_data->touch_is_pressed_arr[0] == 2)
+				nr_running_tmp = nr_running() << 1;
+			else 
+				nr_running_tmp = nr_running();
 
-			if (nr_running_tmp > 5) {
+			// fix max nr_running
+			if (nr_running_tmp > 5)
 				new_lock_freq = TOUCH_LOCK_FREQ;
-			}
-			else {
+			else
 				new_lock_freq = TOUCH_LOCK_FREQ  / 5 * nr_running_tmp;
-			}
 
 			// Setting policy->max freq set by user as touchbooster freq
 			// only if it is less than the default touchbooster freq set by the kernel define
 			// by simone201
 			max_freq = exynos_cpufreq_get_maxfreq();
 
-			if (new_lock_freq > max_freq) {
+			if (new_lock_freq > max_freq)
 				new_lock_freq = max_freq;
-			}
 
 			// DEBUG
 			printk("touch-feq | old: %u - new: %u - cur: %u - max: %u\n", TOUCH_LOCK_FREQ, new_lock_freq, cur_freq, max_freq);
 
-			if (cur_freq < new_lock_freq) {
+			if (cur_freq < new_lock_freq)
 				exynos_cpufreq_get_level(new_lock_freq, &level);
-			}
 		}
 		else {
 			// DEBUG
@@ -2149,7 +2154,7 @@ static irqreturn_t mxt224_irq_thread(int irq, void *ptr)
 				data->fingers[id].z = TSP_STATE_RELEASE;
 				data->fingers[id].w = msg[5];
 				data->finger_mask |= 1U << id;
-			copy_data->touch_is_pressed_arr[msg[0] - 2] = 0;
+				copy_data->touch_is_pressed_arr[msg[0] - 2] = 0;
 				copy_data->touch_state = 1;
 			} else if ((msg[1] & DETECT_MSG_MASK)
 				   && (msg[1] &
