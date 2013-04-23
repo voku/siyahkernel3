@@ -156,9 +156,12 @@ find -name '*.ko' -exec cp -av {} ${INITRAMFS_TMP}/lib/modules/ \;
 ${CROSS_COMPILE}strip --strip-debug ${INITRAMFS_TMP}/lib/modules/*.ko;
 chmod 755 ${INITRAMFS_TMP}/lib/modules/*;
 
-# create new image with version & date
-convert -ordered-dither threshold,32,64,32 -pointsize 17 -fill white -draw "text 70,770 \"${GETVER} [$(date "+%H:%M | %d.%m.%Y"| sed -e ' s/\"/\\\"/g' )]\"" ${INITRAMFS_TMP}/res/images/icon_clockwork.png ${INITRAMFS_TMP}/res/images/icon_clockwork.png;
-optipng -o7 ${INITRAMFS_TMP}/res/images/icon_clockwork.png;
+read -p "create new kernel Image LOGO with version & date (y/n)?";
+if [ "$REPLY" == "y" ]; then
+	# create new image with version & date
+	convert -ordered-dither threshold,32,64,32 -pointsize 17 -fill white -draw "text 70,770 \"${GETVER} [$(date "+%H:%M | %d.%m.%Y"| sed -e ' s/\"/\\\"/g' )]\"" ${INITRAMFS_TMP}/res/images/icon_clockwork.png ${INITRAMFS_TMP}/res/images/icon_clockwork.png;
+	optipng -o7 ${INITRAMFS_TMP}/res/images/icon_clockwork.png;
+fi;
 
 # make kernel
 if [ $USER != "root" ]; then
