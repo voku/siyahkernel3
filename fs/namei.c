@@ -35,6 +35,7 @@
 #include <asm/uaccess.h>
 
 #include "internal.h"
+#include "mount.h"
 
 /* [Feb-1997 T. Schoebel-Theuer]
  * Fundamental changes in the pathname lookup mechanisms (namei)
@@ -697,7 +698,7 @@ follow_link(struct path *link, struct nameidata *nd, void **p)
 	cond_resched();
 	current->total_link_count++;
 
-	touch_atime(link->mnt, dentry);
+	touch_atime(link);
 	nd_set_link(nd, NULL);
 
 	error = security_inode_follow_link(link->dentry, nd);
@@ -730,36 +731,48 @@ follow_link(struct path *link, struct nameidata *nd, void **p)
 
 static int follow_up_rcu(struct path *path)
 {
-	struct vfsmount *parent;
+	struct mount *mnt = real_mount(path->mnt);
+	struct mount *parent;
 	struct dentry *mountpoint;
 
-	parent = path->mnt->mnt_parent;
-	if (parent == path->mnt)
+	parent = mnt->mnt_parent;
+	if (&parent->mnt == path->mnt)
 		return 0;
-	mountpoint = path->mnt->mnt_mountpoint;
+	mountpoint = mnt->mnt_mountpoint;
 	path->dentry = mountpoint;
-	path->mnt = parent;
+	path->mnt = &parent->mnt;
 	return 1;
 }
 
+/*
+ * follow_up - Find the mountpoint of path's vfsmount
+ *
+ * Given a path, find the mountpoint of its source file system.
+ * Replace @path with the path of the mountpoint in the parent mount.
+ * Up is towards /.
+ *
+ * Return 1 if we went up a level and 0 if we were already at the
+ * root.
+ */
 int follow_up(struct path *path)
 {
-	struct vfsmount *parent;
+	struct mount *mnt = real_mount(path->mnt);
+	struct mount *parent;
 	struct dentry *mountpoint;
 
 	br_read_lock(&vfsmount_lock);
-	parent = path->mnt->mnt_parent;
-	if (parent == path->mnt) {
+	parent = mnt->mnt_parent;
+	if (&parent->mnt == path->mnt) {
 		br_read_unlock(&vfsmount_lock);
 		return 0;
 	}
-	mntget(parent);
-	mountpoint = dget(path->mnt->mnt_mountpoint);
+	mntget(&parent->mnt);
+	mountpoint = dget(mnt->mnt_mountpoint);
 	br_read_unlock(&vfsmount_lock);
 	dput(path->dentry);
 	path->dentry = mountpoint;
 	mntput(path->mnt);
-	path->mnt = parent;
+	path->mnt = &parent->mnt;
 	return 1;
 }
 
@@ -938,7 +951,7 @@ static bool __follow_mount_rcu(struct nameidata *nd, struct path *path,
 			       struct inode **inode)
 {
 	for (;;) {
-		struct vfsmount *mounted;
+		struct mount *mounted;
 		/*
 		 * Don't forget we might have a non-mountpoint managed dentry
 		 * that wants to block transit.
@@ -952,8 +965,8 @@ static bool __follow_mount_rcu(struct nameidata *nd, struct path *path,
 		mounted = __lookup_mnt(path->mnt, path->dentry, 1);
 		if (!mounted)
 			break;
-		path->mnt = mounted;
-		path->dentry = mounted->mnt_root;
+		path->mnt = &mounted->mnt;
+		path->dentry = mounted->mnt.mnt_root;
 		nd->flags |= LOOKUP_JUMPED;
 		nd->seq = read_seqcount_begin(&path->dentry->d_seq);
 		/*
@@ -969,12 +982,12 @@ static bool __follow_mount_rcu(struct nameidata *nd, struct path *path,
 static void follow_mount_rcu(struct nameidata *nd)
 {
 	while (d_mountpoint(nd->path.dentry)) {
-		struct vfsmount *mounted;
+		struct mount *mounted;
 		mounted = __lookup_mnt(nd->path.mnt, nd->path.dentry, 1);
 		if (!mounted)
 			break;
-		nd->path.mnt = mounted;
-		nd->path.dentry = mounted->mnt_root;
+		nd->path.mnt = &mounted->mnt;
+		nd->path.dentry = mounted->mnt.mnt_root;
 		nd->seq = read_seqcount_begin(&nd->path.dentry->d_seq);
 	}
 }
@@ -1696,16 +1709,22 @@ int kern_path(const char *name, unsigned int flags, struct path *path)
  * @mnt: pointer to vfs mount of the base directory
  * @name: pointer to file name
  * @flags: lookup flags
- * @nd: pointer to nameidata
+ * @path: pointer to struct path to fill
  */
 int vfs_path_lookup(struct dentry *dentry, struct vfsmount *mnt,
 		    const char *name, unsigned int flags,
-		    struct nameidata *nd)
+		    struct path *path)
 {
-	nd->root.dentry = dentry;
-	nd->root.mnt = mnt;
+	struct nameidata nd;
+	int err;
+	nd.root.dentry = dentry;
+	nd.root.mnt = mnt;
+	BUG_ON(flags & LOOKUP_PARENT);
 	/* the first argument of do_path_lookup() is ignored with LOOKUP_ROOT */
-	return do_path_lookup(AT_FDCWD, name, flags | LOOKUP_ROOT, nd);
+	err = do_path_lookup(AT_FDCWD, name, flags | LOOKUP_ROOT, &nd);
+	if (!err)
+		*path = nd.path;
+	return err;
 }
 
 static struct dentry *__lookup_hash(struct qstr *name,
@@ -2190,7 +2209,7 @@ static struct file *do_last(struct nameidata *nd, struct path *path,
 
 	/* Negative dentry, just create the file */
 	if (!dentry->d_inode) {
-		int mode = op->mode;
+		umode_t mode = op->mode;
 		if (!IS_POSIXACL(dir->d_inode))
 			mode &= ~current_umask();
 		/*
@@ -2572,7 +2591,7 @@ int vfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 	return error;
 }
 
-SYSCALL_DEFINE3(mkdirat, int, dfd, const char __user *, pathname, int, mode)
+SYSCALL_DEFINE3(mkdirat, int, dfd, const char __user *, pathname, umode_t, mode)
 {
 	int error = 0;
 	char * tmp;
@@ -2609,7 +2628,7 @@ out_err:
 	return error;
 }
 
-SYSCALL_DEFINE2(mkdir, const char __user *, pathname, int, mode)
+SYSCALL_DEFINE2(mkdir, const char __user *, pathname, umode_t, mode)
 {
 	return sys_mkdirat(AT_FDCWD, pathname, mode);
 }

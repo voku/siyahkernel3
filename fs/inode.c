@@ -155,7 +155,7 @@ int inode_init_always(struct super_block *sb, struct inode *inode)
 	atomic_set(&inode->i_count, 1);
 	inode->i_op = &empty_iops;
 	inode->i_fop = &empty_fops;
-	inode->i_nlink = 1;
+	inode->__i_nlink = 1;
 	inode->i_uid = 0;
 	inode->i_gid = 0;
 	atomic_set(&inode->i_writecount, 0);
@@ -426,7 +426,7 @@ void __remove_inode_hash(struct inode *inode)
 }
 EXPORT_SYMBOL(__remove_inode_hash);
 
-void end_writeback(struct inode *inode)
+void clear_inode(struct inode *inode)
 {
 	might_sleep();
 	/*
@@ -444,7 +444,7 @@ void end_writeback(struct inode *inode)
 	/* don't need i_lock here, no concurrent mods to i_state */
 	inode->i_state = I_FREEING | I_CLEAR;
 }
-EXPORT_SYMBOL(end_writeback);
+EXPORT_SYMBOL(clear_inode);
 
 /*
  * Free the inode passed in, removing it from the lists it is still connected
@@ -476,7 +476,7 @@ static void evict(struct inode *inode)
 	} else {
 		if (inode->i_data.nrpages)
 			truncate_inode_pages(&inode->i_data, 0);
-		end_writeback(inode);
+		clear_inode(inode);
 	}
 	if (S_ISBLK(inode->i_mode) && inode->i_bdev)
 		bd_forget(inode);
@@ -1469,9 +1469,10 @@ static int update_time(struct inode *inode, struct timespec *time, int flags)
  *	This function automatically handles read only file systems and media,
  *	as well as the "noatime" flag and inode specific "noatime" markers.
  */
-void touch_atime(struct vfsmount *mnt, struct dentry *dentry)
+void touch_atime(struct path *path)
 {
-	struct inode *inode = dentry->d_inode;
+	struct vfsmount *mnt = path->mnt;
+	struct inode *inode = path->dentry->d_inode;
 	struct timespec now;
 
 	if (inode->i_flags & S_NOATIME)
@@ -1612,11 +1613,11 @@ int file_update_time(struct file *file)
 		return 0;
 
 	/* Finally allowed to write? Takes lock. */
-	if (mnt_want_write_file(file))
+	if (__mnt_want_write_file(file))
 		return 0;
 
 	ret = update_time(inode, &now, sync_it);
-	mnt_drop_write(file->f_path.mnt);
+	__mnt_drop_write_file(file);
 
 	return ret;
 }
@@ -1759,7 +1760,7 @@ EXPORT_SYMBOL(init_special_inode);
  * @mode: mode of the new inode
  */
 void inode_init_owner(struct inode *inode, const struct inode *dir,
-			mode_t mode)
+			umode_t mode)
 {
 	inode->i_uid = current_fsuid();
 	if (dir && dir->i_mode & S_ISGID) {
