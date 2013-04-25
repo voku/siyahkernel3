@@ -327,7 +327,7 @@ clocksource_calc_mult_shift(struct clocksource *cs, u32 freq, u32 minsec)
 				      NSEC_PER_SEC, minsec);
 }
 
-extern void timekeeping_notify(struct clocksource *clock);
+extern int timekeeping_notify(struct clocksource *clock);
 
 extern cycle_t clocksource_mmio_readl_up(struct clocksource *);
 extern cycle_t clocksource_mmio_readl_down(struct clocksource *);
