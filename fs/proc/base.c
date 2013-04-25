@@ -932,7 +932,7 @@ static int oom_adjust_permission(struct inode *inode, int mask,
 	uid_t uid;
 	struct task_struct *p;
 
-	if (flags & IPERM_FLAG_RCU)
+	if (mask & MAY_NOT_BLOCK)
 		return -ECHILD;
 
 	p = get_proc_task(inode);
