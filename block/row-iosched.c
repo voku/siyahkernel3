@@ -86,13 +86,13 @@ struct row_queue_params {
  */
 static const struct row_queue_params row_queues_def[] = {
 /* idling_enabled, quantum, is_urgent */
-	{true, 10, true},	/* ROWQ_PRIO_HIGH_READ */
-	{true, 5, true},	/* ROWQ_PRIO_HIGH_SWRITE */
+	{true, 100, true},	/* ROWQ_PRIO_HIGH_READ */
+	{false, 5, false},	/* ROWQ_PRIO_HIGH_SWRITE */
 	{true, 75, true},	/* ROWQ_PRIO_REG_READ */
-	{true, 4, true},	/* ROWQ_PRIO_REG_SWRITE */
-	{true, 4, true},	/* ROWQ_PRIO_REG_WRITE */
-	{true, 3, true},	/* ROWQ_PRIO_LOW_READ */
-	{true, 2, true}		/* ROWQ_PRIO_LOW_SWRITE */
+	{false, 4, false},	/* ROWQ_PRIO_REG_SWRITE */
+	{false, 4, false},	/* ROWQ_PRIO_REG_WRITE */
+	{false, 3, false},	/* ROWQ_PRIO_LOW_READ */
+	{false, 2, false}	/* ROWQ_PRIO_LOW_SWRITE */
 };
 
 /* Default values for idling on read queues (in msec) */
@@ -200,9 +200,9 @@ struct row_data {
 	struct request			*pending_urgent_rq;
 	int				last_served_ioprio_class;
 
-#define	ROW_REG_STARVATION_TOLLERANCE	50
+#define	ROW_REG_STARVATION_TOLLERANCE	5000
 	struct starvation_data		reg_prio_starvation;
-#define	ROW_LOW_STARVATION_TOLLERANCE	1000
+#define	ROW_LOW_STARVATION_TOLLERANCE	10000
 	struct starvation_data		low_prio_starvation;
 
 	unsigned int			cycle_flags;
