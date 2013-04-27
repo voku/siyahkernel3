@@ -101,11 +101,7 @@
 #define MXT224_AUTOCAL_WAIT_TIME	2000
 /* no debug !!! */
 //#define printk(arg, ...)
-
-/* 1 GHz */
-#define TOUCH_LOCK_FREQ_1000		1000000
-/* 500 MHz */
-#define TOUCH_LOCK_FREQ_500     500000
+#define TOUCH_LOCK_FREQ		1000000
 
 #if defined(U1_EUR_TARGET)
 static bool gbfilter;
@@ -1238,25 +1234,26 @@ extern void flash_led_buttons(unsigned int);
 static unsigned int flash_timeout = 0;
 #endif
 
+// touchbooster
+static unsigned int level = ~0;
+static int touchbooster_counter = 0;
+
 static void report_input_data(struct mxt224_data *data)
 {
 	int i;
-	static unsigned int level = ~0;
 	bool tsp_state = false;
 	bool check_press = false;
 	int64_t touch_freq_multiplier = 0;
-	unsigned int new_lock_freq = 0, cur_freq = 0, max_freq = 0;
+	unsigned int new_lock_freq = 0, tmp_lock_freq = TOUCH_LOCK_FREQ / 2;
+	unsigned int cur_freq = 0, max_freq = 0;
 	u16 object_address = 0;
 	u16 size = 1;
 	u8 value;
 #ifdef CONFIG_TOUCHSCREEN_GESTURES
-	int gesture_no, finger_no;
-	int finger_pos;
+	int gesture_no, finger_no, finger_pos, step;
 	struct gesture_point *point;
-	int step;
-	bool fingers_completed;
+	bool fingers_completed, track_gestures;
 	unsigned long flags, avnrun[3];
-	bool track_gestures;
 
 	track_gestures = copy_data->mxt224_enabled;
 #endif
@@ -1266,7 +1263,7 @@ static void report_input_data(struct mxt224_data *data)
 	Helps in avoiding stuttering and lags while using heavy tasks
 	by simone201 */
 	cur_freq = exynos_cpufreq_get_curfreq();
-	if (cur_freq < TOUCH_LOCK_FREQ_500) {
+	if (cur_freq < tmp_lock_freq) {
 
 		/* if dynamic touch-freq */
 		if (lock_dyn == 1) {
@@ -1292,9 +1289,9 @@ static void report_input_data(struct mxt224_data *data)
 
 			/* fix max touch_freq_multiplier */
 			if (touch_freq_multiplier > 10)
-				new_lock_freq = TOUCH_LOCK_FREQ_1000;
+				new_lock_freq = TOUCH_LOCK_FREQ;
 			else
-				new_lock_freq = TOUCH_LOCK_FREQ_1000  / 10 * touch_freq_multiplier;
+				new_lock_freq = TOUCH_LOCK_FREQ / 10 * touch_freq_multiplier;
 
 			/* Setting policy->max freq set by user as touchbooster freq
 			only if it is less than the default touchbooster freq set by the kernel define
@@ -1304,25 +1301,23 @@ static void report_input_data(struct mxt224_data *data)
 			if (new_lock_freq > max_freq)
 				new_lock_freq = max_freq;
 
-			/* reset lock via "level" if we need it */
 			if (new_lock_freq > cur_freq) {
-				level = ~0;
 
 				/* DEBUG */
 				printk("touch-feq | old: %u - new: %u - cur: %u - max: %u\n", 
-					  TOUCH_LOCK_FREQ_1000, new_lock_freq, cur_freq, max_freq);
+					  TOUCH_LOCK_FREQ, new_lock_freq, cur_freq, max_freq);
+
+				exynos_cpufreq_get_level(new_lock_freq, &level);
 			}
 		}
 		else {
-			/* 500 MHz for default touch-freq */
-			new_lock_freq = TOUCH_LOCK_FREQ_500;
+			new_lock_freq = tmp_lock_freq; 
 
 			/* DEBUG */
 			printk("touch-feq | static: %u\n", new_lock_freq);
-		}
- 
-		if (level == ~0)
+
 			exynos_cpufreq_get_level(new_lock_freq, &level);
+		}
 	}
 
 	for (i = 0; i < data->num_fingers; i++) {
@@ -1578,11 +1573,20 @@ static void report_input_data(struct mxt224_data *data)
 		spin_unlock_irqrestore(&gestures_lock, flags);
 	}
 #endif
+	if (tsp_state)
+		touchbooster_counter++;
 
-	if (!tsp_state && copy_data->lock_status) {
+	if (
+		(touchbooster_counter > 4 || !tsp_state ) && 
+		copy_data->lock_status
+	)
+	{
 		exynos_cpufreq_lock_free(DVFS_LOCK_ID_TSP);
+		// reset
+		touchbooster_counter = 0;
 		copy_data->lock_status = 0;
-	} else if ((copy_data->lock_status == 0) && check_press) {
+		level = ~0;
+	} else if (!copy_data->lock_status && check_press) {
 		if (level != ~0) {
 			exynos_cpufreq_lock(DVFS_LOCK_ID_TSP, level);
 			copy_data->lock_status = 1;
