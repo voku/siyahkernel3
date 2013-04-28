@@ -35,19 +35,15 @@
  *   	  down_threshold_sleep (sysfs) -> down threshold on early suspend (possible range from 11 to "under up_threshold_sleep", default: 44)
  *   	  smooth_up_sleep (sysfs) -> smooth up scaling on early suspend (possible range from 1 to 100, default: 100)
  *   	  up_threshold_hotplug1 (defaults+sysfs) -> hotplug threshold for cpu1 (0 disable core1, possible range from "down_threshold" up to 100, default: 68)
- *   	  up_threshold_hotplug2 (defaults+sysfs) -> hotplug threshold for cpu2 (0 disable core2, possible range from "down_threshold" up to 100, default: 68)
- *   	  up_threshold_hotplug3 (defaults+sysfs) -> hotplug threshold for cpu3 (0 disable core3, possible range from "down_threshold" up to 100, default: 68)
  *   	  down_threshold_hotplug1 (defaults+sysfs) -> hotplug threshold for cpu1 (possible range from 11 to under "up_threshold", default: 55)
- *   	  down_threshold_hotplug2 (defaults+sysfs) -> hotplug threshold for cpu2 (possible range from 11 to under "up_threshold", default: 55)
- *   	  down_threshold_hotplug3 (defaults+sysfs) -> hotplug threshold for cpu3 (possible range from 11 to under "up_threshold", default: 55)
  *
  * Version 0.3 - more improvements
  *
  * 	- added tuneable "hotplug_sleep" to be able to turn off cores only on early suspend (screen off) via sysfs
- * 	  possible values: 0 do not touch hotplug settings on early suspend, values 1, 2 or 3 are equivalent to
+ * 	  possible values: 0 do not touch hotplug settings on early suspend, values 1, equivalent to
  * 	  cores which should be online at early suspend
  * 	- modified scaling frequency table to match "overclock" freqencies to max 1600mhz
- * 	- fixed black screen of dead problem in hotplug logic due to missing mutexing on 3-core and 2-core settings
+ * 	- fixed black screen of dead problem in hotplug logic due to missing mutexing at 2-core settings
  * 	- code cleaning and documentation
  *---------------------------------------------------------------------------------------------------------------------
  */
@@ -80,12 +76,8 @@
 // ZZ: default values
 #define DEF_FREQUENCY_UP_THRESHOLD		(70)
 #define DEF_FREQUENCY_UP_THRESHOLD_HOTPLUG1	(68) // ZZ: hotplug up threshold for cpu1 (cpu0 stays allways on)
-#define DEF_FREQUENCY_UP_THRESHOLD_HOTPLUG2	(68) // ZZ: hotplug up threshold for cpu2 (cpu0 stays allways on)
-#define DEF_FREQUENCY_UP_THRESHOLD_HOTPLUG3	(68) // ZZ: hotplug up threshold for cpu3 (cpu0 stays allways on)
 #define DEF_FREQUENCY_DOWN_THRESHOLD		(52)
 #define DEF_FREQUENCY_DOWN_THRESHOLD_HOTPLUG1	(55) // ZZ: hotplug down threshold for cpu1 (cpu0 stays allways on)
-#define DEF_FREQUENCY_DOWN_THRESHOLD_HOTPLUG2	(55) // ZZ: hotplug down threshold for cpu2 (cpu0 stays allways on)
-#define DEF_FREQUENCY_DOWN_THRESHOLD_HOTPLUG3	(55) // ZZ: hotplug down threshold for cpu3 (cpu0 stays allways on)
 
 /*
  * The polling frequency of this governor depends on the capability of
@@ -107,8 +99,6 @@ static unsigned int up_threshold_awake;
 static unsigned int down_threshold_awake;
 static unsigned int smooth_up_awake;
 static unsigned int hotplug1_awake; // ZZ: hotplug threshold buffer for awake values
-static unsigned int hotplug2_awake; // ZZ: hotplug threshold buffer for awake values
-static unsigned int hotplug3_awake; // ZZ: hotplug threshold buffer for awake values
 static unsigned int sampling_rate_asleep; // ZZ: sampling rate on early suspend
 static unsigned int up_threshold_asleep; // ZZ: up threshold on early suspend
 static unsigned int down_threshold_asleep; // ZZ: down threshold on early suspend
@@ -169,13 +159,9 @@ static struct dbs_tuners {
 	unsigned int sampling_down_factor;
 	unsigned int up_threshold;
 	unsigned int up_threshold_hotplug1; // ZZ: added tuneable up_threshold_hotplug1 for core1
-	unsigned int up_threshold_hotplug2; // ZZ: added tuneable up_threshold_hotplug1 for core2
-	unsigned int up_threshold_hotplug3; // ZZ: added tuneable up_threshold_hotplug1 for core3
 	unsigned int up_threshold_sleep; // ZZ: added tuneable up_threshold_sleep for early suspend
 	unsigned int down_threshold;
 	unsigned int down_threshold_hotplug1; // ZZ: added tuneable down_threshold_hotplug1 for core1
-	unsigned int down_threshold_hotplug2; // ZZ: added tuneable down_threshold_hotplug2 for core2
-	unsigned int down_threshold_hotplug3; // ZZ: added tuneable down_threshold_hotplug3 for core3
 	unsigned int down_threshold_sleep; // ZZ: added tuneable down_threshold_sleep for early suspend
 	unsigned int ignore_nice;
 	unsigned int freq_step;
@@ -186,18 +172,14 @@ static struct dbs_tuners {
 } dbs_tuners_ins = {
 	.up_threshold = DEF_FREQUENCY_UP_THRESHOLD,
 	.up_threshold_hotplug1 = DEF_FREQUENCY_UP_THRESHOLD_HOTPLUG1, // ZZ: set default value for new tuneable
-	.up_threshold_hotplug2 = DEF_FREQUENCY_UP_THRESHOLD_HOTPLUG2, // ZZ: set default value for new tuneable
-	.up_threshold_hotplug3 = DEF_FREQUENCY_UP_THRESHOLD_HOTPLUG3, // ZZ: set default value for new tuneable
 	.up_threshold_sleep = DEF_UP_THRESHOLD_SLEEP, // ZZ: set default value for new tuneable
 	.down_threshold = DEF_FREQUENCY_DOWN_THRESHOLD,
 	.down_threshold_hotplug1 = DEF_FREQUENCY_DOWN_THRESHOLD_HOTPLUG1, // ZZ: set default value for new tuneable
-	.down_threshold_hotplug2 = DEF_FREQUENCY_DOWN_THRESHOLD_HOTPLUG2, // ZZ: set default value for new tuneable
-	.down_threshold_hotplug3 = DEF_FREQUENCY_DOWN_THRESHOLD_HOTPLUG3, // ZZ: set default value for new tuneable
 	.down_threshold_sleep = DEF_DOWN_THRESHOLD_SLEEP, // ZZ: set default value for new tuneable
 	.sampling_down_factor = DEF_SAMPLING_DOWN_FACTOR,
 	.sampling_rate_sleep_multiplier = SAMPLING_RATE_SLEEP_MULTIPLIER, // ZZ: set default value for new tuneable
 	.ignore_nice = 0,
-	.freq_step = 5,
+	.freq_step = 10,
 	.smooth_up = DEF_SMOOTH_UP,
 	.smooth_up_sleep = DEF_SMOOTH_UP_SLEEP, // ZZ: set default value for new tuneable
 	.hotplug_sleep = DEF_HOTPLUG_SLEEP, // ZZ: set default value for new tuneable
@@ -223,20 +205,13 @@ static struct dbs_tuners {
 #define MN_DOWN 2
 
 /*
- * Table modified for use with Samsung I9300 and Note2 by ZaneZam November 2012
+ * Table modified for use with Samsung I9100 by ZaneZam November 2012
  * zzmoove v0.3 - table modified to reach overclocking frequencies up to 1600mhz
-
- * Table modified for use with Samsung I9300 and Note2 by DerTeufel1980 april 2013
- * frequencies up to 2000mhz
  */
-static int mn_freqs[19][3]={
-    {2000000,2000000,1920000},
-    {1920000,2000000,1800000},
-    {1800000,1920000,1704000},
-    {1704000,1800000,1600000},
-    {1600000,1704000,1500000},
-    {1500000,1600000,1400000},
-    {1400000,1500000,1300000},
+static int mn_freqs[16][3]={
+    {1600000,1600000,1500000},
+    {1500000,1500000,1400000},
+    {1400000,1400000,1300000},
     {1300000,1400000,1200000},
     {1200000,1300000,1100000},
     {1100000,1200000,1000000},
@@ -248,25 +223,19 @@ static int mn_freqs[19][3]={
     { 500000, 600000, 300000},
     { 400000, 500000, 200000},
     { 300000, 400000, 200000},
-    { 200000, 300000, 200000}
+    { 200000, 300000, 200000},
+    { 100000, 200000, 100000}
 };
 
 /*
- * Table modified for use with Samsung I9300 and Note2 by ZaneZam November 2012
+ * Table modified for use with Samsung I9100 by ZaneZam November 2012
  * zzmoove v0.3 - table modified to reach overclocking frequencies up to 1600mhz
-
- * Table modified for use with Samsung I9300 and Note2 by DerTeufel1980 april 2013
- * frequencies up to 2000mhz
  */
-static int mn_freqs_power[19][3]={
-    {2000000,2000000,1920000},
-    {1920000,2000000,1800000},
-    {1800000,2000000,1704000},
-    {1704000,1920000,1600000},
-    {1600000,1800000,1500000},
-    {1500000,1704000,1400000},
-    {1400000,1600000,1300000},
-    {1300000,1500000,1200000},
+static int mn_freqs_power[16][3]={
+    {1600000,1600000,1500000},
+    {1500000,1500000,1400000},
+    {1400000,1400000,1300000},
+    {1300000,1400000,1200000},
     {1200000,1400000,1100000},
     {1100000,1300000,1000000},
     {1000000,1200000, 900000},
@@ -277,11 +246,12 @@ static int mn_freqs_power[19][3]={
     { 500000, 700000, 400000},
     { 400000, 600000, 300000},
     { 300000, 500000, 200000},
-    { 200000, 400000, 200000}
+    { 200000, 400000, 200000},
+    { 100000, 200000, 100000}
 };
 
 static int mn_get_next_freq(unsigned int curfreq, unsigned int updown, unsigned int load) {
-	int i=0,max_level = 19;
+	int i=0,max_level = 16;
 
 	if (load < dbs_tuners_ins.smooth_up)
 	{
@@ -389,13 +359,9 @@ show_one(sampling_down_factor, sampling_down_factor);
 show_one(up_threshold, up_threshold);
 show_one(up_threshold_sleep, up_threshold_sleep); // ZZ: added up_threshold_sleep tuneable for early suspend
 show_one(up_threshold_hotplug1, up_threshold_hotplug1); // ZZ: added up_threshold_hotplug1 tuneable for cpu1
-show_one(up_threshold_hotplug2, up_threshold_hotplug2); // ZZ: added up_threshold_hotplug2 tuneable for cpu2
-show_one(up_threshold_hotplug3, up_threshold_hotplug3); // ZZ: added up_threshold_hotplug3 tuneable for cpu3
 show_one(down_threshold, down_threshold);
 show_one(down_threshold_sleep, down_threshold_sleep); // ZZ: added down_threshold_sleep tuneable for early suspend
 show_one(down_threshold_hotplug1, down_threshold_hotplug1); // ZZ: added down_threshold_hotplug1 tuneable for cpu1
-show_one(down_threshold_hotplug2, down_threshold_hotplug2); // ZZ: added down_threshold_hotplug2 tuneable for cpu2
-show_one(down_threshold_hotplug3, down_threshold_hotplug3); // ZZ: added down_threshold_hotplug3 tuneable for cpu3
 show_one(ignore_nice_load, ignore_nice);
 show_one(freq_step, freq_step);
 show_one(smooth_up, smooth_up);
@@ -492,36 +458,6 @@ static ssize_t store_up_threshold_hotplug1(struct kobject *a, struct attribute *
 	return count;
 }
 
-// ZZ: added tuneable - possible values: 0 to disable core, range from down_threshold up to 100, if not set default to 68
-static ssize_t store_up_threshold_hotplug2(struct kobject *a, struct attribute *b,
-				  const char *buf, size_t count)
-{
-	unsigned int input;
-	int ret;
-	ret = sscanf(buf, "%u", &input);
-
-	if (ret != 1 || input > 100 || (input <= dbs_tuners_ins.down_threshold && input != 0))
-		return -EINVAL;
-
-	dbs_tuners_ins.up_threshold_hotplug2 = input;
-	return count;
-}
-
-// ZZ: added tuneable - possible values: 0 to disable core, range from down_threshold up to 100, if not set default to 68
-static ssize_t store_up_threshold_hotplug3(struct kobject *a, struct attribute *b,
-				  const char *buf, size_t count)
-{
-	unsigned int input;
-	int ret;
-	ret = sscanf(buf, "%u", &input);
-
-	if (ret != 1 || input > 100 || (input <= dbs_tuners_ins.down_threshold && input != 0))
-		return -EINVAL;
-
-	dbs_tuners_ins.up_threshold_hotplug3 = input;
-	return count;
-}
-
 static ssize_t store_down_threshold(struct kobject *a, struct attribute *b,
 				    const char *buf, size_t count)
 {
@@ -569,40 +505,6 @@ static ssize_t store_down_threshold_hotplug1(struct kobject *a, struct attribute
 		return -EINVAL;
 
 	dbs_tuners_ins.down_threshold_hotplug1 = input;
-	return count;
-}
-
-// ZZ: added tuneable - possible values: range from 11 to up_threshold but not up_threshold, if not set default to 55
-static ssize_t store_down_threshold_hotplug2(struct kobject *a, struct attribute *b,
-				    const char *buf, size_t count)
-{
-	unsigned int input;
-	int ret;
-	ret = sscanf(buf, "%u", &input);
-
-	/* cannot be lower than 11 otherwise freq will not fall */
-	if (ret != 1 || input < 11 || input > 100 ||
-			input >= dbs_tuners_ins.up_threshold)
-		return -EINVAL;
-
-	dbs_tuners_ins.down_threshold_hotplug2 = input;
-	return count;
-}
-
-// ZZ: added tuneable - possible values: range from 11 to up_threshold but not up_threshold, if not set default to 55
-static ssize_t store_down_threshold_hotplug3(struct kobject *a, struct attribute *b,
-				    const char *buf, size_t count)
-{
-	unsigned int input;
-	int ret;
-	ret = sscanf(buf, "%u", &input);
-
-	/* cannot be lower than 11 otherwise freq will not fall */
-	if (ret != 1 || input < 11 || input > 100 ||
-			input >= dbs_tuners_ins.up_threshold)
-		return -EINVAL;
-
-	dbs_tuners_ins.down_threshold_hotplug3 = input;
 	return count;
 }
 
@@ -713,13 +615,9 @@ define_one_global_rw(sampling_down_factor);
 define_one_global_rw(up_threshold);
 define_one_global_rw(up_threshold_sleep); // ZZ: added tuneable
 define_one_global_rw(up_threshold_hotplug1); // ZZ: added tuneable
-define_one_global_rw(up_threshold_hotplug2); // ZZ: added tuneable
-define_one_global_rw(up_threshold_hotplug3); // ZZ: added tuneable
 define_one_global_rw(down_threshold);
 define_one_global_rw(down_threshold_sleep); // ZZ: added tuneable
 define_one_global_rw(down_threshold_hotplug1); // ZZ: added tuneable
-define_one_global_rw(down_threshold_hotplug2); // ZZ: added tuneable
-define_one_global_rw(down_threshold_hotplug3); // ZZ: added tuneable
 define_one_global_rw(ignore_nice_load);
 define_one_global_rw(freq_step);
 define_one_global_rw(smooth_up);
@@ -732,13 +630,9 @@ static struct attribute *dbs_attributes[] = {
 	&sampling_rate_sleep_multiplier.attr, // ZZ: added tuneable
 	&sampling_down_factor.attr,
 	&up_threshold_hotplug1.attr, // ZZ: added tuneable
-	&up_threshold_hotplug2.attr, // ZZ: added tuneable
-	&up_threshold_hotplug3.attr, // ZZ: added tuneable
 	&down_threshold.attr,
 	&down_threshold_sleep.attr, // ZZ: added tuneable
 	&down_threshold_hotplug1.attr, // ZZ: added tuneable
-	&down_threshold_hotplug2.attr, // ZZ: added tuneable
-	&down_threshold_hotplug3.attr, // ZZ: added tuneable
 	&ignore_nice_load.attr,
 	&freq_step.attr,
 	&smooth_up.attr,
@@ -828,38 +722,18 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 	/*
 	 * zzmoove v0.1 - Modification by ZaneZam November 2012
 	 * Check for frequency increase is greater than hotplug up threshold value and wake up cores accordingly
-	 * Following will bring up 3 cores in a row (cpu0 stays always on!)
+	 * Following will bring up 2 cores in a row (cpu0 stays always on!)
 	 *
 	 * zzmoove v0.2 - changed hotplug logic to be able to tune up threshold per core and to be able to set
 	 * cores offline manually via sysfs
 	 */
 
 	if (num_online_cpus() < 2) {
-			if (dbs_tuners_ins.up_threshold_hotplug1 != 0 || dbs_tuners_ins.up_threshold_hotplug2 != 0 || dbs_tuners_ins.up_threshold_hotplug3 != 0) // don't mutex if no core is enabled
+			if (dbs_tuners_ins.up_threshold_hotplug1 != 0) // don't mutex if no core is enabled
 			mutex_unlock(&this_dbs_info->timer_mutex); // this seems to be a very good idea, without it lockups are possible!
 			if (dbs_tuners_ins.up_threshold_hotplug1 != 0 && max_load > dbs_tuners_ins.up_threshold_hotplug1)
 			cpu_up(1);
-			if (dbs_tuners_ins.up_threshold_hotplug2 != 0 && max_load > dbs_tuners_ins.up_threshold_hotplug2)
-			cpu_up(2);
-			if (dbs_tuners_ins.up_threshold_hotplug3 != 0 && max_load > dbs_tuners_ins.up_threshold_hotplug3)
-			cpu_up(3);
-			if (dbs_tuners_ins.up_threshold_hotplug1 != 0 || dbs_tuners_ins.up_threshold_hotplug2 != 0 || dbs_tuners_ins.up_threshold_hotplug3 != 0) // don't mutex if no core is enabled
-			mutex_lock(&this_dbs_info->timer_mutex); // this seems to be a very good idea, without it lockups are possible!
-	} else if (num_online_cpus() < 3) {
-			if (dbs_tuners_ins.up_threshold_hotplug2 != 0 || dbs_tuners_ins.up_threshold_hotplug3 != 0) // don't mutex if no core is enabled
-			mutex_unlock(&this_dbs_info->timer_mutex); // this seems to be a very good idea, without it lockups are possible!
-			if (dbs_tuners_ins.up_threshold_hotplug2 != 0 && max_load > dbs_tuners_ins.up_threshold_hotplug2)
-			cpu_up(2);
-			if (dbs_tuners_ins.up_threshold_hotplug3 != 0 && max_load > dbs_tuners_ins.up_threshold_hotplug3)
-			cpu_up(3);
-			if (dbs_tuners_ins.up_threshold_hotplug2 != 0 || dbs_tuners_ins.up_threshold_hotplug3 != 0) // don't mutex if no core is enabled
-			mutex_lock(&this_dbs_info->timer_mutex); // this seems to be a very good idea, without it lockups are possible!
-	} else if (num_online_cpus() < 4) {
-			if (dbs_tuners_ins.up_threshold_hotplug3 != 0) // don't mutex if no cores are enabled
-			mutex_unlock(&this_dbs_info->timer_mutex); // this seems to be a very good idea, without it lockups are possible!
-			if (dbs_tuners_ins.up_threshold_hotplug3 != 0 && max_load > dbs_tuners_ins.up_threshold_hotplug3)
-			cpu_up(3);
-			if (dbs_tuners_ins.up_threshold_hotplug3 != 0) // don't mutex if no cores are enabled
+			if (dbs_tuners_ins.up_threshold_hotplug1 != 0) // don't mutex if no core is enabled
 			mutex_lock(&this_dbs_info->timer_mutex); // this seems to be a very good idea, without it lockups are possible!
 	}
 
@@ -884,28 +758,12 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 	/*
 	 * zzmoove v0.1 - Modification by ZaneZam November 2012
 	 * Check for frequency decrease is lower than hotplug value and put cores to sleep accordingly
-	 * Following will disable 3 cores in a row (cpu0 is always on!)
+	 * Following will disable 1 cores in a row (cpu0 is always on!)
 	 *
 	 * zzmoove v0.2 - changed logic to be able to tune down threshold per core via sysfs
 	 */
 
-	if (num_online_cpus() > 3) {
-			mutex_unlock(&this_dbs_info->timer_mutex); // this seems to be a very good idea, without it lockups are possible!
-			if (max_load < dbs_tuners_ins.down_threshold_hotplug3)
-			cpu_down(3);
-			if (max_load < dbs_tuners_ins.down_threshold_hotplug2)
-			cpu_down(2);
-			if (max_load < dbs_tuners_ins.down_threshold_hotplug1)
-			cpu_down(1);
-			mutex_lock(&this_dbs_info->timer_mutex); // this seems to be a very good idea, without it lockups are possible!
-	} else if (num_online_cpus() > 2) {
-			mutex_unlock(&this_dbs_info->timer_mutex); // this seems to be a very good idea, without it lockups are possible!
-			if (max_load < dbs_tuners_ins.down_threshold_hotplug2)
-			cpu_down(2);
-			if (max_load < dbs_tuners_ins.down_threshold_hotplug1)
-			cpu_down(1);
-			mutex_lock(&this_dbs_info->timer_mutex); // this seems to be a very good idea, without it lockups are possible!
-	} else if (num_online_cpus() > 1) {
+	if (num_online_cpus() > 1) {
 			mutex_unlock(&this_dbs_info->timer_mutex); // this seems to be a very good idea, without it lockups are possible!
 			if (max_load < dbs_tuners_ins.down_threshold_hotplug1)
 			cpu_down(1);
@@ -978,8 +836,6 @@ static void powersave_early_suspend(struct early_suspend *handler)
   smooth_up_awake = dbs_tuners_ins.smooth_up;
   if (dbs_tuners_ins.hotplug_sleep != 0) { // ZZ: if set to 0 do not touch hotplugging
 	hotplug1_awake = dbs_tuners_ins.up_threshold_hotplug1; // ZZ: buffer hotplug1 value for restore on awake
-	hotplug2_awake = dbs_tuners_ins.up_threshold_hotplug2; // ZZ: buffer hotplug2 value for restore on awake
-	hotplug3_awake = dbs_tuners_ins.up_threshold_hotplug3; // ZZ: buffer hotplug1 value for restore on awake
   }
   sampling_rate_asleep = dbs_tuners_ins.sampling_rate_sleep_multiplier; // ZZ: set sleep multiplier
   up_threshold_asleep = dbs_tuners_ins.up_threshold_sleep; // ZZ: set up threshold
@@ -992,15 +848,6 @@ static void powersave_early_suspend(struct early_suspend *handler)
   if (dbs_tuners_ins.hotplug_sleep != 0) { // ZZ: if set to 0 do not touch hotplugging
 	if (dbs_tuners_ins.hotplug_sleep == 1) { // ZZ: set to one core
 	    dbs_tuners_ins.up_threshold_hotplug1 = 0; // ZZ: set to one core
-		    dbs_tuners_ins.up_threshold_hotplug2 = 0; // ZZ: set to one core
-		    dbs_tuners_ins.up_threshold_hotplug3 = 0; // ZZ: set to one core
-	}
-	if (dbs_tuners_ins.hotplug_sleep == 2) { // ZZ: set to two cores
-	    dbs_tuners_ins.up_threshold_hotplug2 = 0; // ZZ: set to two cores
-	    dbs_tuners_ins.up_threshold_hotplug3 = 0; // ZZ: set to two cores
-	}
-	if (dbs_tuners_ins.hotplug_sleep == 3) { // ZZ: set to three cores
-	    dbs_tuners_ins.up_threshold_hotplug3 = 0; // ZZ: set to three cores
 	}
   }
   mutex_unlock(&dbs_mutex);
@@ -1015,8 +862,6 @@ static void powersave_late_resume(struct early_suspend *handler)
   dbs_tuners_ins.smooth_up = smooth_up_awake;
   if (dbs_tuners_ins.hotplug_sleep != 0) {
 	dbs_tuners_ins.up_threshold_hotplug1 = hotplug1_awake; // ZZ: restore previous settings
-	dbs_tuners_ins.up_threshold_hotplug2 = hotplug2_awake; // ZZ: restore previous settings
-	dbs_tuners_ins.up_threshold_hotplug3 = hotplug3_awake; // ZZ: restore previous settings
   }
   mutex_unlock(&dbs_mutex);
 }
@@ -1173,6 +1018,7 @@ static void __exit cpufreq_gov_dbs_exit(void)
  * Modified by Zane Zaminsky November 2012 to be hotplug-able and optimzed for use
  * with Samsung I9300. CPU Hotplug modifications partially taken from ktoonservative
  * governor from ktoonsez KT747-JB kernel (https://github.com/ktoonsez/KT747-JB)
+ * Tuned GOV for I9100 and merged to my kernel thanks to VOKU, (Dorimanx)
  */
 
 MODULE_AUTHOR("Zane Zaminsky <cyxman@yahoo.com>");
