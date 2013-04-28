@@ -78,14 +78,12 @@ static LIST_HEAD(qd_lru_list);
 static atomic_t qd_lru_count = ATOMIC_INIT(0);
 static DEFINE_SPINLOCK(qd_lru_lock);
 
-int gfs2_shrink_qd_memory(struct shrinker *shrink, struct shrink_control *sc)
+long gfs2_qd_shrink_scan(struct shrinker *shrink, struct shrink_control *sc)
 {
 	struct gfs2_quota_data *qd;
 	struct gfs2_sbd *sdp;
 	int nr_to_scan = sc->nr_to_scan;
-
-	if (nr_to_scan == 0)
-		goto out;
+	long freed = 0;
 
 	if (!(sc->gfp_mask & __GFP_FS))
 		return -1;
@@ -113,10 +111,14 @@ int gfs2_shrink_qd_memory(struct shrinker *shrink, struct shrink_control *sc)
 		kmem_cache_free(gfs2_quotad_cachep, qd);
 		spin_lock(&qd_lru_lock);
 		nr_to_scan--;
+		freed++;
 	}
 	spin_unlock(&qd_lru_lock);
+	return freed;
+}
 
-out:
+long gfs2_qd_shrink_count(struct shrinker *shrink, struct shrink_control *sc)
+{
 	return (atomic_read(&qd_lru_count) * sysctl_vfs_cache_pressure) / 100;
 }
 

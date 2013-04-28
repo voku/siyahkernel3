@@ -44,60 +44,95 @@ static const struct cifs_sid sid_user = {1, 2 , {0, 0, 0, 0, 0, 5}, {} };
 
 const struct cred *root_cred;
 
-static void
-shrink_idmap_tree(struct rb_root *root, int nr_to_scan, int *nr_rem,
-			int *nr_del)
+static long
+cifs_idmap_tree_scan(
+	struct rb_root	*root,
+	spinlock_t	*tree_lock,
+	long		nr_to_scan)
 {
 	struct rb_node *node;
-	struct rb_node *tmp;
-	struct cifs_sid_id *psidid;
+	long freed = 0;
 
+	spin_lock(tree_lock);
 	node = rb_first(root);
-	while (node) {
+	while (nr_to_scan-- >= 0 && node) {
+		struct cifs_sid_id *psidid;
+		struct rb_node *tmp;
+
 		tmp = node;
 		node = rb_next(tmp);
 		psidid = rb_entry(tmp, struct cifs_sid_id, rbnode);
-		if (nr_to_scan == 0 || *nr_del == nr_to_scan)
-			++(*nr_rem);
-		else {
-			if (time_after(jiffies, psidid->time + SID_MAP_EXPIRE)
-						&& psidid->refcount == 0) {
-				rb_erase(tmp, root);
-				++(*nr_del);
-			} else
-				++(*nr_rem);
+		if (time_after(jiffies, psidid->time + SID_MAP_EXPIRE)
+					&& psidid->refcount == 0) {
+			rb_erase(tmp, root);
+			freed++;
 		}
 	}
+	spin_unlock(tree_lock);
+	return freed;
+}
+
+static long
+cifs_idmap_tree_count(
+	struct rb_root	*root,
+	spinlock_t	*tree_lock)
+{
+	struct rb_node *node;
+	long count = 0;
+
+	spin_lock(tree_lock);
+	node = rb_first(root);
+	while (node) {
+		node = rb_next(node);
+		count++;
+	}
+	spin_unlock(tree_lock);
+	return count;
 }
 
 /*
- * Run idmap cache shrinker.
+ * idmap tree shrinker.
+ *
+ * XXX (dchinner): this should really be 4 separate shrinker instances (one per
+ * tree structure) so that each are shrunk proportionally to their individual
+ * sizes.
  */
-static int
-cifs_idmap_shrinker(struct shrinker *shrink, struct shrink_control *sc)
+static long
+cifs_idmap_shrink_scan(
+	struct shrinker		*shrink,
+	struct shrink_control	*sc)
 {
-	int nr_to_scan = sc->nr_to_scan;
-	int nr_del = 0;
-	int nr_rem = 0;
-	struct rb_root *root;
+	long freed = 0;
 
-	root = &uidtree;
-	spin_lock(&siduidlock);
-	shrink_idmap_tree(root, nr_to_scan, &nr_rem, &nr_del);
-	spin_unlock(&siduidlock);
+	freed += cifs_idmap_tree_scan(&uidtree, &siduidlock, sc->nr_to_scan);
+	freed += cifs_idmap_tree_scan(&gidtree, &sidgidlock, sc->nr_to_scan);
+	freed += cifs_idmap_tree_scan(&siduidtree, &siduidlock, sc->nr_to_scan);
+	freed += cifs_idmap_tree_scan(&sidgidtree, &sidgidlock, sc->nr_to_scan);
 
-	root = &gidtree;
-	spin_lock(&sidgidlock);
-	shrink_idmap_tree(root, nr_to_scan, &nr_rem, &nr_del);
-	spin_unlock(&sidgidlock);
+	return freed;
+}
 
-	return nr_rem;
+static long
+cifs_idmap_shrink_count(
+	struct shrinker		*shrink,
+	struct shrink_control	*sc)
+{
+	long count = 0;
+
+	count += cifs_idmap_tree_count(&uidtree, &siduidlock);
+	count += cifs_idmap_tree_count(&gidtree, &sidgidlock);
+	count += cifs_idmap_tree_count(&siduidtree, &siduidlock);
+	count += cifs_idmap_tree_count(&sidgidtree, &sidgidlock);
+
+	return count;
 }
 
 static struct shrinker cifs_shrinker = {
-	.shrink = cifs_idmap_shrinker,
+	.count_objects = cifs_idmap_shrink_count,
+	.scan_objects = cifs_idmap_shrink_scan,
 	.seeks = DEFAULT_SEEKS,
 };
+
 
 static int
 cifs_idmap_key_instantiate(struct key *key, const void *data, size_t datalen)

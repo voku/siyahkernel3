@@ -244,7 +244,9 @@ extern int nfs_init_client(struct nfs_client *clp,
 			   int noresvport);
 
 /* dir.c */
-extern int nfs_access_cache_shrinker(struct shrinker *shrink,
+extern long nfs_access_cache_count(struct shrinker *shrink,
+					struct shrink_control *sc);
+extern long nfs_access_cache_scan(struct shrinker *shrink,
 					struct shrink_control *sc);
 
 /* inode.c */
