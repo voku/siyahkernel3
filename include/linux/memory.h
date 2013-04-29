@@ -119,7 +119,6 @@ extern int register_new_memory(int, struct mem_section *);
 extern int unregister_memory_section(struct mem_section *);
 #endif
 extern int memory_dev_init(void);
-extern int remove_memory_block(unsigned long, struct mem_section *, int);
 extern int memory_notify(unsigned long val, void *v);
 extern int memory_isolate_notify(unsigned long val, void *v);
 extern struct memory_block *find_memory_block_hinted(struct mem_section *,
