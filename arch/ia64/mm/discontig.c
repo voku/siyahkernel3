@@ -819,9 +819,15 @@ void arch_refresh_nodedata(int update_node, pg_data_t *update_pgdat)
 #endif
 
 #ifdef CONFIG_SPARSEMEM_VMEMMAP
-int __meminit vmemmap_populate(struct page *start_page,
-						unsigned long size, int node)
+int __meminit vmemmap_populate(unsigned long start, unsigned long end, int node)
 {
-	return vmemmap_populate_basepages(start_page, size, node);
+	return vmemmap_populate_basepages(start, end, node);
 }
+<<<<<<< HEAD
+=======
+
+void vmemmap_free(unsigned long start, unsigned long end)
+{
+}
+>>>>>>> 0aad818... sparse-vmemmap: specify vmemmap population range in bytes
 #endif
