@@ -20,8 +20,15 @@
 
 void show_regs(struct pt_regs *regs)
 {
+<<<<<<< HEAD
 	printk(KERN_INFO " Registers dump: mode=%X\r\n", regs->pt_mode);
 	printk(KERN_INFO " r1=%08lX, r2=%08lX, r3=%08lX, r4=%08lX\n",
+=======
+	show_regs_print_info(KERN_INFO);
+
+	pr_info(" Registers dump: mode=%X\r\n", regs->pt_mode);
+	pr_info(" r1=%08lX, r2=%08lX, r3=%08lX, r4=%08lX\n",
+>>>>>>> a43cb95... dump_stack: unify debug information printed by show_regs()
 				regs->r1, regs->r2, regs->r3, regs->r4);
 	printk(KERN_INFO " r5=%08lX, r6=%08lX, r7=%08lX, r8=%08lX\n",
 				regs->r5, regs->r6, regs->r7, regs->r8);

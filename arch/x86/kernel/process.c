@@ -96,6 +96,7 @@ void show_regs(struct pt_regs *regs)
 	show_trace(NULL, regs, (unsigned long *)kernel_stack_pointer(regs), 0);
 }
 
+<<<<<<< HEAD
 void show_regs_common(void)
 {
 	const char *vendor, *product, *board;
@@ -122,6 +123,8 @@ void show_regs_common(void)
 	printk(KERN_CONT "\n");
 }
 
+=======
+>>>>>>> a43cb95... dump_stack: unify debug information printed by show_regs()
 void flush_thread(void)
 {
 	struct task_struct *tsk = current;

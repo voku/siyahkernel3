@@ -249,15 +249,18 @@ void show_registers(struct pt_regs *regs)
 {
 	int i;
 	unsigned long sp;
-	const int cpu = smp_processor_id();
-	struct task_struct *cur = current;
 
 	sp = regs->sp;
+<<<<<<< HEAD
 	printk("CPU %d ", cpu);
 	print_modules();
 	__show_regs(regs, 1);
 	printk("Process %s (pid: %d, threadinfo %p, task %p)\n",
 		cur->comm, cur->pid, task_thread_info(cur), cur);
+=======
+	show_regs_print_info(KERN_DEFAULT);
+	__show_regs(regs, 1);
+>>>>>>> a43cb95... dump_stack: unify debug information printed by show_regs()
 
 	/*
 	 * When in-kernel, we also print out the stack and code at the

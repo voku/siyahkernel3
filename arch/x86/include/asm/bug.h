@@ -36,4 +36,8 @@ do {								\
 #endif /* !CONFIG_BUG */
 
 #include <asm-generic/bug.h>
+<<<<<<< HEAD
+=======
+
+>>>>>>> a43cb95... dump_stack: unify debug information printed by show_regs()
 #endif /* _ASM_X86_BUG_H */
