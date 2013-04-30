@@ -315,6 +315,7 @@ void show_stack(struct task_struct *tsk, unsigned long *_ksp)
 	printk("\n");
 }
 
+<<<<<<< HEAD
 void dump_stack(void)
 {
 	unsigned long *ksp;
@@ -326,6 +327,8 @@ void dump_stack(void)
 
 EXPORT_SYMBOL(dump_stack);
 
+=======
+>>>>>>> 196779b... dump_stack: consolidate dump_stack() implementations and unify their behaviors
 /*
  * Note: sparc64 has a pretty intricated thread_saved_pc, check it out.
  */
