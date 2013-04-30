@@ -1162,8 +1162,7 @@ static int send_signal(int sig, struct siginfo *info, struct task_struct *t,
 
 static void print_fatal_signal(struct pt_regs *regs, int signr)
 {
-	printk(KERN_INFO "%s/%d: potentially unexpected fatal signal %d.\n",
-		current->comm, task_pid_nr(current), signr);
+	printk(KERN_INFO "potentially unexpected fatal signal %d.\n", signr);
 
 #if defined(__i386__) && !defined(__arch_um__)
 	printk(KERN_INFO "code at %08lx: ", regs->ip);
