@@ -100,7 +100,7 @@
 
 #define MXT224_AUTOCAL_WAIT_TIME	2000
 /* no debug !!! */
-#define printk(arg, ...)
+//#define printk(arg, ...)
 #define TOUCH_LOCK_FREQ		1000000
 
 #if defined(U1_EUR_TARGET)
@@ -1234,12 +1234,10 @@ extern void flash_led_buttons(unsigned int);
 static unsigned int flash_timeout = 0;
 #endif
 
-// touchbooster
-static unsigned int level = ~0;
-static int touchbooster_counter = 0;
-
 static void report_input_data(struct mxt224_data *data)
 {
+	static unsigned int level = ~0;
+	static int touchbooster_counter = 0;
 	int i;
 	bool tsp_state = false;
 	bool check_press = false;
