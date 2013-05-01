@@ -67,7 +67,7 @@ static int may_change_ptraced_domain(struct task_struct *task,
 	int error = 0;
 
 	rcu_read_lock();
-	tracer = tracehook_tracer_task(task);
+	tracer = ptrace_parent(task);
 	if (tracer) {
 		/* released below */
 		cred = get_task_cred(tracer);
@@ -359,6 +359,10 @@ int apparmor_bprm_set_creds(struct linux_binprm *bprm)
 
 	if (bprm->cred_prepared)
 		return 0;
+
+	/* XXX: no_new_privs is not usable with AppArmor yet */
+	if (bprm->unsafe & LSM_UNSAFE_NO_NEW_PRIVS)
+		return -EPERM;
 
 	cxt = bprm->cred->security;
 	BUG_ON(!cxt);

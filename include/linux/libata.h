@@ -1245,22 +1245,6 @@ static inline int sata_srst_pmp(struct ata_link *link)
 /*
  * printk helpers
  */
-<<<<<<< HEAD
-#define ata_port_printk(ap, lv, fmt, args...) \
-	printk("%sata%u: "fmt, lv, (ap)->print_id , ##args)
-
-#define ata_link_printk(link, lv, fmt, args...) do { \
-	if (sata_pmp_attached((link)->ap) || (link)->ap->slave_link)	\
-		printk("%sata%u.%02u: "fmt, lv, (link)->ap->print_id,	\
-		       (link)->pmp , ##args); \
-	else \
-		printk("%sata%u: "fmt, lv, (link)->ap->print_id , ##args); \
-	} while(0)
-
-#define ata_dev_printk(dev, lv, fmt, args...) \
-	printk("%sata%u.%02u: "fmt, lv, (dev)->link->ap->print_id,	\
-	       (dev)->link->pmp + (dev)->devno , ##args)
-=======
 __printf(3, 4)
 int ata_port_printk(const struct ata_port *ap, const char *level,
 		    const char *fmt, ...);
@@ -1305,7 +1289,6 @@ int ata_dev_printk(const struct ata_device *dev, const char *level,
 	ata_dev_printk(dev, KERN_DEBUG, fmt, ##__VA_ARGS__)
 
 void ata_print_version(const struct device *dev, const char *version);
->>>>>>> b9075fa... treewide: use __printf not __attribute__((format(printf,...)))
 
 /*
  * ata_eh_info helpers

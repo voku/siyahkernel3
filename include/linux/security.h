@@ -131,6 +131,7 @@ struct request_sock;
 #define LSM_UNSAFE_SHARE	1
 #define LSM_UNSAFE_PTRACE	2
 #define LSM_UNSAFE_PTRACE_CAP	4
+#define LSM_UNSAFE_NO_NEW_PRIVS	8
 
 #ifdef CONFIG_MMU
 extern int mmap_min_addr_handler(struct ctl_table *table, int write,
@@ -1720,7 +1721,6 @@ int security_inode_rename(struct inode *old_dir, struct dentry *old_dentry,
 int security_inode_readlink(struct dentry *dentry);
 int security_inode_follow_link(struct dentry *dentry, struct nameidata *nd);
 int security_inode_permission(struct inode *inode, int mask);
-int security_inode_exec_permission(struct inode *inode, unsigned int flags);
 int security_inode_setattr(struct dentry *dentry, struct iattr *attr);
 int security_inode_getattr(struct vfsmount *mnt, struct dentry *dentry);
 int security_inode_setxattr(struct dentry *dentry, const char *name,
@@ -2073,12 +2073,6 @@ static inline int security_inode_follow_link(struct dentry *dentry,
 }
 
 static inline int security_inode_permission(struct inode *inode, int mask)
-{
-	return 0;
-}
-
-static inline int security_inode_exec_permission(struct inode *inode,
-						  unsigned int flags)
 {
 	return 0;
 }

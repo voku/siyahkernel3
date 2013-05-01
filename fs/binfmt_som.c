@@ -219,7 +219,6 @@ load_som_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 		goto out_free;
 
 	/* OK, This is the point of no return */
-	current->flags &= ~PF_FORKNOEXEC;
 	current->personality = PER_HPUX;
 	setup_new_exec(bprm);
 
@@ -283,7 +282,8 @@ static int load_som_library(struct file *f)
 
 static int __init init_som_binfmt(void)
 {
-	return register_binfmt(&som_format);
+	register_binfmt(&som_format);
+	return 0;
 }
 
 static void __exit exit_som_binfmt(void)

@@ -92,7 +92,8 @@ static struct linux_binfmt elf_fdpic_format = {
 
 static int __init init_elf_fdpic_binfmt(void)
 {
-	return register_binfmt(&elf_fdpic_format);
+	register_binfmt(&elf_fdpic_format);
+	return 0;
 }
 
 static void __exit exit_elf_fdpic_binfmt(void)
@@ -246,8 +247,7 @@ static int load_elf_fdpic_binary(struct linux_binprm *bprm,
 			 * mm->dumpable = 0 regardless of the interpreter's
 			 * permissions.
 			 */
-			if (file_permission(interpreter, MAY_READ) < 0)
-				bprm->interp_flags |= BINPRM_FLAGS_ENFORCE_NONDUMP;
+			would_dump(bprm, interpreter);
 
 			retval = kernel_read(interpreter, 0, bprm->buf,
 					     BINPRM_BUF_SIZE);
@@ -336,8 +336,6 @@ static int load_elf_fdpic_binary(struct linux_binprm *bprm,
 	current->mm->context.exec_fdpic_loadmap = 0;
 	current->mm->context.interp_fdpic_loadmap = 0;
 
-	current->flags &= ~PF_FORKNOEXEC;
-
 #ifdef CONFIG_MMU
 	elf_fdpic_arch_lay_out_mm(&exec_params,
 				  &interp_params,
@@ -411,7 +409,6 @@ static int load_elf_fdpic_binary(struct linux_binprm *bprm,
 #endif
 
 	install_exec_creds(bprm);
-	current->flags &= ~PF_FORKNOEXEC;
 	if (create_elf_fdpic_tables(bprm, current->mm,
 				    &exec_params, &interp_params) < 0)
 		goto error_kill;
@@ -1208,7 +1205,7 @@ static int maydump(struct vm_area_struct *vma, unsigned long mm_flags)
 	int dump_ok;
 
 	/* Do not dump I/O mapped devices or special mappings */
-	if (vma->vm_flags & (VM_IO | VM_RESERVED)) {
+	if (vma->vm_flags & VM_IO) {
 		kdcore("%08lx: %08lx: no (IO)", vma->vm_start, vma->vm_flags);
 		return 0;
 	}
