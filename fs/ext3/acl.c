@@ -240,11 +240,11 @@ ext3_set_acl(handle_t *handle, struct inode *inode, int type,
 }
 
 int
-ext3_check_acl(struct inode *inode, int mask)
+ext3_check_acl(struct inode *inode, int mask, unsigned int flags)
 {
 	struct posix_acl *acl;
 
-	if (mask & MAY_NOT_BLOCK) {
+	if (flags & IPERM_FLAG_RCU) {
 		if (!negative_cached_acl(inode, ACL_TYPE_ACCESS))
 			return -ECHILD;
 		return -EAGAIN;

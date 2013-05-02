@@ -29,8 +29,7 @@
 #include "dir.h"
 
 static struct shrinker qd_shrinker = {
-	.count_objects = gfs2_qd_shrink_count,
-	.scan_objects = gfs2_qd_shrink_scan,
+	.shrink = gfs2_shrink_qd_memory,
 	.seeks = DEFAULT_SEEKS,
 };
 

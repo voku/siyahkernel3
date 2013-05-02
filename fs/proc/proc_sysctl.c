@@ -338,7 +338,7 @@ out:
 	return ret;
 }
 
-static int proc_sys_permission(struct inode *inode, int mask)
+static int proc_sys_permission(struct inode *inode, int mask,unsigned int flags)
 {
 	/*
 	 * sysctl entries that are not writeable,
@@ -360,7 +360,7 @@ static int proc_sys_permission(struct inode *inode, int mask)
 	if (!table) /* global root - r-xr-xr-x */
 		error = mask & MAY_WRITE ? -EACCES : 0;
 	else /* Use the permissions on the sysctl table entry */
-		error = sysctl_perm(head->root, table, mask & ~MAY_NOT_BLOCK);
+		error = sysctl_perm(head->root, table, mask);
 
 	sysctl_head_finish(head);
 	return error;

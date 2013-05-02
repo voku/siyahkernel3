@@ -272,7 +272,7 @@ v9fs_vfs_create_dotl(struct inode *dir, struct dentry *dentry, umode_t omode,
 
 	v9ses = v9fs_inode2v9ses(dir);
 	if (nd && nd->flags & LOOKUP_OPEN)
-		flags = nd->intent.open.flags;
+		flags = nd->intent.open.flags - 1;
 	else {
 		/*
 		 * create call without LOOKUP_OPEN is due

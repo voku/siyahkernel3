@@ -1351,19 +1351,9 @@ static int is_atomic_open(struct nameidata *nd)
 		return 0;
 	/* Are we trying to write to a read only partition? */
 	if (__mnt_is_readonly(nd->path.mnt) &&
-	    (nd->intent.open.flags & (O_CREAT|O_TRUNC|O_ACCMODE)))
+	    (nd->intent.open.flags & (O_CREAT|O_TRUNC|FMODE_WRITE)))
 		return 0;
 	return 1;
-}
-
-static fmode_t flags_to_mode(int flags)
-{
-	fmode_t res = (__force fmode_t)flags & FMODE_EXEC;
-	if ((flags & O_ACCMODE) != O_WRONLY)
-		res |= FMODE_READ;
-	if ((flags & O_ACCMODE) != O_RDONLY)
-		res |= FMODE_WRITE;
-	return res;
 }
 
 static struct nfs_open_context *nameidata_to_nfs_open_context(struct dentry *dentry, struct nameidata *nd)
@@ -1374,7 +1364,7 @@ static struct nfs_open_context *nameidata_to_nfs_open_context(struct dentry *den
 	};
 	struct nfs_open_context *ctx;
 	struct rpc_cred *cred;
-	fmode_t fmode = flags_to_mode(open_flags);
+	fmode_t fmode = nd->intent.open.flags & (FMODE_READ | FMODE_WRITE | FMODE_EXEC);
 
 	cred = rpc_lookup_cred();
 	if (IS_ERR(cred))
@@ -1593,7 +1583,7 @@ static int nfs_open_create(struct inode *dir, struct dentry *dentry,
 	struct nfs_open_context *ctx = NULL;
 	struct iattr attr;
 	int error;
-	int open_flags = O_CREAT|O_EXCL;
+	int open_flags = 0;
 
 	dfprintk(VFS, "NFS: create(%s/%ld), %s\n",
 			dir->i_sb->s_id, dir->i_ino, dentry->d_name.name);
@@ -1683,7 +1673,7 @@ static int nfs_create(struct inode *dir, struct dentry *dentry,
 {
 	struct iattr attr;
 	int error;
-	int open_flags = O_CREAT|O_EXCL;
+	int open_flags = 0;
 
 	dfprintk(VFS, "NFS: create(%s/%ld), %s\n",
 			dir->i_sb->s_id, dir->i_ino, dentry->d_name.name);
@@ -2058,20 +2048,17 @@ static void nfs_access_free_list(struct list_head *head)
 	}
 }
 
-long
-nfs_access_cache_scan(
-	struct shrinker		*shrink,
-	struct shrink_control	*sc)
+int nfs_access_cache_shrinker(struct shrinker *shrink,
+			      struct shrink_control *sc)
 {
 	LIST_HEAD(head);
 	struct nfs_inode *nfsi, *next;
 	struct nfs_access_entry *cache;
 	int nr_to_scan = sc->nr_to_scan;
 	gfp_t gfp_mask = sc->gfp_mask;
-	long freed = 0;
 
 	if ((gfp_mask & GFP_KERNEL) != GFP_KERNEL)
-		return -1;
+		return (nr_to_scan == 0) ? 0 : -1;
 
 	spin_lock(&nfs_access_lru_lock);
 	list_for_each_entry_safe(nfsi, next, &nfs_access_lru_list, access_cache_inode_lru) {
@@ -2087,7 +2074,6 @@ nfs_access_cache_scan(
 				struct nfs_access_entry, lru);
 		list_move(&cache->lru, &head);
 		rb_erase(&cache->rb_node, &nfsi->access_cache);
-		freed++;
 		if (!list_empty(&nfsi->access_cache_entry_lru))
 			list_move_tail(&nfsi->access_cache_inode_lru,
 					&nfs_access_lru_list);
@@ -2102,16 +2088,7 @@ remove_lru_entry:
 	}
 	spin_unlock(&nfs_access_lru_lock);
 	nfs_access_free_list(&head);
-	return freed;
-}
-
-long
-nfs_access_cache_count(
-	struct shrinker		*shrink,
-	struct shrink_control	*sc)
-{
-	return (atomic_long_read(&nfs_access_nr_entries) / 100) *
-						sysctl_vfs_cache_pressure;
+	return (atomic_long_read(&nfs_access_nr_entries) / 100) * sysctl_vfs_cache_pressure;
 }
 
 static void __nfs_access_zap_cache(struct nfs_inode *nfsi, struct list_head *head)
@@ -2293,11 +2270,11 @@ static int nfs_open_permission_mask(int openflags)
 {
 	int mask = 0;
 
-	if ((openflags & O_ACCMODE) != O_WRONLY)
+	if (openflags & FMODE_READ)
 		mask |= MAY_READ;
-	if ((openflags & O_ACCMODE) != O_RDONLY)
+	if (openflags & FMODE_WRITE)
 		mask |= MAY_WRITE;
-	if (openflags & __FMODE_EXEC)
+	if (openflags & FMODE_EXEC)
 		mask |= MAY_EXEC;
 	return mask;
 }
@@ -2307,12 +2284,12 @@ int nfs_may_open(struct inode *inode, struct rpc_cred *cred, int openflags)
 	return nfs_do_access(inode, cred, nfs_open_permission_mask(openflags));
 }
 
-int nfs_permission(struct inode *inode, int mask)
+int nfs_permission(struct inode *inode, int mask, unsigned int flags)
 {
 	struct rpc_cred *cred;
 	int res = 0;
 
-	if (mask & MAY_NOT_BLOCK)
+	if (flags & IPERM_FLAG_RCU)
 		return -ECHILD;
 
 	nfs_inc_stats(inode, NFSIOS_VFSACCESS);
@@ -2362,7 +2339,7 @@ out:
 out_notsup:
 	res = nfs_revalidate_inode(NFS_SERVER(inode), inode);
 	if (res == 0)
-		res = generic_permission(inode, mask);
+		res = generic_permission(inode, mask, flags, NULL);
 	goto out;
 }
 

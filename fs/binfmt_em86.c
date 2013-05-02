@@ -99,8 +99,7 @@ static struct linux_binfmt em86_format = {
 
 static int __init init_em86_binfmt(void)
 {
-	register_binfmt(&em86_format);
-	return 0;
+	return register_binfmt(&em86_format);
 }
 
 static void __exit exit_em86_binfmt(void)

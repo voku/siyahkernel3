@@ -195,13 +195,14 @@ out:
 	return ret;
 }
 
-int btrfs_check_acl(struct inode *inode, int mask)
+int btrfs_check_acl(struct inode *inode, int mask, unsigned int flags)
 {
 	int error = -EAGAIN;
 
-	if (mask & MAY_NOT_BLOCK) {
+	if (flags & IPERM_FLAG_RCU) {
 		if (!negative_cached_acl(inode, ACL_TYPE_ACCESS))
 			error = -ECHILD;
+
 	} else {
 		struct posix_acl *acl;
 		acl = btrfs_get_acl(inode, ACL_TYPE_ACCESS);

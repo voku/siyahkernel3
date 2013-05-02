@@ -799,14 +799,14 @@ out_err:
 	return err;
 }
 
-int nilfs_permission(struct inode *inode, int mask)
+int nilfs_permission(struct inode *inode, int mask, unsigned int flags)
 {
 	struct nilfs_root *root = NILFS_I(inode)->i_root;
 	if ((mask & MAY_WRITE) && root &&
 	    root->cno != NILFS_CPTREE_CURRENT_CNO)
 		return -EROFS; /* snapshot is not writable */
 
-	return generic_permission(inode, mask);
+	return generic_permission(inode, mask, flags, NULL);
 }
 
 int nilfs_load_inode_block(struct inode *inode, struct buffer_head **pbh)

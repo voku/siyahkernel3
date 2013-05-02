@@ -1350,8 +1350,9 @@ void gfs2_glock_complete(struct gfs2_glock *gl, int ret)
 		gfs2_glock_put(gl);
 }
 
-static long gfs2_glock_shrink_scan(struct shrinker *shrink,
-				   struct shrink_control *sc)
+
+static int gfs2_shrink_glock_memory(struct shrinker *shrink,
+				    struct shrink_control *sc)
 {
 	struct gfs2_glock *gl;
 	int may_demote;
@@ -1359,13 +1360,15 @@ static long gfs2_glock_shrink_scan(struct shrinker *shrink,
 	int nr = sc->nr_to_scan;
 	gfp_t gfp_mask = sc->gfp_mask;
 	LIST_HEAD(skipped);
-	long freed = 0;
+
+	if (nr == 0)
+		goto out;
 
 	if (!(gfp_mask & __GFP_FS))
 		return -1;
 
 	spin_lock(&lru_lock);
-	while(nr-- >= 0 && !list_empty(&lru_list)) {
+	while(nr && !list_empty(&lru_list)) {
 		gl = list_entry(lru_list.next, struct gfs2_glock, gl_lru);
 		list_del_init(&gl->gl_lru);
 		clear_bit(GLF_LRU, &gl->gl_flags);
@@ -1379,7 +1382,7 @@ static long gfs2_glock_shrink_scan(struct shrinker *shrink,
 			may_demote = demote_ok(gl);
 			if (may_demote) {
 				handle_callback(gl, LM_ST_UNLOCKED, 0);
-				freed++;
+				nr--;
 			}
 			clear_bit(GLF_LOCK, &gl->gl_flags);
 			smp_mb__after_clear_bit();
@@ -1396,18 +1399,12 @@ static long gfs2_glock_shrink_scan(struct shrinker *shrink,
 	list_splice(&skipped, &lru_list);
 	atomic_add(nr_skipped, &lru_count);
 	spin_unlock(&lru_lock);
-	return freed;
-}
-
-static long gfs2_glock_shrink_count(struct shrinker *shrink,
-				    struct shrink_control *sc)
-{
+out:
 	return (atomic_read(&lru_count) / 100) * sysctl_vfs_cache_pressure;
 }
 
 static struct shrinker glock_shrinker = {
-	.count_objects = gfs2_glock_shrink_count,
-	.scan_objects = gfs2_glock_shrink_scan,
+	.shrink = gfs2_shrink_glock_memory,
 	.seeks = DEFAULT_SEEKS,
 };
 
