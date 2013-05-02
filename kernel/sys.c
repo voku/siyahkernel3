@@ -12,6 +12,7 @@
 #include <linux/prctl.h>
 #include <linux/highuid.h>
 #include <linux/fs.h>
+#include <linux/kmod.h>
 #include <linux/perf_event.h>
 #include <linux/resource.h>
 #include <linux/kernel.h>
@@ -130,9 +131,8 @@ static bool set_one_prio_perm(struct task_struct *p)
 {
 	const struct cred *cred = current_cred(), *pcred = __task_cred(p);
 
-	if (pcred->user_ns == cred->user_ns &&
-	    (pcred->uid  == cred->euid ||
-	     pcred->euid == cred->euid))
+	if (uid_eq(pcred->uid,  cred->euid) ||
+	    uid_eq(pcred->euid, cred->euid))
 		return true;
 	if (ns_capable(pcred->user_ns, CAP_SYS_NICE))
 		return true;
@@ -208,7 +208,7 @@ SYSCALL_DEFINE3(setpriority, int, which, int, who, int, niceval)
 			break;
 		case PRIO_USER:
 			uid = make_kuid(cred->user_ns, who);
-			user = (struct user_struct *) cred->user;
+			user = cred->user;
 			if (!who)
 				uid = cred->uid;
 			else if (!uid_eq(uid, cred->uid) &&
@@ -275,7 +275,7 @@ SYSCALL_DEFINE2(getpriority, int, which, int, who)
 			break;
 		case PRIO_USER:
 			uid = make_kuid(cred->user_ns, who);
-			user = (struct user_struct *) cred->user;
+			user = cred->user;
 			if (!who)
 				uid = cred->uid;
 			else if (!uid_eq(uid, cred->uid) &&
@@ -452,6 +452,15 @@ SYSCALL_DEFINE4(reboot, int, magic1, int, magic2, unsigned int, cmd,
 	                magic2 != LINUX_REBOOT_MAGIC2C))
 		return -EINVAL;
 
+	/*
+	 * If pid namespaces are enabled and the current task is in a child
+	 * pid_namespace, the command is handled by reboot_pid_ns() which will
+	 * call do_exit().
+	 */
+	ret = reboot_pid_ns(task_active_pid_ns(current), cmd);
+	if (ret)
+		return ret;
+
 	/* Instead of trying to make the power_off code look like
 	 * halt when pm_power_off is not set do it the easy way.
 	 */
@@ -552,9 +561,19 @@ void ctrl_alt_del(void)
  */
 SYSCALL_DEFINE2(setregid, gid_t, rgid, gid_t, egid)
 {
+	struct user_namespace *ns = current_user_ns();
 	const struct cred *old;
 	struct cred *new;
 	int retval;
+	kgid_t krgid, kegid;
+
+	krgid = make_kgid(ns, rgid);
+	kegid = make_kgid(ns, egid);
+
+	if ((rgid != (gid_t) -1) && !gid_valid(krgid))
+		return -EINVAL;
+	if ((egid != (gid_t) -1) && !gid_valid(kegid))
+		return -EINVAL;
 
 	new = prepare_creds();
 	if (!new)
@@ -563,25 +582,25 @@ SYSCALL_DEFINE2(setregid, gid_t, rgid, gid_t, egid)
 
 	retval = -EPERM;
 	if (rgid != (gid_t) -1) {
-		if (old->gid == rgid ||
-		    old->egid == rgid ||
+		if (gid_eq(old->gid, krgid) ||
+		    gid_eq(old->egid, krgid) ||
 		    nsown_capable(CAP_SETGID))
-			new->gid = rgid;
+			new->gid = krgid;
 		else
 			goto error;
 	}
 	if (egid != (gid_t) -1) {
-		if (old->gid == egid ||
-		    old->egid == egid ||
-		    old->sgid == egid ||
+		if (gid_eq(old->gid, kegid) ||
+		    gid_eq(old->egid, kegid) ||
+		    gid_eq(old->sgid, kegid) ||
 		    nsown_capable(CAP_SETGID))
-			new->egid = egid;
+			new->egid = kegid;
 		else
 			goto error;
 	}
 
 	if (rgid != (gid_t) -1 ||
-	    (egid != (gid_t) -1 && egid != old->gid))
+	    (egid != (gid_t) -1 && !gid_eq(kegid, old->gid)))
 		new->sgid = new->egid;
 	new->fsgid = new->egid;
 
@@ -599,9 +618,15 @@ error:
  */
 SYSCALL_DEFINE1(setgid, gid_t, gid)
 {
+	struct user_namespace *ns = current_user_ns();
 	const struct cred *old;
 	struct cred *new;
 	int retval;
+	kgid_t kgid;
+
+	kgid = make_kgid(ns, gid);
+	if (!gid_valid(kgid))
+		return -EINVAL;
 
 	new = prepare_creds();
 	if (!new)
@@ -610,9 +635,9 @@ SYSCALL_DEFINE1(setgid, gid_t, gid)
 
 	retval = -EPERM;
 	if (nsown_capable(CAP_SETGID))
-		new->gid = new->egid = new->sgid = new->fsgid = gid;
-	else if (gid == old->gid || gid == old->sgid)
-		new->egid = new->fsgid = gid;
+		new->gid = new->egid = new->sgid = new->fsgid = kgid;
+	else if (gid_eq(kgid, old->gid) || gid_eq(kgid, old->sgid))
+		new->egid = new->fsgid = kgid;
 	else
 		goto error;
 
@@ -670,9 +695,19 @@ static int set_user(struct cred *new)
  */
 SYSCALL_DEFINE2(setreuid, uid_t, ruid, uid_t, euid)
 {
+	struct user_namespace *ns = current_user_ns();
 	const struct cred *old;
 	struct cred *new;
 	int retval;
+	kuid_t kruid, keuid;
+
+	kruid = make_kuid(ns, ruid);
+	keuid = make_kuid(ns, euid);
+
+	if ((ruid != (uid_t) -1) && !uid_valid(kruid))
+		return -EINVAL;
+	if ((euid != (uid_t) -1) && !uid_valid(keuid))
+		return -EINVAL;
 
 	new = prepare_creds();
 	if (!new)
@@ -681,29 +716,29 @@ SYSCALL_DEFINE2(setreuid, uid_t, ruid, uid_t, euid)
 
 	retval = -EPERM;
 	if (ruid != (uid_t) -1) {
-		new->uid = ruid;
-		if (old->uid != ruid &&
-		    old->euid != ruid &&
+		new->uid = kruid;
+		if (!uid_eq(old->uid, kruid) &&
+		    !uid_eq(old->euid, kruid) &&
 		    !nsown_capable(CAP_SETUID))
 			goto error;
 	}
 
 	if (euid != (uid_t) -1) {
-		new->euid = euid;
-		if (old->uid != euid &&
-		    old->euid != euid &&
-		    old->suid != euid &&
+		new->euid = keuid;
+		if (!uid_eq(old->uid, keuid) &&
+		    !uid_eq(old->euid, keuid) &&
+		    !uid_eq(old->suid, keuid) &&
 		    !nsown_capable(CAP_SETUID))
 			goto error;
 	}
 
-	if (new->uid != old->uid) {
+	if (!uid_eq(new->uid, old->uid)) {
 		retval = set_user(new);
 		if (retval < 0)
 			goto error;
 	}
 	if (ruid != (uid_t) -1 ||
-	    (euid != (uid_t) -1 && euid != old->uid))
+	    (euid != (uid_t) -1 && !uid_eq(keuid, old->uid)))
 		new->suid = new->euid;
 	new->fsuid = new->euid;
 
@@ -731,9 +766,15 @@ error:
  */
 SYSCALL_DEFINE1(setuid, uid_t, uid)
 {
+	struct user_namespace *ns = current_user_ns();
 	const struct cred *old;
 	struct cred *new;
 	int retval;
+	kuid_t kuid;
+
+	kuid = make_kuid(ns, uid);
+	if (!uid_valid(kuid))
+		return -EINVAL;
 
 	new = prepare_creds();
 	if (!new)
@@ -742,17 +783,17 @@ SYSCALL_DEFINE1(setuid, uid_t, uid)
 
 	retval = -EPERM;
 	if (nsown_capable(CAP_SETUID)) {
-		new->suid = new->uid = uid;
-		if (uid != old->uid) {
+		new->suid = new->uid = kuid;
+		if (!uid_eq(kuid, old->uid)) {
 			retval = set_user(new);
 			if (retval < 0)
 				goto error;
 		}
-	} else if (uid != old->uid && uid != new->suid) {
+	} else if (!uid_eq(kuid, old->uid) && !uid_eq(kuid, new->suid)) {
 		goto error;
 	}
 
-	new->fsuid = new->euid = uid;
+	new->fsuid = new->euid = kuid;
 
 	retval = security_task_fix_setuid(new, old, LSM_SETID_ID);
 	if (retval < 0)
@@ -772,9 +813,24 @@ error:
  */
 SYSCALL_DEFINE3(setresuid, uid_t, ruid, uid_t, euid, uid_t, suid)
 {
+	struct user_namespace *ns = current_user_ns();
 	const struct cred *old;
 	struct cred *new;
 	int retval;
+	kuid_t kruid, keuid, ksuid;
+
+	kruid = make_kuid(ns, ruid);
+	keuid = make_kuid(ns, euid);
+	ksuid = make_kuid(ns, suid);
+
+	if ((ruid != (uid_t) -1) && !uid_valid(kruid))
+		return -EINVAL;
+
+	if ((euid != (uid_t) -1) && !uid_valid(keuid))
+		return -EINVAL;
+
+	if ((suid != (uid_t) -1) && !uid_valid(ksuid))
+		return -EINVAL;
 
 	new = prepare_creds();
 	if (!new)
@@ -784,29 +840,29 @@ SYSCALL_DEFINE3(setresuid, uid_t, ruid, uid_t, euid, uid_t, suid)
 
 	retval = -EPERM;
 	if (!nsown_capable(CAP_SETUID)) {
-		if (ruid != (uid_t) -1 && ruid != old->uid &&
-		    ruid != old->euid  && ruid != old->suid)
+		if (ruid != (uid_t) -1        && !uid_eq(kruid, old->uid) &&
+		    !uid_eq(kruid, old->euid) && !uid_eq(kruid, old->suid))
 			goto error;
-		if (euid != (uid_t) -1 && euid != old->uid &&
-		    euid != old->euid  && euid != old->suid)
+		if (euid != (uid_t) -1        && !uid_eq(keuid, old->uid) &&
+		    !uid_eq(keuid, old->euid) && !uid_eq(keuid, old->suid))
 			goto error;
-		if (suid != (uid_t) -1 && suid != old->uid &&
-		    suid != old->euid  && suid != old->suid)
+		if (suid != (uid_t) -1        && !uid_eq(ksuid, old->uid) &&
+		    !uid_eq(ksuid, old->euid) && !uid_eq(ksuid, old->suid))
 			goto error;
 	}
 
 	if (ruid != (uid_t) -1) {
-		new->uid = ruid;
-		if (ruid != old->uid) {
+		new->uid = kruid;
+		if (!uid_eq(kruid, old->uid)) {
 			retval = set_user(new);
 			if (retval < 0)
 				goto error;
 		}
 	}
 	if (euid != (uid_t) -1)
-		new->euid = euid;
+		new->euid = keuid;
 	if (suid != (uid_t) -1)
-		new->suid = suid;
+		new->suid = ksuid;
 	new->fsuid = new->euid;
 
 	retval = security_task_fix_setuid(new, old, LSM_SETID_RES);
@@ -820,14 +876,19 @@ error:
 	return retval;
 }
 
-SYSCALL_DEFINE3(getresuid, uid_t __user *, ruid, uid_t __user *, euid, uid_t __user *, suid)
+SYSCALL_DEFINE3(getresuid, uid_t __user *, ruidp, uid_t __user *, euidp, uid_t __user *, suidp)
 {
 	const struct cred *cred = current_cred();
 	int retval;
+	uid_t ruid, euid, suid;
 
-	if (!(retval   = put_user(cred->uid,  ruid)) &&
-	    !(retval   = put_user(cred->euid, euid)))
-		retval = put_user(cred->suid, suid);
+	ruid = from_kuid_munged(cred->user_ns, cred->uid);
+	euid = from_kuid_munged(cred->user_ns, cred->euid);
+	suid = from_kuid_munged(cred->user_ns, cred->suid);
+
+	if (!(retval   = put_user(ruid, ruidp)) &&
+	    !(retval   = put_user(euid, euidp)))
+		retval = put_user(suid, suidp);
 
 	return retval;
 }
@@ -837,9 +898,22 @@ SYSCALL_DEFINE3(getresuid, uid_t __user *, ruid, uid_t __user *, euid, uid_t __u
  */
 SYSCALL_DEFINE3(setresgid, gid_t, rgid, gid_t, egid, gid_t, sgid)
 {
+	struct user_namespace *ns = current_user_ns();
 	const struct cred *old;
 	struct cred *new;
 	int retval;
+	kgid_t krgid, kegid, ksgid;
+
+	krgid = make_kgid(ns, rgid);
+	kegid = make_kgid(ns, egid);
+	ksgid = make_kgid(ns, sgid);
+
+	if ((rgid != (gid_t) -1) && !gid_valid(krgid))
+		return -EINVAL;
+	if ((egid != (gid_t) -1) && !gid_valid(kegid))
+		return -EINVAL;
+	if ((sgid != (gid_t) -1) && !gid_valid(ksgid))
+		return -EINVAL;
 
 	new = prepare_creds();
 	if (!new)
@@ -848,23 +922,23 @@ SYSCALL_DEFINE3(setresgid, gid_t, rgid, gid_t, egid, gid_t, sgid)
 
 	retval = -EPERM;
 	if (!nsown_capable(CAP_SETGID)) {
-		if (rgid != (gid_t) -1 && rgid != old->gid &&
-		    rgid != old->egid  && rgid != old->sgid)
+		if (rgid != (gid_t) -1        && !gid_eq(krgid, old->gid) &&
+		    !gid_eq(krgid, old->egid) && !gid_eq(krgid, old->sgid))
 			goto error;
-		if (egid != (gid_t) -1 && egid != old->gid &&
-		    egid != old->egid  && egid != old->sgid)
+		if (egid != (gid_t) -1        && !gid_eq(kegid, old->gid) &&
+		    !gid_eq(kegid, old->egid) && !gid_eq(kegid, old->sgid))
 			goto error;
-		if (sgid != (gid_t) -1 && sgid != old->gid &&
-		    sgid != old->egid  && sgid != old->sgid)
+		if (sgid != (gid_t) -1        && !gid_eq(ksgid, old->gid) &&
+		    !gid_eq(ksgid, old->egid) && !gid_eq(ksgid, old->sgid))
 			goto error;
 	}
 
 	if (rgid != (gid_t) -1)
-		new->gid = rgid;
+		new->gid = krgid;
 	if (egid != (gid_t) -1)
-		new->egid = egid;
+		new->egid = kegid;
 	if (sgid != (gid_t) -1)
-		new->sgid = sgid;
+		new->sgid = ksgid;
 	new->fsgid = new->egid;
 
 	return commit_creds(new);
@@ -874,14 +948,19 @@ error:
 	return retval;
 }
 
-SYSCALL_DEFINE3(getresgid, gid_t __user *, rgid, gid_t __user *, egid, gid_t __user *, sgid)
+SYSCALL_DEFINE3(getresgid, gid_t __user *, rgidp, gid_t __user *, egidp, gid_t __user *, sgidp)
 {
 	const struct cred *cred = current_cred();
 	int retval;
+	gid_t rgid, egid, sgid;
 
-	if (!(retval   = put_user(cred->gid,  rgid)) &&
-	    !(retval   = put_user(cred->egid, egid)))
-		retval = put_user(cred->sgid, sgid);
+	rgid = from_kgid_munged(cred->user_ns, cred->gid);
+	egid = from_kgid_munged(cred->user_ns, cred->egid);
+	sgid = from_kgid_munged(cred->user_ns, cred->sgid);
+
+	if (!(retval   = put_user(rgid, rgidp)) &&
+	    !(retval   = put_user(egid, egidp)))
+		retval = put_user(sgid, sgidp);
 
 	return retval;
 }
@@ -898,18 +977,24 @@ SYSCALL_DEFINE1(setfsuid, uid_t, uid)
 	const struct cred *old;
 	struct cred *new;
 	uid_t old_fsuid;
+	kuid_t kuid;
+
+	old = current_cred();
+	old_fsuid = from_kuid_munged(old->user_ns, old->fsuid);
+
+	kuid = make_kuid(old->user_ns, uid);
+	if (!uid_valid(kuid))
+		return old_fsuid;
 
 	new = prepare_creds();
 	if (!new)
-		return current_fsuid();
-	old = current_cred();
-	old_fsuid = old->fsuid;
+		return old_fsuid;
 
-	if (uid == old->uid  || uid == old->euid  ||
-	    uid == old->suid || uid == old->fsuid ||
+	if (uid_eq(kuid, old->uid)  || uid_eq(kuid, old->euid)  ||
+	    uid_eq(kuid, old->suid) || uid_eq(kuid, old->fsuid) ||
 	    nsown_capable(CAP_SETUID)) {
-		if (uid != old_fsuid) {
-			new->fsuid = uid;
+		if (!uid_eq(kuid, old->fsuid)) {
+			new->fsuid = kuid;
 			if (security_task_fix_setuid(new, old, LSM_SETID_FS) == 0)
 				goto change_okay;
 		}
@@ -931,18 +1016,24 @@ SYSCALL_DEFINE1(setfsgid, gid_t, gid)
 	const struct cred *old;
 	struct cred *new;
 	gid_t old_fsgid;
+	kgid_t kgid;
+
+	old = current_cred();
+	old_fsgid = from_kgid_munged(old->user_ns, old->fsgid);
+
+	kgid = make_kgid(old->user_ns, gid);
+	if (!gid_valid(kgid))
+		return old_fsgid;
 
 	new = prepare_creds();
 	if (!new)
-		return current_fsgid();
-	old = current_cred();
-	old_fsgid = old->fsgid;
+		return old_fsgid;
 
-	if (gid == old->gid  || gid == old->egid  ||
-	    gid == old->sgid || gid == old->fsgid ||
+	if (gid_eq(kgid, old->gid)  || gid_eq(kgid, old->egid)  ||
+	    gid_eq(kgid, old->sgid) || gid_eq(kgid, old->fsgid) ||
 	    nsown_capable(CAP_SETGID)) {
-		if (gid != old_fsgid) {
-			new->fsgid = gid;
+		if (!gid_eq(kgid, old->fsgid)) {
+			new->fsgid = kgid;
 			goto change_okay;
 		}
 	}
@@ -1297,6 +1388,7 @@ SYSCALL_DEFINE2(sethostname, char __user *, name, int, len)
 		memset(u->nodename + len, 0, sizeof(u->nodename) - len);
 		errno = 0;
 	}
+	uts_proc_notify(UTS_PROC_HOSTNAME);
 	up_write(&uts_sem);
 	return errno;
 }
@@ -1347,6 +1439,7 @@ SYSCALL_DEFINE2(setdomainname, char __user *, name, int, len)
 		memset(u->domainname + len, 0, sizeof(u->domainname) - len);
 		errno = 0;
 	}
+	uts_proc_notify(UTS_PROC_DOMAINNAME);
 	up_write(&uts_sem);
 	return errno;
 }
@@ -1497,13 +1590,12 @@ static int check_prlimit_permission(struct task_struct *task)
 		return 0;
 
 	tcred = __task_cred(task);
-	if (cred->user_ns == tcred->user_ns &&
-	    (cred->uid == tcred->euid &&
-	     cred->uid == tcred->suid &&
-	     cred->uid == tcred->uid  &&
-	     cred->gid == tcred->egid &&
-	     cred->gid == tcred->sgid &&
-	     cred->gid == tcred->gid))
+	if (uid_eq(cred->uid, tcred->euid) &&
+	    uid_eq(cred->uid, tcred->suid) &&
+	    uid_eq(cred->uid, tcred->uid)  &&
+	    gid_eq(cred->gid, tcred->egid) &&
+	    gid_eq(cred->gid, tcred->sgid) &&
+	    gid_eq(cred->gid, tcred->gid))
 		return 0;
 	if (ns_capable(tcred->user_ns, CAP_SYS_RESOURCE))
 		return 0;
@@ -1714,7 +1806,7 @@ static int prctl_set_mm(int opt, unsigned long addr,
 	if (arg4 | arg5)
 		return -EINVAL;
 
-	if (!capable(CAP_SYS_ADMIN))
+	if (!capable(CAP_SYS_RESOURCE))
 		return -EPERM;
 
 	if (addr >= TASK_SIZE)
@@ -1888,6 +1980,7 @@ SYSCALL_DEFINE5(prctl, int, option, unsigned long, arg2, unsigned long, arg3,
 					      sizeof(me->comm) - 1) < 0)
 				return -EFAULT;
 			set_task_comm(me, comm);
+			proc_comm_connector(me);
 			return 0;
 		case PR_GET_NAME:
 			get_task_comm(comm, me);
@@ -1906,7 +1999,7 @@ SYSCALL_DEFINE5(prctl, int, option, unsigned long, arg2, unsigned long, arg3,
 			error = prctl_get_seccomp();
 			break;
 		case PR_SET_SECCOMP:
-			error = prctl_set_seccomp(arg2);
+			error = prctl_set_seccomp(arg2, (char __user *)arg3);
 			break;
 		case PR_GET_TSC:
 			error = GET_TSC_CTL(arg2);
@@ -1972,16 +2065,14 @@ SYSCALL_DEFINE5(prctl, int, option, unsigned long, arg2, unsigned long, arg3,
 		case PR_SET_MM:
 			error = prctl_set_mm(arg2, arg3, arg4, arg5);
 			break;
-		case PR_SET_NO_NEW_PRIVS:
-			if (arg2 != 1 || arg3 || arg4 || arg5)
-				return -EINVAL;
-
-			current->no_new_privs = 1;
+		case PR_SET_CHILD_SUBREAPER:
+			me->signal->is_child_subreaper = !!arg2;
+			error = 0;
 			break;
-		case PR_GET_NO_NEW_PRIVS:
-			if (arg2 || arg3 || arg4 || arg5)
-				return -EINVAL;
-			return current->no_new_privs ? 1 : 0;
+		case PR_GET_CHILD_SUBREAPER:
+			error = put_user(me->signal->is_child_subreaper,
+					 (int __user *) arg2);
+			break;
 		default:
 			error = -EINVAL;
 			break;

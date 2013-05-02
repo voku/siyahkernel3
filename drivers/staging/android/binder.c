@@ -33,8 +33,6 @@
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 #include <linux/vmalloc.h>
-#include <linux/slab.h>
-#include <linux/pid_namespace.h>
 
 #include "binder.h"
 
@@ -2449,7 +2447,7 @@ retry:
 		if (t->from) {
 			struct task_struct *sender = t->from->proc->tsk;
 			tr.sender_pid = task_tgid_nr_ns(sender,
-							task_active_pid_ns(current));
+							current->nsproxy->pid_ns);
 		} else {
 			tr.sender_pid = 0;
 		}
