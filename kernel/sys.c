@@ -209,7 +209,7 @@ SYSCALL_DEFINE3(setpriority, int, which, int, who, int, niceval)
 			break;
 		case PRIO_USER:
 			uid = make_kuid(cred->user_ns, who);
-			user = (struct user_struct *) cred->user;
+			user = cred->user;
 			if (!who)
 				uid = cred->uid;
 			else if (!uid_eq(uid, cred->uid) &&
@@ -276,7 +276,7 @@ SYSCALL_DEFINE2(getpriority, int, which, int, who)
 			break;
 		case PRIO_USER:
 			uid = make_kuid(cred->user_ns, who);
-			user = (struct user_struct *) cred->user;
+			user = cred->user;
 			if (!who)
 				uid = cred->uid;
 			else if (!uid_eq(uid, cred->uid) &&
