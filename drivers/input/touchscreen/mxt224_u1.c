@@ -1234,14 +1234,45 @@ extern void flash_led_buttons(unsigned int);
 static unsigned int flash_timeout = 0;
 #endif
 
+static unsigned int calc_toch_freq(void) {
+	int64_t touch_freq_multiplier = 0;
+	unsigned int new_lock_freq = 0;
+	unsigned long avnrun[3];
+
+	touch_freq_multiplier = nr_running();
+
+	// +1 (one finger) 
+	if (copy_data->touch_is_pressed_arr[0] == 1) {
+		touch_freq_multiplier++;
+
+		// +1 (two finger)
+		if (copy_data->touch_is_pressed_arr[1] == 1)
+			touch_freq_multiplier++;
+	}
+	// + 2 (move)
+	else if (copy_data->touch_is_pressed_arr[0] == 2) {
+		touch_freq_multiplier = touch_freq_multiplier + 2;
+	}
+
+	// + avg load
+	get_avenrun(avnrun, FIXED_1/200, 0);
+	   touch_freq_multiplier = touch_freq_multiplier + (avnrun[0] >> FSHIFT);
+
+	/* fix max touch_freq_multiplier */
+	if (touch_freq_multiplier > 10)
+		new_lock_freq = TOUCH_LOCK_FREQ;
+	else
+		new_lock_freq = TOUCH_LOCK_FREQ / 10 * touch_freq_multiplier;
+
+	return new_lock_freq;
+}
+
 static void report_input_data(struct mxt224_data *data)
 {
 	static unsigned int level = ~0;
 	static int touchbooster_counter = 0;
 	int i;
-	bool tsp_state = false;
-	bool check_press = false;
-	int64_t touch_freq_multiplier = 0;
+	bool tsp_state = false, check_press = false;
 	unsigned int new_lock_freq = 0, tmp_lock_freq = TOUCH_LOCK_FREQ / 2;
 	unsigned int cur_freq = 0, max_freq = 0;
 	u16 object_address = 0;
@@ -1251,7 +1282,7 @@ static void report_input_data(struct mxt224_data *data)
 	int gesture_no, finger_no, finger_pos, step;
 	struct gesture_point *point;
 	bool fingers_completed, track_gestures;
-	unsigned long flags, avnrun[3];
+	unsigned long flags;
 
 	track_gestures = copy_data->mxt224_enabled;
 #endif
@@ -1266,30 +1297,7 @@ static void report_input_data(struct mxt224_data *data)
 		/* if dynamic touch-freq */
 		if (lock_dyn == 1) {
 
-			touch_freq_multiplier = nr_running();
-
-			// +1 (one finger) 
-			if (copy_data->touch_is_pressed_arr[0] == 1) {
-				touch_freq_multiplier++;
-
-				// +1 (two finger)
-				if (copy_data->touch_is_pressed_arr[1] == 1)
-					touch_freq_multiplier++;
-			}
-			// + 2 (move)
-			else if (copy_data->touch_is_pressed_arr[0] == 2) {
-				touch_freq_multiplier = touch_freq_multiplier + 2;
-			}
-
-			// + avg load
-			get_avenrun(avnrun, FIXED_1/200, 0);
-		    touch_freq_multiplier = touch_freq_multiplier + (avnrun[0] >> FSHIFT);
-
-			/* fix max touch_freq_multiplier */
-			if (touch_freq_multiplier > 10)
-				new_lock_freq = TOUCH_LOCK_FREQ;
-			else
-				new_lock_freq = TOUCH_LOCK_FREQ / 10 * touch_freq_multiplier;
+			new_lock_freq = calc_toch_freq();
 
 			/* Setting policy->max freq set by user as touchbooster freq
 			only if it is less than the default touchbooster freq set by the kernel define
