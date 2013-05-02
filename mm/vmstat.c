@@ -742,6 +742,8 @@ const char * const vmstat_text[] = {
 	"nr_anon_transparent_hugepages",
 #ifdef CONFIG_DMA_CMA
 	"nr_free_cma",
+#ifdef CONFIG_UKSM
+	"nr_uksm_zero_pages",
 #endif
 	"nr_dirty_threshold",
 	"nr_dirty_background_threshold",
