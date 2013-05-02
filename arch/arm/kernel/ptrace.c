@@ -910,23 +910,18 @@ asmlinkage int syscall_trace(int why, struct pt_regs *regs, int scno)
 {
 	unsigned long ip;
 
+	if (!test_thread_flag(TIF_SYSCALL_TRACE))
+		goto out_no_trace;
+
+	current_thread_info()->syscall = scno;
+
 	/*
-	 * Save IP.  IP is used to denote syscall entry/exit:
-	 *  IP = 0 -> entry, = 1 -> exit
+	 * IP is used to denote syscall entry/exit:
+	 * IP = 0 -> entry, =1 -> exit
 	 */
 	ip = regs->ARM_ip;
 	regs->ARM_ip = why;
-
-	if (!ip)
-		audit_syscall_exit(regs);
-	else
-		audit_syscall_entry(AUDIT_ARCH_ARMEB, scno, regs->ARM_r0,
-				    regs->ARM_r1, regs->ARM_r2, regs->ARM_r3);
-
-	if (!test_thread_flag(TIF_SYSCALL_TRACE))
-		return scno;
-
-	current_thread_info()->syscall = scno;
+	ptrace_report_syscall(regs);
 
 	if (why)
 		tracehook_report_syscall_exit(regs, 0);
@@ -934,6 +929,13 @@ asmlinkage int syscall_trace(int why, struct pt_regs *regs, int scno)
 		current_thread_info()->syscall = -1;
 
 	regs->ARM_ip = ip;
+	scno = current_thread_info()->syscall;
 
-	return current_thread_info()->syscall;
+out_no_trace:
+	if (why)
+		audit_syscall_exit(regs);
+	else
+		audit_syscall_entry(AUDIT_ARCH_ARM, scno, regs->ARM_r0,
+			regs->ARM_r1, regs->ARM_r2, regs->ARM_r3);
+	return scno;
 }
