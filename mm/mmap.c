@@ -812,7 +812,6 @@ again:			remove_next = 1 + (end > next->vm_end);
 		end_changed = true;
 	}
 	vma->vm_pgoff = pgoff;
-
 	if (adjust_next) {
 		next->vm_start += adjust_next << PAGE_SHIFT;
 		next->vm_pgoff += adjust_next;
@@ -3005,6 +3004,7 @@ int install_special_mapping(struct mm_struct *mm,
 	ret = insert_vm_struct(mm, vma);
 	if (ret)
 		goto out;
+
 	mm->total_vm += len >> PAGE_SHIFT;
 
 	perf_event_mmap(vma);

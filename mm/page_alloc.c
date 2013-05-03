@@ -1412,6 +1412,7 @@ void split_page(struct page *page, unsigned int order)
 	for (i = 1; i < (1 << order); i++)
 		set_page_refcounted(page + i);
 }
+EXPORT_SYMBOL_GPL(split_page);
 
 static int __isolate_free_page(struct page *page, unsigned int order)
 {
@@ -6258,7 +6259,7 @@ static void dump_page_flags(unsigned long flags)
 	unsigned long mask;
 	int i;
 
-	BUG_ON(ARRAY_SIZE(pageflag_names) != __NR_PAGEFLAGS);
+	BUILD_BUG_ON(ARRAY_SIZE(pageflag_names) != __NR_PAGEFLAGS);
 
 	printk(KERN_ALERT "page flags: %#lx(", flags);
 
