@@ -32,19 +32,11 @@
 #include <linux/slab.h>
 #include <linux/kernel_stat.h>
 #include <asm/cputime.h>
-#ifdef CONFIG_HAS_EARLYSUSPEND
-#include <linux/earlysuspend.h>
-#endif
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/cpufreq_interactive.h>
 
 static int active_count;
-
-#ifdef CONFIG_HAS_EARLYSUSPEND
-static unsigned int suspended = 0;
-static unsigned long stored_timer_rate;
-#endif
 
 struct cpufreq_interactive_cpuinfo {
 	struct timer_list cpu_timer;
@@ -62,7 +54,6 @@ struct cpufreq_interactive_cpuinfo {
 	u64 hispeed_validate_time;
 	struct rw_semaphore enable_sem;
 	int governor_enabled;
-	int cpu_load;
 };
 
 static DEFINE_PER_CPU(struct cpufreq_interactive_cpuinfo, cpuinfo);
@@ -77,11 +68,11 @@ static struct mutex gov_lock;
 static unsigned int hispeed_freq;
 
 /* Go to hi speed when CPU load at or above this value. */
-#define DEFAULT_GO_HISPEED_LOAD 98
+#define DEFAULT_GO_HISPEED_LOAD 99
 static unsigned long go_hispeed_load = DEFAULT_GO_HISPEED_LOAD;
 
-/* Target load. Lower values result in higher CPU speeds. */
-#define DEFAULT_TARGET_LOAD 80
+/* Target load.  Lower values result in higher CPU speeds. */
+#define DEFAULT_TARGET_LOAD 90
 static unsigned int default_target_loads[] = {DEFAULT_TARGET_LOAD};
 static spinlock_t target_loads_lock;
 static unsigned int *target_loads = default_target_loads;
@@ -104,7 +95,8 @@ static unsigned long timer_rate = DEFAULT_TIMER_RATE;
  * timer interval.
  */
 #define DEFAULT_ABOVE_HISPEED_DELAY DEFAULT_TIMER_RATE
-static unsigned int default_above_hispeed_delay[] = { DEFAULT_ABOVE_HISPEED_DELAY };
+static unsigned int default_above_hispeed_delay[] = {
+	DEFAULT_ABOVE_HISPEED_DELAY };
 static spinlock_t above_hispeed_delay_lock;
 static unsigned int *above_hispeed_delay = default_above_hispeed_delay;
 static int nabove_hispeed_delay = ARRAY_SIZE(default_above_hispeed_delay);
@@ -122,14 +114,6 @@ static u64 boostpulse_endtime;
  */
 #define DEFAULT_TIMER_SLACK (4 * DEFAULT_TIMER_RATE)
 static int timer_slack_val = DEFAULT_TIMER_SLACK;
-
-#ifdef CONFIG_HAS_EARLYSUSPEND
-/*
- * Early suspend max frequency
- */
-#define DEFAULT_SCREEN_OFF_MAX 800000
-static unsigned long screen_off_max = DEFAULT_SCREEN_OFF_MAX;
-#endif
 
 static bool io_is_busy;
 
@@ -262,10 +246,9 @@ static unsigned int choose_freq(
 		 * than or equal to the target load.
 		 */
 
-		if (cpufreq_frequency_table_target(
-			    pcpu->policy, pcpu->freq_table, loadadjfreq / tl,
-			    CPUFREQ_RELATION_L, &index))
-			break;
+		cpufreq_frequency_table_target(
+			pcpu->policy, pcpu->freq_table, loadadjfreq / tl,
+			CPUFREQ_RELATION_L, &index);
 		freq = pcpu->freq_table[index].frequency;
 
 		if (freq > prevfreq) {
@@ -277,11 +260,10 @@ static unsigned int choose_freq(
 				 * Find the highest frequency that is less
 				 * than freqmax.
 				 */
-				if (cpufreq_frequency_table_target(
-					    pcpu->policy, pcpu->freq_table,
-					    freqmax - 1, CPUFREQ_RELATION_H,
-					    &index))
-					break;
+				cpufreq_frequency_table_target(
+					pcpu->policy, pcpu->freq_table,
+					freqmax - 1, CPUFREQ_RELATION_H,
+					&index);
 				freq = pcpu->freq_table[index].frequency;
 
 				if (freq == freqmin) {
@@ -304,11 +286,10 @@ static unsigned int choose_freq(
 				 * Find the lowest frequency that is higher
 				 * than freqmin.
 				 */
-				if (cpufreq_frequency_table_target(
-					    pcpu->policy, pcpu->freq_table,
-					    freqmin + 1, CPUFREQ_RELATION_L,
-					    &index))
-					break;
+				cpufreq_frequency_table_target(
+					pcpu->policy, pcpu->freq_table,
+					freqmin + 1, CPUFREQ_RELATION_L,
+					&index);
 				freq = pcpu->freq_table[index].frequency;
 
 				/*
@@ -380,8 +361,6 @@ static void cpufreq_interactive_timer(unsigned long data)
 	cpu_load = loadadjfreq / pcpu->target_freq;
 	boosted = boost_val || now < boostpulse_endtime;
 
-	pcpu->cpu_load = cpu_load;
-
 	if (cpu_load >= go_hispeed_load || boosted) {
 		if (pcpu->target_freq < hispeed_freq) {
 			new_freq = hispeed_freq;
@@ -409,8 +388,11 @@ static void cpufreq_interactive_timer(unsigned long data)
 
 	if (cpufreq_frequency_table_target(pcpu->policy, pcpu->freq_table,
 					   new_freq, CPUFREQ_RELATION_L,
-					   &index))
+					   &index)) {
+		pr_warn_once("timer %d: cpufreq_frequency_table_target error\n",
+			     (int) data);
 		goto rearm;
+	}
 
 	new_freq = pcpu->freq_table[index].frequency;
 
@@ -573,17 +555,7 @@ static int cpufreq_interactive_speedchange_task(void *data)
 
 				if (pjcpu->target_freq > max_freq)
 					max_freq = pjcpu->target_freq;
-
-				cpufreq_notify_utilization(pcpu->policy, (pcpu->cpu_load * pcpu->policy->cur) / pcpu->policy->cpuinfo.max_freq);
 			}
-
-#ifdef CONFIG_HAS_EARLYSUSPEND
-			if (suspended) {
-				if (max_freq > screen_off_max) {
-					max_freq = screen_off_max;
-				}
-			}
-#endif
 
 			if (max_freq != pcpu->policy->cur)
 				__cpufreq_driver_target(pcpu->policy,
@@ -750,7 +722,6 @@ static ssize_t store_target_loads(
 	target_loads = new_target_loads;
 	ntarget_loads = ntokens;
 	spin_unlock_irqrestore(&target_loads_lock, flags);
-
 	return count;
 }
 
@@ -766,13 +737,13 @@ static ssize_t show_above_hispeed_delay(
 	unsigned long flags;
 
 	spin_lock_irqsave(&above_hispeed_delay_lock, flags);
+
 	for (i = 0; i < nabove_hispeed_delay; i++)
 		ret += sprintf(buf + ret, "%u%s", above_hispeed_delay[i],
 			       i & 0x1 ? ":" : " ");
 
 	ret += sprintf(buf + ret, "\n");
 	spin_unlock_irqrestore(&above_hispeed_delay_lock, flags);
-
 	return ret;
 }
 
@@ -794,8 +765,8 @@ static ssize_t store_above_hispeed_delay(
 	above_hispeed_delay = new_above_hispeed_delay;
 	nabove_hispeed_delay = ntokens;
 	spin_unlock_irqrestore(&above_hispeed_delay_lock, flags);
-
 	return count;
+
 }
 
 static struct global_attr above_hispeed_delay_attr =
@@ -818,13 +789,11 @@ static ssize_t store_hispeed_freq(struct kobject *kobj,
 	ret = strict_strtoul(buf, 0, &val);
 	if (ret < 0)
 		return ret;
-
 	hispeed_freq = val;
-
 	return count;
 }
 
-static struct global_attr hispeed_freq_attr = __ATTR(hispeed_freq, 0666,
+static struct global_attr hispeed_freq_attr = __ATTR(hispeed_freq, 0644,
 		show_hispeed_freq, store_hispeed_freq);
 
 
@@ -843,13 +812,11 @@ static ssize_t store_go_hispeed_load(struct kobject *kobj,
 	ret = strict_strtoul(buf, 0, &val);
 	if (ret < 0)
 		return ret;
-
 	go_hispeed_load = val;
-
 	return count;
 }
 
-static struct global_attr go_hispeed_load_attr = __ATTR(go_hispeed_load, 0666,
+static struct global_attr go_hispeed_load_attr = __ATTR(go_hispeed_load, 0644,
 		show_go_hispeed_load, store_go_hispeed_load);
 
 static ssize_t show_min_sample_time(struct kobject *kobj,
@@ -867,13 +834,11 @@ static ssize_t store_min_sample_time(struct kobject *kobj,
 	ret = strict_strtoul(buf, 0, &val);
 	if (ret < 0)
 		return ret;
-
 	min_sample_time = val;
-
 	return count;
 }
 
-static struct global_attr min_sample_time_attr = __ATTR(min_sample_time, 0666,
+static struct global_attr min_sample_time_attr = __ATTR(min_sample_time, 0644,
 		show_min_sample_time, store_min_sample_time);
 
 static ssize_t show_timer_rate(struct kobject *kobj,
@@ -891,13 +856,11 @@ static ssize_t store_timer_rate(struct kobject *kobj,
 	ret = strict_strtoul(buf, 0, &val);
 	if (ret < 0)
 		return ret;
-
 	timer_rate = val;
-
 	return count;
 }
 
-static struct global_attr timer_rate_attr = __ATTR(timer_rate, 0666,
+static struct global_attr timer_rate_attr = __ATTR(timer_rate, 0644,
 		show_timer_rate, store_timer_rate);
 
 static ssize_t show_timer_slack(
@@ -918,7 +881,6 @@ static ssize_t store_timer_slack(
 		return ret;
 
 	timer_slack_val = val;
-
 	return count;
 }
 
@@ -991,39 +953,10 @@ static ssize_t store_boostpulse_duration(
 		return ret;
 
 	boostpulse_duration_val = val;
-
 	return count;
 }
 
 define_one_global_rw(boostpulse_duration);
-
-#ifdef CONFIG_HAS_EARLYSUSPEND
-static ssize_t show_screen_off_maxfreq(struct kobject *kobj,
-                                        struct attribute *attr, char *buf)
-{
-        return sprintf(buf, "%lu\n", screen_off_max);
-}
-
-static ssize_t store_screen_off_maxfreq(struct kobject *kobj,
-                                         struct attribute *attr,
-                                         const char *buf, size_t count)
-{
-	int ret;
-	unsigned long val;
-
-	ret = strict_strtoul(buf, 0, &val);
-	if (ret < 0)
-		return ret;
-
-	screen_off_max = val;
-
-	return count;
-}
-
-static struct global_attr screen_off_maxfreq =
-	__ATTR(screen_off_maxfreq, 0666, show_screen_off_maxfreq, 
-		store_screen_off_maxfreq);
-#endif
 
 static ssize_t show_io_is_busy(struct kobject *kobj,
 			struct attribute *attr, char *buf)
@@ -1040,13 +973,11 @@ static ssize_t store_io_is_busy(struct kobject *kobj,
 	ret = kstrtoul(buf, 0, &val);
 	if (ret < 0)
 		return ret;
-
 	io_is_busy = val;
-
 	return count;
 }
 
-static struct global_attr io_is_busy_attr = __ATTR(io_is_busy, 0666,
+static struct global_attr io_is_busy_attr = __ATTR(io_is_busy, 0644,
 		show_io_is_busy, store_io_is_busy);
 
 static struct attribute *interactive_attributes[] = {
@@ -1060,9 +991,6 @@ static struct attribute *interactive_attributes[] = {
 	&boost.attr,
 	&boostpulse.attr,
 	&boostpulse_duration.attr,
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	&screen_off_maxfreq.attr,
-#endif
 	&io_is_busy_attr.attr,
 	NULL,
 };
@@ -1091,37 +1019,6 @@ static int cpufreq_interactive_idle_notifier(struct notifier_block *nb,
 static struct notifier_block cpufreq_interactive_idle_nb = {
 	.notifier_call = cpufreq_interactive_idle_notifier,
 };
-
-#ifdef CONFIG_HAS_EARLYSUSPEND
-static void interactive_early_suspend(struct early_suspend *handler) {
-	suspended = 1;
-
-	/*
-	 * During passive use-cases, i.e. when display is OFF,
-	 * value of timer, which is used for frequency increasing,
-	 * may be increased. This will significantly reduce the amount
-	 * of OPP switching during passive use-cases.
-	 */
-	stored_timer_rate = timer_rate;
-	timer_rate = DEFAULT_TIMER_RATE * 10;
-
-	pr_info("[imoseyon] interactive early suspend\n");
-}
-
-static void interactive_late_resume(struct early_suspend *handler) {
-	suspended = 0;
-
-	timer_rate = stored_timer_rate;
-
-	pr_info("[imoseyon] interactive late resume\n");
-}
-
-static struct early_suspend interactive_power_suspend = {
-        .suspend = interactive_early_suspend,
-        .resume = interactive_late_resume,
-        .level = EARLY_SUSPEND_LEVEL_DISABLE_FB + 1,
-};
-#endif
 
 static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 		unsigned int event)
@@ -1184,16 +1081,10 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 			return rc;
 		}
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-		register_early_suspend(&interactive_power_suspend);
-#endif
-		pr_info("[imoseyon] interactive start\n");
-
 		idle_notifier_register(&cpufreq_interactive_idle_nb);
 		cpufreq_register_notifier(
 			&cpufreq_notifier_block, CPUFREQ_TRANSITION_NOTIFIER);
 		mutex_unlock(&gov_lock);
-
 		break;
 
 	case CPUFREQ_GOV_STOP:
@@ -1218,11 +1109,6 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 		sysfs_remove_group(cpufreq_global_kobject,
 				&interactive_attr_group);
 		mutex_unlock(&gov_lock);
-
-#ifdef CONFIG_HAS_EARLYSUSPEND
-		unregister_early_suspend(&interactive_power_suspend);
-#endif
-		pr_info("[imoseyon] interactive inactive\n");
 
 		break;
 
