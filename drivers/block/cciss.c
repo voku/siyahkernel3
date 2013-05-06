@@ -155,7 +155,7 @@ static irqreturn_t do_cciss_intx(int irq, void *dev_id);
 static irqreturn_t do_cciss_msix_intr(int irq, void *dev_id);
 static int cciss_open(struct block_device *bdev, fmode_t mode);
 static int cciss_unlocked_open(struct block_device *bdev, fmode_t mode);
-static int cciss_release(struct gendisk *disk, fmode_t mode);
+static void cciss_release(struct gendisk *disk, fmode_t mode);
 static int do_ioctl(struct block_device *bdev, fmode_t mode,
 		    unsigned int cmd, unsigned long arg);
 static int cciss_ioctl(struct block_device *bdev, fmode_t mode,
@@ -1106,7 +1106,7 @@ static int cciss_unlocked_open(struct block_device *bdev, fmode_t mode)
 /*
  * Close.  Sync first.
  */
-static int cciss_release(struct gendisk *disk, fmode_t mode)
+static void cciss_release(struct gendisk *disk, fmode_t mode)
 {
 	ctlr_info_t *h;
 	drive_info_struct *drv;
@@ -1118,7 +1118,6 @@ static int cciss_release(struct gendisk *disk, fmode_t mode)
 	drv->usage_count--;
 	h->usage_count--;
 	mutex_unlock(&cciss_mutex);
-	return 0;
 }
 
 static int do_ioctl(struct block_device *bdev, fmode_t mode,

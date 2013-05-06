@@ -1020,7 +1020,7 @@ error_autopm:
  *
  *	Locking: called with bdev->bd_mutex held.
  **/
-static int sd_release(struct gendisk *disk, fmode_t mode)
+static void sd_release(struct gendisk *disk, fmode_t mode)
 {
 	struct scsi_disk *sdkp = scsi_disk(disk);
 	struct scsi_device *sdev = sdkp->device;
@@ -1039,7 +1039,6 @@ static int sd_release(struct gendisk *disk, fmode_t mode)
 
 	scsi_autopm_put_device(sdev);
 	scsi_disk_put(sdkp);
-	return 0;
 }
 
 static int sd_getgeo(struct block_device *bdev, struct hd_geometry *geo)
