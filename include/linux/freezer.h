@@ -200,6 +200,32 @@ static inline void freezable_schedule_unsafe(void)
 	freezer_count_unsafe();
 }
 
+/*
+ * Like freezable_schedule_timeout(), but should not block the freezer.  Do not
+ * call this with locks held.
+ */
+static inline long freezable_schedule_timeout(long timeout)
+{
+	long __retval;
+	freezer_do_not_count();
+	__retval = schedule_timeout(timeout);
+	freezer_count();
+	return __retval;
+}
+
+/*
+ * Like schedule_timeout_interruptible(), but should not block the freezer.  Do not
+ * call this with locks held.
+ */
+static inline long freezable_schedule_timeout_interruptible(long timeout)
+{
+	long __retval;
+	freezer_do_not_count();
+	__retval = schedule_timeout_interruptible(timeout);
+	freezer_count();
+	return __retval;
+}
+
 /* Like schedule_timeout_killable(), but should not block the freezer. */
 static inline long freezable_schedule_timeout_killable(long timeout)
 {
@@ -224,14 +250,15 @@ static inline long freezable_schedule_timeout_killable_unsafe(long timeout)
  * Like schedule_hrtimeout_range(), but should not block the freezer.  Do not
  * call this with locks held.
  */
-#define freezable_schedule_hrtimeout_range(expires, delta, mode)	\
-({									\
-	int __retval;							\
-	freezer_do_not_count();						\
-	__retval = schedule_hrtimeout_range(expires, delta, mode);	\
-	freezer_count();						\
-	__retval;							\
-})
+static inline int freezable_schedule_hrtimeout_range(ktime_t *expires,
+		unsigned long delta, const enum hrtimer_mode mode)
+{
+	int __retval;
+	freezer_do_not_count();
+	__retval = schedule_hrtimeout_range(expires, delta, mode);
+	freezer_count();
+	return __retval;
+}
 
 /*
  * Freezer-friendly wrappers around wait_event_interruptible(),
@@ -272,7 +299,7 @@ static inline long freezable_schedule_timeout_killable_unsafe(long timeout)
 	long __retval = timeout;					\
 	freezer_do_not_count();						\
 	__retval = wait_event_interruptible_timeout(wq,	(condition),	\
-				__retval); 				\
+				__retval);				\
 	freezer_count();						\
 	__retval;							\
 })
@@ -285,6 +312,7 @@ static inline long freezable_schedule_timeout_killable_unsafe(long timeout)
 	freezer_count();						\
 	__retval;							\
 })
+
 
 #else /* !CONFIG_FREEZER */
 static inline bool frozen(struct task_struct *p) { return false; }
