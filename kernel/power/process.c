@@ -31,8 +31,8 @@ static int try_to_freeze_tasks(bool user_only)
 	unsigned int todo;
 	bool wq_busy = false;
 	struct timeval start, end;
-	u64 elapsed_csecs64;
-	unsigned int elapsed_csecs;
+	u64 elapsed_msecs64;
+	unsigned int elapsed_msecs;
 	bool wakeup = false;
 	int sleep_usecs = USEC_PER_MSEC;
 
@@ -105,7 +105,8 @@ static int try_to_freeze_tasks(bool user_only)
 			read_lock(&tasklist_lock);
 			do_each_thread(g, p) {
 				if (p != current && !freezer_should_skip(p)
-				    && freezing(p) && !frozen(p))
+				    && freezing(p) && !frozen(p) &&
+				    elapsed_msecs > 1000)
 					sched_show_task(p);
 			} while_each_thread(g, p);
 			read_unlock(&tasklist_lock);
@@ -161,6 +162,10 @@ int freeze_processes(void)
 int freeze_kernel_threads(void)
 {
 	int error;
+
+	error = suspend_sys_sync_wait();
+	if (error)
+		return error;
 
 	printk("Freezing remaining freezable tasks ... ");
 	pm_nosig_freezing = true;
