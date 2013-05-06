@@ -257,7 +257,11 @@ static void blktrans_release(struct gendisk *disk, fmode_t mode)
 	int ret = 0;
 
 	if (!dev)
+<<<<<<< HEAD
 		return ret;
+=======
+		return;
+>>>>>>> db2a144... block_device_operations->release() should return void
 
 	mutex_lock(&dev->lock);
 
@@ -274,7 +278,10 @@ static void blktrans_release(struct gendisk *disk, fmode_t mode)
 unlock:
 	mutex_unlock(&dev->lock);
 	blktrans_dev_put(dev);
+<<<<<<< HEAD
 	return ret;
+=======
+>>>>>>> db2a144... block_device_operations->release() should return void
 }
 
 static int blktrans_getgeo(struct block_device *bdev, struct hd_geometry *geo)
