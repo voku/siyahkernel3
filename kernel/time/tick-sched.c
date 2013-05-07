@@ -110,7 +110,7 @@ static void tick_sched_do_timer(ktime_t now)
 	 * concurrency: This happens only when the cpu in charge went
 	 * into a long sleep. If two cpus happen to assign themself to
 	 * this duty, then the jiffies update is still serialized by
-	 * xtime_lock.
+	 * jiffies_lock.
 	 */
 	if (unlikely(tick_do_timer_cpu == TICK_DO_TIMER_NONE))
 		tick_do_timer_cpu = cpu;
@@ -867,7 +867,7 @@ void tick_setup_sched_timer(void)
 	/* Get the next period (per cpu) */
 	hrtimer_set_expires(&ts->sched_timer, tick_init_jiffy_update());
 
-	/* Offset the tick to avert xtime_lock contention. */
+	/* Offset the tick to avert jiffies_lock contention. */
 	if (sched_skew_tick) {
 		u64 offset = ktime_to_ns(tick_period) >> 1;
 		do_div(offset, num_possible_cpus());
