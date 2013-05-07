@@ -42,7 +42,7 @@
  * runqueue average
  */
 
-#define RQ_AVG_TIMER_RATE	10
+#define RQ_AVG_TIMER_RATE	20
 
 struct runqueue_data {
 	unsigned int nr_run_avg;
@@ -183,6 +183,7 @@ static unsigned int get_nr_run_avg(void)
 #define DEF_FREQ_UP_BRAKE		(5u)
 #define DEF_HOTPLUG_COMPARE_LEVEL	(0u)
 
+#ifdef CONFIG_MACH_MIDAS
 static int hotplug_rq[4][2] = {
 	{0, 100}, {100, 200}, {200, 300}, {300, 0}
 };
@@ -193,8 +194,22 @@ static int hotplug_freq[4][2] = {
 	{200000, 500000},
 	{200000, 0}
 };
+#else
+static int hotplug_rq[4][2] = {
+	{0, 100}, {100, 200}, {200, 300}, {300, 0}
+};
+
+static int hotplug_freq[4][2] = {
+	{0, 500000},
+	{200000, 500000},
+	{200000, 500000},
+	{200000, 0}
+};
+#endif
 
 static unsigned int min_sampling_rate;
+static int earlysuspend = -1;
+
 static void do_nightmare_timer(struct work_struct *work);
 static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 				unsigned int event);
@@ -254,9 +269,6 @@ static struct nightmare_tuners {
 	unsigned int dvfs_debug;
 	unsigned int max_freq;
 	unsigned int min_freq;
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	int early_suspend;
-#endif
 	unsigned int inc_cpu_load_at_min_freq;
 	unsigned int freq_for_responsiveness;
 	unsigned int freq_for_calc_incr;
@@ -280,9 +292,6 @@ static struct nightmare_tuners {
 	.min_cpu_lock = DEF_MIN_CPU_LOCK,
 	.hotplug_lock = ATOMIC_INIT(0),
 	.dvfs_debug = 0,
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	.early_suspend = -1,
-#endif
 	.inc_cpu_load_at_min_freq = INC_CPU_LOAD_AT_MIN_FREQ,
 	.freq_for_responsiveness = FREQ_FOR_RESPONSIVENESS,
 	.freq_for_calc_incr = DEF_FREQ_FOR_CALC_INCR,
@@ -530,18 +539,57 @@ static ssize_t store_##file_name##_##num_core##_##up_down		\
 
 show_hotplug_param(hotplug_freq, 1, 1);
 show_hotplug_param(hotplug_freq, 2, 0);
+#ifndef CONFIG_CPU_EXYNOS4210
+show_hotplug_param(hotplug_freq, 2, 1);
+show_hotplug_param(hotplug_freq, 3, 0);
+show_hotplug_param(hotplug_freq, 3, 1);
+show_hotplug_param(hotplug_freq, 4, 0);
+#endif
+
 show_hotplug_param(hotplug_rq, 1, 1);
 show_hotplug_param(hotplug_rq, 2, 0);
+#ifndef CONFIG_CPU_EXYNOS4210
+show_hotplug_param(hotplug_rq, 2, 1);
+show_hotplug_param(hotplug_rq, 3, 0);
+show_hotplug_param(hotplug_rq, 3, 1);
+show_hotplug_param(hotplug_rq, 4, 0);
+#endif
 
 store_hotplug_param(hotplug_freq, 1, 1);
 store_hotplug_param(hotplug_freq, 2, 0);
+#ifndef CONFIG_CPU_EXYNOS4210
+store_hotplug_param(hotplug_freq, 2, 1);
+store_hotplug_param(hotplug_freq, 3, 0);
+store_hotplug_param(hotplug_freq, 3, 1);
+store_hotplug_param(hotplug_freq, 4, 0);
+#endif
+
 store_hotplug_param(hotplug_rq, 1, 1);
 store_hotplug_param(hotplug_rq, 2, 0);
+#ifndef CONFIG_CPU_EXYNOS4210
+store_hotplug_param(hotplug_rq, 2, 1);
+store_hotplug_param(hotplug_rq, 3, 0);
+store_hotplug_param(hotplug_rq, 3, 1);
+store_hotplug_param(hotplug_rq, 4, 0);
+#endif
 
 define_one_global_rw(hotplug_freq_1_1);
 define_one_global_rw(hotplug_freq_2_0);
+#ifndef CONFIG_CPU_EXYNOS4210
+define_one_global_rw(hotplug_freq_2_1);
+define_one_global_rw(hotplug_freq_3_0);
+define_one_global_rw(hotplug_freq_3_1);
+define_one_global_rw(hotplug_freq_4_0);
+#endif
+
 define_one_global_rw(hotplug_rq_1_1);
 define_one_global_rw(hotplug_rq_2_0);
+#ifndef CONFIG_CPU_EXYNOS4210
+define_one_global_rw(hotplug_rq_2_1);
+define_one_global_rw(hotplug_rq_3_0);
+define_one_global_rw(hotplug_rq_3_1);
+define_one_global_rw(hotplug_rq_4_0);
+#endif
 
 static ssize_t store_sampling_rate(struct kobject *a, struct attribute *b,
 				   const char *buf, size_t count)
@@ -962,8 +1010,20 @@ static struct attribute *nightmare_attributes[] = {
 	&dvfs_debug.attr,
 	&hotplug_freq_1_1.attr,
 	&hotplug_freq_2_0.attr,
+#ifndef CONFIG_CPU_EXYNOS4210
+	&hotplug_freq_2_1.attr,
+	&hotplug_freq_3_0.attr,
+	&hotplug_freq_3_1.attr,
+	&hotplug_freq_4_0.attr,
+#endif
 	&hotplug_rq_1_1.attr,
 	&hotplug_rq_2_0.attr,
+#ifndef CONFIG_CPU_EXYNOS4210
+	&hotplug_rq_2_1.attr,
+	&hotplug_rq_3_0.attr,
+	&hotplug_rq_3_1.attr,
+	&hotplug_rq_4_0.attr,
+#endif
 	&inc_cpu_load_at_min_freq.attr,
 	&freq_for_responsiveness.attr,
 	&freq_for_calc_incr.attr,
@@ -1361,6 +1421,9 @@ static void nightmare_check_frequency(struct cpufreq_nightmare_cpuinfo *this_nig
 				freq_up = policy->cur + (inc_load - inc_brake);
 			}			
 
+			if (earlysuspend >= 0 && freq_up > policy->max_suspend)
+				freq_up = policy->max_suspend;
+
 			if (freq_up != policy->cur && freq_up <= policy->max) {
 				__cpufreq_driver_target(policy, freq_up, CPUFREQ_RELATION_L);
 			}
@@ -1381,6 +1444,9 @@ static void nightmare_check_frequency(struct cpufreq_nightmare_cpuinfo *this_nig
 			} else {
 				freq_down = policy->min;
 			}
+
+			if (earlysuspend >= 0 && freq_down < policy->min_suspend)
+				freq_down = policy->min_suspend;
 
 			if (freq_down != policy->cur) {
 				__cpufreq_driver_target(policy, freq_down, CPUFREQ_RELATION_L);
@@ -1460,52 +1526,21 @@ static struct notifier_block pm_notifier = {
 	.notifier_call = pm_notifier_call,
 };
 
-static int reboot_notifier_call(struct notifier_block *this,
-				unsigned long code, void *_cmd)
-{
-	atomic_set(&g_hotplug_lock, 1);
-	return NOTIFY_DONE;
-}
-
-static struct notifier_block reboot_notifier = {
-	.notifier_call = reboot_notifier_call,
-};
-
-#ifdef CONFIG_HAS_EARLYSUSPEND
 static struct early_suspend early_suspend;
-unsigned int previous_freq_step;
-unsigned int previous_sampling_rate;
 static void cpufreq_nightmare_early_suspend(struct early_suspend *h)
 {
-#if EARLYSUSPEND_HOTPLUGLOCK
-	nightmare_tuners_ins.early_suspend =
-		atomic_read(&g_hotplug_lock);
-#endif
-	previous_freq_step = nightmare_tuners_ins.freq_step;
-	previous_sampling_rate = nightmare_tuners_ins.sampling_rate;
-	nightmare_tuners_ins.freq_step = 10;
-	nightmare_tuners_ins.sampling_rate = 200000;
-#if EARLYSUSPEND_HOTPLUGLOCK
-	atomic_set(&g_hotplug_lock,
-	    (nightmare_tuners_ins.min_cpu_lock) ? nightmare_tuners_ins.min_cpu_lock : 1);
+	earlysuspend = atomic_read(&g_hotplug_lock);
+	atomic_set(&g_hotplug_lock,(nightmare_tuners_ins.min_cpu_lock) ? nightmare_tuners_ins.min_cpu_lock : 1);
 	apply_hotplug_lock();
 	stop_rq_work();
-#endif
 }
 static void cpufreq_nightmare_late_resume(struct early_suspend *h)
 {
-#if EARLYSUSPEND_HOTPLUGLOCK
-	atomic_set(&g_hotplug_lock, nightmare_tuners_ins.early_suspend);
-#endif
-	nightmare_tuners_ins.early_suspend = -1;
-	nightmare_tuners_ins.freq_step = previous_freq_step;
-	nightmare_tuners_ins.sampling_rate = previous_sampling_rate;
-#if EARLYSUSPEND_HOTPLUGLOCK
+	atomic_set(&g_hotplug_lock, earlysuspend);
+	earlysuspend = -1;
 	apply_hotplug_lock();
 	start_rq_work();
-#endif
 }
-#endif
 
 static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 				unsigned int event)
@@ -1568,8 +1603,6 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 		}
 		mutex_unlock(&nightmare_mutex);
 
-		register_reboot_notifier(&reboot_notifier);
-
 		mutex_init(&this_nightmare_cpuinfo->timer_mutex);
 		nightmare_timer_init(this_nightmare_cpuinfo);
 
@@ -1593,8 +1626,6 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 
 		mutex_lock(&nightmare_mutex);
 		mutex_destroy(&this_nightmare_cpuinfo->timer_mutex);
-
-		unregister_reboot_notifier(&reboot_notifier);
 
 		nightmare_enable--;
 		mutex_unlock(&nightmare_mutex);
@@ -1649,17 +1680,14 @@ static int __init cpufreq_gov_nightmare_init(void)
 
 	ret = cpufreq_register_governor(&cpufreq_gov_nightmare);
 	if (ret)
-		goto err_reg;
+		goto err_queue;
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB;
 	early_suspend.suspend = cpufreq_nightmare_early_suspend;
 	early_suspend.resume = cpufreq_nightmare_late_resume;
-#endif
+	early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB;
 
 	return ret;
 
-err_reg:
 err_queue:
 	kfree(hotplug_histories);
 err_hist:
