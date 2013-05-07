@@ -70,7 +70,6 @@
 #include <linux/ctype.h>
 #include <linux/ftrace.h>
 #include <linux/slab.h>
-#include <linux/cpuacct.h>
 #include <linux/init_task.h>
 #include <linux/binfmts.h>
 #include <linux/context_tracking.h>
@@ -696,6 +695,24 @@ unlock:
 	rcu_read_unlock();
 	return cpu;
 }
+
+#ifdef CONFIG_NO_HZ_FULL
+bool sched_can_stop_tick(void)
+{
+       struct rq *rq;
+
+       rq = this_rq();
+
+       /* Make sure rq->nr_running update is visible after the IPI */
+       smp_rmb();
+
+       /* More than one running task need preemption */
+       if (rq->nr_running > 1)
+               return false;
+
+       return true;
+}
+#endif /* CONFIG_NO_HZ_FULL */
 
 void sched_avg_update(struct rq *rq)
 {
@@ -1358,8 +1375,8 @@ static void ttwu_activate(struct rq *rq, struct task_struct *p, int en_flags)
 static void
 ttwu_do_wakeup(struct rq *rq, struct task_struct *p, int wake_flags)
 {
-	trace_sched_wakeup(p, true);
 	check_preempt_curr(rq, p, wake_flags);
+	trace_sched_wakeup(p, true);
 
 	p->state = TASK_RUNNING;
 #ifdef CONFIG_SMP
@@ -6147,10 +6164,10 @@ sd_init_##type(struct sched_domain_topology_level *tl, int cpu) 	\
 
 SD_INIT_FUNC(CPU)
 #ifdef CONFIG_SCHED_SMT
-// SD_INIT_FUNC(SIBLING)
+/* SD_INIT_FUNC(SIBLING) */
 #endif
 #ifdef CONFIG_SCHED_MC
-// SD_INIT_FUNC(MC)
+/* SD_INIT_FUNC(MC) */
 #endif
 #ifdef CONFIG_SCHED_BOOK
  SD_INIT_FUNC(BOOK)
@@ -6255,10 +6272,10 @@ static const struct cpumask *cpu_smt_mask(int cpu)
  */
 static struct sched_domain_topology_level default_topology[] = {
 #ifdef CONFIG_SCHED_SMT
-//	{ sd_init_SIBLING, cpu_smt_mask, },
+/*	{ sd_init_SIBLING, cpu_smt_mask, }, */
 #endif
 #ifdef CONFIG_SCHED_MC
-//	{ sd_init_MC, cpu_coregroup_mask, },
+/*	{ sd_init_MC, cpu_coregroup_mask, }, */
 #endif
 #ifdef CONFIG_SCHED_BOOK
 	{ sd_init_BOOK, cpu_book_mask, },
@@ -6428,7 +6445,7 @@ static void sched_init_numa(void)
 	 * 'level' contains the number of unique distances, excluding the
 	 * identity distance node_distance(i,i).
 	 *
-	 * The sched_domains_nume_distance[] array includes the actual distance
+	 * The sched_domains_numa_distance[] array includes the actual distance
 	 * numbers.
 	 */
 
@@ -7041,6 +7058,10 @@ int in_sched_functions(unsigned long addr)
 }
 
 #ifdef CONFIG_CGROUP_SCHED
+/*
+ * Default task group.
+ * Every task in system belongs to this group at bootup.
+ */
 struct task_group root_task_group;
 LIST_HEAD(task_groups);
 #endif
