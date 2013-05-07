@@ -824,7 +824,7 @@ void synchronize_rcu_expedited(void)
 	/* force all RCU readers onto ->blkd_tasks lists. */
 	synchronize_sched_expedited();
 
-	raw_spin_lock_irqsave(&rsp->onofflock, flags);
+	raw_spin_lock_irqsave(&rsp->orphan_lock, flags);
 
 	/* Initialize ->expmask for all non-leaf rcu_node structures. */
 	rcu_for_each_nonleaf_node_breadth_first(rsp, rnp) {
@@ -839,7 +839,7 @@ void synchronize_rcu_expedited(void)
 	if (NUM_RCU_NODES > 1)
 		sync_rcu_preempt_exp_init(rsp, rcu_get_root(rsp));
 
-	raw_spin_unlock_irqrestore(&rsp->onofflock, flags);
+	raw_spin_unlock_irqrestore(&rsp->orphan_lock, flags);
 
 	/* Wait for snapshotted ->blkd_tasks lists to drain. */
 	rnp = rcu_get_root(rsp);
