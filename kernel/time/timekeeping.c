@@ -899,6 +899,7 @@ static void timekeeping_resume(void)
 
 	read_persistent_clock(&ts_new);
 
+	clockevents_resume();
 	clocksource_resume();
 
 	raw_spin_lock_irqsave(&timekeeper_lock, flags);
@@ -1003,6 +1004,7 @@ static int timekeeping_suspend(void)
 
 	clockevents_notify(CLOCK_EVT_NOTIFY_SUSPEND, NULL);
 	clocksource_suspend();
+	clockevents_suspend();
 
 	return 0;
 }
