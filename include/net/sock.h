@@ -59,6 +59,7 @@
 #include <linux/filter.h>
 #include <linux/rculist_nulls.h>
 #include <linux/poll.h>
+#include <linux/aio.h>
 
 #include <linux/atomic.h>
 #include <net/dst.h>
