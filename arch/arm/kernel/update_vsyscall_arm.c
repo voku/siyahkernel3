@@ -55,7 +55,7 @@ struct kernel_wtm_t {
  * gettimeofday, clock_gettime, etc.
  */
 void
-update_vsyscall(struct timespec *ts, struct timespec *wtm,
+update_vsyscall_old(struct timespec *ts, struct timespec *wtm,
 	struct clocksource *c, u32 mult)
 {
 	unsigned long vectors = (unsigned long)vectors_page;
@@ -79,7 +79,7 @@ update_vsyscall(struct timespec *ts, struct timespec *wtm,
 	*seqnum = kuh_time_lock.sequence + 1;
 	write_sequnlock_irqrestore(&kuh_time_lock, flags);
 }
-EXPORT_SYMBOL(update_vsyscall);
+EXPORT_SYMBOL(update_vsyscall_old);
 
 void
 update_vsyscall_tz(void)
