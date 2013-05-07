@@ -1433,7 +1433,7 @@ IGNORE_IOCTL(FBIOGCURSOR32)
  * Convert common ioctl arguments based on their command number
  *
  * Please do not add any code in here. Instead, implement
- * a compat_ioctl operation in the place that handle. the
+ * a compat_ioctl operation in the place that handle? the
  * ioctl for the native case.
  */
 static long do_ioctl_trans(int fd, unsigned int cmd,
