@@ -355,35 +355,6 @@ struct seq_file;
 int cache_show(struct kmem_cache *s, struct seq_file *m);
 void print_slabinfo_header(struct seq_file *m);
 
-/*
- * Allocator specific definitions. These are mainly used to establish optimized
- * ways to convert kmalloc() calls to kmem_cache_alloc() invocations by
- * selecting the appropriate general cache at compile time.
- *
- * Allocators must define at least:
- *
- *	kmem_cache_alloc()
- *	__kmalloc()
- *	kmalloc()
- *
- * Those wishing to support NUMA must also define:
- *
- *	kmem_cache_alloc_node()
- *	kmalloc_node()
- *
- * See each allocator definition file for additional comments and
- * implementation notes.
- */
-#ifdef CONFIG_SLUB
-#include <linux/slub_def.h>
-#elif defined(CONFIG_SLQB)
-#include <linux/slqb_def.h>
-#elif defined(CONFIG_SLOB)
-#include <linux/slob_def.h>
-#else
-#include <linux/slab_def.h>
-#endif
-
 /**
  * kmalloc_array - allocate memory for an array.
  * @n: number of elements.
@@ -491,7 +462,7 @@ static inline void *kmem_cache_alloc_node(struct kmem_cache *cachep,
  * allocator where we care about the real place the memory allocation
  * request comes from.
  */
-#if defined(CONFIG_DEBUG_SLAB) || defined(CONFIG_SLUB) || defined(CONFIG_SLQB_DEBUG) || \
+#if defined(CONFIG_DEBUG_SLAB) || defined(CONFIG_SLUB) || \
 	(defined(CONFIG_SLAB) && defined(CONFIG_TRACING)) || \
 	(defined(CONFIG_SLOB) && defined(CONFIG_TRACING))
 extern void *__kmalloc_track_caller(size_t, gfp_t, unsigned long);
@@ -511,7 +482,7 @@ extern void *__kmalloc_track_caller(size_t, gfp_t, unsigned long);
  * standard allocator where we care about the real place the memory
  * allocation request comes from.
  */
-#if defined(CONFIG_DEBUG_SLAB) || defined(CONFIG_SLUB) || defined(CONFIG_SLQB_DEBUG) || \
+#if defined(CONFIG_DEBUG_SLAB) || defined(CONFIG_SLUB) || \
 	(defined(CONFIG_SLAB) && defined(CONFIG_TRACING)) || \
 	(defined(CONFIG_SLOB) && defined(CONFIG_TRACING))
 extern void *__kmalloc_node_track_caller(size_t, gfp_t, int, unsigned long);
