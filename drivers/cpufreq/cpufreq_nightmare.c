@@ -1653,7 +1653,7 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 			else if (policy->min > cpu_policy->cur)
 				__cpufreq_driver_target(cpu_policy,policy->min,CPUFREQ_RELATION_L);
 
-			cpufreq_cpu_put(policy);
+			cpufreq_cpu_put(cpu_policy);
 
 		}
 
