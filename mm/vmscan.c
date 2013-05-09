@@ -552,10 +552,6 @@ void putback_lru_page(struct page *page)
 	int was_unevictable = PageUnevictable(page);
 
 	VM_BUG_ON(PageLRU(page));
-	#ifdef CONFIG_CLEANCACHE 
-	if (active) 
-	SetPageWasActive(page); 
-	#endif
 
 redo:
 	ClearPageUnevictable(page);
@@ -1536,9 +1532,6 @@ static void shrink_active_list(unsigned long nr_to_scan,
 		}
 
 		ClearPageActive(page);	/* we are de-activating */
-#ifdef CONFIG_CLEANCACHE
-		SetPageWasActive(page);
-#endif 
 		list_add(&page->lru, &l_inactive);
 	}
 
