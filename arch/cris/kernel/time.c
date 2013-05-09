@@ -39,22 +39,6 @@ int have_rtc;  /* used to remember if we have an RTC or not */;
 extern unsigned long loops_per_jiffy; /* init/main.c */
 unsigned long loops_per_usec;
 
-
-#ifdef CONFIG_ARCH_USES_GETTIMEOFFSET
-extern unsigned long do_slow_gettimeoffset(void);
-static unsigned long (*do_gettimeoffset)(void) = do_slow_gettimeoffset;
-
-u32 arch_gettimeoffset(void)
-{
-       return do_gettimeoffset() * 1000;
-}
-#endif
-
-/*
- * BUG: This routine does not handle hour overflow properly; it just
- *      sets the minutes. Usually you'll only notice that after reboot!
- */
-
 int set_rtc_mmss(unsigned long nowtime)
 {
 	int retval = 0;

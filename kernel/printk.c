@@ -45,6 +45,9 @@
 #include <asm/uaccess.h>
 #include <mach/sec_debug.h>
 
+#define CREATE_TRACE_POINTS
+#include <trace/events/printk.h>
+
 /*
  * Architectures can override it:
  */
@@ -631,6 +634,9 @@ static int __init ignore_loglevel_setup(char *str)
 }
 
 early_param("ignore_loglevel", ignore_loglevel_setup);
+module_param(ignore_loglevel, bool, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(ignore_loglevel, "ignore loglevel setting, to"
+	"print all kernel messages to the console.");
 
 /*
  * Write out chars from start to end - 1 inclusive
@@ -638,6 +644,8 @@ early_param("ignore_loglevel", ignore_loglevel_setup);
 static void _call_console_drivers(unsigned start,
 				unsigned end, int msg_log_level)
 {
+	trace_console(&LOG_BUF(0), start, end, log_buf_len);
+
 	if ((msg_log_level < console_loglevel || ignore_loglevel) &&
 			console_drivers && start != end) {
 		if ((start & LOG_BUF_MASK) > (end & LOG_BUF_MASK)) {
@@ -690,9 +698,6 @@ static size_t log_prefix(const char *p, unsigned int *level, char *special)
 	} else {
 		/* multi digit including the level and facility number */
 		char *endp = NULL;
-
-		if (p[1] < '0' && p[1] > '9')
-			return 0;
 
 		lev = (simple_strtoul(&p[1], &endp, 10) & 7);
 		if (endp == NULL || endp[0] != '>')
@@ -832,6 +837,7 @@ static void zap_locks(void)
 
 	oops_timestamp = jiffies;
 
+	debug_locks_off();
 	/* If a crash is occurring, make sure we can't deadlock */
 	raw_spin_lock_init(&logbuf_lock);
 	/* And make sure that we print immediately */
@@ -844,6 +850,9 @@ static bool printk_time = 1;
 static bool printk_time = 0;
 #endif
 module_param_named(time, printk_time, bool, S_IRUGO | S_IWUSR);
+
+static bool always_kmsg_dump;
+module_param_named(always_kmsg_dump, always_kmsg_dump, bool, S_IRUGO | S_IWUSR);
 
 #if defined(CONFIG_PRINTK_CPU_ID)
 static bool printk_cpu_id = 1;
@@ -858,7 +867,6 @@ static bool printk_pid = 1;
 static bool printk_pid;
 #endif
 module_param_named(pid, printk_pid, bool, S_IRUGO | S_IWUSR);
-
 
 /* Check if we have any console registered that can be called early in boot. */
 static int have_callable_console(void)
@@ -999,9 +1007,8 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 	boot_delay_msec();
 	printk_delay();
 
-	preempt_disable();
 	/* This stops the holder of console_sem just where we want him */
-	raw_local_irq_save(flags);
+	local_irq_save(flags);
 	this_cpu = smp_processor_id();
 
 	/*
@@ -1015,7 +1022,7 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 		 * recursion and return - but flag the recursion so that
 		 * it can be printed at the next appropriate moment:
 		 */
-		if (!oops_in_progress) {
+		if (!oops_in_progress && !lockdep_recursing(current)) {
 			recursion_bug = 1;
 			goto out_restore_irqs;
 		}
@@ -1157,9 +1164,8 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 
 	lockdep_on();
 out_restore_irqs:
-	raw_local_irq_restore(flags);
+	local_irq_restore(flags);
 
-	preempt_enable();
 	return printed_len;
 }
 EXPORT_SYMBOL(printk);
@@ -1303,6 +1309,10 @@ static int __init console_suspend_disable(char *str)
 	return 1;
 }
 __setup("no_console_suspend", console_suspend_disable);
+module_param_named(console_suspend, console_suspend_enabled,
+		bool, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(console_suspend, "suspend console during suspend"
+	" and hibernate operations");
 
 /**
  * suspend_console - suspend the console subsystem
@@ -1977,6 +1987,9 @@ void kmsg_dump(enum kmsg_dump_reason reason)
 	const char *s1, *s2;
 	unsigned long l1, l2;
 	unsigned long flags;
+
+	if ((reason > KMSG_DUMP_OOPS) && !always_kmsg_dump)
+		return;
 
 	/* Theoretically, the log could move on after we do this, but
 	   there's not a lot we can do about that. The new messages

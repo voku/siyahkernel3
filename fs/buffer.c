@@ -2898,7 +2898,7 @@ static void end_bio_bh_io_sync(struct bio *bio, int err)
 	bio_put(bio);
 }
 
-int submit_bh(int rw, struct buffer_head * bh)
+int _submit_bh(int rw, struct buffer_head *bh, unsigned long bio_flags)
 {
 	struct bio *bio;
 	int ret = 0;
@@ -2933,6 +2933,7 @@ int submit_bh(int rw, struct buffer_head * bh)
 
 	bio->bi_end_io = end_bio_bh_io_sync;
 	bio->bi_private = bh;
+	bio->bi_flags |= bio_flags;
 
 	bio_get(bio);
 	submit_bio(rw, bio);
@@ -2942,6 +2943,12 @@ int submit_bh(int rw, struct buffer_head * bh)
 
 	bio_put(bio);
 	return ret;
+}
+EXPORT_SYMBOL_GPL(_submit_bh);
+
+int submit_bh(int rw, struct buffer_head *bh)
+{
+	return _submit_bh(rw, bh, 0);
 }
 EXPORT_SYMBOL(submit_bh);
 

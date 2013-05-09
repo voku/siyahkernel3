@@ -21,7 +21,11 @@
 #include <linux/signal.h>
 #include <linux/perf_event.h>
 #include <linux/hw_breakpoint.h>
+<<<<<<< HEAD
 #include <linux/export.h>
+=======
+#include <linux/context_tracking.h>
+>>>>>>> 91d1aa43... context_tracking: New context tracking susbsystem
 
 #include <asm/uaccess.h>
 #include <asm/pgtable.h>
@@ -1398,6 +1402,11 @@ long syscall_trace_enter(struct pt_regs *regs)
 {
 	long ret = 0;
 
+<<<<<<< HEAD
+=======
+	user_exit();
+
+>>>>>>> 91d1aa43... context_tracking: New context tracking susbsystem
 	/*
 	 * If we stepped into a sysenter/syscall insn, it trapped in
 	 * kernel mode; do_debug() cleared TF and set TIF_SINGLESTEP.
@@ -1441,6 +1450,16 @@ void syscall_trace_leave(struct pt_regs *regs)
 {
 	bool step;
 
+<<<<<<< HEAD
+=======
+	/*
+	 * We may come here right after calling schedule_user()
+	 * or do_notify_resume(), in which case we can be in RCU
+	 * user mode.
+	 */
+	user_exit();
+
+>>>>>>> 91d1aa43... context_tracking: New context tracking susbsystem
 	audit_syscall_exit(regs);
 
 	if (unlikely(test_thread_flag(TIF_SYSCALL_TRACEPOINT)))
@@ -1456,4 +1475,9 @@ void syscall_trace_leave(struct pt_regs *regs)
 			!test_thread_flag(TIF_SYSCALL_EMU);
 	if (step || test_thread_flag(TIF_SYSCALL_TRACE))
 		tracehook_report_syscall_exit(regs, step);
+<<<<<<< HEAD
+=======
+
+	user_enter();
+>>>>>>> 91d1aa43... context_tracking: New context tracking susbsystem
 }

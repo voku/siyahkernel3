@@ -19,7 +19,7 @@
 #include <linux/interrupt.h>
 #include <linux/efi.h>
 #include <linux/timex.h>
-#include <linux/clocksource.h>
+#include <linux/timekeeper_internal.h>
 #include <linux/platform_device.h>
 
 #include <asm/machvec.h>
@@ -80,7 +80,7 @@ static struct clocksource clocksource_itc = {
 };
 static struct clocksource *itc_clocksource;
 
-#ifdef CONFIG_VIRT_CPU_ACCOUNTING
+#ifdef CONFIG_VIRT_CPU_ACCOUNTING_NATIVE
 
 #include <linux/kernel_stat.h>
 
@@ -98,8 +98,15 @@ void arch_vtime_task_switch(struct task_struct *prev)
 	cputime_t delta_stime, delta_utime;
 	__u64 now;
 
-	now = ia64_get_itc();
+<<<<<<< HEAD
+	if (idle_task(smp_processor_id()) != prev)
+		vtime_account_system(prev);
+	else
+		vtime_account_idle(prev);
 
+	vtime_account_user(prev);
+=======
+>>>>>>> e3942ba... vtime: Consolidate a bit the ctx switch code
 	pi->ac_stamp = ni->ac_stamp;
 	ni->ac_stime = ni->ac_utime = 0;
 }
@@ -129,12 +136,14 @@ void vtime_account_system(struct task_struct *tsk)
 
 	account_system_time(tsk, 0, delta, delta);
 }
+EXPORT_SYMBOL_GPL(vtime_account_system);
 
 void vtime_account_idle(struct task_struct *tsk)
 {
 	account_idle_time(vtime_delta(tsk));
 }
 
+<<<<<<< HEAD
 /*
  * Called from the timer interrupt handler to charge accumulated user time
  * to the current process.  Must be called with interrupts disabled.
@@ -152,6 +161,9 @@ void account_process_tick(struct task_struct *p, int user_tick)
 }
 
 #endif /* CONFIG_VIRT_CPU_ACCOUNTING */
+=======
+#endif /* CONFIG_VIRT_CPU_ACCOUNTING_NATIVE */
+>>>>>>> abf917c... cputime: Generic on-demand virtual cputime accounting
 
 static irqreturn_t
 timer_interrupt (int irq, void *dev_id)
@@ -449,7 +461,7 @@ void update_vsyscall_tz(void)
 {
 }
 
-void update_vsyscall(struct timespec *wall, struct timespec *wtm,
+void update_vsyscall_old(struct timespec *wall, struct timespec *wtm,
 			struct clocksource *c, u32 mult)
 {
         unsigned long flags;

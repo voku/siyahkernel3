@@ -24,6 +24,9 @@ endif
 
 obj-y += sched/
 
+ifeq ($(CONFIG_CHECKPOINT_RESTORE),y)
+obj-$(CONFIG_X86) += kcmp.o
+endif
 obj-$(CONFIG_FREEZER) += freezer.o
 obj-$(CONFIG_PROFILING) += profile.o
 obj-$(CONFIG_SYSCTL_SYSCALL_CHECK) += sysctl_check.o
@@ -110,6 +113,7 @@ obj-$(CONFIG_USER_RETURN_NOTIFIER) += user-return-notifier.o
 obj-$(CONFIG_PADATA) += padata.o
 obj-$(CONFIG_CRASH_DUMP) += crash_dump.o
 obj-$(CONFIG_UPROBES) += uprobes.o
+obj-$(CONFIG_CONTEXT_TRACKING) += context_tracking.o
 
 $(obj)/configs.o: $(obj)/config_data.h
 

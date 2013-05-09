@@ -113,7 +113,7 @@ static unsigned int smooth_up_asleep; // ZZ: smooth scaling on early suspend
 
 // ZZ: defaults for suspend
 #define SAMPLING_RATE_SLEEP_MULTIPLIER 		(2) // ZZ: default for tuneable sampling_rate_sleep_multiplier
-#define DEF_UP_THRESHOLD_SLEEP			(90) // ZZ: default for tuneable up_threshold_sleep
+#define DEF_UP_THRESHOLD_SLEEP			(80) // ZZ: default for tuneable up_threshold_sleep
 #define DEF_DOWN_THRESHOLD_SLEEP		(44) // ZZ: default for tuneable down_threshold_sleep
 #define DEF_SMOOTH_UP_SLEEP			(100) // ZZ: default for tuneable smooth_up_sleep
 
@@ -179,7 +179,7 @@ static struct dbs_tuners {
 	.sampling_down_factor = DEF_SAMPLING_DOWN_FACTOR,
 	.sampling_rate_sleep_multiplier = SAMPLING_RATE_SLEEP_MULTIPLIER, // ZZ: set default value for new tuneable
 	.ignore_nice = 0,
-	.freq_step = 10,
+	.freq_step = 15,
 	.smooth_up = DEF_SMOOTH_UP,
 	.smooth_up_sleep = DEF_SMOOTH_UP_SLEEP, // ZZ: set default value for new tuneable
 	.hotplug_sleep = DEF_HOTPLUG_SLEEP, // ZZ: set default value for new tuneable
@@ -251,10 +251,9 @@ static int mn_freqs_power[16][3]={
 };
 
 static int mn_get_next_freq(unsigned int curfreq, unsigned int updown, unsigned int load) {
-	int i=0,max_level = 16;
+	int i = 0, max_level = 16;
 
-	if (load < dbs_tuners_ins.smooth_up)
-	{
+	if (load < dbs_tuners_ins.smooth_up) {
 		for (i = 0; i < max_level; i++)	{
 			if (curfreq == mn_freqs[i][MN_FREQ]) {
 				return mn_freqs[i][updown];
@@ -829,47 +828,49 @@ static inline void dbs_timer_exit(struct cpu_dbs_info_s *dbs_info)
 
 static void powersave_early_suspend(struct early_suspend *handler)
 {
-  mutex_lock(&dbs_mutex);
-  sampling_rate_awake = dbs_tuners_ins.sampling_rate;
-  up_threshold_awake = dbs_tuners_ins.up_threshold;
-  down_threshold_awake = dbs_tuners_ins.down_threshold;
-  smooth_up_awake = dbs_tuners_ins.smooth_up;
-  if (dbs_tuners_ins.hotplug_sleep != 0) { // ZZ: if set to 0 do not touch hotplugging
-	hotplug1_awake = dbs_tuners_ins.up_threshold_hotplug1; // ZZ: buffer hotplug1 value for restore on awake
-  }
-  sampling_rate_asleep = dbs_tuners_ins.sampling_rate_sleep_multiplier; // ZZ: set sleep multiplier
-  up_threshold_asleep = dbs_tuners_ins.up_threshold_sleep; // ZZ: set up threshold
-  down_threshold_asleep = dbs_tuners_ins.down_threshold_sleep; // ZZ: set down threshold
-  smooth_up_asleep = dbs_tuners_ins.smooth_up_sleep; // ZZ: set smooth up
-  dbs_tuners_ins.sampling_rate *= sampling_rate_asleep; // ZZ: set sampling rate
-  dbs_tuners_ins.up_threshold = up_threshold_asleep; // ZZ: set up threshold
-  dbs_tuners_ins.down_threshold = down_threshold_asleep; // ZZ: set down threshold
-  dbs_tuners_ins.smooth_up = smooth_up_asleep; // ZZ: set smooth up
-  if (dbs_tuners_ins.hotplug_sleep != 0) { // ZZ: if set to 0 do not touch hotplugging
-	if (dbs_tuners_ins.hotplug_sleep == 1) { // ZZ: set to one core
-	    dbs_tuners_ins.up_threshold_hotplug1 = 0; // ZZ: set to one core
+	mutex_lock(&dbs_mutex);
+	sampling_rate_awake = dbs_tuners_ins.sampling_rate;
+	up_threshold_awake = dbs_tuners_ins.up_threshold;
+	down_threshold_awake = dbs_tuners_ins.down_threshold;
+	smooth_up_awake = dbs_tuners_ins.smooth_up;
+
+	if (dbs_tuners_ins.hotplug_sleep != 0) { // ZZ: if set to 0 do not touch hotplugging
+		hotplug1_awake = dbs_tuners_ins.up_threshold_hotplug1; // ZZ: buffer hotplug1 value for restore on awake
 	}
-  }
-  mutex_unlock(&dbs_mutex);
+	sampling_rate_asleep = dbs_tuners_ins.sampling_rate_sleep_multiplier; // ZZ: set sleep multiplier
+	up_threshold_asleep = dbs_tuners_ins.up_threshold_sleep; // ZZ: set up threshold
+	down_threshold_asleep = dbs_tuners_ins.down_threshold_sleep; // ZZ: set down threshold
+	smooth_up_asleep = dbs_tuners_ins.smooth_up_sleep; // ZZ: set smooth up
+	dbs_tuners_ins.sampling_rate *= sampling_rate_asleep; // ZZ: set sampling rate
+	dbs_tuners_ins.up_threshold = up_threshold_asleep; // ZZ: set up threshold
+	dbs_tuners_ins.down_threshold = down_threshold_asleep; // ZZ: set down threshold
+	dbs_tuners_ins.smooth_up = smooth_up_asleep; // ZZ: set smooth up
+
+	if (dbs_tuners_ins.hotplug_sleep != 0) { // ZZ: if set to 0 do not touch hotplugging
+		if (dbs_tuners_ins.hotplug_sleep == 1) { // ZZ: set to one core
+			dbs_tuners_ins.up_threshold_hotplug1 = 0; // ZZ: set to one core
+		}
+	}
+	mutex_unlock(&dbs_mutex);
 }
 
 static void powersave_late_resume(struct early_suspend *handler)
 {
-  mutex_lock(&dbs_mutex);
-  dbs_tuners_ins.sampling_rate = sampling_rate_awake;
-  dbs_tuners_ins.up_threshold = up_threshold_awake;
-  dbs_tuners_ins.down_threshold = down_threshold_awake;
-  dbs_tuners_ins.smooth_up = smooth_up_awake;
-  if (dbs_tuners_ins.hotplug_sleep != 0) {
-	dbs_tuners_ins.up_threshold_hotplug1 = hotplug1_awake; // ZZ: restore previous settings
-  }
-  mutex_unlock(&dbs_mutex);
+	mutex_lock(&dbs_mutex);
+	dbs_tuners_ins.sampling_rate = sampling_rate_awake;
+	dbs_tuners_ins.up_threshold = up_threshold_awake;
+	dbs_tuners_ins.down_threshold = down_threshold_awake;
+	dbs_tuners_ins.smooth_up = smooth_up_awake;
+	if (dbs_tuners_ins.hotplug_sleep != 0) {
+		dbs_tuners_ins.up_threshold_hotplug1 = hotplug1_awake; // ZZ: restore previous settings
+	}
+	mutex_unlock(&dbs_mutex);
 }
 
 static struct early_suspend _powersave_early_suspend = {
-  .suspend = powersave_early_suspend,
-  .resume = powersave_late_resume,
-  .level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN,
+	.suspend = powersave_early_suspend,
+	.resume = powersave_late_resume,
+	.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN,
 };
 
 static int cpufreq_governor_dbs(struct cpufreq_policy *policy,

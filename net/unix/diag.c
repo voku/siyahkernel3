@@ -197,10 +197,15 @@ static int unix_diag_dump(struct sk_buff *skb, struct netlink_callback *cb)
 	spin_lock(&unix_table_lock);
 	for (slot = s_slot; slot <= UNIX_HASH_SIZE; s_num = 0, slot++) {
 		struct sock *sk;
-		struct hlist_node *node;
 
 		num = 0;
+<<<<<<< HEAD
 		sk_for_each(sk, node, &unix_socket_table[slot]) {
+=======
+		sk_for_each(sk, &unix_socket_table[slot]) {
+			if (!net_eq(sock_net(sk), net))
+				continue;
+>>>>>>> b67bfe0... hlist: drop the node parameter from iterators
 			if (num < s_num)
 				goto next;
 			if (!(req->udiag_states & (1 << sk->sk_state)))
@@ -228,10 +233,15 @@ static struct sock *unix_lookup_by_ino(int ino)
 	struct sock *sk;
 
 	spin_lock(&unix_table_lock);
+<<<<<<< HEAD
 	for (i = 0; i <= UNIX_HASH_SIZE; i++) {
 		struct hlist_node *node;
 
 		sk_for_each(sk, node, &unix_socket_table[i])
+=======
+	for (i = 0; i < ARRAY_SIZE(unix_socket_table); i++) {
+		sk_for_each(sk, &unix_socket_table[i])
+>>>>>>> b67bfe0... hlist: drop the node parameter from iterators
 			if (ino == sock_i_ino(sk)) {
 				sock_hold(sk);
 				spin_unlock(&unix_table_lock);

@@ -55,6 +55,12 @@
 #include <asm/paravirt.h>
 #include <asm/ftrace.h>
 #include <asm/percpu.h>
+<<<<<<< HEAD
+=======
+#include <asm/asm.h>
+#include <asm/context_tracking.h>
+#include <asm/smap.h>
+>>>>>>> 91d1aa43... context_tracking: New context tracking susbsystem
 #include <linux/err.h>
 
 /* Avoid __ASSEMBLER__'ifying <linux/audit.h> just for this.  */

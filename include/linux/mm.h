@@ -44,6 +44,9 @@ extern int sysctl_legacy_va_layout;
 #include <asm/pgtable.h>
 #include <asm/processor.h>
 
+extern unsigned long sysctl_user_reserve_kbytes;
+extern unsigned long sysctl_admin_reserve_kbytes;
+
 #define nth_page(page,n) pfn_to_page(page_to_pfn((page)) + (n))
 
 /* to align the pointer to the (next) page boundary */
@@ -123,6 +126,8 @@ extern unsigned int kobjsize(const void *objp);
 #elif defined(CONFIG_PPC)
 # define VM_SAO		VM_ARCH_1	/* Strong Access Ordering (powerpc) */
 #elif defined(CONFIG_PARISC)
+# define VM_GROWSUP	VM_ARCH_1
+#elif defined(CONFIG_METAG)
 # define VM_GROWSUP	VM_ARCH_1
 #elif defined(CONFIG_IA64)
 # define VM_GROWSUP	VM_ARCH_1
@@ -969,7 +974,8 @@ extern void pagefault_out_of_memory(void);
  * Flags passed to show_mem() and show_free_areas() to suppress output in
  * various contexts.
  */
-#define SHOW_MEM_FILTER_NODES	(0x0001u)	/* filter disallowed nodes */
+#define SHOW_MEM_FILTER_NODES		(0x0001u)	/* disallowed nodes */
+#define SHOW_MEM_FILTER_PAGE_COUNT	(0x0002u)	/* page type count */
 
 extern void show_free_areas(unsigned int flags);
 extern bool skip_free_areas_node(unsigned int flags, int nid);
@@ -1374,6 +1380,61 @@ extern void free_area_init(unsigned long * zones_size);
 extern void free_area_init_node(int nid, unsigned long * zones_size,
 		unsigned long zone_start_pfn, unsigned long *zholes_size);
 extern void free_initmem(void);
+
+/*
+ * Free reserved pages within range [PAGE_ALIGN(start), end & PAGE_MASK)
+ * into the buddy system. The freed pages will be poisoned with pattern
+ * "poison" if it's non-zero.
+ * Return pages freed into the buddy system.
+ */
+extern unsigned long free_reserved_area(unsigned long start, unsigned long end,
+					int poison, char *s);
+#ifdef	CONFIG_HIGHMEM
+/*
+ * Free a highmem page into the buddy system, adjusting totalhigh_pages
+ * and totalram_pages.
+ */
+extern void free_highmem_page(struct page *page);
+#endif
+
+static inline void adjust_managed_page_count(struct page *page, long count)
+{
+	totalram_pages += count;
+}
+
+/* Free the reserved page into the buddy system, so it gets managed. */
+static inline void __free_reserved_page(struct page *page)
+{
+	ClearPageReserved(page);
+	init_page_count(page);
+	__free_page(page);
+}
+
+static inline void free_reserved_page(struct page *page)
+{
+	__free_reserved_page(page);
+	adjust_managed_page_count(page, 1);
+}
+
+static inline void mark_page_reserved(struct page *page)
+{
+	SetPageReserved(page);
+	adjust_managed_page_count(page, -1);
+}
+
+/*
+ * Default method to free all the __init memory into the buddy system.
+ * The freed pages will be poisoned with pattern "poison" if it is
+ * non-zero. Return pages freed into the buddy system.
+ */
+static inline unsigned long free_initmem_default(int poison)
+{
+	extern char __init_begin[], __init_end[];
+
+	return free_reserved_area(PAGE_ALIGN((unsigned long)&__init_begin) ,
+				  ((unsigned long)&__init_end) & PAGE_MASK,
+				  poison, "unused kernel");
+}
 
 #ifdef CONFIG_HAVE_MEMBLOCK_NODE_MAP
 /*
@@ -1780,8 +1841,12 @@ int in_gate_area_no_mm(unsigned long addr);
 #ifdef CONFIG_DMA_CMA
 void perform_drop_caches(unsigned int mode);
 #endif
+#ifdef CONFIG_SYSCTL
+extern int sysctl_drop_caches;
 int drop_caches_sysctl_handler(struct ctl_table *, int,
 					void __user *, size_t *, loff_t *);
+#endif
+
 unsigned long shrink_slab(struct shrink_control *shrink,
 			  unsigned long nr_pages_scanned,
 			  unsigned long lru_pages);
@@ -1809,12 +1874,12 @@ pte_t *vmemmap_pte_populate(pmd_t *pmd, unsigned long addr, int node);
 void *vmemmap_alloc_block(unsigned long size, int node);
 void *vmemmap_alloc_block_buf(unsigned long size, int node);
 void vmemmap_verify(pte_t *, int, unsigned long, unsigned long);
-int vmemmap_populate_basepages(struct page *start_page,
-						unsigned long pages, int node);
-int vmemmap_populate(struct page *start_page, unsigned long pages, int node);
+int vmemmap_populate_basepages(unsigned long start, unsigned long end,
+			       int node);
+int vmemmap_populate(unsigned long start, unsigned long end, int node);
 void vmemmap_populate_print_last(void);
 #ifdef CONFIG_MEMORY_HOTPLUG
-void vmemmap_free(struct page *memmap, unsigned long nr_pages);
+void vmemmap_free(unsigned long start, unsigned long end);
 #endif
 void register_page_bootmem_memmap(unsigned long section_nr, struct page *map,
 				  unsigned long size);
@@ -1865,6 +1930,12 @@ static inline bool page_is_guard(struct page *page)
 static inline unsigned int debug_guardpage_minorder(void) { return 0; }
 static inline bool page_is_guard(struct page *page) { return false; }
 #endif /* CONFIG_DEBUG_PAGEALLOC */
+
+#if MAX_NUMNODES > 1
+void __init setup_nr_node_ids(void);
+#else
+static inline void setup_nr_node_ids(void) {}
+#endif
 
 #endif /* __KERNEL__ */
 #endif /* _LINUX_MM_H */

@@ -297,8 +297,7 @@ void clockevents_register_device(struct clock_event_device *dev)
 }
 EXPORT_SYMBOL_GPL(clockevents_register_device);
 
-static void clockevents_config(struct clock_event_device *dev,
-			       u32 freq)
+void clockevents_config(struct clock_event_device *dev, u32 freq)
 {
 	u64 sec;
 
@@ -340,6 +339,7 @@ void clockevents_config_and_register(struct clock_event_device *dev,
 	clockevents_config(dev, freq);
 	clockevents_register_device(dev);
 }
+EXPORT_SYMBOL_GPL(clockevents_config_and_register);
 
 /**
  * clockevents_update_freq - Update frequency and reprogram a clock event device.
@@ -396,6 +396,30 @@ void clockevents_exchange_device(struct clock_event_device *old,
 		clockevents_shutdown(new);
 	}
 	local_irq_restore(flags);
+}
+
+/**
+ * clockevents_suspend - suspend clock devices
+ */
+void clockevents_suspend(void)
+{
+	struct clock_event_device *dev;
+
+	list_for_each_entry_reverse(dev, &clockevent_devices, list)
+		if (dev->suspend)
+			dev->suspend(dev);
+}
+
+/**
+ * clockevents_resume - resume clock devices
+ */
+void clockevents_resume(void)
+{
+	struct clock_event_device *dev;
+
+	list_for_each_entry(dev, &clockevent_devices, list)
+		if (dev->resume)
+			dev->resume(dev);
 }
 
 #ifdef CONFIG_GENERIC_CLOCKEVENTS

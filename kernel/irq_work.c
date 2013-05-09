@@ -5,23 +5,19 @@
  * context. The enqueueing is NMI-safe.
  */
 
+#include <linux/bug.h>
 #include <linux/kernel.h>
 #include <linux/export.h>
 #include <linux/irq_work.h>
+#include <linux/percpu.h>
 #include <linux/hardirq.h>
+#include <linux/irqflags.h>
+#include <linux/sched.h>
+#include <linux/tick.h>
+#include <linux/cpu.h>
+#include <linux/notifier.h>
+#include <asm/processor.h>
 
-/*
- * An entry can be in one of four states:
- *
- * free	     NULL, 0 -> {claimed}       : free to be used
- * claimed   NULL, 3 -> {pending}       : claimed to be enqueued
- * pending   next, 3 -> {busy}          : queued, pending callback
- * busy      NULL, 2 -> {free, claimed} : callback in progress, can be claimed
- */
-
-#define IRQ_WORK_PENDING	1UL
-#define IRQ_WORK_BUSY		2UL
-#define IRQ_WORK_FLAGS		3UL
 
 static DEFINE_PER_CPU(struct llist_head, irq_work_list);
 
@@ -88,6 +84,17 @@ bool irq_work_queue(struct irq_work *work)
 	return true;
 }
 EXPORT_SYMBOL_GPL(irq_work_queue);
+
+bool irq_work_needs_cpu(void)
+{
+	struct llist_head *this_list;
+
+	this_list = &__get_cpu_var(irq_work_list);
+	if (llist_empty(this_list))
+		return false;
+
+	return true;
+}
 
 /*
  * Run the irq_work entries on this cpu. Requires to be ran from hardirq

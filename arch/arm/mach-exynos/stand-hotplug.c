@@ -611,7 +611,7 @@ static int standhotplug_cpufreq_policy_notifier_call(struct notifier_block *this
 
 	switch (code) {
 	case CPUFREQ_ADJUST:
-		if (
+		/*if (
 			(!strnicmp(policy->governor->name, "nightmare", CPUFREQ_NAME_LEN))
 			)
 		{
@@ -622,7 +622,7 @@ static int standhotplug_cpufreq_policy_notifier_call(struct notifier_block *this
 				standhotplug_enabled = false;
 				mutex_unlock(&hotplug_lock);
 			}
-		} else {
+		} else {*/
 			if (!standhotplug_enabled) {
 				DBG_PRINT("Stand-hotplug is enabled: governor=%s\n",
 								policy->governor->name);
@@ -631,7 +631,7 @@ static int standhotplug_cpufreq_policy_notifier_call(struct notifier_block *this
 				queue_delayed_work_on(0, hotplug_wq, &hotplug_work, hotpluging_rate);
 				mutex_unlock(&hotplug_lock);
 			}
-		}
+		/*}*/
 		break;
 	case CPUFREQ_INCOMPATIBLE:
 	case CPUFREQ_NOTIFY:
@@ -649,11 +649,11 @@ static int __init exynos4_pm_hotplug_device_init(void)
 {
 	int ret;
 
-#if defined(CONFIG_CPU_FREQ_DEFAULT_GOV_NIGHTMARE)
+/*#if defined(CONFIG_CPU_FREQ_DEFAULT_GOV_NIGHTMARE)
 	standhotplug_enabled = 0;
-#else
+#else*/
 	standhotplug_enabled = 1;
-#endif
+/*#endif*/
 	ret = platform_device_register(&exynos4_pm_hotplug_device);
 
 	if (ret) {

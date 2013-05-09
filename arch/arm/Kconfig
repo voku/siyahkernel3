@@ -233,7 +233,7 @@ config ARM_PATCH_PHYS_VIRT_16BIT
 config ARCH_HIBERNATION_POSSIBLE
 	def_bool y
 
-config GENERIC_TIME_VSYSCALL
+config GENERIC_TIME_VSYSCALL_OLD
 	bool "Enable gettimeofday updates"
 	depends on CPU_V7
 	help
@@ -1448,8 +1448,6 @@ endmenu
 
 menu "Kernel Features"
 
-source "kernel/time/Kconfig"
-
 config SMP
 	bool "Symmetric Multi-Processing"
 	depends on CPU_V6K || CPU_V7
@@ -1554,7 +1552,7 @@ source kernel/Kconfig.preempt
 
 config HZ
 	int
-	default 200 if ARCH_EBSA110 || ARCH_S3C2410 || ARCH_S5P64X0 || \
+	default 250 if ARCH_EBSA110 || ARCH_S3C2410 || ARCH_S5P64X0 || \
 		ARCH_S5PV210 || (ARCH_EXYNOS && !MACH_FPGA5410)
 	default 20 if MACH_FPGA5410
 	default OMAP_32K_TIMER_HZ if ARCH_OMAP && OMAP_32K_TIMER

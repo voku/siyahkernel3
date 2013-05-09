@@ -55,6 +55,10 @@
 #include <asm/desc.h>
 #include <asm/i387.h>
 #include <asm/mce.h>
+<<<<<<< HEAD
+=======
+#include <asm/context_tracking.h>
+>>>>>>> 91d1aa43... context_tracking: New context tracking susbsystem
 
 #include <asm/mach_traps.h>
 

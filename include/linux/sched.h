@@ -125,7 +125,7 @@ extern void get_avenrun(unsigned long *loads, unsigned long offset, int shift);
 
 #define FSHIFT		11		/* nr of bits of precision */
 #define FIXED_1		(1<<FSHIFT)	/* 1.0 as fixed-point */
-#define LOAD_FREQ	(4*HZ+122)	/* 4.61 sec intervals (e.g.: for HZ=200 -> 4*200+122=922 ticks, 922/200=4.61 sec) */
+#define LOAD_FREQ	(4*HZ+153)	/* 4.612 sec intervals (e.g.: for HZ=250 -> 4*250+153=1153 ticks, 1153/250=4.612 sec) */
 #define EXP_1    	1896		/* 1/exp(4.61sec/1min) as fixed-point */
 #define EXP_5    	2017		/* 1/exp(4.61sec/5min) */
 #define EXP_15    	2038		/* 1/exp(4.61sec/15min) */
@@ -296,7 +296,7 @@ static inline int sched_select_non_idle_cpu(void)
 }
 #endif
 
-#if defined(CONFIG_SMP) && defined(CONFIG_NO_HZ)
+#if defined(CONFIG_SMP) && defined(CONFIG_NO_HZ_COMMON)
 extern void nohz_balance_enter_idle(int cpu);
 extern void set_cpu_sd_state_idle(void);
 /*
@@ -587,7 +587,8 @@ struct signal_struct {
 	unsigned int		has_child_subreaper:1;
 
 	/* POSIX.1b Interval Timers */
-	struct list_head posix_timers;
+	int			posix_timer_id;
+	struct list_head	posix_timers;
 
 	/* ITIMER_REAL timer for the process */
 	struct hrtimer real_timer;
@@ -631,7 +632,7 @@ struct signal_struct {
 	cputime_t utime, stime, cutime, cstime;
 	cputime_t gtime;
 	cputime_t cgtime;
-#ifndef CONFIG_VIRT_CPU_ACCOUNTING
+#ifndef CONFIG_VIRT_CPU_ACCOUNTING_NATIVE
 	struct cputime prev_cputime;
 #endif
 	unsigned long nvcsw, nivcsw, cnvcsw, cnivcsw;
@@ -966,6 +967,8 @@ struct sched_domain {
 	unsigned int wake_idx;
 	unsigned int forkexec_idx;
 	unsigned int smt_gain;
+
+	int nohz_idle;			/* NOHZ IDLE status */
 	int flags;			/* See SD_* */
 	int level;
 
@@ -1046,9 +1049,6 @@ static inline int test_sd_parent(struct sched_domain *sd, int flag)
 
 	return 0;
 }
-
-unsigned long default_scale_freq_power(struct sched_domain *sd, int cpu);
-unsigned long default_scale_smt_power(struct sched_domain *sd, int cpu);
 
 bool cpus_share_cache(int this_cpu, int that_cpu);
 
@@ -1344,8 +1344,10 @@ struct task_struct {
 	int exit_code, exit_signal;
 	int pdeath_signal;  /*  The signal sent when the parent dies  */
 	unsigned int jobctl;	/* JOBCTL_*, siglock protected */
-	/* ??? */
+
+	/* Used for emulating ABI behavior of previous Linux versions */
 	unsigned int personality;
+
 	unsigned did_exec:1;
 	unsigned in_execve:1;	/* Tell the LSMs that the process is doing an
 				 * execve */
@@ -1397,7 +1399,7 @@ struct task_struct {
 
 	cputime_t utime, stime, utimescaled, stimescaled;
 	cputime_t gtime;
-#ifndef CONFIG_VIRT_CPU_ACCOUNTING
+#ifndef CONFIG_VIRT_CPU_ACCOUNTING_NATIVE
 	struct cputime prev_cputime;
 #endif
 #ifdef CONFIG_VIRT_CPU_ACCOUNTING_GEN
@@ -2011,13 +2013,13 @@ static inline int set_cpus_allowed_ptr(struct task_struct *p,
 }
 #endif
 
-#ifdef CONFIG_NO_HZ
+#ifdef CONFIG_NO_HZ_COMMON
 void calc_load_enter_idle(void);
 void calc_load_exit_idle(void);
 #else
 static inline void calc_load_enter_idle(void) { }
 static inline void calc_load_exit_idle(void) { }
-#endif /* CONFIG_NO_HZ */
+#endif /* CONFIG_NO_HZ_COMMON */
 
 #ifndef CONFIG_CPUMASK_OFFSTACK
 static inline int set_cpus_allowed(struct task_struct *p, cpumask_t new_mask)
@@ -2035,7 +2037,6 @@ static inline int set_cpus_allowed(struct task_struct *p, cpumask_t new_mask)
  * Please use one of the three interfaces below.
  */
 extern unsigned long long notrace sched_clock(void);
-extern unsigned long long notrace sched_clock_clksrc(void);
 /*
  * See the comment in kernel/sched/clock.c
  */
@@ -2104,10 +2105,17 @@ extern void idle_task_exit(void);
 static inline void idle_task_exit(void) {}
 #endif
 
-#if defined(CONFIG_NO_HZ) && defined(CONFIG_SMP)
-extern void wake_up_idle_cpu(int cpu);
+#if defined(CONFIG_NO_HZ_COMMON) && defined(CONFIG_SMP)
+extern void wake_up_nohz_cpu(int cpu);
 #else
-static inline void wake_up_idle_cpu(int cpu) { }
+static inline void wake_up_nohz_cpu(int cpu) { }
+#endif
+
+#ifdef CONFIG_NO_HZ_FULL
+extern bool sched_can_stop_tick(void);
+extern u64 scheduler_tick_max_deferment(void);
+#else
+static inline bool sched_can_stop_tick(void) { return false; }
 #endif
 
 #ifdef CONFIG_SCHED_AUTOGROUP

@@ -170,7 +170,7 @@ struct clocksource mct_frc = {
 	.read		= exynos4_frc_read,
 	.mask		= CLOCKSOURCE_MASK(64),
 	.flags		= CLOCK_SOURCE_IS_CONTINUOUS |
-			  CLOCK_SOURCE_SCHED_CLOCK,
+			  CLOCK_SOURCE_SUSPEND_NONSTOP,
 	.suspend	= exynos4_frc_suspend,
 	.resume		= exynos4_frc_resume,
 };
