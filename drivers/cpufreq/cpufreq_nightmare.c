@@ -149,7 +149,7 @@ static unsigned int get_nr_run_avg(void)
 #define MAX_SAMPLING_UP_FACTOR		(100000)
 #define DEF_SAMPLING_DOWN_FACTOR	(1)
 #define MAX_SAMPLING_DOWN_FACTOR	(100000)
-#define DEF_FREQ_STEP_DEC		(5)
+#define DEF_FREQ_STEP_DEC		(10)
 
 #define DEF_SAMPLING_RATE		(60000)
 #define MIN_SAMPLING_RATE		(10000)
@@ -159,8 +159,8 @@ static unsigned int get_nr_run_avg(void)
 #define DEF_MIN_CPU_LOCK		(0)
 #define DEF_UP_NR_CPUS			(1)
 #define DEF_CPU_UP_RATE			(10)
-#define DEF_CPU_DOWN_RATE		(20)
-#define DEF_FREQ_STEP			(30)
+#define DEF_CPU_DOWN_RATE		(5)
+#define DEF_FREQ_STEP			(20)
 
 #define DEF_START_DELAY			(0)
 
@@ -174,14 +174,14 @@ static unsigned int get_nr_run_avg(void)
 #define HOTPLUG_DOWN_INDEX		(0)
 #define HOTPLUG_UP_INDEX		(1)
 /* CPU freq will be increased if measured load > inc_cpu_load;*/
-#define DEF_INC_CPU_LOAD 		(80)
-#define INC_CPU_LOAD_AT_MIN_FREQ	(40)
+#define DEF_INC_CPU_LOAD 		(70)
+#define INC_CPU_LOAD_AT_MIN_FREQ	(60)
 #define UP_AVG_LOAD			(65u)
 /* CPU freq will be decreased if measured load < dec_cpu_load;*/
-#define DEF_DEC_CPU_LOAD 		(60)
-#define DOWN_AVG_LOAD			(30u)
-#define DEF_FREQ_UP_BRAKE		(5u)
-#define DEF_HOTPLUG_COMPARE_LEVEL	(0u)
+#define DEF_DEC_CPU_LOAD 		(50)
+#define DOWN_AVG_LOAD			(50u)
+#define DEF_FREQ_UP_BRAKE		(30u)
+#define DEF_HOTPLUG_COMPARE_LEVEL	(1u)
 
 #ifdef CONFIG_MACH_MIDAS
 static int hotplug_rq[4][2] = {
@@ -1387,22 +1387,24 @@ static void nightmare_check_frequency(struct cpufreq_nightmare_cpuinfo *this_nig
 
 	for_each_online_cpu(j) {
 		struct cpufreq_policy *policy;
-		int load = -1;
+		int cur_load = -1;
 
-		load = hotplug_histories->usage[num_hist].load[j];
+		cur_load = hotplug_histories->usage[num_hist].load[j];
 
 		policy = cpufreq_cpu_get(j);
-		if (!policy)
+		if (!policy) {
 			continue;
+		}
 
 		/* CPUs Online Scale Frequency*/
-		if (policy->cur < nightmare_tuners_ins.freq_for_responsiveness)
+		if (policy->cur < nightmare_tuners_ins.freq_for_responsiveness) {
 			inc_cpu_load = nightmare_tuners_ins.inc_cpu_load_at_min_freq;
-		else
+		} else {
 			inc_cpu_load = nightmare_tuners_ins.inc_cpu_load;
+		}
 
 		/* Check for frequency increase or for frequency decrease */
-		if (load >= inc_cpu_load) {
+		if (cur_load >= inc_cpu_load) {
 			this_nightmare_cpuinfo->rate_mult = nightmare_tuners_ins.sampling_up_factor;
 
 			/* if we cannot increment the frequency anymore, break out early */
@@ -1411,24 +1413,25 @@ static void nightmare_check_frequency(struct cpufreq_nightmare_cpuinfo *this_nig
 				continue;
 			}
 
-			inc_load = ((load * freq_for_calc_incr) / 100) + ((freq_step * freq_for_calc_incr) / 100);
+			inc_load = ((cur_load * freq_for_calc_incr) / 100) + ((freq_step * freq_for_calc_incr) / 100);
 			inc_brake = (freq_up_brake * freq_for_calc_incr) / 100;
 
 			if (inc_brake > inc_load) {
 				cpufreq_cpu_put(policy);
 				continue;
 			} else {
-				freq_up = policy->cur + (inc_load - inc_brake);
+				freq_up = min(policy->cur + (inc_load - inc_brake),policy->max);
 			}			
 
-			if (earlysuspend >= 0 && freq_up > policy->max_suspend)
+			if (earlysuspend >= 0 && freq_up > policy->max_suspend) {
 				freq_up = policy->max_suspend;
+			}
 
 			if (freq_up != policy->cur && freq_up <= policy->max) {
 				__cpufreq_driver_target(policy, freq_up, CPUFREQ_RELATION_L);
 			}
 
-		} else if (load < dec_cpu_load && load > -1) {
+		} else if (cur_load < dec_cpu_load && cur_load > -1) {
 			this_nightmare_cpuinfo->rate_mult = nightmare_tuners_ins.sampling_down_factor;
 
 			/* if we cannot reduce the frequency anymore, break out early */
@@ -1437,7 +1440,7 @@ static void nightmare_check_frequency(struct cpufreq_nightmare_cpuinfo *this_nig
 				continue;
 			}
 	
-			dec_load = (((100 - load) * freq_for_calc_decr) / 100) + ((freq_step_dec * freq_for_calc_decr) / 100);
+			dec_load = (((100 - cur_load) * freq_for_calc_decr) / 100) + ((freq_step_dec * freq_for_calc_decr) / 100);
 
 			if (policy->cur > dec_load + policy->min) {
 				freq_down = policy->cur - dec_load;
@@ -1445,8 +1448,9 @@ static void nightmare_check_frequency(struct cpufreq_nightmare_cpuinfo *this_nig
 				freq_down = policy->min;
 			}
 
-			if (earlysuspend >= 0 && freq_down < policy->min_suspend)
+			if (earlysuspend >= 0 && freq_down < policy->min_suspend) {
 				freq_down = policy->min_suspend;
+			}
 
 			if (freq_down != policy->cur) {
 				__cpufreq_driver_target(policy, freq_down, CPUFREQ_RELATION_L);
@@ -1560,7 +1564,6 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 
 		/* SET POLICY SHARED TYPE AND APPLY MASK TO ALL CPUS */
 		policy->shared_type = CPUFREQ_SHARED_TYPE_ANY;
-		cpumask_setall(policy->related_cpus);
 		cpumask_setall(policy->cpus);
 
 		nightmare_tuners_ins.max_freq = policy->max;
