@@ -1872,6 +1872,11 @@ static inline int security_capable(const struct cred *cred,
 	return cap_capable(current, cred, ns, cap, SECURITY_CAP_AUDIT);
 }
 
+static inline int security_capable_noaudit(const struct cred *cred,
+				   struct user_namespace *ns, int cap) {
+	return cap_capable(current, cred, ns, cap, SECURITY_CAP_NOAUDIT);
+}
+
 static inline int security_quotactl(int cmds, int type, int id,
 				     struct super_block *sb)
 {
