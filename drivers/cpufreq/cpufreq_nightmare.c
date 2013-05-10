@@ -36,6 +36,8 @@
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
 #endif
+
+#ifndef CONFIG_INTELLI_PLUG
 #define EARLYSUSPEND_HOTPLUGLOCK 1
 
 /*
@@ -138,7 +140,7 @@ static unsigned int get_nr_run_avg(void)
 
 	return nr_run_avg;
 }
-
+#endif
 
 /*
  * dbs is used in this file as a shortform for demandbased switching
@@ -154,16 +156,10 @@ static unsigned int get_nr_run_avg(void)
 #define DEF_SAMPLING_RATE		(60000)
 #define MIN_SAMPLING_RATE		(10000)
 #define MAX_HOTPLUG_RATE		(40u)
-
-#define DEF_MAX_CPU_LOCK		(0)
-#define DEF_MIN_CPU_LOCK		(0)
 #define DEF_UP_NR_CPUS			(1)
-#define DEF_CPU_UP_RATE			(10)
-#define DEF_CPU_DOWN_RATE		(5)
+
 #define DEF_FREQ_STEP			(20)
-
 #define DEF_START_DELAY			(0)
-
 #define FREQ_FOR_RESPONSIVENESS		(400000)
 #define MAX_FREQ_FOR_CALC_INCR		(400000)
 #define DEF_FREQ_FOR_CALC_INCR		(200000)
@@ -171,18 +167,28 @@ static unsigned int get_nr_run_avg(void)
 #define MAX_FREQ_FOR_CALC_DECR		(400000)
 #define DEF_FREQ_FOR_CALC_DECR		(200000)
 #define MIN_FREQ_FOR_CALC_DECR		(125000)
-#define HOTPLUG_DOWN_INDEX		(0)
-#define HOTPLUG_UP_INDEX		(1)
 /* CPU freq will be increased if measured load > inc_cpu_load;*/
 #define DEF_INC_CPU_LOAD 		(70)
 #define INC_CPU_LOAD_AT_MIN_FREQ	(60)
-#define UP_AVG_LOAD			(65u)
 /* CPU freq will be decreased if measured load < dec_cpu_load;*/
 #define DEF_DEC_CPU_LOAD 		(50)
-#define DOWN_AVG_LOAD			(50u)
 #define DEF_FREQ_UP_BRAKE		(30u)
-#define DEF_HOTPLUG_COMPARE_LEVEL	(0u)
 
+
+#ifndef CONFIG_INTELLI_PLUG
+#define DEF_MAX_CPU_LOCK		(0)
+#define DEF_MIN_CPU_LOCK		(0)
+#define DEF_CPU_UP_RATE			(10)
+#define DEF_CPU_DOWN_RATE		(5)
+#define HOTPLUG_DOWN_INDEX		(0)
+#define HOTPLUG_UP_INDEX		(1)
+#define UP_AVG_LOAD			(65u)
+#define DOWN_AVG_LOAD			(50u)
+#define DEF_HOTPLUG_COMPARE_LEVEL	(0u)
+#endif
+
+
+#ifndef CONFIG_INTELLI_PLUG
 #ifdef CONFIG_MACH_MIDAS
 static int hotplug_rq[4][2] = {
 	{0, 100}, {100, 200}, {200, 300}, {300, 0}
@@ -205,6 +211,7 @@ static int hotplug_freq[4][2] = {
 	{200000, 500000},
 	{200000, 0}
 };
+#endif
 #endif
 
 static unsigned int min_sampling_rate;
@@ -260,12 +267,16 @@ static struct nightmare_tuners {
 	unsigned int io_is_busy;
 	/* nightmare tuners */
 	unsigned int freq_step;
+#ifndef CONFIG_INTELLI_PLUG
 	unsigned int cpu_up_rate;
 	unsigned int cpu_down_rate;
+#endif
 	unsigned int up_nr_cpus;
+#ifndef CONFIG_INTELLI_PLUG
 	unsigned int max_cpu_lock;
 	unsigned int min_cpu_lock;
 	atomic_t hotplug_lock;
+#endif
 	unsigned int dvfs_debug;
 	unsigned int max_freq;
 	unsigned int min_freq;
@@ -275,22 +286,30 @@ static struct nightmare_tuners {
 	unsigned int freq_for_calc_decr;
 	unsigned int inc_cpu_load;
 	unsigned int dec_cpu_load;
+#ifndef CONFIG_INTELLI_PLUG
 	unsigned int up_avg_load;
 	unsigned int down_avg_load;
+#endif
 	unsigned int sampling_up_factor;
 	unsigned int freq_up_brake;
+#ifndef CONFIG_INTELLI_PLUG
 	unsigned int hotplug_compare_level;
+#endif
 } nightmare_tuners_ins = {
 	.sampling_down_factor = DEF_SAMPLING_DOWN_FACTOR,
 	.freq_step_dec = DEF_FREQ_STEP_DEC,
 	.ignore_nice = 0,
 	.freq_step = DEF_FREQ_STEP,
+#ifndef CONFIG_INTELLI_PLUG
 	.cpu_up_rate = DEF_CPU_UP_RATE,
 	.cpu_down_rate = DEF_CPU_DOWN_RATE,
+#endif
 	.up_nr_cpus = DEF_UP_NR_CPUS,
+#ifndef CONFIG_INTELLI_PLUG
 	.max_cpu_lock = DEF_MAX_CPU_LOCK,
 	.min_cpu_lock = DEF_MIN_CPU_LOCK,
 	.hotplug_lock = ATOMIC_INIT(0),
+#endif
 	.dvfs_debug = 0,
 	.inc_cpu_load_at_min_freq = INC_CPU_LOAD_AT_MIN_FREQ,
 	.freq_for_responsiveness = FREQ_FOR_RESPONSIVENESS,
@@ -298,17 +317,22 @@ static struct nightmare_tuners {
 	.freq_for_calc_decr = DEF_FREQ_FOR_CALC_DECR,
 	.inc_cpu_load = DEF_INC_CPU_LOAD,
 	.dec_cpu_load = DEF_DEC_CPU_LOAD,
+#ifndef CONFIG_INTELLI_PLUG
 	.up_avg_load = UP_AVG_LOAD,
 	.down_avg_load = DOWN_AVG_LOAD,
+#endif
 	.sampling_up_factor = DEF_SAMPLING_UP_FACTOR,
 	.freq_up_brake = DEF_FREQ_UP_BRAKE,
+#ifndef CONFIG_INTELLI_PLUG
 	.hotplug_compare_level = DEF_HOTPLUG_COMPARE_LEVEL,
+#endif
 };
 
 /*
  * CPU hotplug lock interface
  */
 
+#ifndef CONFIG_INTELLI_PLUG
 static atomic_t g_hotplug_count = ATOMIC_INIT(0);
 static atomic_t g_hotplug_lock = ATOMIC_INIT(0);
 
@@ -405,6 +429,7 @@ void cpufreq_nightmare_min_cpu_unlock(void)
 		return;
 	cpu_down(1);
 }
+#endif
 
 /*
  * History of CPU usage
@@ -412,7 +437,9 @@ void cpufreq_nightmare_min_cpu_unlock(void)
 struct cpu_usage {
 	unsigned int freq;
 	int load[NR_CPUS];
+#ifndef CONFIG_INTELLI_PLUG
 	unsigned int rq_avg;
+#endif
 	unsigned int avg_load;
 };
 
@@ -492,11 +519,15 @@ show_one(sampling_down_factor, sampling_down_factor);
 show_one(ignore_nice_load, ignore_nice);
 show_one(freq_step_dec, freq_step_dec);
 show_one(freq_step, freq_step);
+#ifndef CONFIG_INTELLI_PLUG
 show_one(cpu_up_rate, cpu_up_rate);
 show_one(cpu_down_rate, cpu_down_rate);
+#endif
 show_one(up_nr_cpus, up_nr_cpus);
+#ifndef CONFIG_INTELLI_PLUG
 show_one(max_cpu_lock, max_cpu_lock);
 show_one(min_cpu_lock, min_cpu_lock);
+#endif
 show_one(dvfs_debug, dvfs_debug);
 show_one(inc_cpu_load_at_min_freq, inc_cpu_load_at_min_freq);
 show_one(freq_for_responsiveness, freq_for_responsiveness);
@@ -504,12 +535,17 @@ show_one(freq_for_calc_incr, freq_for_calc_incr);
 show_one(freq_for_calc_decr, freq_for_calc_decr);
 show_one(inc_cpu_load, inc_cpu_load);
 show_one(dec_cpu_load, dec_cpu_load);
+#ifndef CONFIG_INTELLI_PLUG
 show_one(up_avg_load, up_avg_load);
 show_one(down_avg_load, down_avg_load);
+#endif
 show_one(sampling_up_factor, sampling_up_factor);
 show_one(freq_up_brake, freq_up_brake);
+#ifndef CONFIG_INTELLI_PLUG
 show_one(hotplug_compare_level,hotplug_compare_level);
+#endif
 
+#ifndef CONFIG_INTELLI_PLUG
 static ssize_t show_hotplug_lock(struct kobject *kobj,
 				struct attribute *attr, char *buf)
 {
@@ -589,6 +625,7 @@ define_one_global_rw(hotplug_rq_2_1);
 define_one_global_rw(hotplug_rq_3_0);
 define_one_global_rw(hotplug_rq_3_1);
 define_one_global_rw(hotplug_rq_4_0);
+#endif
 #endif
 
 static ssize_t store_sampling_rate(struct kobject *a, struct attribute *b,
@@ -688,6 +725,7 @@ static ssize_t store_freq_step(struct kobject *a, struct attribute *b,
 	return count;
 }
 
+#ifndef CONFIG_INTELLI_PLUG
 static ssize_t store_cpu_up_rate(struct kobject *a, struct attribute *b,
 				 const char *buf, size_t count)
 {
@@ -711,6 +749,7 @@ static ssize_t store_cpu_down_rate(struct kobject *a, struct attribute *b,
 	nightmare_tuners_ins.cpu_down_rate = min(input, MAX_HOTPLUG_RATE);
 	return count;
 }
+#endif
 
 static ssize_t store_up_nr_cpus(struct kobject *a, struct attribute *b,
 				const char *buf, size_t count)
@@ -724,6 +763,7 @@ static ssize_t store_up_nr_cpus(struct kobject *a, struct attribute *b,
 	return count;
 }
 
+#ifndef CONFIG_INTELLI_PLUG
 static ssize_t store_max_cpu_lock(struct kobject *a, struct attribute *b,
 				  const char *buf, size_t count)
 {
@@ -785,6 +825,7 @@ static ssize_t store_hotplug_lock(struct kobject *a, struct attribute *b,
 
 	return count;
 }
+#endif
 
 static ssize_t store_dvfs_debug(struct kobject *a, struct attribute *b,
 				const char *buf, size_t count)
@@ -884,6 +925,7 @@ static ssize_t store_dec_cpu_load(struct kobject *a, struct attribute *b,
 	return count;
 }
 
+#ifndef CONFIG_INTELLI_PLUG
 /* up_avg_load */
 static ssize_t store_up_avg_load(struct kobject *a, struct attribute *b,
 					const char *buf, size_t count)
@@ -909,6 +951,7 @@ static ssize_t store_down_avg_load(struct kobject *a, struct attribute *b,
 	nightmare_tuners_ins.down_avg_load = max(min(input,95u),5u);
 	return count;
 }
+#endif
 
 /* sampling_up_factor */
 static ssize_t store_sampling_up_factor(struct kobject *a,
@@ -946,6 +989,7 @@ static ssize_t store_freq_up_brake(struct kobject *a, struct attribute *b,
 	return count;
 }
 
+#ifndef CONFIG_INTELLI_PLUG
 /* hotplug_compare_level */
 static ssize_t store_hotplug_compare_level(struct kobject *a, struct attribute *b,
 				      const char *buf, size_t count)
@@ -965,6 +1009,7 @@ static ssize_t store_hotplug_compare_level(struct kobject *a, struct attribute *
 
 	return count;
 }
+#endif
 
 define_one_global_rw(sampling_rate);
 define_one_global_rw(io_is_busy);
@@ -972,12 +1017,16 @@ define_one_global_rw(sampling_down_factor);
 define_one_global_rw(ignore_nice_load);
 define_one_global_rw(freq_step_dec);
 define_one_global_rw(freq_step);
+#ifndef CONFIG_INTELLI_PLUG
 define_one_global_rw(cpu_up_rate);
 define_one_global_rw(cpu_down_rate);
+#endif
 define_one_global_rw(up_nr_cpus);
+#ifndef CONFIG_INTELLI_PLUG
 define_one_global_rw(max_cpu_lock);
 define_one_global_rw(min_cpu_lock);
 define_one_global_rw(hotplug_lock);
+#endif
 define_one_global_rw(dvfs_debug);
 define_one_global_rw(inc_cpu_load_at_min_freq);
 define_one_global_rw(freq_for_responsiveness);
@@ -985,11 +1034,15 @@ define_one_global_rw(freq_for_calc_incr);
 define_one_global_rw(freq_for_calc_decr);
 define_one_global_rw(inc_cpu_load);
 define_one_global_rw(dec_cpu_load);
+#ifndef CONFIG_INTELLI_PLUG
 define_one_global_rw(up_avg_load);
 define_one_global_rw(down_avg_load);
+#endif
 define_one_global_rw(sampling_up_factor);
 define_one_global_rw(freq_up_brake);
+#ifndef CONFIG_INTELLI_PLUG
 define_one_global_rw(hotplug_compare_level);
+#endif
 
 static struct attribute *nightmare_attributes[] = {
 	&sampling_rate_min.attr,
@@ -999,15 +1052,20 @@ static struct attribute *nightmare_attributes[] = {
 	&io_is_busy.attr,
 	&freq_step_dec.attr,
 	&freq_step.attr,
+#ifndef CONFIG_INTELLI_PLUG
 	&cpu_up_rate.attr,
 	&cpu_down_rate.attr,
+#endif
 	&up_nr_cpus.attr,
 	/* priority: hotplug_lock > max_cpu_lock > min_cpu_lock
 	   Exception: hotplug_lock on early_suspend uses min_cpu_lock */
+#ifndef CONFIG_INTELLI_PLUG
 	&max_cpu_lock.attr,
 	&min_cpu_lock.attr,
 	&hotplug_lock.attr,
+#endif
 	&dvfs_debug.attr,
+#ifndef CONFIG_INTELLI_PLUG
 	&hotplug_freq_1_1.attr,
 	&hotplug_freq_2_0.attr,
 #ifndef CONFIG_CPU_EXYNOS4210
@@ -1024,17 +1082,22 @@ static struct attribute *nightmare_attributes[] = {
 	&hotplug_rq_3_1.attr,
 	&hotplug_rq_4_0.attr,
 #endif
+#endif
 	&inc_cpu_load_at_min_freq.attr,
 	&freq_for_responsiveness.attr,
 	&freq_for_calc_incr.attr,
 	&freq_for_calc_decr.attr,
 	&inc_cpu_load.attr,
 	&dec_cpu_load.attr,
+#ifndef CONFIG_INTELLI_PLUG
 	&up_avg_load.attr,
 	&down_avg_load.attr,
+#endif
 	&sampling_up_factor.attr,
 	&freq_up_brake.attr,
+#ifndef CONFIG_INTELLI_PLUG
 	&hotplug_compare_level.attr,
+#endif
 	NULL
 };
 
@@ -1045,6 +1108,7 @@ static struct attribute_group nightmare_attr_group = {
 
 /************************** sysfs end ************************/
 
+#ifndef CONFIG_INTELLI_PLUG
 static void cpu_up_work(struct work_struct *work)
 {
 	int cpu;
@@ -1095,6 +1159,7 @@ static void cpu_down_work(struct work_struct *work)
 			break;
 	}
 }
+#endif
 
 static void debug_hotplug_check(int which, int rq_avg, int freq,
 			 struct cpu_usage *usage)
@@ -1108,6 +1173,7 @@ static void debug_hotplug_check(int which, int rq_avg, int freq,
 	printk(KERN_ERR "]\n");
 }
 
+#ifndef CONFIG_INTELLI_PLUG
 static int check_up(void)
 {
 	int num_hist = hotplug_histories->num_hist;
@@ -1254,6 +1320,7 @@ static int check_down(void)
 
 	return 0;
 }
+#endif
 
 static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare_cpuinfo)
 {
@@ -1265,20 +1332,27 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 	struct cpufreq_policy *policy;
 	unsigned int j;
 	int num_hist = hotplug_histories->num_hist;
+#ifndef CONFIG_INTELLI_PLUG
 	int max_hotplug_rate = max(nightmare_tuners_ins.cpu_up_rate,nightmare_tuners_ins.cpu_down_rate);
+#else
+	int max_hotplug_rate = 20;
+#endif
 	/* add total_load, avg_load to get average load */
 	unsigned int total_load = 0;
 	unsigned int avg_load = 0;
+#ifndef CONFIG_INTELLI_PLUG
 	int rq_avg = 0;
+#endif
 
 	policy = this_nightmare_cpuinfo->cur_policy;
 
 	hotplug_histories->usage[num_hist].freq = policy->cur;
+#ifndef CONFIG_INTELLI_PLUG
 	hotplug_histories->usage[num_hist].rq_avg = get_nr_run_avg();
 
 	/* add total_load, avg_load to get average load */
 	rq_avg = hotplug_histories->usage[num_hist].rq_avg;
-
+#endif
 	/* get last num_hist used */
 	hotplug_histories->last_num_hist = num_hist;
 	++hotplug_histories->num_hist;
@@ -1353,6 +1427,7 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 	avg_load = total_load / num_online_cpus();
 	hotplug_histories->usage[num_hist].avg_load = avg_load;	
 
+#ifndef CONFIG_INTELLI_PLUG
 	/* Check for CPU hotplug */
 	if (check_up()) {
 		mutex_unlock(&this_nightmare_cpuinfo->timer_mutex);
@@ -1364,6 +1439,7 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 		cpu_down(1);
 		mutex_lock(&this_nightmare_cpuinfo->timer_mutex);
 	}
+#endif
 	if (hotplug_histories->num_hist == max_hotplug_rate)
 		hotplug_histories->num_hist = 0;
 }
@@ -1494,7 +1570,7 @@ static inline void nightmare_timer_init(struct cpufreq_nightmare_cpuinfo *nightm
 		delay -= jiffies % delay;
 
 
-	INIT_DELAYED_WORK(&nightmare_cpuinfo->work, do_nightmare_timer);
+	INIT_DEFERRABLE_WORK(&nightmare_cpuinfo->work, do_nightmare_timer);
 	schedule_delayed_work_on(nightmare_cpuinfo->cpu, &nightmare_cpuinfo->work, delay + 2 * HZ);
 }
 
@@ -1503,6 +1579,7 @@ static inline void nightmare_timer_exit(struct cpufreq_nightmare_cpuinfo *nightm
 	cancel_delayed_work_sync(&nightmare_cpuinfo->work);
 }
 
+#ifndef CONFIG_INTELLI_PLUG
 static int pm_notifier_call(struct notifier_block *this,
 			    unsigned long event, void *ptr)
 {
@@ -1529,21 +1606,30 @@ static int pm_notifier_call(struct notifier_block *this,
 static struct notifier_block pm_notifier = {
 	.notifier_call = pm_notifier_call,
 };
+#endif
 
 static struct early_suspend early_suspend;
 static void cpufreq_nightmare_early_suspend(struct early_suspend *h)
 {
+#ifndef CONFIG_INTELLI_PLUG
 	earlysuspend = atomic_read(&g_hotplug_lock);
 	atomic_set(&g_hotplug_lock,(nightmare_tuners_ins.min_cpu_lock) ? nightmare_tuners_ins.min_cpu_lock : 1);
 	apply_hotplug_lock();
 	stop_rq_work();
+#else
+	earlysuspend = 1;
+#endif
 }
 static void cpufreq_nightmare_late_resume(struct early_suspend *h)
 {
+#ifndef CONFIG_INTELLI_PLUG
 	atomic_set(&g_hotplug_lock, earlysuspend);
 	earlysuspend = -1;
 	apply_hotplug_lock();
 	start_rq_work();
+#else
+	earlysuspend = -1;
+#endif
 }
 
 static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
@@ -1570,8 +1656,9 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 		nightmare_tuners_ins.min_freq = policy->min;
 		hotplug_histories->num_hist = 0;
 		hotplug_histories->last_num_hist = 0;
+#ifndef CONFIG_INTELLI_PLUG
 		start_rq_work();
-
+#endif
 		mutex_lock(&nightmare_mutex);
 
 		nightmare_enable++;
@@ -1609,9 +1696,12 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 		mutex_init(&this_nightmare_cpuinfo->timer_mutex);
 		nightmare_timer_init(this_nightmare_cpuinfo);
 
+#ifndef CONFIG_INTELLI_PLUG
 #if !EARLYSUSPEND_HOTPLUGLOCK
 		register_pm_notifier(&pm_notifier);
 #endif
+#endif
+
 #ifdef CONFIG_HAS_EARLYSUSPEND
 		register_early_suspend(&early_suspend);
 #endif
@@ -1621,8 +1711,10 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 #ifdef CONFIG_HAS_EARLYSUSPEND
 		unregister_early_suspend(&early_suspend);
 #endif
+#ifndef CONFIG_INTELLI_PLUG
 #if !EARLYSUSPEND_HOTPLUGLOCK
 		unregister_pm_notifier(&pm_notifier);
+#endif
 #endif
 
 		nightmare_timer_exit(this_nightmare_cpuinfo);
@@ -1633,8 +1725,9 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 		nightmare_enable--;
 		mutex_unlock(&nightmare_mutex);
 
+#ifndef CONFIG_INTELLI_PLUG
 		stop_rq_work();
-
+#endif
 		if (!nightmare_enable)
 			sysfs_remove_group(cpufreq_global_kobject,
 					   &nightmare_attr_group);
@@ -1670,9 +1763,11 @@ static int __init cpufreq_gov_nightmare_init(void)
 {
 	int ret;
 
+#ifndef CONFIG_INTELLI_PLUG
 	ret = init_rq_avg();
 	if (ret)
 		return ret;
+#endif
 
 	hotplug_histories = kzalloc(sizeof(struct cpu_usage_history), GFP_KERNEL);
 	if (!hotplug_histories) {
@@ -1694,7 +1789,9 @@ static int __init cpufreq_gov_nightmare_init(void)
 err_queue:
 	kfree(hotplug_histories);
 err_hist:
+#ifndef CONFIG_INTELLI_PLUG
 	kfree(rq_data);
+#endif
 	return ret;
 }
 
@@ -1702,7 +1799,9 @@ static void __exit cpufreq_gov_nightmare_exit(void)
 {
 	cpufreq_unregister_governor(&cpufreq_gov_nightmare);
 	kfree(hotplug_histories);
+#ifndef CONFIG_INTELLI_PLUG
 	kfree(rq_data);
+#endif
 }
 
 MODULE_AUTHOR("ByungChang Cha <bc.cha@samsung.com>");
