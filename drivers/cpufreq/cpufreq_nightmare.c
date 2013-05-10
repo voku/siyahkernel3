@@ -181,7 +181,7 @@ static unsigned int get_nr_run_avg(void)
 #define DEF_DEC_CPU_LOAD 		(50)
 #define DOWN_AVG_LOAD			(50u)
 #define DEF_FREQ_UP_BRAKE		(30u)
-#define DEF_HOTPLUG_COMPARE_LEVEL	(1u)
+#define DEF_HOTPLUG_COMPARE_LEVEL	(0u)
 
 #ifdef CONFIG_MACH_MIDAS
 static int hotplug_rq[4][2] = {
