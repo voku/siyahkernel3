@@ -1743,12 +1743,13 @@ static struct worker *create_worker(struct worker_pool *pool)
 	 * above the flag definition for details.
 	 *
 	 * As an unbound worker may later become a regular one if CPU comes
-	 * online, make sure every worker has %PF_THREAD_BOUND set.
+	 * online, make sure every worker has %PF_NO_SETAFFINITY set.
 	 */
 	if (!(pool->flags & POOL_DISASSOCIATED)) {
 		kthread_bind(worker->task, pool->cpu);
 	} else {
-		worker->task->flags |= PF_THREAD_BOUND;
+		/* prevent userland from meddling with cpumask of workqueue workers */
+		worker->task->flags |= PF_NO_SETAFFINITY;
 		worker->flags |= WORKER_UNBOUND;
 	}
 
@@ -3222,7 +3223,7 @@ struct workqueue_struct *__alloc_workqueue_key(const char *fmt,
 		if (IS_ERR(rescuer->task))
 			goto err;
 
-		rescuer->task->flags |= PF_THREAD_BOUND;
+		rescuer->task->flags |= PF_NO_SETAFFINITY;
 		wake_up_process(rescuer->task);
 	}
 
