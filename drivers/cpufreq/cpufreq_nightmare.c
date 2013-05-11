@@ -1491,7 +1491,7 @@ static void nightmare_check_frequency(struct cpufreq_nightmare_cpuinfo *this_nig
 				freq_down = policy->min_suspend;
 			}
 
-			if (freq_down != policy->cur) {
+			if (freq_down != policy->cur && freq_down >= policy->min) {
 				__cpufreq_driver_target(policy, freq_down, CPUFREQ_RELATION_L);
 			}
 		}
@@ -1708,7 +1708,7 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 				continue;
 
 			if (policy->max < cpu_policy->cur)
-				__cpufreq_driver_target(cpu_policy,policy->max,CPUFREQ_RELATION_H);
+				__cpufreq_driver_target(cpu_policy,policy->max,CPUFREQ_RELATION_L);
 			else if (policy->min > cpu_policy->cur)
 				__cpufreq_driver_target(cpu_policy,policy->min,CPUFREQ_RELATION_L);
 
