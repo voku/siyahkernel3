@@ -144,17 +144,21 @@ int proc_nr_dentry(ctl_table *table, int write, void __user *buffer,
 static inline int dentry_cmp(const unsigned char *cs, size_t scount,
 				const unsigned char *ct, size_t tcount)
 {
+	int ret;
+
 	if (scount != tcount)
 		return 1;
 
 	do {
-		if (*cs != *ct)
-			return 1;
+		ret = (*cs != *ct);
+		if (ret)
+			break;
 		cs++;
 		ct++;
 		tcount--;
 	} while (tcount);
-	return 0;
+
+	return ret;
 }
 
 static void __d_free(struct rcu_head *head)
