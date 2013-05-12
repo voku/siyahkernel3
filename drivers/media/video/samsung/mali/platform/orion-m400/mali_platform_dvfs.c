@@ -1,7 +1,4 @@
-/*
- * Copyright (C) 2010 ARM Limited. All rights reserved.
- *
- * This program is free software and is provided to you under the terms of the GNU General Public License version 2
+/* * Copyright (C) 2010-2012 ARM Limited. All rights reserved. * * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
  *
  * A copy of the licence is included with the program, and can also be obtained from Free Software
@@ -118,7 +115,7 @@ int step1_down = 50;
 int step2_clk = 200;
 int step2_vol = 1000000;
 int step1_up = 60;
-int step2_down = 50;;
+int step2_down = 50;
 #if (MALI_DVFS_STEPS > 3)
 int step3_clk = 267;
 int step3_vol = 1050000;
@@ -201,7 +198,7 @@ static unsigned int asv_3d_volt_8_table[ASV_8_LEVEL][MALI_DVFS_STEPS] = {
 
 /*dvfs status*/
 mali_dvfs_currentstatus maliDvfsStatus;
-int mali_dvfs_control = 0;
+int mali_dvfs_control;
 
 u32 mali_dvfs_utilization = 255;
 

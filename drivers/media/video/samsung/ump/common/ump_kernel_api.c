@@ -15,10 +15,6 @@
 #include "ump_kernel_interface.h"
 #include "ump_kernel_common.h"
 
-#ifdef CONFIG_DMA_SHARED_BUFFER
-#include <linux/dma-buf.h>
-#endif
-
 
 
 /* ---------------- UMP kernel space API functions follows ---------------- */
@@ -194,32 +190,7 @@ UMP_KERNEL_API_EXPORT void ump_dd_reference_release(ump_dd_handle memh)
 		ump_descriptor_mapping_free(device.secure_id_map, (int)mem->secure_id);
 
 		_mali_osk_lock_signal(device.secure_id_map_lock, _MALI_OSK_LOCKMODE_RW);
-
-#ifdef CONFIG_DMA_SHARED_BUFFER
-		/*
-		 * when ump descriptor imported to dmabuf is released,
-		 * physical memory region to the ump descriptor should be
-		 * released only through dma_buf_put().
-		 * if dma_buf_put() is called then file's refcount to
-		 * the dmabuf becomes 0 and release func of exporter will be
-		 * called by file->f_op->release to release the physical
-		 * memory region finally.
-		 */
-		if (mem->import_attach) {
-			struct dma_buf_attachment *attach = mem->import_attach;
-
-			if (mem->sgt)
-				dma_buf_unmap_attachment(attach, mem->sgt,
-							DMA_BIDIRECTIONAL);
-
-			dma_buf_put(attach->dmabuf);
-
-			dma_buf_detach(attach->dmabuf, attach);
-
-		}
-#endif
 		mem->release_func(mem->ctx, mem);
-
 		_mali_osk_free(mem);
 	}
 	else
@@ -338,41 +309,6 @@ _mali_osk_errcode_t _ump_ukk_size_get( _ump_uk_size_get_s *user_interaction )
 }
 
 
-
-void _ump_ukk_msync_old( _ump_uk_msync_s *args )
-{
-	ump_dd_mem * mem = NULL;
-	_mali_osk_lock_wait(device.secure_id_map_lock, _MALI_OSK_LOCKMODE_RW);
-	ump_descriptor_mapping_get(device.secure_id_map, (int)args->secure_id, (void**)&mem);
-	_mali_osk_lock_signal(device.secure_id_map_lock, _MALI_OSK_LOCKMODE_RW);
-
-	if (NULL==mem)
-	{
-		DBG_MSG(1, ("Failed to look up mapping in _ump_ukk_msync(). ID: %u\n", (ump_secure_id)args->secure_id));
-		return;
-	}
-
-	/* Returns the cache settings back to Userspace */
-	args->is_cached=mem->is_cached;
-
-	/* If this flag is the only one set, we should not do the actual flush, only the readout */
-	if ( _UMP_UK_MSYNC_READOUT_CACHE_ENABLED==args->op )
-	{
-		DBG_MSG(3, ("_ump_ukk_msync READOUT  ID: %u Enabled: %d\n", (ump_secure_id)args->secure_id, mem->is_cached));
-		return;
-	}
-
-	/* Nothing to do if the memory is not caches */
-	if ( 0==mem->is_cached )
-	{
-		DBG_MSG(3, ("_ump_ukk_msync IGNORING ID: %u Enabled: %d  OP: %d\n", (ump_secure_id)args->secure_id, mem->is_cached, args->op));
-		return ;
-	}
-	DBG_MSG(3, ("_ump_ukk_msync FLUSHING ID: %u Enabled: %d  OP: %d\n", (ump_secure_id)args->secure_id, mem->is_cached, args->op));
-
-	/* The actual cache flush - Implemented for each OS*/
-	_ump_osk_msync_old( mem , args->op, (u32)args->mapping, (u32)args->address, args->size);
-}
 
 void _ump_ukk_msync( _ump_uk_msync_s *args )
 {

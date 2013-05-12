@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 ARM Limited. All rights reserved.
+ * Copyright (C) 2010-2012 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -56,28 +56,25 @@ mali_physical_memory_allocator * mali_os_allocator_create(u32 max_allocation, u3
 	MALI_DEBUG_PRINT(2, ("Mali OS memory allocator created with max allocation size of 0x%X bytes, cpu_usage_adjust 0x%08X\n", max_allocation, cpu_usage_adjust));
 
 	allocator = _mali_osk_malloc(sizeof(mali_physical_memory_allocator));
-	if (NULL != allocator)
-	{
+	if (NULL != allocator) {
 		info = _mali_osk_malloc(sizeof(os_allocator));
-		if (NULL != info)
-		{
+		if (NULL != info) {
 			info->num_pages_max = max_allocation / _MALI_OSK_CPU_PAGE_SIZE;
 			info->num_pages_allocated = 0;
 			info->cpu_usage_adjust = cpu_usage_adjust;
 
-			info->mutex = _mali_osk_lock_init( _MALI_OSK_LOCKFLAG_NONINTERRUPTABLE | _MALI_OSK_LOCKFLAG_ORDERED, 0, 106);
-			if (NULL != info->mutex)
-			{
-				allocator->allocate = os_allocator_allocate;
-				allocator->allocate_page_table_block = os_allocator_allocate_page_table_block;
-				allocator->destroy = os_allocator_destroy;
+			info->mutex = _mali_osk_lock_init( _MALI_OSK_LOCKFLAG_NONINTERRUPTABLE | _MALI_OSK_LOCKFLAG_ORDERED, 0, _MALI_OSK_LOCK_ORDER_MEM_INFO);
+            if (NULL != info->mutex) {
+			    allocator->allocate = os_allocator_allocate;
+			    allocator->allocate_page_table_block = os_allocator_allocate_page_table_block;
+			    allocator->destroy = os_allocator_destroy;
 				allocator->stat = os_allocator_stat;
-				allocator->ctx = info;
+			    allocator->ctx = info;
 				allocator->name = name;
 
-				return allocator;
-			}
-			_mali_osk_free(info);
+			    return allocator;
+            }
+            	_mali_osk_free(info);
 		}
 		_mali_osk_free(allocator);
 	}
@@ -125,20 +122,16 @@ static mali_physical_memory_allocation_result os_allocator_allocate(void* ctx, m
 
 	/** @note this code may not work on Linux, or may require a more complex Linux implementation */
 	allocation = _mali_osk_malloc(sizeof(os_allocation));
-	if (NULL != allocation)
-	{
+	if (NULL != allocation) {
 		u32 os_mem_max_usage = info->num_pages_max * _MALI_OSK_CPU_PAGE_SIZE;
 		allocation->offset_start = *offset;
 		allocation->num_pages = ((left + _MALI_OSK_CPU_PAGE_SIZE - 1) & ~(_MALI_OSK_CPU_PAGE_SIZE - 1)) >> _MALI_OSK_CPU_PAGE_ORDER;
 		MALI_DEBUG_PRINT(6, ("Allocating page array of size %d bytes\n", allocation->num_pages * sizeof(struct page*)));
 
-		while (left > 0)
-		{
+		while (left > 0) {
 			err = mali_allocation_engine_map_physical(engine, descriptor, *offset, MALI_MEMORY_ALLOCATION_OS_ALLOCATED_PHYSADDR_MAGIC, info->cpu_usage_adjust, _MALI_OSK_CPU_PAGE_SIZE);
-			if ( _MALI_OSK_ERR_OK != err)
-			{
-				if (  _MALI_OSK_ERR_NOMEM == err)
-				{
+			if ( _MALI_OSK_ERR_OK != err) {
+				if (  _MALI_OSK_ERR_NOMEM == err) {
 					/* 'Partial' allocation (or, out-of-memory on first page) */
 					break;
 				}
@@ -146,8 +139,7 @@ static mali_physical_memory_allocation_result os_allocator_allocate(void* ctx, m
 				MALI_DEBUG_PRINT(1, ("Mapping of physical memory failed\n"));
 
 				/* Fatal error, cleanup any previous pages allocated. */
-				if ( pages_allocated > 0 )
-				{
+				if ( pages_allocated > 0 ) {
 					mali_allocation_engine_unmap_physical( engine, descriptor, allocation->offset_start, _MALI_OSK_CPU_PAGE_SIZE*pages_allocated, _MALI_OSK_MEM_MAPREGION_FLAG_OS_ALLOCATED_PHYSADDR );
 					/* (*offset) doesn't need to be restored; it will not be used by the caller on failure */
 				}
@@ -171,8 +163,7 @@ static mali_physical_memory_allocation_result os_allocator_allocate(void* ctx, m
 				 (info->num_pages_allocated * _MALI_OSK_CPU_PAGE_SIZE)/1024, (info->num_pages_max* _MALI_OSK_CPU_PAGE_SIZE)/1024));
 
 		/* Loop termination; decide on result */
-		if (pages_allocated)
-		{
+		if (pages_allocated) {
 			MALI_DEBUG_PRINT(6, ("Allocated %d pages\n", pages_allocated));
 			if (left) result = MALI_MEM_ALLOC_PARTIAL;
 			else result = MALI_MEM_ALLOC_FINISHED;
@@ -192,9 +183,7 @@ static mali_physical_memory_allocation_result os_allocator_allocate(void* ctx, m
 			alloc_info->ctx = info;
 			alloc_info->handle = allocation;
 			alloc_info->release = os_allocator_release;
-		}
-		else
-		{
+		} else {
 			MALI_DEBUG_PRINT(6, ("Releasing pages array due to no pages allocated\n"));
 			_mali_osk_free( allocation );
 		}
@@ -223,8 +212,7 @@ static void os_allocator_release(void * ctx, void * handle)
 	MALI_DEBUG_ASSERT_POINTER( engine );
 	MALI_DEBUG_ASSERT_POINTER( descriptor );
 
-	if (_MALI_OSK_ERR_OK != _mali_osk_lock_wait(info->mutex, _MALI_OSK_LOCKMODE_RW))
-	{
+	if (_MALI_OSK_ERR_OK != _mali_osk_lock_wait(info->mutex, _MALI_OSK_LOCKMODE_RW)) {
 		MALI_DEBUG_PRINT(1, ("allocator release: Failed to get mutex\n"));
 		return;
 	}
@@ -243,7 +231,11 @@ static void os_allocator_release(void * ctx, void * handle)
 
 static mali_physical_memory_allocation_result os_allocator_allocate_page_table_block(void * ctx, mali_page_table_block * block)
 {
-	int allocation_order = 11; /* _MALI_OSK_CPU_PAGE_SIZE << 6 */
+#ifdef CONFIG_CPU_EXYNOS4210
+	int allocation_order = 6; /* _MALI_OSK_CPU_PAGE_SIZE << 6 */
+#else
+	int allocation_order = 11; /* _MALI_OSK_CPU_PAGE_SIZE << 11 */
+#endif
 	void *virt = NULL;
 	u32 size = _MALI_OSK_CPU_PAGE_SIZE << allocation_order;
 	os_allocator * info;
@@ -272,8 +264,7 @@ static mali_physical_memory_allocation_result os_allocator_allocate_page_table_b
 
 	/* try to allocate 2^(allocation_order) pages, if that fails, try
 	 * allocation_order-1 to allocation_order 0 (inclusive) */
-	while ( allocation_order >= 0 )
-	{
+	while ( allocation_order >= 0 ) {
 		size = _MALI_OSK_CPU_PAGE_SIZE << allocation_order;
 		virt = _mali_osk_mem_allocioregion( &cpu_phys_base, size );
 
@@ -282,8 +273,7 @@ static mali_physical_memory_allocation_result os_allocator_allocate_page_table_b
 		--allocation_order;
 	}
 
-	if ( NULL == virt )
-	{
+	if ( NULL == virt ) {
 		MALI_DEBUG_PRINT(1, ("Failed to allocate consistent memory. Is CONSISTENT_DMA_SIZE set too low?\n"));
 		/* return OOM */
 		_mali_osk_lock_signal(info->mutex, _MALI_OSK_LOCKMODE_RW);
@@ -330,8 +320,7 @@ static void os_allocator_page_table_block_release( mali_page_table_block *page_t
 
 	MALI_DEBUG_ASSERT( pages_allocated * _MALI_OSK_CPU_PAGE_SIZE == page_table_block->size );
 
-	if (_MALI_OSK_ERR_OK != _mali_osk_lock_wait(info->mutex, _MALI_OSK_LOCKMODE_RW))
-	{
+	if (_MALI_OSK_ERR_OK != _mali_osk_lock_wait(info->mutex, _MALI_OSK_LOCKMODE_RW)) {
 		MALI_DEBUG_PRINT(1, ("allocator release: Failed to get mutex\n"));
 		return;
 	}

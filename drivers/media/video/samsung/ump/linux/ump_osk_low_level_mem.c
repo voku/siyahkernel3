@@ -106,8 +106,6 @@ static void ump_vma_close(struct vm_area_struct * vma)
 
 	DBG_MSG(4, ("VMA close, VMA reference count decremented. VMA: 0x%08lx, reference count: %d\n", (unsigned long)vma, new_val));
 
-	vma_usage_tracker->descriptor->process_mapping_info = vma;
-
 	if (0 == new_val)
 	{
 		ump_memory_allocation * descriptor;
@@ -300,27 +298,6 @@ static void _ump_osk_msync_with_virt(ump_dd_mem * mem, ump_uk_msync_op op, u32 s
 		}
 	}
 	return;
-}
-
-void _ump_osk_msync_old( ump_dd_mem * mem, ump_uk_msync_op op, u32 start, u32 address, u32 size)
-{
-	int i;
-	u32 start_p, end_p;
-	ump_dd_physical_block *block;
-
-	DBG_MSG(3,
-		("Flushing nr of blocks: %u. First: paddr: 0x%08x vaddr: 0x%08x size:%dB\n",
-		 mem->nr_blocks, mem->block_array[0].addr,
-		 phys_to_virt(mem->block_array[0].addr),
-		 mem->block_array[0].size));
-
-	flush_all_cpu_caches();
-#ifdef CONFIG_CACHE_L2X0
-	if ((op == _UMP_UK_MSYNC_CLEAN_AND_INVALIDATE))
-		outer_flush_all();
-	else
-		outer_clean_all();
-#endif
 }
 
 static void level1_cache_flush_all(void)

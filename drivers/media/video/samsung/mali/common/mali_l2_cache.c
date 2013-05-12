@@ -89,7 +89,7 @@ struct mali_l2_cache_core
 static struct mali_l2_cache_core *mali_global_l2_cache_cores[MALI_MAX_NUMBER_OF_L2_CACHE_CORES];
 static u32 mali_global_num_l2_cache_cores = 0;
 
-extern int mali_l2_max_reads;
+int mali_l2_max_reads = MALI400_L2_MAX_READS_DEFAULT;
 
 /* Local helper functions */
 static _mali_osk_errcode_t mali_l2_cache_send_command(struct mali_l2_cache_core *cache, u32 reg, u32 val);
