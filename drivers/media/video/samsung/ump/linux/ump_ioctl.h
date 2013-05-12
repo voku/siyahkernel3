@@ -43,10 +43,6 @@ extern "C"
 #ifdef CONFIG_ION_EXYNOS
 #define UMP_IOC_ION_IMPORT  _IOW(UMP_IOCTL_NR,  _UMP_IOC_ION_IMPORT, _ump_uk_ion_import_s)
 #endif
-#ifdef CONFIG_DMA_SHARED_BUFFER
-#define UMP_IOC_DMABUF_IMPORT  _IOW(UMP_IOCTL_NR,  _UMP_IOC_DMABUF_IMPORT,\
-					struct ump_uk_dmabuf)
-#endif
 
 #define UMP_IOC_CACHE_OPERATIONS_CONTROL _IOW(UMP_IOCTL_NR,  _UMP_IOC_CACHE_OPERATIONS_CONTROL, _ump_uk_cache_operations_control_s)
 #define UMP_IOC_SWITCH_HW_USAGE   _IOW(UMP_IOCTL_NR,  _UMP_IOC_SWITCH_HW_USAGE, _ump_uk_switch_hw_usage_s)
