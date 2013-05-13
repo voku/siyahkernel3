@@ -124,7 +124,7 @@ extern struct platform_device exynos4_device_pd[];
 
 mali_io_address clk_register_map = 0;
 
-_mali_osk_lock_t *mali_dvfs_lock;
+_mali_osk_lock_t *mali_dvfs_lock = 0;
 
 #ifdef CONFIG_REGULATOR
 int mali_regulator_get_usecount(void)
