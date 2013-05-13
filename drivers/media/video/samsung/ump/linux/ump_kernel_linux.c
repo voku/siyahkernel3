@@ -473,8 +473,7 @@ EXPORT_SYMBOL(ump_dd_reference_release);
 EXPORT_SYMBOL(ump_dd_handle_create_from_phys_blocks);
 
 /* Setup init and exit functions for this module */
-//module_init(ump_initialize_module);
-arch_initcall(ump_initialize_module);
+module_init(ump_initialize_module);
 module_exit(ump_cleanup_module);
 
 /* And some module informatio */

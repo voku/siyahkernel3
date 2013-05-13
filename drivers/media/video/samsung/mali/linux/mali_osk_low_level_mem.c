@@ -22,9 +22,7 @@
 #include <linux/mm.h>
 #include <linux/dma-mapping.h>
 #include <linux/spinlock.h>
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,1,0)
 #include <linux/shrinker.h>
-#endif
 
 #include "mali_osk.h"
 #include "mali_ukk.h" /* required to hook in _mali_ukk_mem_mmap handling */
@@ -101,23 +99,11 @@ static struct vm_operations_struct mali_kernel_vm_ops =
 #endif
 };
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0)
-	#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,35)
-static int mali_mem_shrink(int nr_to_scan, gfp_t gfp_mask)
-	#else
-static int mali_mem_shrink(struct shrinker *shrinker, int nr_to_scan, gfp_t gfp_mask)
-	#endif
-#else
 static int mali_mem_shrink(struct shrinker *shrinker, struct shrink_control *sc)
-#endif
 {
 	unsigned long flags;
 	AllocationList *item;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0)
-	int nr = nr_to_scan;
-#else
 	int nr = sc->nr_to_scan;
-#endif
 
 	if (0 == nr)
 	{
@@ -464,8 +450,10 @@ _mali_osk_errcode_t _mali_osk_mem_mapregion_init( mali_memory_allocation * descr
 	  The memory is reserved, meaning that it's present and can never be paged out (see also previous entry)
 	*/
 	vma->vm_flags |= VM_IO;
-	vma->vm_flags |= VM_DONTEXPAND | VM_DONTDUMP;
 	vma->vm_flags |= VM_DONTCOPY;
+	vma->vm_flags |= VM_DONTDUMP;
+	vma->vm_flags |= VM_DONTEXPAND;
+	vma->vm_flags |= VM_PFNMAP;
 
 	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
 	vma->vm_ops = &mali_kernel_vm_ops; /* Operations used on any memory system */

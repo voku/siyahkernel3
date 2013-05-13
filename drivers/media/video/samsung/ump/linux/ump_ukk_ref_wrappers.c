@@ -125,11 +125,6 @@ int ump_ion_import_wrapper(u32 __user * argument, struct ump_session_data  * ses
 
 	blocks = (ump_dd_physical_block*)_mali_osk_malloc(sizeof(ump_dd_physical_block)*1024);
 
-	if (NULL == blocks) {
-		MSG_ERR(("Failed to allocate blocks in ump_ioctl_allocate()\n"));
-		return -ENOMEM;
-	}
-
 	sg = sg_ion;
 	do {
 		blocks[i].addr = sg_phys(sg);
