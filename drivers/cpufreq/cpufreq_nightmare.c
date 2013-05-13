@@ -1074,57 +1074,6 @@ static struct attribute_group nightmare_attr_group = {
 /************************** sysfs end ************************/
 
 #if AUTO_HOTPLUGGING
-static void cpu_up_work(struct work_struct *work)
-{
-	int cpu;
-	int online = num_online_cpus();
-	int nr_up = nightmare_tuners_ins.up_nr_cpus;
-	int min_cpu_lock = nightmare_tuners_ins.min_cpu_lock;
-	int hotplug_lock = atomic_read(&g_hotplug_lock);
-
-	if (hotplug_lock && min_cpu_lock)
-		nr_up = max(hotplug_lock, min_cpu_lock) - online;
-	else if (hotplug_lock)
-		nr_up = hotplug_lock - online;
-	else if (min_cpu_lock)
-		nr_up = max(nr_up, min_cpu_lock - online);
-
-	if (online == 1) {
-		printk(KERN_ERR "CPU_UP 3\n");
-		cpu_up(num_possible_cpus() - 1);
-		nr_up -= 1;
-	}
-
-	for_each_cpu_not(cpu, cpu_online_mask) {
-		if (nr_up-- == 0)
-			break;
-		if (cpu == 0)
-			continue;
-		printk(KERN_ERR "CPU_UP %d\n", cpu);
-		cpu_up(cpu);
-	}
-}
-
-static void cpu_down_work(struct work_struct *work)
-{
-	int cpu;
-	int online = num_online_cpus();
-	int nr_down = 1;
-	int hotplug_lock = atomic_read(&g_hotplug_lock);
-
-	if (hotplug_lock)
-		nr_down = online - hotplug_lock;
-
-	for_each_online_cpu(cpu) {
-		if (cpu == 0)
-			continue;
-		printk(KERN_ERR "CPU_DOWN %d\n", cpu);
-		cpu_down(cpu);
-		if (--nr_down == 0)
-			break;
-	}
-}
-
 static void debug_hotplug_check(int which, int rq_avg, int freq,
 			 struct cpu_usage *usage)
 {
