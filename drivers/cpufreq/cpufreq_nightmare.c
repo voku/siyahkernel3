@@ -33,17 +33,10 @@
 #include <linux/suspend.h>
 #include <linux/reboot.h>
 
-#ifndef CONFIG_INTELLI_PLUG
-#define AUTO_HOTPLUGGING 1
-#else
-#define AUTO_HOTPLUGGING 0
-#endif
-
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
 #endif
 
-#if AUTO_HOTPLUGGING
 #define EARLYSUSPEND_HOTPLUGLOCK 1
 #define RQ_AVG_TIMER_RATE	20
 /*
@@ -143,7 +136,6 @@ static unsigned int get_nr_run_avg(void)
 
 	return nr_run_avg;
 }
-#endif
 
 /*
  * dbs is used in this file as a shortform for demandbased switching
@@ -177,7 +169,6 @@ static unsigned int get_nr_run_avg(void)
 #define DEF_FREQ_UP_BRAKE		(30u)
 
 
-#if AUTO_HOTPLUGGING
 #define DEF_UP_NR_CPUS			(1)
 #define DEF_MAX_CPU_LOCK		(0)
 #define DEF_MIN_CPU_LOCK		(0)
@@ -186,12 +177,10 @@ static unsigned int get_nr_run_avg(void)
 #define HOTPLUG_DOWN_INDEX		(0)
 #define HOTPLUG_UP_INDEX		(1)
 #define UP_AVG_LOAD			(65u)
-#define DOWN_AVG_LOAD			(50u)
-#define DEF_HOTPLUG_COMPARE_LEVEL	(0u)
-#endif
+#define DOWN_AVG_LOAD			(30u)
+#define DEF_HOTPLUG_COMPARE_LEVEL	(1u)
 
 
-#if AUTO_HOTPLUGGING
 #ifdef CONFIG_MACH_MIDAS
 static int hotplug_rq[4][2] = {
 	{0, 100}, {100, 200}, {200, 300}, {300, 0}
@@ -214,7 +203,6 @@ static int hotplug_freq[4][2] = {
 	{200000, 500000},
 	{200000, 0}
 };
-#endif
 #endif
 
 static unsigned int min_sampling_rate;
@@ -270,7 +258,7 @@ static struct nightmare_tuners {
 	unsigned int io_is_busy;
 	/* nightmare tuners */
 	unsigned int freq_step;
-#if AUTO_HOTPLUGGING
+	atomic_t hotplug_enable;
 	unsigned int cpu_up_rate;
 	unsigned int cpu_down_rate;
 	unsigned int max_cpu_lock;
@@ -281,7 +269,6 @@ static struct nightmare_tuners {
 	unsigned int hotplug_compare_level;
 	unsigned int up_nr_cpus;
 	unsigned int dvfs_debug;
-#endif
 	unsigned int max_freq;
 	unsigned int min_freq;
 	unsigned int inc_cpu_load_at_min_freq;
@@ -297,7 +284,7 @@ static struct nightmare_tuners {
 	.freq_step_dec = DEF_FREQ_STEP_DEC,
 	.ignore_nice = 0,
 	.freq_step = DEF_FREQ_STEP,
-#if AUTO_HOTPLUGGING
+	.hotplug_enable = ATOMIC_INIT(0),
 	.cpu_up_rate = DEF_CPU_UP_RATE,
 	.cpu_down_rate = DEF_CPU_DOWN_RATE,
 	.max_cpu_lock = DEF_MAX_CPU_LOCK,
@@ -308,7 +295,6 @@ static struct nightmare_tuners {
 	.hotplug_compare_level = DEF_HOTPLUG_COMPARE_LEVEL,
 	.up_nr_cpus = DEF_UP_NR_CPUS,
 	.dvfs_debug = 0,
-#endif
 	.inc_cpu_load_at_min_freq = INC_CPU_LOAD_AT_MIN_FREQ,
 	.freq_for_responsiveness = FREQ_FOR_RESPONSIVENESS,
 	.freq_for_calc_incr = DEF_FREQ_FOR_CALC_INCR,
@@ -323,7 +309,8 @@ static struct nightmare_tuners {
  * CPU hotplug lock interface
  */
 
-#if AUTO_HOTPLUGGING
+static atomic_t g_hotplug_enable = ATOMIC_INIT(0);
+
 static atomic_t g_hotplug_count = ATOMIC_INIT(0);
 static atomic_t g_hotplug_lock = ATOMIC_INIT(0);
 
@@ -420,7 +407,6 @@ void cpufreq_nightmare_min_cpu_unlock(void)
 		return;
 	cpu_down(1);
 }
-#endif
 
 /*
  * History of CPU usage
@@ -428,9 +414,7 @@ void cpufreq_nightmare_min_cpu_unlock(void)
 struct cpu_usage {
 	unsigned int freq;
 	int load[NR_CPUS];
-#if AUTO_HOTPLUGGING
 	unsigned int rq_avg;
-#endif
 	unsigned int avg_load;
 };
 
@@ -510,7 +494,6 @@ show_one(sampling_down_factor, sampling_down_factor);
 show_one(ignore_nice_load, ignore_nice);
 show_one(freq_step_dec, freq_step_dec);
 show_one(freq_step, freq_step);
-#if AUTO_HOTPLUGGING
 show_one(cpu_up_rate, cpu_up_rate);
 show_one(cpu_down_rate, cpu_down_rate);
 show_one(up_avg_load, up_avg_load);
@@ -520,7 +503,6 @@ show_one(down_avg_load, down_avg_load);
 show_one(hotplug_compare_level,hotplug_compare_level);
 show_one(up_nr_cpus, up_nr_cpus);
 show_one(dvfs_debug, dvfs_debug);
-#endif
 show_one(inc_cpu_load_at_min_freq, inc_cpu_load_at_min_freq);
 show_one(freq_for_responsiveness, freq_for_responsiveness);
 show_one(freq_for_calc_incr, freq_for_calc_incr);
@@ -530,7 +512,12 @@ show_one(dec_cpu_load, dec_cpu_load);
 show_one(sampling_up_factor, sampling_up_factor);
 show_one(freq_up_brake, freq_up_brake);
 
-#if AUTO_HOTPLUGGING
+static ssize_t show_hotplug_enable(struct kobject *kobj,
+				struct attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", atomic_read(&g_hotplug_enable));
+}
+
 static ssize_t show_hotplug_lock(struct kobject *kobj,
 				struct attribute *attr, char *buf)
 {
@@ -610,7 +597,6 @@ define_one_global_rw(hotplug_rq_2_1);
 define_one_global_rw(hotplug_rq_3_0);
 define_one_global_rw(hotplug_rq_3_1);
 define_one_global_rw(hotplug_rq_4_0);
-#endif
 #endif
 
 static ssize_t store_sampling_rate(struct kobject *a, struct attribute *b,
@@ -710,7 +696,6 @@ static ssize_t store_freq_step(struct kobject *a, struct attribute *b,
 	return count;
 }
 
-#if AUTO_HOTPLUGGING
 static ssize_t store_cpu_up_rate(struct kobject *a, struct attribute *b,
 				 const char *buf, size_t count)
 {
@@ -740,6 +725,12 @@ static ssize_t store_max_cpu_lock(struct kobject *a, struct attribute *b,
 {
 	unsigned int input;
 	int ret;
+
+	int hotplug_enable = atomic_read(&g_hotplug_enable);
+
+	if (hotplug_enable == 0)
+		return -EINVAL;
+
 	ret = sscanf(buf, "%u", &input);
 	if (ret != 1)
 		return -EINVAL;
@@ -752,6 +743,11 @@ static ssize_t store_min_cpu_lock(struct kobject *a, struct attribute *b,
 {
 	unsigned int input;
 	int ret;
+	int hotplug_enable = atomic_read(&g_hotplug_enable);
+
+	if (hotplug_enable == 0)
+		return -EINVAL;
+
 	ret = sscanf(buf, "%u", &input);
 	if (ret != 1)
 		return -EINVAL;
@@ -768,6 +764,10 @@ static ssize_t store_hotplug_lock(struct kobject *a, struct attribute *b,
 	unsigned int input;
 	int ret;
 	int prev_lock;
+	int hotplug_enable = atomic_read(&g_hotplug_enable);
+
+	if (hotplug_enable == 0)
+		return -EINVAL;
 
 	ret = sscanf(buf, "%u", &input);
 	if (ret != 1)
@@ -796,6 +796,33 @@ static ssize_t store_hotplug_lock(struct kobject *a, struct attribute *b,
 
 	return count;
 }
+static ssize_t store_hotplug_enable(struct kobject *a, struct attribute *b,
+				  const char *buf, size_t count)
+{
+	unsigned int input;
+	int ret;
+	int prev_hotplug_enable = atomic_read(&g_hotplug_enable);
+
+	ret = sscanf(buf, "%u", &input);
+	if (ret != 1)
+		return -EINVAL;
+
+	input = input > 0 ? 1 : 0; 
+
+	if (prev_hotplug_enable == input)
+		return -EINVAL;
+
+	if (input > 0) {
+		start_rq_work();
+	} else {
+		stop_rq_work();
+	}
+	atomic_set(&g_hotplug_enable, input);
+	atomic_set(&nightmare_tuners_ins.hotplug_enable, input);
+
+	return count;
+}
+
 /* up_avg_load */
 static ssize_t store_up_avg_load(struct kobject *a, struct attribute *b,
 					const char *buf, size_t count)
@@ -865,7 +892,6 @@ static ssize_t store_dvfs_debug(struct kobject *a, struct attribute *b,
 	nightmare_tuners_ins.dvfs_debug = input > 0;
 	return count;
 }
-#endif
 
 static ssize_t store_inc_cpu_load_at_min_freq(struct kobject *a, struct attribute *b,
 				   const char *buf, size_t count)
@@ -996,7 +1022,7 @@ define_one_global_rw(sampling_down_factor);
 define_one_global_rw(ignore_nice_load);
 define_one_global_rw(freq_step_dec);
 define_one_global_rw(freq_step);
-#if AUTO_HOTPLUGGING
+define_one_global_rw(hotplug_enable);
 define_one_global_rw(cpu_up_rate);
 define_one_global_rw(cpu_down_rate);
 define_one_global_rw(max_cpu_lock);
@@ -1007,7 +1033,6 @@ define_one_global_rw(down_avg_load);
 define_one_global_rw(hotplug_compare_level);
 define_one_global_rw(up_nr_cpus);
 define_one_global_rw(dvfs_debug);
-#endif
 define_one_global_rw(inc_cpu_load_at_min_freq);
 define_one_global_rw(freq_for_responsiveness);
 define_one_global_rw(freq_for_calc_incr);
@@ -1025,7 +1050,7 @@ static struct attribute *nightmare_attributes[] = {
 	&io_is_busy.attr,
 	&freq_step_dec.attr,
 	&freq_step.attr,
-#if AUTO_HOTPLUGGING
+	&hotplug_enable.attr,
 	&cpu_up_rate.attr,
 	&cpu_down_rate.attr,
 	&max_cpu_lock.attr,
@@ -1054,7 +1079,6 @@ static struct attribute *nightmare_attributes[] = {
 	/* priority: hotplug_lock > max_cpu_lock > min_cpu_lock
 	   Exception: hotplug_lock on early_suspend uses min_cpu_lock */
 	&dvfs_debug.attr,
-#endif
 	&inc_cpu_load_at_min_freq.attr,
 	&freq_for_responsiveness.attr,
 	&freq_for_calc_incr.attr,
@@ -1073,7 +1097,6 @@ static struct attribute_group nightmare_attr_group = {
 
 /************************** sysfs end ************************/
 
-#if AUTO_HOTPLUGGING
 static void debug_hotplug_check(int which, int rq_avg, int freq,
 			 struct cpu_usage *usage)
 {
@@ -1101,10 +1124,6 @@ static int check_up(void)
 	int min_rq_avg = INT_MAX;
 	int min_avg_load = INT_MAX;
 	int online;
-	int hotplug_lock = atomic_read(&g_hotplug_lock);
-
-	if (hotplug_lock > 0)
-		return 0;
 
 	online = num_online_cpus();
 	up_freq = hotplug_freq[online - 1][HOTPLUG_UP_INDEX];
@@ -1176,10 +1195,6 @@ static int check_down(void)
 	int max_rq_avg = 0;
 	int max_avg_load = 0;
 	int online;
-	int hotplug_lock = atomic_read(&g_hotplug_lock);
-
-	if (hotplug_lock > 0)
-		return 0;
 
 	online = num_online_cpus();
 	down_freq = hotplug_freq[online - 1][HOTPLUG_DOWN_INDEX];
@@ -1232,7 +1247,6 @@ static int check_down(void)
 
 	return 0;
 }
-#endif
 
 static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare_cpuinfo)
 {
@@ -1244,27 +1258,23 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 	struct cpufreq_policy *policy;
 	unsigned int j;
 	int num_hist = hotplug_histories->num_hist;
-#if AUTO_HOTPLUGGING
 	int max_hotplug_rate = max(nightmare_tuners_ins.cpu_up_rate,nightmare_tuners_ins.cpu_down_rate);
-#else
-	int max_hotplug_rate = 20;
-#endif
 	/* add total_load, avg_load to get average load */
 	unsigned int total_load = 0;
 	unsigned int avg_load = 0;
-#if AUTO_HOTPLUGGING
 	int rq_avg = 0;
-#endif
+	int hotplug_enable = atomic_read(&g_hotplug_enable);
 
 	policy = this_nightmare_cpuinfo->cur_policy;
 
 	hotplug_histories->usage[num_hist].freq = policy->cur;
-#if AUTO_HOTPLUGGING
-	hotplug_histories->usage[num_hist].rq_avg = get_nr_run_avg();
 
-	/* add total_load, avg_load to get average load */
-	rq_avg = hotplug_histories->usage[num_hist].rq_avg;
-#endif
+	if (hotplug_enable > 0) {
+		hotplug_histories->usage[num_hist].rq_avg = get_nr_run_avg();
+		/* add total_load, avg_load to get average load */
+		rq_avg = hotplug_histories->usage[num_hist].rq_avg;
+	}
+
 	/* get last num_hist used */
 	hotplug_histories->last_num_hist = num_hist;
 	++hotplug_histories->num_hist;
@@ -1339,19 +1349,19 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 	avg_load = total_load / num_online_cpus();
 	hotplug_histories->usage[num_hist].avg_load = avg_load;	
 
-#if AUTO_HOTPLUGGING
-	/* Check for CPU hotplug */
-	if (check_up()) {
-		mutex_unlock(&this_nightmare_cpuinfo->timer_mutex);
-		cpu_up(1);
-		mutex_lock(&this_nightmare_cpuinfo->timer_mutex);
+	if (hotplug_enable > 0) {
+		/* Check for CPU hotplug */
+		if (check_up()) {
+			mutex_unlock(&this_nightmare_cpuinfo->timer_mutex);
+			cpu_up(1);
+			mutex_lock(&this_nightmare_cpuinfo->timer_mutex);
+		}
+		else if (check_down()) {
+			mutex_unlock(&this_nightmare_cpuinfo->timer_mutex);
+			cpu_down(1);
+			mutex_lock(&this_nightmare_cpuinfo->timer_mutex);
+		}
 	}
-	else if (check_down()) {
-		mutex_unlock(&this_nightmare_cpuinfo->timer_mutex);
-		cpu_down(1);
-		mutex_lock(&this_nightmare_cpuinfo->timer_mutex);
-	}
-#endif
 	if (hotplug_histories->num_hist == max_hotplug_rate)
 		hotplug_histories->num_hist = 0;
 }
@@ -1491,25 +1501,30 @@ static inline void nightmare_timer_exit(struct cpufreq_nightmare_cpuinfo *nightm
 	cancel_delayed_work_sync(&nightmare_cpuinfo->work);
 }
 
-#if AUTO_HOTPLUGGING
+#if !EARLYSUSPEND_HOTPLUGLOCK
 static int pm_notifier_call(struct notifier_block *this,
 			    unsigned long event, void *ptr)
 {
 	static unsigned int prev_hotplug_lock;
+	int hotplug_enable = atomic_read(&g_hotplug_enable);
 	switch (event) {
 	case PM_SUSPEND_PREPARE:
-		prev_hotplug_lock = atomic_read(&g_hotplug_lock);
-		atomic_set(&g_hotplug_lock, 1);
-		apply_hotplug_lock();
-		pr_debug("%s enter suspend\n", __func__);
+		if (hotplug_enable > 0) {
+			prev_hotplug_lock = atomic_read(&g_hotplug_lock);
+			atomic_set(&g_hotplug_lock, 1);
+			apply_hotplug_lock();
+			pr_debug("%s enter suspend\n", __func__);
+		}
 		return NOTIFY_OK;
 	case PM_POST_RESTORE:
 	case PM_POST_SUSPEND:
-		atomic_set(&g_hotplug_lock, prev_hotplug_lock);
-		if (prev_hotplug_lock)
-			apply_hotplug_lock();
-		prev_hotplug_lock = 0;
-		pr_debug("%s exit suspend\n", __func__);
+		if (hotplug_enable > 0) {
+			atomic_set(&g_hotplug_lock, prev_hotplug_lock);
+			if (prev_hotplug_lock)
+				apply_hotplug_lock();
+			prev_hotplug_lock = 0;
+			pr_debug("%s exit suspend\n", __func__);
+		}
 		return NOTIFY_OK;
 	}
 	return NOTIFY_DONE;
@@ -1523,25 +1538,27 @@ static struct notifier_block pm_notifier = {
 static struct early_suspend early_suspend;
 static void cpufreq_nightmare_early_suspend(struct early_suspend *h)
 {
-#if AUTO_HOTPLUGGING
-	earlysuspend = atomic_read(&g_hotplug_lock);
-	atomic_set(&g_hotplug_lock,(nightmare_tuners_ins.min_cpu_lock) ? nightmare_tuners_ins.min_cpu_lock : 1);
-	apply_hotplug_lock();
-	stop_rq_work();
-#else
-	earlysuspend = 1;
-#endif
+	int hotplug_enable = atomic_read(&g_hotplug_enable);
+	if (hotplug_enable > 0) {
+		earlysuspend = atomic_read(&g_hotplug_lock);
+		atomic_set(&g_hotplug_lock,(nightmare_tuners_ins.min_cpu_lock) ? nightmare_tuners_ins.min_cpu_lock : 1);
+		apply_hotplug_lock();
+		stop_rq_work();
+	} else {
+		earlysuspend = 1;
+	}
 }
 static void cpufreq_nightmare_late_resume(struct early_suspend *h)
 {
-#if AUTO_HOTPLUGGING
-	atomic_set(&g_hotplug_lock, earlysuspend);
-	earlysuspend = -1;
-	apply_hotplug_lock();
-	start_rq_work();
-#else
-	earlysuspend = -1;
-#endif
+	int hotplug_enable = atomic_read(&g_hotplug_enable);
+	if (hotplug_enable > 0) {
+		atomic_set(&g_hotplug_lock, earlysuspend);
+		earlysuspend = -1;
+		apply_hotplug_lock();
+		start_rq_work();
+	} else {
+		earlysuspend = -1;
+	}
 }
 
 static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
@@ -1552,6 +1569,7 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 	struct cpufreq_frequency_table *freq_table;
 	unsigned int j;
 	int rc;
+	int hotplug_enable = atomic_read(&g_hotplug_enable);
 
 	this_nightmare_cpuinfo = &per_cpu(od_nightmare_cpuinfo, cpu);
 
@@ -1568,9 +1586,12 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 		nightmare_tuners_ins.min_freq = policy->min;
 		hotplug_histories->num_hist = 0;
 		hotplug_histories->last_num_hist = 0;
-#if AUTO_HOTPLUGGING
-		start_rq_work();
-#endif
+
+		if (hotplug_enable > 0)
+			start_rq_work();
+		else
+			stop_rq_work();
+
 		mutex_lock(&nightmare_mutex);
 
 		nightmare_enable++;
@@ -1608,10 +1629,8 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 		mutex_init(&this_nightmare_cpuinfo->timer_mutex);
 		nightmare_timer_init(this_nightmare_cpuinfo);
 
-#if AUTO_HOTPLUGGING
 #if !EARLYSUSPEND_HOTPLUGLOCK
 		register_pm_notifier(&pm_notifier);
-#endif
 #endif
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -1623,12 +1642,10 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 #ifdef CONFIG_HAS_EARLYSUSPEND
 		unregister_early_suspend(&early_suspend);
 #endif
-#if AUTO_HOTPLUGGING
+
 #if !EARLYSUSPEND_HOTPLUGLOCK
 		unregister_pm_notifier(&pm_notifier);
 #endif
-#endif
-
 		nightmare_timer_exit(this_nightmare_cpuinfo);
 
 		mutex_lock(&nightmare_mutex);
@@ -1637,9 +1654,9 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 		nightmare_enable--;
 		mutex_unlock(&nightmare_mutex);
 
-#if AUTO_HOTPLUGGING
-		stop_rq_work();
-#endif
+		if (hotplug_enable > 0)
+			stop_rq_work();
+	
 		if (!nightmare_enable)
 			sysfs_remove_group(cpufreq_global_kobject,
 					   &nightmare_attr_group);
@@ -1675,11 +1692,9 @@ static int __init cpufreq_gov_nightmare_init(void)
 {
 	int ret;
 
-#if AUTO_HOTPLUGGING
 	ret = init_rq_avg();
 	if (ret)
 		return ret;
-#endif
 
 	hotplug_histories = kzalloc(sizeof(struct cpu_usage_history), GFP_KERNEL);
 	if (!hotplug_histories) {
@@ -1701,9 +1716,7 @@ static int __init cpufreq_gov_nightmare_init(void)
 err_queue:
 	kfree(hotplug_histories);
 err_hist:
-#if AUTO_HOTPLUGGING
 	kfree(rq_data);
-#endif
 	return ret;
 }
 
@@ -1711,9 +1724,7 @@ static void __exit cpufreq_gov_nightmare_exit(void)
 {
 	cpufreq_unregister_governor(&cpufreq_gov_nightmare);
 	kfree(hotplug_histories);
-#if AUTO_HOTPLUGGING
 	kfree(rq_data);
-#endif
 }
 
 MODULE_AUTHOR("ByungChang Cha <bc.cha@samsung.com>");
