@@ -801,8 +801,6 @@ static int run_init_process(const char *init_filename)
 {
 	int ret = 0;
 	argv_init[0] = init_filename;
-	ret = kernel_execve(init_filename, argv_init, envp_init);
-	pr_info("run_init_process Ret : %d\n", ret);
 	return kernel_execve(init_filename, argv_init, envp_init);
 }
 
