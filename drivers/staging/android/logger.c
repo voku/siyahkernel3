@@ -70,8 +70,8 @@ static LIST_HEAD(log_list);
  * @log:	The associated log
  * @list:	The associated entry in @logger_log's list
  * @r_off:	The current read head offset.
- * @r_all:	The reader can read all entries.
- * @r_ver:	The reader ABI version.
+ * @r_all:	Reader can read all entries
+ * @r_ver:	Reader ABI version
  *
  * This object lives from open to release, so we don't need additional
  * reference counting. The structure is protected by log->mutex.
@@ -138,6 +138,10 @@ static struct logger_entry *get_entry_header(struct logger_log *log,
 /*
  * get_entry_msg_len - Grabs the length of the message of the entry
  * starting from from 'off'.
+ *
+ * An entry length is 2 bytes (16 bits) in host endian order.
+ * In the log, the length does not include the size of the log entry structure.
+ * This function returns the size including the log entry structure.
  *
  * Caller needs to hold log->mutex.
  */
@@ -208,7 +212,8 @@ static ssize_t do_read_log_to_user(struct logger_log *log,
 
 	count -= get_user_hdr_len(reader->r_ver);
 	buf += get_user_hdr_len(reader->r_ver);
-	msg_start = logger_offset(log, reader->r_off + sizeof(struct logger_entry));
+	msg_start = logger_offset(log,
+		reader->r_off + sizeof(struct logger_entry));
 
 	/*
 	 * We read from the msg in two disjoint operations. First, we read from
@@ -542,8 +547,8 @@ static struct logger_log *get_log_from_minor(int minor)
 	struct logger_log *log;
 
 	list_for_each_entry(log, &log_list, logs)
-	if (log->misc.minor == minor)
-		return log;
+		if (log->misc.minor == minor)
+			return log;
 	return NULL;
 }
 
@@ -606,6 +611,7 @@ static int logger_release(struct inode *inode, struct file *file)
 		mutex_lock(&log->mutex);
 		list_del(&reader->list);
 		mutex_unlock(&log->mutex);
+
 		kfree(reader);
 		pr_info("%s: took %d msec\n", __func__,
 			jiffies_to_msecs(jiffies - start));
@@ -757,7 +763,6 @@ static const struct file_operations logger_fops = {
  * and less than LONG_MAX minus LOGGER_ENTRY_MAX_LEN.
  * (LOGGER_ENTRY_MAX_PAYLOAD + sizeof(struct logger_entry)).
  */
-
 static int __init create_log(char *log_name, int size)
 {
 	int ret = 0;
@@ -770,7 +775,7 @@ static int __init create_log(char *log_name, int size)
 
 	log = kzalloc(sizeof(struct logger_log), GFP_KERNEL);
 	if (log == NULL) {
-	ret = -ENOMEM;
+		ret = -ENOMEM;
 		goto out_free_buffer;
 	}
 	log->buffer = buffer;
@@ -784,7 +789,7 @@ static int __init create_log(char *log_name, int size)
 
 	log->misc.fops = &logger_fops;
 	log->misc.parent = NULL;
- 
+
 	init_waitqueue_head(&log->wq);
 	INIT_LIST_HEAD(&log->readers);
 	mutex_init(&log->mutex);
@@ -795,7 +800,7 @@ static int __init create_log(char *log_name, int size)
 	INIT_LIST_HEAD(&log->logs);
 	list_add_tail(&log->logs, &log_list);
 
-	/* finally, initialize the misc device for this log */ 
+	/* finally, initialize the misc device for this log */
 	ret = misc_register(&log->misc);
 	if (unlikely(ret)) {
 		pr_err("failed to register misc device for log '%s'!\n",
@@ -813,7 +818,7 @@ out_free_log:
 
 out_free_buffer:
 	vfree(buffer);
-	return ret; 
+	return ret;
 }
 
 static int __init logger_init(void)
