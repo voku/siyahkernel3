@@ -2154,7 +2154,6 @@ retry_find_task:
 			ret = cgroup_allow_attach(cgrp, &tset);
 			if (ret) {
 				rcu_read_unlock();
-				ret = -EACCES;
 				goto out_unlock_cgroup;
 			}
 		}
