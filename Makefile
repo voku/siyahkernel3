@@ -1,8 +1,8 @@
 VERSION = 3
-PATCHLEVEL = 1
+PATCHLEVEL = 7
 SUBLEVEL = 0
 EXTRAVERSION = -R77
-NAME = "Divemaster Edition"
+NAME = Terrified Chipmunk
 
 # *DOCUMENTATION*
 # To see a list of typical targets execute "make help"
