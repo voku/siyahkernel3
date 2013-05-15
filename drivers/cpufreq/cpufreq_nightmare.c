@@ -42,7 +42,7 @@
 /*
  * runqueue average
  */
-struct runqueue_data {
+struct nightmare_runqueue_data {
 	unsigned int nr_run_avg;
 	unsigned int update_rate;
 	int64_t last_time;
@@ -52,7 +52,7 @@ struct runqueue_data {
 	spinlock_t lock;
 };
 
-static struct runqueue_data *rq_data;
+static struct nightmare_runqueue_data *rq_data;
 static void rq_work_fn(struct work_struct *work);
 
 static void start_rq_work(void)
@@ -78,7 +78,7 @@ static void stop_rq_work(void)
 
 static int __init init_rq_avg(void)
 {
-	rq_data = kzalloc(sizeof(struct runqueue_data), GFP_KERNEL);
+	rq_data = kzalloc(sizeof(struct nightmare_runqueue_data), GFP_KERNEL);
 	if (rq_data == NULL) {
 		pr_err("%s cannot allocate memory\n", __func__);
 		return -ENOMEM;
@@ -221,9 +221,6 @@ struct cpufreq_governor cpufreq_gov_nightmare = {
 	.owner                  = THIS_MODULE,
 };
 
-/* Sampling types */
-enum {DBS_NORMAL_SAMPLE, DBS_SUB_SAMPLE};
-
 struct cpufreq_nightmare_cpuinfo {
 	cputime64_t prev_cpu_idle;
 	cputime64_t prev_cpu_iowait;
@@ -339,7 +336,7 @@ static void apply_hotplug_lock(void)
 	}
 }
 
-int cpufreq_nightmare_cpu_lock(int num_core)
+static int cpufreq_nightmare_cpu_lock(int num_core)
 {
 	int prev_lock;
 
@@ -360,7 +357,7 @@ int cpufreq_nightmare_cpu_lock(int num_core)
 	return 0;
 }
 
-int cpufreq_nightmare_cpu_unlock(int num_core)
+static int cpufreq_nightmare_cpu_unlock(int num_core)
 {
 	int prev_lock = atomic_read(&g_hotplug_lock);
 
@@ -375,7 +372,7 @@ int cpufreq_nightmare_cpu_unlock(int num_core)
 	return 0;
 }
 
-void cpufreq_nightmare_min_cpu_lock(unsigned int num_core)
+static void cpufreq_nightmare_min_cpu_lock(unsigned int num_core)
 {
 	int online, flag;
 	struct cpufreq_nightmare_cpuinfo *nightmare_cpuinfo;
@@ -390,7 +387,7 @@ void cpufreq_nightmare_min_cpu_lock(unsigned int num_core)
 	cpu_up(1);
 }
 
-void cpufreq_nightmare_min_cpu_unlock(void)
+static void cpufreq_nightmare_min_cpu_unlock(void)
 {
 	int online, lock, flag;
 	struct cpufreq_nightmare_cpuinfo *nightmare_cpuinfo;
@@ -411,20 +408,20 @@ void cpufreq_nightmare_min_cpu_unlock(void)
 /*
  * History of CPU usage
  */
-struct cpu_usage {
+struct nightmare_cpu_usage {
 	unsigned int freq;
 	int load[NR_CPUS];
 	unsigned int rq_avg;
 	unsigned int avg_load;
 };
 
-struct cpu_usage_history {
-	struct cpu_usage usage[MAX_HOTPLUG_RATE];
+struct nightmare_cpu_usage_history {
+	struct nightmare_cpu_usage usage[MAX_HOTPLUG_RATE];
 	unsigned int num_hist;
 	unsigned int last_num_hist;
 };
 
-struct cpu_usage_history *hotplug_histories;
+static struct nightmare_cpu_usage_history *hotplug_histories;
 
 static inline u64 get_cpu_idle_time_jiffy(unsigned int cpu, u64 *wall)
 {
@@ -1098,7 +1095,7 @@ static struct attribute_group nightmare_attr_group = {
 /************************** sysfs end ************************/
 
 static void debug_hotplug_check(int which, int rq_avg, int freq,
-			 struct cpu_usage *usage)
+			 struct nightmare_cpu_usage *usage)
 {
 	int cpu;
 	printk(KERN_ERR "CHECK %s rq %d.%02d freq %d [", which ? "up" : "down",
@@ -1112,7 +1109,7 @@ static void debug_hotplug_check(int which, int rq_avg, int freq,
 static int check_up(void)
 {
 	int num_hist = hotplug_histories->num_hist;
-	struct cpu_usage *usage;
+	struct nightmare_cpu_usage *usage;
 	int freq, rq_avg;
 	int avg_load;
 	int i;
@@ -1183,7 +1180,7 @@ static int check_up(void)
 static int check_down(void)
 {
 	int num_hist = hotplug_histories->num_hist;
-	struct cpu_usage *usage;
+	struct nightmare_cpu_usage *usage;
 	int freq, rq_avg;
 	int avg_load;
 	int i;
@@ -1696,7 +1693,7 @@ static int __init cpufreq_gov_nightmare_init(void)
 	if (ret)
 		return ret;
 
-	hotplug_histories = kzalloc(sizeof(struct cpu_usage_history), GFP_KERNEL);
+	hotplug_histories = kzalloc(sizeof(struct nightmare_cpu_usage_history), GFP_KERNEL);
 	if (!hotplug_histories) {
 		pr_err("%s cannot create hotplug history array\n", __func__);
 		ret = -ENOMEM;
