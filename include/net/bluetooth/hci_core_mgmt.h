@@ -611,6 +611,16 @@ static inline struct hci_dev *hci_dev_hold(struct hci_dev *d)
 #define hci_dev_lock_bh(d)	spin_lock_bh(&d->lock)
 #define hci_dev_unlock_bh(d)	spin_unlock_bh(&d->lock)
 
+static inline void *hci_get_drvdata(struct hci_dev *hdev)
+{
+	return dev_get_drvdata(&hdev->dev);
+}
+ 
+static inline void hci_set_drvdata(struct hci_dev *hdev, void *data)
+{
+	dev_set_drvdata(&hdev->dev, data);
+}
+
 struct hci_dev *hci_dev_get(int index);
 struct hci_dev *hci_get_route(bdaddr_t *src, bdaddr_t *dst);
 
