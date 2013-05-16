@@ -710,7 +710,7 @@ static void exynos4_handler_tmu_state(struct work_struct *work)
 			panic("Emergency!!!! tripping is not treated!\n");
 			/* clear to prevent from interfupt by peindig bit */
 			__raw_writel(INTCLEARALL,
-				info->tmu_state + EXYNOS4_TMU_INTCLEAR);
+				(void __iomem *)info->tmu_state + EXYNOS4_TMU_INTCLEAR);
 			enable_irq(info->irq);
 			mutex_unlock(&tmu_lock);
 			return;
