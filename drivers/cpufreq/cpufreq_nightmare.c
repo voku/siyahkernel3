@@ -1121,6 +1121,10 @@ static int check_up(void)
 	int min_rq_avg = INT_MAX;
 	int min_avg_load = INT_MAX;
 	int online;
+	int hotplug_lock = atomic_read(&g_hotplug_lock);
+
+	if (hotplug_lock > 0)
+		return 0;
 
 	online = num_online_cpus();
 	up_freq = hotplug_freq[online - 1][HOTPLUG_UP_INDEX];
@@ -1192,6 +1196,10 @@ static int check_down(void)
 	int max_rq_avg = 0;
 	int max_avg_load = 0;
 	int online;
+	int hotplug_lock = atomic_read(&g_hotplug_lock);
+
+	if (hotplug_lock > 0)
+		return 0;
 
 	online = num_online_cpus();
 	down_freq = hotplug_freq[online - 1][HOTPLUG_DOWN_INDEX];
