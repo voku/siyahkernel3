@@ -1586,8 +1586,6 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 
 		if (hotplug_enable > 0)
 			start_rq_work();
-		else
-			stop_rq_work();
 
 		mutex_lock(&nightmare_mutex);
 
