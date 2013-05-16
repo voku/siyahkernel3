@@ -421,7 +421,7 @@ struct nightmare_cpu_usage_history {
 	unsigned int last_num_hist;
 };
 
-static struct nightmare_cpu_usage_history *hotplug_histories;
+struct nightmare_cpu_usage_history *hotplug_histories;
 
 static inline u64 get_cpu_idle_time_jiffy(unsigned int cpu, u64 *wall)
 {
