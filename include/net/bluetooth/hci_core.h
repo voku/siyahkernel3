@@ -54,14 +54,12 @@ struct inquiry_entry {
 };
 
 struct inquiry_cache {
-	spinlock_t		lock;
 	__u32			timestamp;
 	struct inquiry_entry	*list;
 };
 
 struct hci_conn_hash {
 	struct list_head list;
-	spinlock_t       lock;
 	unsigned int     acl_num;
 	unsigned int     sco_num;
 	unsigned int     le_num;
@@ -217,14 +215,12 @@ struct hci_dev {
 
 	struct sk_buff_head	driver_init;
 
-	void			*driver_data;
 	void			*core_data;
 
 	atomic_t		promisc;
 
 	struct dentry		*debugfs;
 
-	struct device		*parent;
 	struct device		dev;
 
 	struct rfkill		*rfkill;
@@ -314,15 +310,9 @@ extern rwlock_t hci_cb_list_lock;
 #define INQUIRY_CACHE_AGE_MAX   (HZ*30)   /* 30 seconds */
 #define INQUIRY_ENTRY_AGE_MAX   (HZ*60)   /* 60 seconds */
 
-#define inquiry_cache_lock(c)		spin_lock(&c->lock)
-#define inquiry_cache_unlock(c)		spin_unlock(&c->lock)
-#define inquiry_cache_lock_bh(c)	spin_lock_bh(&c->lock)
-#define inquiry_cache_unlock_bh(c)	spin_unlock_bh(&c->lock)
-
 static inline void inquiry_cache_init(struct hci_dev *hdev)
 {
 	struct inquiry_cache *c = &hdev->inq_cache;
-	spin_lock_init(&c->lock);
 	c->list = NULL;
 }
 
@@ -364,6 +354,7 @@ static inline void hci_conn_hash_init(struct hci_dev *hdev)
 	spin_lock_init(&h->lock);
 	h->acl_num = 0;
 	h->sco_num = 0;
+	h->le_num = 0;
 }
 
 static inline void hci_conn_hash_add(struct hci_dev *hdev, struct hci_conn *c)
@@ -537,6 +528,16 @@ static inline struct hci_dev *hci_dev_hold(struct hci_dev *d)
 #define hci_dev_lock_bh(d)	spin_lock_bh(&d->lock)
 #define hci_dev_unlock_bh(d)	spin_unlock_bh(&d->lock)
 
+static inline void *hci_get_drvdata(struct hci_dev *hdev)
+{
+	return dev_get_drvdata(&hdev->dev);
+}
+
+static inline void hci_set_drvdata(struct hci_dev *hdev, void *data)
+{
+	dev_set_drvdata(&hdev->dev, data);
+}
+
 struct hci_dev *hci_dev_get(int index);
 struct hci_dev *hci_get_route(bdaddr_t *src, bdaddr_t *dst);
 
@@ -603,7 +604,7 @@ void hci_conn_init_sysfs(struct hci_conn *conn);
 void hci_conn_add_sysfs(struct hci_conn *conn);
 void hci_conn_del_sysfs(struct hci_conn *conn);
 
-#define SET_HCIDEV_DEV(hdev, pdev) ((hdev)->parent = (pdev))
+#define SET_HCIDEV_DEV(hdev, pdev) ((hdev)->dev.parent = (pdev))
 
 /* ----- LMP capabilities ----- */
 #define lmp_rswitch_capable(dev)   ((dev)->features[0] & LMP_RSWITCH)
