@@ -584,7 +584,7 @@ static void mxt224_ta_probe(bool ta_status)
 			write_mem(copy_data, obj_address + (u16) register_address, size_one, &value);
 			/* move Filter */
 			value = copy_data->movfilter_batt_e;
-			register_address = 13;
+			register_address = 15;
 			write_mem(copy_data, obj_address + (u16) register_address, size_one, &value);
 			/* nexttchdi */
 			value = copy_data->nexttchdi_e;
@@ -3220,13 +3220,19 @@ static ssize_t touch_config_show(struct device *dev,
 				  struct device_attribute *attr, char *buf)
 {
 	return sprintf(buf, "[Battery]  touchthresh: %u noisethresh: %u movfilter: %u\n"
-			    "[Charging] touchthresh: %u noisethresh: %u movfilter: %u\n",
+			    "[Charging] touchthresh: %u noisethresh: %u movfilter: %u\n"
+			    "[Battery-E] touchthresh: %u movfilter: %u\n"
+			    "[Charging-E] touchthresh: %u movfilter: %u\n",
 					copy_data->tchthr_batt,
 					copy_data->noisethr_batt,
 					copy_data->movfilter_batt,
 					copy_data->tchthr_charging,
 					copy_data->noisethr_charging,
-					copy_data->movfilter_charging);
+					copy_data->movfilter_charging,
+					copy_data->tchthr_batt_e,
+					copy_data->tchthr_charging_e,
+					copy_data->movfilter_batt_e,
+					copy_data->movfilter_charging_e);
 }
 
 static ssize_t touch_config_store(struct device *dev,
@@ -3234,14 +3240,15 @@ static ssize_t touch_config_store(struct device *dev,
 				   const char *buf, size_t size)
 {
 	int ret = 0;
-	unsigned int value[6];
+	unsigned int value[10];
 	bool ta_status = 0;
 
-	ret = sscanf(buf, "%d %d %d %d %d %d\n",
+	ret = sscanf(buf, "%d %d %d %d %d %d %d %d %d %d\n",
 		&value[0], &value[1], &value[2],
-			&value[3], &value[4], &value[5]);
+			&value[3], &value[4], &value[5],
+			&value[6], &value[7], &value[8], &value[9]);
 
-	if (ret != 6) {
+	if (ret != 10) {
 		return -EINVAL;
 	} else {
 		copy_data->tchthr_batt = (u8) value[0];
@@ -3250,6 +3257,10 @@ static ssize_t touch_config_store(struct device *dev,
 		copy_data->tchthr_charging = (u8) value[3];
 		copy_data->noisethr_charging = (u8) value[4];
 		copy_data->movfilter_charging = (u8) value[5];
+		copy_data->tchthr_batt_e = (u8) value[6];
+		copy_data->tchthr_charging_e = (u8) value[7];
+		copy_data->movfilter_batt_e = (u8) value[8];
+		copy_data->movfilter_charging_e = (u8) value[9];
 	}
 
 	if (copy_data->read_ta_status) {
@@ -3265,16 +3276,22 @@ void tsp_touch_config_update(int status)
 	u8 touch_threshold;
 	u8 mov_filter;
 	u8 noise_threshold;
+	u8 touch_threshold_e;
+	u8 mov_filter_e;
 	bool ta_status = 0;
 
 	if (status > 0) {
 		touch_threshold = copy_data->tchthr_charging;
 		noise_threshold = copy_data->noisethr_charging;
 		mov_filter = copy_data->movfilter_charging;
+		touch_threshold_e = copy_data->tchthr_charging_e;
+		mov_filter_e = copy_data->movfilter_charging_e;
 	} else {
 		touch_threshold = copy_data->tchthr_batt;
 		noise_threshold = copy_data->noisethr_batt;
 		mov_filter = copy_data->movfilter_batt;
+		touch_threshold_e = copy_data->tchthr_batt_e;
+		mov_filter_e = copy_data->movfilter_batt_e;
 	}
 
 	if (copy_data->read_ta_status) {
