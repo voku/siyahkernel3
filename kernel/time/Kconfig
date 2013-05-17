@@ -2,11 +2,6 @@
 # Timer subsystem related configuration options
 #
 
-# Selectable by architectures which want to reuse the clocksource as
-# sched_clock
-config HAVE_CLKSRC_SCHED_CLOCK
-       bool
-
 # Options selectable by arch Kconfig
 
 # Watchdog function for clocksources to detect instabilities
