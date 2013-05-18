@@ -49,6 +49,10 @@ export CROSS_COMPILE=${KERNELDIR}/android-toolchain/bin/arm-eabi-;
 # importing PATCH for GCC depend on GCC version
 GCCVERSION=`./scripts/gcc-version.sh ${CROSS_COMPILE}gcc`;
 
+# check xml-config for "STweaks"-app
+XML2CHECK="${INITRAMFS_SOURCE}/res/customconfig/customconfig.xml";
+xmllint --noout ${XML2CHECK} || echo "xml-Error: ${XML2CHECK}" && exit 1;
+
 if [ "a$GCCVERSION" == "a0404" ]; then
 	cp ${KERNELDIR}/arch/arm/boot/compressed/Makefile_old_gcc ${KERNELDIR}/arch/arm/boot/compressed/Makefile;
 	echo "GCC 4.3.X Compiler Detected, building";
