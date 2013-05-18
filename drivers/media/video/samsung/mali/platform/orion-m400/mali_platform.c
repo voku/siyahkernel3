@@ -1,4 +1,5 @@
-/* Copyright (C) 2010-2012 ARM Limited. All rights reserved.
+/*
+ * Copyright (C) 2010-2012 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -18,7 +19,7 @@
 #include "mali_linux_pm.h"
 
 #if USING_MALI_PMM
-#include "mali_pmm.h"
+#include "mali_pm.h"
 #endif
 
 #include <linux/clk.h>
@@ -63,6 +64,14 @@ mali_runtime_resume_table mali_runtime_resume = {108, 950000};
 extern int cpufreq_lock_by_mali(unsigned int freq);
 extern void cpufreq_unlock_by_mali(void);
 
+/* start of modification by skkim */
+extern mali_bool init_mali_dvfs_status(int step);
+extern void deinit_mali_dvfs_status(void);
+extern mali_bool mali_dvfs_handler(u32 utilization);
+extern int get_mali_dvfs_control_status(void);
+extern mali_bool set_mali_dvfs_current_step(unsigned int step);
+/* end of modification by skkim */
+
 static struct clk  *ext_xtal_clock = 0;
 static struct clk  *vpll_src_clock = 0;
 static struct clk  *fout_vpll_clock = 0;
@@ -87,7 +96,7 @@ static _mali_osk_atomic_t voltage_lock_status;
 static mali_bool mali_vol_lock_flag = 0;
 #endif
 
-int  gpu_power_state;
+int gpu_power_state;
 static int bPoweroff;
 
 #ifdef CONFIG_REGULATOR
@@ -171,7 +180,7 @@ void mali_regulator_set_voltage(int min_uV, int max_uV)
 	_mali_osk_profiling_add_event( MALI_PROFILING_EVENT_TYPE_SINGLE |
                                MALI_PROFILING_EVENT_CHANNEL_SOFTWARE |
                                MALI_PROFILING_EVENT_REASON_SINGLE_SW_GPU_VOLTS,
-                               min_uV, max_uV, 1, 0, 0);
+                               min_uV, max_uV, 0, 0, 0);
 #endif
 
 	regulator_set_voltage(g3d_regulator,min_uV,max_uV);
@@ -181,9 +190,8 @@ void mali_regulator_set_voltage(int min_uV, int max_uV)
 	_mali_osk_profiling_add_event( MALI_PROFILING_EVENT_TYPE_SINGLE |
                                MALI_PROFILING_EVENT_CHANNEL_SOFTWARE |
                                MALI_PROFILING_EVENT_REASON_SINGLE_SW_GPU_VOLTS,
-                               voltage, 0, 2, 0, 0);
+                               voltage, 0, 1, 0, 0);
 #endif
-
 	mali_gpu_vol = voltage;
 	MALI_DEBUG_PRINT(1, ("= regulator_get_voltage: %d \n",mali_gpu_vol));
 
@@ -364,7 +372,7 @@ mali_bool mali_clk_set_rate(unsigned int clk, unsigned int mhz)
 	_mali_osk_profiling_add_event( MALI_PROFILING_EVENT_TYPE_SINGLE |
                                MALI_PROFILING_EVENT_CHANNEL_SOFTWARE |
                                MALI_PROFILING_EVENT_REASON_SINGLE_SW_GPU_FREQ,
-                               rate, 1, 0, 0, 0);
+                               rate, 0, 0, 0, 0);
 #endif
 
 	if (bis_vpll)
@@ -416,13 +424,11 @@ static mali_bool init_mali_clock(void)
 	}
 
 	regulator_enable(g3d_regulator);
-
 	MALI_DEBUG_PRINT(1, ("= regulator_enable -> use cnt: %d \n",mali_regulator_get_usecount()));
 	mali_regulator_set_voltage(mali_gpu_vol, mali_gpu_vol);
 #endif
 
 	MALI_DEBUG_PRINT(2, ("MALI Clock is set at mali driver\n"));
-
 	MALI_DEBUG_PRINT(3,("::clk_put:: %s mali_parent_clock - normal\n", __FUNCTION__));
 	MALI_DEBUG_PRINT(3,("::clk_put:: %s mpll_clock  - normal\n", __FUNCTION__));
 
@@ -524,8 +530,8 @@ _mali_osk_errcode_t g3d_power_domain_control(int bpower_on)
 {
 	if (bpower_on) {
 #if MALI_PMM_RUNTIME_JOB_CONTROL_ON
-		MALI_DEBUG_PRINT(3,("_mali_osk_pmm_dev_activate \n"));
-		_mali_osk_pmm_dev_activate();
+		MALI_DEBUG_PRINT(3,("_mali_osk_pm_dev_activate \n"));
+		_mali_osk_pm_dev_activate();
 #else //MALI_PMM_RUNTIME_JOB_CONTROL_ON
 		void __iomem *status;
 		u32 timeout;
@@ -547,7 +553,7 @@ _mali_osk_errcode_t g3d_power_domain_control(int bpower_on)
 	} else {
 #if MALI_PMM_RUNTIME_JOB_CONTROL_ON
 		MALI_DEBUG_PRINT( 4,("_mali_osk_pmm_dev_idle\n"));
-		_mali_osk_pmm_dev_idle();
+		_mali_osk_pm_dev_idle();
 
 #else //MALI_PMM_RUNTIME_JOB_CONTROL_ON
 		void __iomem *status;

@@ -140,7 +140,7 @@ int ump_size_get_wrapper(u32 __user * argument, struct ump_session_data  * sessi
 /*
  * IOCTL operation; Do cache maintenance on specified UMP memory.
  */
-int ump_msync_wrapper(u32 __user * argument, struct ump_session_data  * session_data, bool old)
+int ump_msync_wrapper(u32 __user * argument, struct ump_session_data  * session_data)
 {
 	_ump_uk_msync_s user_interaction;
 
@@ -159,8 +159,7 @@ int ump_msync_wrapper(u32 __user * argument, struct ump_session_data  * session_
 
 	user_interaction.ctx = (void *) session_data;
 
-	if(old) _ump_ukk_msync_old( &user_interaction );
-	else _ump_ukk_msync( &user_interaction );
+	_ump_ukk_msync( &user_interaction );
 
 	user_interaction.ctx = NULL;
 

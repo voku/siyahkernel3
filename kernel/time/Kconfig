@@ -2,11 +2,6 @@
 # Timer subsystem related configuration options
 #
 
-# Selectable by architectures which want to reuse the clocksource as
-# sched_clock
-config HAVE_CLKSRC_SCHED_CLOCK
-       bool
-
 # Options selectable by arch Kconfig
 
 # Watchdog function for clocksources to detect instabilities
@@ -16,11 +11,6 @@ config CLOCKSOURCE_WATCHDOG
 # Architecture has extra clocksource data
 config ARCH_CLOCKSOURCE_DATA
 	bool
-
-# Platforms has a persistent clock
-config ALWAYS_USE_PERSISTENT_CLOCK
-	bool
-	default n
 
 # Timekeeping vsyscall support
 config GENERIC_TIME_VSYSCALL

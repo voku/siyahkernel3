@@ -354,14 +354,7 @@ static int ump_file_ioctl(struct inode *inode, struct file *filp, unsigned int c
 			break;
 #ifdef CONFIG_ION_EXYNOS
 		case UMP_IOC_ION_IMPORT:
-		case UMP_IOC_ION_IMPORT_OLD:
 			err = ump_ion_import_wrapper((u32 __user *)argument, session_data);
-			break;
-#endif
-#ifdef CONFIG_DMA_SHARED_BUFFER
-		case UMP_IOC_DMABUF_IMPORT:
-			err = ump_dmabuf_import_wrapper((u32 __user *)argument,
-							session_data);
 			break;
 #endif
 		case UMP_IOC_RELEASE:
@@ -373,11 +366,7 @@ static int ump_file_ioctl(struct inode *inode, struct file *filp, unsigned int c
 			break;
 
 		case UMP_IOC_MSYNC:
-			err = ump_msync_wrapper((u32 __user *)argument, session_data, false);
-			break;
-
-		case UMP_IOC_MSYNC_OLD:
-			err = ump_msync_wrapper((u32 __user *)argument, session_data, true);
+			err = ump_msync_wrapper((u32 __user *)argument, session_data);
 			break;
 
 		case UMP_IOC_CACHE_OPERATIONS_CONTROL:
@@ -434,7 +423,7 @@ static int ump_file_mmap(struct file * filp, struct vm_area_struct * vma)
 
 	/* Validate the session data */
 	session_data = (struct ump_session_data *)filp->private_data;
-	if (NULL == session_data || NULL == session_data->cookies_map->table->mappings)
+	if (NULL == session_data)
 	{
 		MSG_ERR(("mmap() called without any session data available\n"));
 		return -EFAULT;
@@ -455,7 +444,7 @@ static int ump_file_mmap(struct file * filp, struct vm_area_struct * vma)
 		DBG_MSG(3, ("UMP Map function: Forcing the CPU to use cache\n"));
 	}
 	/* By setting this flag, during a process fork; the child process will not have the parent UMP mappings */
-	AOSPROM vma->vm_flags |= VM_DONTCOPY;
+	vma->vm_flags |= VM_DONTCOPY;
 
 	DBG_MSG(4, ("UMP vma->flags: %x\n", vma->vm_flags ));
 
@@ -479,9 +468,6 @@ EXPORT_SYMBOL(ump_dd_phys_blocks_get);
 EXPORT_SYMBOL(ump_dd_size_get);
 EXPORT_SYMBOL(ump_dd_reference_add);
 EXPORT_SYMBOL(ump_dd_reference_release);
-EXPORT_SYMBOL(ump_dd_meminfo_get);
-EXPORT_SYMBOL(ump_dd_meminfo_set);
-EXPORT_SYMBOL(ump_dd_handle_get_from_vaddr);
 
 /* Export our own extended kernel space allocator */
 EXPORT_SYMBOL(ump_dd_handle_create_from_phys_blocks);

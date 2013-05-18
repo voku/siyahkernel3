@@ -548,7 +548,6 @@ int hci_register_sysfs(struct hci_dev *hdev)
 
 	dev->type = &bt_host;
 	dev->class = bt_class;
-	dev->parent = hdev->parent;
 
 	dev_set_name(dev, "%s", hdev->name);
 

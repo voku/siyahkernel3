@@ -7,7 +7,9 @@
 #include <linux/proc_fs.h>
 #include <linux/printk.h>
 #include <linux/security.h>
+#include <linux/sched.h>
 #include <linux/namei.h>
+#include <linux/mm.h>
 #include "internal.h"
 
 static const struct dentry_operations proc_sys_dentry_operations;
@@ -427,9 +429,9 @@ static const struct inode_operations proc_sys_dir_operations = {
 	.getattr	= proc_sys_getattr,
 };
 
-static int proc_sys_revalidate(struct dentry *dentry, struct nameidata *nd)
+static int proc_sys_revalidate(struct dentry *dentry, unsigned int flags)
 {
-	if (nd->flags & LOOKUP_RCU)
+	if (flags & LOOKUP_RCU)
 		return -ECHILD;
 	return !PROC_I(dentry->d_inode)->sysctl->unregistering;
 }

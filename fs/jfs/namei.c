@@ -220,12 +220,6 @@ static int jfs_mkdir(struct inode *dip, struct dentry *dentry, umode_t mode)
 
 	dquot_initialize(dip);
 
-	/* link count overflow on parent directory ? */
-	if (dip->i_nlink == JFS_LINK_MAX) {
-		rc = -EMLINK;
-		goto out1;
-	}
-
 	/*
 	 * search parent directory for entry/freespace
 	 * (dtSearch() returns parent directory page pinned)
@@ -806,9 +800,6 @@ static int jfs_link(struct dentry *old_dentry,
 	jfs_info("jfs_link: %s %s", old_dentry->d_name.name,
 		 dentry->d_name.name);
 
-	if (ip->i_nlink == JFS_LINK_MAX)
-		return -EMLINK;
-
 	dquot_initialize(dir);
 
 	tid = txBegin(ip->i_sb, 0);
@@ -1139,10 +1130,6 @@ static int jfs_rename(struct inode *old_dir, struct dentry *old_dentry,
 				rc = -ENOTEMPTY;
 				goto out3;
 			}
-		} else if ((new_dir != old_dir) &&
-			   (new_dir->i_nlink == JFS_LINK_MAX)) {
-			rc = -EMLINK;
-			goto out3;
 		}
 	} else if (new_ip) {
 		IWRITE_LOCK(new_ip, RDWRLOCK_NORMAL);
@@ -1593,7 +1580,7 @@ out:
 	return result;
 }
 
-static int jfs_ci_revalidate(struct dentry *dentry, struct nameidata *nd)
+static int jfs_ci_revalidate(struct dentry *dentry, unsigned int flags)
 {
 	if (nd && nd->flags & LOOKUP_RCU)
 		return -ECHILD;
@@ -1614,7 +1601,7 @@ static int jfs_ci_revalidate(struct dentry *dentry, struct nameidata *nd)
 	 * This may be nfsd (or something), anyway, we can't see the
 	 * intent of this. So, since this can be for creation, drop it.
 	 */
-	if (!nd)
+	if (!flags)
 		return 0;
 
 	/*
@@ -1622,10 +1609,8 @@ static int jfs_ci_revalidate(struct dentry *dentry, struct nameidata *nd)
 	 * case sensitive name which is specified by user if this is
 	 * for creation.
 	 */
-	if (!(nd->flags & (LOOKUP_CONTINUE | LOOKUP_PARENT))) {
-		if (nd->flags & (LOOKUP_CREATE | LOOKUP_RENAME_TARGET))
-			return 0;
-	}
+	if (flags & (LOOKUP_CREATE | LOOKUP_RENAME_TARGET))
+		return 0;
 	return 1;
 }
 

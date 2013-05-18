@@ -37,6 +37,8 @@
 #include <linux/bio.h>
 #include <linux/fiemap.h>
 #include <linux/namei.h>
+#include <linux/aio.h>
+#include "ext3.h"
 #include "xattr.h"
 #include "acl.h"
 

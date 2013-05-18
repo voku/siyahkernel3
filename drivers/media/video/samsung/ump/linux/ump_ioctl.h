@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2012 ARM Limited. All rights reserved.
+ * Copyright (C) 2010-2013 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -40,14 +40,8 @@ extern "C"
 #define UMP_IOC_RELEASE  _IOR(UMP_IOCTL_NR,  _UMP_IOC_RELEASE,  _ump_uk_release_s)
 #define UMP_IOC_SIZE_GET  _IOWR(UMP_IOCTL_NR,  _UMP_IOC_SIZE_GET, _ump_uk_size_get_s)
 #define UMP_IOC_MSYNC     _IOW(UMP_IOCTL_NR,  _UMP_IOC_MSYNC, _ump_uk_msync_s)
-#define UMP_IOC_MSYNC_OLD     _IOW(UMP_IOCTL_NR,  _UMP_IOC_MSYNC, _ump_uk_size_get_s)
 #ifdef CONFIG_ION_EXYNOS
 #define UMP_IOC_ION_IMPORT  _IOW(UMP_IOCTL_NR,  _UMP_IOC_ION_IMPORT, _ump_uk_ion_import_s)
-#define UMP_IOC_ION_IMPORT_OLD  _IOW(UMP_IOCTL_NR,  _UMP_IOC_CACHE_OPERATIONS_CONTROL, _ump_uk_ion_import_s)
-#endif
-#ifdef CONFIG_DMA_SHARED_BUFFER
-#define UMP_IOC_DMABUF_IMPORT  _IOW(UMP_IOCTL_NR,  _UMP_IOC_DMABUF_IMPORT,\
-					struct ump_uk_dmabuf)
 #endif
 
 #define UMP_IOC_CACHE_OPERATIONS_CONTROL _IOW(UMP_IOCTL_NR,  _UMP_IOC_CACHE_OPERATIONS_CONTROL, _ump_uk_cache_operations_control_s)

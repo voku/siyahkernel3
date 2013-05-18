@@ -139,6 +139,7 @@ static inline bool timespec_valid_strict(const struct timespec *ts)
 }
 
 extern bool persistent_clock_exist;
+
 static inline bool has_persistent_clock(void)
 {
 	return persistent_clock_exist;
@@ -290,14 +291,6 @@ static __always_inline void timespec_add_ns(struct timespec *a, u64 ns)
 	a->tv_nsec = ns;
 }
 #endif /* __KERNEL__ */
-
-#define NFDBITS			__NFDBITS
-
-#define FD_SETSIZE		__FD_SETSIZE
-#define FD_SET(fd,fdsetp)	__FD_SET(fd,fdsetp)
-#define FD_CLR(fd,fdsetp)	__FD_CLR(fd,fdsetp)
-#define FD_ISSET(fd,fdsetp)	__FD_ISSET(fd,fdsetp)
-#define FD_ZERO(fdsetp)		__FD_ZERO(fdsetp)
 
 /*
  * Names of the interval timers, and structure

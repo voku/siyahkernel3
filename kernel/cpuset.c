@@ -1389,15 +1389,15 @@ static int cpuset_can_attach(struct cgroup *cgrp, struct cgroup_taskset *tset)
 
 	cgroup_taskset_for_each(task, cgrp, tset) {
 		/*
-		 * Kthreads bound to specific cpus cannot be moved to a new
-		 * cpuset; we cannot change their cpu affinity and
-		 * isolating such threads by their set of allowed nodes is
-		 * unnecessary.  Thus, cpusets are not applicable for such
-		 * threads.  This prevents checking for success of
-		 * set_cpus_allowed_ptr() on all attached tasks before
-		 * cpus_allowed may be changed.
+		 * Kthreads which disallow setaffinity shouldn't be moved
+		 * to a new cpuset; we don't want to change their cpu
+		 * affinity and isolating such threads by their set of
+		 * allowed nodes is unnecessary.  Thus, cpusets are not
+		 * applicable for such threads.  This prevents checking for
+		 * success of set_cpus_allowed_ptr() on all attached tasks
+		 * before cpus_allowed may be changed.
 		 */
-		if (task->flags & PF_THREAD_BOUND)
+		if (task->flags & PF_NO_SETAFFINITY)
 			return -EINVAL;
 		if ((ret = security_task_setscheduler(task)))
 			return ret;
@@ -1911,48 +1911,6 @@ int __init cpuset_init(void)
 	return 0;
 }
 
-/**
- * cpuset_do_move_task - move a given task to another cpuset
- * @tsk: pointer to task_struct the task to move
- * @scan: struct cgroup_scanner contained in its struct cpuset_hotplug_scanner
- *
- * Called by cgroup_scan_tasks() for each task in a cgroup.
- * Return nonzero to stop the walk through the tasks.
- */
-static void cpuset_do_move_task(struct task_struct *tsk,
-				struct cgroup_scanner *scan)
-{
-	struct cgroup *new_cgroup = scan->data;
-
-	cgroup_attach_task(new_cgroup, tsk);
-}
-
-/**
- * move_member_tasks_to_cpuset - move tasks from one cpuset to another
- * @from: cpuset in which the tasks currently reside
- * @to: cpuset to which the tasks will be moved
- *
- * Called with cgroup_mutex held
- * callback_mutex must not be held, as cpuset_attach() will take it.
- *
- * The cgroup_scan_tasks() function will scan all the tasks in a cgroup,
- * calling callback functions for each.
- */
-static void move_member_tasks_to_cpuset(struct cpuset *from, struct cpuset *to)
-{
-	struct cgroup_scanner scan;
-
-	scan.cg = from->css.cgroup;
-	scan.test_task = NULL; /* select all tasks in cgroup */
-	scan.process_task = cpuset_do_move_task;
-	scan.heap = NULL;
-	scan.data = to->css.cgroup;
-
-	if (cgroup_scan_tasks(&scan))
-		printk(KERN_ERR "move_member_tasks_to_cpuset: "
-				"cgroup_scan_tasks failed\n");
-}
-
 /*
  * If CPU and/or memory hotplug handlers, below, unplug any CPUs
  * or memory nodes, we need to walk over the cpuset hierarchy,
@@ -1984,7 +1942,12 @@ static void remove_tasks_in_empty_cpuset(struct cpuset *cs)
 			nodes_empty(parent->mems_allowed))
 		parent = parent->parent;
 
-	move_member_tasks_to_cpuset(cs, parent);
+	if (cgroup_transfer_tasks(parent->css.cgroup, cs->css.cgroup)) {
+		rcu_read_lock();
+		printk(KERN_ERR "cpuset: failed to transfer tasks out of empty cpuset %s\n",
+		       cgroup_name(cs->css.cgroup));
+		rcu_read_unlock();
+	}
 }
 
 /*
@@ -2572,7 +2535,7 @@ void __cpuset_memory_pressure_bump(void)
  *    and we take cgroup_mutex, keeping cpuset_attach() from changing it
  *    anyway.
  */
-static int proc_cpuset_show(struct seq_file *m, void *unused_v)
+int proc_cpuset_show(struct seq_file *m, void *unused_v)
 {
 	struct pid *pid;
 	struct task_struct *tsk;
@@ -2607,19 +2570,6 @@ out_free:
 out:
 	return retval;
 }
-
-static int cpuset_open(struct inode *inode, struct file *file)
-{
-	struct pid *pid = PROC_I(inode)->pid;
-	return single_open(file, proc_cpuset_show, pid);
-}
-
-const struct file_operations proc_cpuset_operations = {
-	.open		= cpuset_open,
-	.read		= seq_read,
-	.llseek		= seq_lseek,
-	.release	= single_release,
-};
 #endif /* CONFIG_PROC_PID_CPUSET */
 
 /* Display task mems_allowed in /proc/<pid>/status file. */

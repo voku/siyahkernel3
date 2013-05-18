@@ -76,7 +76,7 @@
 
 #define UDF_DEFAULT_BLOCKSIZE 2048
 
-static char error_buf[1024];
+enum { UDF_MAX_LINKS = 0xffff };
 
 /* These are the "meat" - everything else is stuffing */
 static int udf_fill_super(struct super_block *, void *, int);
@@ -2100,13 +2100,18 @@ static int udf_fill_super(struct super_block *sb, void *options, int silent)
 	}
 
 	/* Allocate a dentry for the root inode */
-	sb->s_root = d_alloc_root(inode);
+	sb->s_root = d_make_root(inode);
 	if (!sb->s_root) {
+<<<<<<< HEAD
 		printk(KERN_ERR "UDF-fs: Couldn't allocate root dentry\n");
 		iput(inode);
+=======
+		udf_err(sb, "Couldn't allocate root dentry\n");
+>>>>>>> 48fde70... switch open-coded instances of d_make_root() to new helper
 		goto error_out;
 	}
 	sb->s_maxbytes = MAX_LFS_FILESIZE;
+	sb->s_max_links = UDF_MAX_LINKS;
 	return 0;
 
 error_out:

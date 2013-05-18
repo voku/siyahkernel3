@@ -5509,9 +5509,9 @@ static const u8 *mxt224_config[] = {
 #define MXT224E_NEXTTCHDI_NORMAL		0
 #define MXT224E_NEXTTCHDI_CHRG		1
 #else
-#define MXT224E_THRESHOLD_BATT		50
+#define MXT224E_THRESHOLD_BATT		40
 #define MXT224E_T48_THRESHOLD_BATT		28
-#define MXT224E_THRESHOLD_CHRG		40
+#define MXT224E_THRESHOLD_CHRG		37
 #define MXT224E_CALCFG_BATT		0x42
 #define MXT224E_CALCFG_CHRG		0x52
 #if defined(CONFIG_TARGET_LOCALE_NA)
@@ -5529,7 +5529,7 @@ static const u8 *mxt224_config[] = {
 #define MXT224E_BLEN_CHRG		16
 #define MXT224E_T48_BLEN_BATT		0
 #define MXT224E_T48_BLEN_CHRG		0
-#define MXT224E_MOVFILTER_BATT		13
+#define MXT224E_MOVFILTER_BATT		15
 #define MXT224E_MOVFILTER_CHRG		46
 #define MXT224E_ACTVSYNCSPERX_NORMAL		32
 #define MXT224E_NEXTTCHDI_NORMAL		0
@@ -7484,8 +7484,8 @@ static struct platform_device *smdkc210_devices[] __initdata = {
 /* below temperature base on the celcius degree */
 struct s5p_platform_tmu u1_tmu_data __initdata = {
 	.ts = {
-		.stop_1st_throttle  = 61,
-		.start_1st_throttle = 69,
+		.stop_1st_throttle  = 65,
+		.start_1st_throttle = 70,
 		.stop_2nd_throttle  = 80,
 		.start_2nd_throttle = 103,
 		.start_tripping     = 110,

@@ -1,9 +1,9 @@
 /*
- * Copyright (C) 2010-2012 ARM Limited. All rights reserved.
- *
+ * Copyright (C) 2010-2013 ARM Limited. All rights reserved.
+ * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
- *
+ * 
  * A copy of the licence is included with the program, and can also be obtained from Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
@@ -14,10 +14,6 @@
 #include "ump_uk_types.h"
 #include "ump_kernel_interface.h"
 #include "ump_kernel_common.h"
-
-#ifdef CONFIG_DMA_SHARED_BUFFER
-#include <linux/dma-buf.h>
-#endif
 
 
 
@@ -59,24 +55,7 @@ UMP_KERNEL_API_EXPORT ump_dd_handle ump_dd_handle_create_from_secure_id(ump_secu
 	return (ump_dd_handle)mem;
 }
 
-UMP_KERNEL_API_EXPORT ump_dd_handle ump_dd_handle_get(ump_secure_id secure_id)
-{
-	ump_dd_mem * mem;
 
-	_mali_osk_lock_wait(device.secure_id_map_lock, _MALI_OSK_LOCKMODE_RW);
-
-	DBG_MSG(5, ("Getting handle from secure ID. ID: %u\n", secure_id));
-	if (0 != ump_descriptor_mapping_get(device.secure_id_map, (int)secure_id, (void**)&mem))
-	{
-		_mali_osk_lock_signal(device.secure_id_map_lock, _MALI_OSK_LOCKMODE_RW);
-		DBG_MSG(1, ("Secure ID not found. ID: %u\n", secure_id));
-		return UMP_DD_HANDLE_INVALID;
-	}
-
-	_mali_osk_lock_signal(device.secure_id_map_lock, _MALI_OSK_LOCKMODE_RW);
-
-	return (ump_dd_handle)mem;
-}
 
 UMP_KERNEL_API_EXPORT unsigned long ump_dd_phys_block_count_get(ump_dd_handle memh)
 {
@@ -194,32 +173,7 @@ UMP_KERNEL_API_EXPORT void ump_dd_reference_release(ump_dd_handle memh)
 		ump_descriptor_mapping_free(device.secure_id_map, (int)mem->secure_id);
 
 		_mali_osk_lock_signal(device.secure_id_map_lock, _MALI_OSK_LOCKMODE_RW);
-
-#ifdef CONFIG_DMA_SHARED_BUFFER
-		/*
-		 * when ump descriptor imported to dmabuf is released,
-		 * physical memory region to the ump descriptor should be
-		 * released only through dma_buf_put().
-		 * if dma_buf_put() is called then file's refcount to
-		 * the dmabuf becomes 0 and release func of exporter will be
-		 * called by file->f_op->release to release the physical
-		 * memory region finally.
-		 */
-		if (mem->import_attach) {
-			struct dma_buf_attachment *attach = mem->import_attach;
-
-			if (mem->sgt)
-				dma_buf_unmap_attachment(attach, mem->sgt,
-							DMA_BIDIRECTIONAL);
-
-			dma_buf_put(attach->dmabuf);
-
-			dma_buf_detach(attach->dmabuf, attach);
-
-		}
-#endif
 		mem->release_func(mem->ctx, mem);
-
 		_mali_osk_free(mem);
 	}
 	else
@@ -306,7 +260,7 @@ _mali_osk_errcode_t _ump_ukk_release( _ump_uk_release_s *release_info )
 	}
 
 	_mali_osk_lock_signal(session_data->lock, _MALI_OSK_LOCKMODE_RW);
-	DBG_MSG_IF(1, _MALI_OSK_ERR_OK != ret, ("UMP memory with ID %u does not belong to this session.\n", secure_id));
+ 	DBG_MSG_IF(1, _MALI_OSK_ERR_OK != ret, ("UMP memory with ID %u does not belong to this session.\n", secure_id));
 
 	DBG_MSG(4, ("_ump_ukk_release() returning 0x%x\n", ret));
 	return ret;
@@ -338,41 +292,6 @@ _mali_osk_errcode_t _ump_ukk_size_get( _ump_uk_size_get_s *user_interaction )
 }
 
 
-
-void _ump_ukk_msync_old( _ump_uk_msync_s *args )
-{
-	ump_dd_mem * mem = NULL;
-	_mali_osk_lock_wait(device.secure_id_map_lock, _MALI_OSK_LOCKMODE_RW);
-	ump_descriptor_mapping_get(device.secure_id_map, (int)args->secure_id, (void**)&mem);
-	_mali_osk_lock_signal(device.secure_id_map_lock, _MALI_OSK_LOCKMODE_RW);
-
-	if (NULL==mem)
-	{
-		DBG_MSG(1, ("Failed to look up mapping in _ump_ukk_msync(). ID: %u\n", (ump_secure_id)args->secure_id));
-		return;
-	}
-
-	/* Returns the cache settings back to Userspace */
-	args->is_cached=mem->is_cached;
-
-	/* If this flag is the only one set, we should not do the actual flush, only the readout */
-	if ( _UMP_UK_MSYNC_READOUT_CACHE_ENABLED==args->op )
-	{
-		DBG_MSG(3, ("_ump_ukk_msync READOUT  ID: %u Enabled: %d\n", (ump_secure_id)args->secure_id, mem->is_cached));
-		return;
-	}
-
-	/* Nothing to do if the memory is not caches */
-	if ( 0==mem->is_cached )
-	{
-		DBG_MSG(3, ("_ump_ukk_msync IGNORING ID: %u Enabled: %d  OP: %d\n", (ump_secure_id)args->secure_id, mem->is_cached, args->op));
-		return ;
-	}
-	DBG_MSG(3, ("_ump_ukk_msync FLUSHING ID: %u Enabled: %d  OP: %d\n", (ump_secure_id)args->secure_id, mem->is_cached, args->op));
-
-	/* The actual cache flush - Implemented for each OS*/
-	_ump_osk_msync_old( mem , args->op, (u32)args->mapping, (u32)args->address, args->size);
-}
 
 void _ump_ukk_msync( _ump_uk_msync_s *args )
 {
@@ -584,8 +503,6 @@ void _ump_ukk_lock(_ump_uk_lock_s *args )
 
 	mem->lock_usage = (ump_lock_usage) args->lock_usage;
 
-	/** TODO: TAKE LOCK HERE */
-
 	ump_dd_reference_release(mem);
 }
 
@@ -608,8 +525,6 @@ void _ump_ukk_unlock(_ump_uk_unlock_s *args )
 	DBG_MSG(1, ("UMP[%02u] Unlocking. Old Lock flag:\n", (u32)args->secure_id, (u32) mem->lock_usage ));
 
 	mem->lock_usage = (ump_lock_usage) UMP_NOT_LOCKED;
-
-	/** TODO: RELEASE LOCK HERE */
 
 	ump_dd_reference_release(mem);
 }

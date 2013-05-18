@@ -971,7 +971,7 @@ int reiserfs_permission(struct inode *inode, int mask, unsigned int flags)
 	return generic_permission(inode, mask, flags, NULL);
 }
 
-static int xattr_hide_revalidate(struct dentry *dentry, struct nameidata *nd)
+static int xattr_hide_revalidate(struct dentry *dentry, unsigned int flags)
 {
 	return -EPERM;
 }

@@ -995,11 +995,11 @@ static int dir_lease_is_valid(struct inode *dir, struct dentry *dentry)
 /*
  * Check if cached dentry can be trusted.
  */
-static int ceph_d_revalidate(struct dentry *dentry, struct nameidata *nd)
+static int ceph_d_revalidate(struct dentry *dentry, unsigned int flags)
 {
 	struct inode *dir;
 
-	if (nd && nd->flags & LOOKUP_RCU)
+	if (flags & LOOKUP_RCU)
 		return -ECHILD;
 
 	dir = dentry->d_parent->d_inode;
@@ -1047,7 +1047,7 @@ static void ceph_d_release(struct dentry *dentry)
 }
 
 static int ceph_snapdir_d_revalidate(struct dentry *dentry,
-					  struct nameidata *nd)
+					  unsigned int flags)
 {
 	/*
 	 * Eventually, we'll want to revalidate snapped metadata

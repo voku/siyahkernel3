@@ -107,7 +107,7 @@ static struct dentry *proc_mount(struct file_system_type *fs_type,
 		ns = (struct pid_namespace *)data;
 		options = NULL;
 	} else {
-		ns = current->nsproxy->pid_ns;
+		ns = task_active_pid_ns(current);
 		options = data;
 	}
 
@@ -162,11 +162,6 @@ void __init proc_root_init(void)
 	err = register_filesystem(&proc_fs_type);
 	if (err)
 		return;
-	err = pid_ns_prepare_proc(&init_pid_ns);
-	if (err) {
-		unregister_filesystem(&proc_fs_type);
-		return;
-	}
 
 	proc_symlink("mounts", NULL, "self/mounts");
 

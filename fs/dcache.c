@@ -104,7 +104,7 @@ static unsigned int d_hash_shift __read_mostly;
 
 static struct hlist_bl_head *dentry_hashtable __read_mostly;
 
-static inline struct hlist_bl_head *d_hash(struct dentry *parent,
+static inline struct hlist_bl_head *d_hash(const struct dentry *parent,
 					unsigned long hash)
 {
 	hash += ((unsigned long) parent ^ GOLDEN_RATIO_PRIME) / L1_CACHE_BYTES;
@@ -136,6 +136,30 @@ int proc_nr_dentry(ctl_table *table, int write, void __user *buffer,
 	return proc_dointvec(table, write, buffer, lenp, ppos);
 }
 #endif
+
+/*
+ * Compare 2 name strings, return 0 if they match, otherwise non-zero.
+ * The strings are both count bytes long, and count is non-zero.
+ */
+static inline int dentry_cmp(const unsigned char *cs, size_t scount,
+				const unsigned char *ct, size_t tcount)
+{
+	int ret;
+
+	if (scount != tcount)
+		return 1;
+
+	do {
+		ret = (*cs != *ct);
+		if (ret)
+			break;
+		cs++;
+		ct++;
+		tcount--;
+	} while (tcount);
+
+	return ret;
+}
 
 static void __d_free(struct rcu_head *head)
 {
@@ -1470,6 +1494,23 @@ struct dentry * d_alloc_root(struct inode * root_inode)
 }
 EXPORT_SYMBOL(d_alloc_root);
 
+struct dentry *d_make_root(struct inode *root_inode)
+{
+	struct dentry *res = NULL;
+
+	if (root_inode) {
+		static const struct qstr name = { .name = "/", .len = 1 };
+
+		res = __d_alloc(root_inode->i_sb, &name);
+		if (res)
+			d_instantiate(res, root_inode);
+		else
+			iput(root_inode);
+	}
+	return res;
+}
+EXPORT_SYMBOL(d_make_root);
+
 static struct dentry * __d_find_any_alias(struct inode *inode)
 {
 	struct dentry *alias;
@@ -1724,8 +1765,9 @@ EXPORT_SYMBOL(d_add_ci);
  * child is looked up. Thus, an interlocking stepping of sequence lock checks
  * is formed, giving integrity down the path walk.
  */
-struct dentry *__d_lookup_rcu(struct dentry *parent, struct qstr *name,
-				unsigned *seq, struct inode **inode)
+struct dentry *__d_lookup_rcu(const struct dentry *parent,
+				const struct qstr *name,
+				unsigned *seqp, struct inode **inode)
 {
 	unsigned int len = name->len;
 	unsigned int hash = name->hash;
@@ -1755,6 +1797,7 @@ struct dentry *__d_lookup_rcu(struct dentry *parent, struct qstr *name,
 	 * See Documentation/filesystems/path-lookup.txt for more details.
 	 */
 	hlist_bl_for_each_entry_rcu(dentry, node, b, d_hash) {
+		unsigned seq;
 		struct inode *i;
 		const char *tname;
 		int tlen;
@@ -1763,7 +1806,7 @@ struct dentry *__d_lookup_rcu(struct dentry *parent, struct qstr *name,
 			continue;
 
 seqretry:
-		*seq = read_seqcount_begin(&dentry->d_seq);
+		seq = read_seqcount_begin(&dentry->d_seq);
 		if (dentry->d_parent != parent)
 			continue;
 		if (d_unhashed(dentry))
@@ -1778,7 +1821,7 @@ seqretry:
 		 * edge of memory when walking. If we could load this
 		 * atomically some other way, we could drop this check.
 		 */
-		if (read_seqcount_retry(&dentry->d_seq, *seq))
+		if (read_seqcount_retry(&dentry->d_seq, seq))
 			goto seqretry;
 		if (unlikely(parent->d_flags & DCACHE_OP_COMPARE)) {
 			if (parent->d_op->d_compare(parent, *inode,
@@ -1795,6 +1838,7 @@ seqretry:
 		 * order to do anything useful with the returned dentry
 		 * anyway.
 		 */
+		*seqp = seq;
 		*inode = i;
 		return dentry;
 	}
@@ -2976,7 +3020,7 @@ __setup("dhash_entries=", set_dhash_entries);
 
 static void __init dcache_init_early(void)
 {
-	int loop;
+	unsigned int loop;
 
 	/* If hashes are distributed across NUMA nodes, defer
 	 * hash allocation until vmalloc space is available.
@@ -2995,13 +3039,13 @@ static void __init dcache_init_early(void)
 					0,
 					0);
 
-	for (loop = 0; loop < (1 << d_hash_shift); loop++)
+	for (loop = 0; loop < (1U << d_hash_shift); loop++)
 		INIT_HLIST_BL_HEAD(dentry_hashtable + loop);
 }
 
 static void __init dcache_init(void)
 {
-	int loop;
+	unsigned int loop;
 
 	/* 
 	 * A constructor could be added for stable state like the lists,
@@ -3026,7 +3070,7 @@ static void __init dcache_init(void)
 					0,
 					0);
 
-	for (loop = 0; loop < (1 << d_hash_shift); loop++)
+	for (loop = 0; loop < (1U << d_hash_shift); loop++)
 		INIT_HLIST_BL_HEAD(dentry_hashtable + loop);
 }
 

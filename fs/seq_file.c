@@ -9,6 +9,7 @@
 #include <linux/export.h>
 #include <linux/seq_file.h>
 #include <linux/slab.h>
+#include <linux/cred.h>
 
 #include <asm/uaccess.h>
 #include <asm/page.h>
@@ -56,6 +57,9 @@ int seq_open(struct file *file, const struct seq_operations *op)
 	memset(p, 0, sizeof(*p));
 	mutex_init(&p->lock);
 	p->op = op;
+#ifdef CONFIG_USER_NS
+	p->user_ns = file->f_cred->user_ns;
+#endif
 
 	/*
 	 * Wrappers around seq_open(e.g. swaps_open) need to be
@@ -383,15 +387,12 @@ int seq_escape(struct seq_file *m, const char *s, const char *esc)
 }
 EXPORT_SYMBOL(seq_escape);
 
-int seq_printf(struct seq_file *m, const char *f, ...)
+int seq_vprintf(struct seq_file *m, const char *f, va_list args)
 {
-	va_list args;
 	int len;
 
 	if (m->count < m->size) {
-		va_start(args, f);
 		len = vsnprintf(m->buf + m->count, m->size - m->count, f, args);
-		va_end(args);
 		if (m->count + len < m->size) {
 			m->count += len;
 			return 0;
@@ -399,6 +400,19 @@ int seq_printf(struct seq_file *m, const char *f, ...)
 	}
 	seq_set_overflow(m);
 	return -1;
+}
+EXPORT_SYMBOL(seq_vprintf);
+
+int seq_printf(struct seq_file *m, const char *f, ...)
+{
+	int ret;
+	va_list args;
+
+	va_start(args, f);
+	ret = seq_vprintf(m, f, args);
+	va_end(args);
+
+	return ret;
 }
 EXPORT_SYMBOL(seq_printf);
 
@@ -413,7 +427,7 @@ EXPORT_SYMBOL(seq_printf);
  *      Returns pointer past last written character in @s, or NULL in case of
  *      failure.
  */
-char *mangle_path(char *s, char *p, char *esc)
+char *mangle_path(char *s, const char *p, const char *esc)
 {
 	while (s <= p) {
 		char c = *p++;
@@ -443,7 +457,7 @@ EXPORT_SYMBOL(mangle_path);
  * return the absolute path of 'path', as represented by the
  * dentry / mnt pair in the path parameter.
  */
-int seq_path(struct seq_file *m, struct path *path, char *esc)
+int seq_path(struct seq_file *m, const struct path *path, const char *esc)
 {
 	char *buf;
 	size_t size = seq_get_buf(m, &buf);
@@ -466,8 +480,8 @@ EXPORT_SYMBOL(seq_path);
 /*
  * Same as seq_path, but relative to supplied root.
  */
-int seq_path_root(struct seq_file *m, struct path *path, struct path *root,
-		  char *esc)
+int seq_path_root(struct seq_file *m, const struct path *path,
+		  const struct path *root, const char *esc)
 {
 	char *buf;
 	size_t size = seq_get_buf(m, &buf);
@@ -496,7 +510,7 @@ int seq_path_root(struct seq_file *m, struct path *path, struct path *root,
 /*
  * returns the path of the 'dentry' from the root of its filesystem.
  */
-int seq_dentry(struct seq_file *m, struct dentry *dentry, char *esc)
+int seq_dentry(struct seq_file *m, struct dentry *dentry, const char *esc)
 {
 	char *buf;
 	size_t size = seq_get_buf(m, &buf);
@@ -582,6 +596,24 @@ int single_open(struct file *file, int (*show)(struct seq_file *, void *),
 	return res;
 }
 EXPORT_SYMBOL(single_open);
+
+int single_open_size(struct file *file, int (*show)(struct seq_file *, void *),
+		void *data, size_t size)
+{
+	char *buf = kmalloc(size, GFP_KERNEL);
+	int ret;
+	if (!buf)
+		return -ENOMEM;
+	ret = single_open(file, show, data);
+	if (ret) {
+		kfree(buf);
+		return ret;
+	}
+	((struct seq_file *)file->private_data)->buf = buf;
+	((struct seq_file *)file->private_data)->size = size;
+	return 0;
+}
+EXPORT_SYMBOL(single_open_size);
 
 int single_release(struct inode *inode, struct file *file)
 {
@@ -673,7 +705,8 @@ int seq_put_decimal_ull(struct seq_file *m, char delimiter,
 	if (m->count + 2 >= m->size) /* we'll write 2 bytes at least */
 		goto overflow;
 
-	m->buf[m->count++] = delimiter;
+	if (delimiter)
+		m->buf[m->count++] = delimiter;
 
 	if (num < 10) {
 		m->buf[m->count++] = num + '0';
@@ -690,6 +723,24 @@ overflow:
 	return -1;
 }
 EXPORT_SYMBOL(seq_put_decimal_ull);
+
+int seq_put_decimal_ll(struct seq_file *m, char delimiter,
+			long long num)
+{
+	if (num < 0) {
+		if (m->count + 3 >= m->size) {
+			m->count = m->size;
+			return -1;
+		}
+		if (delimiter)
+			m->buf[m->count++] = delimiter;
+		num = -num;
+		delimiter = '-';
+	}
+	return seq_put_decimal_ull(m, delimiter, num);
+
+}
+EXPORT_SYMBOL(seq_put_decimal_ll);
 
 /**
  * seq_write - write arbitrary data to buffer

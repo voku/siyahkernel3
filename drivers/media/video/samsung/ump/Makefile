@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2010-2012 ARM Limited. All rights reserved.
+# Copyright (C) 2010-2011, 2013 ARM Limited. All rights reserved.
 # 
 # This program is free software and is provided to you under the terms of the GNU General Public License version 2
 # as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -25,7 +25,7 @@ endif
 
 
 # For UMP Debug
-ifeq ($(CONFIG_VIDEO_MALI400MP_UMP_DEBUG),y)
+ifeq ($(CONFIG_VIDEO_UMP_DEBUG),y)
 DEFINES += -DDEBUG
 endif
 
@@ -36,7 +36,7 @@ DEFINES += -DUMP_MEM_SIZE=$(UMP_MEM_SIZE)
 DEFINES += -DMALI_STATE_TRACKING=1
 
 UDD_FILE_PREFIX := drivers/media/video/samsung/ump/
-KBUILDROOT =
+KBUILDROOT = 
 
 # linux build system integration
 
@@ -83,7 +83,6 @@ ump-$(CONFIG_UMP_VCM_ALLOC) += \
 
 EXTRA_CFLAGS += $(INCLUDES) \
 		$(DEFINES)
-
 
 # Get subversion revision number, fall back to 0000 if no svn info is available
 SVN_REV:=$(shell ((svnversion | grep -E "^[0-9]+" && echo -n 'Revision: ' && svnversion) || git svn info | sed -e 's/$$$$/M/' | grep '^Revision: ' || echo ${MALI_RELEASE_NAME}) 2>/dev/null | sed -e 's/^Revision: //')
