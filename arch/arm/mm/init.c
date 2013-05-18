@@ -22,6 +22,7 @@
 #include <linux/sort.h>
 
 #include <asm/mach-types.h>
+#include <asm/memblock.h>
 #include <asm/prom.h>
 #include <asm/sections.h>
 #include <asm/setup.h>
@@ -307,11 +308,11 @@ EXPORT_SYMBOL(pfn_valid);
 #endif
 
 #ifndef CONFIG_SPARSEMEM
-static void arm_memory_present(void)
+static void __init arm_memory_present(void)
 {
 }
 #else
-static void arm_memory_present(void)
+static void __init arm_memory_present(void)
 {
 	struct memblock_region *reg;
 
@@ -326,6 +327,21 @@ static int __init meminfo_cmp(const void *_a, const void *_b)
 	const struct membank *a = _a, *b = _b;
 	long cmp = bank_pfn_start(a) - bank_pfn_start(b);
 	return cmp < 0 ? -1 : cmp > 0 ? 1 : 0;
+}
+
+static bool arm_memblock_steal_permitted = true;
+
+phys_addr_t __init arm_memblock_steal(phys_addr_t size, phys_addr_t align)
+{
+	phys_addr_t phys;
+
+	BUG_ON(!arm_memblock_steal_permitted);
+
+	phys = memblock_alloc_base(size, align, MEMBLOCK_ALLOC_ANYWHERE);
+	memblock_free(phys, size);
+	memblock_remove(phys, size);
+
+	return phys;
 }
 
 void __init arm_memblock_init(struct meminfo *mi, struct machine_desc *mdesc)
@@ -372,6 +388,7 @@ void __init arm_memblock_init(struct meminfo *mi, struct machine_desc *mdesc)
 	if (mdesc->reserve)
 		mdesc->reserve();
 
+	arm_memblock_steal_permitted = false;
 	memblock_allow_resize();
 	memblock_dump_all();
 }
