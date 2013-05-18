@@ -3221,8 +3221,8 @@ static ssize_t touch_config_show(struct device *dev,
 {
 	return sprintf(buf, "[Battery]  touchthresh: %u noisethresh: %u movfilter: %u\n"
 			    "[Charging] touchthresh: %u noisethresh: %u movfilter: %u\n"
-			    "[Battery-E] touchthresh: %u movfilter: %u\n"
-			    "[Charging-E] touchthresh: %u movfilter: %u\n",
+			    "[Battery-E] touchthresh_e: %u movfilter_e: %u\n"
+			    "[Charging-E] touchthresh_e: %u movfilter_e: %u\n",
 					copy_data->tchthr_batt,
 					copy_data->noisethr_batt,
 					copy_data->movfilter_batt,
@@ -3230,8 +3230,8 @@ static ssize_t touch_config_show(struct device *dev,
 					copy_data->noisethr_charging,
 					copy_data->movfilter_charging,
 					copy_data->tchthr_batt_e,
-					copy_data->tchthr_charging_e,
 					copy_data->movfilter_batt_e,
+					copy_data->tchthr_charging_e,
 					copy_data->movfilter_charging_e);
 }
 
@@ -3258,8 +3258,8 @@ static ssize_t touch_config_store(struct device *dev,
 		copy_data->noisethr_charging = (u8) value[4];
 		copy_data->movfilter_charging = (u8) value[5];
 		copy_data->tchthr_batt_e = (u8) value[6];
-		copy_data->tchthr_charging_e = (u8) value[7];
-		copy_data->movfilter_batt_e = (u8) value[8];
+		copy_data->movfilter_batt_e = (u8) value[7];
+		copy_data->tchthr_charging_e = (u8) value[8];
 		copy_data->movfilter_charging_e = (u8) value[9];
 	}
 
