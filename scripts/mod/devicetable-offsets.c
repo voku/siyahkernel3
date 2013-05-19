@@ -142,6 +142,9 @@ int main(void)
 	DEVID(spi_device_id);
 	DEVID_FIELD(spi_device_id, name);
 
+	DEVID(mcp_device_id);
+	DEVID_FIELD(mcp_device_id, name);
+
 	DEVID(dmi_system_id);
 	DEVID_FIELD(dmi_system_id, matches);
 

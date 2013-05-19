@@ -437,8 +437,7 @@ struct spi_device_id {
 
 struct mcp_device_id {
 	char name[MCP_NAME_SIZE];
-	kernel_ulong_t driver_data	/* Data private to the driver */
-			__attribute__((aligned(sizeof(kernel_ulong_t))));
+	kernel_ulong_t driver_data;	/* Data private to the driver */
 };
 
 /* dmi */
