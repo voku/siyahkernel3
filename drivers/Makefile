@@ -143,6 +143,7 @@ obj-$(CONFIG_EXTCON)		+= extcon/
 obj-$(CONFIG_MOBICORE_SUPPORT)	+= gud/
 
 obj-$(CONFIG_IOMMU_SUPPORT)	+= iommu/
+obj-$(CONFIG_RPMSG)		+= rpmsg/
 
 obj-$(CONFIG_FELICA) += felica/
 

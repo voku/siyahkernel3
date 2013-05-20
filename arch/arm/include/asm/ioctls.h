@@ -3,6 +3,6 @@
 
 #define FIOQSIZE	0x545E
 
-#include <asm-generic/ioctls.h>
+#include <uapi/asm-generic/ioctls.h>
 
 #endif

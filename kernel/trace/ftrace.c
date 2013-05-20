@@ -3374,6 +3374,29 @@ static __init int ftrace_init_dyn_debugfs(struct dentry *d_tracer)
 	return 0;
 }
 
+static int ftrace_cmp_ips(const void *a, const void *b)
+{
+	const unsigned long *ipa = a;
+	const unsigned long *ipb = b;
+
+	if (*ipa > *ipb)
+		return 1;
+	if (*ipa < *ipb)
+		return -1;
+	return 0;
+}
+
+static void ftrace_swap_ips(void *a, void *b, int size)
+{
+	unsigned long *ipa = a;
+	unsigned long *ipb = b;
+	unsigned long t;
+
+	t = *ipa;
+	*ipa = *ipb;
+	*ipb = t;
+}
+
 static int ftrace_process_locs(struct module *mod,
 			       unsigned long *start,
 			       unsigned long *end)
@@ -3381,6 +3404,19 @@ static int ftrace_process_locs(struct module *mod,
 	unsigned long *p;
 	unsigned long addr;
 	unsigned long flags = 0; /* Shut up gcc */
+	int ret = -ENOMEM;
+
+	count = end - start;
+
+	if (!count)
+		return 0;
+
+	sort(start, count, sizeof(*start),
+	     ftrace_cmp_ips, ftrace_swap_ips);
+
+	pg = ftrace_allocate_pages(count);
+	if (!pg)
+		return -ENOMEM;
 
 	mutex_lock(&ftrace_lock);
 	p = start;
@@ -3396,6 +3432,9 @@ static int ftrace_process_locs(struct module *mod,
 			continue;
 		ftrace_record_ip(addr);
 	}
+
+	/* These new locations need to be initialized */
+	ftrace_new_pgs = pg;
 
 	/*
 	 * We only need to disable interrupts on start up
