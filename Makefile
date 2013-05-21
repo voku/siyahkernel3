@@ -351,12 +351,13 @@ CC		= $(srctree)/scripts/gcc-wrapper.py $(REAL_CC)
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
 
-LOW_ARM_FLAGS	= -pipe -march=armv7-a -mtune=cortex-a9 \
-		  -mfpu=neon -mfloat-abi=softfp \
-		  -funsafe-math-optimizations \
-		  -ftree-vectorize -mvectorize-with-neon-quad
+LOW_ARM_FLAGS	= -march=armv7-a -mtune=cortex-a9 -mfpu=neon -mfloat-abi=softfp \
+		  -mvectorize-with-neon-quad
 
-#ARM_FLAGS      = -marm -fsingle-precision-constant
+PERFORMANCE	= -fstrength-reduce -frerun-cse-after-loop -fexpensive-optimizations \
+		  -fschedule-insns -fschedule-insns2 -fcaller-saves -funroll-loops
+
+#ARM_FLAGS      = -pipe -marm -fsingle-precision-constant -funsafe-math-optimizations -ftree-vectorize
 #LOOPS		= -funswitch-loops -fpredictive-commoning
 #LOOPS_4_6	= -floop-strip-mine -floop-block -floop-interchange
 
@@ -372,7 +373,7 @@ CFLAGS_KERNEL	=
 AFLAGS_KERNEL	=
 CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage
 
-KERNEL_MODS	= $(LOW_ARM_FLAGS) $(MODULES)
+KERNEL_MODS	= $(LOW_ARM_FLAGS) $(PERFORMANCE) $(MODULES)
 #DISABLED_KERNEL_MODS	= $(ARM_FLAGS) $(LOOPS) $(LOOPS_4_6)
 
 # Use LINUXINCLUDE when you must reference the include/ directory.
