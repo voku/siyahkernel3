@@ -669,7 +669,7 @@ static ssize_t store_hotplug_enable(struct kobject *a, struct attribute *b,
 	input = input > 0 ? 1 : 0; 
 
 	if (prev_hotplug_enable == input)
-		return -EINVAL;
+		return count;
 
 	if (input > 0) {
 		start_rq_work();
@@ -1393,6 +1393,7 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 	/* add total_load, avg_load to get average load */
 	unsigned int total_load = 0;
 	unsigned int avg_load = 0;
+	unsigned int online = 0;
 	int rq_avg = 0;
 	int hotplug_enable = atomic_read(&g_hotplug_enable);
 
@@ -1465,6 +1466,7 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 		cur_load = 100 * (wall_time - idle_time) / wall_time;
 
 		if (cpu_online(j)) {
+			online++;
 			total_load += cur_load;
 			hotplug_histories->usage[num_hist].load[j] = cur_load;
 		} else {
@@ -1477,7 +1479,7 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 		cpufreq_notify_utilization(policy, load_at_max_freq);
 	}
 	/* calculate the average load across all related CPUs */
-	avg_load = total_load / num_online_cpus();
+	avg_load = total_load / online;
 	hotplug_histories->usage[num_hist].avg_load = avg_load;	
 
 	if (hotplug_enable > 0) {
