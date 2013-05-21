@@ -76,4 +76,9 @@ endif
 head-y			:= head$(MMUEXT).o
 obj-$(CONFIG_EARLY_PRINTK)	+= early_printk.o
 
+ifeq ($(CONFIG_ARM_PSCI),y)
+obj-y				+= psci.o
+obj-$(CONFIG_SMP)		+= psci_smp.o
+endif
+
 extra-y := $(head-y) init_task.o vmlinux.lds
