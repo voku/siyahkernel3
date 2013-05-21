@@ -124,7 +124,7 @@
 .\" ========================================================================
 .\"
 .IX Title "GCC 1"
-.TH GCC 1 "2013-02-26" "gcc-4.7.3" "GNU"
+.TH GCC 1 "2013-03-28" "gcc-4.7.3" "GNU"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -512,7 +512,8 @@ in the following sections.
 \&\-mtp=\fR\fIname\fR \fB\-mtls\-dialect=\fR\fIdialect\fR 
 \&\fB\-mword\-relocations 
 \&\-mfix\-cortex\-m3\-ldrd 
-\&\-munaligned\-access\fR
+\&\-munaligned\-access 
+\&\-mneon\-for\-64bits\fR
 .Sp
 \&\fI\s-1AVR\s0 Options\fR
 \&\fB\-mmcu=\fR\fImcu\fR \fB\-maccumulate\-args \-mbranch\-cost=\fR\fIcost\fR 
@@ -921,7 +922,6 @@ See \s-1RS/6000\s0 and PowerPC Options.
 \&\-mfaster\-structs  \-mno\-faster\-structs  \-mflat  \-mno\-flat 
 \&\-mfpu  \-mno\-fpu  \-mhard\-float  \-msoft\-float 
 \&\-mhard\-quad\-float  \-msoft\-quad\-float 
-\&\-mlittle\-endian 
 \&\-mstack\-bias  \-mno\-stack\-bias 
 \&\-munaligned\-doubles  \-mno\-unaligned\-doubles 
 \&\-mv8plus  \-mno\-v8plus  \-mvis  \-mno\-vis 
@@ -10315,6 +10315,11 @@ generated object file to either true or false, depending upon the
 setting of this option.  If unaligned access is enabled then the
 preprocessor symbol \f(CW\*(C`_\|_ARM_FEATURE_UNALIGNED\*(C'\fR will also be
 defined.
+.IP "\fB\-mneon\-for\-64bits\fR" 4
+.IX Item "-mneon-for-64bits"
+Enables using Neon to handle scalar 64\-bits operations. This is
+disabled by default since the cost of moving data from core registers
+to Neon is high.
 .PP
 \fI\s-1AVR\s0 Options\fR
 .IX Subsection "AVR Options"
@@ -17148,43 +17153,99 @@ This is the default when the target is \f(CW\*(C`sh\-*\-linux*\*(C'\fR.
 Set the cost to assume for a multiply insn.
 .IP "\fB\-mdiv=\fR\fIstrategy\fR" 4
 .IX Item "-mdiv=strategy"
-Set the division strategy to use for SHmedia code.  \fIstrategy\fR must be
-one of: call, call2, fp, inv, inv:minlat, inv20u, inv20l, inv:call,
-inv:call2, inv:fp .
-\&\*(L"fp\*(R" performs the operation in floating point.  This has a very high latency,
+Set the division strategy to be used for integer division operations.
+For SHmedia \fIstrategy\fR can be one of:
+.RS 4
+.IP "\fBfp\fR" 4
+.IX Item "fp"
+Performs the operation in floating point.  This has a very high latency,
 but needs only a few instructions, so it might be a good choice if
 your code has enough easily-exploitable \s-1ILP\s0 to allow the compiler to
 schedule the floating-point instructions together with other instructions.
 Division by zero causes a floating-point exception.
-\&\*(L"inv\*(R" uses integer operations to calculate the inverse of the divisor,
+.IP "\fBinv\fR" 4
+.IX Item "inv"
+Uses integer operations to calculate the inverse of the divisor,
 and then multiplies the dividend with the inverse.  This strategy allows
-cse and hoisting of the inverse calculation.  Division by zero calculates
+\&\s-1CSE\s0 and hoisting of the inverse calculation.  Division by zero calculates
 an unspecified result, but does not trap.
-\&\*(L"inv:minlat\*(R" is a variant of \*(L"inv\*(R" where if no cse / hoisting opportunities
+.IP "\fBinv:minlat\fR" 4
+.IX Item "inv:minlat"
+A variant of \fBinv\fR where, if no \s-1CSE\s0 or hoisting opportunities
 have been found, or if the entire operation has been hoisted to the same
 place, the last stages of the inverse calculation are intertwined with the
 final multiply to reduce the overall latency, at the expense of using a few
 more instructions, and thus offering fewer scheduling opportunities with
 other code.
-\&\*(L"call\*(R" calls a library function that usually implements the inv:minlat
+.IP "\fBcall\fR" 4
+.IX Item "call"
+Calls a library function that usually implements the \fBinv:minlat\fR
 strategy.
-This gives high code density for m5\-*media\-nofpu compilations.
-\&\*(L"call2\*(R" uses a different entry point of the same library function, where it
+This gives high code density for \f(CW\*(C`m5\-*media\-nofpu\*(C'\fR compilations.
+.IP "\fBcall2\fR" 4
+.IX Item "call2"
+Uses a different entry point of the same library function, where it
 assumes that a pointer to a lookup table has already been set up, which
-exposes the pointer load to cse / code hoisting optimizations.
-\&\*(L"inv:call\*(R", \*(L"inv:call2\*(R" and \*(L"inv:fp\*(R" all use the \*(L"inv\*(R" algorithm for initial
-code generation, but if the code stays unoptimized, revert to the \*(L"call\*(R",
-\&\*(L"call2\*(R", or \*(L"fp\*(R" strategies, respectively.  Note that the
+exposes the pointer load to \s-1CSE\s0 and code hoisting optimizations.
+.IP "\fBinv:call\fR" 4
+.IX Item "inv:call"
+.PD 0
+.IP "\fBinv:call2\fR" 4
+.IX Item "inv:call2"
+.IP "\fBinv:fp\fR" 4
+.IX Item "inv:fp"
+.PD
+Use the \fBinv\fR algorithm for initial
+code generation, but if the code stays unoptimized, revert to the \fBcall\fR,
+\&\fBcall2\fR, or \fBfp\fR strategies, respectively.  Note that the
 potentially-trapping side effect of division by zero is carried by a
 separate instruction, so it is possible that all the integer instructions
 are hoisted out, but the marker for the side effect stays where it is.
-A recombination to fp operations or a call is not possible in that case.
-\&\*(L"inv20u\*(R" and \*(L"inv20l\*(R" are variants of the \*(L"inv:minlat\*(R" strategy.  In the case
-that the inverse calculation was nor separated from the multiply, they speed
-up division where the dividend fits into 20 bits (plus sign where applicable),
+A recombination to floating-point operations or a call is not possible
+in that case.
+.IP "\fBinv20u\fR" 4
+.IX Item "inv20u"
+.PD 0
+.IP "\fBinv20l\fR" 4
+.IX Item "inv20l"
+.PD
+Variants of the \fBinv:minlat\fR strategy.  In the case
+that the inverse calculation is not separated from the multiply, they speed
+up division where the dividend fits into 20 bits (plus sign where applicable)
 by inserting a test to skip a number of operations in this case; this test
-slows down the case of larger dividends.  inv20u assumes the case of a such
-a small dividend to be unlikely, and inv20l assumes it to be likely.
+slows down the case of larger dividends.  \fBinv20u\fR assumes the case of a such
+a small dividend to be unlikely, and \fBinv20l\fR assumes it to be likely.
+.RE
+.RS 4
+.Sp
+For targets other than SHmedia \fIstrategy\fR can be one of:
+.IP "\fBcall\-div1\fR" 4
+.IX Item "call-div1"
+Calls a library function that uses the single-step division instruction
+\&\f(CW\*(C`div1\*(C'\fR to perform the operation.  Division by zero calculates an
+unspecified result and does not trap.  This is the default except for \s-1SH4\s0,
+\&\s-1SH2A\s0 and SHcompact.
+.IP "\fBcall-fp\fR" 4
+.IX Item "call-fp"
+Calls a library function that performs the operation in double precision
+floating point.  Division by zero causes a floating-point exception.  This is
+the default for SHcompact with \s-1FPU\s0.  Specifying this for targets that do not
+have a double precision \s-1FPU\s0 will default to \f(CW\*(C`call\-div1\*(C'\fR.
+.IP "\fBcall-table\fR" 4
+.IX Item "call-table"
+Calls a library function that uses a lookup table for small divisors and
+the \f(CW\*(C`div1\*(C'\fR instruction with case distinction for larger divisors.  Division
+by zero calculates an unspecified result and does not trap.  This is the default
+for \s-1SH4\s0.  Specifying this for targets that do not have dynamic shift
+instructions will default to \f(CW\*(C`call\-div1\*(C'\fR.
+.RE
+.RS 4
+.Sp
+When a division strategy has not been specified the default strategy will be
+selected based on the current target.  For \s-1SH2A\s0 the default strategy is to
+use the \f(CW\*(C`divs\*(C'\fR and \f(CW\*(C`divu\*(C'\fR instructions instead of library function
+calls.
+.RE
 .IP "\fB\-maccumulate\-outgoing\-args\fR" 4
 .IX Item "-maccumulate-outgoing-args"
 Reserve space once for outgoing arguments in the function prologue rather
@@ -17564,10 +17625,6 @@ processor (which corresponds to erratum #13 of the \s-1AT697E\s0 processor).
 .PP
 These \fB\-m\fR options are supported in addition to the above
 on \s-1SPARC\-V9\s0 processors in 64\-bit environments:
-.IP "\fB\-mlittle\-endian\fR" 4
-.IX Item "-mlittle-endian"
-Generate code for a processor running in little-endian mode.  It is only
-available for a few configurations and most notably not on Solaris and Linux.
 .IP "\fB\-m32\fR" 4
 .IX Item "-m32"
 .PD 0
