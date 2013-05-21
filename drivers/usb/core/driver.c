@@ -32,8 +32,6 @@
 #include "usb.h"
 
 
-#ifdef CONFIG_HOTPLUG
-
 /*
  * Adds a new dynamic USBdevice ID to this driver,
  * and cause the driver to probe for all devices again.
@@ -173,30 +171,6 @@ static void usb_free_dynids(struct usb_driver *usb_drv)
 	}
 	spin_unlock(&usb_drv->dynids.lock);
 }
-#else
-static inline int usb_create_newid_file(struct usb_driver *usb_drv)
-{
-	return 0;
-}
-
-static void usb_remove_newid_file(struct usb_driver *usb_drv)
-{
-}
-
-static int
-usb_create_removeid_file(struct usb_driver *drv)
-{
-	return 0;
-}
-
-static void usb_remove_removeid_file(struct usb_driver *drv)
-{
-}
-
-static inline void usb_free_dynids(struct usb_driver *usb_drv)
-{
-}
-#endif
 
 static const struct usb_device_id *usb_match_dynamic_id(struct usb_interface *intf,
 							struct usb_driver *drv)
@@ -714,7 +688,6 @@ static int usb_device_match(struct device *dev, struct device_driver *drv)
 	return 0;
 }
 
-#ifdef	CONFIG_HOTPLUG
 static int usb_uevent(struct device *dev, struct kobj_uevent_env *env)
 {
 	struct usb_device *usb_dev;
@@ -765,14 +738,6 @@ static int usb_uevent(struct device *dev, struct kobj_uevent_env *env)
 
 	return 0;
 }
-
-#else
-
-static int usb_uevent(struct device *dev, struct kobj_uevent_env *env)
-{
-	return -ENODEV;
-}
-#endif	/* CONFIG_HOTPLUG */
 
 /**
  * usb_register_device_driver - register a USB device (not interface) driver
