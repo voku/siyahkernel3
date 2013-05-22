@@ -370,6 +370,7 @@ static int dup_mmap(struct mm_struct *mm, struct mm_struct *oldmm)
 
 	down_write(&oldmm->mmap_sem);
 	flush_cache_dup_mm(oldmm);
+	uprobe_dup_mmap(oldmm, mm);
 	/*
 	 * Not linked in yet - no deadlock potential:
 	 */
@@ -477,8 +478,6 @@ static int dup_mmap(struct mm_struct *mm, struct mm_struct *oldmm)
 		if (retval)
 			goto out;
 
-		if (file)
-			uprobe_mmap(tmp);
 	}
 	/* a new mm has just been created */
 	arch_dup_mmap(oldmm, mm);
