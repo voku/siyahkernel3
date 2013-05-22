@@ -130,6 +130,7 @@ static void do_dbs_timer(struct work_struct *work);
 struct cpu_dbs_info_s {
 	cputime64_t prev_cpu_idle;
 	cputime64_t prev_cpu_wall;
+	unsigned int prev_cpu_wall_delta;
 	cputime64_t prev_cpu_nice;
 	struct cpufreq_policy *cur_policy;
 	struct delayed_work work;
@@ -272,36 +273,36 @@ static int mn_get_next_freq(unsigned int curfreq, unsigned int updown, unsigned 
 
 static inline u64 get_cpu_idle_time_jiffy(unsigned int cpu, u64 *wall)
 {
-    u64 idle_time;
-    u64 cur_wall_time;
-    u64 busy_time;
+	u64 idle_time;
+	u64 cur_wall_time;
+	u64 busy_time;
 
-    cur_wall_time = jiffies64_to_cputime64(get_jiffies_64());
+	cur_wall_time = jiffies64_to_cputime64(get_jiffies_64());
 
-    busy_time  = kcpustat_cpu(cpu).cpustat[CPUTIME_USER];
-    busy_time += kcpustat_cpu(cpu).cpustat[CPUTIME_SYSTEM];
-    busy_time += kcpustat_cpu(cpu).cpustat[CPUTIME_IRQ];
-    busy_time += kcpustat_cpu(cpu).cpustat[CPUTIME_SOFTIRQ];
-    busy_time += kcpustat_cpu(cpu).cpustat[CPUTIME_STEAL];
-    busy_time += kcpustat_cpu(cpu).cpustat[CPUTIME_NICE];
+	busy_time  = kcpustat_cpu(cpu).cpustat[CPUTIME_USER];
+	busy_time += kcpustat_cpu(cpu).cpustat[CPUTIME_SYSTEM];
+	busy_time += kcpustat_cpu(cpu).cpustat[CPUTIME_IRQ];
+	busy_time += kcpustat_cpu(cpu).cpustat[CPUTIME_SOFTIRQ];
+	busy_time += kcpustat_cpu(cpu).cpustat[CPUTIME_STEAL];
+	busy_time += kcpustat_cpu(cpu).cpustat[CPUTIME_NICE];
 
-    idle_time = cur_wall_time - busy_time;
-    if (wall)
-        *wall = jiffies_to_usecs(cur_wall_time);
+	idle_time = cur_wall_time - busy_time;
+	if (wall)
+		*wall = jiffies_to_usecs(cur_wall_time);
 
-    return jiffies_to_usecs(idle_time);
+	return jiffies_to_usecs(idle_time);
 }
 
 static inline cputime64_t get_cpu_idle_time(unsigned int cpu, cputime64_t *wall)
 {
-    u64 idle_time = get_cpu_idle_time_us(cpu, NULL);
+	u64 idle_time = get_cpu_idle_time_us(cpu, NULL);
 
-    if (idle_time == -1ULL)
-        return get_cpu_idle_time_jiffy(cpu, wall);
-    else
-        idle_time += get_cpu_iowait_time_us(cpu, wall);
+	if (idle_time == -1ULL)
+		return get_cpu_idle_time_jiffy(cpu, wall);
+	else
+		idle_time += get_cpu_iowait_time_us(cpu, wall);
 
-    return idle_time;
+	return idle_time;
 }
 
 /* keep track of frequency transitions */
@@ -337,6 +338,7 @@ static struct notifier_block dbs_cpufreq_notifier_block = {
 };
 
 /************************** sysfs interface ************************/
+
 static ssize_t show_sampling_rate_min(struct kobject *kobj,
 				      struct attribute *attr, char *buf)
 {
@@ -540,7 +542,7 @@ static ssize_t store_ignore_nice_load(struct kobject *a, struct attribute *b,
 }
 
 static ssize_t store_freq_step(struct kobject *a, struct attribute *b,
-			       const char *buf, size_t count)
+				   const char *buf, size_t count)
 {
 	unsigned int input;
 	int ret;
@@ -675,22 +677,55 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 		struct cpu_dbs_info_s *j_dbs_info;
 		cputime64_t cur_wall_time, cur_idle_time;
 		unsigned int idle_time, wall_time;
+		bool deep_sleep_detected = false;
+		/* the evil magic numbers, only 2 at least */
+		const unsigned int deep_sleep_backoff = 10;
+		const unsigned int deep_sleep_factor = 5;
 
 		j_dbs_info = &per_cpu(cs_cpu_dbs_info, j);
 
 		cur_idle_time = get_cpu_idle_time(j, &cur_wall_time);
 
-		wall_time = (unsigned int) (cur_wall_time - j_dbs_info->prev_cpu_wall);
+		wall_time = (unsigned int)
+			(cur_wall_time - j_dbs_info->prev_cpu_wall);
 		j_dbs_info->prev_cpu_wall = cur_wall_time;
 
-		idle_time = (unsigned int) (cur_idle_time - j_dbs_info->prev_cpu_idle);
+		/*
+		 * Ignore wall delta jitters in both directions.  An
+		 * exceptionally long wall_time will likely result
+		 * idle but it was waken up to do work so the next
+		 * slice is less likely to want to run at low
+		 * frequency. Let's evaluate the next slice instead of
+		 * the idle long one that passed already and it's too
+		 * late to reduce in frequency.  As opposed an
+		 * exceptionally short slice that just run at low
+		 * frequency is unlikely to be idle, but we may go
+		 * back to idle pretty soon and that not idle slice
+		 * already passed. If short slices will keep coming
+		 * after a series of long slices the exponential
+		 * backoff will converge faster and we'll react faster
+		 * to high load. As opposed we'll decay slower
+		 * towards low load and long idle times.
+		 */
+		if (j_dbs_info->prev_cpu_wall_delta >
+		    wall_time * deep_sleep_factor ||
+		    j_dbs_info->prev_cpu_wall_delta * deep_sleep_factor <
+		    wall_time)
+			deep_sleep_detected = true;
+		j_dbs_info->prev_cpu_wall_delta =
+			(j_dbs_info->prev_cpu_wall_delta * deep_sleep_backoff
+			 + wall_time) / (deep_sleep_backoff+1);
+
+		idle_time = (unsigned int)
+			(cur_idle_time - j_dbs_info->prev_cpu_idle);
 		j_dbs_info->prev_cpu_idle = cur_idle_time;
 
 		if (dbs_tuners_ins.ignore_nice) {
-			cputime64_t cur_nice;
+			u64 cur_nice;
 			unsigned long cur_nice_jiffies;
 
-			cur_nice = kcpustat_cpu(j).cpustat[CPUTIME_NICE] - j_dbs_info->prev_cpu_nice;
+			cur_nice = kcpustat_cpu(j).cpustat[CPUTIME_NICE] -
+					 j_dbs_info->prev_cpu_nice;
 			/*
 			 * Assumption: nice time between sampling periods will
 			 * be less than 2^32 jiffies for 32 bit sys
@@ -702,6 +737,8 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 			idle_time += jiffies_to_usecs(cur_nice_jiffies);
 		}
 
+		if (deep_sleep_detected)
+			continue;
 		if (unlikely(!wall_time || wall_time < idle_time))
 			continue;
 
@@ -930,7 +967,7 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 			 * governor, thus we are bound to jiffes/HZ
 			 */
 			min_sampling_rate =
-				MIN_SAMPLING_RATE_RATIO * jiffies_to_usecs(3);
+				MIN_SAMPLING_RATE_RATIO * jiffies_to_usecs(5);
 			/* Bring kernel and HW constraints together */
 			min_sampling_rate = max(min_sampling_rate,
 					MIN_LATENCY_MULTIPLIER * latency);
@@ -956,7 +993,6 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 
 		mutex_lock(&dbs_mutex);
 		dbs_enable--;
-		mutex_destroy(&this_dbs_info->timer_mutex);
 
 		/*
 		 * Stop the timerschedule work, when this governor
@@ -967,10 +1003,10 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 					&dbs_cpufreq_notifier_block,
 					CPUFREQ_TRANSITION_NOTIFIER);
 
-		mutex_unlock(&dbs_mutex);
 		if (!dbs_enable)
 			sysfs_remove_group(cpufreq_global_kobject,
 					   &dbs_attr_group);
+		mutex_unlock(&dbs_mutex);
 
         unregister_early_suspend(&_powersave_early_suspend);
 		break;
@@ -1009,7 +1045,14 @@ static int __init cpufreq_gov_dbs_init(void)
 
 static void __exit cpufreq_gov_dbs_exit(void)
 {
+	unsigned int i;
+
 	cpufreq_unregister_governor(&cpufreq_gov_zzmoove);
+	for_each_possible_cpu(i) {
+		struct cpu_dbs_info_s *this_dbs_info =
+			&per_cpu(cs_cpu_dbs_info, i);
+		mutex_destroy(&this_dbs_info->timer_mutex);
+	}
 }
 
 /*

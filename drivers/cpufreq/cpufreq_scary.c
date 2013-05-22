@@ -58,7 +58,7 @@ static unsigned int sleep_prev_max=DEFAULT_PREV_MAX;
  * this governor will not work.
  * All times here are in uS.
  */
-#define MIN_SAMPLING_RATE_RATIO			(2)
+#define MIN_SAMPLING_RATE_RATIO			(1)
 
 static unsigned int min_sampling_rate;
 
@@ -266,7 +266,6 @@ static ssize_t store_up_threshold(struct cpufreq_policy *unused,
 		mutex_unlock(&dbs_mutex);
 		return -EINVAL;
 	}
-
 	dbs_tuners_ins.up_threshold = input;
 	mutex_unlock(&dbs_mutex);
 
@@ -278,6 +277,7 @@ static ssize_t store_down_threshold(struct cpufreq_policy *unused,
 {
 	unsigned int input;
 	int ret;
+
 	ret = sscanf(buf, "%u", &input);
 
 	mutex_lock(&dbs_mutex);
@@ -295,11 +295,10 @@ static ssize_t store_down_threshold(struct cpufreq_policy *unused,
 }
 
 static ssize_t store_ignore_nice_load(struct cpufreq_policy *policy,
-		const char *buf, size_t count)
+				      const char *buf, size_t count)
 {
 	unsigned int input;
 	int ret;
-
 	unsigned int j;
 
 	ret = sscanf(buf, "%u", &input);
@@ -331,12 +330,12 @@ static ssize_t store_ignore_nice_load(struct cpufreq_policy *policy,
 }
 
 static ssize_t store_freq_step(struct cpufreq_policy *policy,
-		const char *buf, size_t count)
+				    const char *buf, size_t count)
 {
 	unsigned int input;
 	int ret;
-	ret = sscanf(buf, "%u", &input);
 
+	ret = sscanf(buf, "%u", &input);
 	if (ret != 1)
 		return -EINVAL;
 
@@ -353,10 +352,11 @@ static ssize_t store_freq_step(struct cpufreq_policy *policy,
 }
 
 static ssize_t store_smooth_ui(struct cpufreq_policy *unused,
-		const char *buf, size_t count)
+				   const char *buf, size_t count)
 {
 	unsigned int input;
 	int ret;
+
 	ret = sscanf(buf, "%u", &input);
 
 	if (ret != 1)
@@ -504,7 +504,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 		cur_idle_time = get_cpu_idle_time(j, &cur_wall_time);
 
 		wall_time = (unsigned int)
-				(cur_wall_time - j_dbs_info->prev_cpu_wall);
+			(cur_wall_time - j_dbs_info->prev_cpu_wall);
 		j_dbs_info->prev_cpu_wall = cur_wall_time;
 
 		/*
@@ -534,7 +534,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 			 + wall_time) / (deep_sleep_backoff+1);
 
 		idle_time = (unsigned int)
-				(cur_idle_time - j_dbs_info->prev_cpu_idle);
+			(cur_idle_time - j_dbs_info->prev_cpu_idle);
 		j_dbs_info->prev_cpu_idle = cur_idle_time;
 
 		if (dbs_tuners_ins.ignore_nice) {
@@ -653,7 +653,7 @@ static inline void dbs_timer_exit(struct cpu_dbs_info_s *dbs_info)
 }
 
 static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
-				   unsigned int event)
+				unsigned int event)
 {
 	unsigned int cpu = policy->cpu;
 	struct cpu_dbs_info_s *this_dbs_info;
@@ -691,6 +691,7 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 				j_dbs_info->prev_cpu_nice =
 						kcpustat_cpu(j).cpustat[CPUTIME_NICE];
 		}
+		this_dbs_info->cpu = cpu;
 		this_dbs_info->down_skip = 0;
 		this_dbs_info->requested_freq = policy->cur;
 
@@ -712,7 +713,7 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 			 * governor, thus we are bound to jiffes/HZ
 			 */
 			min_sampling_rate =
-				MIN_SAMPLING_RATE_RATIO * jiffies_to_usecs(10);
+				MIN_SAMPLING_RATE_RATIO * jiffies_to_usecs(5);
 			/* Bring kernel and HW constraints together */
 			min_sampling_rate = max(min_sampling_rate,
 					MIN_LATENCY_MULTIPLIER * latency);
@@ -769,13 +770,12 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 	case CPUFREQ_GOV_LIMITS:
 		mutex_lock(&this_dbs_info->timer_mutex);
 		if (policy->max < this_dbs_info->cur_policy->cur)
-			__cpufreq_driver_target(
-					this_dbs_info->cur_policy,
-					policy->max, CPUFREQ_RELATION_H);
+			__cpufreq_driver_target(this_dbs_info->cur_policy,
+				policy->max, CPUFREQ_RELATION_H);
 		else if (policy->min > this_dbs_info->cur_policy->cur)
-			__cpufreq_driver_target(
-					this_dbs_info->cur_policy,
-					policy->min, CPUFREQ_RELATION_L);
+			__cpufreq_driver_target(this_dbs_info->cur_policy,
+				policy->min, CPUFREQ_RELATION_L);
+		dbs_check_cpu(this_dbs_info);
 		mutex_unlock(&this_dbs_info->timer_mutex);
 
 		break;

@@ -137,7 +137,6 @@ static unsigned int get_nr_run_avg(void)
 	return nr_run_avg;
 }
 
-
 /*
  * dbs is used in this file as a shortform for demandbased switching
  * It helps to keep variable names smaller, simpler
@@ -475,7 +474,7 @@ define_one_global_ro(sampling_rate_min);
 /* cpufreq_pegasusq Governor Tunables */
 #define show_one(file_name, object)					\
 static ssize_t show_##file_name						\
-(struct kobject *kobj, struct attribute *attr, char *buf)		\
+(struct kobject *kobj, struct attribute *attr, char *buf)              \
 {									\
 	return sprintf(buf, "%u\n", dbs_tuners_ins.object);		\
 }
@@ -582,13 +581,17 @@ static ssize_t store_sampling_rate(struct kobject *a, struct attribute *b,
 {
 	unsigned int input;
 	int ret;
+
 	ret = sscanf(buf, "%u", &input);
 	if (ret != 1)
 		return -EINVAL;
+
 	dbs_tuners_ins.sampling_rate = max(input, min_sampling_rate);
+
 	return count;
 }
 
+/* io_is_busy */
 static ssize_t store_io_is_busy(struct kobject *a, struct attribute *b,
 				const char *buf, size_t count)
 {
@@ -600,6 +603,7 @@ static ssize_t store_io_is_busy(struct kobject *a, struct attribute *b,
 		return -EINVAL;
 
 	dbs_tuners_ins.io_is_busy = !!input;
+
 	return count;
 }
 
@@ -608,13 +612,14 @@ static ssize_t store_up_threshold(struct kobject *a, struct attribute *b,
 {
 	unsigned int input;
 	int ret;
-	ret = sscanf(buf, "%u", &input);
 
+	ret = sscanf(buf, "%u", &input);
 	if (ret != 1 || input > MAX_FREQUENCY_UP_THRESHOLD ||
-	    input < MIN_FREQUENCY_UP_THRESHOLD) {
+			input < MIN_FREQUENCY_UP_THRESHOLD) {
 		return -EINVAL;
 	}
 	dbs_tuners_ins.up_threshold = input;
+
 	return count;
 }
 
@@ -624,10 +629,11 @@ static ssize_t store_sampling_down_factor(struct kobject *a,
 {
 	unsigned int input, j;
 	int ret;
-	ret = sscanf(buf, "%u", &input);
 
+	ret = sscanf(buf, "%u", &input);
 	if (ret != 1 || input > MAX_SAMPLING_DOWN_FACTOR || input < 1)
 		return -EINVAL;
+
 	dbs_tuners_ins.sampling_down_factor = input;
 
 	/* Reset down sampling multiplier in case it was active */
@@ -639,12 +645,12 @@ static ssize_t store_sampling_down_factor(struct kobject *a,
 	return count;
 }
 
+/* ignore_nice_load */
 static ssize_t store_ignore_nice_load(struct kobject *a, struct attribute *b,
 				      const char *buf, size_t count)
 {
 	unsigned int input;
 	int ret;
-
 	unsigned int j;
 
 	ret = sscanf(buf, "%u", &input);
@@ -654,17 +660,17 @@ static ssize_t store_ignore_nice_load(struct kobject *a, struct attribute *b,
 	if (input > 1)
 		input = 1;
 
-	if (input == dbs_tuners_ins.ignore_nice) { /* nothing to do */
+	if (input == dbs_tuners_ins.ignore_nice) /* nothing to do */
 		return count;
-	}
+
 	dbs_tuners_ins.ignore_nice = input;
 
 	/* we need to re-evaluate prev_cpu_idle */
 	for_each_online_cpu(j) {
 		struct cpu_dbs_info_s *dbs_info;
 		dbs_info = &per_cpu(od_cpu_dbs_info, j);
-		dbs_info->prev_cpu_idle =
-			get_cpu_idle_time(j, &dbs_info->prev_cpu_wall);
+		dbs_info->prev_cpu_idle = get_cpu_idle_time(j,
+						&dbs_info->prev_cpu_wall);
 		if (dbs_tuners_ins.ignore_nice)
 			dbs_info->prev_cpu_nice = kcpustat_cpu(j).cpustat[CPUTIME_NICE];
 	}
@@ -672,25 +678,30 @@ static ssize_t store_ignore_nice_load(struct kobject *a, struct attribute *b,
 }
 
 static ssize_t store_down_differential(struct kobject *a, struct attribute *b,
-				       const char *buf, size_t count)
+				    const char *buf, size_t count)
 {
 	unsigned int input;
 	int ret;
+
 	ret = sscanf(buf, "%u", &input);
 	if (ret != 1)
 		return -EINVAL;
+
 	dbs_tuners_ins.down_differential = min(input, 100u);
+
 	return count;
 }
 
 static ssize_t store_freq_step(struct kobject *a, struct attribute *b,
-			       const char *buf, size_t count)
+				   const char *buf, size_t count)
 {
 	unsigned int input;
 	int ret;
+
 	ret = sscanf(buf, "%u", &input);
 	if (ret != 1)
 		return -EINVAL;
+
 	dbs_tuners_ins.freq_step = min(input, 100u);
 	return count;
 }
@@ -732,7 +743,7 @@ static ssize_t store_cpu_up_freq(struct kobject *a, struct attribute *b,
 }
 
 static ssize_t store_cpu_down_freq(struct kobject *a, struct attribute *b,
-				   const char *buf, size_t count)
+				const char *buf, size_t count)
 {
 	unsigned int input;
 	int ret;
@@ -974,7 +985,7 @@ static void cpu_down_work(struct work_struct *work)
 
 static void dbs_freq_increase(struct cpufreq_policy *p, unsigned int freq)
 {
-#ifndef CONFIG_ARCH_EXYNOS4
+#if !defined(CONFIG_ARCH_EXYNOS4) && !defined(CONFIG_ARCH_EXYNOS5)
 	if (p->cur == p->max)
 		return;
 #endif
@@ -1186,13 +1197,13 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 			unsigned long cur_nice_jiffies;
 
 			cur_nice = kcpustat_cpu(j).cpustat[CPUTIME_NICE] -
-						 j_dbs_info->prev_cpu_nice;
+					 j_dbs_info->prev_cpu_nice;
 			/*
 			 * Assumption: nice time between sampling periods will
 			 * be less than 2^32 jiffies for 32 bit sys
 			 */
 			cur_nice_jiffies = (unsigned long)
-				cputime64_to_jiffies64(cur_nice);
+					cputime64_to_jiffies64(cur_nice);
 
 			j_dbs_info->prev_cpu_nice = kcpustat_cpu(j).cpustat[CPUTIME_NICE];
 			idle_time += jiffies_to_usecs(cur_nice_jiffies);
@@ -1270,7 +1281,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 	}
 
 	/* Check for frequency decrease */
-#ifndef CONFIG_ARCH_EXYNOS4
+#if !defined(CONFIG_ARCH_EXYNOS4) && !defined(CONFIG_ARCH_EXYNOS5)
 	/* if we cannot reduce the frequency anymore, break out early */
 	if (policy->cur == policy->min)
 		return;
@@ -1284,20 +1295,19 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 	 */
 	if (max_load_freq <
 	    (dbs_tuners_ins.up_threshold - dbs_tuners_ins.down_differential) *
-	    policy->cur) {
+			policy->cur) {
 		unsigned int freq_next;
 		unsigned int down_thres;
 
 		freq_next = max_load_freq /
 			(dbs_tuners_ins.up_threshold -
-			 dbs_tuners_ins.down_differential);
+				dbs_tuners_ins.down_differential);
 
 		/* No longer fully busy, reset rate_mult */
 		this_dbs_info->rate_mult = 1;
 
 		if (freq_next < policy->min)
 			freq_next = policy->min;
-
 
 		down_thres = dbs_tuners_ins.up_threshold_at_min_freq
 			- dbs_tuners_ins.down_differential;
@@ -1342,6 +1352,7 @@ static inline void dbs_timer_init(struct cpu_dbs_info_s *dbs_info)
 	/* We want all CPUs to do sampling nearly on same jiffy */
 	int delay = usecs_to_jiffies(DEF_START_DELAY * 1000 * 1000
 				     + dbs_tuners_ins.sampling_rate);
+
 	if (num_online_cpus() > 1)
 		delay -= jiffies % delay;
 
@@ -1465,10 +1476,10 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 			j_dbs_info->cur_policy = policy;
 
 			j_dbs_info->prev_cpu_idle = get_cpu_idle_time(j,
-				&j_dbs_info->prev_cpu_wall);
+						&j_dbs_info->prev_cpu_wall);
 			if (dbs_tuners_ins.ignore_nice)
 				j_dbs_info->prev_cpu_nice =
-					kcpustat_cpu(j).cpustat[CPUTIME_NICE];
+						kcpustat_cpu(j).cpustat[CPUTIME_NICE];
 		}
 		this_dbs_info->cpu = cpu;
 		this_dbs_info->rate_mult = 1;
@@ -1514,34 +1525,31 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 		dbs_timer_exit(this_dbs_info);
 
 		mutex_lock(&dbs_mutex);
-		mutex_destroy(&this_dbs_info->timer_mutex);
 
 		unregister_reboot_notifier(&reboot_notifier);
 
 		dbs_enable--;
-		mutex_unlock(&dbs_mutex);
 
 		stop_rq_work();
 
 		if (!dbs_enable)
 			sysfs_remove_group(cpufreq_global_kobject,
 					   &dbs_attr_group);
+		mutex_unlock(&dbs_mutex);
 
 		break;
 
 	case CPUFREQ_GOV_LIMITS:
 		mutex_lock(&this_dbs_info->timer_mutex);
-
 		if (policy->max < this_dbs_info->cur_policy->cur)
 			__cpufreq_driver_target(this_dbs_info->cur_policy,
-						policy->max,
-						CPUFREQ_RELATION_H);
+				policy->max, CPUFREQ_RELATION_H);
 		else if (policy->min > this_dbs_info->cur_policy->cur)
 			__cpufreq_driver_target(this_dbs_info->cur_policy,
-						policy->min,
-						CPUFREQ_RELATION_L);
-
+				policy->min, CPUFREQ_RELATION_L);
+		dbs_check_cpu(this_dbs_info);
 		mutex_unlock(&this_dbs_info->timer_mutex);
+
 		break;
 	}
 	return 0;
@@ -1592,7 +1600,14 @@ err_hist:
 
 static void __exit cpufreq_gov_dbs_exit(void)
 {
+	unsigned int i;
+
 	cpufreq_unregister_governor(&cpufreq_gov_pegasusq);
+	for_each_possible_cpu(i) {
+		struct cpu_dbs_info_s *this_dbs_info =
+			&per_cpu(od_cpu_dbs_info, i);
+		mutex_destroy(&this_dbs_info->timer_mutex);
+	}
 	destroy_workqueue(dvfs_workqueue);
 	kfree(hotplug_history);
 	kfree(rq_data);

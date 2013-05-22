@@ -194,7 +194,8 @@ static inline cputime64_t get_cpu_idle_time(unsigned int cpu, cputime64_t *wall)
 	return idle_time;
 }
 
-static inline cputime64_t get_cpu_iowait_time(unsigned int cpu, cputime64_t *wall)
+static inline cputime64_t get_cpu_iowait_time(unsigned int cpu,
+					      cputime64_t *wall)
 {
 	u64 iowait_time = get_cpu_iowait_time_us(cpu, wall);
 
@@ -438,9 +439,11 @@ static ssize_t store_boostfreq(struct kobject *a, struct attribute *b,
 {
 	unsigned int input;
 	int ret;
+
 	ret = sscanf(buf, "%u", &input);
 	if (ret != 1)
 		return -EINVAL;
+
 	dbs_tuners_ins.boostfreq = input;
 	return count;
 }
@@ -450,16 +453,20 @@ static ssize_t store_sampling_rate(struct kobject *a, struct attribute *b,
 {
 	unsigned int input;
 	int ret;
+
 	ret = sscanf(buf, "%u", &input);
 	if (ret != 1)
 		return -EINVAL;
+
 	update_sampling_rate(input);
 	current_sampling_rate = dbs_tuners_ins.sampling_rate;
+
 	return count;
 }
 
+/* io_is_busy */
 static ssize_t store_io_is_busy(struct kobject *a, struct attribute *b,
-				   const char *buf, size_t count)
+				const char *buf, size_t count)
 {
 	unsigned int input;
 	int ret;
@@ -467,7 +474,9 @@ static ssize_t store_io_is_busy(struct kobject *a, struct attribute *b,
 	ret = sscanf(buf, "%u", &input);
 	if (ret != 1)
 		return -EINVAL;
+
 	dbs_tuners_ins.io_is_busy = !!input;
+
 	return count;
 }
 
@@ -476,25 +485,29 @@ static ssize_t store_up_threshold(struct kobject *a, struct attribute *b,
 {
 	unsigned int input;
 	int ret;
-	ret = sscanf(buf, "%u", &input);
 
+	ret = sscanf(buf, "%u", &input);
 	if (ret != 1 || input > MAX_FREQUENCY_UP_THRESHOLD ||
 			input < MIN_FREQUENCY_UP_THRESHOLD) {
 		return -EINVAL;
 	}
 	dbs_tuners_ins.up_threshold = input;
+
 	return count;
 }
 
 static ssize_t store_down_differential(struct kobject *a, struct attribute *b,
-		const char *buf, size_t count)
+				const char *buf, size_t count)
 {
 	unsigned int input;
 	int ret;
+
 	ret = sscanf(buf, "%u", &input);
 	if (ret != 1)
 		return -EINVAL;
+
 	dbs_tuners_ins.down_differential = min(input, 100u);
+
 	return count;
 }
 
@@ -503,13 +516,14 @@ static ssize_t store_up_threshold_min_freq(struct kobject *a, struct attribute *
 {
 	unsigned int input;
 	int ret;
-	ret = sscanf(buf, "%u", &input);
 
+	ret = sscanf(buf, "%u", &input);
 	if (ret != 1 || input > MAX_FREQUENCY_UP_THRESHOLD ||
 			input < MIN_FREQUENCY_UP_THRESHOLD) {
 		return -EINVAL;
 	}
 	dbs_tuners_ins.up_threshold_min_freq = input;
+
 	return count;
 }
 
@@ -518,10 +532,11 @@ static ssize_t store_sampling_down_factor(struct kobject *a,
 {
 	unsigned int input, j;
 	int ret;
-	ret = sscanf(buf, "%u", &input);
 
+	ret = sscanf(buf, "%u", &input);
 	if (ret != 1 || input > MAX_SAMPLING_DOWN_FACTOR || input < 1)
 		return -EINVAL;
+
 	dbs_tuners_ins.sampling_down_factor = input;
 
 	/* Reset down sampling multiplier in case it was active */
@@ -533,12 +548,12 @@ static ssize_t store_sampling_down_factor(struct kobject *a,
 	return count;
 }
 
+/* ignore_nice_load */
 static ssize_t store_ignore_nice_load(struct kobject *a, struct attribute *b,
 				      const char *buf, size_t count)
 {
 	unsigned int input;
 	int ret;
-
 	unsigned int j;
 
 	ret = sscanf(buf, "%u", &input);
@@ -548,9 +563,9 @@ static ssize_t store_ignore_nice_load(struct kobject *a, struct attribute *b,
 	if (input > 1)
 		input = 1;
 
-	if (input == dbs_tuners_ins.ignore_nice) { /* nothing to do */
+	if (input == dbs_tuners_ins.ignore_nice) /* nothing to do */
 		return count;
-	}
+
 	dbs_tuners_ins.ignore_nice = input;
 
 	/* we need to re-evaluate prev_cpu_idle */
@@ -561,7 +576,6 @@ static ssize_t store_ignore_nice_load(struct kobject *a, struct attribute *b,
 						&dbs_info->prev_cpu_wall);
 		if (dbs_tuners_ins.ignore_nice)
 			dbs_info->prev_cpu_nice = kcpustat_cpu(j).cpustat[CPUTIME_NICE];
-
 	}
 	return count;
 }
@@ -571,8 +585,8 @@ static ssize_t store_powersave_bias(struct kobject *a, struct attribute *b,
 {
 	unsigned int input;
 	int ret;
-	ret = sscanf(buf, "%u", &input);
 
+	ret = sscanf(buf, "%u", &input);
 	if (ret != 1)
 		return -EINVAL;
 
@@ -581,29 +595,31 @@ static ssize_t store_powersave_bias(struct kobject *a, struct attribute *b,
 
 	dbs_tuners_ins.powersave_bias = input;
 	ondemand_powersave_bias_init();
+
 	return count;
 }
-
 
 static ssize_t store_freq_step(struct kobject *a, struct attribute *b,
 				   const char *buf, size_t count)
 {
 	unsigned int input;
 	int ret;
+
 	ret = sscanf(buf, "%u", &input);
 	if (ret != 1)
 		return -EINVAL;
+
 	dbs_tuners_ins.freq_step = min(input, 100u);
 	return count;
 }
 
 static ssize_t store_freq_responsiveness(struct kobject *a, struct attribute *b,
-				    const char *buf, size_t count)
+				const char *buf, size_t count)
 {
 	unsigned int input;
 	int ret;
-	ret = sscanf(buf, "%u", &input);
 
+	ret = sscanf(buf, "%u", &input);
 	if (ret != 1)
 		return -EINVAL;
 
@@ -837,6 +853,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 	if (max_load_freq > up_threshold * policy->cur) {
 		int inc = (policy->max * dbs_tuners_ins.freq_step) / 100;
 		int target = min(policy->max, policy->cur + inc);
+
 		/* If switching to max speed, apply sampling_down_factor */
 		if (policy->cur < policy->max && target == policy->max) {
 			if (sampling_rate_boosted &&
@@ -853,7 +870,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 		return;
 	}
 
-	/* if the there is a input detected we want to go through this check so 
+	/* if the there is a input detected we want to go through this check so
 	 that the frequency stays locked in boostfreq and doesn't go down */
 	if (dbs_tuners_ins.boosted) {
 		if (policy->cur < dbs_tuners_ins.boostfreq)
@@ -875,12 +892,13 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 	 */
 	if (max_load_freq <
 	    (dbs_tuners_ins.up_threshold - dbs_tuners_ins.down_differential) *
-	     policy->cur) {
+			policy->cur) {
 		unsigned int freq_next;
 		unsigned int down_thres;
+
 		freq_next = max_load_freq /
-				(dbs_tuners_ins.up_threshold -
-				 dbs_tuners_ins.down_differential * 2);
+			(dbs_tuners_ins.up_threshold -
+				dbs_tuners_ins.down_differential * 2);
 
 		/* No longer fully busy, reset rate_mult */
 		this_dbs_info->rate_mult = 1;
@@ -981,7 +999,7 @@ static int should_io_be_busy(void)
 }
 
 static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
-				   unsigned int event)
+				unsigned int event)
 {
 	unsigned int cpu = policy->cpu;
 	struct cpu_dbs_info_s *this_dbs_info;
@@ -1065,7 +1083,9 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 		else if (policy->min > this_dbs_info->cur_policy->cur)
 			__cpufreq_driver_target(this_dbs_info->cur_policy,
 				policy->min, CPUFREQ_RELATION_L);
+		dbs_check_cpu(this_dbs_info);
 		mutex_unlock(&this_dbs_info->timer_mutex);
+
 		break;
 	}
 	return 0;
