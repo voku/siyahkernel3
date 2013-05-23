@@ -2,13 +2,13 @@
  *  'Standard' SDIO HOST CONTROLLER driver
  *
  * Copyright (C) 1999-2012, Broadcom Corporation
- * 
+ *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
  * available at http://www.broadcom.com/licenses/GPLv2.php, with the
  * following added to such license:
- * 
+ *
  *      As a special exception, the copyright holders of this software give you
  * permission to link this software with independent modules, and to copy and
  * distribute the resulting executable under terms of your choice, provided that
@@ -16,7 +16,7 @@
  * the license of that module.  An independent module is a module which is not
  * derived from this software.  The special exception does not apply to any
  * modifications of the software.
- * 
+ *
  *      Notwithstanding the above, under no circumstances may you combine this
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
@@ -62,7 +62,7 @@ extern void sdstd_osfree(sdioh_info_t *sd);
 #define SDIOH_MODE_SD1		1
 #define SDIOH_MODE_SD4		2
 
-#define MAX_SLOTS 6 	/* For PCI: Only 6 BAR entries => 6 slots */
+#define MAX_SLOTS 6	/* For PCI: Only 6 BAR entries => 6 slots */
 #define SDIOH_REG_WINSZ	0x100 /* Number of registers in Standard Host Controller */
 
 #define SDIOH_TYPE_ARASAN_HDK	1
@@ -87,7 +87,7 @@ extern void sdstd_osfree(sdioh_info_t *sd);
 
 #define USE_FIFO		0x8	/* Fifo vs non-fifo */
 
-#define CLIENT_INTR 		0x100	/* Get rid of this! */
+#define CLIENT_INTR		0x100	/* Get rid of this! */
 
 #define HC_INTR_RETUNING	0x1000
 
@@ -105,13 +105,13 @@ typedef struct glom_buf {
 #endif
 
 struct sdioh_info {
-	uint cfg_bar;                   	/* pci cfg address for bar */
-	uint32 caps;                    	/* cached value of capabilities reg */
-	uint32 curr_caps;                    	/* max current capabilities reg */
+	uint cfg_bar;				/* pci cfg address for bar */
+	uint32 caps;				/* cached value of capabilities reg */
+	uint32 curr_caps;			/* max current capabilities reg */
 
-	osl_t 		*osh;			/* osh handler */
-	volatile char 	*mem_space;		/* pci device memory va */
-	uint		lockcount; 		/* nest count of sdstd_lock() calls */
+	osl_t		*osh;			/* osh handler */
+	volatile char	*mem_space;		/* pci device memory va */
+	uint		lockcount;		/* nest count of sdstd_lock() calls */
 	bool		client_intr_enabled;	/* interrupt connnected flag */
 	bool		intr_handler_valid;	/* client driver interrupt handler valid */
 	sdioh_cb_fn_t	intr_handler;		/* registered interrupt handler */
@@ -123,26 +123,26 @@ struct sdioh_info {
 
 	uint32		controller_type;	/* Host controller type */
 	uint8		version;		/* Host Controller Spec Compliance Version */
-	uint 		irq;			/* Client irq */
-	int 		intrcount;		/* Client interrupts */
-	int 		local_intrcount;	/* Controller interrupts */
-	bool 		host_init_done;		/* Controller initted */
-	bool 		card_init_done;		/* Client SDIO interface initted */
-	bool 		polled_mode;		/* polling for command completion */
+	uint		irq;			/* Client irq */
+	int		intrcount;		/* Client interrupts */
+	int		local_intrcount;	/* Controller interrupts */
+	bool		host_init_done;		/* Controller initted */
+	bool		card_init_done;		/* Client SDIO interface initted */
+	bool		polled_mode;		/* polling for command completion */
 
-	bool 		sd_blockmode;		/* sd_blockmode == FALSE => 64 Byte Cmd 53s. */
+	bool		sd_blockmode;		/* sd_blockmode == FALSE => 64 Byte Cmd 53s. */
 						/*  Must be on for sd_multiblock to be effective */
-	bool 		use_client_ints;	/* If this is false, make sure to restore */
+	bool		use_client_ints;	/* If this is false, make sure to restore */
 						/*  polling hack in wl_linux.c:wl_timer() */
-	int 		adapter_slot;		/* Maybe dealing with multiple slots/controllers */
-	int 		sd_mode;		/* SD1/SD4/SPI */
-	int 		client_block_size[SDIOD_MAX_IOFUNCS];		/* Blocksize */
-	uint32 		data_xfer_count;	/* Current transfer */
-	uint16 		card_rca;		/* Current Address */
+	int		adapter_slot;		/* Maybe dealing with multiple slots/controllers */
+	int		sd_mode;		/* SD1/SD4/SPI */
+	int		client_block_size[SDIOD_MAX_IOFUNCS];		/* Blocksize */
+	uint32		data_xfer_count;	/* Current transfer */
+	uint16		card_rca;		/* Current Address */
 	int8		sd_dma_mode;		/* DMA Mode (PIO, SDMA, ... ADMA2) on CMD53 */
-	uint8 		num_funcs;		/* Supported funcs on client */
-	uint32 		com_cis_ptr;
-	uint32 		func_cis_ptr[SDIOD_MAX_IOFUNCS];
+	uint8		num_funcs;		/* Supported funcs on client */
+	uint32		com_cis_ptr;
+	uint32		func_cis_ptr[SDIOD_MAX_IOFUNCS];
 	void		*dma_buf;		/* DMA Buffer virtual address */
 	ulong		dma_phys;		/* DMA Buffer physical address */
 	void		*adma2_dscr_buf;	/* ADMA2 Descriptor Buffer virtual address */
@@ -156,12 +156,12 @@ struct sdioh_info {
 	ulong		adma2_dscr_start_phys;
 	uint		alloced_adma2_dscr_size;
 
-	int 		r_cnt;			/* rx count */
-	int 		t_cnt;			/* tx_count */
+	int		r_cnt;			/* rx count */
+	int		t_cnt;			/* tx_count */
 	bool		got_hcint;		/* local interrupt flag */
 	uint16		last_intrstatus;	/* to cache intrstatus */
-	int 	host_UHSISupported;		/* whether UHSI is supported for HC. */
-	int 	card_UHSI_voltage_Supported; 	/* whether UHSI is supported for
+	int	host_UHSISupported;		/* whether UHSI is supported for HC. */
+	int	card_UHSI_voltage_Supported;	/* whether UHSI is supported for
 						 * Card in terms of Voltage [1.8 or 3.3].
 						 */
 	int	global_UHSI_Supp;	/* type of UHSI support in both host and card.
@@ -169,9 +169,9 @@ struct sdioh_info {
 					 * HOST_SDR_12_25: SDR12 and SDR25 supported
 					 * HOST_SDR_50_104_DDR: one of SDR50/SDR104 or DDR50 supptd
 					 */
-	volatile int	sd3_dat_state; 		/* data transfer state used for retuning check */
-	volatile int	sd3_tun_state; 		/* tuning state used for retuning check */
-	bool	sd3_tuning_reqd; 	/* tuning requirement parameter */
+	volatile int	sd3_dat_state;		/* data transfer state used for retuning check */
+	volatile int	sd3_tun_state;		/* tuning state used for retuning check */
+	bool	sd3_tuning_reqd;	/* tuning requirement parameter */
 	uint32	caps3;			/* cached value of 32 MSbits capabilities reg (SDIO 3.0) */
 #ifdef BCMSDIOH_TXGLOM
 	glom_buf_t glom_info;		/* pkt information used for glomming */
@@ -189,12 +189,12 @@ struct sdioh_info {
 #define USE_DMA(sd)		((bool)((sd->sd_dma_mode > 0) ? TRUE : FALSE))
 
 /* States for Tuning and corr data */
-#define TUNING_IDLE 			0
-#define TUNING_START 			1
-#define TUNING_START_AFTER_DAT 	2
-#define TUNING_ONGOING 			3
+#define TUNING_IDLE			0
+#define TUNING_START			1
+#define TUNING_START_AFTER_DAT		2
+#define TUNING_ONGOING				3
 
-#define DATA_TRANSFER_IDLE 		0
+#define DATA_TRANSFER_IDLE		0
 #define DATA_TRANSFER_ONGOING	1
 
 #define CHECK_TUNING_PRE_DATA	1

@@ -2,13 +2,13 @@
  * bcmevent read-only data shared by kernel or app layers
  *
  * Copyright (C) 1999-2012, Broadcom Corporation
- * 
+ *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
  * available at http://www.broadcom.com/licenses/GPLv2.php, with the
  * following added to such license:
- * 
+ *
  *      As a special exception, the copyright holders of this software give you
  * permission to link this software with independent modules, and to copy and
  * distribute the resulting executable under terms of your choice, provided that
@@ -16,11 +16,11 @@
  * the license of that module.  An independent module is a module which is not
  * derived from this software.  The special exception does not apply to any
  * modifications of the software.
- * 
+ *
  *      Notwithstanding the above, under no circumstances may you combine this
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
- * $Id: bcmevent.c 364790 2012-10-25 08:39:02Z $
+ * $Id: bcmevent.c 374256 2012-12-12 08:34:34Z $
  */
 
 #include <typedefs.h>
@@ -29,7 +29,7 @@
 #include <proto/bcmeth.h>
 #include <proto/bcmevent.h>
 
-#if WLC_E_LAST != 105
+#if WLC_E_LAST != 108
 #error "You need to add an entry to bcmevent_names[] for the new event"
 #endif
 
@@ -109,7 +109,8 @@ const bcmevent_name_t bcmevent_names[] = {
 	{ WLC_E_REASSOC_IND_NDIS, "REASSOC_IND_NDIS"},
 	{ WLC_E_ACTION_FRAME_RX_NDIS, "WLC_E_ACTION_FRAME_RX_NDIS" },
 	{ WLC_E_AUTH_REQ, "WLC_E_AUTH_REQ" },
-#endif 
+	{ WLC_E_IBSS_COALESCE, "IBSS COALESCE" },
+#endif
 #ifdef BCMWAPI_WAI
 	{ WLC_E_WAI_STA_EVENT, "WAI_STA_EVENT" },
 	{ WLC_E_WAI_MSG, "WAI_MSG" },
@@ -143,6 +144,13 @@ const bcmevent_name_t bcmevent_names[] = {
 #ifdef WLTDLS
 	{ WLC_E_TDLS_PEER_EVENT, "TDLS_PEER_EVENT" },
 #endif /* WLTDLS */
+	{ WLC_E_NATIVE, "NATIVE" },
+#ifdef WLPKTDLYSTAT
+	{ WLC_E_PKTDELAY_IND, "PKTDELAY_IND" },
+#endif /* WLPKTDLYSTAT */
+	{ WLC_E_SERVICE_FOUND, "SERVICE_FOUND" },
+	{ WLC_E_P2PO_ADD_DEVICE, "P2PO_DEV_FOUND" },
+	{ WLC_E_P2PO_DEL_DEVICE, "P2PO_DEV_FOUND" }
 };
 
 const int bcmevent_names_size = ARRAYSIZE(bcmevent_names);
