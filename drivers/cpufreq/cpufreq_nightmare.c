@@ -181,6 +181,7 @@ static unsigned int get_nr_run_avg(void)
 #define MAX_FREQ_FOR_CALC_DECR		(400000)
 #define DEF_FREQ_FOR_CALC_DECR		(200000)
 #define MIN_FREQ_FOR_CALC_DECR		(125000)
+#define DEF_ABOVE_SCALING_FREQ_STEP	(90000)
 
 #define DEF_SAMPLING_UP_FACTOR		(1)
 #define MAX_SAMPLING_UP_FACTOR		(100000)
@@ -281,6 +282,7 @@ static struct nightmare_tuners {
 	unsigned int freq_step_dec_at_max_freq;
 	unsigned int freq_for_calc_incr;
 	unsigned int freq_for_calc_decr;
+	unsigned int above_scaling_freq_step;
 	unsigned int sampling_up_factor;
 	unsigned int sampling_down_factor;
 	unsigned int dvfs_debug;
@@ -314,6 +316,7 @@ static struct nightmare_tuners {
 	.freq_step_dec_at_max_freq = DEF_FREQ_STEP_DEC_AT_MAX_FREQ,
 	.freq_for_calc_incr = DEF_FREQ_FOR_CALC_INCR,
 	.freq_for_calc_decr = DEF_FREQ_FOR_CALC_DECR,
+	.above_scaling_freq_step = DEF_ABOVE_SCALING_FREQ_STEP,
 
 	.sampling_up_factor = DEF_SAMPLING_UP_FACTOR,
 	.sampling_down_factor = DEF_SAMPLING_DOWN_FACTOR,
@@ -530,6 +533,7 @@ show_one(freq_up_brake_at_min_freq, freq_up_brake_at_min_freq);
 show_one(freq_up_brake, freq_up_brake);
 show_one(freq_step_dec, freq_step_dec);
 show_one(freq_step_dec_at_max_freq, freq_step_dec_at_max_freq);
+show_one(above_scaling_freq_step, above_scaling_freq_step);
 
 show_one(freq_for_calc_incr, freq_for_calc_incr);
 show_one(freq_for_calc_decr, freq_for_calc_decr);
@@ -1121,6 +1125,27 @@ static ssize_t store_freq_for_calc_decr(struct kobject *a, struct attribute *b,
 	return count;
 }
 
+/* above_scaling_freq_step */
+static ssize_t store_above_scaling_freq_step(struct kobject *a, struct attribute *b,
+				   const char *buf, size_t count)
+{
+	unsigned int input;
+	int ret;
+
+	ret = sscanf(buf, "%u", &input);
+	if (ret != 1)
+		return -EINVAL;
+
+	if (input > 99000)
+		input = 99000;
+	else if (input < 0)
+		input = 0;
+
+	nightmare_tuners_ins.above_scaling_freq_step = input;
+
+	return count;
+}
+
 /* sampling_up_factor */
 static ssize_t store_sampling_up_factor(struct kobject *a,
 					  struct attribute *b,
@@ -1202,6 +1227,7 @@ define_one_global_rw(freq_up_brake_at_min_freq);
 define_one_global_rw(freq_up_brake);
 define_one_global_rw(freq_step_dec);
 define_one_global_rw(freq_step_dec_at_max_freq);
+define_one_global_rw(above_scaling_freq_step);
 
 define_one_global_rw(freq_for_calc_incr);
 define_one_global_rw(freq_for_calc_decr);
@@ -1258,6 +1284,7 @@ static struct attribute *nightmare_attributes[] = {
 	&freq_step_dec_at_max_freq.attr,
 	&freq_for_calc_incr.attr,
 	&freq_for_calc_decr.attr,
+	&above_scaling_freq_step.attr,
 
 	&sampling_up_factor.attr,
 	&sampling_down_factor.attr,
@@ -1565,16 +1592,27 @@ static void nightmare_check_frequency(struct cpufreq_nightmare_cpuinfo *this_nig
 	unsigned int freq_down = 0;
 	unsigned int freq_for_calc_incr = nightmare_tuners_ins.freq_for_calc_incr;
 	unsigned int freq_for_calc_decr = nightmare_tuners_ins.freq_for_calc_decr;
+	unsigned int above_scaling_freq_step = nightmare_tuners_ins.above_scaling_freq_step;
 
 	for_each_online_cpu(j) {
 		struct cpufreq_policy *policy;
 		int cur_load = -1;
+		unsigned int min_freq = 0;
+		unsigned int max_freq = 0;
 
 		cur_load = hotplug_histories->usage[num_hist].load[j];
 
 		policy = cpufreq_cpu_get(j);
 		if (!policy) {
 			continue;
+		}
+
+		if (earlysuspend >= 0) {
+			min_freq = policy->min_suspend > policy->min ? policy->min : policy->min_suspend;
+			max_freq = policy->max_suspend > policy->max ? policy->max : policy->max_suspend;
+		} else {
+			min_freq = policy->min;
+			max_freq = policy->max;
 		}
 
 		/* CPUs Online Scale Frequency*/
@@ -1599,7 +1637,7 @@ static void nightmare_check_frequency(struct cpufreq_nightmare_cpuinfo *this_nig
 			this_nightmare_cpuinfo->rate_mult = nightmare_tuners_ins.sampling_up_factor;
 
 			/* if we cannot increment the frequency anymore, break out early */
-			if (policy->cur == policy->max) {
+			if (policy->cur == max_freq) {
 				cpufreq_cpu_put(policy);
 				continue;
 			}
@@ -1611,39 +1649,34 @@ static void nightmare_check_frequency(struct cpufreq_nightmare_cpuinfo *this_nig
 				cpufreq_cpu_put(policy);
 				continue;
 			} else {
-				freq_up = min(policy->cur + (inc_load - inc_brake),policy->max);
+				freq_up = min(policy->cur + (inc_load - inc_brake),max_freq);
 			}			
 
-			if (earlysuspend >= 0 && freq_up > policy->max_suspend) {
-				freq_up = policy->max_suspend;
-			}
-
-			if (freq_up != policy->cur && freq_up <= policy->max) {
+			if (freq_up > policy->cur + above_scaling_freq_step) {
 				__cpufreq_driver_target(policy, freq_up, CPUFREQ_RELATION_L);
 			}
-
 		} else if (cur_load < dec_cpu_load && cur_load > -1) {
 			this_nightmare_cpuinfo->rate_mult = nightmare_tuners_ins.sampling_down_factor;
 
 			/* if we cannot reduce the frequency anymore, break out early */
-			if (policy->cur == policy->min) {
+			if (policy->cur == min_freq) {
 				cpufreq_cpu_put(policy);
 				continue;
 			}
 	
 			dec_load = (((100 - cur_load) * freq_for_calc_decr) / 100) + ((freq_step_dec * freq_for_calc_decr) / 100);
 
-			if (policy->cur > dec_load + policy->min) {
+			if (policy->cur >= dec_load + min_freq) {
 				freq_down = policy->cur - dec_load;
 			} else {
-				freq_down = policy->min;
+				freq_down = min_freq;
 			}
 
-			if (earlysuspend >= 0 && freq_down < policy->min_suspend) {
-				freq_down = policy->min_suspend;
+			if (freq_down > max_freq) {
+				freq_down = max_freq;
 			}
 
-			if (freq_down != policy->cur && freq_down >= policy->min) {
+			if (freq_down < policy->cur) {
 				__cpufreq_driver_target(policy, freq_down, CPUFREQ_RELATION_L);
 			}
 		}
@@ -1765,6 +1798,7 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 	int rc;
 	int hotplug_enable = atomic_read(&g_hotplug_enable);
 
+
 	this_nightmare_cpuinfo = &per_cpu(od_nightmare_cpuinfo, cpu);
 
 	switch (event) {
@@ -1860,15 +1894,25 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 
 		for_each_online_cpu(j) {
 			struct cpufreq_policy *cpu_policy;
+			unsigned int min_freq = 0;
+			unsigned int max_freq = 0;
 
 			cpu_policy = cpufreq_cpu_get(j);
 			if (!cpu_policy)
 				continue;
 
-			if (policy->max < cpu_policy->cur)
-				__cpufreq_driver_target(cpu_policy,policy->max,CPUFREQ_RELATION_L);
-			else if (policy->min > cpu_policy->cur)
-				__cpufreq_driver_target(cpu_policy,policy->min,CPUFREQ_RELATION_L);
+			if (earlysuspend >= 0) {
+				min_freq = policy->min_suspend > policy->min ? policy->min : policy->min_suspend;
+				max_freq = policy->max_suspend > policy->max ? policy->max : policy->max_suspend;
+			} else {
+				min_freq = policy->min;
+				max_freq = policy->max;
+			}
+
+			if (max_freq < cpu_policy->cur)
+				__cpufreq_driver_target(cpu_policy,max_freq,CPUFREQ_RELATION_L);
+			else if (min_freq > cpu_policy->cur)
+				__cpufreq_driver_target(cpu_policy,min_freq,CPUFREQ_RELATION_L);
 
 			cpufreq_cpu_put(cpu_policy);
 
