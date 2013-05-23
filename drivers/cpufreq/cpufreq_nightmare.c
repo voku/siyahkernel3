@@ -1639,11 +1639,8 @@ static void nightmare_check_frequency(struct cpufreq_nightmare_cpuinfo *this_nig
 				freq_down = policy->min;
 			}
 
-			if (earlysuspend >= 0) {
-				if (freq_down < policy->min_suspend)
-					freq_down = policy->min_suspend;
-				else if (freq_down > policy->max_suspend) /* Immediately frequency scale down to max_suspend when phone is suspended */
-					freq_down = policy->max_suspend;
+			if (earlysuspend >= 0 && freq_down < policy->min_suspend) {
+				freq_down = policy->min_suspend;
 			}
 
 			if (freq_down != policy->cur && freq_down >= policy->min) {
