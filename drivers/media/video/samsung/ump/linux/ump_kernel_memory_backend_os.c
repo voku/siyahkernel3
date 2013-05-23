@@ -27,7 +27,6 @@
 #include "ump_kernel_memory_backend.h"
 
 
-
 typedef struct os_allocator
 {
 	struct semaphore mutex;
@@ -77,6 +76,8 @@ ump_memory_backend * ump_os_memory_backend_create(const int max_allocation)
 	backend->stat = os_stat;
 	backend->pre_allocate_physical_check = NULL;
 	backend->adjust_to_mali_phys = NULL;
+	backend->get = NULL;
+	backend->set = NULL;
 
 	return backend;
 }
@@ -134,7 +135,9 @@ static int os_allocate(void* ctx, ump_dd_mem * descriptor)
 		return 0; /* failure */
 	}
 
-	while (left > 0 && ((info->num_pages_allocated + pages_allocated) < info->num_pages_max))
+	while (left > 0 &&
+		((info->num_pages_allocated + pages_allocated)
+					< info->num_pages_max))
 	{
 		struct page * new_page;
 
@@ -147,6 +150,7 @@ static int os_allocate(void* ctx, ump_dd_mem * descriptor)
 		}
 		if (NULL == new_page)
 		{
+			MSG_ERR(("UMP memory allocated: Out of Memory !!\n"));
 			break;
 		}
 

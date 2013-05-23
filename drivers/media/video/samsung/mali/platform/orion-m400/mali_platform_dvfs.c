@@ -1,4 +1,5 @@
-/* * Copyright (C) 2010-2012 ARM Limited. All rights reserved. * * This program is free software and is provided to you under the terms of the GNU General Public License version 2
+/* Copyright (C) 2010-2012 ARM Limited. All rights reserved. * 
+ * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
  *
  * A copy of the licence is included with the program, and can also be obtained from Free Software
@@ -37,7 +38,7 @@
 static int bMaliDvfsRun = 0;
 
 static _mali_osk_atomic_t bottomlock_status;
-static int bottom_lock_step = 0;
+static int bottom_lock_step;
 
 typedef struct mali_dvfs_tableTag{
 	unsigned int clock;
@@ -198,7 +199,7 @@ static unsigned int asv_3d_volt_8_table[ASV_8_LEVEL][MALI_DVFS_STEPS] = {
 
 /*dvfs status*/
 mali_dvfs_currentstatus maliDvfsStatus;
-int mali_dvfs_control;
+int mali_dvfs_control = 0;
 
 u32 mali_dvfs_utilization = 255;
 
@@ -422,9 +423,11 @@ static unsigned int decideNextStatus(unsigned int utilization)
 		for (i = 0; i < MALI_DVFS_STEPS; i++) {
 			step[i].clk = mali_dvfs_all[i].clock;
 		}
-//#ifdef EXYNOS4_ASV_ENABLED
-//		mali_dvfs_table_update();
-//#endif
+/*
+#ifdef EXYNOS4_ASV_ENABLED
+		mali_dvfs_table_update();
+#endif
+*/
 		i = 0;
 		for (i = 0; i < MALI_DVFS_STEPS; i++) {
 			mali_dvfs[i].clock = step[i].clk;
