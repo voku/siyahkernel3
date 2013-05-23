@@ -82,7 +82,6 @@ CONFIG_HIGH_RES_TIMERS=y
 #
 # CPU/Task time and stats accounting
 #
-CONFIG_TICK_CPU_ACCOUNTING=y
 # CONFIG_BSD_PROCESS_ACCT is not set
 # CONFIG_TASKSTATS is not set
 
@@ -2884,6 +2883,7 @@ CONFIG_IOMMU_SUPPORT=y
 #
 # File systems
 #
+CONFIG_DCACHE_WORD_ACCESS=y
 # CONFIG_EXT2_FS is not set
 # CONFIG_EXT3_FS is not set
 CONFIG_EXT4_FS=y
