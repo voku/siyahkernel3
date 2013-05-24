@@ -4183,6 +4183,7 @@ static void offline_css(struct cgroup_subsys *ss, struct cgroup *cgrp)
 static long cgroup_create(struct cgroup *parent, struct dentry *dentry,
 			     umode_t mode)
 {
+	static atomic64_t serial_nr_cursor = ATOMIC64_INIT(0);
 	struct cgroup *cgrp;
 	struct cgroup_name *name;
 	struct cgroupfs_root *root = parent->root;
@@ -4262,6 +4263,14 @@ static long cgroup_create(struct cgroup *parent, struct dentry *dentry,
 	if (err < 0)
 		goto err_free_all;
 	lockdep_assert_held(&dentry->d_inode->i_mutex);
+
+	/*
+	 * Assign a monotonically increasing serial number.  With the list
+	 * appending below, it guarantees that sibling cgroups are always
+	 * sorted in the ascending serial number order on the parent's
+	 * ->children.
+	 */
+	cgrp->serial_nr = atomic64_inc_return(&serial_nr_cursor);
 
 	/* allocation complete, commit to creation */
 	list_add_tail(&cgrp->allcg_node, &root->allcg_list);
