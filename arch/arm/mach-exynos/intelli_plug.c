@@ -26,8 +26,11 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 
+//#define DEBUG_INTELLI_PLUG
+#undef DEBUG_INTELLI_PLUG
+
 #define INTELLI_PLUG_MAJOR_VERSION	1
-#define INTELLI_PLUG_MINOR_VERSION	5
+#define INTELLI_PLUG_MINOR_VERSION	6
 
 #define CPUS_AVAILABLE		num_possible_cpus()
 
@@ -42,8 +45,6 @@ module_param(min_sampling_rate, uint, 0644);
 #define RUN_QUEUE_THRESHOLD		38
 
 #define CPU_DOWN_FACTOR			3
-
-static unsigned int debug = 0;
 
 static DEFINE_MUTEX(intelli_plug_mutex);
 
@@ -183,9 +184,15 @@ static unsigned int calculate_thread_stats(void)
 
 	if (!eco_mode_active) {
 		threshold_size =  ARRAY_SIZE(nr_run_thresholds_full);
+#ifdef DEBUG_INTELLI_PLUG
+		pr_info("intelliplug: full mode active!");
+#endif
 	}
 	else {
 		threshold_size =  ARRAY_SIZE(nr_run_thresholds_eco);
+#ifdef DEBUG_INTELLI_PLUG
+		pr_info("intelliplug: eco mode active!");
+#endif
 	}
 
 	for (nr_run = 1; nr_run < threshold_size; nr_run++) {
@@ -204,10 +211,10 @@ static unsigned int calculate_thread_stats(void)
 
 		nr_threshold = nr_threshold << nr_fshift;
 
-		if (debug) {
-			/* DEBUG - if "avg_nr_run" is more then "nr_threshold", then the 2-core wake up */
-			pr_info("intelli_plug: avg_nr_run %u | nr_threshold %u\n", avg_nr_run, nr_threshold);
-		}
+#ifdef DEBUG_INTELLI_PLUG
+		/* DEBUG - if "avg_nr_run" is more then "nr_threshold", then the 2-core wake up */
+		pr_info("intelli_plug: avg_nr_run %u | nr_threshold %u\n", avg_nr_run, nr_threshold);
+#endif
 
 		if (avg_nr_run <= nr_threshold)
 			break;
@@ -235,11 +242,17 @@ static void __cpuinit intelli_plug_work_fn(struct work_struct *work)
 					else if (online_cpus == 2) {
 						cpu_down(1);
 					}
+#ifdef DEBUG_INTELLI_PLUG
+					pr_info("case 1: %u\n", persist_count);
+#endif
 					break;
 				case 2:
 					persist_count = DUAL_CORE_PERSISTENCE / CPU_DOWN_FACTOR;
 					if (online_cpus == 1)
 						cpu_up(1);
+#ifdef DEBUG_INTELLI_PLUG
+					pr_info("case 2: %u\n", persist_count);
+#endif
 					break;
 				default:
 					pr_err("Run Stat Error: Bad value %u\n", nr_run_stat);
@@ -253,11 +266,14 @@ static void __cpuinit intelli_plug_work_fn(struct work_struct *work)
 	} else {
 		/* increase the sampling rate for screen-off */
 		sampling_rate = msecs_to_jiffies(min_sampling_rate) << 3;
+#ifdef DEBUG_INTELLI_PLUG
+		pr_info("intelli_plug is suspened!\n");
+#endif
 	}
 
-	if (debug) {
-		pr_info("sampling_rate is: %d\n", jiffies_to_msecs(sampling_rate));
-	}
+#ifdef DEBUG_INTELLI_PLUG
+	pr_info("sampling_rate is: %d\n", jiffies_to_msecs(sampling_rate));
+#endif
 	schedule_delayed_work_on(0, &intelli_plug_work, sampling_rate);
 }
 
@@ -276,14 +292,12 @@ static void intelli_plug_early_suspend(struct early_suspend *handler)
 
 	/* put rest of the cores to sleep! */
 	for (i = 1; i < CPUS_AVAILABLE; i++) {
-		if (cpu_online(i))
-			cpu_down(i);
+		cpu_down(i);
 	}
 }
 
 static void __cpuinit intelli_plug_late_resume(struct early_suspend *handler)
 {
-	int num_of_active_cores;
 	int i;
 
 	mutex_lock(&intelli_plug_mutex);
@@ -295,8 +309,7 @@ static void __cpuinit intelli_plug_late_resume(struct early_suspend *handler)
 	start_rq_work();
 
 	for (i = 1; i < CPUS_AVAILABLE; i++) {
-		if (!cpu_online(i))
-			cpu_up(i);
+		cpu_up(i);
 	}
 	schedule_delayed_work_on(0, &intelli_plug_work, msecs_to_jiffies(10));
 }
