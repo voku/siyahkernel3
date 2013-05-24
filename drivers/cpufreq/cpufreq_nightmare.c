@@ -146,7 +146,6 @@ static unsigned int get_nr_run_avg(void)
 #define MIN_SAMPLING_RATE		(10000)
 #define DEF_START_DELAY			(0)
 
-#define DEF_UP_NR_CPUS			(1)
 #define DEF_MAX_CPU_LOCK		(0)
 #define DEF_MIN_CPU_LOCK		(0)
 
@@ -259,7 +258,6 @@ static struct nightmare_tuners {
 	unsigned int sampling_rate;
 	unsigned int io_is_busy;
 	atomic_t hotplug_enable;
-	unsigned int up_nr_cpus;
 	unsigned int max_cpu_lock;
 	unsigned int min_cpu_lock;
 	atomic_t hotplug_lock;
@@ -290,7 +288,6 @@ static struct nightmare_tuners {
 	unsigned int min_freq;
 } nightmare_tuners_ins = {
 	.hotplug_enable = ATOMIC_INIT(0),
-	.up_nr_cpus = DEF_UP_NR_CPUS,
 	.max_cpu_lock = DEF_MAX_CPU_LOCK,
 	.min_cpu_lock = DEF_MIN_CPU_LOCK,
 	.hotplug_lock = ATOMIC_INIT(0),
@@ -391,33 +388,6 @@ static int cpufreq_nightmare_cpu_unlock(int num_core)
 	return 0;
 }
 
-static void cpufreq_nightmare_min_cpu_lock(unsigned int num_core)
-{
-	int online, flag;
-
-	nightmare_tuners_ins.min_cpu_lock = min(num_core, num_possible_cpus());
-	online = num_online_cpus();
-	flag = (int)num_core - online;
-	if (flag <= 0)
-		return;
-	cpu_up(1);
-}
-
-static void cpufreq_nightmare_min_cpu_unlock(void)
-{
-	int online, lock, flag;
-
-	nightmare_tuners_ins.min_cpu_lock = 0;
-	online = num_online_cpus();
-	lock = atomic_read(&g_hotplug_lock);
-	if (lock == 0)
-		return;
-	flag = lock - online;
-	if (flag >= 0)
-		return;
-	cpu_down(1);
-}
-
 /*
  * History of CPU usage
  */
@@ -501,7 +471,6 @@ static ssize_t show_##file_name						\
 show_one(sampling_rate, sampling_rate);
 show_one(io_is_busy, io_is_busy);
 
-show_one(up_nr_cpus, up_nr_cpus);
 show_one(max_cpu_lock, max_cpu_lock);
 show_one(min_cpu_lock, min_cpu_lock);
 
@@ -660,7 +629,6 @@ static ssize_t store_hotplug_enable(struct kobject *a, struct attribute *b,
 {
 	unsigned int input;
 	int ret;
-	int prev_hotplug_enable = atomic_read(&g_hotplug_enable);
 
 	ret = sscanf(buf, "%u", &input);
 	if (ret != 1)
@@ -668,31 +636,18 @@ static ssize_t store_hotplug_enable(struct kobject *a, struct attribute *b,
 
 	input = input > 0 ? 1 : 0; 
 
-	if (prev_hotplug_enable == input)
+	if (atomic_read(&nightmare_tuners_ins.hotplug_enable) == input)
 		return count;
 
 	if (input > 0) {
+		apply_hotplug_lock();
 		start_rq_work();
 	} else {
+		apply_hotplug_lock();
 		stop_rq_work();
 	}
 	atomic_set(&g_hotplug_enable, input);
 	atomic_set(&nightmare_tuners_ins.hotplug_enable, input);
-
-	return count;
-}
-
-/* up_nr_cpus */
-static ssize_t store_up_nr_cpus(struct kobject *a, struct attribute *b,
-				const char *buf, size_t count)
-{
-	unsigned int input;
-	int ret;
-
-	ret = sscanf(buf, "%u", &input);
-	if (ret != 1)
-		return -EINVAL;
-	nightmare_tuners_ins.up_nr_cpus = min(input, num_possible_cpus());
 
 	return count;
 }
@@ -703,14 +658,9 @@ static ssize_t store_max_cpu_lock(struct kobject *a, struct attribute *b,
 {
 	unsigned int input;
 	int ret;
-	int hotplug_enable = atomic_read(&g_hotplug_enable);
-
 	ret = sscanf(buf, "%u", &input);
 	if (ret != 1)
 		return -EINVAL;
-
-	if (hotplug_enable == 0)
-		return count;
 
 	nightmare_tuners_ins.max_cpu_lock = min(input, num_possible_cpus());
 
@@ -723,19 +673,12 @@ static ssize_t store_min_cpu_lock(struct kobject *a, struct attribute *b,
 {
 	unsigned int input;
 	int ret;
-	int hotplug_enable = atomic_read(&g_hotplug_enable);
-
 	ret = sscanf(buf, "%u", &input);
 	if (ret != 1)
 		return -EINVAL;
 
-	if (hotplug_enable == 0)
-		return count;
+	nightmare_tuners_ins.min_cpu_lock = min(input, num_possible_cpus());
 
-	if (input == 0)
-		cpufreq_nightmare_min_cpu_unlock();
-	else
-		cpufreq_nightmare_min_cpu_lock(input);
 	return count;
 }
 
@@ -746,17 +689,16 @@ static ssize_t store_hotplug_lock(struct kobject *a, struct attribute *b,
 	unsigned int input;
 	int ret;
 	int prev_lock;
-	int hotplug_enable = atomic_read(&g_hotplug_enable);
 
 	ret = sscanf(buf, "%u", &input);
 	if (ret != 1)
 		return -EINVAL;
 
-	if (hotplug_enable == 0)
-		return count;
-
 	input = min(input, num_possible_cpus());
 	prev_lock = atomic_read(&nightmare_tuners_ins.hotplug_lock);
+
+	if (atomic_read(&g_hotplug_enable) == 0 || input == prev_lock)
+		return count;
 
 	if (prev_lock)
 		cpufreq_nightmare_cpu_unlock(prev_lock);
@@ -1194,7 +1136,6 @@ define_one_global_rw(sampling_rate);
 define_one_global_rw(io_is_busy);
 
 define_one_global_rw(hotplug_enable);
-define_one_global_rw(up_nr_cpus);
 define_one_global_rw(max_cpu_lock);
 define_one_global_rw(min_cpu_lock);
 define_one_global_rw(hotplug_lock);
@@ -1233,7 +1174,6 @@ static struct attribute *nightmare_attributes[] = {
 	&sampling_rate.attr,
 	&io_is_busy.attr,
 	&hotplug_enable.attr,
-	&up_nr_cpus.attr,
 	&max_cpu_lock.attr,
 	&min_cpu_lock.attr,
 	/* priority: hotplug_lock > max_cpu_lock > min_cpu_lock
@@ -1331,8 +1271,7 @@ static int check_up(void)
 	if (online == num_possible_cpus())
 		return 0;
 
-	if (nightmare_tuners_ins.max_cpu_lock != 0
-		&& online >= nightmare_tuners_ins.max_cpu_lock)
+	if (nightmare_tuners_ins.max_cpu_lock != 0 && online >= nightmare_tuners_ins.max_cpu_lock)
 		return 0;
 
 	if (nightmare_tuners_ins.min_cpu_lock != 0
