@@ -335,10 +335,8 @@ static atomic_t g_hotplug_lock = ATOMIC_INIT(0);
 static void apply_hotplug_lock(void)
 {
 	int online, possible, lock, flag;
-	struct cpufreq_nightmare_cpuinfo *nightmare_cpuinfo;
 
 	/* do turn_on/off cpus */
-	nightmare_cpuinfo = &per_cpu(od_nightmare_cpuinfo, 0); /* from CPU0 */
 	online = num_online_cpus();
 	possible = num_possible_cpus();
 	lock = atomic_read(&g_hotplug_lock);
@@ -396,11 +394,8 @@ static int cpufreq_nightmare_cpu_unlock(int num_core)
 static void cpufreq_nightmare_min_cpu_lock(unsigned int num_core)
 {
 	int online, flag;
-	struct cpufreq_nightmare_cpuinfo *nightmare_cpuinfo;
 
 	nightmare_tuners_ins.min_cpu_lock = min(num_core, num_possible_cpus());
-
-	nightmare_cpuinfo = &per_cpu(od_nightmare_cpuinfo, 0); /* from CPU0 */
 	online = num_online_cpus();
 	flag = (int)num_core - online;
 	if (flag <= 0)
@@ -411,11 +406,8 @@ static void cpufreq_nightmare_min_cpu_lock(unsigned int num_core)
 static void cpufreq_nightmare_min_cpu_unlock(void)
 {
 	int online, lock, flag;
-	struct cpufreq_nightmare_cpuinfo *nightmare_cpuinfo;
 
 	nightmare_tuners_ins.min_cpu_lock = 0;
-
-	nightmare_cpuinfo = &per_cpu(od_nightmare_cpuinfo, 0); /* from CPU0 */
 	online = num_online_cpus();
 	lock = atomic_read(&g_hotplug_lock);
 	if (lock == 0)
