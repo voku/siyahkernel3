@@ -4222,7 +4222,7 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 	bcm_mkiovar("lpc", (char *)&lpc, 4, iovbuf, sizeof(iovbuf));
 	if ((ret = dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf,
 		sizeof(iovbuf), TRUE, 0)) < 0) {
-		DHD_ERROR(("%s Set lpc failed  %d\n", __FUNCTION__, ret));
+		DHD_TRACE(("%s Set lpc failed  %d\n", __FUNCTION__, ret));
 	}
 
 #if defined(CUSTOMER_HW4) && defined(CONFIG_CONTROL_PM)

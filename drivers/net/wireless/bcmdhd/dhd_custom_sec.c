@@ -898,7 +898,7 @@ int dhd_check_module_cid(dhd_pub_t *dhd)
 	ret = dhd_wl_ioctl_cmd(dhd, WLC_GET_VAR, cis_buf,
 		sizeof(cis_buf), 0, 0);
 	if (ret < 0) {
-		DHD_ERROR(("%s: CIS reading failed, err=%d\n",
+		DHD_TRACE(("%s: CIS reading failed, err=%d\n",
 			__FUNCTION__, ret));
 		return ret;
 	}
@@ -1260,7 +1260,7 @@ void sec_control_pm(dhd_pub_t *dhd, uint *power_mode)
 			bcm_mkiovar("lpc", (char *)&lpc, 4, iovbuf, sizeof(iovbuf));
 			if ((ret = dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf,
 				sizeof(iovbuf), TRUE, 0)) < 0) {
-				DHD_ERROR(("%s Set lpc failed  %d\n", __FUNCTION__, ret));
+				DHD_TRACE(("%s Set lpc failed  %d\n", __FUNCTION__, ret));
 			}
 		} else {
 			dhd_wl_ioctl_cmd(dhd, WLC_SET_PM, (char *)power_mode,
