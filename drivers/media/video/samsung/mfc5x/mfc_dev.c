@@ -1151,6 +1151,8 @@ static int mfc_mmap(struct file *file, struct vm_area_struct *vma)
 	}
 #ifdef SYSMMU_MFC_ON
 #if (defined(CONFIG_VIDEO_MFC_VCM_UMP) || defined(CONFIG_S5P_VMEM))
+	vma->vm_flags |= VM_IO;
+	vma->vm_flags |= VM_DONTEXPAND | VM_DONTDUMP;
 	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
 	vma->vm_ops = &mfc_vm_ops;
 	vma->vm_private_data = mfc_ctx;
@@ -1162,6 +1164,8 @@ static int mfc_mmap(struct file *file, struct vm_area_struct *vma)
 		remap_offset = 0;
 		remap_size = user_size;
 
+		vma->vm_flags |= VM_IO;
+		vma->vm_flags |= VM_DONTEXPAND | VM_DONTDUMP;
 		vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
 
 		/*
@@ -1187,6 +1191,8 @@ static int mfc_mmap(struct file *file, struct vm_area_struct *vma)
 		remap_offset = 0;
 		remap_size = min((unsigned long)mfc_mem_data_size(0), user_size);
 
+		vma->vm_flags |= VM_IO;
+		vma->vm_flags |= VM_DONTEXPAND | VM_DONTDUMP;
 		vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
 
 		/*
@@ -1213,6 +1219,8 @@ static int mfc_mmap(struct file *file, struct vm_area_struct *vma)
 		remap_size = min((unsigned long)mfc_mem_data_size(1),
 			user_size - remap_offset);
 
+		vma->vm_flags |= VM_IO;
+		vma->vm_flags |= VM_DONTEXPAND | VM_DONTDUMP;
 		vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
 
 		/*
@@ -1249,6 +1257,8 @@ static int mfc_mmap(struct file *file, struct vm_area_struct *vma)
 	/* early allocator */
 	/* CMA or bootmem(memblock) */
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
+	vma->vm_flags |= VM_IO;
+	vma->vm_flags |= VM_DONTEXPAND | VM_DONTDUMP;
 	if (mfc_ctx->buf_cache_type == NO_CACHE)
 		vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
 
@@ -1294,6 +1304,8 @@ static int mfc_mmap(struct file *file, struct vm_area_struct *vma)
 		}
 	}
 #else
+	vma->vm_flags |= VM_IO;
+	vma->vm_flags |= VM_DONTEXPAND | VM_DONTDUMP;
 	if (mfc_ctx->buf_cache_type == NO_CACHE)
 		vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
 

@@ -3255,13 +3255,11 @@ static struct bus_type wq_subsys = {
 	.dev_attrs			= wq_sysfs_attrs,
 };
 
-#if 0
 static int __init wq_sysfs_init(void)
 {
 	return subsys_virtual_register(&wq_subsys, NULL);
 }
 core_initcall(wq_sysfs_init);
-#endif
 
 static void wq_device_release(struct device *dev)
 {

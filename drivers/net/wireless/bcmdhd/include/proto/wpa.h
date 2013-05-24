@@ -2,13 +2,13 @@
  * Fundamental types and constants relating to WPA
  *
  * Copyright (C) 1999-2012, Broadcom Corporation
- * 
+ *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
  * available at http://www.broadcom.com/licenses/GPLv2.php, with the
  * following added to such license:
- * 
+ *
  *      As a special exception, the copyright holders of this software give you
  * permission to link this software with independent modules, and to copy and
  * distribute the resulting executable under terms of your choice, provided that
@@ -16,12 +16,12 @@
  * the license of that module.  An independent module is a module which is not
  * derived from this software.  The special exception does not apply to any
  * modifications of the software.
- * 
+ *
  *      Notwithstanding the above, under no circumstances may you combine this
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: wpa.h 261155 2011-05-23 23:51:32Z $
+ * $Id: wpa.h 369547 2012-11-19 08:57:31Z $
  */
 
 #ifndef _proto_wpa_h_
@@ -34,46 +34,50 @@
 
 #include <packed_section_start.h>
 
+#ifdef CUSTOMER_HW4
 #include <dhd_sec_feature.h>
+#endif
 
 
-#define DOT11_RC_INVALID_WPA_IE		13	
-#define DOT11_RC_MIC_FAILURE		14	
-#define DOT11_RC_4WH_TIMEOUT		15	
-#define DOT11_RC_GTK_UPDATE_TIMEOUT	16	
-#define DOT11_RC_WPA_IE_MISMATCH	17	
-#define DOT11_RC_INVALID_MC_CIPHER	18	
-#define DOT11_RC_INVALID_UC_CIPHER	19	
-#define DOT11_RC_INVALID_AKMP		20	
-#define DOT11_RC_BAD_WPA_VERSION	21	
-#define DOT11_RC_INVALID_WPA_CAP	22	
-#define DOT11_RC_8021X_AUTH_FAIL	23	
+
+
+#define DOT11_RC_INVALID_WPA_IE		13
+#define DOT11_RC_MIC_FAILURE		14
+#define DOT11_RC_4WH_TIMEOUT		15
+#define DOT11_RC_GTK_UPDATE_TIMEOUT	16
+#define DOT11_RC_WPA_IE_MISMATCH	17
+#define DOT11_RC_INVALID_MC_CIPHER	18
+#define DOT11_RC_INVALID_UC_CIPHER	19
+#define DOT11_RC_INVALID_AKMP		20
+#define DOT11_RC_BAD_WPA_VERSION	21
+#define DOT11_RC_INVALID_WPA_CAP	22
+#define DOT11_RC_8021X_AUTH_FAIL	23
 
 #define WPA2_PMKID_LEN	16
 
 
 typedef BWL_PRE_PACKED_STRUCT struct
 {
-	uint8 tag;	
-	uint8 length;	
-	uint8 oui[3];	
-	uint8 oui_type;	
+	uint8 tag;
+	uint8 length;
+	uint8 oui[3];
+	uint8 oui_type;
 	BWL_PRE_PACKED_STRUCT struct {
 		uint8 low;
 		uint8 high;
-	} BWL_POST_PACKED_STRUCT version;	
+	} BWL_POST_PACKED_STRUCT version;
 } BWL_POST_PACKED_STRUCT wpa_ie_fixed_t;
 #define WPA_IE_OUITYPE_LEN	4
 #define WPA_IE_FIXED_LEN	8
 #define WPA_IE_TAG_FIXED_LEN	6
 
 typedef BWL_PRE_PACKED_STRUCT struct {
-	uint8 tag;	
-	uint8 length;	
+	uint8 tag;
+	uint8 length;
 	BWL_PRE_PACKED_STRUCT struct {
 		uint8 low;
 		uint8 high;
-	} BWL_POST_PACKED_STRUCT version;	
+	} BWL_POST_PACKED_STRUCT version;
 } BWL_POST_PACKED_STRUCT wpa_rsn_ie_fixed_t;
 #define WPA_RSN_IE_FIXED_LEN	4
 #define WPA_RSN_IE_TAG_FIXED_LEN	2
@@ -107,14 +111,14 @@ typedef BWL_PRE_PACKED_STRUCT struct
 } BWL_POST_PACKED_STRUCT wpa_pmkid_list_t;
 
 
-#define WPA_CIPHER_NONE		0	
-#define WPA_CIPHER_WEP_40	1	
-#define WPA_CIPHER_TKIP		2	
-#define WPA_CIPHER_AES_OCB	3	
-#define WPA_CIPHER_AES_CCM	4	
-#define WPA_CIPHER_WEP_104	5	
-#define WPA_CIPHER_BIP		6	
-#define WPA_CIPHER_TPK		7	
+#define WPA_CIPHER_NONE		0
+#define WPA_CIPHER_WEP_40	1
+#define WPA_CIPHER_TKIP		2
+#define WPA_CIPHER_AES_OCB	3
+#define WPA_CIPHER_AES_CCM	4
+#define WPA_CIPHER_WEP_104	5
+#define WPA_CIPHER_BIP		6
+#define WPA_CIPHER_TPK		7
 #ifdef BCMCCX
 #define WPA_CIPHER_CKIP		8
 #define WPA_CIPHER_CKIP_MMH	9
@@ -130,7 +134,7 @@ typedef BWL_PRE_PACKED_STRUCT struct
 #define WAPI_CIPHER_SMS4	11
 
 #define WAPI_CSE_WPI_SMS4	1
-#endif 
+#endif
 
 #define IS_WPA_CIPHER(cipher)	((cipher) == WPA_CIPHER_NONE || \
 				 (cipher) == WPA_CIPHER_WEP_40 || \
@@ -150,14 +154,14 @@ typedef BWL_PRE_PACKED_STRUCT struct
 
 #define WAPI_CIPHER_2_CSE_WPI(cipher) ((cipher) == WAPI_CIPHER_SMS4 ? \
 				WAPI_CSE_WPI_SMS4 : WAPI_CIPHER_NONE)
-#endif 
+#endif
 
 
-#define WPA_TKIP_CM_DETECT	60	
-#define WPA_TKIP_CM_BLOCK	60	
+#define WPA_TKIP_CM_DETECT	60
+#define WPA_TKIP_CM_BLOCK	60
 
 
-#define RSN_CAP_LEN		2	
+#define RSN_CAP_LEN		2
 
 
 #define RSN_CAP_PREAUTH			0x0001
@@ -170,10 +174,8 @@ typedef BWL_PRE_PACKED_STRUCT struct
 #define RSN_CAP_2_REPLAY_CNTRS		1
 #define RSN_CAP_4_REPLAY_CNTRS		2
 #define RSN_CAP_16_REPLAY_CNTRS		3
-#ifdef MFP
 #define RSN_CAP_MFPR			0x0040
 #define RSN_CAP_MFPC			0x0080
-#endif
 
 
 #define WPA_CAP_4_REPLAY_CNTRS		RSN_CAP_4_REPLAY_CNTRS
@@ -182,11 +184,11 @@ typedef BWL_PRE_PACKED_STRUCT struct
 #define WPA_CAP_REPLAY_CNTR_MASK	RSN_CAP_PTK_REPLAY_CNTR_MASK
 
 
-#define WPA_CAP_PEER_KEY_ENABLE		(0x1 << 1)	
+#define WPA_CAP_PEER_KEY_ENABLE		(0x1 << 1)
 
 
-#define WPA_CAP_LEN	RSN_CAP_LEN	
-#define WPA_PMKID_CNT_LEN	2 	
+#define WPA_CAP_LEN	RSN_CAP_LEN
+#define WPA_PMKID_CNT_LEN	2
 
 #define	WPA_CAP_WPA2_PREAUTH		RSN_CAP_PREAUTH
 
@@ -202,11 +204,11 @@ typedef BWL_PRE_PACKED_STRUCT struct
 #define WAPI_MUTIL_REKEY		0x00F4
 #define WAPI_STA_STATS			0x00F5
 
-#define WAPI_USK_REKEY_COUNT		0x4000000 
-#define WAPI_MSK_REKEY_COUNT		0x4000000 
-#endif 
+#define WAPI_USK_REKEY_COUNT		0x4000000
+#define WAPI_MSK_REKEY_COUNT		0x4000000
+#endif
 
 
 #include <packed_section_end.h>
 
-#endif 
+#endif

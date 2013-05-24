@@ -296,6 +296,9 @@ extern void (*arm_lang_output_object_attributes_hook)(void);
 #define TARGET_IDIV		((TARGET_ARM && arm_arch_arm_hwdiv) \
 				 || (TARGET_THUMB2 && arm_arch_thumb_hwdiv))
 
+/* Should NEON be used for 64-bits bitops.  */
+#define TARGET_PREFER_NEON_64BITS (prefer_neon_for_64bits)
+
 /* True iff the full BPABI is being used.  If TARGET_BPABI is true,
    then TARGET_AAPCS_BASED must be true -- but the converse does not
    hold.  TARGET_BPABI implies the use of the BPABI runtime library,
@@ -446,6 +449,10 @@ extern int arm_arch_arm_hwdiv;
 
 /* Nonzero if chip supports integer division instruction in Thumb mode.  */
 extern int arm_arch_thumb_hwdiv;
+
+/* Nonzero if we should use Neon to handle 64-bits operations rather
+   than core registers.  */
+extern int prefer_neon_for_64bits;
 
 #ifndef TARGET_DEFAULT
 #define TARGET_DEFAULT  (MASK_APCS_FRAME)
@@ -1132,11 +1139,18 @@ enum reg_class
 /* FPA registers can't do subreg as all values are reformatted to internal
    precision.  In VFPv1, VFP registers could only be accessed in the mode
    they were set, so subregs would be invalid there too.  However, we don't
-   support VFPv1 at the moment, and the restriction was lifted in VFPv2.  */
+   support VFPv1 at the moment, and the restriction was lifted in VFPv2.
+   In big-endian mode, modes greater than word size (i.e. DFmode) are stored in
+   VFP registers in little-endian order.  We can't describe that accurately to
+   GCC, so avoid taking subregs of such values.  */
 #define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS)		\
-  (GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO)			\
-   ? reg_classes_intersect_p (FPA_REGS, (CLASS))		\
-   : 0)
+  (TARGET_VFP							\
+  ? TARGET_BIG_END						\
+    && (GET_MODE_SIZE (FROM) > UNITS_PER_WORD			\
+       || GET_MODE_SIZE (TO) > UNITS_PER_WORD)			\
+    && reg_classes_intersect_p (VFP_REGS, (CLASS))		\
+  : GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO)			\
+    && reg_classes_intersect_p (FPA_REGS, (CLASS)))
 
 /* The class value for index registers, and the one for base regs.  */
 #define INDEX_REG_CLASS  (TARGET_THUMB1 ? LO_REGS : GENERAL_REGS)

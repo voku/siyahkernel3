@@ -737,23 +737,23 @@ __mod_timer(struct timer_list *timer, unsigned long expires,
 
 	debug_activate(timer, expires);
 
-	/*
-	 * Should we try to migrate timer?
-	 * However we can't change timer's base while it is running, otherwise
-	 * del_timer_sync() can't detect that the timer's handler yet has not
-	 * finished. This also guarantees that the timer is serialized wrt
-	 * itself.
-	 */
-	if (likely(base->running_timer != timer)) {
-		cpu = smp_processor_id();
+	cpu = smp_processor_id();
 
 #if defined(CONFIG_NO_HZ_COMMON) && defined(CONFIG_SMP)
-		if (!pinned && get_sysctl_timer_migration())
-			cpu = get_nohz_timer_target();
+	if (!pinned && get_sysctl_timer_migration())
+		cpu = get_nohz_timer_target();
 #endif
-		new_base = per_cpu(tvec_bases, cpu);
+	new_base = per_cpu(tvec_bases, cpu);
 
-		if (base != new_base) {
+	if (base != new_base) {
+		/*
+		 * We are trying to schedule the timer on the local CPU.
+		 * However we can't change timer's base while it is running,
+		 * otherwise del_timer_sync() can't detect that the timer's
+		 * handler yet has not finished. This also guarantees that
+		 * the timer is serialized wrt itself.
+		 */
+		if (likely(base->running_timer != timer)) {
 			/* See the comment in lock_timer_base() */
 			timer_set_base(timer, NULL);
 			spin_unlock(&base->lock);
@@ -794,7 +794,9 @@ EXPORT_SYMBOL(mod_timer_pending);
  * Algorithm:
  *   1) calculate the maximum (absolute) time
  *   2) calculate the highest bit where the expires and new max are different
- *   3) round down the maximum time, so that all the lower bits are zeros
+ *   3) use this bit to make a mask
+ *   4) use the bitmask to round down the maximum time, so that all last
+ *      bits are zeros
  */
 static inline
 unsigned long apply_slack(struct timer_list *timer, unsigned long expires)
@@ -816,9 +818,11 @@ unsigned long apply_slack(struct timer_list *timer, unsigned long expires)
 	if (mask == 0)
 		return expires;
 
-	bit = __fls(mask);
+	bit = find_last_bit(&mask, BITS_PER_LONG);
 
-	expires_limit = (expires_limit >> bit) << bit;
+	mask = (1 << bit) - 1;
+
+	expires_limit = expires_limit & ~(mask);
 
 	return expires_limit;
 }

@@ -3,13 +3,13 @@
  *   target serial buses like USB, SDIO, SPI, etc.
  *
  * Copyright (C) 1999-2012, Broadcom Corporation
- * 
+ *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
  * available at http://www.broadcom.com/licenses/GPLv2.php, with the
  * following added to such license:
- * 
+ *
  *      As a special exception, the copyright holders of this software give you
  * permission to link this software with independent modules, and to copy and
  * distribute the resulting executable under terms of your choice, provided that
@@ -17,12 +17,12 @@
  * the license of that module.  An independent module is a module which is not
  * derived from this software.  The special exception does not apply to any
  * modifications of the software.
- * 
+ *
  *      Notwithstanding the above, under no circumstances may you combine this
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dbus.h 323680 2012-03-26 17:52:31Z $
+ * $Id: dbus.h 349214 2012-08-07 10:04:38Z $
  */
 
 #ifndef __DBUS_H__
@@ -33,7 +33,6 @@
 #define DBUSTRACE(args)
 #define DBUSERR(args)
 #define DBUSINFO(args)
-#define DBUSTRACE(args)
 #define DBUSDBGLOCK(args)
 
 enum {
@@ -77,8 +76,8 @@ enum {
 #define DBUS_TX_RETRY_LIMIT		3		/* retries for failed txirb */
 #define DBUS_TX_TIMEOUT_INTERVAL	250		/* timeout for txirb complete, in ms */
 
-#define DBUS_BUFFER_SIZE_TX	16000
-#define DBUS_BUFFER_SIZE_RX	5000
+#define DBUS_BUFFER_SIZE_TX	32000
+#define DBUS_BUFFER_SIZE_RX	24000
 
 #define DBUS_BUFFER_SIZE_TX_NOAGG	2048
 #define DBUS_BUFFER_SIZE_RX_NOAGG	2048
@@ -115,7 +114,7 @@ enum dbus_file {
 typedef enum _DEVICE_SPEED {
 	INVALID_SPEED = -1,
 	LOW_SPEED     =  1,	/* USB 1.1: 1.5 Mbps */
-	FULL_SPEED,     	/* USB 1.1: 12  Mbps */
+	FULL_SPEED,		/* USB 1.1: 12  Mbps */
 	HIGH_SPEED,		/* USB 2.0: 480 Mbps */
 	SUPER_SPEED,		/* USB 3.0: 4.8 Gbps */
 } DEVICE_SPEED;
@@ -296,7 +295,6 @@ extern int dbus_send_ctl(dbus_pub_t *pub, uint8 *buf, int len);
 extern int dbus_recv_ctl(dbus_pub_t *pub, uint8 *buf, int len);
 extern int dbus_recv_bulk(dbus_pub_t *pub, uint32 ep_idx);
 extern int dbus_poll_intr(dbus_pub_t *pub);
-
 extern int dbus_get_stats(dbus_pub_t *pub, dbus_stats_t *stats);
 extern int dbus_get_attrib(dbus_pub_t *pub, dbus_attrib_t *attrib);
 extern int dbus_get_device_speed(dbus_pub_t *pub);
@@ -447,7 +445,7 @@ extern void dbus_release_fw_nvfile(void *firmware);
  * NOTE that is does not need to (and does not) match its kernel counterpart
  */
 #define EHCI_QTD_NBUFFERS       5
-#define EHCI_QTD_ALIGN  	32
+#define EHCI_QTD_ALIGN		32
 #define EHCI_BULK_PACKET_SIZE	512
 #define EHCI_QTD_XACTERR_MAX	32
 
@@ -468,8 +466,8 @@ struct ehci_qtd {
 #define EHCI_QTD_BABBLE         0x10
 #define EHCI_QTD_XACTERR        0x08
 #define EHCI_QTD_MISSEDMICRO    0x04
-	volatile uint32_t 	qtd_buffer[EHCI_QTD_NBUFFERS];
-	volatile uint32_t 	qtd_buffer_hi[EHCI_QTD_NBUFFERS];
+	volatile uint32_t	qtd_buffer[EHCI_QTD_NBUFFERS];
+	volatile uint32_t	qtd_buffer_hi[EHCI_QTD_NBUFFERS];
 
 	/* Implementation extension */
 	dma_addr_t		qtd_self;		/* own hardware address */
@@ -490,10 +488,10 @@ struct ehci_qtd {
  */
 struct ehci_qh {
 	/* Hardware map */
-	volatile uint32_t 	qh_link;
-	volatile uint32_t 	qh_endp;
-	volatile uint32_t 	qh_endphub;
-	volatile uint32_t 	qh_curqtd;
+	volatile uint32_t	qh_link;
+	volatile uint32_t	qh_endp;
+	volatile uint32_t	qh_endphub;
+	volatile uint32_t	qh_curqtd;
 
 	/* QTD overlay */
 	volatile uint32_t	ow_next;
@@ -504,7 +502,7 @@ struct ehci_qh {
 
 	/* Extension (should match the kernel layout) */
 	dma_addr_t		unused0;
-	void 			*unused1;
+	void			*unused1;
 	struct list_head	unused2;
 	struct ehci_qtd		*dummy;
 	struct ehci_qh		*unused3;

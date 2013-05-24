@@ -3,13 +3,13 @@
  * of the SiliconBackplane-based Broadcom chips.
  *
  * Copyright (C) 1999-2012, Broadcom Corporation
- * 
+ *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
  * available at http://www.broadcom.com/licenses/GPLv2.php, with the
  * following added to such license:
- * 
+ *
  *      As a special exception, the copyright holders of this software give you
  * permission to link this software with independent modules, and to copy and
  * distribute the resulting executable under terms of your choice, provided that
@@ -17,12 +17,21 @@
  * the license of that module.  An independent module is a module which is not
  * derived from this software.  The special exception does not apply to any
  * modifications of the software.
- * 
+ *
  *      Notwithstanding the above, under no circumstances may you combine this
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: hndpmu.c 357871 2012-09-20 07:17:35Z $
+ * $Id: hndpmu.c 367414 2012-11-08 00:40:54Z $
+ */
+
+/*
+ * Note: this file contains PLL/FLL related functions. A chip can contain multiple PLLs/FLLs.
+ * However, in the context of this file the baseband ('BB') PLL/FLL is referred to.
+ *
+ * Throughout this code, the prefixes 'pmu0_', 'pmu1_' and 'pmu2_' are used.
+ * They refer to different revisions of the PMU (which is at revision 18 @ Apr 25, 2012)
+ * pmu2_ marks the transition from PLL to ADFLL (Digital Frequency Locked Loop)
  */
 
 #include <bcm_cfg.h>

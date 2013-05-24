@@ -1607,8 +1607,10 @@ static void mshci_cmd_irq(struct mshci_host *host, u32 intmask)
 
 	if (intmask & INTMSK_RTO) {
 		host->cmd->error = -ETIMEDOUT;
-		printk(KERN_ERR "%s: cmd %d response timeout error\n",
+/*
+		printk(KERN_DEBUG "%s: cmd %d response timeout error\n",
 				mmc_hostname(host->mmc), host->cmd->opcode);
+*/
 	} else if (intmask & (INTMSK_RCRC | INTMSK_RE)) {
 		host->cmd->error = -EILSEQ;
 		printk(KERN_ERR "%s: cmd %d repsonse %s error\n",

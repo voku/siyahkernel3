@@ -2,7 +2,7 @@
  * SPI device spec header file
  *
  * Copyright (C) 1999-2012, Broadcom Corporation
- * 
+ *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: spid.h 354172 2012-08-30 07:19:26Z $
+ * $Id: spid.h 358377 2012-09-23 11:30:22Z $
  */
 
 #ifndef	_SPI_H
@@ -131,17 +131,17 @@ typedef volatile struct {
 #define STATUS_F3_PKT_LEN_SHIFT		21
 
 /* Bit mask for 16 bits SPID_F1_INFO_REG device register */
-#define F1_ENABLED 			0x0001
+#define F1_ENABLED			0x0001
 #define F1_RDY_FOR_DATA_TRANSFER	0x0002
 #define F1_MAX_PKT_SIZE			0x01FC
 
 /* Bit mask for 16 bits SPID_F2_INFO_REG device register */
-#define F2_ENABLED 			0x0001
+#define F2_ENABLED			0x0001
 #define F2_RDY_FOR_DATA_TRANSFER	0x0002
 #define F2_MAX_PKT_SIZE			0x3FFC
 
 /* Bit mask for 16 bits SPID_F3_INFO_REG device register */
-#define F3_ENABLED 			0x0001
+#define F3_ENABLED			0x0001
 #define F3_RDY_FOR_DATA_TRANSFER	0x0002
 #define F3_MAX_PKT_SIZE			0x3FFC
 

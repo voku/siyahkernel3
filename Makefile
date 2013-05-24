@@ -351,12 +351,10 @@ CC		= $(srctree)/scripts/gcc-wrapper.py $(REAL_CC)
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
 
-LOW_ARM_FLAGS	= -pipe -march=armv7-a -mtune=cortex-a9 \
-		  -mfpu=neon -mfloat-abi=softfp \
-		  -funsafe-math-optimizations \
-		  -ftree-vectorize -mvectorize-with-neon-quad
+LOW_ARM_FLAGS	= -march=armv7-a -mtune=cortex-a9 -mfpu=neon -mfloat-abi=soft \
+		  -mvectorize-with-neon-quad
 
-#ARM_FLAGS      = -marm -fsingle-precision-constant
+#ARM_FLAGS      = -pipe -marm -fsingle-precision-constant -funsafe-math-optimizations -ftree-vectorize
 #LOOPS		= -funswitch-loops -fpredictive-commoning
 #LOOPS_4_6	= -floop-strip-mine -floop-block -floop-interchange
 

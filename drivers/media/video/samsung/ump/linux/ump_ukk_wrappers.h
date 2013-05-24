@@ -36,8 +36,6 @@ int ump_lock_wrapper(u32 __user * argument, struct ump_session_data  * session_d
 int ump_unlock_wrapper(u32 __user * argument, struct ump_session_data  * session_data);
 
 
-
-
 #ifdef __cplusplus
 }
 #endif
