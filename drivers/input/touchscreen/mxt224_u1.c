@@ -745,7 +745,8 @@ static void mxt224_ta_probe(bool ta_status)
 
 		value = (u8) movfilter;
 		register_address = 13;
-		write_mem(copy_data, obj_address + (u16) register_address, size_one, &value);
+		write_mem(copy_data, obj_address + (u16) register_address,
+			  size_one, &value);
 		read_mem(copy_data, obj_address + (u16) register_address, (u8) size_one, &val);
 		printk(KERN_ERR "[TSP] TA_probe MXT224 T%d Byte%d is %d\n", 9, register_address, val);
 
@@ -2610,7 +2611,6 @@ int read_all_data(uint16_t dbg_mode)
 	ret =
 	    get_object_info(copy_data, DEBUG_DIAGNOSTIC_T37, &size,
 			    &object_address);
-/* jerry no need to leave it */
 #if 0
 	for (i = 0; i < 5; i++) {
 		if (data_buffer[0] == dbg_mode)
@@ -2702,7 +2702,6 @@ int read_all_delta_data(uint16_t dbg_mode)
 	ret =
 	    get_object_info(copy_data, DEBUG_DIAGNOSTIC_T37, &size,
 			    &object_address);
-/* jerry no need to leave it */
 #if 0
 	for (i = 0; i < 5; i++) {
 		if (data_buffer[0] == dbg_mode)
@@ -2764,7 +2763,6 @@ static void mxt224_optical_gain(uint16_t dbg_mode)
 	ret =
 	    get_object_info(copy_data, DEBUG_DIAGNOSTIC_T37, &size,
 			    &object_address);
-/* jerry no need to leave it */
 #if 0
 	for (i = 0; i < 5; i++) {
 		if (data_buffer[0] == dbg_mode)
@@ -3136,7 +3134,6 @@ static int atoi(const char *str)
 		result = result * 10 + str[count] - '0';
 		++count;
 	}
-
 	return result;
 }
 
@@ -3196,7 +3193,6 @@ static ssize_t set_firm_version_show(struct device *dev,
 				     struct device_attribute *attr, char *buf)
 {
 	return sprintf(buf, "%#02x\n", copy_data->tsp_version_disp);
-
 }
 
 static ssize_t set_module_off_show(struct device *dev,
