@@ -711,15 +711,15 @@ static ssize_t store_max_cpu_lock(struct kobject *a, struct attribute *b,
 {
 	unsigned int input;
 	int ret;
-
 	int hotplug_enable = atomic_read(&g_hotplug_enable);
-
-	if (hotplug_enable == 0)
-		return -EINVAL;
 
 	ret = sscanf(buf, "%u", &input);
 	if (ret != 1)
 		return -EINVAL;
+
+	if (hotplug_enable == 0)
+		return count;
+
 	nightmare_tuners_ins.max_cpu_lock = min(input, num_possible_cpus());
 
 	return count;
@@ -733,12 +733,13 @@ static ssize_t store_min_cpu_lock(struct kobject *a, struct attribute *b,
 	int ret;
 	int hotplug_enable = atomic_read(&g_hotplug_enable);
 
-	if (hotplug_enable == 0)
-		return -EINVAL;
-
 	ret = sscanf(buf, "%u", &input);
 	if (ret != 1)
 		return -EINVAL;
+
+	if (hotplug_enable == 0)
+		return count;
+
 	if (input == 0)
 		cpufreq_nightmare_min_cpu_unlock();
 	else
@@ -755,12 +756,12 @@ static ssize_t store_hotplug_lock(struct kobject *a, struct attribute *b,
 	int prev_lock;
 	int hotplug_enable = atomic_read(&g_hotplug_enable);
 
-	if (hotplug_enable == 0)
-		return -EINVAL;
-
 	ret = sscanf(buf, "%u", &input);
 	if (ret != 1)
 		return -EINVAL;
+
+	if (hotplug_enable == 0)
+		return count;
 
 	input = min(input, num_possible_cpus());
 	prev_lock = atomic_read(&nightmare_tuners_ins.hotplug_lock);
@@ -1471,7 +1472,6 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 	int max_hotplug_rate = max(nightmare_tuners_ins.cpu_up_rate,nightmare_tuners_ins.cpu_down_rate);
 	/* add total_load, avg_load to get average load */
 	unsigned int total_load = 0;
-	unsigned int avg_load = 0;
 	int rq_avg = 0;
 	int hotplug_enable = atomic_read(&g_hotplug_enable);
 
@@ -1556,8 +1556,7 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 		cpufreq_notify_utilization(policy, load_at_max_freq);
 	}
 	/* calculate the average load across all related CPUs */
-	avg_load = total_load / num_online_cpus();
-	hotplug_histories->usage[num_hist].avg_load = avg_load;	
+	hotplug_histories->usage[num_hist].avg_load = ((total_load == 0) || (total_load == 1 && num_online_cpus() == 2)) ? 0 : total_load / num_online_cpus();	
 
 	if (hotplug_enable > 0) {
 		/* Check for CPU hotplug */
