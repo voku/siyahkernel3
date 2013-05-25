@@ -74,7 +74,7 @@
 #include <linux/binfmts.h>
 #include <linux/context_tracking.h>
 
-#include <asm/switch_to.h>
+#include <asm/system.h>
 #include <asm/tlb.h>
 #include <asm/irq_regs.h>
 #include <asm/mutex.h>

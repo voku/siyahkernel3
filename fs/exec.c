@@ -60,7 +60,7 @@
 #include <asm/uaccess.h>
 #include <asm/mmu_context.h>
 #include <asm/tlb.h>
-#include <asm/exec.h>
+#include <asm/system.h>
 
 #include <trace/events/task.h>
 #include "internal.h"
