@@ -17,7 +17,6 @@
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/rtc.h>
-#include <linux/syscalls.h> /* sys_sync */
 #include <linux/wakelock.h>
 #include <linux/workqueue.h>
 #ifdef CONFIG_FAST_BOOT
@@ -54,9 +53,7 @@ static int state;
 static void sync_system(struct work_struct *work)
 {
 	pr_info("%s +\n", __func__);
-	wake_lock(&sync_wake_lock);
-	sys_sync();
-	wake_unlock(&sync_wake_lock);
+	suspend_sys_sync_queue();
 	pr_info("%s -\n", __func__);
 }
 
@@ -122,12 +119,7 @@ static void early_suspend(struct work_struct *work)
 	}
 	mutex_unlock(&early_suspend_lock);
 
-	if (debug_mask & DEBUG_SUSPEND)
-		pr_info("early_suspend: sync\n");
-
-	/* sys_sync(); */
-	queue_work(sync_work_queue, &sync_system_work);
-
+	suspend_sys_sync_queue();
 abort:
 	spin_lock_irqsave(&state_lock, irqflags);
 	if (state == SUSPEND_REQUESTED_AND_SUSPENDED)

@@ -19,6 +19,8 @@
 #include <linux/wakelock.h>
 #include <linux/kmod.h>
 
+#include "power.h"
+
 /* 
  * Timeout for stopping processes
  */
