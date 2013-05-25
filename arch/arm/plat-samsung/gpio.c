@@ -11,6 +11,7 @@
  * published by the Free Software Foundation.
 */
 
+#include <linux/bug.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/io.h>
