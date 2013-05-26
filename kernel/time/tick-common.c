@@ -390,6 +390,7 @@ static int tick_notify(struct notifier_block *nb, unsigned long reason,
 		tick_shutdown_broadcast_oneshot(dev);
 		tick_shutdown_broadcast(dev);
 		tick_shutdown(dev);
+		tick_shutdown_nohz(dev);
 		break;
 
 	case CLOCK_EVT_NOTIFY_SUSPEND:
