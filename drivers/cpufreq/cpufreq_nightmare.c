@@ -180,7 +180,7 @@ static unsigned int get_nr_run_avg(void)
 #define MAX_FREQ_FOR_CALC_DECR		(400000)
 #define DEF_FREQ_FOR_CALC_DECR		(200000)
 #define MIN_FREQ_FOR_CALC_DECR		(125000)
-#define DEF_ABOVE_SCALING_FREQ_STEP	(90000)
+#define DEF_ABOVE_SCALING_FREQ_STEP	(99000)
 
 #ifdef CONFIG_MACH_MIDAS
 static int hotplug_rq[4][2] = {
@@ -453,26 +453,22 @@ static ssize_t show_##file_name						\
 {									\
 	return sprintf(buf, "%u\n", nightmare_tuners_ins.object);		\
 }
+
 show_one(sampling_rate, sampling_rate);
 show_one(io_is_busy, io_is_busy);
-
 show_one(max_cpu_lock, max_cpu_lock);
 show_one(min_cpu_lock, min_cpu_lock);
-
 show_one(cpu_up_rate, cpu_up_rate);
 show_one(cpu_down_rate, cpu_down_rate);
 show_one(hotplug_compare_level,hotplug_compare_level);
 show_one(up_avg_load, up_avg_load);
 show_one(down_avg_load, down_avg_load);
-
 show_one(ignore_nice_load, ignore_nice);
 show_one(inc_cpu_load_at_min_freq, inc_cpu_load_at_min_freq);
 show_one(inc_cpu_load, inc_cpu_load);
 show_one(dec_cpu_load, dec_cpu_load);
-
 show_one(freq_for_responsiveness, freq_for_responsiveness);
 show_one(freq_for_responsiveness_max, freq_for_responsiveness_max);
-
 show_one(freq_step_at_min_freq, freq_step_at_min_freq);
 show_one(freq_step, freq_step);
 show_one(freq_up_brake_at_min_freq, freq_up_brake_at_min_freq);
@@ -480,10 +476,8 @@ show_one(freq_up_brake, freq_up_brake);
 show_one(freq_step_dec, freq_step_dec);
 show_one(freq_step_dec_at_max_freq, freq_step_dec_at_max_freq);
 show_one(above_scaling_freq_step, above_scaling_freq_step);
-
 show_one(freq_for_calc_incr, freq_for_calc_incr);
 show_one(freq_for_calc_decr, freq_for_calc_decr);
-
 show_one(dvfs_debug, dvfs_debug);
 
 
@@ -1156,26 +1150,21 @@ static ssize_t store_dvfs_debug(struct kobject *a, struct attribute *b,
 
 define_one_global_rw(sampling_rate);
 define_one_global_rw(io_is_busy);
-
 define_one_global_rw(hotplug_enable);
 define_one_global_rw(max_cpu_lock);
 define_one_global_rw(min_cpu_lock);
 define_one_global_rw(hotplug_lock);
-
 define_one_global_rw(cpu_up_rate);
 define_one_global_rw(cpu_down_rate);
 define_one_global_rw(hotplug_compare_level);
 define_one_global_rw(up_avg_load);
 define_one_global_rw(down_avg_load);
 define_one_global_rw(ignore_nice_load);
-
 define_one_global_rw(inc_cpu_load_at_min_freq);
 define_one_global_rw(inc_cpu_load);
 define_one_global_rw(dec_cpu_load);
-
 define_one_global_rw(freq_for_responsiveness);
 define_one_global_rw(freq_for_responsiveness_max);
-
 define_one_global_rw(freq_step_at_min_freq);
 define_one_global_rw(freq_step);
 define_one_global_rw(freq_up_brake_at_min_freq);
@@ -1183,7 +1172,6 @@ define_one_global_rw(freq_up_brake);
 define_one_global_rw(freq_step_dec);
 define_one_global_rw(freq_step_dec_at_max_freq);
 define_one_global_rw(above_scaling_freq_step);
-
 define_one_global_rw(freq_for_calc_incr);
 define_one_global_rw(freq_for_calc_decr);
 define_one_global_rw(dvfs_debug);
@@ -1220,14 +1208,11 @@ static struct attribute *nightmare_attributes[] = {
 	&up_avg_load.attr,
 	&down_avg_load.attr,
 	&ignore_nice_load.attr,
-
 	&inc_cpu_load_at_min_freq.attr,
 	&inc_cpu_load.attr,
 	&dec_cpu_load.attr,
-
 	&freq_for_responsiveness.attr,
 	&freq_for_responsiveness_max.attr,
-
 	&freq_step_at_min_freq.attr,
 	&freq_step.attr,
 	&freq_up_brake_at_min_freq.attr,
@@ -1237,7 +1222,6 @@ static struct attribute *nightmare_attributes[] = {
 	&freq_for_calc_incr.attr,
 	&freq_for_calc_decr.attr,
 	&above_scaling_freq_step.attr,
-
 	&dvfs_debug.attr,
 	NULL
 };
