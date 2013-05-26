@@ -475,9 +475,9 @@ show_one(freq_up_brake_at_min_freq, freq_up_brake_at_min_freq);
 show_one(freq_up_brake, freq_up_brake);
 show_one(freq_step_dec, freq_step_dec);
 show_one(freq_step_dec_at_max_freq, freq_step_dec_at_max_freq);
-show_one(above_scaling_freq_step, above_scaling_freq_step);
 show_one(freq_for_calc_incr, freq_for_calc_incr);
 show_one(freq_for_calc_decr, freq_for_calc_decr);
+show_one(above_scaling_freq_step, above_scaling_freq_step);
 show_one(dvfs_debug, dvfs_debug);
 
 
@@ -1171,9 +1171,9 @@ define_one_global_rw(freq_up_brake_at_min_freq);
 define_one_global_rw(freq_up_brake);
 define_one_global_rw(freq_step_dec);
 define_one_global_rw(freq_step_dec_at_max_freq);
-define_one_global_rw(above_scaling_freq_step);
 define_one_global_rw(freq_for_calc_incr);
 define_one_global_rw(freq_for_calc_decr);
+define_one_global_rw(above_scaling_freq_step);
 define_one_global_rw(dvfs_debug);
 
 static struct attribute *nightmare_attributes[] = {
