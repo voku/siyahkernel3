@@ -671,9 +671,15 @@ succeed:
 
 static bool max17042_check_status(struct i2c_client *client)
 {
-	struct max17042_chip *chip = i2c_get_clientdata(client);
+	struct max17042_chip *chip;
+	struct power_supply *psy = power_supply_get_by_name("battery");
 	u8 data[2];
 	bool ret = false;
+
+	if (psy != NULL)
+		return ret;
+	else
+		chip = i2c_get_clientdata(client);
 
 	if (chip->is_enable) {
 		/* check if Smn was generated */
