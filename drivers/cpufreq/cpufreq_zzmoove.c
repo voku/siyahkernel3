@@ -57,8 +57,8 @@
  *
  *	  for this function following new tuneables were indroduced:
  *
- *	  freq_limit_sleep		 -> limit freqency on early suspend (possible values 0 disable limit, 200-1600, default: 0)
- *	  freq_limit			 -> limit freqency on awake (possible values 0 disable limit, 200-1600, default: 0)
+ *	  freq_limit_sleep		 -> limit freqency on early suspend (possible values 0 disable limit, 100-1600, default: 0)
+ *	  freq_limit			 -> limit freqency on awake (possible values 0 disable limit, 100-1600, default: 0)
  *
  *	- added scaling frequencies to frequency tables for a faster up/down scaling. This should bring more performance but on the other hand it
  *	  can be of course a little bit more power consumptive.
@@ -745,7 +745,7 @@ static ssize_t store_freq_limit_sleep(struct kobject *a,
 	int valid_freq[17]={0, 1600000, 1500000, 1400000, 1300000, 1200000, 1100000, 1000000, 900000, 800000, 700000, 600000, 500000, 400000, 300000, 200000, 100000};
 	ret = sscanf(buf, "%u", &input);
 
-	if (ret != 1 || input > 1600000 || (input < 200000 && input != 0))
+	if (ret != 1 || input > 1600000 || (input < 100000 && input != 0))
 		return -EINVAL;
 
         for (i=0; i<17; i++) {
@@ -1326,8 +1326,8 @@ static void __exit cpufreq_gov_dbs_exit(void)
 MODULE_AUTHOR("Zane Zaminsky <cyxman@yahoo.com>");
 MODULE_DESCRIPTION("'cpufreq_zzmoove' - A dynamic cpufreq governor based "
 		"on smoove governor from Michael Weingaertner which was originally based on "
-		"cpufreq_conservative from Alexander Clouter. Optimized for use with Samsung I9300 "
-		"using frequency lookup tables and CPU hotplug - ported/modified for I9300 "
+		"cpufreq_conservative from Alexander Clouter. Optimized for use with Samsung I9100 "
+		"using frequency lookup tables and CPU hotplug - ported/modified for I9100 "
 		"by ZaneZam November 2012");
 MODULE_LICENSE("GPL");
 
