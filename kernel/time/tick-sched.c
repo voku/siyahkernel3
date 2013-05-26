@@ -1066,6 +1066,8 @@ static inline void tick_check_nohz(int cpu)
 
 void tick_shutdown_nohz(unsigned int *cpup)
 {
+	unsigned int cpu = *cpup;
+
 	struct tick_sched *ts = &per_cpu(tick_cpu_sched, cpu);
 
 	memset(ts, 0, sizeof(*ts));
