@@ -632,7 +632,7 @@ static ssize_t sec_fg_store(struct device *dev,
 				power_supply_get_by_name("battery");
 			union power_supply_propval value;
 
-			if (!psy) {
+			if (psy == NULL) {
 				pr_err("%s: fail to get battery ps\n",
 					__func__);
 				return -ENODEV;
