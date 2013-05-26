@@ -21,7 +21,6 @@
 #include <asm/asm-offsets.h>
 #include <asm/memory.h>
 #include <asm/thread_info.h>
-#include <asm/system.h>
 #include <asm/pgtable.h>
 
 #ifdef CONFIG_DEBUG_LL

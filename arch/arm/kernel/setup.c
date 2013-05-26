@@ -29,6 +29,8 @@
 #include <linux/fs.h>
 #include <linux/proc_fs.h>
 #include <linux/memblock.h>
+#include <linux/bug.h>
+#include <linux/compiler.h>
 
 #include <asm/unified.h>
 #include <asm/cp15.h>
@@ -48,6 +50,8 @@
 #include <asm/mach/arch.h>
 #include <asm/mach/irq.h>
 #include <asm/mach/time.h>
+#include <asm/system_info.h>
+#include <asm/system_misc.h>
 #include <asm/traps.h>
 #include <asm/unwind.h>
 #ifdef CONFIG_MIDAS_COMMON
@@ -123,6 +127,13 @@ struct cpu_cache_fns cpu_cache __read_mostly;
 struct outer_cache_fns outer_cache __read_mostly;
 EXPORT_SYMBOL(outer_cache);
 #endif
+
+/*
+ * Cached cpu_architecture() result for use by assembler code.
+ * C code should use the cpu_architecture() function instead of accessing this
+ * variable directly.
+ */
+int __cpu_architecture __read_mostly = CPU_ARCH_UNKNOWN;
 
 struct stack {
 	u32 irq[3];
@@ -219,7 +230,7 @@ static const char *proc_arch[] = {
 	"?(17)",
 };
 
-int cpu_architecture(void)
+static int __get_cpu_architecture(void)
 {
 	int cpu_arch;
 
@@ -250,6 +261,13 @@ int cpu_architecture(void)
 		cpu_arch = CPU_ARCH_UNKNOWN;
 
 	return cpu_arch;
+}
+
+int __pure cpu_architecture(void)
+{
+	BUG_ON(__cpu_architecture == CPU_ARCH_UNKNOWN);
+
+	return __cpu_architecture;
 }
 
 static int cpu_has_aliasing_icache(unsigned int arch)
@@ -443,6 +461,7 @@ static void __init setup_processor(void)
 	}
 
 	cpu_name = list->cpu_name;
+	__cpu_architecture = __get_cpu_architecture();
 
 #ifdef MULTI_CPU
 	processor = *list->proc;

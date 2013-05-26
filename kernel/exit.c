@@ -849,9 +849,6 @@ void do_exit(long code)
 	if (tsk->splice_pipe)
 		__free_pipe_info(tsk->splice_pipe);
 
-	if (tsk->task_frag.page)
-		put_page(tsk->task_frag.page);
-
 	validate_creds_for_do_exit(tsk);
 
 	preempt_disable();
@@ -1629,6 +1626,9 @@ SYSCALL_DEFINE5(waitid, int, which, pid_t, upid, struct siginfo __user *,
 	}
 
 	put_pid(pid);
+
+	/* avoid REGPARM breakage on x86: */
+	asmlinkage_protect(5, ret, which, upid, infop, options, ru);
 	return ret;
 }
 
@@ -1666,6 +1666,8 @@ SYSCALL_DEFINE4(wait4, pid_t, upid, int __user *, stat_addr,
 	ret = do_wait(&wo);
 	put_pid(pid);
 
+	/* avoid REGPARM breakage on x86: */
+	asmlinkage_protect(4, ret, upid, stat_addr, options, ru);
 	return ret;
 }
 

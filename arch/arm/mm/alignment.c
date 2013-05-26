@@ -23,6 +23,7 @@
 #include <linux/uaccess.h>
 
 #include <asm/cp15.h>
+#include <asm/system_info.h>
 #include <asm/unaligned.h>
 
 #include "fault.h"
@@ -939,7 +940,7 @@ static int __init alignment_init(void)
 		ai_usermode = UM_FIXUP;
 	}
 
-	hook_fault_code(1, do_alignment, SIGBUS, BUS_ADRALN,
+	hook_fault_code(FAULT_CODE_ALIGNMENT, do_alignment, SIGBUS, BUS_ADRALN,
 			"alignment exception");
 
 	/*

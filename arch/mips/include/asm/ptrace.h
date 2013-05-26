@@ -156,7 +156,7 @@ static inline long regs_return_value(struct pt_regs *regs)
 extern asmlinkage void syscall_trace_enter(struct pt_regs *regs);
 extern asmlinkage void syscall_trace_leave(struct pt_regs *regs);
 
-extern void die(const char *, struct pt_regs *) ATTRIB_NORET;
+extern void die(const char *, struct pt_regs *) __noreturn;
 
 static inline void die_if_kernel(const char *str, struct pt_regs *regs)
 {

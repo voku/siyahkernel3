@@ -24,8 +24,8 @@
 
 #include <mach/hardware.h>
 #include <mach/common.h>
+#include <asm/system_misc.h>
 #include <asm/proc-fns.h>
-#include <asm/system.h>
 #include <asm/mach-types.h>
 
 static void __iomem *wdog_base;
@@ -67,7 +67,7 @@ void arch_reset(char mode, const char *cmd)
 	mdelay(50);
 
 	/* we'll take a jump through zero as a poor second */
-	cpu_reset(0);
+	soft_restart(0);
 }
 
 void mxc_arch_reset_init(void __iomem *base)

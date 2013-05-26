@@ -24,6 +24,7 @@
 #include <linux/gpio_keys.h>
 #include <linux/mmc/host.h>
 #include <linux/power/isp1704_charger.h>
+#include <asm/system_info.h>
 
 #include <plat/mcspi.h>
 #include <plat/board.h>

@@ -31,6 +31,11 @@
 #include <linux/can/platform/mcp251x.h>
 
 #include <asm/mach-types.h>
+<<<<<<< HEAD
+=======
+#include <asm/suspend.h>
+#include <asm/system_info.h>
+>>>>>>> 9f97da7... Disintegrate asm/system.h for ARM
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
 

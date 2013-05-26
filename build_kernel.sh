@@ -120,9 +120,9 @@ if [ -d ${INITRAMFS_TMP} ]; then
 	echo "removing old temp iniramfs";
 	rm -rf ${INITRAMFS_TMP};
 fi;
-if [ -f "/tmp/cpio*" ]; then
+if [ -e "/tmp/cpio*" ]; then
 	echo "removing old temp iniramfs_tmp.cpio";
-	rm -rf /tmp/cpio*;
+	rm -f /tmp/cpio*;
 fi;
 
 # clean initramfs old compile data

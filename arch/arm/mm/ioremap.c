@@ -34,6 +34,7 @@
 #include <asm/pgalloc.h>
 #include <asm/tlbflush.h>
 #include <asm/sizes.h>
+#include <asm/system_info.h>
 
 #include <asm/mach/map.h>
 #include "mm.h"

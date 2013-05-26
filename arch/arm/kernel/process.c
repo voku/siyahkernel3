@@ -35,7 +35,6 @@
 
 #include <asm/cacheflush.h>
 #include <asm/processor.h>
-#include <asm/system.h>
 #include <asm/thread_notify.h>
 #include <asm/stacktrace.h>
 #include <asm/mach/time.h>
@@ -129,7 +128,7 @@ void arm_machine_flush_console(void)
 }
 #endif
 
-void arm_machine_restart(char mode, const char *cmd)
+void soft_restart(unsigned long addr)
 {
 	/* Flush the console to make sure all the relevant messages make it
 	 * out to the console drivers */
@@ -155,9 +154,16 @@ void arm_machine_restart(char mode, const char *cmd)
 	/* Push out any further dirty data, and ensure cache is empty */
 	flush_cache_all();
 
-	/*
-	 * Now call the architecture specific reboot code.
-	 */
+	cpu_reset(addr);
+}
+
+void arm_machine_restart(char mode, const char *cmd)
+{
+	/* Disable interrupts first */
+	local_irq_disable();
+	local_fiq_disable();
+
+	/* Call the architecture specific reboot code. */
 	arch_reset(mode, cmd);
 
 	/*
@@ -445,7 +451,7 @@ void show_regs(struct pt_regs * regs)
 	printk("\n");
 	printk("Pid: %d, comm: %20s\n", task_pid_nr(current), current->comm);
 	__show_regs(regs);
-	__backtrace();
+	dump_stack();
 }
 
 ATOMIC_NOTIFIER_HEAD(thread_notify_head);

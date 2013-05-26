@@ -27,11 +27,12 @@
 
 #include <linux/atomic.h>
 #include <asm/cacheflush.h>
-#include <asm/system.h>
+#include <asm/exception.h>
 #include <asm/unistd.h>
 #include <asm/traps.h>
 #include <asm/unwind.h>
 #include <asm/tls.h>
+#include <asm/system_misc.h>
 
 #include "signal.h"
 

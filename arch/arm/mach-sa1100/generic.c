@@ -20,11 +20,14 @@
 
 #include <asm/div64.h>
 #include <mach/hardware.h>
-#include <asm/system.h>
 #include <asm/mach/map.h>
 #include <asm/mach/flash.h>
 #include <asm/irq.h>
+<<<<<<< HEAD
 #include <asm/gpio.h>
+=======
+#include <asm/system_misc.h>
+>>>>>>> 9f97da7... Disintegrate asm/system.h for ARM
 
 #include "generic.h"
 

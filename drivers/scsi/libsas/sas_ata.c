@@ -798,7 +798,24 @@ int sas_discover_sata(struct domain_device *dev)
 
 void sas_ata_strategy_handler(struct Scsi_Host *shost)
 {
-	struct scsi_device *sdev;
+	struct sas_ha_struct *sas_ha = SHOST_TO_SAS_HA(shost);
+	ASYNC_DOMAIN_EXCLUSIVE(async);
+	int i;
+
+	/* it's ok to defer revalidation events during ata eh, these
+	 * disks are in one of three states:
+	 * 1/ present for initial domain discovery, and these
+	 *    resets will cause bcn flutters
+	 * 2/ hot removed, we'll discover that after eh fails
+	 * 3/ hot added after initial discovery, lost the race, and need
+	 *    to catch the next train.
+	 */
+	sas_disable_revalidation(sas_ha);
+
+	spin_lock_irq(&sas_ha->phy_port_lock);
+	for (i = 0; i < sas_ha->num_phys; i++) {
+		struct asd_sas_port *port = sas_ha->sas_port[i];
+		struct domain_device *dev;
 
 	shost_for_each_device(sdev, shost) {
 		struct domain_device *ddev = sdev_to_domain_dev(sdev);

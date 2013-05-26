@@ -632,7 +632,7 @@ static ssize_t sec_fg_store(struct device *dev,
 				power_supply_get_by_name("battery");
 			union power_supply_propval value;
 
-			if (psy == NULL) {
+			if (!psy) {
 				pr_err("%s: fail to get battery ps\n",
 					__func__);
 				return -ENODEV;
@@ -671,15 +671,9 @@ succeed:
 
 static bool max17042_check_status(struct i2c_client *client)
 {
-	struct max17042_chip *chip;
-	struct power_supply *psy = power_supply_get_by_name("battery");
+	struct max17042_chip *chip = i2c_get_clientdata(client);
 	u8 data[2];
 	bool ret = false;
-
-	if (psy != NULL)
-		return ret;
-	else
-		chip = i2c_get_clientdata(client);
 
 	if (chip->is_enable) {
 		/* check if Smn was generated */

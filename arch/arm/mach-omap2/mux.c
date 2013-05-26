@@ -33,7 +33,6 @@
 #include <linux/seq_file.h>
 #include <linux/uaccess.h>
 
-#include <asm/system.h>
 
 #include <plat/omap_hwmod.h>
 

@@ -351,16 +351,15 @@ CC		= $(srctree)/scripts/gcc-wrapper.py $(REAL_CC)
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
 
-LOW_ARM_FLAGS	= -march=armv7-a -mtune=cortex-a9 -mfpu=neon -mfloat-abi=soft \
-		  -mvectorize-with-neon-quad
+LOW_ARM_FLAGS	= -pipe -march=armv7-a -mcpu=cortex-a9 -mtune=cortex-a9 -marm \
+		  -mfpu=neon -mfloat-abi=soft -funsafe-math-optimizations \
+		  -funswitch-loops -mvectorize-with-neon-quad
 
-#ARM_FLAGS      = -pipe -marm -fsingle-precision-constant -funsafe-math-optimizations -ftree-vectorize
+#ARM_FLAGS      = -fsingle-precision-constant -ftree-vectorize
 #LOOPS		= -funswitch-loops -fpredictive-commoning
 #LOOPS_4_6	= -floop-strip-mine -floop-block -floop-interchange
 
-MODULES		= -fmodulo-sched -fmodulo-sched-allow-regmoves
-
-DISABLED_STORE	= 
+#MODULES	= -fmodulo-sched -fmodulo-sched-allow-regmoves
 
 MODFLAGS        = -DMODULE
 CFLAGS_MODULE   = $(MODFLAGS)
@@ -370,8 +369,7 @@ CFLAGS_KERNEL	=
 AFLAGS_KERNEL	=
 CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage
 
-KERNEL_MODS	= $(LOW_ARM_FLAGS) $(MODULES)
-#DISABLED_KERNEL_MODS	= $(ARM_FLAGS) $(LOOPS) $(LOOPS_4_6)
+KERNEL_MODS	= $(LOW_ARM_FLAGS)
 
 # Use LINUXINCLUDE when you must reference the include/ directory.
 # Needed to be compatible with the O= option
@@ -1425,7 +1423,7 @@ quiet_cmd_rmfiles = $(if $(wildcard $(rm-files)),CLEAN   $(wildcard $(rm-files))
 # Run depmod only if we have System.map and depmod is executable
 quiet_cmd_depmod = DEPMOD  $(KERNELRELEASE)
       cmd_depmod = $(CONFIG_SHELL) $(srctree)/scripts/depmod.sh $(DEPMOD) \
-                   $(KERNELRELEASE) "$(patsubst "%",%,$(CONFIG_SYMBOL_PREFIX))"
+                   $(KERNELRELEASE) "$(patsubst y,_,$(CONFIG_HAVE_UNDERSCORE_SYMBOL_PREFIX))"
 
 # Create temporary dir for module support files
 # clean it up only when building all modules
