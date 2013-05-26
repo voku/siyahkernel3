@@ -96,9 +96,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	int i;
 	short min_score_adj = OOM_SCORE_ADJ_MAX + 1;
 	int minfree = 0;
-	int target_free = 0;
 	int selected_tasksize = 0;
-	int selected_target_offset = 0;
 	short selected_oom_score_adj;
 	int array_size = ARRAY_SIZE(lowmem_adj);
 #ifndef CONFIG_DMA_CMA
@@ -111,7 +109,6 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 #endif
 	int other_file = global_page_state(NR_FILE_PAGES) -
 						global_page_state(NR_SHMEM);
-	int target_offset;
 
 	if (lowmem_adj_size < array_size)
 		array_size = lowmem_adj_size;
@@ -121,7 +118,6 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		minfree = lowmem_minfree[i];
 		if (other_free < minfree && other_file < minfree) {
 			min_score_adj = lowmem_adj[i];
-			target_free = lowmem_minfree[i] - (other_free + other_file);
 			break;
 		}
 	}
@@ -167,17 +163,15 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		task_unlock(p);
 		if (tasksize <= 0)
 			continue;
-		target_offset = abs(target_free - tasksize);
 		if (selected) {
 			if (oom_score_adj < selected_oom_score_adj)
 				continue;
 			if (oom_score_adj == selected_oom_score_adj &&
-				target_offset >= selected_target_offset)
+			    tasksize <= selected_tasksize)
 				continue;
 		}
 		selected = p;
 		selected_tasksize = tasksize;
-		selected_target_offset = target_offset;
 		selected_oom_score_adj = oom_score_adj;
 		lowmem_print(2, "select %s' (%d), adj %hd, size %d, to kill\n",
 			     p->comm, p->pid, oom_score_adj, tasksize);
