@@ -1218,10 +1218,26 @@ static void system_root_device_release(struct device *dev)
 {
 	kfree(dev);
 }
-
-static int subsys_register(struct bus_type *subsys,
-		const struct attribute_group **groups,
-		struct kobject *parent_of_root)
+/**
+ * subsys_system_register - register a subsystem at /sys/devices/system/
+ * @subsys - system subsystem
+ * @groups - default attributes for the root device
+ *
+ * All 'system' subsystems have a /sys/devices/system/<name> root device
+ * with the name of the subsystem. The root device can carry subsystem-
+ * wide attributes. All registered devices are below this single root
+ * device and are named after the subsystem with a simple enumeration
+ * number appended. The registered devices are not explicitely named;
+ * only 'id' in the device needs to be set.
+ *
+ * Do not use this interface for anything new, it exists for compatibility
+ * with bad ideas only. New subsystems should use plain subsystems; and
+ * add the subsystem-wide attributes should be added to the subsystem
+ * directory itself and not some create fake root-device placed in
+ * /sys/devices/system/<name>.
+ */
+int subsys_system_register(struct bus_type *subsys,
+			   const struct attribute_group **groups)
 {
 	struct device *dev;
 	int err;
@@ -1240,7 +1256,7 @@ static int subsys_register(struct bus_type *subsys,
 	if (err < 0)
 		goto err_name;
 
-	dev->kobj.parent = parent_of_root;
+	dev->kobj.parent = &system_kset->kobj;
 	dev->groups = groups;
 	dev->release = system_root_device_release;
 
@@ -1260,54 +1276,7 @@ err_dev:
 	bus_unregister(subsys);
 	return err;
 }
-
-/**
- * subsys_system_register - register a subsystem at /sys/devices/system/
- * @subsys: system subsystem
- * @groups: default attributes for the root device
- *
- * All 'system' subsystems have a /sys/devices/system/<name> root device
- * with the name of the subsystem. The root device can carry subsystem-
- * wide attributes. All registered devices are below this single root
- * device and are named after the subsystem with a simple enumeration
- * number appended. The registered devices are not explicitely named;
- * only 'id' in the device needs to be set.
- *
- * Do not use this interface for anything new, it exists for compatibility
- * with bad ideas only. New subsystems should use plain subsystems; and
- * add the subsystem-wide attributes should be added to the subsystem
- * directory itself and not some create fake root-device placed in
- * /sys/devices/system/<name>.
- */
-int subsys_system_register(struct bus_type *subsys,
-			   const struct attribute_group **groups)
-{
-	return subsys_register(subsys, groups, &system_kset->kobj);
-}
 EXPORT_SYMBOL_GPL(subsys_system_register);
-
-/**
- * subsys_virtual_register - register a subsystem at /sys/devices/virtual/
- * @subsys: virtual subsystem
- * @groups: default attributes for the root device
- *
- * All 'virtual' subsystems have a /sys/devices/system/<name> root device
- * with the name of the subystem.  The root device can carry subsystem-wide
- * attributes.  All registered devices are below this single root device.
- * There's no restriction on device naming.  This is for kernel software
- * constructs which need sysfs interface.
- */
-int subsys_virtual_register(struct bus_type *subsys,
-			    const struct attribute_group **groups)
-{
-	struct kobject *virtual_dir;
-
-	virtual_dir = virtual_device_parent(NULL);
-	if (!virtual_dir)
-		return -ENOMEM;
-
-	return subsys_register(subsys, groups, virtual_dir);
-}
 
 int __init buses_init(void)
 {

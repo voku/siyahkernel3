@@ -263,13 +263,17 @@ static inline void put_cred(const struct cred *_cred)
  * @task: The task to query
  *
  * Access the objective credentials of a task.  The caller must hold the RCU
- * readlock.
+ * readlock or the task must be dead and unable to change its own credentials.
  *
  * The result of this function should not be passed directly to get_cred();
  * rather get_task_cred() should be used instead.
  */
-#define __task_cred(task)	\
-	rcu_dereference((task)->real_cred)
+#define __task_cred(task)						\
+	({								\
+		const struct task_struct *__t = (task);			\
+		rcu_dereference_check(__t->real_cred,			\
+				      task_is_dead(__t));		\
+	})
 
 /**
  * get_current_cred - Get the current task's subjective credentials
@@ -340,11 +344,13 @@ static inline void put_cred(const struct cred *_cred)
 #define current_user()		(current_cred_xxx(user))
 #define current_security()	(current_cred_xxx(security))
 
-extern struct user_namespace init_user_ns;
 #ifdef CONFIG_USER_NS
 #define current_user_ns()	(current_cred_xxx(user_ns))
+#define task_user_ns(task)	(task_cred_xxx((task), user_ns))
 #else
+extern struct user_namespace init_user_ns;
 #define current_user_ns()	(&init_user_ns)
+#define task_user_ns(task)	(&init_user_ns)
 #endif
 
 

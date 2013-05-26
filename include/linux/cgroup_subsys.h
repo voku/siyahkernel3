@@ -67,7 +67,7 @@ SUBSYS(perf)
 
 /* */
 
-#if IS_SUBSYS_ENABLED(CONFIG_CGROUP_BFQIO)
+#ifdef CONFIG_CGROUP_BFQIO
 SUBSYS(bfqio)
 #endif
 
@@ -79,7 +79,7 @@ SUBSYS(net_prio)
 
 /* */
 
-#if IS_SUBSYS_ENABLED(CONFIG_CGROUP_TIMER_SLACK)
+#ifdef CONFIG_CGROUP_TIMER_SLACK
 SUBSYS(timer_slack)
 #endif
 
@@ -87,12 +87,6 @@ SUBSYS(timer_slack)
 
 #if IS_SUBSYS_ENABLED(CONFIG_CGROUP_HUGETLB)
 SUBSYS(hugetlb)
-#endif
-
-/* */
-
-#ifdef CONFIG_CGROUP_BCACHE
-SUBSYS(bcache)
 #endif
 
 /* */

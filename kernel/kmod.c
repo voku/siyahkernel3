@@ -37,8 +37,6 @@
 #include <linux/notifier.h>
 #include <linux/suspend.h>
 #include <linux/rwsem.h>
-#include <linux/ptrace.h>
-#include <linux/async.h>
 #include <asm/uaccess.h>
 
 #include <trace/events/module.h>
@@ -46,13 +44,6 @@
 extern int max_threads;
 
 static struct workqueue_struct *khelper_wq;
-
-/*
- * kmod_thread_locker is used for deadlock avoidance.  There is no explicit
- * locking to protect this global - it is private to the singleton khelper
- * thread and should only ever be modified by that thread.
- */
-static const struct task_struct *kmod_thread_locker;
 
 #define CAP_BSET	(void *)1
 #define CAP_PI		(void *)2
@@ -77,7 +68,6 @@ static void free_modprobe_argv(struct subprocess_info *info)
 
 static int call_modprobe(char *module_name, int wait)
 {
-	struct subprocess_info *info;
 	static char *envp[] = {
 		"HOME=/",
 		"TERM=linux",
@@ -99,15 +89,8 @@ static int call_modprobe(char *module_name, int wait)
 	argv[3] = module_name;	/* check free_modprobe_argv() */
 	argv[4] = NULL;
 
-	info = call_usermodehelper_setup(modprobe_path, argv, envp, GFP_KERNEL,
-					 NULL, free_modprobe_argv, NULL);
-	if (!info)
-		goto free_module_name;
-
-	return call_usermodehelper_exec(info, wait | UMH_KILLABLE);
-
-free_module_name:
-	kfree(module_name);
+	return call_usermodehelper_fns(modprobe_path, argv, envp,
+		wait | UMH_KILLABLE, NULL, free_modprobe_argv, NULL);
 free_argv:
 	kfree(argv);
 out:
@@ -138,14 +121,6 @@ int __request_module(bool wait, const char *fmt, ...)
 	static atomic_t kmod_concurrent = ATOMIC_INIT(0);
 #define MAX_KMOD_CONCURRENT 50	/* Completely arbitrary value - KAO */
 	static int kmod_loop_msg;
-
-	/*
-	 * We don't allow synchronous module loading from async.  Module
-	 * init may invoke async_synchronize_full() which will end up
-	 * waiting for this task which already is waiting for the module
-	 * loading to complete, leading to a deadlock.
-	 */
-	WARN_ON_ONCE(wait && current_is_async());
 
 	va_start(args, fmt);
 	ret = vsnprintf(module_name, MODULE_NAME_LEN, fmt, args);
@@ -239,28 +214,20 @@ static int ____call_usermodehelper(void *data)
 	retval = kernel_execve(sub_info->path,
 			       (const char *const *)sub_info->argv,
 			       (const char *const *)sub_info->envp);
-	if (!retval)
-		return 0;
 
 	/* Exec failed? */
 fail:
 	sub_info->retval = retval;
-	do_exit(0);
+	return 0;
 }
 
-static int call_helper(void *data)
-{
-	/* Worker thread started blocking khelper thread. */
-	kmod_thread_locker = current;
-	return ____call_usermodehelper(data);
-}
-
-static void call_usermodehelper_freeinfo(struct subprocess_info *info)
+void call_usermodehelper_freeinfo(struct subprocess_info *info)
 {
 	if (info->cleanup)
 		(*info->cleanup)(info);
 	kfree(info);
 }
+EXPORT_SYMBOL(call_usermodehelper_freeinfo);
 
 static void umh_complete(struct subprocess_info *sub_info)
 {
@@ -312,7 +279,7 @@ static int wait_for_helper(void *data)
 	}
 
 	umh_complete(sub_info);
-	do_exit(0);
+	return 0;
 }
 
 /* This is run by khelper thread  */
@@ -329,12 +296,9 @@ static void __call_usermodehelper(struct work_struct *work)
 	if (wait == UMH_WAIT_PROC)
 		pid = kernel_thread(wait_for_helper, sub_info,
 				    CLONE_FS | CLONE_FILES | SIGCHLD);
-	else {
-		pid = kernel_thread(call_helper, sub_info,
+	else
+		pid = kernel_thread(____call_usermodehelper, sub_info,
 				    CLONE_VFORK | SIGCHLD);
-		/* Worker thread stopped blocking khelper thread. */
-		kmod_thread_locker = NULL;
-	}
 
 	switch (wait) {
 	case UMH_NO_WAIT:
@@ -446,7 +410,7 @@ EXPORT_SYMBOL_GPL(usermodehelper_read_unlock);
 
 /**
  * __usermodehelper_set_disable_depth - Modify usermodehelper_disabled.
- * @depth: New value to assign to usermodehelper_disabled.
+ * depth: New value to assign to usermodehelper_disabled.
  *
  * Change the value of usermodehelper_disabled (under umhelper_sem locked for
  * writing) and wakeup tasks waiting for it to change.
@@ -510,28 +474,13 @@ static void helper_unlock(void)
  * @argv: arg vector for process
  * @envp: environment for process
  * @gfp_mask: gfp mask for memory allocation
- * @cleanup: a cleanup function
- * @init: an init function
- * @data: arbitrary context sensitive data
  *
  * Returns either %NULL on allocation failure, or a subprocess_info
  * structure.  This should be passed to call_usermodehelper_exec to
  * exec the process and free the structure.
- *
- * The init function is used to customize the helper process prior to
- * exec.  A non-zero return code causes the process to error out, exit,
- * and return the failure to the calling process
- *
- * The cleanup function is just before ethe subprocess_info is about to
- * be freed.  This can be used for freeing the argv and envp.  The
- * Function must be runnable in either a process context or the
- * context in which call_usermodehelper_exec is called.
  */
 struct subprocess_info *call_usermodehelper_setup(char *path, char **argv,
-		char **envp, gfp_t gfp_mask,
-		int (*init)(struct subprocess_info *info, struct cred *new),
-		void (*cleanup)(struct subprocess_info *info),
-		void *data)
+						  char **envp, gfp_t gfp_mask)
 {
 	struct subprocess_info *sub_info;
 	sub_info = kzalloc(sizeof(struct subprocess_info), gfp_mask);
@@ -542,14 +491,37 @@ struct subprocess_info *call_usermodehelper_setup(char *path, char **argv,
 	sub_info->path = path;
 	sub_info->argv = argv;
 	sub_info->envp = envp;
-
-	sub_info->cleanup = cleanup;
-	sub_info->init = init;
-	sub_info->data = data;
   out:
 	return sub_info;
 }
 EXPORT_SYMBOL(call_usermodehelper_setup);
+
+/**
+ * call_usermodehelper_setfns - set a cleanup/init function
+ * @info: a subprocess_info returned by call_usermodehelper_setup
+ * @cleanup: a cleanup function
+ * @init: an init function
+ * @data: arbitrary context sensitive data
+ *
+ * The init function is used to customize the helper process prior to
+ * exec.  A non-zero return code causes the process to error out, exit,
+ * and return the failure to the calling process
+ *
+ * The cleanup function is just before ethe subprocess_info is about to
+ * be freed.  This can be used for freeing the argv and envp.  The
+ * Function must be runnable in either a process context or the
+ * context in which call_usermodehelper_exec is called.
+ */
+void call_usermodehelper_setfns(struct subprocess_info *info,
+		    int (*init)(struct subprocess_info *info, struct cred *new),
+		    void (*cleanup)(struct subprocess_info *info),
+		    void *data)
+{
+	info->cleanup = cleanup;
+	info->init = init;
+	info->data = data;
+}
+EXPORT_SYMBOL(call_usermodehelper_setfns);
 
 /**
  * call_usermodehelper_exec - start a usermode application
@@ -578,16 +550,6 @@ int call_usermodehelper_exec(struct subprocess_info *sub_info, int wait)
 		goto out;
 
 	if (!khelper_wq || usermodehelper_disabled) {
-		retval = -EBUSY;
-		goto out;
-	}
-	/*
-	 * Worker thread must not wait for khelper thread at below
-	 * wait_for_completion() if the thread was created with CLONE_VFORK
-	 * flag, for khelper thread is already waiting for the thread at
-	 * wait_for_completion() in do_fork().
-	 */
-	if (wait != UMH_NO_WAIT && current == kmod_thread_locker) {
 		retval = -EBUSY;
 		goto out;
 	}
@@ -620,30 +582,6 @@ unlock:
 	return retval;
 }
 EXPORT_SYMBOL(call_usermodehelper_exec);
-
-/*
- * call_usermodehelper_fns() will not run the caller-provided cleanup function
- * if a memory allocation failure is experienced.  So the caller might need to
- * check the call_usermodehelper_fns() return value: if it is -ENOMEM, perform
- * the necessaary cleanup within the caller.
- */
-int call_usermodehelper_fns(
-	char *path, char **argv, char **envp, int wait,
-	int (*init)(struct subprocess_info *info, struct cred *new),
-	void (*cleanup)(struct subprocess_info *), void *data)
-{
-	struct subprocess_info *info;
-	gfp_t gfp_mask = (wait == UMH_NO_WAIT) ? GFP_ATOMIC : GFP_KERNEL;
-
-	info = call_usermodehelper_setup(path, argv, envp, gfp_mask,
-					 init, cleanup, data);
-
-	if (info == NULL)
-		return -ENOMEM;
-
-	return call_usermodehelper_exec(info, wait);
-}
-EXPORT_SYMBOL(call_usermodehelper_fns);
 
 static int proc_cap_handler(struct ctl_table *table, int write,
 			 void __user *buffer, size_t *lenp, loff_t *ppos)
