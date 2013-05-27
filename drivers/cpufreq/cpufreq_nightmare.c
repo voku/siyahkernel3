@@ -149,14 +149,14 @@ static unsigned int get_nr_run_avg(void)
 #define DEF_MAX_CPU_LOCK		(0)
 #define DEF_MIN_CPU_LOCK		(0)
 
-#define MAX_HOTPLUG_RATE		(40u)
+#define MAX_HOTPLUG_RATE		(40)
 #define DEF_CPU_UP_RATE			(10)
 #define DEF_CPU_DOWN_RATE		(5)
 #define HOTPLUG_DOWN_INDEX		(0)
 #define HOTPLUG_UP_INDEX		(1)
-#define DEF_HOTPLUG_COMPARE_LEVEL	(1u)
-#define UP_AVG_LOAD			(65u)
-#define DOWN_AVG_LOAD		(30u)
+#define DEF_HOTPLUG_COMPARE_LEVEL	(1)
+#define UP_AVG_LOAD			(65)
+#define DOWN_AVG_LOAD		(30)
 
 /* CPU freq will be increased if measured load > inc_cpu_load;*/
 #define INC_CPU_LOAD_AT_MIN_FREQ	(60)
@@ -169,8 +169,8 @@ static unsigned int get_nr_run_avg(void)
 
 #define DEF_FREQ_STEP_AT_MIN_FREQ	(20)
 #define DEF_FREQ_STEP			(20)
-#define DEF_FREQ_UP_BRAKE_AT_MIN_FREQ		(30u)
-#define DEF_FREQ_UP_BRAKE		(30u)
+#define DEF_FREQ_UP_BRAKE_AT_MIN_FREQ		(30)
+#define DEF_FREQ_UP_BRAKE		(30)
 #define DEF_FREQ_STEP_DEC		(10)
 #define DEF_FREQ_STEP_DEC_AT_MAX_FREQ	(10)
 
@@ -180,7 +180,8 @@ static unsigned int get_nr_run_avg(void)
 #define MAX_FREQ_FOR_CALC_DECR		(400000)
 #define DEF_FREQ_FOR_CALC_DECR		(200000)
 #define MIN_FREQ_FOR_CALC_DECR		(125000)
-#define DEF_ABOVE_SCALING_FREQ_STEP	(99000)
+#define DEF_ABOVE_SCALING_FREQ_STEP	(0)
+#define DEF_BELOW_SCALING_FREQ_STEP	(0)
 
 #ifdef CONFIG_MACH_MIDAS
 static int hotplug_rq[4][2] = {
@@ -207,7 +208,7 @@ static int hotplug_freq[4][2] = {
 #endif
 
 static unsigned int min_sampling_rate;
-static int earlysuspend = -1;
+static short earlysuspend = -1;
 
 static void do_nightmare_timer(struct work_struct *work);
 static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
@@ -250,32 +251,33 @@ static DEFINE_MUTEX(nightmare_mutex);
 /* nightmare tuners */
 static struct nightmare_tuners {
 	unsigned int sampling_rate;
-	unsigned int io_is_busy;
+	unsigned short io_is_busy;
 	atomic_t hotplug_enable;
-	unsigned int max_cpu_lock;
-	unsigned int min_cpu_lock;
+	unsigned short max_cpu_lock;
+	unsigned short min_cpu_lock;
 	atomic_t hotplug_lock;
-	unsigned int cpu_up_rate;
-	unsigned int cpu_down_rate;
-	unsigned int hotplug_compare_level;
-	unsigned int up_avg_load;
-	unsigned int down_avg_load;
-	unsigned int ignore_nice;
-	unsigned int inc_cpu_load_at_min_freq;
-	unsigned int inc_cpu_load;
-	unsigned int dec_cpu_load;
+	unsigned short cpu_up_rate;
+	unsigned short cpu_down_rate;
+	unsigned short hotplug_compare_level;
+	unsigned short up_avg_load;
+	unsigned short down_avg_load;
+	unsigned short ignore_nice;
+	unsigned short inc_cpu_load_at_min_freq;
+	unsigned short inc_cpu_load;
+	unsigned short dec_cpu_load;
 	unsigned int freq_for_responsiveness;
 	unsigned int freq_for_responsiveness_max;
-	unsigned int freq_up_brake_at_min_freq;
-	unsigned int freq_up_brake;
-	unsigned int freq_step_at_min_freq;
-	unsigned int freq_step;
-	unsigned int freq_step_dec;
-	unsigned int freq_step_dec_at_max_freq;
+	unsigned short freq_up_brake_at_min_freq;
+	unsigned short freq_up_brake;
+	unsigned short freq_step_at_min_freq;
+	unsigned short freq_step;
+	unsigned short freq_step_dec;
+	unsigned short freq_step_dec_at_max_freq;
 	unsigned int freq_for_calc_incr;
 	unsigned int freq_for_calc_decr;
-	unsigned int above_scaling_freq_step;
-	unsigned int dvfs_debug;
+	unsigned short above_scaling_freq_step;
+	unsigned short below_scaling_freq_step;
+	unsigned short dvfs_debug;
 	unsigned int max_freq;
 	unsigned int min_freq;
 } nightmare_tuners_ins = {
@@ -303,6 +305,7 @@ static struct nightmare_tuners {
 	.freq_for_calc_incr = DEF_FREQ_FOR_CALC_INCR,
 	.freq_for_calc_decr = DEF_FREQ_FOR_CALC_DECR,
 	.above_scaling_freq_step = DEF_ABOVE_SCALING_FREQ_STEP,
+	.below_scaling_freq_step = DEF_BELOW_SCALING_FREQ_STEP,
 	.dvfs_debug = 0,
 };
 
@@ -380,13 +383,13 @@ struct nightmare_cpu_usage {
 	unsigned int freq;
 	int load[NR_CPUS];
 	unsigned int rq_avg;
-	unsigned int avg_load;
+	int avg_load;
 };
 
 struct nightmare_cpu_usage_history {
 	struct nightmare_cpu_usage usage[MAX_HOTPLUG_RATE];
-	unsigned int num_hist;
-	unsigned int last_num_hist;
+	unsigned short num_hist;
+	unsigned short last_num_hist;
 };
 
 static struct nightmare_cpu_usage_history *hotplug_histories;
@@ -478,6 +481,7 @@ show_one(freq_step_dec_at_max_freq, freq_step_dec_at_max_freq);
 show_one(freq_for_calc_incr, freq_for_calc_incr);
 show_one(freq_for_calc_decr, freq_for_calc_decr);
 show_one(above_scaling_freq_step, above_scaling_freq_step);
+show_one(below_scaling_freq_step, below_scaling_freq_step);
 show_one(dvfs_debug, dvfs_debug);
 
 
@@ -588,10 +592,10 @@ static ssize_t store_sampling_rate(struct kobject *a, struct attribute *b,
 static ssize_t store_io_is_busy(struct kobject *a, struct attribute *b,
 				const char *buf, size_t count)
 {
-	unsigned int input;
+	unsigned short input;
 	int ret;
 
-	ret = sscanf(buf, "%u", &input);
+	ret = sscanf(buf, "%hu", &input);
 	if (ret != 1)
 		return -EINVAL;
 
@@ -611,7 +615,7 @@ static ssize_t store_hotplug_enable(struct kobject *a, struct attribute *b,
 	if (ret != 1)
 		return -EINVAL;
 
-	input = input > 0 ? 1 : 0; 
+	input = (input > 0); 
 
 	if (atomic_read(&nightmare_tuners_ins.hotplug_enable) == input)
 		return count;
@@ -633,13 +637,16 @@ static ssize_t store_hotplug_enable(struct kobject *a, struct attribute *b,
 static ssize_t store_max_cpu_lock(struct kobject *a, struct attribute *b,
 				  const char *buf, size_t count)
 {
-	unsigned int input;
+	unsigned short input;
 	int ret;
-	ret = sscanf(buf, "%u", &input);
+	ret = sscanf(buf, "%hu", &input);
 	if (ret != 1)
 		return -EINVAL;
 
-	nightmare_tuners_ins.max_cpu_lock = min(input, num_possible_cpus());
+	if (input > num_possible_cpus())
+		input = num_possible_cpus();
+
+	nightmare_tuners_ins.max_cpu_lock = input;
 
 	return count;
 }
@@ -648,13 +655,16 @@ static ssize_t store_max_cpu_lock(struct kobject *a, struct attribute *b,
 static ssize_t store_min_cpu_lock(struct kobject *a, struct attribute *b,
 				  const char *buf, size_t count)
 {
-	unsigned int input;
+	unsigned short input;
 	int ret;
-	ret = sscanf(buf, "%u", &input);
+	ret = sscanf(buf, "%hu", &input);
 	if (ret != 1)
 		return -EINVAL;
 
-	nightmare_tuners_ins.min_cpu_lock = min(input, num_possible_cpus());
+	if (input > num_possible_cpus())
+		input = num_possible_cpus();
+
+	nightmare_tuners_ins.min_cpu_lock = input;
 
 	return count;
 }
@@ -702,14 +712,15 @@ static ssize_t store_hotplug_lock(struct kobject *a, struct attribute *b,
 static ssize_t store_cpu_up_rate(struct kobject *a, struct attribute *b,
 				 const char *buf, size_t count)
 {
-	unsigned int input;
+	unsigned short input;
 	int ret;
 
-	ret = sscanf(buf, "%u", &input);
+	ret = sscanf(buf, "%hu", &input);
 	if (ret != 1)
 		return -EINVAL;
 
-	input = min(input, MAX_HOTPLUG_RATE);
+	if (input > MAX_HOTPLUG_RATE)
+		input = MAX_HOTPLUG_RATE;
 
 	if (input == nightmare_tuners_ins.cpu_up_rate)
 		return count;
@@ -723,14 +734,15 @@ static ssize_t store_cpu_up_rate(struct kobject *a, struct attribute *b,
 static ssize_t store_cpu_down_rate(struct kobject *a, struct attribute *b,
 				   const char *buf, size_t count)
 {
-	unsigned int input;
+	unsigned short input;
 	int ret;
 
-	ret = sscanf(buf, "%u", &input);
+	ret = sscanf(buf, "%hu", &input);
 	if (ret != 1)
 		return -EINVAL;
 
-	input = min(input, MAX_HOTPLUG_RATE);
+	if (input > MAX_HOTPLUG_RATE)
+		input = MAX_HOTPLUG_RATE;
 
 	if (input == nightmare_tuners_ins.cpu_down_rate)
 		return count;
@@ -743,14 +755,14 @@ static ssize_t store_cpu_down_rate(struct kobject *a, struct attribute *b,
 static ssize_t store_hotplug_compare_level(struct kobject *a, struct attribute *b,
 				      const char *buf, size_t count)
 {
-	unsigned int input;
+	unsigned short input;
 	int ret;
 
-	ret = sscanf(buf, "%u", &input);
+	ret = sscanf(buf, "%hu", &input);
 	if (ret != 1)
 		return -EINVAL;
 
-	input = min(max(input,0u),1u);
+	input = (input > 0);
 
 	if (input == nightmare_tuners_ins.hotplug_compare_level) { /* nothing to do */
 		return count;
@@ -765,14 +777,17 @@ static ssize_t store_hotplug_compare_level(struct kobject *a, struct attribute *
 static ssize_t store_up_avg_load(struct kobject *a, struct attribute *b,
 					const char *buf, size_t count)
 {
-	unsigned int input;
+	unsigned short input;
 	int ret;
 
-	ret = sscanf(buf, "%u", &input);
+	ret = sscanf(buf, "%hu", &input);
 	if (ret != 1)
 		return -EINVAL;
 
-	input = max(min(input,100u),10u);
+	if (input > 100)
+		input = 100;
+	else if (input < 10)
+		input = 10;
 
 	if (input == nightmare_tuners_ins.up_avg_load)
 		return count;
@@ -786,14 +801,17 @@ static ssize_t store_up_avg_load(struct kobject *a, struct attribute *b,
 static ssize_t store_down_avg_load(struct kobject *a, struct attribute *b,
 					const char *buf, size_t count)
 {
-	unsigned int input;
+	unsigned short input;
 	int ret;
 
-	ret = sscanf(buf, "%u", &input);
+	ret = sscanf(buf, "%hu", &input);
 	if (ret != 1)
 		return -EINVAL;
 	
-	input = max(min(input,95u),5u);
+	if (input > 95)
+		input = 95;
+	else if (input < 5)
+		input = 5;
 
 	if (input == nightmare_tuners_ins.down_avg_load)
 		return count;	
@@ -807,11 +825,11 @@ static ssize_t store_down_avg_load(struct kobject *a, struct attribute *b,
 static ssize_t store_ignore_nice_load(struct kobject *a, struct attribute *b,
 				      const char *buf, size_t count)
 {
-	unsigned int input;
+	unsigned short input;
 	int ret;
 	unsigned int j;
 
-	ret = sscanf(buf, "%u", &input);
+	ret = sscanf(buf, "%hu", &input);
 	if (ret != 1)
 		return -EINVAL;
 
@@ -839,10 +857,10 @@ static ssize_t store_ignore_nice_load(struct kobject *a, struct attribute *b,
 static ssize_t store_inc_cpu_load_at_min_freq(struct kobject *a, struct attribute *b,
 				   const char *buf, size_t count)
 {
-	unsigned int input;
+	unsigned short input;
 	int ret;
 
-	ret = sscanf(buf, "%u", &input);
+	ret = sscanf(buf, "%hu", &input);
 	if (ret != 1) {
 		return -EINVAL;
 	}
@@ -861,14 +879,17 @@ static ssize_t store_inc_cpu_load_at_min_freq(struct kobject *a, struct attribut
 static ssize_t store_inc_cpu_load(struct kobject *a, struct attribute *b,
 					const char *buf, size_t count)
 {
-	unsigned int input;
+	unsigned short input;
 	int ret;
 
-	ret = sscanf(buf, "%u", &input);
+	ret = sscanf(buf, "%hu", &input);
 	if (ret != 1)
 		return -EINVAL;
 
-	input = max(min(input,100u),10u);
+	if (input > 100)
+		input = 100;
+	else if(input < 10)
+		input = 10;
 
 	if (input == nightmare_tuners_ins.inc_cpu_load)
 		return count;
@@ -882,14 +903,17 @@ static ssize_t store_inc_cpu_load(struct kobject *a, struct attribute *b,
 static ssize_t store_dec_cpu_load(struct kobject *a, struct attribute *b,
 					const char *buf, size_t count)
 {
-	unsigned int input;
+	unsigned short input;
 	int ret;
 
-	ret = sscanf(buf, "%u", &input);
+	ret = sscanf(buf, "%hu", &input);
 	if (ret != 1)
 		return -EINVAL;
 
-	input = max(min(input,95u),5u);
+	if (input > 95)
+		input = 95;
+	else if(input < 5)
+		input = 5;
 
 	if (input == nightmare_tuners_ins.dec_cpu_load)
 		return count;
@@ -941,14 +965,15 @@ static ssize_t store_freq_for_responsiveness_max(struct kobject *a, struct attri
 static ssize_t store_freq_step_at_min_freq(struct kobject *a, struct attribute *b,
 			       const char *buf, size_t count)
 {
-	unsigned int input;
+	unsigned short input;
 	int ret;
 
-	ret = sscanf(buf, "%u", &input);
+	ret = sscanf(buf, "%hu", &input);
 	if (ret != 1)
 		return -EINVAL;
 
-	input = min(input,100u);
+	if (input > 100)
+		input = 100;
 
 	if (input == nightmare_tuners_ins.freq_step_at_min_freq)
 		return count;
@@ -962,14 +987,15 @@ static ssize_t store_freq_step_at_min_freq(struct kobject *a, struct attribute *
 static ssize_t store_freq_step(struct kobject *a, struct attribute *b,
 			       const char *buf, size_t count)
 {
-	unsigned int input;
+	unsigned short input;
 	int ret;
 
-	ret = sscanf(buf, "%u", &input);
+	ret = sscanf(buf, "%hu", &input);
 	if (ret != 1)
 		return -EINVAL;
 
-	input = min(input,100u);
+	if (input > 100)
+		input = 100;
 
 	if (input == nightmare_tuners_ins.freq_step)
 		return count;
@@ -983,14 +1009,17 @@ static ssize_t store_freq_step(struct kobject *a, struct attribute *b,
 static ssize_t store_freq_up_brake_at_min_freq(struct kobject *a, struct attribute *b,
 				      const char *buf, size_t count)
 {
-	unsigned int input;
+	unsigned short input;
 	int ret;
 
-	ret = sscanf(buf, "%u", &input);
+	ret = sscanf(buf, "%hu", &input);
 	if (ret != 1)
 		return -EINVAL;
 
-	input =  min(max(input,0u),100u);
+	if (input > 100)
+		input = 100;
+	else if (input < 0)
+		input = 0;
 
 	if (input == nightmare_tuners_ins.freq_up_brake_at_min_freq)/* nothing to do */
 		return count;
@@ -1004,14 +1033,17 @@ static ssize_t store_freq_up_brake_at_min_freq(struct kobject *a, struct attribu
 static ssize_t store_freq_up_brake(struct kobject *a, struct attribute *b,
 				      const char *buf, size_t count)
 {
-	unsigned int input;
+	unsigned short input;
 	int ret;
 
-	ret = sscanf(buf, "%u", &input);
+	ret = sscanf(buf, "%hu", &input);
 	if (ret != 1)
 		return -EINVAL;
 
-	input =  min(max(input,0u),100u);
+	if (input > 100)
+		input = 100;
+	else if (input < 0)
+		input = 0;
 
 	if (input == nightmare_tuners_ins.freq_up_brake) /* nothing to do */
 		return count;
@@ -1025,14 +1057,15 @@ static ssize_t store_freq_up_brake(struct kobject *a, struct attribute *b,
 static ssize_t store_freq_step_dec(struct kobject *a, struct attribute *b,
 				       const char *buf, size_t count)
 {
-	unsigned int input;
+	unsigned short input;
 	int ret;
 
-	ret = sscanf(buf, "%u", &input);
+	ret = sscanf(buf, "%hu", &input);
 	if (ret != 1)
 		return -EINVAL;
 
-	input = min(input,100u);
+	if (input > 100)
+		input = 100;
 
 	if (input == nightmare_tuners_ins.freq_step_dec)
 		return count;
@@ -1046,14 +1079,15 @@ static ssize_t store_freq_step_dec(struct kobject *a, struct attribute *b,
 static ssize_t store_freq_step_dec_at_max_freq(struct kobject *a, struct attribute *b,
 				       const char *buf, size_t count)
 {
-	unsigned int input;
+	unsigned short input;
 	int ret;
 
-	ret = sscanf(buf, "%u", &input);
+	ret = sscanf(buf, "%hu", &input);
 	if (ret != 1)
 		return -EINVAL;
 
-	input = min(input,100u);
+	if (input > 100)
+		input = 100;
 
 	if (input == nightmare_tuners_ins.freq_step_dec_at_max_freq)
 		return count;
@@ -1115,19 +1149,49 @@ static ssize_t store_freq_for_calc_decr(struct kobject *a, struct attribute *b,
 static ssize_t store_above_scaling_freq_step(struct kobject *a, struct attribute *b,
 				   const char *buf, size_t count)
 {
-	unsigned int input;
+	unsigned short input;
 	int ret;
 
-	ret = sscanf(buf, "%u", &input);
+	ret = sscanf(buf, "%hu", &input);
 	if (ret != 1)
 		return -EINVAL;
 
-	input = max(min(input,99000u),0u);
+	if (input > 99)
+		input = 99;
+	else if (input < 0)
+		input = 0;
+	/* input = max(min(input,99),0); */
 
 	if (input == nightmare_tuners_ins.above_scaling_freq_step)
 		return count;
 
-	nightmare_tuners_ins.above_scaling_freq_step = input;
+	nightmare_tuners_ins.above_scaling_freq_step = (unsigned short)input;
+
+	return count;
+}
+
+/* below_scaling_freq_step */
+static ssize_t store_below_scaling_freq_step(struct kobject *a, struct attribute *b,
+				   const char *buf, size_t count)
+{
+	unsigned short input;
+	int ret;
+
+	ret = sscanf(buf, "%hu", &input);
+	if (ret != 1)
+		return -EINVAL;
+
+	if (input > 99)
+		input = 99;
+	else if (input < 0)
+		input = 0;
+
+	/* input = max(min(input,99),0); */
+
+	if (input == nightmare_tuners_ins.below_scaling_freq_step)
+		return count;
+
+	nightmare_tuners_ins.below_scaling_freq_step = input;
 
 	return count;
 }
@@ -1136,10 +1200,10 @@ static ssize_t store_above_scaling_freq_step(struct kobject *a, struct attribute
 static ssize_t store_dvfs_debug(struct kobject *a, struct attribute *b,
 				const char *buf, size_t count)
 {
-	unsigned int input;
+	unsigned short input;
 	int ret;
 
-	ret = sscanf(buf, "%u", &input);
+	ret = sscanf(buf, "%hu", &input);
 	if (ret != 1)
 		return -EINVAL;
 
@@ -1174,6 +1238,7 @@ define_one_global_rw(freq_step_dec_at_max_freq);
 define_one_global_rw(freq_for_calc_incr);
 define_one_global_rw(freq_for_calc_decr);
 define_one_global_rw(above_scaling_freq_step);
+define_one_global_rw(below_scaling_freq_step);
 define_one_global_rw(dvfs_debug);
 
 static struct attribute *nightmare_attributes[] = {
@@ -1222,6 +1287,7 @@ static struct attribute *nightmare_attributes[] = {
 	&freq_for_calc_incr.attr,
 	&freq_for_calc_decr.attr,
 	&above_scaling_freq_step.attr,
+	&below_scaling_freq_step.attr,
 	&dvfs_debug.attr,
 	NULL
 };
@@ -1247,14 +1313,14 @@ static void debug_hotplug_check(int which, int rq_avg, int freq,
 
 static int check_up(void)
 {
-	int num_hist = hotplug_histories->num_hist;
+	short num_hist = hotplug_histories->num_hist;
 	struct nightmare_cpu_usage *usage;
 	int freq, rq_avg;
 	int avg_load;
 	int i;
-	int up_rate = nightmare_tuners_ins.cpu_up_rate;
-	unsigned int up_avg_load = nightmare_tuners_ins.up_avg_load;
-	unsigned int hotplug_compare_level = nightmare_tuners_ins.hotplug_compare_level;
+	short up_rate = nightmare_tuners_ins.cpu_up_rate;
+	unsigned short up_avg_load = nightmare_tuners_ins.up_avg_load;
+	unsigned short hotplug_compare_level = nightmare_tuners_ins.hotplug_compare_level;
 	int up_freq, up_rq;
 	int min_freq = INT_MAX;
 	int min_rq_avg = INT_MAX;
@@ -1321,14 +1387,14 @@ static int check_up(void)
 
 static int check_down(void)
 {
-	int num_hist = hotplug_histories->num_hist;
+	short num_hist = hotplug_histories->num_hist;
 	struct nightmare_cpu_usage *usage;
 	int freq, rq_avg;
 	int avg_load;
 	int i;
-	int down_rate = nightmare_tuners_ins.cpu_down_rate;
-	unsigned int down_avg_load = nightmare_tuners_ins.down_avg_load;
-	unsigned int hotplug_compare_level = nightmare_tuners_ins.hotplug_compare_level;
+	short down_rate = nightmare_tuners_ins.cpu_down_rate;
+	unsigned short down_avg_load = nightmare_tuners_ins.down_avg_load;
+	unsigned short hotplug_compare_level = nightmare_tuners_ins.hotplug_compare_level;
 	int down_freq, down_rq;
 	int max_freq = 0;
 	int max_rq_avg = 0;
@@ -1394,10 +1460,10 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 {
 	struct cpufreq_policy *policy;
 	unsigned int j;
-	int num_hist = hotplug_histories->num_hist;
-	int max_hotplug_rate = max(nightmare_tuners_ins.cpu_up_rate,nightmare_tuners_ins.cpu_down_rate);
+	short num_hist = hotplug_histories->num_hist;
+	short max_hotplug_rate = max(nightmare_tuners_ins.cpu_up_rate,nightmare_tuners_ins.cpu_down_rate);
 	/* add total_load, avg_load to get average load */
-	unsigned int total_load = 0;
+	int total_load = 0;
 	int rq_avg = 0;
 	int hotplug_enable = atomic_read(&g_hotplug_enable);
 
@@ -1423,7 +1489,7 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 		/* Extrapolated load of this CPU */
 		unsigned int load_at_max_freq = 0;
 		/* Current load across this CPU */
-		unsigned int cur_load = 0;
+		int cur_load = 0;
 
 		j_nightmare_cpuinfo = &per_cpu(od_nightmare_cpuinfo, j);
 		
@@ -1505,18 +1571,40 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 		hotplug_histories->num_hist = 0;
 }
 
+static unsigned int nightmare_frequency_adjust(unsigned int next_freq, unsigned int cur_freq, unsigned int min_freq, unsigned int max_freq, unsigned short scaling_freq_step)
+{
+	unsigned int adjust_freq = 0;
+
+	if (next_freq >= max_freq)
+		return max_freq;
+	else if (next_freq <= min_freq)
+		return min_freq;
+
+	adjust_freq = (next_freq / 100000) * 100000;
+
+	/* Avoid to manage freq with above_scaling_freq_step or below_scaling_freq_step */
+	if (adjust_freq == cur_freq)
+		return cur_freq;
+
+	if (next_freq % 100000 > (scaling_freq_step) * 1000)
+		adjust_freq += 100000;
+
+	return adjust_freq;
+		
+}
+
 static void nightmare_check_frequency(struct cpufreq_nightmare_cpuinfo *this_nightmare_cpuinfo)
 {
 	int j;
-	int num_hist = hotplug_histories->last_num_hist;
+	short num_hist = hotplug_histories->last_num_hist;
 
 	for_each_online_cpu(j) {
 		struct cpufreq_policy *policy;
 		int cur_load = -1;
-		int inc_cpu_load = 0;
-		unsigned int freq_step = 0;
-		unsigned int freq_up_brake = 0;
-		unsigned int freq_step_dec = 0;
+		unsigned short inc_cpu_load = 0;
+		unsigned short freq_step = 0;
+		unsigned short freq_up_brake = 0;
+		unsigned short freq_step_dec = 0;
 		unsigned int inc_load=0;
 		unsigned int inc_brake=0;
 		unsigned int freq_up = 0;
@@ -1572,10 +1660,12 @@ static void nightmare_check_frequency(struct cpufreq_nightmare_cpuinfo *this_nig
 				cpufreq_cpu_put(policy);
 				continue;
 			} else {
-				freq_up = min(policy->cur + (inc_load - inc_brake),max_freq);
+				freq_up = policy->cur + (inc_load - inc_brake);
 			}			
 
-			if (freq_up > policy->cur + nightmare_tuners_ins.above_scaling_freq_step) {
+			freq_up = nightmare_frequency_adjust(freq_up, policy->cur, min_freq, max_freq, nightmare_tuners_ins.above_scaling_freq_step);
+
+			if (freq_up != policy->cur) {
 				__cpufreq_driver_target(policy, freq_up, CPUFREQ_RELATION_L);
 			}
 		} else if (cur_load < nightmare_tuners_ins.dec_cpu_load && cur_load > -1) {
@@ -1593,9 +1683,7 @@ static void nightmare_check_frequency(struct cpufreq_nightmare_cpuinfo *this_nig
 				freq_down = min_freq;
 			}
 
-			if (freq_down > max_freq) {
-				freq_down = max_freq;
-			}
+			freq_down = nightmare_frequency_adjust(freq_down, policy->cur, min_freq, max_freq, nightmare_tuners_ins.below_scaling_freq_step);
 
 			if (freq_down < policy->cur) {
 				__cpufreq_driver_target(policy, freq_down, CPUFREQ_RELATION_L);
