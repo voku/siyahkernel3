@@ -938,7 +938,7 @@ static long link_pm_ioctl(struct file *file, unsigned int cmd,
 			gpio_direction_output(pm_data->gpio_link_slavewake, 0);
 			gpio_direction_input(pm_data->gpio_link_hostwake);
 			irq_set_irq_type(pm_data->irq_link_hostwake,
-				IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING);
+				IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING | IRQF_ONESHOT);
 		}
 	case IOCTL_LINK_GET_PHONEACTIVE:
 		return gpio_get_value(mc->gpio_phone_active);
@@ -1493,7 +1493,7 @@ static int usb_link_pm_init(struct usb_link_device *usb_ld, void *data)
 	}
 
 	r = request_irq(pm_data->irq_link_hostwake, link_pm_irq_handler,
-		IRQF_NO_SUSPEND | IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING,
+		IRQF_NO_SUSPEND | IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING | IRQF_ONESHOT,
 		"hostwake", (void *)pm_data);
 	if (r) {
 		mif_err("fail to request irq(%d)\n", r);

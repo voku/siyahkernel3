@@ -214,7 +214,7 @@ static int gpio_event_input_request_irqs(struct gpio_input_state *ds)
 	int i;
 	int err;
 	unsigned int irq;
-	unsigned long req_flags = IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING;
+	unsigned long req_flags = IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING | IRQF_ONESHOT;
 
 	for (i = 0; i < ds->info->keymap_size; i++) {
 		err = irq = gpio_to_irq(ds->info->keymap[i].gpio);

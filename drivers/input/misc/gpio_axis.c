@@ -164,7 +164,7 @@ int gpio_event_axis_func(struct gpio_event_input_devs *input_devs,
 				goto err_get_irq_num_failed;
 			ret = request_irq(irq, gpio_axis_irq_handler,
 					  IRQF_TRIGGER_RISING |
-					  IRQF_TRIGGER_FALLING,
+					  IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
 					  "gpio_event_axis", as);
 			if (ret < 0)
 				goto err_request_irq_failed;
