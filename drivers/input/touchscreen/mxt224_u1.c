@@ -257,6 +257,7 @@ static void mxt224_optical_gain(uint16_t dbg_mode);
 static struct input_dev *slide2wake_dev;
 extern void request_suspend_state(int);
 extern int get_suspend_state(void);
+static bool prox_near = false;
 static struct wake_lock wl_s2w;
 bool s2w_enabled = false;
 static unsigned int wake_start = -1;
@@ -301,6 +302,22 @@ void slide2wake_pwrtrigger(void)
 	wake_lock_timeout(&wl_s2w, msecs_to_jiffies(2000));
 	schedule_work(&slide2wake_presspwr_work);
 }
+
+void proximity_detected(void)
+{
+	prox_near = true;
+
+	return;
+}
+EXPORT_SYMBOL(proximity_detected);
+
+void proximity_off(void)
+{
+	prox_near = false;
+
+	return;
+}
+EXPORT_SYMBOL(proximity_off);
 
 static int read_mem(struct mxt224_data *data, u16 reg, u8 len, u8 * buf)
 {
@@ -1406,7 +1423,7 @@ static void report_input_data(struct mxt224_data *data)
 
 		// slide2wake gesture start
 		if (s2w_enabled && copy_data->touch_is_pressed_arr[i] == 1 &&
-			!copy_data->mxt224_enabled) {
+			!copy_data->mxt224_enabled && !prox_near) {
 			if (data->fingers[i].x < x_lo) {
 				printk(KERN_ERR "[TSP] slide2wake down at: %4d\n",
 					data->fingers[i].x);

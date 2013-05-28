@@ -43,6 +43,9 @@
 #define REGS_PS_DATA		0xB1
 #define REGS_PS_THD		0xB2
 
+/* for slide2wake */
+#include <linux/i2c/mxt224_u1.h>
+
 static u8 reg_defaults[8] = {
 	0x00, /* ARA: read only register */
 	0x00, /* ALS_CMD: als cmd */
@@ -509,6 +512,15 @@ irqreturn_t cm3663_irq_thread_fn(int irq, void *data)
 	/* 0 is close, 1 is far */
 	input_report_abs(ip->proximity_input_dev, ABS_DISTANCE, val);
 	input_sync(ip->proximity_input_dev);
+
+
+	/* slide2wake, val is true if proximity detected */
+	if (!val) {
+		pr_info("%s: proximity_detected! %d\n", __func__, val);
+		proximity_detected();
+	} else
+		proximity_off();
+
 	wake_lock_timeout(&ip->prx_wake_lock, 3*HZ);
 
 	return IRQ_HANDLED;
