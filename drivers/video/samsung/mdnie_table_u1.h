@@ -1040,7 +1040,6 @@ static struct mdnie_tuning_info etc_table[CABC_MAX][OUTDOOR_MAX][TONE_MAX] = {
 static struct mdnie_tuning_info tuning_table[CABC_MAX][MODE_MAX][SCENARIO_MAX] = {
 	{
 		{
-			{"CYANOGENMOD",		tune_cyanogenmod},
 			{"DYNAMIC_UI",		tune_dynamic_ui},
 			{"DYNAMIC_VIDEO",	tune_dynamic_video},
 			{"DYNAMIC_VIDEO",	tune_dynamic_video},
