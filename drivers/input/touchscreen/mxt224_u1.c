@@ -2354,9 +2354,10 @@ static void mxt224_late_resume(struct early_suspend *h)
 	bool ta_status = 0;
 
 	mxt224_internal_resume(data);
-	if (s2w_enabled)
+	if (s2w_enabled) {
+		proximity_off();
 		disable_irq_wake(data->client->irq);
-	else
+	} else
 		enable_irq(data->client->irq);
 
 	copy_data->mxt224_enabled = 1;
