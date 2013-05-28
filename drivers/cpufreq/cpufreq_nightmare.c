@@ -1878,6 +1878,7 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 	
 		if (!nightmare_enable) {
 			earlysuspend = -1;
+			atomic_set(&g_hotplug_enable,0);
 			sysfs_remove_group(cpufreq_global_kobject,
 					   &nightmare_attr_group);
 		}
