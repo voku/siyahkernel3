@@ -183,7 +183,6 @@ static unsigned int get_nr_run_avg(void)
 #define DEF_ABOVE_SCALING_FREQ_STEP	(0)
 #define DEF_BELOW_SCALING_FREQ_STEP	(0)
 
-#ifdef CONFIG_MACH_MIDAS
 static int hotplug_rq[4][2] = {
 	{0, 100}, {100, 200}, {200, 300}, {300, 0}
 };
@@ -194,18 +193,6 @@ static int hotplug_freq[4][2] = {
 	{200000, 500000},
 	{200000, 0}
 };
-#else
-static int hotplug_rq[4][2] = {
-	{0, 100}, {100, 200}, {200, 300}, {300, 0}
-};
-
-static int hotplug_freq[4][2] = {
-	{0, 500000},
-	{200000, 500000},
-	{200000, 500000},
-	{200000, 0}
-};
-#endif
 
 static unsigned int min_sampling_rate;
 static short earlysuspend = -1;
@@ -1844,6 +1831,7 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 		 * is used for first time
 		 */
 		if (nightmare_enable == 1) {
+			earlysuspend = -1;
 			rc = sysfs_create_group(cpufreq_global_kobject,
 						&nightmare_attr_group);
 			if (rc) {
@@ -1888,9 +1876,11 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 		if (hotplug_enable > 0)
 			stop_rq_work();
 	
-		if (!nightmare_enable)
+		if (!nightmare_enable) {
+			earlysuspend = -1;
 			sysfs_remove_group(cpufreq_global_kobject,
 					   &nightmare_attr_group);
+		}
 
 		break;
 
