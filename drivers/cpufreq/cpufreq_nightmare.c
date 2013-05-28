@@ -1831,7 +1831,6 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 		 * is used for first time
 		 */
 		if (nightmare_enable == 1) {
-			earlysuspend = -1;
 			rc = sysfs_create_group(cpufreq_global_kobject,
 						&nightmare_attr_group);
 			if (rc) {
@@ -1842,6 +1841,7 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 			min_sampling_rate = MIN_SAMPLING_RATE;
 			nightmare_tuners_ins.sampling_rate = DEF_SAMPLING_RATE;
 			nightmare_tuners_ins.io_is_busy = 0;
+			earlysuspend = -1;
 		}
 		mutex_unlock(&nightmare_mutex);
 
@@ -1877,8 +1877,6 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 			stop_rq_work();
 	
 		if (!nightmare_enable) {
-			earlysuspend = -1;
-			atomic_set(&g_hotplug_enable,0);
 			sysfs_remove_group(cpufreq_global_kobject,
 					   &nightmare_attr_group);
 		}
