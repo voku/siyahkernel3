@@ -1,3 +1,0 @@
-include include/asm-generic/Kbuild.asm
-
-generic-y	+= module.h
