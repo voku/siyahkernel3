@@ -1789,8 +1789,6 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 	struct cpufreq_frequency_table *freq_table;
 	unsigned int j;
 	int rc;
-	short hotplug_enable = atomic_read(&g_hotplug_enable);
-
 
 	this_nightmare_cpuinfo = &per_cpu(od_nightmare_cpuinfo, cpu);
 
@@ -1807,9 +1805,6 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 		nightmare_tuners_ins.min_freq = policy->min;
 		hotplug_histories->num_hist = 0;
 		hotplug_histories->last_num_hist = 0;
-
-		if (hotplug_enable > 0)
-			start_rq_work();
 
 		mutex_lock(&nightmare_mutex);
 
@@ -1841,7 +1836,14 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 			min_sampling_rate = MIN_SAMPLING_RATE;
 			nightmare_tuners_ins.sampling_rate = DEF_SAMPLING_RATE;
 			nightmare_tuners_ins.io_is_busy = 0;
-			earlysuspend = -1;
+			/* 
+				set default hotplug_enable var when nightmare is starting.
+				Default = 0
+			*/
+			atomic_set(&g_hotplug_lock,0);
+			atomic_set(&g_hotplug_count,0);
+			atomic_set(&nightmare_tuners_ins.hotplug_lock, 0);
+			atomic_set(&nightmare_tuners_ins.hotplug_enable, 0);
 		}
 		mutex_unlock(&nightmare_mutex);
 
@@ -1873,10 +1875,16 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 		nightmare_enable--;
 		mutex_unlock(&nightmare_mutex);
 
-		if (hotplug_enable > 0)
-			stop_rq_work();
-	
 		if (!nightmare_enable) {
+			/* 
+			   When sleep governor is different from nightmare
+			   atomic variables must be set 0
+			*/
+			earlysuspend = -1;
+			atomic_set(&g_hotplug_lock,0);
+			atomic_set(&g_hotplug_count,0);
+			atomic_set(&nightmare_tuners_ins.hotplug_lock, 0);			
+			atomic_set(&nightmare_tuners_ins.hotplug_enable, 0);
 			sysfs_remove_group(cpufreq_global_kobject,
 					   &nightmare_attr_group);
 		}
