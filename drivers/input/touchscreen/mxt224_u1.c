@@ -257,7 +257,7 @@ static void mxt224_optical_gain(uint16_t dbg_mode);
 static struct input_dev *slide2wake_dev;
 extern void request_suspend_state(int);
 extern int get_suspend_state(void);
-static bool prox_near = false;
+static bool slide2wake_call = false;
 static struct wake_lock wl_s2w;
 bool s2w_enabled = false;
 static unsigned int wake_start = -1;
@@ -302,22 +302,6 @@ void slide2wake_pwrtrigger(void)
 	wake_lock_timeout(&wl_s2w, msecs_to_jiffies(2000));
 	schedule_work(&slide2wake_presspwr_work);
 }
-
-void proximity_detected(void)
-{
-	prox_near = true;
-
-	return;
-}
-EXPORT_SYMBOL(proximity_detected);
-
-void proximity_off(void)
-{
-	prox_near = false;
-
-	return;
-}
-EXPORT_SYMBOL(proximity_off);
 
 static int read_mem(struct mxt224_data *data, u16 reg, u8 len, u8 * buf)
 {
@@ -1423,7 +1407,7 @@ static void report_input_data(struct mxt224_data *data)
 
 		// slide2wake gesture start
 		if (s2w_enabled && copy_data->touch_is_pressed_arr[i] == 1 &&
-			!copy_data->mxt224_enabled && !prox_near) {
+			!copy_data->mxt224_enabled) {
 			if (data->fingers[i].x < x_lo) {
 				printk(KERN_ERR "[TSP] slide2wake down at: %4d\n",
 					data->fingers[i].x);
@@ -2355,7 +2339,6 @@ static void mxt224_late_resume(struct early_suspend *h)
 
 	mxt224_internal_resume(data);
 	if (s2w_enabled) {
-		proximity_off();
 		disable_irq_wake(data->client->irq);
 	} else
 		enable_irq(data->client->irq);
@@ -3630,6 +3613,44 @@ static ssize_t slide2wake_store(struct device *dev,
 	return size;
 }
 
+static ssize_t slide2wake_call_show(struct device *dev,
+				   struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", slide2wake_call);
+}
+
+static ssize_t slide2wake_call_store(struct device *dev,
+				   struct device_attribute *attr,
+				   const char *buf, size_t size)
+{
+	int ret;
+	unsigned int value;
+	struct mxt224_data *data = copy_data;
+
+
+	ret = sscanf(buf, "%d\n", &value);
+
+	if (ret != 1)
+		return -EINVAL;
+
+	slide2wake_call = value ? true : false;
+
+	if (s2w_enabled) {
+		if (slide2wake_call) {
+			copy_data->mxt224_enabled = 0;
+			touch_is_pressed = 0;
+			disable_irq(data->client->irq);
+			printk(KERN_INFO "slide2wake: call detected, touch screen is off\n");
+		} else {
+			touch_is_pressed = 0;
+			enable_irq(data->client->irq);
+			copy_data->mxt224_enabled = 1;
+			printk(KERN_INFO "slide2wake: no call detected, touch screen is on\n");
+		}
+	}
+	return size;
+}
+
 #ifdef CONFIG_KEYBOARD_CYPRESS_AOKP
 static ssize_t led_flash_timeout_show(struct device *dev,
 				  struct device_attribute *attr, char *buf)
@@ -3731,6 +3752,8 @@ static DEVICE_ATTR(tsp_flash_timeout, S_IRUGO | S_IWUSR | S_IWGRP,
 #endif
 static DEVICE_ATTR(tsp_slide2wake, S_IRUGO | S_IWUSR | S_IWGRP,
 		   slide2wake_show, slide2wake_store);
+static DEVICE_ATTR(tsp_slide2wake_call, S_IRUGO | S_IWUSR | S_IWGRP,
+		   slide2wake_call_show, slide2wake_call_store);
 
 static int sec_touchscreen_enable(struct mxt224_data *data)
 {
@@ -4428,6 +4451,10 @@ static int __devinit mxt224_probe(struct i2c_client *client,
 	if (device_create_file(sec_touchscreen, &dev_attr_tsp_slide2wake) < 0)
 		printk(KERN_ERR "Failed to create device file(%s)!\n",
 		       dev_attr_tsp_slide2wake.attr.name);
+
+	if (device_create_file(sec_touchscreen, &dev_attr_tsp_slide2wake_call) < 0)
+		printk(KERN_ERR "Failed to create device file(%s)!\n",
+			dev_attr_tsp_slide2wake_call.attr.name);
 
 	if (device_create_file
 	    (sec_touchscreen, &dev_attr_tsp_firm_version_phone) < 0)
