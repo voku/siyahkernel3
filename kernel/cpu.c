@@ -10,9 +10,9 @@
 #include <linux/sched.h>
 #include <linux/unistd.h>
 #include <linux/cpu.h>
-#include <linux/export.h>
 #include <linux/oom.h>
 #include <linux/rcupdate.h>
+#include <linux/export.h>
 #include <linux/bug.h>
 #include <linux/kthread.h>
 #include <linux/stop_machine.h>

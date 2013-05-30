@@ -215,7 +215,7 @@ static void xmm_gpio_revers_bias_restore(void)
 	s3c_gpio_cfgpin(gpio_link_hostwake, S3C_GPIO_SFN(0xF));
 	s3c_gpio_setpull(gpio_link_hostwake, S3C_GPIO_PULL_NONE);
 	irq_set_irq_type(gpio_to_irq(gpio_link_hostwake),
-			IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING);
+			IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING | IRQF_ONESHOT);
 	enable_irq_wake(gpio_to_irq(gpio_link_hostwake));
 
 	gpio_direction_input(gpio_cp_dump_int);

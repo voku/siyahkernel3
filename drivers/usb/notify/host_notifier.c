@@ -227,7 +227,7 @@ static int currentlimit_irq_init(struct host_notifier_info *hostinfo)
 
 	ret = request_threaded_irq(hostinfo->currentlimit_irq, NULL,
 			currentlimit_irq_thread,
-			IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+			IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
 			"overcurrent_detect", hostinfo);
 	if (ret)
 		pr_info("host_notifier: %s return : %d\n", __func__, ret);

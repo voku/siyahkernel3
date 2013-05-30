@@ -810,6 +810,8 @@ static ssize_t store_hotplug_lock(struct kobject *a, struct attribute *b,
 		cpufreq_pegasusq_cpu_unlock(prev_lock);
 
 	if (input == 0) {
+		atomic_set(&g_hotplug_lock, 0);
+		atomic_set(&g_hotplug_count, 0);
 		atomic_set(&dbs_tuners_ins.hotplug_lock, 0);
 		return count;
 	}
@@ -1498,6 +1500,9 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 			min_sampling_rate = MIN_SAMPLING_RATE;
 			dbs_tuners_ins.sampling_rate = DEF_SAMPLING_RATE;
 			dbs_tuners_ins.io_is_busy = 0;
+			atomic_set(&g_hotplug_lock, 0);
+			atomic_set(&g_hotplug_count, 0);
+			atomic_set(&dbs_tuners_ins.hotplug_lock, 0);
 		}
 		mutex_unlock(&dbs_mutex);
 
@@ -1532,9 +1537,13 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 
 		stop_rq_work();
 
-		if (!dbs_enable)
+		if (!dbs_enable) {			
+			atomic_set(&g_hotplug_lock, 0);
+			atomic_set(&g_hotplug_count, 0);
+			atomic_set(&dbs_tuners_ins.hotplug_lock, 0);
 			sysfs_remove_group(cpufreq_global_kobject,
 					   &dbs_attr_group);
+		}
 		mutex_unlock(&dbs_mutex);
 
 		break;

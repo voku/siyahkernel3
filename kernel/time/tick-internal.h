@@ -145,7 +145,7 @@ static inline int tick_device_is_functional(struct clock_event_device *dev)
 
 extern void do_timer(unsigned long ticks);
 
-#ifdef CONFIG_NO_HZ
+#ifdef CONFIG_NO_HZ_COMMON
 extern void tick_shutdown_nohz(unsigned int *cpup);
 #else
 static inline void tick_shutdown_nohz(unsigned int *cpup) { }

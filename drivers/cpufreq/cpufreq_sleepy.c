@@ -881,9 +881,11 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 		mutex_lock(&dbs_mutex);
 		dbs_enable--;
 
-		if (!dbs_enable)
+		if (!dbs_enable) {
+			suspended = 0;
 			sysfs_remove_group(cpufreq_global_kobject,
 					   &dbs_attr_group);
+		}
 		mutex_unlock(&dbs_mutex);
 		unregister_early_suspend(&sleepy_power_suspend);
 		pr_info("[sleepy] sleepy inactive\n");

@@ -551,8 +551,7 @@ char *symbol_string(char *buf, char *end, void *ptr,
 	else if (*fmt != 'f' && *fmt != 's')
 		sprint_symbol(sym, value);
 	else
-		kallsyms_lookup(value, NULL, NULL, NULL, sym);
-		
+		sprint_symbol_no_offset(sym, value);
 
 	return string(buf, end, sym, spec);
 #else

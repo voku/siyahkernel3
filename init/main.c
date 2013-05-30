@@ -68,8 +68,6 @@
 #include <linux/shmem_fs.h>
 #include <linux/slab.h>
 #include <linux/perf_event.h>
-#include <linux/file.h>
-#include <linux/ptrace.h>
 
 #include <asm/io.h>
 #include <asm/bugs.h>
@@ -797,11 +795,12 @@ static void __init do_pre_smp_initcalls(void)
 		do_one_initcall(*fn);
 }
 
-static int run_init_process(const char *init_filename)
+static void run_init_process(const char *init_filename)
 {
 	int ret = 0;
 	argv_init[0] = init_filename;
-	return kernel_execve(init_filename, argv_init, envp_init);
+	ret = kernel_execve(init_filename, argv_init, envp_init);
+	pr_info("run_init_process Ret : %d\n", ret);
 }
 
 /* This is a non __init function. Force it to be noinline otherwise gcc
@@ -817,8 +816,7 @@ static noinline int init_post(void)
 	numa_default_policy();
 
 	if (ramdisk_execute_command) {
-		if (!run_init_process(ramdisk_execute_command))
-			return 0;
+		run_init_process(ramdisk_execute_command);
 		printk(KERN_WARNING "Failed to execute %s\n",
 				ramdisk_execute_command);
 	}
@@ -830,16 +828,14 @@ static noinline int init_post(void)
 	 * trying to recover a really broken machine.
 	 */
 	if (execute_command) {
-		if (!run_init_process(execute_command))
-			return 0;
+		run_init_process(execute_command);
 		printk(KERN_WARNING "Failed to execute %s.  Attempting "
 					"defaults...\n", execute_command);
 	}
-	if (!run_init_process("/sbin/init") ||
-	    !run_init_process("/etc/init") ||
-	    !run_init_process("/bin/init") ||
-	    !run_init_process("/bin/sh"))
-		return 0;
+	run_init_process("/sbin/init");
+	run_init_process("/etc/init");
+	run_init_process("/bin/init");
+	run_init_process("/bin/sh");
 
 	panic("No init found.  Try passing init= option to kernel. "
 	      "See Linux Documentation/init.txt for guidance.");

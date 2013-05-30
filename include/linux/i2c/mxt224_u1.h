@@ -170,5 +170,6 @@ extern struct input_dev *input_device;
 extern void slide2wake_setdev(struct input_dev *input_device);
 extern void mxt224_gpio_sleep_mode(bool);
 extern bool s2w_enabled;
-extern bool s2w_prox_near;
+void proximity_detected(void);
+void proximity_off(void);
 #endif

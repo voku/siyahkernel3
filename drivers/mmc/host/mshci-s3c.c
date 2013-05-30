@@ -523,7 +523,7 @@ static int __devinit mshci_s3c_probe(struct platform_device *pdev)
 		if (sc->ext_cd_irq &&
 			request_irq(sc->ext_cd_irq,
 				mshci_s3c_gpio_card_detect_isr,
-				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
 				dev_name(&pdev->dev), sc)) {
 			dev_err(&pdev->dev, "cannot request irq for card detect\n");
 			sc->ext_cd_irq = 0;

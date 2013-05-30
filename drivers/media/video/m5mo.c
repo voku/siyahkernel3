@@ -2958,7 +2958,7 @@ static int __devinit m5mo_probe(struct i2c_client *client,
 		pdata->config_isp_irq();
 
 	err = request_irq(pdata->irq,
-		m5mo_isp_isr, IRQF_TRIGGER_RISING, "m5mo isp", sd);
+		m5mo_isp_isr, IRQF_TRIGGER_RISING | IRQF_ONESHOT, "m5mo isp", sd);
 	if (err) {
 		cam_err("failed to request irq\n");
 		return err;

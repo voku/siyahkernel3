@@ -11,8 +11,6 @@
  * published by the Free Software Foundation.
 */
 
-#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-
 #include <linux/module.h>
 #include <linux/rtc.h>
 #include <linux/kdev_t.h>
@@ -23,17 +21,21 @@
 #include "rtc-core.h"
 
 
-static DEFINE_IDA(rtc_ida);
+static DEFINE_IDR(rtc_idr);
+static DEFINE_MUTEX(idr_lock);
 struct class *rtc_class;
 
 static void rtc_device_release(struct device *dev)
 {
 	struct rtc_device *rtc = to_rtc_device(dev);
-	ida_simple_remove(&rtc_ida, rtc->id);
+	mutex_lock(&idr_lock);
+	idr_remove(&rtc_idr, rtc->id);
+	mutex_unlock(&idr_lock);
 	kfree(rtc);
 }
 
 #if defined(CONFIG_PM) && defined(CONFIG_RTC_HCTOSYS_DEVICE)
+
 /*
  * On suspend(), measure the delta between one RTC and the
  * system's wall clock; restore it on resume().
@@ -144,16 +146,25 @@ struct rtc_device *rtc_device_register(const char *name, struct device *dev,
 	struct rtc_wkalrm alrm;
 	int id, err;
 
-	id = ida_simple_get(&rtc_ida, 0, 0, GFP_KERNEL);
-	if (id < 0) {
-		err = id;
+	if (idr_pre_get(&rtc_idr, GFP_KERNEL) == 0) {
+		err = -ENOMEM;
 		goto exit;
 	}
+
+
+	mutex_lock(&idr_lock);
+	err = idr_get_new(&rtc_idr, NULL, &id);
+	mutex_unlock(&idr_lock);
+
+	if (err < 0)
+		goto exit;
+
+	id = id & MAX_ID_MASK;
 
 	rtc = kzalloc(sizeof(struct rtc_device), GFP_KERNEL);
 	if (rtc == NULL) {
 		err = -ENOMEM;
-		goto exit_ida;
+		goto exit_idr;
 	}
 
 	rtc->id = id;
@@ -211,8 +222,10 @@ struct rtc_device *rtc_device_register(const char *name, struct device *dev,
 exit_kfree:
 	kfree(rtc);
 
-exit_ida:
-	ida_simple_remove(&rtc_ida, id);
+exit_idr:
+	mutex_lock(&idr_lock);
+	idr_remove(&rtc_idr, id);
+	mutex_unlock(&idr_lock);
 
 exit:
 	dev_err(dev, "rtc core: unable to register %s, err = %d\n",
@@ -249,7 +262,7 @@ static int __init rtc_init(void)
 {
 	rtc_class = class_create(THIS_MODULE, "rtc");
 	if (IS_ERR(rtc_class)) {
-		pr_err("couldn't create class\n");
+		printk(KERN_ERR "%s: couldn't create class\n", __FILE__);
 		return PTR_ERR(rtc_class);
 	}
 	rtc_class->suspend = rtc_suspend;
@@ -263,7 +276,7 @@ static void __exit rtc_exit(void)
 {
 	rtc_dev_exit();
 	class_destroy(rtc_class);
-	ida_destroy(&rtc_ida);
+	idr_destroy(&rtc_idr);
 }
 
 subsys_initcall(rtc_init);

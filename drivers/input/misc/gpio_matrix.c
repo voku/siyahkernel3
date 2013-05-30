@@ -257,7 +257,7 @@ static int gpio_keypad_request_irqs(struct gpio_kp *kp)
 
 	switch (mi->flags & (GPIOKPF_ACTIVE_HIGH|GPIOKPF_LEVEL_TRIGGERED_IRQ)) {
 	default:
-		request_flags = IRQF_TRIGGER_FALLING;
+		request_flags = IRQF_TRIGGER_FALLING | IRQF_ONESHOT;
 		break;
 	case GPIOKPF_ACTIVE_HIGH:
 		request_flags = IRQF_TRIGGER_RISING;

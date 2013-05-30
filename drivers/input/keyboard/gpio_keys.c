@@ -497,7 +497,7 @@ extern void mdnie_toggle_negative(void);
 int homekey_trg_cnt = 4;
 int homekey_trg_ms = 300;
 
-static int mdnie_shortcut_enabled = 1;
+static int mdnie_shortcut_enabled = 0;
 module_param_named(mdnie_shortcut_enabled, mdnie_shortcut_enabled, int, S_IRUGO | S_IWUSR | S_IWGRP);
 
 static void gpio_keys_report_event(struct gpio_button_data *bdata)
@@ -781,7 +781,7 @@ static int __devinit gpio_keys_setup_key(struct platform_device *pdev,
 		goto fail3;
 	}
 
-	irqflags = IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING;
+	irqflags = IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING | IRQF_ONESHOT;
 	/*
 	 * If platform has specified that the button can be disabled,
 	 * we don't want it to share the interrupt line.

@@ -272,7 +272,7 @@ int xmm6260_init_modemctl_device(struct modem_ctl *mc,
 	mc->sim_state.changed = false;
 	if (mc->gpio_sim_detect) {
 		ret = request_irq(mc->irq_sim_detect, sim_detect_irq_handler,
-				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
 				"sim_detect", mc);
 		if (ret) {
 			mif_err("failed to request_irq: %d\n", ret);

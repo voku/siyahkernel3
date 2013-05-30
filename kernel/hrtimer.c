@@ -175,6 +175,7 @@ struct hrtimer_clock_base *lock_hrtimer_base(const struct hrtimer *timer,
 static int hrtimer_get_target(int this_cpu, int pinned)
 {
 #ifdef CONFIG_NO_HZ_COMMON
+/* if (!pinned && get_sysctl_timer_migration() && idle_cpu(this_cpu)) ORIGINAL, we have HACK here! */
 	if (!pinned && get_sysctl_timer_migration())
 		return get_nohz_timer_target();
 #endif
@@ -1029,7 +1030,8 @@ int __hrtimer_start_range_ns(struct hrtimer *timer, ktime_t tim,
  * @timer:	the timer to be added
  * @tim:	expiry time
  * @delta_ns:	"slack" range for the timer
- * @mode:	expiry mode: absolute (HRTIMER_ABS) or relative (HRTIMER_REL)
+ * @mode:	expiry mode: absolute (HRTIMER_MODE_ABS) or
+ *		relative (HRTIMER_MODE_REL)
  *
  * Returns:
  *  0 on success
@@ -1046,7 +1048,8 @@ EXPORT_SYMBOL_GPL(hrtimer_start_range_ns);
  * hrtimer_start - (re)start an hrtimer on the current CPU
  * @timer:	the timer to be added
  * @tim:	expiry time
- * @mode:	expiry mode: absolute (HRTIMER_ABS) or relative (HRTIMER_REL)
+ * @mode:	expiry mode: absolute (HRTIMER_MODE_ABS) or
+ *		relative (HRTIMER_MODE_REL)
  *
  * Returns:
  *  0 on success
@@ -1547,7 +1550,7 @@ static int __sched do_nanosleep(struct hrtimer_sleeper *t, enum hrtimer_mode mod
 			t->task = NULL;
 
 		if (likely(t->task))
-			freezable_schedule();
+			freezable_schedule(); /* ORIG -> schedule(); */
 
 		hrtimer_cancel(&t->timer);
 		mode = HRTIMER_MODE_ABS;
@@ -1610,7 +1613,8 @@ long hrtimer_nanosleep(struct timespec *rqtp, struct timespec __user *rmtp,
 	int ret = 0;
 	unsigned long slack;
 
-	slack = task_get_effective_timer_slack(current);
+	/* ORIG -> slack = current->timer_slack_ns; */
+	slack = task_get_effective_timer_slack(current); /* (timer slack mode) */
 	if (rt_task(current))
 		slack = 0;
 
@@ -1761,6 +1765,7 @@ static int __cpuinit hrtimer_cpu_notify(struct notifier_block *self,
 	case CPU_DEAD:
 	case CPU_DEAD_FROZEN:
 	{
+		/* cleanup NOZH per cpu data on cpu down, mod part */
 		migrate_hrtimers(scpu);
 		clockevents_notify(CLOCK_EVT_NOTIFY_CPU_DEAD, &scpu);
 		break;

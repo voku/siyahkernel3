@@ -3,12 +3,16 @@ config PRINTK_TIME
 	bool "Show timing information on printks"
 	depends on PRINTK
 	help
-	  Selecting this option causes timing information to be
-	  included in printk output.  This allows you to measure
-	  the interval between kernel operations, including bootup
-	  operations.  This is useful for identifying long delays
-	  in kernel startup.  Or add printk.time=1 at boot-time.
-	  See Documentation/kernel-parameters.txt
+	  Selecting this option causes time stamps of the printk()
+	  messages to be added to the output of the syslog() system
+	  call and at the console.
+
+	  The timestamp is always recorded internally, and exported
+	  to /dev/kmsg. This flag just specifies if the timestamp should
+	  be included, not that the timestamp is recorded.
+
+	  The behavior is also controlled by the kernel command line
+	  parameter printk.time=1. See Documentation/kernel-parameters.txt
 
 config PRINTK_CPU_ID
 	bool "Show cpu id on printks"
@@ -240,6 +244,26 @@ config BOOTPARAM_SOFTLOCKUP_PANIC_VALUE
 	range 0 1
 	default 0 if !BOOTPARAM_SOFTLOCKUP_PANIC
 	default 1 if BOOTPARAM_SOFTLOCKUP_PANIC
+
+config PANIC_ON_OOPS
+	bool "Panic on Oops" if EXPERT
+	default n
+	help
+	  Say Y here to enable the kernel to panic when it oopses. This
+	  has the same effect as setting oops=panic on the kernel command
+	  line.
+
+	  This feature is useful to ensure that the kernel does not do
+	  anything erroneous after an oops which could result in data
+	  corruption or other issues.
+
+	  Say N if unsure.
+
+config PANIC_ON_OOPS_VALUE
+	int
+	range 0 1
+	default 0 if !PANIC_ON_OOPS
+	default 1 if PANIC_ON_OOPS
 
 config DETECT_HUNG_TASK
 	bool "Detect Hung Tasks"

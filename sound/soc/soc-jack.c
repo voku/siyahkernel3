@@ -367,7 +367,8 @@ int snd_soc_jack_add_gpios(struct snd_soc_jack *jack, int count,
 		ret = request_any_context_irq(gpio_to_irq(gpios[i].gpio),
 					      gpio_handler,
 					      IRQF_TRIGGER_RISING |
-					      IRQF_TRIGGER_FALLING,
+					      IRQF_TRIGGER_FALLING |
+					      IRQF_ONESHOT,
 					      gpios[i].name,
 					      &gpios[i]);
 		if (ret < 0)

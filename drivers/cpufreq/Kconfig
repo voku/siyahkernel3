@@ -50,6 +50,14 @@ choice
 	  This option sets which CPUFreq governor shall be loaded at
 	  startup. If in doubt, select 'performance'.
 
+
+config CPU_FREQ_DEFAULT_GOV_LULZACTIVEW
+	bool "lulzactivew"
+	select CPU_FREQ_GOV_LULZACTIVEW
+	select CPU_FREQ_GOV_PERFORMANCE
+	help
+	  Use the CPUFreq governor 'lulzactivew' as default.
+
 config CPU_FREQ_DEFAULT_GOV_PERFORMANCE
 	bool "performance"
 	select CPU_FREQ_GOV_PERFORMANCE
@@ -179,6 +187,14 @@ config CPU_FREQ_GOV_USERSPACE
 	  For details, take a look at <file:Documentation/cpu-freq/>.
 
 	  If in doubt, say Y.
+
+config CPU_FREQ_GOV_LULZACTIVEW
+	tristate "'lulzactivew' cpufreq governor"
+	depends on CPU_FREQ
+	help
+	  'lulzactivew' - A combination of lulzactive and performance by erik96
+
+	  If in doubt, say N.
 
 config CPU_FREQ_GOV_ONDEMAND
 	tristate "'ondemand' cpufreq policy governor"

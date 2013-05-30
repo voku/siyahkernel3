@@ -2346,7 +2346,7 @@ static bool init_nocb_callback_list(struct rcu_data *rdp)
 static void rcu_kick_nohz_cpu(int cpu)
 {
 #ifdef CONFIG_NO_HZ_FULL
-	if (tick_nohz_full_cpu(cpu) && cpu_online(cpu))
+	if (tick_nohz_full_cpu(cpu))
 		smp_send_reschedule(cpu);
 #endif /* #ifdef CONFIG_NO_HZ_FULL */
 }

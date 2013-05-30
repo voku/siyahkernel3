@@ -256,7 +256,7 @@ error:
 /*
  * Allocate a keyring and link into the destination keyring.
  */
-struct key *keyring_alloc(const char *description, uid_t uid, gid_t gid,
+struct key *keyring_alloc(const char *description, kuid_t uid, kgid_t gid,
 			  const struct cred *cred, key_perm_t perm,
 			  unsigned long flags, struct key *dest)
 {

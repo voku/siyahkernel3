@@ -387,6 +387,9 @@ extern struct cpufreq_governor cpufreq_gov_pegasusq;
 #elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_ZZMOOVE)
 extern struct cpufreq_governor cpufreq_gov_zzmoove;
 #define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_zzmoove)
+#elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_LULZACTIVEW)
+extern struct cpufreq_governor cpufreq_gov_lulzactivew;
+#define CPUFREQ_DEFAULT_GOVERNOR  (&cpufreq_gov_lulzactivew)
 #elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_HYPER)
 extern struct cpufreq_governor cpufreq_gov_HYPER;
 #define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_HYPER)
