@@ -26,7 +26,9 @@
 #include <linux/sched/rt.h>
 
 #include <asm/irq_regs.h>
+#ifdef KVM
 #include <linux/kvm_para.h>
+#endif
 #include <linux/perf_event.h>
 
 int watchdog_enabled = 1;
@@ -284,8 +286,10 @@ static enum hrtimer_restart watchdog_timer_fn(struct hrtimer *hrtimer)
 			sched_clock_tick();
 		}
 
+#ifdef KVM
 		/* Clear the guest paused flag on watchdog reset */
 		kvm_check_and_clear_guest_paused();
+#endif
 		__touch_watchdog();
 		return HRTIMER_RESTART;
 	}
@@ -298,6 +302,7 @@ static enum hrtimer_restart watchdog_timer_fn(struct hrtimer *hrtimer)
 	 */
 	duration = is_softlockup(touch_ts);
 	if (unlikely(duration)) {
+#ifdef KVM
 		/*
 		 * If a virtual machine is stopped by the host it can look to
 		 * the watchdog like a soft lockup, check to see if the host
@@ -305,6 +310,7 @@ static enum hrtimer_restart watchdog_timer_fn(struct hrtimer *hrtimer)
 		 */
 		if (kvm_check_and_clear_guest_paused())
 			return HRTIMER_RESTART;
+#endif
 
 		/* only warn once */
 		if (__this_cpu_read(soft_watchdog_warn) == true)
