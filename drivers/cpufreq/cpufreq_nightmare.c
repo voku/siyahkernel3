@@ -1647,7 +1647,7 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 				Default = 1
 			*/
 			nightmare_tuners_ins.earlysuspend = -1;
-			atomic_set(&nightmare_tuners_ins.hotplug_lock, 0);			
+			atomic_set(&nightmare_tuners_ins.hotplug_lock, 0);
 		}
 		mutex_unlock(&nightmare_mutex);
 		if (atomic_read(&nightmare_tuners_ins.hotplug_enable) == 0)
