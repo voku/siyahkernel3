@@ -96,9 +96,9 @@ struct cpufreq_governor cpufreq_gov_HYPER = {
 enum {DBS_NORMAL_SAMPLE, DBS_SUB_SAMPLE};
 
 struct cpu_dbs_info_s {
-	cputime64_t prev_cpu_idle;
-	cputime64_t prev_cpu_iowait;
-	cputime64_t prev_cpu_wall;
+	u64 prev_cpu_idle;
+	u64 prev_cpu_iowait;
+	u64 prev_cpu_wall;
 	unsigned int prev_cpu_wall_delta;
 	cputime64_t prev_cpu_nice;
 	struct cpufreq_policy *cur_policy;
@@ -160,8 +160,7 @@ static struct dbs_tuners {
 
 static unsigned int dbs_enable = 0;	/* number of CPUs using this policy */
 
-static inline cputime64_t get_cpu_iowait_time(unsigned int cpu,
-					      cputime64_t *wall)
+static inline cputime64_t get_cpu_iowait_time(unsigned int cpu, cputime64_t *wall)
 {
 	u64 iowait_time = get_cpu_iowait_time_us(cpu, wall);
 
@@ -243,18 +242,18 @@ static unsigned int powersave_bias_target(struct cpufreq_policy *policy,
 	return freq_hi;
 }
 
-static void hyper_power_powersave_bias_init_cpu(int cpu)
+static void hyper_powersave_bias_init_cpu(int cpu)
 {
 	struct cpu_dbs_info_s *dbs_info = &per_cpu(od_cpu_dbs_info, cpu);
 	dbs_info->freq_table = cpufreq_frequency_get_table(cpu);
 	dbs_info->freq_lo = 0;
 }
 
-static void HYPER_powersave_bias_init(void)
+static void hyper_powersave_bias_init(void)
 {
 	int i;
 	for_each_online_cpu(i) {
-		hyper_power_powersave_bias_init_cpu(i);
+		hyper_powersave_bias_init_cpu(i);
 	}
 }
 
@@ -529,9 +528,9 @@ static ssize_t store_ignore_nice_load(struct kobject *a, struct attribute *b,
 	if (input > 1)
 		input = 1;
 
-	if (input == dbs_tuners_ins.ignore_nice) /* nothing to do */
+	if (input == dbs_tuners_ins.ignore_nice)  {/* nothing to do */
 		return count;
-
+	}
 	dbs_tuners_ins.ignore_nice = input;
 
 	/* we need to re-evaluate prev_cpu_idle */
@@ -560,7 +559,7 @@ static ssize_t store_powersave_bias(struct kobject *a, struct attribute *b,
 		input = 1000;
 
 	dbs_tuners_ins.powersave_bias = input;
-	HYPER_powersave_bias_init();
+	hyper_powersave_bias_init();
 
 	return count;
 }
@@ -702,7 +701,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 	max_load_freq = 0;
 
 	for_each_cpu(j, policy->cpus) {
-		cputime64_t cur_wall_time, cur_idle_time, cur_iowait_time;
+		u64 cur_wall_time, cur_idle_time, cur_iowait_time;
 		unsigned int idle_time, wall_time, iowait_time;
 		unsigned int load_freq;
 		int freq_avg;
@@ -800,6 +799,8 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 		/* calculate the scaled load across CPU */
 		load_at_max_freq += (cur_load * policy->cur) /
 					policy->cpuinfo.max_freq;
+
+		cpufreq_notify_utilization(policy, load_at_max_freq);
 
 		avg_load_at_max_freq += ((load_at_max_freq +
 				j_dbs_info->load_at_prev_sample) / 2);
@@ -989,13 +990,14 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 
 			j_dbs_info->prev_cpu_idle = get_cpu_idle_time(j,
 						&j_dbs_info->prev_cpu_wall);
-			if (dbs_tuners_ins.ignore_nice)
+			if (dbs_tuners_ins.ignore_nice) {
 				j_dbs_info->prev_cpu_nice =
 						kcpustat_cpu(j).cpustat[CPUTIME_NICE];
+			}
 		}
 		this_dbs_info->cpu = cpu;
 		this_dbs_info->rate_mult = 1;
-		hyper_power_powersave_bias_init_cpu(cpu);
+		hyper_powersave_bias_init_cpu(cpu);
 		/*
 		 * Start the timerschedule work, when this governor
 		 * is used for first time
@@ -1026,6 +1028,7 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 
 		mutex_init(&this_dbs_info->timer_mutex);
 		dbs_timer_init(this_dbs_info);
+
 		break;
 
 	case CPUFREQ_GOV_STOP:
@@ -1081,7 +1084,7 @@ static int qos_dvfs_lat_notify(struct notifier_block *nb, unsigned long value,
 	return NOTIFY_OK;
 }
 
-static struct notifier_block HYPER_qos_dvfs_lat_nb = {
+static struct notifier_block hyper_qos_dvfs_lat_nb = {
 	.notifier_call = qos_dvfs_lat_notify,
 };
 
@@ -1112,14 +1115,14 @@ static int __init cpufreq_gov_dbs_init(void)
 	}
 
 	err = pm_qos_add_notifier(PM_QOS_DVFS_RESPONSE_LATENCY,
-			    &HYPER_qos_dvfs_lat_nb);
+			    &hyper_qos_dvfs_lat_nb);
 	if (err)
 		return err;
 
 	err = cpufreq_register_governor(&cpufreq_gov_HYPER);
 	if (err) {
 		pm_qos_remove_notifier(PM_QOS_DVFS_RESPONSE_LATENCY,
-				       &HYPER_qos_dvfs_lat_nb);
+				       &hyper_qos_dvfs_lat_nb);
 	}
 
 	return err;
@@ -1130,7 +1133,7 @@ static void __exit cpufreq_gov_dbs_exit(void)
 	unsigned int i;
 
 	pm_qos_remove_notifier(PM_QOS_DVFS_RESPONSE_LATENCY,
-			       &HYPER_qos_dvfs_lat_nb);
+			       &hyper_qos_dvfs_lat_nb);
 
 	cpufreq_unregister_governor(&cpufreq_gov_HYPER);
 	for_each_possible_cpu(i) {
