@@ -38,7 +38,7 @@
 #endif
 
 #define EARLYSUSPEND_HOTPLUGLOCK 1
-#define RQ_AVG_TIMER_RATE	10
+#define RQ_AVG_TIMER_RATE	20
 /*
  * runqueue average
  */
@@ -277,12 +277,12 @@ static struct nightmare_tuners {
 
 static void apply_hotplug_lock(void)
 {
-	short online, possible, lock, flag;
+	int online, possible, lock, flag;
 
 	/* do turn_on/off cpus */
-	online = (short)num_online_cpus();
-	possible = (short)num_possible_cpus();
-	lock = (short)atomic_read(&nightmare_tuners_ins.hotplug_lock);
+	online = num_online_cpus();
+	possible = num_possible_cpus();
+	lock = atomic_read(&nightmare_tuners_ins.hotplug_lock);
 	flag = lock - online;
 
 	if (lock == 0 || flag == 0)
@@ -302,7 +302,7 @@ static void apply_hotplug_lock(void)
  * History of CPU usage
  */
 struct nightmare_cpu_usage {
-	unsigned int freq;
+	unsigned int freq[NR_CPUS];
 	u8 load[NR_CPUS];
 	unsigned int rq_avg;
 };
@@ -1110,18 +1110,6 @@ static struct attribute_group nightmare_attr_group = {
 
 /************************** sysfs end ************************/
 
-static void debug_hotplug_check(int which, int rq_avg, unsigned int freq,
-			 struct nightmare_cpu_usage *usage)
-{
-	int cpu;
-	printk(KERN_ERR "CHECK %s rq %d.%02d freq %u [", which ? "up" : "down",
-	       rq_avg / 100, rq_avg % 100, freq);
-	for_each_online_cpu(cpu) {
-		printk(KERN_ERR "(%d, %hhu), ", cpu, usage->load[cpu]);
-	}
-	printk(KERN_ERR "]\n");
-}
-
 static int check_up(void)
 {
 	u8 num_hist = hotplug_histories->num_hist;
@@ -1136,24 +1124,25 @@ static int check_up(void)
 	unsigned int min_freq = UINT_MAX;
 	unsigned int min_rq_avg = UINT_MAX;
 	u8 min_avg_load = 100;
-	short online;
+	int online;
 
-	if (atomic_read(&nightmare_tuners_ins.hotplug_lock) > 0)
+	if (atomic_read(&nightmare_tuners_ins.hotplug_lock) > 0) {
 		return 0;
+	}
 
-	online = (short)num_online_cpus();
+	online = num_online_cpus();
 	up_freq = hotplug_freq[online - 1][HOTPLUG_UP_INDEX];
 	up_rq = hotplug_rq[online - 1][HOTPLUG_UP_INDEX];
 
-	if (online == (short)num_possible_cpus())
+	if (online == num_possible_cpus())
 		return 0;
 
-	if (unlikely(nightmare_tuners_ins.max_cpu_lock != 0 
-		&& online >= nightmare_tuners_ins.max_cpu_lock))
+	if (nightmare_tuners_ins.max_cpu_lock != 0 
+		&& online >= (int)nightmare_tuners_ins.max_cpu_lock)
 		return 0;
 
-	if (unlikely(nightmare_tuners_ins.min_cpu_lock != 0
-		&& online < nightmare_tuners_ins.min_cpu_lock))
+	if (nightmare_tuners_ins.min_cpu_lock != 0
+		&& online < (int)nightmare_tuners_ins.min_cpu_lock)
 		return 1;
 
 	if (num_hist == 0 || num_hist % up_rate)
@@ -1161,31 +1150,25 @@ static int check_up(void)
 
 	if (hotplug_compare_level) {
 		usage = &hotplug_histories->usage[num_hist - 1];
-		min_freq = usage->freq;
+		min_freq = usage->freq[0];
 		min_rq_avg = usage->rq_avg;
 		min_avg_load = usage->load[0];
-		if (unlikely(nightmare_tuners_ins.dvfs_debug))
-				debug_hotplug_check(1, min_rq_avg, min_freq, usage);
-
 	} else {
 		for (i = num_hist - 1; i >= num_hist - up_rate; --i) {
 			usage = &hotplug_histories->usage[i];
-			freq = usage->freq;
+			freq = usage->freq[0];
 			rq_avg =  usage->rq_avg;
 			avg_load = usage->load[0];
 			min_freq = min(min_freq, freq);
 			min_rq_avg = min(min_rq_avg, rq_avg);
 			min_avg_load = min(min_avg_load, avg_load);
-			if (unlikely(nightmare_tuners_ins.dvfs_debug))
-				debug_hotplug_check(1, rq_avg, freq, usage);
 		}
 	}
-
-	if (min_avg_load < up_avg_load)
-		return 0;
-
 	if (min_freq >= up_freq && min_rq_avg > up_rq) {
-		printk(KERN_ERR "[HOTPLUG IN] %s %d>=%d && %d>%d\n",
+		if (min_avg_load < up_avg_load) {
+			return 0;
+		}
+		printk(KERN_ERR "[HOTPLUG IN] %s %u>=%u && %u>%u\n",
 			__func__, min_freq, up_freq, min_rq_avg, up_rq);
 		hotplug_histories->num_hist = 0;
 		return 1;
@@ -1207,24 +1190,25 @@ static int check_down(void)
 	unsigned int max_freq = 0;
 	unsigned int max_rq_avg = 0;
 	u8 max_avg_load = 0;
-	short online;
+	int online;
 
-	if (atomic_read(&nightmare_tuners_ins.hotplug_lock) > 0)
+	if (atomic_read(&nightmare_tuners_ins.hotplug_lock) > 0) {
 		return 0;
+	}
 
-	online = (short)num_online_cpus();
+	online = num_online_cpus();
 	down_freq = hotplug_freq[online - 1][HOTPLUG_DOWN_INDEX];
 	down_rq = hotplug_rq[online - 1][HOTPLUG_DOWN_INDEX];
 
 	if (online == 1)
 		return 0;
 
-	if (unlikely(nightmare_tuners_ins.max_cpu_lock != 0
-		&& online > nightmare_tuners_ins.max_cpu_lock))
+	if (nightmare_tuners_ins.max_cpu_lock != 0
+		&& online > (int)nightmare_tuners_ins.max_cpu_lock)
 		return 1;
 
-	if (unlikely(nightmare_tuners_ins.min_cpu_lock != 0
-		&& online <= nightmare_tuners_ins.min_cpu_lock))
+	if (nightmare_tuners_ins.min_cpu_lock != 0
+		&& online <= (int)nightmare_tuners_ins.min_cpu_lock)
 		return 0;
 
 	if (num_hist == 0 || num_hist % down_rate)
@@ -1232,39 +1216,32 @@ static int check_down(void)
 
 	if (hotplug_compare_level) {
 		usage = &hotplug_histories->usage[num_hist - 1];
-		max_freq = usage->freq;
+		max_freq = usage->freq[1];
 		max_rq_avg = usage->rq_avg;
 		max_avg_load = usage->load[1];
-		if (unlikely(nightmare_tuners_ins.dvfs_debug))
-				debug_hotplug_check(0, max_rq_avg, max_freq, usage);
 	} else {
 		for (i = num_hist - 1; i >= num_hist - down_rate; --i) {
 			usage = &hotplug_histories->usage[i];
-			freq = usage->freq;
+			freq = usage->freq[1];
 			rq_avg =  usage->rq_avg;
 			avg_load = usage->load[1];
 			max_freq = max(max_freq, freq);
 			max_rq_avg = max(max_rq_avg, rq_avg);
 			max_avg_load = max(max_avg_load, avg_load);
-			if (unlikely(nightmare_tuners_ins.dvfs_debug))
-				debug_hotplug_check(0, rq_avg, freq, usage);
 		}
 	}
-
 	if ((max_freq <= down_freq && max_rq_avg <= down_rq) 
 		|| (max_avg_load < down_avg_load)) {
-		printk(KERN_ERR "[HOTPLUG OUT] %s %d<=%d && %d<%d\n",
+		printk(KERN_ERR "[HOTPLUG OUT] %s %u<=%u && %u<%u\n",
 			__func__, max_freq, down_freq, max_rq_avg, down_rq);
 		hotplug_histories->num_hist = 0;
 		return 1;
 	}
-
 	return 0;
 }
 
 static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare_cpuinfo)
 {
-	struct cpufreq_policy *policy;
 	unsigned int j;
 	u8 num_hist = hotplug_histories->num_hist;
 	u8 max_hotplug_rate = max(nightmare_tuners_ins.cpu_up_rate,nightmare_tuners_ins.cpu_down_rate);
@@ -1272,20 +1249,19 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 	unsigned int rq_avg = 0;
 	bool hotplug_enable = atomic_read(&nightmare_tuners_ins.hotplug_enable) > 0;
 
-	policy = this_nightmare_cpuinfo->cur_policy;
-	hotplug_histories->usage[num_hist].freq = policy->cur;
-
 	if (hotplug_enable) {
 		hotplug_histories->usage[num_hist].rq_avg = get_nr_run_avg();
 		/* add total_load, avg_load to get average load */
 		rq_avg = hotplug_histories->usage[num_hist].rq_avg;
+	} else {
+		hotplug_histories->usage[num_hist].rq_avg = 0;
 	}
 
 	/* get last num_hist used */
 	hotplug_histories->last_num_hist = num_hist;
 	++hotplug_histories->num_hist;
 
-	for_each_cpu(j, policy->cpus) {
+	for_each_possible_cpu(j) {
 		struct cpufreq_nightmare_cpuinfo *j_nightmare_cpuinfo;
 		u64 cur_wall_time, cur_idle_time, cur_iowait_time;
 		u64 prev_wall_time, prev_idle_time, prev_iowait_time;
@@ -1316,7 +1292,7 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 				(cur_iowait_time - prev_iowait_time);
 		j_nightmare_cpuinfo->prev_cpu_iowait = cur_iowait_time;
 
-		if (unlikely(nightmare_tuners_ins.ignore_nice)) {
+		if (nightmare_tuners_ins.ignore_nice) {
 			u64 cur_nice;
 			unsigned long cur_nice_jiffies;
 
@@ -1337,6 +1313,7 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 			idle_time -= iowait_time;
 
 		if (!wall_time || wall_time <= idle_time) {
+			hotplug_histories->usage[num_hist].freq[j] = 0;
 			hotplug_histories->usage[num_hist].load[j] = 0;
 			continue;
 		}
@@ -1344,14 +1321,16 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 		cur_load = (u8)(100 * (wall_time - idle_time) / wall_time);
 
 		if (cpu_online(j)) {
+			hotplug_histories->usage[num_hist].freq[j] = j_nightmare_cpuinfo->cur_policy->cur;
 			hotplug_histories->usage[num_hist].load[j] = cur_load;
 		} else {
+			hotplug_histories->usage[num_hist].freq[j] = 0;
 			hotplug_histories->usage[num_hist].load[j] = 0;
 		}
 		/* calculate the scaled load across CPU */
-		load_at_max_freq = (cur_load * policy->cur)/
-					policy->cpuinfo.max_freq;
-		cpufreq_notify_utilization(policy, load_at_max_freq);
+		load_at_max_freq = (cur_load * j_nightmare_cpuinfo->cur_policy->cur)/
+					j_nightmare_cpuinfo->cur_policy->cpuinfo.max_freq;
+		cpufreq_notify_utilization(j_nightmare_cpuinfo->cur_policy, load_at_max_freq);
 	}
 
 	if (hotplug_enable) {
@@ -1451,7 +1430,7 @@ static void nightmare_check_frequency(struct cpufreq_nightmare_cpuinfo *this_nig
 			}
 			inc_load = (((unsigned int)cur_load * nightmare_tuners_ins.freq_for_calc_incr) / 100) + (((unsigned int)freq_step * nightmare_tuners_ins.freq_for_calc_incr) / 100);
 			inc_brake = ((unsigned int)freq_up_brake * nightmare_tuners_ins.freq_for_calc_incr) / 100;
-			if (unlikely(inc_brake > inc_load)) {
+			if (inc_brake > inc_load) {
 				cpufreq_cpu_put(policy);
 				continue;
 			} else {
@@ -1535,7 +1514,7 @@ static inline void nightmare_timer_exit(struct cpufreq_nightmare_cpuinfo *nightm
 static int pm_notifier_call(struct notifier_block *this,
 			    unsigned long event, void *ptr)
 {
-	static unsigned short prev_hotplug_lock;
+	static unsigned int prev_hotplug_lock;
 	bool hotplug_enable = (atomic_read(&nightmare_tuners_ins.hotplug_enable) > 0);
 	switch (event) {
 	case PM_SUSPEND_PREPARE:
@@ -1569,7 +1548,7 @@ static struct early_suspend early_suspend;
 static void cpufreq_nightmare_early_suspend(struct early_suspend *h)
 {
 	if (atomic_read(&nightmare_tuners_ins.hotplug_enable) > 0) {
-		atomic_set(&nightmare_tuners_ins.hotplug_lock,(nightmare_tuners_ins.min_cpu_lock) ? nightmare_tuners_ins.min_cpu_lock : 1);
+		atomic_set(&nightmare_tuners_ins.hotplug_lock,(nightmare_tuners_ins.min_cpu_lock) ? (int)nightmare_tuners_ins.min_cpu_lock : 1);
 		nightmare_tuners_ins.earlysuspend = 1;
 		apply_hotplug_lock();
 		stop_rq_work();
