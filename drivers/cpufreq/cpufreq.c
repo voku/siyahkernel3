@@ -858,18 +858,16 @@ static int cpufreq_add_policy_cpu(unsigned int cpu, unsigned int sibling,
 				  struct device *dev)
 {
 	struct cpufreq_policy *policy;
-	int ret = 0, has_target = 0;
+	int ret = 0, has_target = !!cpufreq_driver->target;
 	unsigned long flags;
 
 	policy = cpufreq_cpu_get(sibling);
 	WARN_ON(!policy);
 
-	rcu_read_lock();
-	has_target = !!rcu_dereference(cpufreq_driver)->target;
-	rcu_read_unlock();
-
+#if 0 // will kill nightmare gov
 	if (has_target)
 		__cpufreq_governor(policy, CPUFREQ_GOV_STOP);
+#endif
 
 	lock_policy_rwsem_write(sibling);
 
@@ -882,10 +880,12 @@ static int cpufreq_add_policy_cpu(unsigned int cpu, unsigned int sibling,
 
 	unlock_policy_rwsem_write(sibling);
 
+#if 0 // will kill nightmare gov
 	if (has_target) {
 		__cpufreq_governor(policy, CPUFREQ_GOV_START);
 		__cpufreq_governor(policy, CPUFREQ_GOV_LIMITS);
 	}
+#endif
 
 	ret = sysfs_create_link(&dev->kobj, &policy->kobj, "cpufreq");
 	if (ret) {
@@ -1136,8 +1136,10 @@ static int __cpufreq_remove_dev(struct device *dev, struct subsys_interface *sif
 				__func__, cpu_dev->id, cpu);
 	}
 
+#if 0 // will kill nightmare gov
 	if ((cpus == 1) && (cpufreq_driver->target))
 		__cpufreq_governor(data, CPUFREQ_GOV_POLICY_EXIT);
+#endif
 
 	pr_debug("%s: removing link, cpu: %d\n", __func__, cpu);
 	cpufreq_cpu_put(data);
