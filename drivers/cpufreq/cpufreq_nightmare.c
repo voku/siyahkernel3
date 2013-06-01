@@ -498,7 +498,6 @@ static ssize_t store_hotplug_enable(struct kobject *a, struct attribute *b,
 		apply_hotplug_lock();
 		start_rq_work();
 	} else {
-		apply_hotplug_lock();
 		stop_rq_work();
 	}
 	atomic_set(&nightmare_tuners_ins.hotplug_enable, input);
@@ -1612,11 +1611,12 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 
 		hotplug_histories->num_hist = 0;
 		hotplug_histories->last_num_hist = 0;
+
 		start_rq_work();
 
 		mutex_lock(&nightmare_mutex);
-
 		nightmare_enable++;
+
 		for_each_cpu(j, policy->cpus) {
 			struct cpufreq_nightmare_cpuinfo *j_nightmare_cpuinfo;
 			j_nightmare_cpuinfo = &per_cpu(od_nightmare_cpuinfo, j);
@@ -1647,9 +1647,11 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 				Default = 1
 			*/
 			nightmare_tuners_ins.earlysuspend = -1;
-			atomic_set(&nightmare_tuners_ins.hotplug_lock, 0);
+			atomic_set(&nightmare_tuners_ins.hotplug_lock, 0);			
 		}
 		mutex_unlock(&nightmare_mutex);
+		if (atomic_read(&nightmare_tuners_ins.hotplug_enable) == 0)
+			stop_rq_work();
 
 		mutex_init(&this_nightmare_cpuinfo->timer_mutex);
 		nightmare_timer_init(this_nightmare_cpuinfo);
@@ -1673,11 +1675,10 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 #endif
 		nightmare_timer_exit(this_nightmare_cpuinfo);
 
-		mutex_lock(&nightmare_mutex);
-		
-		nightmare_enable--;
-
 		stop_rq_work();
+
+		mutex_lock(&nightmare_mutex);
+		nightmare_enable--;
 
 		if (!nightmare_enable) {
 			sysfs_remove_group(cpufreq_global_kobject,
