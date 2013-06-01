@@ -60,9 +60,9 @@ static void rq_work_fn(struct work_struct *work);
 
 static void start_rq_work(void)
 {
-	if (atomic_read(&g_rqwork_flag))
+	if (atomic_read(&g_rqwork_flag)) {
 		return;
-
+	}
 	atomic_set(&g_rqwork_flag,1);
 
 	rq_data->nr_run_avg = 0;
@@ -80,9 +80,9 @@ static void start_rq_work(void)
 
 static void stop_rq_work(void)
 {
-	if (atomic_read(&g_rqwork_flag) == 0)
+	if (atomic_read(&g_rqwork_flag) == 0) {
 		return;
-
+	}
 	atomic_set(&g_rqwork_flag,0);
 
 	if (rq_data->nr_run_wq)
@@ -241,7 +241,7 @@ static struct nightmare_tuners {
 	u8 above_scaling_freq_step;
 	u8 below_scaling_freq_step;
 	bool dvfs_debug;
-	short earlysuspend;
+	bool earlysuspend;
 } nightmare_tuners_ins = {
 	.hotplug_lock = ATOMIC_INIT(0),
 	.hotplug_enable = ATOMIC_INIT(0),
@@ -269,7 +269,7 @@ static struct nightmare_tuners {
 	.above_scaling_freq_step = 0,
 	.below_scaling_freq_step = 0,
 	.dvfs_debug = 0,
-	.earlysuspend = -1,
+	.earlysuspend = 0,
 };
 
 /*
@@ -1230,7 +1230,6 @@ static int check_down(void)
 	if (num_hist == 0 || num_hist % down_rate)
 		return 0;
 
-
 	if (hotplug_compare_level) {
 		usage = &hotplug_histories->usage[num_hist - 1];
 		max_freq = usage->freq;
@@ -1398,7 +1397,7 @@ static void nightmare_check_frequency(struct cpufreq_nightmare_cpuinfo *this_nig
 {
 	int j;
 	u8 num_hist = hotplug_histories->last_num_hist;
-	bool earlysuspend = nightmare_tuners_ins.earlysuspend >= 0;
+	bool earlysuspend = nightmare_tuners_ins.earlysuspend;
 
 	for_each_online_cpu(j) {
 		struct cpufreq_policy *policy;
@@ -1570,8 +1569,8 @@ static struct early_suspend early_suspend;
 static void cpufreq_nightmare_early_suspend(struct early_suspend *h)
 {
 	if (atomic_read(&nightmare_tuners_ins.hotplug_enable) > 0) {
-		nightmare_tuners_ins.earlysuspend = (short)atomic_read(&nightmare_tuners_ins.hotplug_lock);
 		atomic_set(&nightmare_tuners_ins.hotplug_lock,(nightmare_tuners_ins.min_cpu_lock) ? nightmare_tuners_ins.min_cpu_lock : 1);
+		nightmare_tuners_ins.earlysuspend = 1;
 		apply_hotplug_lock();
 		stop_rq_work();
 	} else {
@@ -1581,12 +1580,12 @@ static void cpufreq_nightmare_early_suspend(struct early_suspend *h)
 static void cpufreq_nightmare_late_resume(struct early_suspend *h)
 {
 	if (atomic_read(&nightmare_tuners_ins.hotplug_enable) > 0) {
-		atomic_set(&nightmare_tuners_ins.hotplug_lock, (int)nightmare_tuners_ins.earlysuspend);
-		nightmare_tuners_ins.earlysuspend = -1;
+		atomic_set(&nightmare_tuners_ins.hotplug_lock, 0);
+		nightmare_tuners_ins.earlysuspend = 0;
 		apply_hotplug_lock();
 		start_rq_work();
 	} else {
-		nightmare_tuners_ins.earlysuspend = -1;
+		nightmare_tuners_ins.earlysuspend = 0;
 	}
 }
 
@@ -1646,12 +1645,10 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 				set default hotplug_enable var when nightmare is starting.
 				Default = 1
 			*/
-			nightmare_tuners_ins.earlysuspend = -1;
-			atomic_set(&nightmare_tuners_ins.hotplug_lock, 0);
+			nightmare_tuners_ins.earlysuspend = 0;
+			atomic_set(&nightmare_tuners_ins.hotplug_lock, 0);			
 		}
 		mutex_unlock(&nightmare_mutex);
-		if (atomic_read(&nightmare_tuners_ins.hotplug_enable) == 0)
-			stop_rq_work();
 
 		mutex_init(&this_nightmare_cpuinfo->timer_mutex);
 		nightmare_timer_init(this_nightmare_cpuinfo);
@@ -1700,7 +1697,7 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 				continue;
 			}
 
-			if (nightmare_tuners_ins.earlysuspend >= 0) {
+			if (nightmare_tuners_ins.earlysuspend) {
 				min_freq = min(policy->min_suspend,policy->min);
 				max_freq = min(policy->max_suspend,policy->max);
 			} else {
@@ -1708,14 +1705,13 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 				max_freq = policy->max;
 			}
 
-			if (max_freq < cpu_policy->cur)
+			if (max_freq < cpu_policy->cur) {
 				__cpufreq_driver_target(cpu_policy,max_freq,CPUFREQ_RELATION_L);
-			else if (min_freq > cpu_policy->cur)
+			} else if (min_freq > cpu_policy->cur) {
 				__cpufreq_driver_target(cpu_policy,min_freq,CPUFREQ_RELATION_L);
-
+			}
 			cpufreq_cpu_put(cpu_policy);
 		}
-
 		mutex_unlock(&this_nightmare_cpuinfo->timer_mutex);
 		break;
 	}
