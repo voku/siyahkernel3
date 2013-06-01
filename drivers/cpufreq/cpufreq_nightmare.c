@@ -38,13 +38,12 @@
 #endif
 
 #define EARLYSUSPEND_HOTPLUGLOCK 1
-#define RQ_AVG_TIMER_RATE	20
+#define RQ_AVG_TIMER_RATE	10
 /*
  * runqueue average
  */
 
 static atomic_t g_rqwork_flag = ATOMIC_INIT(0);
-
 struct nightmare_runqueue_data {
 	unsigned int nr_run_avg;
 	unsigned int update_rate;
@@ -1611,8 +1610,7 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 		hotplug_histories->num_hist = 0;
 		hotplug_histories->last_num_hist = 0;
 
-		if (atomic_read(&nightmare_tuners_ins.hotplug_enable) > 0)
-			start_rq_work();
+		start_rq_work();
 
 		mutex_lock(&nightmare_mutex);
 		nightmare_enable++;
@@ -1646,6 +1644,9 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 			atomic_set(&nightmare_tuners_ins.hotplug_lock, 0);			
 		}
 		mutex_unlock(&nightmare_mutex);
+		if (atomic_read(&nightmare_tuners_ins.hotplug_enable) == 0) {
+			stop_rq_work();
+		}
 
 		mutex_init(&this_nightmare_cpuinfo->timer_mutex);
 		nightmare_timer_init(this_nightmare_cpuinfo);
