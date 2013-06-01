@@ -187,9 +187,9 @@ struct cpufreq_governor cpufreq_gov_nightmare = {
 };
 
 struct cpufreq_nightmare_cpuinfo {
-	cputime64_t prev_cpu_idle;
-	cputime64_t prev_cpu_iowait;
-	cputime64_t prev_cpu_wall;
+	u64 prev_cpu_idle;
+	u64 prev_cpu_iowait;
+	u64 prev_cpu_wall;
 	cputime64_t prev_cpu_nice;
 	struct cpufreq_policy *cur_policy;
 	struct delayed_work work;
@@ -315,8 +315,7 @@ struct nightmare_cpu_usage_history {
 
 static struct nightmare_cpu_usage_history *hotplug_histories;
 
-static inline cputime64_t get_cpu_iowait_time(unsigned int cpu,
-					      cputime64_t *wall)
+static inline cputime64_t get_cpu_iowait_time(unsigned int cpu, cputime64_t *wall)
 {
 	u64 iowait_time = get_cpu_iowait_time_us(cpu, wall);
 
@@ -666,9 +665,9 @@ static ssize_t store_ignore_nice_load(struct kobject *a, struct attribute *b,
 
 	input = input > 0;
 
-	if (input == nightmare_tuners_ins.ignore_nice) /* nothing to do */
+	if (input == nightmare_tuners_ins.ignore_nice) {/* nothing to do */
 		return count;
-
+	}
 	nightmare_tuners_ins.ignore_nice = input;
 
 	/* we need to re-evaluate prev_cpu_idle */
@@ -849,8 +848,9 @@ static ssize_t store_freq_up_brake_at_min_freq(struct kobject *a, struct attribu
 	if (input > 100)
 		input = 100;
 
-	if (input == nightmare_tuners_ins.freq_up_brake_at_min_freq)/* nothing to do */
+	if (input == nightmare_tuners_ins.freq_up_brake_at_min_freq) {/* nothing to do */
 		return count;
+	}
 
 	nightmare_tuners_ins.freq_up_brake_at_min_freq = input;
 
@@ -871,8 +871,9 @@ static ssize_t store_freq_up_brake(struct kobject *a, struct attribute *b,
 	if (input > 100)
 		input = 100;
 
-	if (input == nightmare_tuners_ins.freq_up_brake) /* nothing to do */
+	if (input == nightmare_tuners_ins.freq_up_brake) {/* nothing to do */
 		return count;
+	}
 
 	nightmare_tuners_ins.freq_up_brake = input;
 
@@ -1286,8 +1287,8 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 
 	for_each_cpu(j, policy->cpus) {
 		struct cpufreq_nightmare_cpuinfo *j_nightmare_cpuinfo;
-		cputime64_t cur_wall_time, cur_idle_time, cur_iowait_time;
-		cputime64_t prev_wall_time, prev_idle_time, prev_iowait_time;
+		u64 cur_wall_time, cur_idle_time, cur_iowait_time;
+		u64 prev_wall_time, prev_idle_time, prev_iowait_time;
 		unsigned int idle_time, wall_time, iowait_time;
 		/* Extrapolated load of this CPU */
 		unsigned int load_at_max_freq = 0;

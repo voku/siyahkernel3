@@ -358,17 +358,11 @@ static inline unsigned int cpufreq_quick_get_max(unsigned int cpu)
 }
 #endif
 
-#ifdef CONFIG_CPU_FREQ_GOV_ONDEMAND_FLEXRATE
-extern int cpufreq_ondemand_flexrate_request(unsigned int rate_ms,
-					     unsigned int duration);
-#else
 static inline int cpufreq_ondemand_flexrate_request(unsigned int rate_ms,
 						    unsigned int duration)
 {
 	return 0;
 }
-#endif
-
 
 /*********************************************************************
  *                       CPUFREQ DEFAULT GOVERNOR                    *
@@ -463,6 +457,6 @@ const char *cpufreq_get_current_driver(void);
 /*********************************************************************
  *                     Governor Helpers				     *
  *********************************************************************/
-cputime64_t get_cpu_idle_time(unsigned int cpu, cputime64_t *wall);
+u64 get_cpu_idle_time(unsigned int cpu, u64 *wall);
 
 #endif /* _LINUX_CPUFREQ_H */

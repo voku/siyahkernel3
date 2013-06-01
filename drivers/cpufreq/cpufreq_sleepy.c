@@ -83,7 +83,7 @@ static struct notifier_block idle_notifier_block = {
 };
 
 #define LATENCY_MULTIPLIER			(1000)
-#define MIN_LATENCY_MULTIPLIER			(100)
+#define MIN_LATENCY_MULTIPLIER			(20)
 #define TRANSITION_LATENCY_LIMIT		(10 * 1000 * 1000)
 
 static void do_dbs_timer(struct work_struct *work);
@@ -104,9 +104,9 @@ struct cpufreq_governor cpufreq_gov_sleepy = {
 enum {DBS_NORMAL_SAMPLE, DBS_SUB_SAMPLE};
 
 struct cpu_dbs_info_s {
-	cputime64_t prev_cpu_idle;
-	cputime64_t prev_cpu_iowait;
-	cputime64_t prev_cpu_wall;
+	u64 prev_cpu_idle;
+	u64 prev_cpu_iowait;
+	u64 prev_cpu_wall;
 	cputime64_t prev_cpu_nice;
 	struct cpufreq_policy *cur_policy;
 	struct delayed_work work;
@@ -311,6 +311,7 @@ static ssize_t store_sampling_rate(struct kobject *a, struct attribute *b,
 	return count;
 }
 
+/* io_is_busy */
 static ssize_t store_io_is_busy(struct kobject *a, struct attribute *b,
 				const char *buf, size_t count)
 {
@@ -393,6 +394,7 @@ static ssize_t store_sampling_down_factor(struct kobject *a,
 	return count;
 }
 
+/* ignore_nice_load */
 static ssize_t store_ignore_nice_load(struct kobject *a, struct attribute *b,
 				      const char *buf, size_t count)
 {
@@ -407,9 +409,9 @@ static ssize_t store_ignore_nice_load(struct kobject *a, struct attribute *b,
 	if (input > 1)
 		input = 1;
 
-	if (input == dbs_tuners_ins.ignore_nice) /* nothing to do */
+	if (input == dbs_tuners_ins.ignore_nice) {/* nothing to do */
 		return count;
-
+	}
 	dbs_tuners_ins.ignore_nice = input;
 
 	/* we need to re-evaluate prev_cpu_idle */
@@ -516,7 +518,11 @@ static void dbs_freq_increase(struct cpufreq_policy *p, unsigned int freq)
 
 static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 {
+	/* Extrapolated load of this CPU */
+	unsigned int load_at_max_freq = 0;
 	unsigned int max_load_freq;
+	/* Current load across this CPU */
+	unsigned int cur_load = 0;
 
 	struct cpufreq_policy *policy;
 	unsigned int j;
@@ -545,9 +551,9 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 
 	for_each_cpu(j, policy->cpus) {
 		struct cpu_dbs_info_s *j_dbs_info;
-		cputime64_t cur_wall_time, cur_idle_time, cur_iowait_time;
+		u64 cur_wall_time, cur_idle_time, cur_iowait_time;
 		unsigned int idle_time, wall_time, iowait_time;
-		unsigned int load, load_freq;
+		unsigned int load_freq;
 		int freq_avg;
 		unsigned long start, end, delta, sampling_delta;
 
@@ -636,7 +642,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 		if (unlikely(!wall_time || wall_time < idle_time))
 			continue;
 
-		load = 100 * (wall_time - idle_time) / wall_time;
+		cur_load = 100 * (wall_time - idle_time) / wall_time;
 #if CPUMON
 		load_each[j & 0x01] = load;
 #endif
@@ -645,9 +651,15 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 		if (freq_avg <= 0)
 			freq_avg = policy->cur;
 
-		load_freq = load * freq_avg;
+		load_freq = cur_load * freq_avg;
 		if (load_freq > max_load_freq)
 			max_load_freq = load_freq;
+
+		/* calculate the scaled load across CPU */
+		load_at_max_freq += (cur_load * policy->cur) /
+					policy->cpuinfo.max_freq;
+
+		cpufreq_notify_utilization(policy, load_at_max_freq);
 	}
         
 #if CPUMON
@@ -800,9 +812,10 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 
 			j_dbs_info->prev_cpu_idle = get_cpu_idle_time(j,
 						&j_dbs_info->prev_cpu_wall);
-			if (dbs_tuners_ins.ignore_nice)
+			if (dbs_tuners_ins.ignore_nice) {
 				j_dbs_info->prev_cpu_nice =
 						kcpustat_cpu(j).cpustat[CPUTIME_NICE];
+			}
 		}
 		this_dbs_info->cpu = cpu;
 		this_dbs_info->rate_mult = 1;
