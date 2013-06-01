@@ -1611,7 +1611,8 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 		hotplug_histories->num_hist = 0;
 		hotplug_histories->last_num_hist = 0;
 
-		start_rq_work();
+		if (atomic_read(&nightmare_tuners_ins.hotplug_enable) > 0)
+			start_rq_work();
 
 		mutex_lock(&nightmare_mutex);
 		nightmare_enable++;
@@ -1641,10 +1642,6 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 			}
 			nightmare_tuners_ins.sampling_rate = 60000;
 			nightmare_tuners_ins.io_is_busy = 0;
-			/* 
-				set default hotplug_enable var when nightmare is starting.
-				Default = 1
-			*/
 			nightmare_tuners_ins.earlysuspend = 0;
 			atomic_set(&nightmare_tuners_ins.hotplug_lock, 0);			
 		}
