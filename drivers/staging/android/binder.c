@@ -1315,7 +1315,7 @@ static void binder_transaction(struct binder_proc *proc,
 	wait_queue_head_t *target_wait;
 	struct binder_transaction *in_reply_to = NULL;
 	struct binder_transaction_log_entry *e;
-	uint32_t return_error;
+	uint32_t return_error = BR_OK;
 
 	e = binder_transaction_log_add(&binder_transaction_log);
 	e->call_type = reply ? 2 : !!(tr->flags & TF_ONE_WAY);
@@ -3009,6 +3009,9 @@ static void binder_deferred_release(struct binder_proc *proc)
 		for (i = 0; i < proc->buffer_size / PAGE_SIZE; i++) {
 			void *page_addr;
 
+			unsigned long page_ptr =
+				(unsigned long)proc->pages[i];
+
 			if (!proc->pages[i])
 				continue;
 
@@ -3017,8 +3020,16 @@ static void binder_deferred_release(struct binder_proc *proc)
 				     "%s: %d: page %d at %p not freed\n",
 				     __func__, proc->pid, i, page_addr);
 			unmap_kernel_range((unsigned long)page_addr, PAGE_SIZE);
-			__free_page(proc->pages[i]);
-			page_count++;
+			if (unlikely(!IS_ALIGNED(page_ptr, 4) ||
+				page_ptr < PAGE_OFFSET ||
+				page_ptr >= (unsigned long)high_memory))
+					printk(KERN_ERR "binder_release: %d: "
+					"page %d addr %p is invalid\n",
+					proc->pid, i, proc->pages[i]);
+			else {
+				__free_page(proc->pages[i]);
+				page_count++;
+			} 
 		}
 		kfree(proc->pages);
 		vfree(proc->buffer);
