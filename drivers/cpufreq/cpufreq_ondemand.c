@@ -69,7 +69,7 @@ static unsigned int min_sampling_rate;
 #define DEFAULT_SAMPLING_RATE			(60000)
 #define BOOSTED_SAMPLING_RATE			(20000)
 #define LATENCY_MULTIPLIER			(1000)
-#define MIN_LATENCY_MULTIPLIER			(100)
+#define MIN_LATENCY_MULTIPLIER			(20)
 #define TRANSITION_LATENCY_LIMIT		(10 * 1000 * 1000)
 
 /* have the timer rate booted for this much time 2.5s*/
@@ -837,11 +837,10 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 		return;
 	}
 
-	/* if the there is a input detected we want to go through this check so
-	 that the frequency stays locked in boostfreq and doesn't go down */
-	if (dbs_tuners_ins.boosted) {
-		if (policy->cur < dbs_tuners_ins.boostfreq)
-			dbs_freq_increase(policy, dbs_tuners_ins.boostfreq);
+	/* check for frequency boost */
+	if (dbs_tuners_ins.boosted && policy->cur < dbs_tuners_ins.boostfreq) {
+		dbs_freq_increase(policy, dbs_tuners_ins.boostfreq);
+		dbs_tuners_ins.boostfreq = policy->cur;
 		return;
 	}
 
@@ -864,9 +863,13 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 		unsigned int down_thres;
 
 		freq_next = max_load_freq /
-			(dbs_tuners_ins.up_threshold -
-				dbs_tuners_ins.down_differential * 2);
+				(dbs_tuners_ins.up_threshold -
+					dbs_tuners_ins.down_differential);
 
+		if (dbs_tuners_ins.boosted &&
+				freq_next < dbs_tuners_ins.boostfreq) {
+			freq_next = dbs_tuners_ins.boostfreq;
+		}
 		/* No longer fully busy, reset rate_mult */
 		this_dbs_info->rate_mult = 1;
 
