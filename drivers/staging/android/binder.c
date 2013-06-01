@@ -52,7 +52,7 @@ static HLIST_HEAD(binder_dead_nodes);
 static struct dentry *binder_debugfs_dir_entry_root;
 static struct dentry *binder_debugfs_dir_entry_proc;
 static struct binder_node *binder_context_mgr_node;
-static kuid_t binder_context_mgr_uid = INVALID_UID;
+static uid_t binder_context_mgr_uid = -1;
 static int binder_last_id;
 static struct workqueue_struct *binder_deferred_workqueue;
 
@@ -361,7 +361,7 @@ struct binder_transaction {
 	unsigned int	flags;
 	long	priority;
 	long	saved_priority;
-	kuid_t	sender_euid;
+	uid_t	sender_euid;
 };
 
 static void
@@ -743,6 +743,8 @@ static struct binder_buffer *binder_alloc_buf(struct binder_proc *proc,
 			      proc->pid, size, proc->free_async_space);
 	}
 
+	kmemleak_alloc(buffer, sizeof(*buffer), 0,
+			GFP_KERNEL | __GFP_HIGHMEM | __GFP_ZERO);
 	return buffer;
 }
 
@@ -806,6 +808,8 @@ static void binder_free_buf(struct binder_proc *proc,
 {
 	size_t size, buffer_size;
 
+	kmemleak_free(buffer);
+	
 	buffer_size = binder_buffer_size(proc, buffer);
 
 	size = ALIGN(buffer->data_size, sizeof(void *)) +
@@ -1311,7 +1315,7 @@ static void binder_transaction(struct binder_proc *proc,
 	wait_queue_head_t *target_wait;
 	struct binder_transaction *in_reply_to = NULL;
 	struct binder_transaction_log_entry *e;
-	uint32_t return_error;
+	uint32_t return_error = BR_OK;
 
 	e = binder_transaction_log_add(&binder_transaction_log);
 	e->call_type = reply ? 2 : !!(tr->flags & TF_ONE_WAY);
@@ -2317,7 +2321,7 @@ retry:
 		}
 		tr.code = t->code;
 		tr.flags = t->flags;
-		tr.sender_euid = from_kuid(current_user_ns(), t->sender_euid);
+		tr.sender_euid = t->sender_euid;
 
 		if (t->from) {
 			struct task_struct *sender = t->from->proc->tsk;
@@ -2626,11 +2630,12 @@ static long binder_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			ret = -EBUSY;
 			goto err;
 		}
-		if (uid_valid(binder_context_mgr_uid)) {
-			if (!uid_eq(binder_context_mgr_uid, current->cred->euid)) {
-				pr_err("BINDER_SET_CONTEXT_MGR bad uid %d != %d\n",
-				       from_kuid(&init_user_ns, current->cred->euid),
-				       from_kuid(&init_user_ns, binder_context_mgr_uid));
+		if (binder_context_mgr_uid != -1) {
+			if (binder_context_mgr_uid != current->cred->euid) {
+				pr_err("binder: BINDER_SET_"
+				       "CONTEXT_MGR bad uid %d != %d\n",
+				       current->cred->euid,
+				       binder_context_mgr_uid);
 				ret = -EPERM;
 				goto err;
 			}
@@ -3004,6 +3009,9 @@ static void binder_deferred_release(struct binder_proc *proc)
 		for (i = 0; i < proc->buffer_size / PAGE_SIZE; i++) {
 			void *page_addr;
 
+			unsigned long page_ptr =
+				(unsigned long)proc->pages[i];
+
 			if (!proc->pages[i])
 				continue;
 
@@ -3012,8 +3020,16 @@ static void binder_deferred_release(struct binder_proc *proc)
 				     "%s: %d: page %d at %p not freed\n",
 				     __func__, proc->pid, i, page_addr);
 			unmap_kernel_range((unsigned long)page_addr, PAGE_SIZE);
-			__free_page(proc->pages[i]);
-			page_count++;
+			if (unlikely(!IS_ALIGNED(page_ptr, 4) ||
+				page_ptr < PAGE_OFFSET ||
+				page_ptr >= (unsigned long)high_memory))
+					printk(KERN_ERR "binder_release: %d: "
+					"page %d addr %p is invalid\n",
+					proc->pid, i, proc->pages[i]);
+			else {
+				__free_page(proc->pages[i]);
+				page_count++;
+			} 
 		}
 		kfree(proc->pages);
 		vfree(proc->buffer);
