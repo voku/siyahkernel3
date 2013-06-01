@@ -103,6 +103,7 @@ static void unlock_policy_rwsem_write(int cpu)
 	up_write(&per_cpu(cpu_policy_rwsem, policy_cpu));
 }
 
+
 /* internal prototypes */
 static int __cpufreq_governor(struct cpufreq_policy *policy,
 		unsigned int event);
@@ -180,6 +181,11 @@ err_out:
 
 struct cpufreq_policy *cpufreq_cpu_get(unsigned int cpu)
 {
+#if 0 //we dont disable freq
+	if (cpufreq_disabled())
+		return NULL;
+#endif
+
 	return __cpufreq_cpu_get(cpu, false);
 }
 EXPORT_SYMBOL_GPL(cpufreq_cpu_get);
@@ -198,6 +204,11 @@ static void __cpufreq_cpu_put(struct cpufreq_policy *data, bool sysfs)
 
 void cpufreq_cpu_put(struct cpufreq_policy *data)
 {
+#if 0 //we dont disable freq
+	if (cpufreq_disabled())
+		return;
+#endif
+
 	__cpufreq_cpu_put(data, false);
 }
 EXPORT_SYMBOL_GPL(cpufreq_cpu_put);
@@ -263,6 +274,11 @@ void cpufreq_notify_transition(struct cpufreq_freqs *freqs, unsigned int state)
 	struct cpufreq_policy *policy;
 
 	BUG_ON(irqs_disabled());
+
+#if 0 //we dont disable freq
+	if (cpufreq_disabled())
+		return;
+#endif
 
 	freqs->flags = cpufreq_driver->flags;
 	pr_debug("notification %u of frequency transition to %u kHz\n",
@@ -856,10 +872,19 @@ static int cpufreq_add_policy_cpu(unsigned int cpu, unsigned int sibling,
 
 	lock_policy_rwsem_write(cpu);
 
+#if 0 // will kill nightmare gov
+	__cpufreq_governor(policy, CPUFREQ_GOV_STOP);
+#endif
+
 	spin_lock_irqsave(&cpufreq_driver_lock, flags);
 	cpumask_set_cpu(cpu, policy->cpus);
 	per_cpu(cpufreq_cpu_data, cpu) = policy;
 	spin_unlock_irqrestore(&cpufreq_driver_lock, flags);
+
+#if 0 // will kill nightmare gov
+	__cpufreq_governor(policy, CPUFREQ_GOV_START);
+	__cpufreq_governor(policy, CPUFREQ_GOV_LIMITS);
+#endif
 
 	unlock_policy_rwsem_write(cpu);
 
@@ -1074,6 +1099,11 @@ static int __cpufreq_remove_dev(struct device *dev, struct subsys_interface *sif
 		return -EINVAL;
 	}
 
+#if 0 // will kill nightmare gov
+	if (cpufreq_driver->target)
+		__cpufreq_governor(data, CPUFREQ_GOV_STOP);
+#endif
+
 #ifdef CONFIG_HOTPLUG_CPU
 	strncpy(per_cpu(cpufreq_cpu_governor, cpu), data->governor->name,
 			CPUFREQ_NAME_LEN);
@@ -1134,6 +1164,11 @@ static int __cpufreq_remove_dev(struct device *dev, struct subsys_interface *sif
 		free_cpumask_var(data->related_cpus);
 		free_cpumask_var(data->cpus);
 		kfree(data);
+#if 0 // will kill nightmare gov
+	} else if (cpufreq_driver->target) {
+		__cpufreq_governor(data, CPUFREQ_GOV_START);
+		__cpufreq_governor(data, CPUFREQ_GOV_LIMITS);
+#endif
 	}
 
 	return 0;
@@ -1405,6 +1440,11 @@ int cpufreq_register_notifier(struct notifier_block *nb, unsigned int list)
 {
 	int ret;
 
+#if 0 //we dont disable freq
+	if (cpufreq_disabled())
+		return -EINVAL;
+#endif
+
 	WARN_ON(!init_cpufreq_transition_notifier_list_called);
 
 	switch (list) {
@@ -1438,6 +1478,11 @@ EXPORT_SYMBOL(cpufreq_register_notifier);
 int cpufreq_unregister_notifier(struct notifier_block *nb, unsigned int list)
 {
 	int ret;
+
+#if 0 //we dont disable freq
+	if (cpufreq_disabled())
+		return -EINVAL;
+#endif
 
 	switch (list) {
 	case CPUFREQ_TRANSITION_NOTIFIER:
@@ -1518,6 +1563,11 @@ EXPORT_SYMBOL_GPL(cpufreq_driver_target);
 int __cpufreq_driver_getavg(struct cpufreq_policy *policy, unsigned int cpu)
 {
 	int ret = 0;
+
+#if 0 //we dont disable freq
+	if (cpufreq_disabled())
+		return ret;
+#endif
 
 	if (!(cpu_online(cpu) && cpufreq_driver->getavg))
 		return 0;
