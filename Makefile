@@ -352,14 +352,14 @@ CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
 
 LOW_ARM_FLAGS	= -pipe -march=armv7-a -mcpu=cortex-a9 -mtune=cortex-a9 -marm \
-		  -mfpu=neon -mfloat-abi=soft -funsafe-math-optimizations \
-		  -funswitch-loops -mvectorize-with-neon-quad
+		  -mfpu=neon -mfloat-abi=softfp -funsafe-math-optimizations \
+		  -ftree-vectorize -mvectorize-with-neon-quad
 
 #ARM_FLAGS      = -fsingle-precision-constant -ftree-vectorize
 #LOOPS		= -funswitch-loops -fpredictive-commoning
 #LOOPS_4_6	= -floop-strip-mine -floop-block -floop-interchange
 
-#MODULES	= -fmodulo-sched -fmodulo-sched-allow-regmoves
+MODULES	= -fmodulo-sched -fmodulo-sched-allow-regmoves
 
 MODFLAGS        = -DMODULE
 CFLAGS_MODULE   = $(MODFLAGS)
@@ -369,7 +369,7 @@ CFLAGS_KERNEL	=
 AFLAGS_KERNEL	=
 CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage
 
-KERNEL_MODS	= $(LOW_ARM_FLAGS)
+KERNEL_MODS	= $(LOW_ARM_FLAGS) $(MODULES)
 
 # Use LINUXINCLUDE when you must reference the include/ directory.
 # Needed to be compatible with the O= option
