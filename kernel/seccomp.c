@@ -24,6 +24,7 @@
 #ifdef CONFIG_SECCOMP_FILTER
 #include <asm/syscall.h>
 #include <linux/filter.h>
+#include <linux/ptrace.h>
 #include <linux/security.h>
 #include <linux/slab.h>
 #include <linux/tracehook.h>
@@ -159,6 +160,8 @@ static int seccomp_check_filter(struct sock_filter *filter, unsigned int flen)
 		case BPF_S_ALU_AND_X:
 		case BPF_S_ALU_OR_K:
 		case BPF_S_ALU_OR_X:
+		case BPF_S_ALU_XOR_K:
+		case BPF_S_ALU_XOR_X:
 		case BPF_S_ALU_LSH_K:
 		case BPF_S_ALU_LSH_X:
 		case BPF_S_ALU_RSH_K:
@@ -199,15 +202,20 @@ static int seccomp_check_filter(struct sock_filter *filter, unsigned int flen)
 static u32 seccomp_run_filters(int syscall)
 {
 	struct seccomp_filter *f;
-	u32 ret = SECCOMP_RET_KILL;
+	u32 ret = SECCOMP_RET_ALLOW;
+
+	/* Ensure unexpected behavior doesn't result in failing open. */
+	if (WARN_ON(current->seccomp.filter == NULL))
+		return SECCOMP_RET_KILL;
+
 	/*
 	 * All filters in the list are evaluated and the lowest BPF return
-	 * value always takes priority.
+	 * value always takes priority (ignoring the DATA).
 	 */
 	for (f = current->seccomp.filter; f; f = f->prev) {
-		ret = sk_run_filter(NULL, f->insns);
-		if (ret != SECCOMP_RET_ALLOW)
-			break;
+		u32 cur_ret = sk_run_filter(NULL, f->insns);
+		if ((cur_ret & SECCOMP_RET_ACTION) < (ret & SECCOMP_RET_ACTION))
+			ret = cur_ret;
 	}
 	return ret;
 }
@@ -366,11 +374,12 @@ static int mode1_syscalls_32[] = {
 };
 #endif
 
-void __secure_computing(int this_syscall)
+int __secure_computing(int this_syscall)
 {
 	int mode = current->seccomp.mode;
 	int exit_sig = 0;
 	int *syscall;
+	u32 ret;
 
 	switch (mode) {
 	case SECCOMP_MODE_STRICT:
@@ -381,26 +390,51 @@ void __secure_computing(int this_syscall)
 #endif
 		do {
 			if (*syscall == this_syscall)
-				return;
+				return 0;
 		} while (*++syscall);
 		exit_sig = SIGKILL;
+		ret = SECCOMP_RET_KILL;
 		break;
 #ifdef CONFIG_SECCOMP_FILTER
-	case SECCOMP_MODE_FILTER:
+	case SECCOMP_MODE_FILTER: {
+		int data;
+		struct pt_regs *regs = task_pt_regs(current);
 		ret = seccomp_run_filters(this_syscall);
 		data = ret & SECCOMP_RET_DATA;
-		switch (ret & SECCOMP_RET_ACTION) {
+		ret &= SECCOMP_RET_ACTION;
+		switch (ret) {
 		case SECCOMP_RET_ERRNO:
 			/* Set the low-order 16-bits as a errno. */
-			syscall_set_return_value(current, task_pt_regs(current),
+			syscall_set_return_value(current, regs,
 						 -data, 0);
 			goto skip;
 		case SECCOMP_RET_TRAP:
 			/* Show the handler the original registers. */
-			syscall_rollback(current, task_pt_regs(current));
+			syscall_rollback(current, regs);
 			/* Let the filter pass back 16 bits of data. */
 			seccomp_send_sigsys(this_syscall, data);
 			goto skip;
+		case SECCOMP_RET_TRACE:
+			/* Skip these calls if there is no tracer. */
+			if (!ptrace_event_enabled(current, PTRACE_EVENT_SECCOMP)) {
+				syscall_set_return_value(current, regs,
+							 -ENOSYS, 0);
+				goto skip;
+			}
+			/* Allow the BPF to provide the event message */
+			ptrace_event(PTRACE_EVENT_SECCOMP, data);
+			/*
+			 * The delivery of a fatal signal during event
+			 * notification may silently skip tracer notification.
+			 * Terminating the task now avoids executing a system
+			 * call that may not be intended.
+			 */
+			if (fatal_signal_pending(current))
+				break;
+			if (syscall_get_nr(current, regs) < 0)
+				goto skip;  /* Explicit request to skip. */
+
+			return 0;
 		case SECCOMP_RET_ALLOW:
 			return 0;
 		case SECCOMP_RET_KILL:
@@ -409,6 +443,7 @@ void __secure_computing(int this_syscall)
 		}
 		exit_sig = SIGSYS;
 		break;
+	}
 #endif
 	default:
 		BUG();
@@ -417,8 +452,13 @@ void __secure_computing(int this_syscall)
 #ifdef SECCOMP_DEBUG
 	dump_stack();
 #endif
-	audit_seccomp(this_syscall, exit_code, SECCOMP_RET_KILL);
+	audit_seccomp(this_syscall, exit_sig, ret);
 	do_exit(exit_sig);
+#ifdef CONFIG_SECCOMP_FILTER
+skip:
+	audit_seccomp(this_syscall, exit_sig, ret);
+#endif
+	return -1;
 }
 
 long prctl_get_seccomp(void)
