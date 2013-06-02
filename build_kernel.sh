@@ -167,7 +167,7 @@ find -name '*.ko' -exec cp -av {} ${INITRAMFS_TMP}/lib/modules/ \;
 ${CROSS_COMPILE}strip --strip-debug ${INITRAMFS_TMP}/lib/modules/*.ko;
 chmod 755 ${INITRAMFS_TMP}/lib/modules/*;
 
-read -p "create new kernel Image LOGO with version & date (y/n)?";
+read -t 3 -p "create new kernel Image LOGO with version & date, 3sec timeout (y/n)?";
 if [ "$REPLY" == "y" ]; then
 	# create new image with version & date
 	convert -ordered-dither threshold,32,64,32 -pointsize 17 -fill white -draw "text 70,770 \"${GETVER} [$(date "+%H:%M | %d.%m.%Y"| sed -e ' s/\"/\\\"/g' )]\"" ${INITRAMFS_TMP}/res/images/icon_clockwork.png ${INITRAMFS_TMP}/res/images/icon_clockwork.png;
@@ -185,7 +185,8 @@ fi;
 cp ${KERNELDIR}/arch/arm/boot/compressed/Makefile_clean ${KERNELDIR}/arch/arm/boot/compressed/Makefile;
 
 if [ -e ${KERNELDIR}/arch/arm/boot/zImage ]; then
-	${KERNELDIR}/mkshbootimg.py ${KERNELDIR}/zImage ${KERNELDIR}/arch/arm/boot/zImage ${KERNELDIR}/payload.tar.xz ${KERNELDIR}/recovery.tar.xz;
+#	${KERNELDIR}/mkshbootimg.py ${KERNELDIR}/zImage ${KERNELDIR}/arch/arm/boot/zImage ${KERNELDIR}/payload.tar.xz ${KERNELDIR}/recovery.tar.xz;
+	cp ${KERNELDIR}/arch/arm/boot/zImage ${KERNELDIR};
 
 	# copy all needed to ready kernel folder
 	cp ${KERNELDIR}/.config ${KERNELDIR}/arch/arm/configs/${KERNEL_CONFIG};
@@ -199,7 +200,7 @@ if [ -e ${KERNELDIR}/arch/arm/boot/zImage ]; then
 
 	STATUS=`adb get-state`;
 	if [ "$STATUS" == "device" ]; then
-		read -p "push kernel to android (y/n)?";
+		read -t 3 -p "push kernel to android, 3sec timeout (y/n)?";
 		if [ "$REPLY" == "y" ]; then
 			adb push ${KERNELDIR}/READY-JB/Kernel_*JB*.zip /sdcard/;
 		fi;
