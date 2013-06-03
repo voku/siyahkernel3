@@ -1726,7 +1726,8 @@ int usb_runtime_idle(struct device *dev)
 	 */
 	if (autosuspend_check(udev) == 0)
 		pm_runtime_autosuspend(dev);
-	return 0;
+	/* Tell the core not to suspend it, though. */
+	return -EBUSY;
 }
 
 #endif /* CONFIG_USB_SUSPEND */

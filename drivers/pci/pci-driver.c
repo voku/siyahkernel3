@@ -1057,19 +1057,15 @@ static int pci_pm_runtime_resume(struct device *dev)
 static int pci_pm_runtime_idle(struct device *dev)
 {
 	const struct dev_pm_ops *pm = dev->driver ? dev->driver->pm : NULL;
+	int ret = 0;
 
 	if (!pm)
 		return -ENOSYS;
 
-	if (pm->runtime_idle) {
-		int ret = pm->runtime_idle(dev);
-		if (ret)
-			return ret;
-	}
+	if (pm->runtime_idle)
+		ret = pm->runtime_idle(dev);
 
-	pm_runtime_suspend(dev);
-
-	return 0;
+	return ret;
 }
 
 #else /* !CONFIG_PM_RUNTIME */
