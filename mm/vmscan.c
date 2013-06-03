@@ -634,17 +634,6 @@ static enum page_references page_check_references(struct page *page,
 	if (referenced_ptes) {
 		if (PageSwapBacked(page))
 			return PAGEREF_ACTIVATE;
-
-		/*
-		 * Identify referenced, file-backed active pages and move them
-		 * to the active list. We know that this page has been
-		 * referenced since being put on the inactive list. VM_EXEC
-		 * pages are only moved to the inactive list when they have not
-		 * been referenced between scans (see shrink_active_list).
-		 */
-		if ((vm_flags & VM_EXEC) && page_is_file_cache(page))
-			return PAGEREF_ACTIVATE;
-
 		/*
 		 * All mapped pages start out with page table
 		 * references from the instantiating fault, so we need
@@ -661,10 +650,6 @@ static enum page_references page_check_references(struct page *page,
 		 */
 		SetPageReferenced(page);
 
-#ifndef CONFIG_DMA_CMA
-		if (referenced_page)
-			return PAGEREF_ACTIVATE;
-#else
 		if (referenced_page || referenced_ptes > 1)
 			return PAGEREF_ACTIVATE;
 
@@ -673,7 +658,7 @@ static enum page_references page_check_references(struct page *page,
 		 */
 		if (vm_flags & VM_EXEC)
 			return PAGEREF_ACTIVATE;
-#endif
+
 		return PAGEREF_KEEP;
 	}
 
