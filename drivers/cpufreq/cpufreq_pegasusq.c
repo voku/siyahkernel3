@@ -243,7 +243,7 @@ struct cpu_dbs_info_s {
 };
 static DEFINE_PER_CPU(struct cpu_dbs_info_s, od_cpu_dbs_info);
 
-struct workqueue_struct *dvfs_workqueue;
+static struct workqueue_struct *dvfs_workqueue;
 
 static unsigned int dbs_enable;	/* number of CPUs using this policy */
 
@@ -330,7 +330,7 @@ static void apply_hotplug_lock(void)
 	queue_work_on(dbs_info->cpu, dvfs_workqueue, work);
 }
 
-int cpufreq_pegasusq_cpu_lock(int num_core)
+static int cpufreq_pegasusq_cpu_lock(int num_core)
 {
 	int prev_lock;
 
@@ -351,7 +351,7 @@ int cpufreq_pegasusq_cpu_lock(int num_core)
 	return 0;
 }
 
-int cpufreq_pegasusq_cpu_unlock(int num_core)
+static int cpufreq_pegasusq_cpu_unlock(int num_core)
 {
 	int prev_lock = atomic_read(&g_hotplug_lock);
 
@@ -366,7 +366,7 @@ int cpufreq_pegasusq_cpu_unlock(int num_core)
 	return 0;
 }
 
-void cpufreq_pegasusq_min_cpu_lock(unsigned int num_core)
+static void cpufreq_pegasusq_min_cpu_lock(unsigned int num_core)
 {
 	int online, flag;
 	struct cpu_dbs_info_s *dbs_info;
@@ -381,7 +381,7 @@ void cpufreq_pegasusq_min_cpu_lock(unsigned int num_core)
 	queue_work_on(dbs_info->cpu, dvfs_workqueue, &dbs_info->up_work);
 }
 
-void cpufreq_pegasusq_min_cpu_unlock(void)
+static void cpufreq_pegasusq_min_cpu_unlock(void)
 {
 	int online, lock, flag;
 	struct cpu_dbs_info_s *dbs_info;
@@ -414,7 +414,7 @@ struct cpu_usage_history {
 	unsigned int num_hist;
 };
 
-struct cpu_usage_history *hotplug_history;
+static struct cpu_usage_history *hotplug_history;
 
 static inline cputime64_t get_cpu_iowait_time(unsigned int cpu, cputime64_t *wall)
 {
@@ -1378,8 +1378,8 @@ static struct notifier_block reboot_notifier = {
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static struct early_suspend early_suspend;
-unsigned int prev_freq_step;
-unsigned int prev_sampling_rate;
+static unsigned int prev_freq_step;
+static unsigned int prev_sampling_rate;
 static void cpufreq_pegasusq_early_suspend(struct early_suspend *h)
 {
 #if EARLYSUSPEND_HOTPLUGLOCK
@@ -1466,15 +1466,17 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 			min_sampling_rate = MIN_SAMPLING_RATE;
 			dbs_tuners_ins.sampling_rate = DEF_SAMPLING_RATE;
 			dbs_tuners_ins.io_is_busy = 0;
-			atomic_set(&g_hotplug_lock, 0);
-			atomic_set(&g_hotplug_count, 0);
-			atomic_set(&dbs_tuners_ins.hotplug_lock, 0);
 		}
 		mutex_unlock(&dbs_mutex);
 
 		register_reboot_notifier(&reboot_notifier);
 
-		mutex_init(&this_dbs_info->timer_mutex);
+		for_each_possible_cpu(j) {
+			struct cpu_dbs_info_s *j_dbs_info =
+				&per_cpu(od_cpu_dbs_info, j);
+			mutex_init(&j_dbs_info->timer_mutex);
+		}
+
 		dbs_timer_init(this_dbs_info);
 
 #if !EARLYSUSPEND_HOTPLUGLOCK
@@ -1495,6 +1497,12 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 
 		dbs_timer_exit(this_dbs_info);
 
+		for_each_possible_cpu(j) {
+			struct cpu_dbs_info_s *j_dbs_info =
+				&per_cpu(od_cpu_dbs_info, j);
+			mutex_destroy(&j_dbs_info->timer_mutex);
+		}
+
 		mutex_lock(&dbs_mutex);
 
 		unregister_reboot_notifier(&reboot_notifier);
@@ -1504,9 +1512,6 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 		stop_rq_work();
 
 		if (!dbs_enable) {			
-			atomic_set(&g_hotplug_lock, 0);
-			atomic_set(&g_hotplug_count, 0);
-			atomic_set(&dbs_tuners_ins.hotplug_lock, 0);
 			sysfs_remove_group(cpufreq_global_kobject,
 					   &dbs_attr_group);
 		}
@@ -1570,22 +1575,21 @@ err_queue:
 	kfree(hotplug_history);
 err_hist:
 	kfree(rq_data);
+	kfree(&dbs_tuners_ins);
+	kfree(&hotplug_freq);
+	kfree(&hotplug_rq);
 	return ret;
 }
 
 static void __exit cpufreq_gov_dbs_exit(void)
 {
-	unsigned int i;
-
 	cpufreq_unregister_governor(&cpufreq_gov_pegasusq);
-	for_each_possible_cpu(i) {
-		struct cpu_dbs_info_s *this_dbs_info =
-			&per_cpu(od_cpu_dbs_info, i);
-		mutex_destroy(&this_dbs_info->timer_mutex);
-	}
 	destroy_workqueue(dvfs_workqueue);
 	kfree(hotplug_history);
 	kfree(rq_data);
+	kfree(&dbs_tuners_ins);
+	kfree(&hotplug_freq);
+	kfree(&hotplug_rq);
 }
 
 MODULE_AUTHOR("ByungChang Cha <bc.cha@samsung.com>");
