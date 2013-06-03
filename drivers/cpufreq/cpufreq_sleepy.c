@@ -849,11 +849,7 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 		}
 		mutex_unlock(&dbs_mutex);
 
-		for_each_possible_cpu(j) {
-			struct cpu_dbs_info_s *j_dbs_info =
-				&per_cpu(od_cpu_dbs_info, j);
-			mutex_init(&j_dbs_info->timer_mutex);
-		}
+		mutex_init(&this_dbs_info->timer_mutex);
 
 		dbs_timer_init(this_dbs_info);
 		register_early_suspend(&sleepy_power_suspend);
@@ -863,11 +859,7 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 	case CPUFREQ_GOV_STOP:
 		dbs_timer_exit(this_dbs_info);
 
-		for_each_possible_cpu(j) {
-			struct cpu_dbs_info_s *j_dbs_info =
-				&per_cpu(od_cpu_dbs_info, j);
-			mutex_destroy(&j_dbs_info->timer_mutex);
-		}
+		mutex_destroy(&this_dbs_info->timer_mutex);
 
 		mutex_lock(&dbs_mutex);
 		dbs_enable--;
