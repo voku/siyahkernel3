@@ -944,7 +944,7 @@ static inline void dbs_timer_init(struct cpu_dbs_info_s *dbs_info)
 
 	dbs_info->sample_type = DBS_NORMAL_SAMPLE;
 	INIT_DEFERRABLE_WORK(&dbs_info->work, do_dbs_timer);
-	schedule_delayed_work_on(dbs_info->cpu, &dbs_info->work, delay);
+	schedule_delayed_work_on(dbs_info->cpu, &dbs_info->work, delay * 2);
 	dbs_info->activated = true;
 }
 
@@ -1029,11 +1029,7 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 		}
 		mutex_unlock(&dbs_mutex);
 
-		for_each_possible_cpu(j) {
-			struct cpu_dbs_info_s *j_dbs_info =
-				&per_cpu(cs_cpu_dbs_info, j);
-			mutex_init(&j_dbs_info->timer_mutex);
-		}
+		mutex_init(&this_dbs_info->timer_mutex);
 		
 		dbs_timer_init(this_dbs_info);
 
@@ -1042,11 +1038,7 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 	case CPUFREQ_GOV_STOP:
 		dbs_timer_exit(this_dbs_info);
 
-		for_each_possible_cpu(j) {
-			struct cpu_dbs_info_s *j_dbs_info =
-				&per_cpu(cs_cpu_dbs_info, j);
-			mutex_destroy(&j_dbs_info->timer_mutex);
-		}
+		mutex_destroy(&this_dbs_info->timer_mutex);
 
 		mutex_lock(&dbs_mutex);
 		dbs_enable--;
