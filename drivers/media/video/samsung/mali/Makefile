@@ -49,7 +49,7 @@ USING_GPU_UTILIZATION=1
 USING_MALI_DVFS_ENABLED=1
 endif
 
-ifeq ($(CONFIG_VIDEO_MALI400MP_DEBUG),y)
+ifeq ($(CONFIG_VIDEO_UMP_DEBUG),y)
 BUILD=debug
 endif
 
@@ -171,7 +171,7 @@ endif
 DEFINES += -DMALI_UKK_HAS_IMPLICIT_MMAP_CLEANUP
 
 # UMP
-ifeq ($(CONFIG_VIDEO_MALI400MP_UMP),y)
+ifeq ($(CONFIG_VIDEO_UMP),y)
 	DEFINES += -DMALI_USE_UNIFIED_MEMORY_PROVIDER=1
 	EXTRA_CFLAGS += -I$(MALI_INCLUDE_PREFIX)../ump/include
 else
@@ -179,7 +179,7 @@ else
 endif
 
 # Target build file
-obj-$(CONFIG_VIDEO_MALI400MP_UMP)	+= mali.o
+obj-$(CONFIG_VIDEO_UMP)	+= mali.o
 
 # Use our defines when compiling
 # MALI
@@ -198,7 +198,7 @@ EXTRA_CFLAGS += -I$(MALI_INCLUDE_PREFIX)linux/license/gpl
 EXTRA_CFLAGS += -I$(MALI_INCLUDE_PREFIX)common/pmm
 
 # Source files which always are included in a build
-ifeq ($(CONFIG_VIDEO_MALI400MP_UMP),y)
+ifeq ($(CONFIG_VIDEO_UMP),y)
 OSKFILES=\
         $(FILES_PREFIX)$(OSKOS)/mali_osk_irq.o \
         $(FILES_PREFIX)$(OSKOS)/mali_osk_wait_queue.o \
@@ -221,7 +221,7 @@ OSKFILES=\
         $(FILES_PREFIX)$(OSKOS)/mali_osk_notification.o \
         $(FILES_PREFIX)$(OSKOS)/mali_osk_time.o \
         $(FILES_PREFIX)$(OSKOS)/mali_osk_timers.o
-endif #($(CONFIG_VIDEO_MALI400MP_UMP),y)
+endif #($(CONFIG_VIDEO_UMP),y)
 
 ifeq ($(CONFIG_CPU_EXYNOS4210),y)
 	MALI_PLATFORM_DIR = platform/orion-m400

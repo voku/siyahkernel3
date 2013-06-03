@@ -1458,8 +1458,6 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 			}
 			nightmare_tuners_ins.sampling_rate = 60000;
 			nightmare_tuners_ins.io_is_busy = 0;
-			nightmare_tuners_ins.earlysuspend = 0;
-			atomic_set(&nightmare_tuners_ins.hotplug_lock, 0);			
 		}
 		mutex_unlock(&nightmare_mutex);
 
@@ -1488,7 +1486,14 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 #if !EARLYSUSPEND_HOTPLUGLOCK
 		unregister_pm_notifier(&pm_notifier);
 #endif
+
 		nightmare_timer_exit(this_nightmare_cpuinfo);
+
+		for_each_possible_cpu(j) {
+			struct cpufreq_nightmare_cpuinfo *this_nightmare_cpuinfo =
+				&per_cpu(od_nightmare_cpuinfo, j);
+				mutex_destroy(&this_nightmare_cpuinfo->timer_mutex);
+		}
 
 		mutex_lock(&nightmare_mutex);
 		nightmare_enable--;
@@ -1498,7 +1503,7 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 					   &nightmare_attr_group);
 		}
 		mutex_unlock(&nightmare_mutex);
-
+		
 		break;
 
 	case CPUFREQ_GOV_LIMITS:
@@ -1542,7 +1547,7 @@ static int __init cpufreq_gov_nightmare_init(void)
 	if (!hotplug_history) {
 		pr_err("%s cannot create hotplug history array\n", __func__);
 		ret = -ENOMEM;
-		goto err_hist;
+		goto err_free;
 	}
 
 	dvfs_workqueue = create_workqueue("knightmare");
@@ -1566,22 +1571,19 @@ err_reg:
 	destroy_workqueue(dvfs_workqueue);
 err_queue:
 	kfree(hotplug_history);
-err_hist:
+err_free:
+	kfree(&nightmare_tuners_ins);
+	kfree(&hotplug_freq);
 	return ret;
 }
 
 static void __exit cpufreq_gov_nightmare_exit(void)
 {
-	unsigned int i;
-
 	cpufreq_unregister_governor(&cpufreq_gov_nightmare);
-	for_each_possible_cpu(i) {
-		struct cpufreq_nightmare_cpuinfo *this_nightmare_cpuinfo =
-			&per_cpu(od_nightmare_cpuinfo, i);
-		mutex_destroy(&this_nightmare_cpuinfo->timer_mutex);
-	}
 	destroy_workqueue(dvfs_workqueue);
 	kfree(hotplug_history);
+	kfree(&nightmare_tuners_ins);
+	kfree(&hotplug_freq);
 }
 
 MODULE_AUTHOR("ByungChang Cha <bc.cha@samsung.com> | Alucard24@XDA");
