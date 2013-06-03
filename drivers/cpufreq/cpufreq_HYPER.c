@@ -74,8 +74,8 @@ static unsigned int min_sampling_rate;
 
 /* have the timer rate booted for this much time 4s*/
 #define TIMER_RATE_BOOST_TIME 4000000
-int hyper_sampling_rate_boosted;
-u64 hyper_sampling_rate_boosted_time;
+static int hyper_sampling_rate_boosted;
+static u64 hyper_sampling_rate_boosted_time;
 unsigned int hyper_current_sampling_rate;
 
 static void do_dbs_timer(struct work_struct *work);
@@ -528,7 +528,7 @@ static ssize_t store_ignore_nice_load(struct kobject *a, struct attribute *b,
 	if (input > 1)
 		input = 1;
 
-	if (input == dbs_tuners_ins.ignore_nice)  {/* nothing to do */
+	if (input == dbs_tuners_ins.ignore_nice) {/* nothing to do */
 		return count;
 	}
 	dbs_tuners_ins.ignore_nice = input;
@@ -944,7 +944,7 @@ static inline void dbs_timer_init(struct cpu_dbs_info_s *dbs_info)
 
 	dbs_info->sample_type = DBS_NORMAL_SAMPLE;
 	INIT_DEFERRABLE_WORK(&dbs_info->work, do_dbs_timer);
-	schedule_delayed_work_on(dbs_info->cpu, &dbs_info->work, 2 * delay);
+	schedule_delayed_work_on(dbs_info->cpu, &dbs_info->work, delay * 2);
 	dbs_info->activated = true;
 }
 
@@ -1030,12 +1030,15 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 		mutex_unlock(&dbs_mutex);
 
 		mutex_init(&this_dbs_info->timer_mutex);
+		
 		dbs_timer_init(this_dbs_info);
 
 		break;
 
 	case CPUFREQ_GOV_STOP:
 		dbs_timer_exit(this_dbs_info);
+
+		mutex_destroy(&this_dbs_info->timer_mutex);
 
 		mutex_lock(&dbs_mutex);
 		dbs_enable--;
@@ -1120,30 +1123,28 @@ static int __init cpufreq_gov_dbs_init(void)
 	err = pm_qos_add_notifier(PM_QOS_DVFS_RESPONSE_LATENCY,
 			    &hyper_qos_dvfs_lat_nb);
 	if (err)
-		return err;
+		goto error_reg;
 
 	err = cpufreq_register_governor(&cpufreq_gov_HYPER);
 	if (err) {
 		pm_qos_remove_notifier(PM_QOS_DVFS_RESPONSE_LATENCY,
 				       &hyper_qos_dvfs_lat_nb);
+		goto error_reg;
 	}
 
+	return err;
+error_reg:
+	kfree(&dbs_tuners_ins);
 	return err;
 }
 
 static void __exit cpufreq_gov_dbs_exit(void)
 {
-	unsigned int i;
-
 	pm_qos_remove_notifier(PM_QOS_DVFS_RESPONSE_LATENCY,
 			       &hyper_qos_dvfs_lat_nb);
 
 	cpufreq_unregister_governor(&cpufreq_gov_HYPER);
-	for_each_possible_cpu(i) {
-		struct cpu_dbs_info_s *this_dbs_info =
-			&per_cpu(od_cpu_dbs_info, i);
-		mutex_destroy(&this_dbs_info->timer_mutex);
-	}
+	kfree(&dbs_tuners_ins);
 }
 
 MODULE_AUTHOR("Venkatesh Pallipadi <venkatesh.pallipadi@intel.com>");
