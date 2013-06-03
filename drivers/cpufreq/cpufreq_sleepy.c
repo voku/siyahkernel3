@@ -22,6 +22,7 @@
 #include <linux/hrtimer.h>
 #include <linux/tick.h>
 #include <linux/ktime.h>
+#include <linux/slab.h>
 #include <linux/sched.h>
 #include <linux/notifier.h>
 #include <linux/earlysuspend.h>
@@ -848,7 +849,12 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 		}
 		mutex_unlock(&dbs_mutex);
 
-		mutex_init(&this_dbs_info->timer_mutex);
+		for_each_possible_cpu(j) {
+			struct cpu_dbs_info_s *j_dbs_info =
+				&per_cpu(od_cpu_dbs_info, j);
+			mutex_init(&j_dbs_info->timer_mutex);
+		}
+
 		dbs_timer_init(this_dbs_info);
 		register_early_suspend(&sleepy_power_suspend);
 		pr_info("[sleepy] sleepy active\n");
@@ -856,6 +862,12 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 
 	case CPUFREQ_GOV_STOP:
 		dbs_timer_exit(this_dbs_info);
+
+		for_each_possible_cpu(j) {
+			struct cpu_dbs_info_s *j_dbs_info =
+				&per_cpu(od_cpu_dbs_info, j);
+			mutex_destroy(&j_dbs_info->timer_mutex);
+		}
 
 		mutex_lock(&dbs_mutex);
 		dbs_enable--;
@@ -891,6 +903,7 @@ static int __init cpufreq_gov_dbs_init(void)
 	cputime64_t wall;
 	u64 idle_time;
 	int cpu = get_cpu();
+	int ret;
 
 	idle_time = get_cpu_idle_time_us(cpu, &wall);
 	put_cpu();
@@ -912,20 +925,19 @@ static int __init cpufreq_gov_dbs_init(void)
 	}
 
 	idle_notifier_register(&idle_notifier_block);
-	return cpufreq_register_governor(&cpufreq_gov_sleepy);
+
+	ret = cpufreq_register_governor(&cpufreq_gov_sleepy);
+	if (ret)
+		kfree(&dbs_tuners_ins);
+
+	return ret; 
 }
 
 static void __exit cpufreq_gov_dbs_exit(void)
 {
-	unsigned int i;
-
 	idle_notifier_unregister(&idle_notifier_block);
 	cpufreq_unregister_governor(&cpufreq_gov_sleepy);
-	for_each_possible_cpu(i) {
-		struct cpu_dbs_info_s *this_dbs_info =
-			&per_cpu(od_cpu_dbs_info, i);
-		mutex_destroy(&this_dbs_info->timer_mutex);
-	}
+	kfree(&dbs_tuners_ins);
 }
 
 MODULE_AUTHOR("Venkatesh Pallipadi <venkatesh.pallipadi@intel.com>");

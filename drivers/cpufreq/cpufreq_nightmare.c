@@ -1462,9 +1462,9 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 		mutex_unlock(&nightmare_mutex);
 
 		for_each_possible_cpu(j) {
-		struct cpufreq_nightmare_cpuinfo *this_nightmare_cpuinfo =
+		struct cpufreq_nightmare_cpuinfo *j_nightmare_cpuinfo =
 			&per_cpu(od_nightmare_cpuinfo, j);
-			mutex_init(&this_nightmare_cpuinfo->timer_mutex);
+			mutex_init(&j_nightmare_cpuinfo->timer_mutex);
 		}
 
 		nightmare_timer_init(this_nightmare_cpuinfo);
@@ -1490,9 +1490,9 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 		nightmare_timer_exit(this_nightmare_cpuinfo);
 
 		for_each_possible_cpu(j) {
-			struct cpufreq_nightmare_cpuinfo *this_nightmare_cpuinfo =
+			struct cpufreq_nightmare_cpuinfo *j_nightmare_cpuinfo =
 				&per_cpu(od_nightmare_cpuinfo, j);
-				mutex_destroy(&this_nightmare_cpuinfo->timer_mutex);
+				mutex_destroy(&j_nightmare_cpuinfo->timer_mutex);
 		}
 
 		mutex_lock(&nightmare_mutex);
