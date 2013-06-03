@@ -45,11 +45,11 @@
 
 static uint32_t lowmem_debug_level = 1;
 static short lowmem_adj[6] = {
-	0,
-	1,
+	-5,
 	2,
 	4,
 	9,
+	12,
 	15,
 };
 static int lowmem_adj_size = 6;
@@ -59,7 +59,7 @@ static int lowmem_minfree[6] = {
 	3 * 1024,	/* 12MB */
 	7 * 512,	/* 14MB */
 	8 * 1024,	/* 32MB */
-	16 * 1024,	/* 64MB */
+	12 * 1024,	/* 49MB */
 };
 static int lowmem_minfree_screen_off[6] = {
         2 * 1024,	/* 8MB */
@@ -67,7 +67,7 @@ static int lowmem_minfree_screen_off[6] = {
         3 * 1024,	/* 12MB */
         7 * 512,	/* 14MB */
         8 * 1024,	/* 32MB */
-        16 * 1024,	/* 64MB */
+        12 * 1024,	/* 49MB */
 };
 static int lowmem_minfree_screen_on[6] = {
         2 * 1024,	/* 8MB */
@@ -75,7 +75,7 @@ static int lowmem_minfree_screen_on[6] = {
         3 * 1024,	/* 12MB */
         7 * 512,	/* 14MB */
         8 * 1024,	/* 32MB */
-        16 * 1024,	/* 64MB */
+        12 * 1024,	/* 49MB */
 };
 static int lowmem_minfree_size = 6;
 
@@ -170,13 +170,15 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			    tasksize <= selected_tasksize)
 				continue;
 		}
-		selected = p;
-		selected_tasksize = tasksize;
-		selected_oom_score_adj = oom_score_adj;
-		lowmem_print(2, "select %s' (%d), adj %hd, size %d, to kill\n",
-			     p->comm, p->pid, oom_score_adj, tasksize);
+		if (p->pid > 4000) {
+			selected = p;
+			selected_tasksize = tasksize;
+			selected_oom_score_adj = oom_score_adj;
+			lowmem_print(2, "select %s' (%d), adj %hd, size %d, to kill\n",
+				 p->comm, p->pid, oom_score_adj, tasksize);
+		}
 	}
-	if (selected) {
+	if (selected && (selected->pid > 4000)) {
 		lowmem_print(1, "Killing '%s' (%d), adj %hd,\n" \
 				"   to free %ldkB on behalf of '%s' (%d) because\n" \
 				"   cache %ldkB is below limit %ldkB for oom_score_adj %d\n" \
@@ -190,7 +192,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			     min_score_adj,
 			     other_free * (long)(PAGE_SIZE / 1024));
 		lowmem_deathpending_timeout = jiffies + HZ;
-		send_sig(SIGKILL, selected, 0);
+		force_sig(SIGKILL, selected);
 		set_tsk_thread_flag(selected, TIF_MEMDIE);
 		rem -= selected_tasksize;
 	}
