@@ -674,11 +674,10 @@ mali_bool init_mali_dvfs_status(int step)
 
 void deinit_mali_dvfs_status(void)
 {
-	if (mali_dvfs_wq)
-		destroy_workqueue(mali_dvfs_wq);
-
 	_mali_osk_atomic_term(&bottomlock_status);
 
+	if (mali_dvfs_wq)
+		destroy_workqueue(mali_dvfs_wq);
 	mali_dvfs_wq = NULL;
 }
 
