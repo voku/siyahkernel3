@@ -691,6 +691,8 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 			cpufreq_register_notifier(
 					&dbs_cpufreq_notifier_block,
 					CPUFREQ_TRANSITION_NOTIFIER);
+
+			dbs_tuners_ins.suspended = 0;
 		}
 		mutex_unlock(&dbs_mutex);
 

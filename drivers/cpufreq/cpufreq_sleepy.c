@@ -850,6 +850,7 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 				max(min_sampling_rate,
 				    latency * LATENCY_MULTIPLIER);
 			dbs_tuners_ins.io_is_busy = should_io_be_busy();
+			dbs_tuners_ins.suspended = 0;
 		}
 		mutex_unlock(&dbs_mutex);
 
