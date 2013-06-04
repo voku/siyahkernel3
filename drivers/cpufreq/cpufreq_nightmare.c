@@ -1131,10 +1131,7 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 		
 		hotplug_history->usage[num_hist].freq[j] = 0;
 		hotplug_history->usage[num_hist].load[j] = 0;
-
-		if (!cpu_online(j)) {
-			continue;
-		}
+		
 		cur_idle_time = get_cpu_idle_time(j, &cur_wall_time);
 		cur_iowait_time = get_cpu_iowait_time(j, &cur_wall_time);
 
@@ -1149,6 +1146,10 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 		iowait_time = (unsigned int)
 				(cur_iowait_time - j_nightmare_cpuinfo->prev_cpu_iowait);
 		j_nightmare_cpuinfo->prev_cpu_iowait = cur_iowait_time;
+
+		if (!cpu_online(j)) {
+			continue;
+		}
 
 		if ((int)nightmare_tuners_ins.ignore_nice) {
 			u64 cur_nice;
