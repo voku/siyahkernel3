@@ -2,6 +2,7 @@
 #define _LINUX_LINKAGE_H
 
 #include <linux/compiler.h>
+#include <linux/export.h>
 #include <asm/linkage.h>
 
 #ifdef __cplusplus
