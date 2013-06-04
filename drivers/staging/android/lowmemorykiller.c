@@ -87,10 +87,28 @@ static unsigned long lowmem_deathpending_timeout;
 			pr_info(x);			\
 	} while (0)
 
+static bool avoid_to_kill(uid_t uid)
+{
+
+	if (uid == 0 || /* root */
+	   uid == 1001 || /* radio */
+	   uid == 1010 || /* wifi */
+	   uid == 1012 || /* install */
+	   uid == 1013 || /* media */
+	   uid == 1014 || /* dhcp */
+	   uid == 1019)	/* drm */
+	{
+		return 1;
+	}
+	return 0;
+}
+
 static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 {
 	struct task_struct *tsk;
 	struct task_struct *selected = NULL;
+	const struct cred *cred = current_cred(), *pcred; 
+	unsigned int uid = 0;
 	int rem = 0;
 	int tasksize;
 	int i;
@@ -170,7 +188,9 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			    tasksize <= selected_tasksize)
 				continue;
 		}
-		if (p->pid > 4000) {
+		pcred = __task_cred(p);
+		uid = pcred->uid;
+		if (!avoid_to_kill(uid)) {
 			selected = p;
 			selected_tasksize = tasksize;
 			selected_oom_score_adj = oom_score_adj;
@@ -178,7 +198,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 				 p->comm, p->pid, oom_score_adj, tasksize);
 		}
 	}
-	if (selected && (selected->pid > 4000)) {
+	if (selected) {
 		lowmem_print(1, "Killing '%s' (%d), adj %hd,\n" \
 				"   to free %ldkB on behalf of '%s' (%d) because\n" \
 				"   cache %ldkB is below limit %ldkB for oom_score_adj %d\n" \
