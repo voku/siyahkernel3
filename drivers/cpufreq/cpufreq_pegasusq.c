@@ -1466,6 +1466,10 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 			min_sampling_rate = MIN_SAMPLING_RATE;
 			dbs_tuners_ins.sampling_rate = DEF_SAMPLING_RATE;
 			dbs_tuners_ins.io_is_busy = 0;
+			dbs_tuners_ins.early_suspend = -1;
+			atomic_set(&g_hotplug_lock,0);
+			atomic_set(&g_hotplug_count,0);
+			atomic_set(&dbs_tuners_ins.hotplug_lock,0);
 		}
 		mutex_unlock(&dbs_mutex);
 

@@ -1459,6 +1459,7 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 			}
 			nightmare_tuners_ins.sampling_rate = 60000;
 			nightmare_tuners_ins.io_is_busy = 0;
+			nightmare_tuners_ins.earlysuspend = 0;
 		}
 		mutex_unlock(&nightmare_mutex);
 
