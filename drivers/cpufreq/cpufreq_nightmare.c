@@ -120,8 +120,8 @@ static struct nightmare_tuners {
 	u8 freq_step_dec_at_max_freq;
 	unsigned int freq_for_calc_incr;
 	unsigned int freq_for_calc_decr;
-	u8 above_scaling_freq_step;
-	u8 below_scaling_freq_step;
+	u8 up_sf_step;
+	u8 down_sf_step;
 	bool earlysuspend;
 } nightmare_tuners_ins = {
 	.hotplug_lock = ATOMIC_INIT(0),
@@ -147,8 +147,8 @@ static struct nightmare_tuners {
 	.freq_step_dec_at_max_freq = 10,
 	.freq_for_calc_incr = 200000,
 	.freq_for_calc_decr = 200000,
-	.above_scaling_freq_step = 0,
-	.below_scaling_freq_step = 0,
+	.up_sf_step = 0,
+	.down_sf_step = 0,
 	.earlysuspend = 0,
 };
 
@@ -239,8 +239,8 @@ show_one(freq_step_dec, freq_step_dec);
 show_one(freq_step_dec_at_max_freq, freq_step_dec_at_max_freq);
 show_one(freq_for_calc_incr, freq_for_calc_incr);
 show_one(freq_for_calc_decr, freq_for_calc_decr);
-show_one(above_scaling_freq_step, above_scaling_freq_step);
-show_one(below_scaling_freq_step, below_scaling_freq_step);
+show_one(up_sf_step, up_sf_step);
+show_one(down_sf_step, down_sf_step);
 
 static ssize_t show_hotplug_enable(struct kobject *kobj,
 				struct attribute *attr, char *buf)
@@ -817,8 +817,8 @@ static ssize_t store_freq_for_calc_decr(struct kobject *a, struct attribute *b,
 	return count;
 }
 
-/* above_scaling_freq_step */
-static ssize_t store_above_scaling_freq_step(struct kobject *a, struct attribute *b,
+/* up_sf_step */
+static ssize_t store_up_sf_step(struct kobject *a, struct attribute *b,
 				   const char *buf, size_t count)
 {
 	u8 input;
@@ -831,16 +831,16 @@ static ssize_t store_above_scaling_freq_step(struct kobject *a, struct attribute
 	if (input > 99)
 		input = 99;
 
-	if (input == nightmare_tuners_ins.above_scaling_freq_step)
+	if (input == nightmare_tuners_ins.up_sf_step)
 		return count;
 
-	nightmare_tuners_ins.above_scaling_freq_step = input;
+	nightmare_tuners_ins.up_sf_step = input;
 
 	return count;
 }
 
-/* below_scaling_freq_step */
-static ssize_t store_below_scaling_freq_step(struct kobject *a, struct attribute *b,
+/* down_sf_step */
+static ssize_t store_down_sf_step(struct kobject *a, struct attribute *b,
 				   const char *buf, size_t count)
 {
 	u8 input;
@@ -853,10 +853,10 @@ static ssize_t store_below_scaling_freq_step(struct kobject *a, struct attribute
 	if (input > 99)
 		input = 99;
 
-	if (input == nightmare_tuners_ins.below_scaling_freq_step)
+	if (input == nightmare_tuners_ins.down_sf_step)
 		return count;
 
-	nightmare_tuners_ins.below_scaling_freq_step = input;
+	nightmare_tuners_ins.down_sf_step = input;
 
 	return count;
 }
@@ -885,8 +885,8 @@ define_one_global_rw(freq_step_dec);
 define_one_global_rw(freq_step_dec_at_max_freq);
 define_one_global_rw(freq_for_calc_incr);
 define_one_global_rw(freq_for_calc_decr);
-define_one_global_rw(above_scaling_freq_step);
-define_one_global_rw(below_scaling_freq_step);
+define_one_global_rw(up_sf_step);
+define_one_global_rw(down_sf_step);
 
 static struct attribute *nightmare_attributes[] = {
 	&sampling_rate.attr,
@@ -923,8 +923,8 @@ static struct attribute *nightmare_attributes[] = {
 	&freq_step_dec_at_max_freq.attr,
 	&freq_for_calc_incr.attr,
 	&freq_for_calc_decr.attr,
-	&above_scaling_freq_step.attr,
-	&below_scaling_freq_step.attr,
+	&up_sf_step.attr,
+	&down_sf_step.attr,
 	NULL
 };
 
@@ -1211,7 +1211,7 @@ static unsigned int nightmare_frequency_adjust(unsigned int next_freq, unsigned 
 
 	adjust_freq = (next_freq / 100000) * 100000;
 
-	/* Avoid to manage freq with above_scaling_freq_step or below_scaling_freq_step */
+	/* Avoid to manage freq with up_sf_step or down_sf_step */
 	if (adjust_freq == cur_freq)
 		return cur_freq;
 
@@ -1282,7 +1282,7 @@ static void nightmare_check_frequency(struct cpufreq_nightmare_cpuinfo *this_nig
 			} else {
 				freq_up = policy->cur + (inc_load - inc_brake);
 			}			
-			freq_up = nightmare_frequency_adjust(freq_up, policy->cur, min_freq, max_freq, nightmare_tuners_ins.above_scaling_freq_step);
+			freq_up = nightmare_frequency_adjust(freq_up, policy->cur, min_freq, max_freq, nightmare_tuners_ins.up_sf_step);
 			if (freq_up != policy->cur) {
 				__cpufreq_driver_target(policy, freq_up, CPUFREQ_RELATION_L);
 			}
@@ -1301,7 +1301,7 @@ static void nightmare_check_frequency(struct cpufreq_nightmare_cpuinfo *this_nig
 			} else {
 				freq_down = min_freq;
 			}
-			freq_down = nightmare_frequency_adjust(freq_down, policy->cur, min_freq, max_freq, nightmare_tuners_ins.below_scaling_freq_step);
+			freq_down = nightmare_frequency_adjust(freq_down, policy->cur, min_freq, max_freq, nightmare_tuners_ins.down_sf_step);
 
 			if (freq_down < policy->cur) {
 				__cpufreq_driver_target(policy, freq_down, CPUFREQ_RELATION_L);				
