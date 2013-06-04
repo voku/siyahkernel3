@@ -289,7 +289,7 @@ EXTRA_CFLAGS += -I$(MALI_INCLUDE_PREFIX)timestamp-$(TIMESTAMP)
 else
 ifeq ($(USING_PROFILING),1)
 PROFILING_BACKEND_SOURCES = \
-	linux/mali_osk_profiling.o
+	linux/mali_osk_profiling_gator.o
 endif
 endif
 

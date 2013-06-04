@@ -127,6 +127,23 @@ void _mali_osk_notification_queue_send( _mali_osk_notification_queue_t *queue, _
 	wake_up(&queue->receive_queue);
 }
 
+static int _mali_notification_queue_is_empty( _mali_osk_notification_queue_t *queue )
+{
+	int ret;
+
+	spin_lock(&queue->mutex);
+	ret = list_empty(&queue->head);
+	spin_unlock(&queue->mutex);
+	return ret;
+}
+
+#if MALI_STATE_TRACKING
+mali_bool _mali_osk_notification_queue_is_empty( _mali_osk_notification_queue_t *queue )
+{
+	return _mali_notification_queue_is_empty(queue) ? MALI_TRUE : MALI_FALSE;
+}
+#endif
+
 _mali_osk_errcode_t _mali_osk_notification_queue_dequeue( _mali_osk_notification_queue_t *queue, _mali_osk_notification_t **result )
 {
 	_mali_osk_errcode_t ret = _MALI_OSK_ERR_ITEM_NOT_FOUND;
@@ -156,10 +173,12 @@ _mali_osk_errcode_t _mali_osk_notification_queue_receive( _mali_osk_notification
     /* default result */
 	*result = NULL;
 
-	if (wait_event_interruptible(queue->receive_queue,
-	                             _MALI_OSK_ERR_OK == _mali_osk_notification_queue_dequeue(queue, result)))
+	while (_MALI_OSK_ERR_OK != _mali_osk_notification_queue_dequeue(queue, result))
 	{
-		return _MALI_OSK_ERR_RESTARTSYSCALL;
+		if (wait_event_interruptible(queue->receive_queue, !_mali_notification_queue_is_empty(queue)))
+		{
+			return _MALI_OSK_ERR_RESTARTSYSCALL;
+		}
 	}
 
 	return _MALI_OSK_ERR_OK; /* all ok */
