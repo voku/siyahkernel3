@@ -82,6 +82,7 @@ struct cpufreq_nightmare_cpuinfo {
 	 * when user is changing the governor or limits.
 	 */
 	struct mutex timer_mutex;
+	int delay;
 };
 static DEFINE_PER_CPU(struct cpufreq_nightmare_cpuinfo, od_nightmare_cpuinfo);
 
@@ -1109,6 +1110,7 @@ static int check_down(void)
 static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare_cpuinfo)
 {
 	unsigned int j;
+	struct cpufreq_policy *policy;
 	u8 num_hist = hotplug_history->num_hist;
 	u8 max_hotplug_rate = max(nightmare_tuners_ins.cpu_up_rate,nightmare_tuners_ins.cpu_down_rate);
 	/* add total_load, avg_load to get average load */
@@ -1117,8 +1119,9 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 	/* get last num_hist used */
 	hotplug_history->last_num_hist = num_hist;
 	++hotplug_history->num_hist;
+	policy = this_nightmare_cpuinfo->cur_policy;
 
-	for_each_possible_cpu(j) {
+	for_each_cpu(j,policy->cpus) {
 		struct cpufreq_nightmare_cpuinfo *j_nightmare_cpuinfo;
 		u64 cur_wall_time, cur_idle_time, cur_iowait_time;
 		unsigned int idle_time, wall_time, iowait_time;
@@ -1227,6 +1230,16 @@ static void nightmare_check_frequency(struct cpufreq_nightmare_cpuinfo *this_nig
 	int j;
 	u8 num_hist = hotplug_history->last_num_hist;
 	bool earlysuspend = nightmare_tuners_ins.earlysuspend;
+	unsigned int min_freq = 0;
+	unsigned int max_freq = 0;
+	unsigned int freq_set = 0;
+
+	min_freq = this_nightmare_cpuinfo->cur_policy->min;
+	max_freq = this_nightmare_cpuinfo->cur_policy->max;
+	if (earlysuspend) {
+		min_freq = min(this_nightmare_cpuinfo->cur_policy->min_suspend,min_freq);
+		max_freq = min(this_nightmare_cpuinfo->cur_policy->max_suspend,max_freq);
+	}
 
 	for_each_online_cpu(j) {
 		struct cpufreq_policy *policy;
@@ -1241,21 +1254,11 @@ static void nightmare_check_frequency(struct cpufreq_nightmare_cpuinfo *this_nig
 		unsigned int freq_up = 0;
 		unsigned int dec_load = 0;
 		unsigned int freq_down = 0;
-		unsigned int min_freq = 0;
-		unsigned int max_freq = 0;
 
 		policy = cpufreq_cpu_get(j);
 		if (!policy) {
 			continue;
 		}
-		if (earlysuspend) {
-			min_freq = min(policy->min_suspend,policy->min);
-			max_freq = min(policy->max_suspend,policy->max);
-		} else {
-			min_freq = policy->min;
-			max_freq = policy->max;
-		}
-
 		cur_load = hotplug_history->usage[num_hist].load[j];
 		/* CPUs Online Scale Frequency*/
 		if (policy->cur < nightmare_tuners_ins.freq_for_responsiveness) {
@@ -1283,7 +1286,8 @@ static void nightmare_check_frequency(struct cpufreq_nightmare_cpuinfo *this_nig
 				freq_up = policy->cur + (inc_load - inc_brake);
 			}			
 			freq_up = nightmare_frequency_adjust(freq_up, policy->cur, min_freq, max_freq, nightmare_tuners_ins.up_sf_step);
-			if (freq_up != policy->cur) {
+			if (freq_up != policy->cur && freq_up != freq_set) {
+				freq_set = freq_up;
 				__cpufreq_driver_target(policy, freq_up, CPUFREQ_RELATION_L);
 			}
 			cpufreq_cpu_put(policy);
@@ -1303,7 +1307,8 @@ static void nightmare_check_frequency(struct cpufreq_nightmare_cpuinfo *this_nig
 			}
 			freq_down = nightmare_frequency_adjust(freq_down, policy->cur, min_freq, max_freq, nightmare_tuners_ins.down_sf_step);
 
-			if (freq_down < policy->cur) {
+			if (freq_down < policy->cur && freq_down != freq_set) {
+				freq_set = freq_down;
 				__cpufreq_driver_target(policy, freq_down, CPUFREQ_RELATION_L);				
 			}
 			cpufreq_cpu_put(policy);
@@ -1331,6 +1336,7 @@ static void do_nightmare_timer(struct work_struct *work)
 	if (num_online_cpus() > 1)
 		delay -= jiffies % delay;
 
+	nightmare_cpuinfo->delay = delay;
 	queue_delayed_work_on(nightmare_cpuinfo->cpu, dvfs_workqueue, &nightmare_cpuinfo->work, delay);
 	mutex_unlock(&nightmare_cpuinfo->timer_mutex);
 }
@@ -1343,11 +1349,12 @@ static inline void nightmare_timer_init(struct cpufreq_nightmare_cpuinfo *nightm
 	if (num_online_cpus() > 1 && delay > 0)
 		delay -= jiffies % delay;
 
+	nightmare_cpuinfo->delay = delay;
 	INIT_DEFERRABLE_WORK(&nightmare_cpuinfo->work, do_nightmare_timer);
 	INIT_WORK(&nightmare_cpuinfo->up_work, cpu_up_work);
 	INIT_WORK(&nightmare_cpuinfo->down_work, cpu_down_work);
 
-	queue_delayed_work_on(nightmare_cpuinfo->cpu, dvfs_workqueue, &nightmare_cpuinfo->work, delay);
+	queue_delayed_work_on(nightmare_cpuinfo->cpu, dvfs_workqueue, &nightmare_cpuinfo->work, nightmare_cpuinfo->delay);
 }
 
 static inline void nightmare_timer_exit(struct cpufreq_nightmare_cpuinfo *nightmare_cpuinfo)
@@ -1415,6 +1422,8 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 	unsigned int cpu = policy->cpu;
 	struct cpufreq_nightmare_cpuinfo *this_nightmare_cpuinfo;
 	unsigned int j;
+	unsigned int min_freq = 0;
+	unsigned int max_freq = 0;
 	int rc;
 
 	this_nightmare_cpuinfo = &per_cpu(od_nightmare_cpuinfo, cpu);
@@ -1434,7 +1443,7 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 		mutex_lock(&nightmare_mutex);
 		nightmare_enable++;
 
-		for_each_possible_cpu(j) {
+		for_each_cpu(j, policy->cpus) {
 			struct cpufreq_nightmare_cpuinfo *j_nightmare_cpuinfo;
 			j_nightmare_cpuinfo = &per_cpu(od_nightmare_cpuinfo, j);
 			j_nightmare_cpuinfo->cur_policy = policy;
@@ -1503,24 +1512,18 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 
 	case CPUFREQ_GOV_LIMITS:
 		mutex_lock(&this_nightmare_cpuinfo->timer_mutex);
+		min_freq = policy->min;
+		max_freq = policy->max;
+		if (nightmare_tuners_ins.earlysuspend) {
+			min_freq = min(policy->min_suspend,min_freq);
+			max_freq = min(policy->max_suspend,max_freq);
+		}
 		for_each_online_cpu(j) {
 			struct cpufreq_policy *cpu_policy;
-			unsigned int min_freq = 0;
-			unsigned int max_freq = 0;
-
 			cpu_policy = cpufreq_cpu_get(j);
 			if (!cpu_policy) {
 				continue;
 			}
-
-			if (nightmare_tuners_ins.earlysuspend) {
-				min_freq = min(policy->min_suspend,policy->min);
-				max_freq = min(policy->max_suspend,policy->max);
-			} else {
-				min_freq = policy->min;
-				max_freq = policy->max;
-			}
-
 			if (max_freq < cpu_policy->cur) {
 				__cpufreq_driver_target(cpu_policy,max_freq,CPUFREQ_RELATION_L);
 			} else if (min_freq > cpu_policy->cur) {
