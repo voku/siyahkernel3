@@ -45,7 +45,7 @@
 
 static uint32_t lowmem_debug_level = 1;
 static short lowmem_adj[6] = {
-	-5,
+	0,
 	2,
 	4,
 	9,
@@ -58,24 +58,24 @@ static int lowmem_minfree[6] = {
 	5 * 512,	/* 10MB */
 	3 * 1024,	/* 12MB */
 	7 * 512,	/* 14MB */
+	4 * 1500,	/* 24MB */
 	8 * 1024,	/* 32MB */
-	12 * 1024,	/* 49MB */
 };
 static int lowmem_minfree_screen_off[6] = {
         2 * 1024,	/* 8MB */
         5 * 512,	/* 10MB */
         3 * 1024,	/* 12MB */
         7 * 512,	/* 14MB */
+        4 * 1500,	/* 24MB */
         8 * 1024,	/* 32MB */
-        12 * 1024,	/* 49MB */
 };
 static int lowmem_minfree_screen_on[6] = {
         2 * 1024,	/* 8MB */
         5 * 512,	/* 10MB */
         3 * 1024,	/* 12MB */
         7 * 512,	/* 14MB */
+        4 * 1500,	/* 24MB */
         8 * 1024,	/* 32MB */
-        12 * 1024,	/* 49MB */
 };
 static int lowmem_minfree_size = 6;
 
