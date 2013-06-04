@@ -898,6 +898,8 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 	case CPUFREQ_GOV_STOP:
 		dbs_timer_exit(this_dbs_info);
 
+		mutex_destroy(&this_dbs_info->timer_mutex);
+
 		mutex_lock(&dbs_mutex);
 		dbs_enable--;
 		/* If device is being removed, policy is no longer
@@ -959,6 +961,7 @@ static int __init cpufreq_gov_dbs_init(void)
 {
 	u64 idle_time;
 	int cpu = get_cpu();
+	int ret;
 
 	idle_time = get_cpu_idle_time_us(cpu, NULL);
 	put_cpu();
@@ -982,23 +985,25 @@ static int __init cpufreq_gov_dbs_init(void)
 #ifdef CONFIG_EARLYSUSPEND
 	register_early_suspend(&cpufreq_intellidemand_early_suspend_info);
 #endif
-	return cpufreq_register_governor(&cpufreq_gov_intellidemand);
+	ret = cpufreq_register_governor(&cpufreq_gov_intellidemand);
+	if (ret)
+		goto error_free;
+
+return ret;
+
+error_free:
+kfree(&dbs_tuners_ins);
+return ret;
 }
 
 static void __exit cpufreq_gov_dbs_exit(void)
 {
-	unsigned int i;
-
 	cpufreq_unregister_governor(&cpufreq_gov_intellidemand);
-	for_each_possible_cpu(i) {
-		struct cpu_dbs_info_s *this_dbs_info =
-			&per_cpu(od_cpu_dbs_info, i);
-		mutex_destroy(&this_dbs_info->timer_mutex);
-	}
 #ifdef CONFIG_EARLYSUSPEND
 	unregister_early_suspend(&cpufreq_intellidemand_early_suspend_info);
 #endif
 	destroy_workqueue(input_wq);
+	kfree(&dbs_tuners_ins);
 }
 
 static int set_enable_dbs_input_event_param(const char *val, struct kernel_param *kp)
