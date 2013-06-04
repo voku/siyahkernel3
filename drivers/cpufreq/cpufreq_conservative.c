@@ -22,6 +22,7 @@
 #include <linux/hrtimer.h>
 #include <linux/tick.h>
 #include <linux/ktime.h>
+#include <linux/slab.h>
 #include <linux/sched.h>
 
 /*
@@ -613,6 +614,8 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 	case CPUFREQ_GOV_STOP:
 		dbs_timer_exit(this_dbs_info);
 
+		mutex_destroy(&this_dbs_info->timer_mutex);
+
 		mutex_lock(&dbs_mutex);
 		dbs_enable--;
 
@@ -660,18 +663,19 @@ struct cpufreq_governor cpufreq_gov_conservative = {
 
 static int __init cpufreq_gov_dbs_init(void)
 {
-	return cpufreq_register_governor(&cpufreq_gov_conservative);
+	int ret;
+
+	ret = cpufreq_register_governor(&cpufreq_gov_conservative);
+	if (ret)
+		kfree(&dbs_tuners_ins);
+
+	return ret;
 }
 
 static void __exit cpufreq_gov_dbs_exit(void)
-{
-	unsigned int i;
+{	
 	cpufreq_unregister_governor(&cpufreq_gov_conservative);
-	for_each_possible_cpu(i) {
-		struct cpu_dbs_info_s *this_dbs_info =
-			&per_cpu(cs_cpu_dbs_info, i);
-		mutex_destroy(&this_dbs_info->timer_mutex);
-	}
+	kfree(&dbs_tuners_ins);
 }
 
 MODULE_AUTHOR("Alexander Clouter <alex@digriz.org.uk>");

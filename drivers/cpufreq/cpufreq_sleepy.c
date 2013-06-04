@@ -124,6 +124,7 @@ struct cpu_dbs_info_s {
 	 * when user is changing the governor or limits.
 	 */
 	struct mutex timer_mutex;
+	int delay;
 };
 static DEFINE_PER_CPU(struct cpu_dbs_info_s, od_cpu_dbs_info);
 
@@ -143,6 +144,7 @@ static struct dbs_tuners {
 	unsigned int deep_sleep;
 	unsigned int fast_start;
 	unsigned int suspend_freq;
+	bool suspended;
 
 } dbs_tuners_ins = {
 	.up_threshold = DEF_FREQUENCY_UP_THRESHOLD,
@@ -153,24 +155,24 @@ static struct dbs_tuners {
 	.deep_sleep = 0,
 	.fast_start = 0,
 	.suspend_freq = DEF_SUSPEND_FREQ,
+	.suspended = 0,
 };
 
 static unsigned int dbs_enable = 0;	/* number of CPUs using this policy */
 
 // sleepy suspend mods (Thanks to Imoseyon)
-static unsigned int suspended = 0;
 static void sleepy_suspend(int suspend)
 {
 	struct cpu_dbs_info_s *dbs_info = &per_cpu(od_cpu_dbs_info, smp_processor_id());
 	if (dbs_enable == 0) return;
 
 	if (!suspend) { // resume at max speed:
-		suspended = 0;
+		dbs_tuners_ins.suspended = 0;
 		__cpufreq_driver_target(dbs_info->cur_policy, dbs_info->cur_policy->max,
 		CPUFREQ_RELATION_L);
 		pr_info("[sleepy] sleepy awake at %d\n", dbs_info->cur_policy->cur);
 	} else {
-		suspended = 1;
+		dbs_tuners_ins.suspended = 1;
 		// let's give it a little breathing room
 		__cpufreq_driver_target(dbs_info->cur_policy, dbs_tuners_ins.suspend_freq, CPUFREQ_RELATION_H);
 		pr_info("[sleepy] sleepy suspended at %d\n", dbs_info->cur_policy->cur);
@@ -509,7 +511,7 @@ static void dbs_freq_increase(struct cpufreq_policy *p, unsigned int freq)
 	else if (p->cur == p->max)
 		return;
 #endif
-	if (suspended && freq > dbs_tuners_ins.suspend_freq) {
+	if (dbs_tuners_ins.suspended && freq > dbs_tuners_ins.suspend_freq) {
 		freq = dbs_tuners_ins.suspend_freq;
 		__cpufreq_driver_target(p, freq, CPUFREQ_RELATION_H);
 	} else
@@ -747,11 +749,12 @@ static void do_dbs_timer(struct work_struct *work)
 				delay -= jiffies % delay;
 		}
 	} else {
-		if (!suspended)
+		if (!dbs_tuners_ins.suspended)
 		__cpufreq_driver_target(dbs_info->cur_policy,
 			dbs_info->freq_lo, CPUFREQ_RELATION_H);
 		delay = dbs_info->freq_lo_jiffies;
 	}
+	dbs_info->delay = delay;
 	schedule_delayed_work_on(cpu, &dbs_info->work, delay);
 	mutex_unlock(&dbs_info->timer_mutex);
 }
@@ -765,8 +768,9 @@ static inline void dbs_timer_init(struct cpu_dbs_info_s *dbs_info)
 		delay -= jiffies % delay;
 
 	dbs_info->sample_type = DBS_NORMAL_SAMPLE;
+	dbs_info->delay = delay;
 	INIT_DEFERRABLE_WORK(&dbs_info->work, do_dbs_timer);
-	schedule_delayed_work_on(dbs_info->cpu, &dbs_info->work, delay);
+	schedule_delayed_work_on(dbs_info->cpu, &dbs_info->work, dbs_info->delay);
 }
 
 static inline void dbs_timer_exit(struct cpu_dbs_info_s *dbs_info)
@@ -865,7 +869,6 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 		dbs_enable--;
 
 		if (!dbs_enable) {
-			suspended = 0;
 			sysfs_remove_group(cpufreq_global_kobject,
 					   &dbs_attr_group);
 		}
