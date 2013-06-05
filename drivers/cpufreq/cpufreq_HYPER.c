@@ -40,7 +40,7 @@
 #define BOOSTED_SAMPLING_DOWN_FACTOR		(10)
 #define MAX_SAMPLING_DOWN_FACTOR		(100000)
 #define MICRO_FREQUENCY_DOWN_DIFFERENTIAL	(5)
-#define MICRO_FREQUENCY_UP_THRESHOLD		(70)
+#define MICRO_FREQUENCY_UP_THRESHOLD		(60)
 #define MICRO_FREQUENCY_MIN_SAMPLE_RATE		(10000)
 #define MIN_FREQUENCY_UP_THRESHOLD		(11)
 #define MAX_FREQUENCY_UP_THRESHOLD		(100)
@@ -48,8 +48,8 @@
 #define FREQ_STEP				(30)
 #define DEFAULT_FREQ_BOOST_TIME			(500000)
 #define MAX_FREQ_BOOST_TIME			(5000000)
-#define UP_THRESHOLD_AT_MIN_FREQ		(60)
-#define FREQ_FOR_RESPONSIVENESS			(400000)
+#define UP_THRESHOLD_AT_MIN_FREQ		(40)
+#define FREQ_FOR_RESPONSIVENESS			(200000)
 
 static u64 hyper_freq_boosted_time;
 
@@ -69,13 +69,13 @@ static unsigned int min_sampling_rate;
 #define DEFAULT_SAMPLING_RATE			(50000)
 #define BOOSTED_SAMPLING_RATE			(20000)
 #define LATENCY_MULTIPLIER			(1000)
-#define MIN_LATENCY_MULTIPLIER			(100)
+#define MIN_LATENCY_MULTIPLIER			(20)
 #define TRANSITION_LATENCY_LIMIT		(10 * 1000 * 1000)
 
 /* have the timer rate booted for this much time 4s*/
 #define TIMER_RATE_BOOST_TIME 4000000
-int hyper_sampling_rate_boosted;
-u64 hyper_sampling_rate_boosted_time;
+static int hyper_sampling_rate_boosted;
+static u64 hyper_sampling_rate_boosted_time;
 unsigned int hyper_current_sampling_rate;
 
 static void do_dbs_timer(struct work_struct *work);
@@ -96,9 +96,9 @@ struct cpufreq_governor cpufreq_gov_HYPER = {
 enum {DBS_NORMAL_SAMPLE, DBS_SUB_SAMPLE};
 
 struct cpu_dbs_info_s {
-	cputime64_t prev_cpu_idle;
-	cputime64_t prev_cpu_iowait;
-	cputime64_t prev_cpu_wall;
+	u64 prev_cpu_idle;
+	u64 prev_cpu_iowait;
+	u64 prev_cpu_wall;
 	unsigned int prev_cpu_wall_delta;
 	cputime64_t prev_cpu_nice;
 	struct cpufreq_policy *cur_policy;
@@ -118,6 +118,7 @@ struct cpu_dbs_info_s {
 	 */
 	struct mutex timer_mutex;
 	bool activated; /* dbs_timer_init is in effect */
+	int delay;
 };
 static DEFINE_PER_CPU(struct cpu_dbs_info_s, od_cpu_dbs_info);
 
@@ -160,8 +161,7 @@ static struct dbs_tuners {
 
 static unsigned int dbs_enable = 0;	/* number of CPUs using this policy */
 
-static inline cputime64_t get_cpu_iowait_time(unsigned int cpu,
-					      cputime64_t *wall)
+static inline cputime64_t get_cpu_iowait_time(unsigned int cpu, cputime64_t *wall)
 {
 	u64 iowait_time = get_cpu_iowait_time_us(cpu, wall);
 
@@ -243,18 +243,18 @@ static unsigned int powersave_bias_target(struct cpufreq_policy *policy,
 	return freq_hi;
 }
 
-static void hyper_power_powersave_bias_init_cpu(int cpu)
+static void hyper_powersave_bias_init_cpu(int cpu)
 {
 	struct cpu_dbs_info_s *dbs_info = &per_cpu(od_cpu_dbs_info, cpu);
 	dbs_info->freq_table = cpufreq_frequency_get_table(cpu);
 	dbs_info->freq_lo = 0;
 }
 
-static void HYPER_powersave_bias_init(void)
+static void hyper_powersave_bias_init(void)
 {
 	int i;
 	for_each_online_cpu(i) {
-		hyper_power_powersave_bias_init_cpu(i);
+		hyper_powersave_bias_init_cpu(i);
 	}
 }
 
@@ -529,9 +529,9 @@ static ssize_t store_ignore_nice_load(struct kobject *a, struct attribute *b,
 	if (input > 1)
 		input = 1;
 
-	if (input == dbs_tuners_ins.ignore_nice) /* nothing to do */
+	if (input == dbs_tuners_ins.ignore_nice) {/* nothing to do */
 		return count;
-
+	}
 	dbs_tuners_ins.ignore_nice = input;
 
 	/* we need to re-evaluate prev_cpu_idle */
@@ -560,7 +560,7 @@ static ssize_t store_powersave_bias(struct kobject *a, struct attribute *b,
 		input = 1000;
 
 	dbs_tuners_ins.powersave_bias = input;
-	HYPER_powersave_bias_init();
+	hyper_powersave_bias_init();
 
 	return count;
 }
@@ -702,7 +702,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 	max_load_freq = 0;
 
 	for_each_cpu(j, policy->cpus) {
-		cputime64_t cur_wall_time, cur_idle_time, cur_iowait_time;
+		u64 cur_wall_time, cur_idle_time, cur_iowait_time;
 		unsigned int idle_time, wall_time, iowait_time;
 		unsigned int load_freq;
 		int freq_avg;
@@ -801,6 +801,8 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 		load_at_max_freq += (cur_load * policy->cur) /
 					policy->cpuinfo.max_freq;
 
+		cpufreq_notify_utilization(policy, load_at_max_freq);
+
 		avg_load_at_max_freq += ((load_at_max_freq +
 				j_dbs_info->load_at_prev_sample) / 2);
 
@@ -836,11 +838,10 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 		return;
 	}
 
-	/* if the there is a input detected we want to go through this check so
-	 that the frequency stays locked in boostfreq and doesn't go down */
-	if (dbs_tuners_ins.boosted) {
-		if (policy->cur < dbs_tuners_ins.boostfreq)
-			dbs_freq_increase(policy, dbs_tuners_ins.boostfreq);
+	/* check for frequency boost */
+	if (dbs_tuners_ins.boosted && policy->cur < dbs_tuners_ins.boostfreq) {
+		dbs_freq_increase(policy, dbs_tuners_ins.boostfreq);
+		dbs_tuners_ins.boostfreq = policy->cur;
 		return;
 	}
 
@@ -863,9 +864,13 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 		unsigned int down_thres;
 
 		freq_next = max_load_freq /
-			(dbs_tuners_ins.up_threshold -
-				dbs_tuners_ins.down_differential * 2);
+				(dbs_tuners_ins.up_threshold -
+					dbs_tuners_ins.down_differential);
 
+		if (dbs_tuners_ins.boosted &&
+				freq_next < dbs_tuners_ins.boostfreq) {
+			freq_next = dbs_tuners_ins.boostfreq;
+		}
 		/* No longer fully busy, reset rate_mult */
 		this_dbs_info->rate_mult = 1;
 
@@ -926,6 +931,7 @@ static void do_dbs_timer(struct work_struct *work)
 			dbs_info->freq_lo, CPUFREQ_RELATION_H);
 		delay = dbs_info->freq_lo_jiffies;
 	}
+	dbs_info->delay = delay;
 	schedule_delayed_work_on(cpu, &dbs_info->work, delay);
 	mutex_unlock(&dbs_info->timer_mutex);
 }
@@ -939,8 +945,9 @@ static inline void dbs_timer_init(struct cpu_dbs_info_s *dbs_info)
 		delay -= jiffies % delay;
 
 	dbs_info->sample_type = DBS_NORMAL_SAMPLE;
+	dbs_info->delay = delay;
 	INIT_DEFERRABLE_WORK(&dbs_info->work, do_dbs_timer);
-	schedule_delayed_work_on(dbs_info->cpu, &dbs_info->work, 10 * delay);
+	schedule_delayed_work_on(dbs_info->cpu, &dbs_info->work, dbs_info->delay);
 	dbs_info->activated = true;
 }
 
@@ -989,13 +996,14 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 
 			j_dbs_info->prev_cpu_idle = get_cpu_idle_time(j,
 						&j_dbs_info->prev_cpu_wall);
-			if (dbs_tuners_ins.ignore_nice)
+			if (dbs_tuners_ins.ignore_nice) {
 				j_dbs_info->prev_cpu_nice =
 						kcpustat_cpu(j).cpustat[CPUTIME_NICE];
+			}
 		}
 		this_dbs_info->cpu = cpu;
 		this_dbs_info->rate_mult = 1;
-		hyper_power_powersave_bias_init_cpu(cpu);
+		hyper_powersave_bias_init_cpu(cpu);
 		/*
 		 * Start the timerschedule work, when this governor
 		 * is used for first time
@@ -1025,11 +1033,15 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 		mutex_unlock(&dbs_mutex);
 
 		mutex_init(&this_dbs_info->timer_mutex);
+		
 		dbs_timer_init(this_dbs_info);
+
 		break;
 
 	case CPUFREQ_GOV_STOP:
 		dbs_timer_exit(this_dbs_info);
+
+		mutex_destroy(&this_dbs_info->timer_mutex);
 
 		mutex_lock(&dbs_mutex);
 		dbs_enable--;
@@ -1081,7 +1093,7 @@ static int qos_dvfs_lat_notify(struct notifier_block *nb, unsigned long value,
 	return NOTIFY_OK;
 }
 
-static struct notifier_block HYPER_qos_dvfs_lat_nb = {
+static struct notifier_block hyper_qos_dvfs_lat_nb = {
 	.notifier_call = qos_dvfs_lat_notify,
 };
 
@@ -1112,32 +1124,30 @@ static int __init cpufreq_gov_dbs_init(void)
 	}
 
 	err = pm_qos_add_notifier(PM_QOS_DVFS_RESPONSE_LATENCY,
-			    &HYPER_qos_dvfs_lat_nb);
+			    &hyper_qos_dvfs_lat_nb);
 	if (err)
-		return err;
+		goto error_reg;
 
 	err = cpufreq_register_governor(&cpufreq_gov_HYPER);
 	if (err) {
 		pm_qos_remove_notifier(PM_QOS_DVFS_RESPONSE_LATENCY,
-				       &HYPER_qos_dvfs_lat_nb);
+				       &hyper_qos_dvfs_lat_nb);
+		goto error_reg;
 	}
 
+	return err;
+error_reg:
+	kfree(&dbs_tuners_ins);
 	return err;
 }
 
 static void __exit cpufreq_gov_dbs_exit(void)
 {
-	unsigned int i;
-
 	pm_qos_remove_notifier(PM_QOS_DVFS_RESPONSE_LATENCY,
-			       &HYPER_qos_dvfs_lat_nb);
+			       &hyper_qos_dvfs_lat_nb);
 
 	cpufreq_unregister_governor(&cpufreq_gov_HYPER);
-	for_each_possible_cpu(i) {
-		struct cpu_dbs_info_s *this_dbs_info =
-			&per_cpu(od_cpu_dbs_info, i);
-		mutex_destroy(&this_dbs_info->timer_mutex);
-	}
+	kfree(&dbs_tuners_ins);
 }
 
 MODULE_AUTHOR("Venkatesh Pallipadi <venkatesh.pallipadi@intel.com>");

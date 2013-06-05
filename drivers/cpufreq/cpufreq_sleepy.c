@@ -22,6 +22,7 @@
 #include <linux/hrtimer.h>
 #include <linux/tick.h>
 #include <linux/ktime.h>
+#include <linux/slab.h>
 #include <linux/sched.h>
 #include <linux/notifier.h>
 #include <linux/earlysuspend.h>
@@ -83,7 +84,7 @@ static struct notifier_block idle_notifier_block = {
 };
 
 #define LATENCY_MULTIPLIER			(1000)
-#define MIN_LATENCY_MULTIPLIER			(100)
+#define MIN_LATENCY_MULTIPLIER			(20)
 #define TRANSITION_LATENCY_LIMIT		(10 * 1000 * 1000)
 
 static void do_dbs_timer(struct work_struct *work);
@@ -104,9 +105,9 @@ struct cpufreq_governor cpufreq_gov_sleepy = {
 enum {DBS_NORMAL_SAMPLE, DBS_SUB_SAMPLE};
 
 struct cpu_dbs_info_s {
-	cputime64_t prev_cpu_idle;
-	cputime64_t prev_cpu_iowait;
-	cputime64_t prev_cpu_wall;
+	u64 prev_cpu_idle;
+	u64 prev_cpu_iowait;
+	u64 prev_cpu_wall;
 	cputime64_t prev_cpu_nice;
 	struct cpufreq_policy *cur_policy;
 	struct delayed_work work;
@@ -123,6 +124,7 @@ struct cpu_dbs_info_s {
 	 * when user is changing the governor or limits.
 	 */
 	struct mutex timer_mutex;
+	int delay;
 };
 static DEFINE_PER_CPU(struct cpu_dbs_info_s, od_cpu_dbs_info);
 
@@ -142,6 +144,7 @@ static struct dbs_tuners {
 	unsigned int deep_sleep;
 	unsigned int fast_start;
 	unsigned int suspend_freq;
+	bool suspended;
 
 } dbs_tuners_ins = {
 	.up_threshold = DEF_FREQUENCY_UP_THRESHOLD,
@@ -152,24 +155,24 @@ static struct dbs_tuners {
 	.deep_sleep = 0,
 	.fast_start = 0,
 	.suspend_freq = DEF_SUSPEND_FREQ,
+	.suspended = 0,
 };
 
 static unsigned int dbs_enable = 0;	/* number of CPUs using this policy */
 
 // sleepy suspend mods (Thanks to Imoseyon)
-static unsigned int suspended = 0;
 static void sleepy_suspend(int suspend)
 {
 	struct cpu_dbs_info_s *dbs_info = &per_cpu(od_cpu_dbs_info, smp_processor_id());
 	if (dbs_enable == 0) return;
 
 	if (!suspend) { // resume at max speed:
-		suspended = 0;
+		dbs_tuners_ins.suspended = 0;
 		__cpufreq_driver_target(dbs_info->cur_policy, dbs_info->cur_policy->max,
 		CPUFREQ_RELATION_L);
 		pr_info("[sleepy] sleepy awake at %d\n", dbs_info->cur_policy->cur);
 	} else {
-		suspended = 1;
+		dbs_tuners_ins.suspended = 1;
 		// let's give it a little breathing room
 		__cpufreq_driver_target(dbs_info->cur_policy, dbs_tuners_ins.suspend_freq, CPUFREQ_RELATION_H);
 		pr_info("[sleepy] sleepy suspended at %d\n", dbs_info->cur_policy->cur);
@@ -311,6 +314,7 @@ static ssize_t store_sampling_rate(struct kobject *a, struct attribute *b,
 	return count;
 }
 
+/* io_is_busy */
 static ssize_t store_io_is_busy(struct kobject *a, struct attribute *b,
 				const char *buf, size_t count)
 {
@@ -393,6 +397,7 @@ static ssize_t store_sampling_down_factor(struct kobject *a,
 	return count;
 }
 
+/* ignore_nice_load */
 static ssize_t store_ignore_nice_load(struct kobject *a, struct attribute *b,
 				      const char *buf, size_t count)
 {
@@ -407,9 +412,9 @@ static ssize_t store_ignore_nice_load(struct kobject *a, struct attribute *b,
 	if (input > 1)
 		input = 1;
 
-	if (input == dbs_tuners_ins.ignore_nice) /* nothing to do */
+	if (input == dbs_tuners_ins.ignore_nice) {/* nothing to do */
 		return count;
-
+	}
 	dbs_tuners_ins.ignore_nice = input;
 
 	/* we need to re-evaluate prev_cpu_idle */
@@ -506,7 +511,7 @@ static void dbs_freq_increase(struct cpufreq_policy *p, unsigned int freq)
 	else if (p->cur == p->max)
 		return;
 #endif
-	if (suspended && freq > dbs_tuners_ins.suspend_freq) {
+	if (dbs_tuners_ins.suspended && freq > dbs_tuners_ins.suspend_freq) {
 		freq = dbs_tuners_ins.suspend_freq;
 		__cpufreq_driver_target(p, freq, CPUFREQ_RELATION_H);
 	} else
@@ -516,7 +521,11 @@ static void dbs_freq_increase(struct cpufreq_policy *p, unsigned int freq)
 
 static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 {
+	/* Extrapolated load of this CPU */
+	unsigned int load_at_max_freq = 0;
 	unsigned int max_load_freq;
+	/* Current load across this CPU */
+	unsigned int cur_load = 0;
 
 	struct cpufreq_policy *policy;
 	unsigned int j;
@@ -545,9 +554,9 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 
 	for_each_cpu(j, policy->cpus) {
 		struct cpu_dbs_info_s *j_dbs_info;
-		cputime64_t cur_wall_time, cur_idle_time, cur_iowait_time;
+		u64 cur_wall_time, cur_idle_time, cur_iowait_time;
 		unsigned int idle_time, wall_time, iowait_time;
-		unsigned int load, load_freq;
+		unsigned int load_freq;
 		int freq_avg;
 		unsigned long start, end, delta, sampling_delta;
 
@@ -636,7 +645,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 		if (unlikely(!wall_time || wall_time < idle_time))
 			continue;
 
-		load = 100 * (wall_time - idle_time) / wall_time;
+		cur_load = 100 * (wall_time - idle_time) / wall_time;
 #if CPUMON
 		load_each[j & 0x01] = load;
 #endif
@@ -645,9 +654,15 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 		if (freq_avg <= 0)
 			freq_avg = policy->cur;
 
-		load_freq = load * freq_avg;
+		load_freq = cur_load * freq_avg;
 		if (load_freq > max_load_freq)
 			max_load_freq = load_freq;
+
+		/* calculate the scaled load across CPU */
+		load_at_max_freq += (cur_load * policy->cur) /
+					policy->cpuinfo.max_freq;
+
+		cpufreq_notify_utilization(policy, load_at_max_freq);
 	}
         
 #if CPUMON
@@ -734,11 +749,12 @@ static void do_dbs_timer(struct work_struct *work)
 				delay -= jiffies % delay;
 		}
 	} else {
-		if (!suspended)
+		if (!dbs_tuners_ins.suspended)
 		__cpufreq_driver_target(dbs_info->cur_policy,
 			dbs_info->freq_lo, CPUFREQ_RELATION_H);
 		delay = dbs_info->freq_lo_jiffies;
 	}
+	dbs_info->delay = delay;
 	schedule_delayed_work_on(cpu, &dbs_info->work, delay);
 	mutex_unlock(&dbs_info->timer_mutex);
 }
@@ -752,8 +768,9 @@ static inline void dbs_timer_init(struct cpu_dbs_info_s *dbs_info)
 		delay -= jiffies % delay;
 
 	dbs_info->sample_type = DBS_NORMAL_SAMPLE;
+	dbs_info->delay = delay;
 	INIT_DEFERRABLE_WORK(&dbs_info->work, do_dbs_timer);
-	schedule_delayed_work_on(dbs_info->cpu, &dbs_info->work, delay);
+	schedule_delayed_work_on(dbs_info->cpu, &dbs_info->work, dbs_info->delay);
 }
 
 static inline void dbs_timer_exit(struct cpu_dbs_info_s *dbs_info)
@@ -800,9 +817,10 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 
 			j_dbs_info->prev_cpu_idle = get_cpu_idle_time(j,
 						&j_dbs_info->prev_cpu_wall);
-			if (dbs_tuners_ins.ignore_nice)
+			if (dbs_tuners_ins.ignore_nice) {
 				j_dbs_info->prev_cpu_nice =
 						kcpustat_cpu(j).cpustat[CPUTIME_NICE];
+			}
 		}
 		this_dbs_info->cpu = cpu;
 		this_dbs_info->rate_mult = 1;
@@ -832,10 +850,12 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 				max(min_sampling_rate,
 				    latency * LATENCY_MULTIPLIER);
 			dbs_tuners_ins.io_is_busy = should_io_be_busy();
+			dbs_tuners_ins.suspended = 0;
 		}
 		mutex_unlock(&dbs_mutex);
 
 		mutex_init(&this_dbs_info->timer_mutex);
+
 		dbs_timer_init(this_dbs_info);
 		register_early_suspend(&sleepy_power_suspend);
 		pr_info("[sleepy] sleepy active\n");
@@ -844,11 +864,12 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 	case CPUFREQ_GOV_STOP:
 		dbs_timer_exit(this_dbs_info);
 
+		mutex_destroy(&this_dbs_info->timer_mutex);
+
 		mutex_lock(&dbs_mutex);
 		dbs_enable--;
 
 		if (!dbs_enable) {
-			suspended = 0;
 			sysfs_remove_group(cpufreq_global_kobject,
 					   &dbs_attr_group);
 		}
@@ -878,6 +899,7 @@ static int __init cpufreq_gov_dbs_init(void)
 	cputime64_t wall;
 	u64 idle_time;
 	int cpu = get_cpu();
+	int ret;
 
 	idle_time = get_cpu_idle_time_us(cpu, &wall);
 	put_cpu();
@@ -899,20 +921,19 @@ static int __init cpufreq_gov_dbs_init(void)
 	}
 
 	idle_notifier_register(&idle_notifier_block);
-	return cpufreq_register_governor(&cpufreq_gov_sleepy);
+
+	ret = cpufreq_register_governor(&cpufreq_gov_sleepy);
+	if (ret)
+		kfree(&dbs_tuners_ins);
+
+	return ret; 
 }
 
 static void __exit cpufreq_gov_dbs_exit(void)
 {
-	unsigned int i;
-
 	idle_notifier_unregister(&idle_notifier_block);
 	cpufreq_unregister_governor(&cpufreq_gov_sleepy);
-	for_each_possible_cpu(i) {
-		struct cpu_dbs_info_s *this_dbs_info =
-			&per_cpu(od_cpu_dbs_info, i);
-		mutex_destroy(&this_dbs_info->timer_mutex);
-	}
+	kfree(&dbs_tuners_ins);
 }
 
 MODULE_AUTHOR("Venkatesh Pallipadi <venkatesh.pallipadi@intel.com>");

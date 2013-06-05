@@ -19,7 +19,6 @@
 #include <linux/pagemap.h>
 #include <linux/init.h>
 #include <linux/highmem.h>
-#include <linux/vmpressure.h>
 #include <linux/vmstat.h>
 #include <linux/file.h>
 #include <linux/writeback.h>
@@ -37,14 +36,13 @@
 #include <linux/rwsem.h>
 #include <linux/delay.h>
 #include <linux/kthread.h>
-#include <linux/timer.h>
 #include <linux/freezer.h>
 #include <linux/memcontrol.h>
 #include <linux/delayacct.h>
 #include <linux/sysctl.h>
 #include <linux/oom.h>
 #include <linux/prefetch.h>
-#include <linux/sched/rt.h>
+#include <linux/debugfs.h>
 
 #include <asm/tlbflush.h>
 #include <asm/div64.h>
@@ -156,6 +154,40 @@ static unsigned long get_lru_size(struct lruvec *lruvec, enum lru_list lru)
 	return zone_page_state(lruvec_zone(lruvec), NR_LRU_BASE + lru);
 }
 
+struct dentry *debug_file;
+
+static int debug_shrinker_show(struct seq_file *s, void *unused)
+{
+	struct shrinker *shrinker;
+	struct shrink_control sc;
+
+	sc.gfp_mask = -1;
+	sc.nr_to_scan = 0;
+
+	down_read(&shrinker_rwsem);
+	list_for_each_entry(shrinker, &shrinker_list, list) {
+		char name[64];
+		int num_objs;
+
+		num_objs = shrinker->shrink(shrinker, &sc);
+		seq_printf(s, "%pf %d\n", shrinker->shrink, num_objs);
+	}
+	up_read(&shrinker_rwsem);
+	return 0;
+}
+
+static int debug_shrinker_open(struct inode *inode, struct file *file)
+{
+        return single_open(file, debug_shrinker_show, inode->i_private);
+}
+
+static const struct file_operations debug_shrinker_fops = {
+        .open = debug_shrinker_open,
+        .read = seq_read,
+        .llseek = seq_lseek,
+        .release = single_release,
+};
+
 /*
  * Add a shrinker callback to be called from the vm
  */
@@ -167,6 +199,15 @@ void register_shrinker(struct shrinker *shrinker)
 	up_write(&shrinker_rwsem);
 }
 EXPORT_SYMBOL(register_shrinker);
+
+static int __init add_shrinker_debug(void)
+{
+	debugfs_create_file("shrinker", 0644, NULL, NULL,
+			    &debug_shrinker_fops);
+	return 0;
+}
+
+late_initcall(add_shrinker_debug);
 
 /*
  * Remove one
@@ -636,17 +677,6 @@ static enum page_references page_check_references(struct page *page,
 	if (referenced_ptes) {
 		if (PageSwapBacked(page))
 			return PAGEREF_ACTIVATE;
-
-		/*
-		 * Identify referenced, file-backed active pages and move them
-		 * to the active list. We know that this page has been
-		 * referenced since being put on the inactive list. VM_EXEC
-		 * pages are only moved to the inactive list when they have not
-		 * been referenced between scans (see shrink_active_list).
-		 */
-		if ((vm_flags & VM_EXEC) && page_is_file_cache(page))
-			return PAGEREF_ACTIVATE;
-
 		/*
 		 * All mapped pages start out with page table
 		 * references from the instantiating fault, so we need
@@ -663,10 +693,6 @@ static enum page_references page_check_references(struct page *page,
 		 */
 		SetPageReferenced(page);
 
-#ifndef CONFIG_DMA_CMA
-		if (referenced_page)
-			return PAGEREF_ACTIVATE;
-#else
 		if (referenced_page || referenced_ptes > 1)
 			return PAGEREF_ACTIVATE;
 
@@ -675,7 +701,7 @@ static enum page_references page_check_references(struct page *page,
 		 */
 		if (vm_flags & VM_EXEC)
 			return PAGEREF_ACTIVATE;
-#endif
+
 		return PAGEREF_KEEP;
 	}
 
@@ -798,7 +824,7 @@ static unsigned long shrink_page_list(struct list_head *page_list,
 		if (PageAnon(page) && !PageSwapCache(page)) {
 			if (!(sc->gfp_mask & __GFP_IO))
 				goto keep_locked;
-			if (!add_to_swap(page, page_list))
+			if (!add_to_swap(page))
 				goto activate_locked;
 			may_enter_fs = 1;
 		}
@@ -951,7 +977,7 @@ cull_mlocked:
 
 activate_locked:
 		/* Not a candidate for swapping, so reclaim swap space. */
-		if (PageSwapCache(page))
+		if (PageSwapCache(page) && vm_swap_full())
 			try_to_free_swap(page);
 		VM_BUG_ON(PageActive(page));
 		SetPageActive(page);
@@ -2000,11 +2026,6 @@ static void shrink_zone(struct zone *zone, struct scan_control *sc)
 			}
 			memcg = mem_cgroup_iter(root, memcg, &reclaim);
 		} while (memcg);
-
-		vmpressure(sc->gfp_mask, sc->target_mem_cgroup,
-			   sc->nr_scanned - nr_scanned,
-			   sc->nr_reclaimed - nr_reclaimed);
-
 	} while (should_continue_reclaim(zone, sc->nr_reclaimed - nr_reclaimed,
 					 sc->nr_scanned - nr_scanned, sc));
 }
@@ -2043,35 +2064,6 @@ static inline bool compaction_ready(struct zone *zone, struct scan_control *sc)
 		return false;
 
 	return watermark_ok;
-}
-
-/*
- * Helper functions to adjust nice level of kswapd, based on the priority of
- * the task (p) that called it. If it is already higher priority we do not
- * demote its nice level since it is still working on behalf of a higher
- * priority task. With kernel threads we leave it at nice 0.
- *
- * We don't ever run kswapd real time, so if a real time task calls kswapd we
- * set it to highest SCHED_NORMAL priority.
- */
-static inline int effective_sc_prio(struct task_struct *p)
-{
-	if (likely(p->mm)) {
-		if (rt_task(p))
-			return -20;
-		if (p->policy == SCHED_IDLE)
-			return 19;
-		return task_nice(p);
-	}
-	return 0;
-}
-
-static void set_kswapd_nice(struct task_struct *kswapd, int active)
-{
-	long nice = effective_sc_prio(current);
-
-	if (task_nice(kswapd) > nice || !active)
-		set_user_nice(kswapd, nice);
 }
 
 /*
@@ -2219,8 +2211,6 @@ static unsigned long do_try_to_free_pages(struct zonelist *zonelist,
 		count_vm_event(ALLOCSTALL);
 
 	do {
-		vmpressure_prio(sc->gfp_mask, sc->target_mem_cgroup,
-				sc->priority);
 		sc->nr_scanned = 0;
 		aborted_reclaim = shrink_zones(zonelist, sc);
 
@@ -2673,6 +2663,7 @@ static unsigned long balance_pgdat(pg_data_t *pgdat, int order,
 	bool pgdat_is_balanced = false;
 	int i;
 	int end_zone = 0;	/* Inclusive.  0 = ZONE_DMA */
+	unsigned long total_scanned;
 	struct reclaim_state *reclaim_state = current->reclaim_state;
 	unsigned long nr_soft_reclaimed;
 	unsigned long nr_soft_scanned;
@@ -2692,6 +2683,7 @@ static unsigned long balance_pgdat(pg_data_t *pgdat, int order,
 		.gfp_mask = sc.gfp_mask,
 	};
 loop_again:
+	total_scanned = 0;
 	sc.priority = DEF_PRIORITY;
 	sc.nr_reclaimed = 0;
 	sc.may_writepage = !laptop_mode;
@@ -2782,6 +2774,7 @@ loop_again:
 							order, sc.gfp_mask,
 							&nr_soft_scanned);
 			sc.nr_reclaimed += nr_soft_reclaimed;
+			total_scanned += nr_soft_scanned;
 
 			/*
 			 * We put equal pressure on every zone, unless
@@ -2816,6 +2809,7 @@ loop_again:
 				reclaim_state->reclaimed_slab = 0;
 				nr_slab = shrink_slab(&shrink, sc.nr_scanned, lru_pages);
 				sc.nr_reclaimed += reclaim_state->reclaimed_slab;
+				total_scanned += sc.nr_scanned;
 
 				if (nr_slab == 0 && !zone_reclaimable(zone))
 					zone->all_unreclaimable = 1;
@@ -2987,8 +2981,6 @@ static void kswapd_try_to_sleep(pg_data_t *pgdat, int order, int classzone_idx)
 	finish_wait(&pgdat->kswapd_wait, &wait);
 }
 
-#define WT_EXPIRY	(HZ * 5)	/* Time to wakeup watermark_timer */
-
 /*
  * The background pageout daemon, started as a kernel thread
  * from the init process.
@@ -3043,9 +3035,6 @@ static int kswapd(void *p)
 	balanced_classzone_idx = classzone_idx;
 	for ( ; ; ) {
 		bool ret;
-
-		/* kswapd has been busy so delay watermark_timer */
-		mod_timer(&pgdat->watermark_timer, jiffies + WT_EXPIRY);
 
 		/*
 		 * If the last balance_pgdat was unsuccessful it's unlikely a
@@ -3104,7 +3093,6 @@ static int kswapd(void *p)
 void wakeup_kswapd(struct zone *zone, int order, enum zone_type classzone_idx)
 {
 	pg_data_t *pgdat;
-	int active;
 
 	if (!populated_zone(zone))
 		return;
@@ -3116,9 +3104,7 @@ void wakeup_kswapd(struct zone *zone, int order, enum zone_type classzone_idx)
 		pgdat->kswapd_max_order = order;
 		pgdat->classzone_idx = min(pgdat->classzone_idx, classzone_idx);
 	}
-	active = waitqueue_active(&pgdat->kswapd_wait);
-	set_kswapd_nice(pgdat->kswapd, active);
-	if (!active)
+	if (!waitqueue_active(&pgdat->kswapd_wait))
 		return;
 	if (zone_watermark_ok_safe(zone, order, low_wmark_pages(zone), 0, 0))
 		return;
@@ -3210,8 +3196,8 @@ unsigned long shrink_all_memory(unsigned long nr_to_reclaim)
    not required for correctness.  So if the last cpu in a node goes
    away, we get changed to run anywhere: as the first one comes back,
    restore their cpu bindings. */
-static int __devinit cpu_callback(struct notifier_block *nfb,
-				  unsigned long action, void *hcpu)
+static int cpu_callback(struct notifier_block *nfb, unsigned long action,
+			void *hcpu)
 {
 	int nid;
 
@@ -3231,61 +3217,24 @@ static int __devinit cpu_callback(struct notifier_block *nfb,
 }
 
 /*
- * We wake up kswapd every WT_EXPIRY till free ram is above pages_lots
- */
-static void watermark_wakeup(unsigned long data)
-{
-	pg_data_t *pgdat = (pg_data_t *)data;
-	struct timer_list *wt = &pgdat->watermark_timer;
-	int i;
-
-	if (!waitqueue_active(&pgdat->kswapd_wait))
-		goto out;
-	for (i = pgdat->nr_zones - 1; i >= 0; i--) {
-		struct zone *z = pgdat->node_zones + i;
-
-		if (!populated_zone(z) || is_highmem(z)) {
-			/* We are better off leaving highmem full */
-			continue;
-		}
-		if (!zone_watermark_ok(z, 0, lots_wmark_pages(z), 0, 0)) {
-			wake_up_interruptible(&pgdat->kswapd_wait);
-			goto out;
-		}
-	}
-out:
-	mod_timer(wt, jiffies + WT_EXPIRY);
-	return;
-}
-
-/*
  * This kswapd start function will be called by init and node-hot-add.
  * On node-hot-add, kswapd will moved to proper cpus if cpus are hot-added.
  */
 int kswapd_run(int nid)
 {
 	pg_data_t *pgdat = NODE_DATA(nid);
-	struct timer_list *wt;
 	int ret = 0;
 
 	if (pgdat->kswapd)
 		return 0;
 
-	wt = &pgdat->watermark_timer;
-	init_timer(wt);
-	wt->data = (unsigned long)pgdat;
-	wt->function = watermark_wakeup;
-	wt->expires = jiffies + WT_EXPIRY;
-	add_timer(wt);
-
 	pgdat->kswapd = kthread_run(kswapd, pgdat, "kswapd%d", nid);
 	if (IS_ERR(pgdat->kswapd)) {
 		/* failure at boot is fatal */
-		del_timer(wt);
 		BUG_ON(system_state == SYSTEM_BOOTING);
+		pgdat->kswapd = NULL;
 		pr_err("Failed to start kswapd on node %d\n", nid);
 		ret = PTR_ERR(pgdat->kswapd);
-		pgdat->kswapd = NULL;
 	}
 	return ret;
 }

@@ -88,6 +88,7 @@
 #include <linux/hrtimer.h>
 #include <linux/tick.h>
 #include <linux/ktime.h>
+#include <linux/slab.h>
 #include <linux/sched.h>
 #include <linux/earlysuspend.h>
 
@@ -145,7 +146,7 @@ static unsigned int freq_step_asleep;			// ZZ: for setting freq step value on ea
 
 // ZZ: midnight defaults
 #define LATENCY_MULTIPLIER			(1000)
-#define MIN_LATENCY_MULTIPLIER			(100)
+#define MIN_LATENCY_MULTIPLIER			(20)
 #define DEF_SAMPLING_DOWN_FACTOR		(4)
 #define MAX_SAMPLING_DOWN_FACTOR		(10)
 #define TRANSITION_LATENCY_LIMIT		(10 * 1000 * 1000)
@@ -182,8 +183,8 @@ static unsigned int freq_step_asleep;			// ZZ: for setting freq step value on ea
 static void do_dbs_timer(struct work_struct *work);
 
 struct cpu_dbs_info_s {
-	cputime64_t prev_cpu_idle;
-	cputime64_t prev_cpu_wall;
+	u64 prev_cpu_idle;
+	u64 prev_cpu_wall;
 	unsigned int prev_cpu_wall_delta;
 	cputime64_t prev_cpu_nice;
 	struct cpufreq_policy *cur_policy;
@@ -563,9 +564,9 @@ static ssize_t store_ignore_nice_load(struct kobject *a, struct attribute *b,
 	if (input > 1)
 		input = 1;
 
-	if (input == dbs_tuners_ins.ignore_nice) /* nothing to do */
+	if (input == dbs_tuners_ins.ignore_nice) {/* nothing to do */
 		return count;
-
+	}
 	dbs_tuners_ins.ignore_nice = input;
 
 	/* we need to re-evaluate prev_cpu_idle */
@@ -581,12 +582,12 @@ static ssize_t store_ignore_nice_load(struct kobject *a, struct attribute *b,
 }
 
 static ssize_t store_freq_step(struct kobject *a, struct attribute *b,
-				   const char *buf, size_t count)
+				    const char *buf, size_t count)
 {
 	unsigned int input;
 	int ret;
-	ret = sscanf(buf, "%u", &input);
 
+	ret = sscanf(buf, "%u", &input);
 	if (ret != 1)
 		return -EINVAL;
 
@@ -596,6 +597,7 @@ static ssize_t store_freq_step(struct kobject *a, struct attribute *b,
 	/* no need to test here if freq_step is zero as the user might actually
 	 * want this, they would be crazy though :) */
 	dbs_tuners_ins.freq_step = input;
+
 	return count;
 }
 
@@ -604,12 +606,12 @@ static ssize_t store_freq_step(struct kobject *a, struct attribute *b,
  * value 100 will directly jump up/down to limits like ondemand governor
  */
 static ssize_t store_freq_step_sleep(struct kobject *a, struct attribute *b,
-			       const char *buf, size_t count)
+				   const char *buf, size_t count)
 {
 	unsigned int input;
 	int ret;
-	ret = sscanf(buf, "%u", &input);
 
+	ret = sscanf(buf, "%u", &input);
 	if (ret != 1)
 		return -EINVAL;
 
@@ -836,7 +838,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 	/* Get Absolute Load */
 	for_each_cpu(j, policy->cpus) {
 		struct cpu_dbs_info_s *j_dbs_info;
-		cputime64_t cur_wall_time, cur_idle_time;
+		u64 cur_wall_time, cur_idle_time;
 		unsigned int idle_time, wall_time;
 		bool deep_sleep_detected = false;
 		/* the evil magic numbers, only 2 at least */
@@ -1135,7 +1137,7 @@ static struct early_suspend _powersave_early_suspend = {
 };
 
 static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
-				   unsigned int event)
+				unsigned int event)
 {
 	unsigned int cpu = policy->cpu;
 	struct cpu_dbs_info_s *this_dbs_info;
@@ -1215,6 +1217,8 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 	case CPUFREQ_GOV_STOP:
 		dbs_timer_exit(this_dbs_info);
 
+		mutex_destroy(&this_dbs_info->timer_mutex);
+
 		mutex_lock(&dbs_mutex);
 		dbs_enable--;
 
@@ -1264,19 +1268,19 @@ struct cpufreq_governor cpufreq_gov_zzmoove = {
 
 static int __init cpufreq_gov_dbs_init(void)
 {
-	return cpufreq_register_governor(&cpufreq_gov_zzmoove);
+	int ret;
+
+	ret = cpufreq_register_governor(&cpufreq_gov_zzmoove);
+	if (ret)
+		kfree(&dbs_tuners_ins);
+
+	return ret;	
 }
 
 static void __exit cpufreq_gov_dbs_exit(void)
 {
-	unsigned int i;
-
 	cpufreq_unregister_governor(&cpufreq_gov_zzmoove);
-	for_each_possible_cpu(i) {
-		struct cpu_dbs_info_s *this_dbs_info =
-			&per_cpu(cs_cpu_dbs_info, i);
-		mutex_destroy(&this_dbs_info->timer_mutex);
-	}
+	kfree(&dbs_tuners_ins);
 }
 
 /*

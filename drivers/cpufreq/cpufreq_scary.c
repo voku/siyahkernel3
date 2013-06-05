@@ -17,6 +17,7 @@
 #include <linux/hrtimer.h>
 #include <linux/tick.h>
 #include <linux/ktime.h>
+#include <linux/slab.h>
 #include <linux/sched.h>
 #include <linux/earlysuspend.h>
 #include <asm/cputime.h>
@@ -42,7 +43,6 @@
  */
 #define DEFAULT_SLEEP_PREV_FREQ			200000
 #define DEFAULT_PREV_MAX			600000
-static unsigned int suspended;
 static unsigned int sleep_max_freq=DEFAULT_SLEEP_MAX_FREQ;
 static unsigned int sleep_min_freq=DEFAULT_SLEEP_MIN_FREQ;
 static unsigned int sleep_prev_freq=DEFAULT_SLEEP_PREV_FREQ;
@@ -65,15 +65,15 @@ static unsigned int min_sampling_rate;
 extern unsigned int touch_is_pressed;
 
 #define LATENCY_MULTIPLIER			(1000)
-#define MIN_LATENCY_MULTIPLIER			(100)
+#define MIN_LATENCY_MULTIPLIER			(20)
 #define TRANSITION_LATENCY_LIMIT		(10 * 1000 * 1000)
 
 
 static void do_dbs_timer(struct work_struct *work);
 
 struct cpu_dbs_info_s {
-	cputime64_t prev_cpu_idle;
-	cputime64_t prev_cpu_wall;
+	u64 prev_cpu_idle;
+	u64 prev_cpu_wall;
 	unsigned int prev_cpu_wall_delta;
 	cputime64_t prev_cpu_nice;
 	struct cpufreq_policy *cur_policy;
@@ -109,6 +109,7 @@ static struct dbs_tuners {
 	unsigned int ignore_nice;
 	unsigned int freq_step;
 	unsigned int smooth_ui;
+	bool suspended;
 } dbs_tuners_ins = {
 	.up_threshold = DEF_FREQUENCY_UP_THRESHOLD,
 	.down_threshold = DEF_FREQUENCY_DOWN_THRESHOLD,
@@ -116,6 +117,7 @@ static struct dbs_tuners {
 	.ignore_nice = 0,
 	.freq_step = DEFAULT_FREQ_STEP,
 	.smooth_ui = DEF_SMOOTH_UI,
+	.suspended = 0,
 };
 
 /* keep track of frequency transitions */
@@ -414,7 +416,7 @@ static void smartass_suspend(int cpu, int suspend)
 static void smartass_early_suspend(struct early_suspend *handler) 
 {
     int i;
-    suspended = 1;
+    dbs_tuners_ins.suspended = 1;
     for_each_online_cpu(i)
     smartass_suspend(i, 1);
 }
@@ -422,7 +424,7 @@ static void smartass_early_suspend(struct early_suspend *handler)
 static void smartass_late_resume(struct early_suspend *handler) 
 {
     int i;
-    suspended = 0;
+    dbs_tuners_ins.suspended = 0;
     for_each_online_cpu(i)
     smartass_suspend(i, 0);
 }
@@ -458,7 +460,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 	/* Get Absolute Load */
 	for_each_cpu(j, policy->cpus) {
 		struct cpu_dbs_info_s *j_dbs_info;
-		cputime64_t cur_wall_time, cur_idle_time;
+		u64 cur_wall_time, cur_idle_time;
 		unsigned int idle_time, wall_time;
 		bool deep_sleep_detected = false;
 		/* the evil magic numbers, only 2 at least */
@@ -629,7 +631,6 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 	unsigned int max_freq = 0;
 	unsigned int i;	
 	struct cpufreq_frequency_table *freq_table;
-	suspended=0;
 
 	this_dbs_info = &per_cpu(cs_cpu_dbs_info, cpu);
 
@@ -690,6 +691,8 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 			cpufreq_register_notifier(
 					&dbs_cpufreq_notifier_block,
 					CPUFREQ_TRANSITION_NOTIFIER);
+
+			dbs_tuners_ins.suspended = 0;
 		}
 		mutex_unlock(&dbs_mutex);
 
@@ -766,20 +769,30 @@ static int __init cpufreq_gov_dbs_init(void)
 	kconservative_wq = create_workqueue("kconservative");
 	if (!kconservative_wq) {
 		printk(KERN_ERR "Creation of kconservative failed\n");
-		return -EFAULT;
+		err = -EFAULT;
+		goto error_reg;
 	}
     register_early_suspend(&smartass_power_suspend);
 	err = cpufreq_register_governor(&cpufreq_gov_scary);
-	if (err)
-		destroy_workqueue(kconservative_wq);
+	if (err) {
+		goto error_queue;
+	}
 
 	return err;
+
+error_queue:
+destroy_workqueue(kconservative_wq);
+error_reg:
+kfree(&dbs_tuners_ins);
+return err;
+
 }
 
 static void __exit cpufreq_gov_dbs_exit(void)
 {
 	cpufreq_unregister_governor(&cpufreq_gov_scary);
 	destroy_workqueue(kconservative_wq);
+	kfree(&dbs_tuners_ins);
 }
 
 

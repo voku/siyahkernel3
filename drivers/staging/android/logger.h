@@ -66,7 +66,7 @@ struct logger_entry {
 	__s32		tid;
 	__s32		sec;
 	__s32		nsec;
-	kuid_t		euid;
+	uid_t		euid;
 	char		msg[0];
 };
 

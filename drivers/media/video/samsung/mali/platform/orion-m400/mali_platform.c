@@ -58,7 +58,7 @@ typedef struct mali_runtime_resumeTag{
 	int vol;
 }mali_runtime_resume_table;
 
-mali_runtime_resume_table mali_runtime_resume = {108, 950000};
+mali_runtime_resume_table mali_runtime_resume = {108, 900000};
 
 /* lock/unlock CPU freq by Mali */
 extern int cpufreq_lock_by_mali(unsigned int freq);
@@ -85,7 +85,7 @@ static struct clk  *mali_clock = 0;
 static unsigned int GPU_MHZ	= 1000000;
 
 int mali_gpu_clk = 108;
-int mali_gpu_vol = 950000;
+int mali_gpu_vol = 900000;
 
 #if MALI_DVFS_ENABLED
 #define MALI_DVFS_DEFAULT_STEP 0
@@ -124,7 +124,7 @@ extern struct platform_device exynos4_device_pd[];
 
 mali_io_address clk_register_map = 0;
 
-_mali_osk_lock_t *mali_dvfs_lock = 0;
+_mali_osk_lock_t *mali_dvfs_lock;
 
 #ifdef CONFIG_REGULATOR
 int mali_regulator_get_usecount(void)
@@ -180,7 +180,7 @@ void mali_regulator_set_voltage(int min_uV, int max_uV)
 	_mali_osk_profiling_add_event( MALI_PROFILING_EVENT_TYPE_SINGLE |
                                MALI_PROFILING_EVENT_CHANNEL_SOFTWARE |
                                MALI_PROFILING_EVENT_REASON_SINGLE_SW_GPU_VOLTS,
-                               min_uV, max_uV, 0, 0, 0);
+                               min_uV, max_uV, 1, 0, 0);
 #endif
 
 	regulator_set_voltage(g3d_regulator,min_uV,max_uV);
@@ -190,7 +190,7 @@ void mali_regulator_set_voltage(int min_uV, int max_uV)
 	_mali_osk_profiling_add_event( MALI_PROFILING_EVENT_TYPE_SINGLE |
                                MALI_PROFILING_EVENT_CHANNEL_SOFTWARE |
                                MALI_PROFILING_EVENT_REASON_SINGLE_SW_GPU_VOLTS,
-                               voltage, 0, 1, 0, 0);
+                               voltage, 0, 2, 0, 0);
 #endif
 	mali_gpu_vol = voltage;
 	MALI_DEBUG_PRINT(1, ("= regulator_get_voltage: %d \n",mali_gpu_vol));
@@ -359,10 +359,12 @@ mali_bool mali_clk_set_rate(unsigned int clk, unsigned int mhz)
 		return MALI_FALSE;
 
 #if MALI_TIMELINE_PROFILING_ENABLED
+    unsigned long previous_rate = 0;
+    previous_rate = clk_get_rate(mali_clock);
 	_mali_osk_profiling_add_event( MALI_PROFILING_EVENT_TYPE_SINGLE |
                                MALI_PROFILING_EVENT_CHANNEL_SOFTWARE |
                                MALI_PROFILING_EVENT_REASON_SINGLE_SW_GPU_FREQ,
-                               rate, 0, 0, 0, 0);
+                               previous_rate, 0, 0, 0, 0);
 #endif
 
 	clk_set_rate(mali_clock, rate);
@@ -372,7 +374,7 @@ mali_bool mali_clk_set_rate(unsigned int clk, unsigned int mhz)
 	_mali_osk_profiling_add_event( MALI_PROFILING_EVENT_TYPE_SINGLE |
                                MALI_PROFILING_EVENT_CHANNEL_SOFTWARE |
                                MALI_PROFILING_EVENT_REASON_SINGLE_SW_GPU_FREQ,
-                               rate, 0, 0, 0, 0);
+                               rate, 1, 0, 0, 0);
 #endif
 
 	if (bis_vpll)

@@ -243,7 +243,7 @@ static ssize_t do_read_log_to_user(struct logger_log *log,
  * 'log->buffer' which contains the first entry readable by 'euid'
  */
 static size_t get_next_entry_by_uid(struct logger_log *log,
-		size_t off, kuid_t euid)
+		size_t off, uid_t euid)
 {
 	while (off != log->w_off) {
 		struct logger_entry *entry;
@@ -252,7 +252,7 @@ static size_t get_next_entry_by_uid(struct logger_log *log,
 
 		entry = get_entry_header(log, off, &scratch);
 
-		if (uid_eq(entry->euid, euid))
+		if (entry->euid == euid)
 			return off;
 
 		next_len = sizeof(struct logger_entry) + entry->len;
@@ -601,20 +601,17 @@ static int logger_open(struct inode *inode, struct file *file)
  *
  * Note this is a total no-op in the write-only case. Keep it that way!
  */
-static int logger_release(struct inode *inode, struct file *file)
+static int logger_release(struct inode *ignored, struct file *file)
 {
 	if (file->f_mode & FMODE_READ) {
 		struct logger_reader *reader = file->private_data;
-		struct logger_log *log;
-		unsigned long start = jiffies;
-		log = get_log_from_minor(MINOR(inode->i_rdev));
+		struct logger_log *log = reader->log;
+
 		mutex_lock(&log->mutex);
 		list_del(&reader->list);
 		mutex_unlock(&log->mutex);
 
 		kfree(reader);
-		pr_info("%s: took %d msec\n", __func__,
-			jiffies_to_msecs(jiffies - start));
 	}
 
 	return 0;

@@ -46,36 +46,36 @@
 static uint32_t lowmem_debug_level = 1;
 static short lowmem_adj[6] = {
 	0,
-	1,
 	2,
 	4,
 	9,
+	12,
 	15,
 };
 static int lowmem_adj_size = 6;
 static int lowmem_minfree[6] = {
+	3 * 512,	/* 6MB */
 	2 * 1024,	/* 8MB */
-	5 * 512,	/* 10MB */
-	3 * 1024,	/* 12MB */
-	7 * 512,	/* 14MB */
+	4 * 1024,	/* 16MB */
 	8 * 1024,	/* 32MB */
+	12 * 1024,	/* 49MB */
 	16 * 1024,	/* 64MB */
 };
 static int lowmem_minfree_screen_off[6] = {
-        2 * 1024,	/* 8MB */
-        5 * 512,	/* 10MB */
-        3 * 1024,	/* 12MB */
-        7 * 512,	/* 14MB */
-        8 * 1024,	/* 32MB */
-        16 * 1024,	/* 64MB */
+	3 * 512,	/* 6MB */
+	2 * 1024,	/* 8MB */
+	4 * 1024,	/* 16MB */
+	8 * 1024,	/* 32MB */
+	12 * 1024,	/* 49MB */
+	16 * 1024,	/* 64MB */
 };
 static int lowmem_minfree_screen_on[6] = {
-        2 * 1024,	/* 8MB */
-        5 * 512,	/* 10MB */
-        3 * 1024,	/* 12MB */
-        7 * 512,	/* 14MB */
-        8 * 1024,	/* 32MB */
-        16 * 1024,	/* 64MB */
+	3 * 512,	/* 6MB */
+	2 * 1024,	/* 8MB */
+	4 * 1024,	/* 16MB */
+	8 * 1024,	/* 32MB */
+	12 * 1024,	/* 49MB */
+	16 * 1024,	/* 64MB */
 };
 static int lowmem_minfree_size = 6;
 
@@ -87,10 +87,28 @@ static unsigned long lowmem_deathpending_timeout;
 			pr_info(x);			\
 	} while (0)
 
+static bool avoid_to_kill(uid_t uid)
+{
+
+	if (uid == 0 || /* root */
+	   uid == 1001 || /* radio */
+	   uid == 1010 || /* wifi */
+	   uid == 1012 || /* install */
+	   uid == 1013 || /* media */
+	   uid == 1014 || /* dhcp */
+	   uid == 1019)	/* drm */
+	{
+		return 1;
+	}
+	return 0;
+}
+
 static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 {
 	struct task_struct *tsk;
 	struct task_struct *selected = NULL;
+	const struct cred *cred = current_cred(), *pcred; 
+	unsigned int uid = 0;
 	int rem = 0;
 	int tasksize;
 	int i;
@@ -170,11 +188,15 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			    tasksize <= selected_tasksize)
 				continue;
 		}
-		selected = p;
-		selected_tasksize = tasksize;
-		selected_oom_score_adj = oom_score_adj;
-		lowmem_print(2, "select %s' (%d), adj %hd, size %d, to kill\n",
-			     p->comm, p->pid, oom_score_adj, tasksize);
+		pcred = __task_cred(p);
+		uid = pcred->uid;
+		if (!avoid_to_kill(uid)) {
+			selected = p;
+			selected_tasksize = tasksize;
+			selected_oom_score_adj = oom_score_adj;
+			lowmem_print(2, "select %s' (%d), adj %hd, size %d, to kill\n",
+				 p->comm, p->pid, oom_score_adj, tasksize);
+		}
 	}
 	if (selected) {
 		lowmem_print(1, "Killing '%s' (%d), adj %hd,\n" \
@@ -190,7 +212,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			     min_score_adj,
 			     other_free * (long)(PAGE_SIZE / 1024));
 		lowmem_deathpending_timeout = jiffies + HZ;
-		send_sig(SIGKILL, selected, 0);
+		force_sig(SIGKILL, selected);
 		set_tsk_thread_flag(selected, TIF_MEMDIE);
 		rem -= selected_tasksize;
 	}
@@ -234,7 +256,7 @@ static void __exit lowmem_exit(void)
 }
 
 #ifdef CONFIG_ANDROID_LOW_MEMORY_KILLER_AUTODETECT_OOM_ADJ_VALUES
-static int lowmem_oom_adj_to_oom_score_adj(int oom_adj)
+static short lowmem_oom_adj_to_oom_score_adj(short oom_adj)
 {
 	if (oom_adj == OOM_ADJUST_MAX)
 		return OOM_SCORE_ADJ_MAX;
@@ -245,7 +267,7 @@ static int lowmem_oom_adj_to_oom_score_adj(int oom_adj)
 static void lowmem_autodetect_oom_adj_values(void)
 {
 	int i;
-	int oom_adj;
+	short oom_adj;
 	short oom_score_adj;
 	int array_size = ARRAY_SIZE(lowmem_adj);
 
@@ -304,7 +326,7 @@ static struct kernel_param_ops lowmem_adj_array_ops = {
 static const struct kparam_array __param_arr_adj = {
 	.max = ARRAY_SIZE(lowmem_adj),
 	.num = &lowmem_adj_size,
-	.ops = &param_ops_int,
+	.ops = &param_ops_short,
 	.elemsize = sizeof(lowmem_adj[0]),
 	.elem = lowmem_adj,
 };
@@ -315,8 +337,8 @@ module_param_named(cost, lowmem_shrinker.seeks, int, S_IRUGO | S_IWUSR);
 __module_param_call(MODULE_PARAM_PREFIX, adj,
 		    &lowmem_adj_array_ops,
 		    .arr = &__param_arr_adj,
-		    S_IRUGO | S_IWUSR, 0444);
-__MODULE_PARM_TYPE(adj, "array of int");
+		    S_IRUGO | S_IWUSR, -1);
+__MODULE_PARM_TYPE(adj, "array of short");
 #else
 module_param_array_named(adj, lowmem_adj, short, &lowmem_adj_size,
 			 S_IRUGO | S_IWUSR);

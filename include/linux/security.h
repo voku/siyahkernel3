@@ -643,10 +643,7 @@ static inline void security_free_mnt_opts(struct security_mnt_opts *opts)
  *	to receive an open file descriptor via socket IPC.
  *	@file contains the file structure being received.
  *	Return 0 if permission is granted.
- *
- * Security hook for dentry
- *
- * @dentry_open
+ * @file_open
  *	Save open-time permission checking state for later use upon
  *	file_permission, and recheck access if anything has changed
  *	since inode_permission.
@@ -658,6 +655,10 @@ static inline void security_free_mnt_opts(struct security_mnt_opts *opts)
  *	manual page for definitions of the @clone_flags.
  *	@clone_flags contains the flags indicating what should be shared.
  *	Return 0 if permission is granted.
+ * @task_free:
+ *	@task task being freed
+ *	Handle release of task-related resources. (Note that this can be called
+ *	from interrupt context.)
  * @cred_alloc_blank:
  *	@cred points to the credentials.
  *	@gfp indicates the atomicity of any memory allocations.
@@ -825,7 +826,7 @@ static inline void security_free_mnt_opts(struct security_mnt_opts *opts)
  *	Check permissions before connecting or sending datagrams from @sock to
  *	@other.
  *	@sock contains the socket structure.
- *	@sock contains the peer socket structure.
+ *	@other contains the peer socket structure.
  *	Return 0 if permission is granted.
  *
  * The @unix_stream_connect and @unix_may_send hooks were necessary because
@@ -988,17 +989,33 @@ static inline void security_free_mnt_opts(struct security_mnt_opts *opts)
  *	tells the LSM to decrement the number of secmark labeling rules loaded
  * @req_classify_flow:
  *	Sets the flow's sid to the openreq sid.
+ * @tun_dev_alloc_security:
+ *	This hook allows a module to allocate a security structure for a TUN
+ *	device.
+ *	@security pointer to a security structure pointer.
+ *	Returns a zero on success, negative values on failure.
+ * @tun_dev_free_security:
+ *	This hook allows a module to free the security structure for a TUN
+ *	device.
+ *	@security pointer to the TUN device's security structure
  * @tun_dev_create:
  *	Check permissions prior to creating a new TUN device.
- * @tun_dev_post_create:
- *	This hook allows a module to update or allocate a per-socket security
- *	structure.
- *	@sk contains the newly created sock structure.
+ * @tun_dev_attach_queue:
+ *	Check permissions prior to attaching to a TUN device queue.
+ *	@security pointer to the TUN device's security structure.
  * @tun_dev_attach:
- *	Check permissions prior to attaching to a persistent TUN device.  This
- *	hook can also be used by the module to update any security state
+ *	This hook can be used by the module to update any security state
  *	associated with the TUN device's sock structure.
  *	@sk contains the existing sock structure.
+ *	@security pointer to the TUN device's security structure.
+ * @tun_dev_open:
+ *	This hook can be used by the module to update any security state
+ *	associated with the TUN device's security structure.
+ *	@security pointer to the TUN devices's security structure.
+ * @skb_owned_by:
+ *	This hook sets the packet's owning sock.
+ *	@skb is the packet.
+ *	@sk the sock which owns the packet.
  *
  * Security hooks for XFRM operations.
  *
@@ -1248,8 +1265,6 @@ static inline void security_free_mnt_opts(struct security_mnt_opts *opts)
  *	Check that the @parent process has sufficient permission to trace the
  *	current process before allowing the current process to present itself
  *	to the @parent process for tracing.
- *	The parent process will still have to undergo the ptrace_access_check
- *	checks before it is allowed to trace this one.
  *	@parent contains the task_struct structure for debugger process.
  *	Return 0 if permission is granted.
  * @capget:
@@ -1387,6 +1402,11 @@ static inline void security_free_mnt_opts(struct security_mnt_opts *opts)
 struct security_operations {
 	char name[SECURITY_NAME_MAX + 1];
 
+	int (*binder_set_context_mgr) (struct task_struct *mgr);
+	int (*binder_transaction) (struct task_struct *from, struct task_struct *to);
+	int (*binder_transfer_binder) (struct task_struct *from, struct task_struct *to);
+	int (*binder_transfer_file) (struct task_struct *from, struct task_struct *to, struct file *file);
+
 	int (*ptrace_access_check) (struct task_struct *child, unsigned int mode);
 	int (*ptrace_traceme) (struct task_struct *parent);
 	int (*capget) (struct task_struct *target,
@@ -1507,6 +1527,7 @@ struct security_operations {
 	int (*dentry_open) (struct file *file, const struct cred *cred);
 
 	int (*task_create) (unsigned long clone_flags);
+	void (*task_free) (struct task_struct *task);
 	int (*cred_alloc_blank) (struct cred *cred, gfp_t gfp);
 	void (*cred_free) (struct cred *cred);
 	int (*cred_prepare)(struct cred *new, const struct cred *old,
@@ -1669,6 +1690,10 @@ extern int security_module_enable(struct security_operations *ops);
 extern int register_security(struct security_operations *ops);
 
 /* Security operations */
+int security_binder_set_context_mgr(struct task_struct *mgr);
+int security_binder_transaction(struct task_struct *from, struct task_struct *to);
+int security_binder_transfer_binder(struct task_struct *from, struct task_struct *to);
+int security_binder_transfer_file(struct task_struct *from, struct task_struct *to, struct file *file);
 int security_ptrace_access_check(struct task_struct *child, unsigned int mode);
 int security_ptrace_traceme(struct task_struct *parent);
 int security_capget(struct task_struct *target,
@@ -1751,8 +1776,8 @@ int security_file_permission(struct file *file, int mask);
 int security_file_alloc(struct file *file);
 void security_file_free(struct file *file);
 int security_file_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
-int security_mmap_file(struct file *file, unsigned long reqprot,
-			unsigned long prot, unsigned long flags);
+int security_mmap_file(struct file *file, unsigned long prot,
+			unsigned long flags);
 int security_mmap_addr(unsigned long addr);
 int security_file_mprotect(struct vm_area_struct *vma, unsigned long reqprot,
 			   unsigned long prot);
@@ -1848,6 +1873,26 @@ static inline int security_init(void)
 	return 0;
 }
 
+static inline int security_binder_set_context_mgr(struct task_struct *mgr)
+{
+	return 0;
+}
+
+static inline int security_binder_transaction(struct task_struct *from, struct task_struct *to)
+{
+	return 0;
+}
+
+static inline int security_binder_transfer_binder(struct task_struct *from, struct task_struct *to)
+{
+	return 0;
+}
+
+static inline int security_binder_transfer_file(struct task_struct *from, struct task_struct *to, struct file *file)
+{
+	return 0;
+}
+
 static inline int security_ptrace_access_check(struct task_struct *child,
 					     unsigned int mode)
 {
@@ -1883,8 +1928,7 @@ static inline int security_capable(const struct cred *cred,
 }
 
 static inline int security_capable_noaudit(const struct cred *cred,
-				   struct user_namespace *ns, int cap)
-{
+					   struct user_namespace *ns, int cap) {
 	return cap_capable(cred, ns, cap, SECURITY_CAP_NOAUDIT);
 }
 
@@ -2016,8 +2060,17 @@ static inline void security_inode_free(struct inode *inode)
 static inline int security_inode_init_security(struct inode *inode,
 						struct inode *dir,
 						const struct qstr *qstr,
-						initxattrs initxattrs,
+						const initxattrs initxattrs,
 						void *fs_data)
+{
+	return 0;
+}
+
+static inline int security_old_inode_init_security(struct inode *inode,
+						   struct inode *dir,
+						   const struct qstr *qstr,
+						   char **name, void **value,
+						   size_t *len)
 {
 	return -EOPNOTSUPP;
 }
@@ -2187,8 +2240,7 @@ static inline int security_file_ioctl(struct file *file, unsigned int cmd,
 	return 0;
 }
 
-static inline int security_mmap_file(struct file *file, unsigned long reqprot,
-				     unsigned long prot,
+static inline int security_mmap_file(struct file *file, unsigned long prot,
 				     unsigned long flags)
 {
 	return 0;
@@ -2982,7 +3034,7 @@ static inline void security_audit_rule_free(void *lsmrule)
 
 #ifdef CONFIG_SECURITYFS
 
-extern struct dentry *securityfs_create_file(const char *name, mode_t mode,
+extern struct dentry *securityfs_create_file(const char *name, umode_t mode,
 					     struct dentry *parent, void *data,
 					     const struct file_operations *fops);
 extern struct dentry *securityfs_create_dir(const char *name, struct dentry *parent);
@@ -2997,7 +3049,7 @@ static inline struct dentry *securityfs_create_dir(const char *name,
 }
 
 static inline struct dentry *securityfs_create_file(const char *name,
-						    mode_t mode,
+						    umode_t mode,
 						    struct dentry *parent,
 						    void *data,
 						    const struct file_operations *fops)

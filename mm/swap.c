@@ -738,7 +738,7 @@ EXPORT_SYMBOL(__pagevec_release);
 #ifdef CONFIG_TRANSPARENT_HUGEPAGE
 /* used by __split_huge_page_refcount() */
 void lru_add_page_tail(struct page *page, struct page *page_tail,
-		       struct lruvec *lruvec, struct list_head *list)
+		       struct lruvec *lruvec)
 {
 	int uninitialized_var(active);
 	enum lru_list lru;
@@ -750,8 +750,7 @@ void lru_add_page_tail(struct page *page, struct page *page_tail,
 	VM_BUG_ON(NR_CPUS != 1 &&
 		  !spin_is_locked(&lruvec_zone(lruvec)->lru_lock));
 
-	if (!list)
-		SetPageLRU(page_tail);
+	SetPageLRU(page_tail);
 
 	if (page_evictable(page_tail)) {
 		if (PageActive(page)) {
@@ -769,11 +768,7 @@ void lru_add_page_tail(struct page *page, struct page *page_tail,
 
 	if (likely(PageLRU(page)))
 		list_add_tail(&page_tail->lru, &page->lru);
-	else if (list) {
-		/* page reclaim is reclaiming a huge page */
-		get_page(page_tail);
-		list_add_tail(&page_tail->lru, list);
-	} else {
+	else {
 		struct list_head *list_head;
 		/*
 		 * Head page has not yet been counted, as an hpage,
