@@ -307,7 +307,12 @@ static ssize_t store_sampling_rate(struct kobject *a, struct attribute *b,
 	if (ret != 1)
 		return -EINVAL;
 
-	nightmare_tuners_ins.sampling_rate = max(input, 10000u);
+	input = max(input,10000u);
+	
+	if (input == nightmare_tuners_ins.sampling_rate)
+		return count;
+
+	nightmare_tuners_ins.sampling_rate = input;
 
 	return count;
 }
@@ -1335,16 +1340,24 @@ static void do_nightmare_timer(struct work_struct *work)
 
 	queue_delayed_work_on(nightmare_cpuinfo->cpu, dvfs_workqueue, &nightmare_cpuinfo->work, delay);
 	mutex_unlock(&nightmare_cpuinfo->timer_mutex);
-
-	INIT_WORK(&nightmare_cpuinfo->up_work, cpu_up_work);
-	INIT_WORK(&nightmare_cpuinfo->down_work, cpu_down_work);
-
-	queue_delayed_work_on(nightmare_cpuinfo->cpu, dvfs_workqueue, &nightmare_cpuinfo->work, delay);
 }
 
 static inline void nightmare_timer_init(struct cpufreq_nightmare_cpuinfo *nightmare_cpuinfo)
 {
+	int delay;
+	
 	INIT_DEFERRABLE_WORK(&nightmare_cpuinfo->work, do_nightmare_timer);
+	mutex_lock(&nightmare_cpuinfo->timer_mutex);
+	delay = usecs_to_jiffies(nightmare_tuners_ins.sampling_rate);
+
+	if (num_online_cpus() > 1)
+		delay -= jiffies % delay;
+	
+	mutex_unlock(&nightmare_cpuinfo->timer_mutex);
+	INIT_WORK(&nightmare_cpuinfo->up_work, cpu_up_work);
+	INIT_WORK(&nightmare_cpuinfo->down_work, cpu_down_work);
+
+	queue_delayed_work_on(nightmare_cpuinfo->cpu, dvfs_workqueue, &nightmare_cpuinfo->work, delay);
 }
 
 static inline void nightmare_timer_exit(struct cpufreq_nightmare_cpuinfo *nightmare_cpuinfo)
