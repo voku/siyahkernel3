@@ -551,15 +551,6 @@ void resched_cpu(int cpu)
 	raw_spin_unlock_irqrestore(&rq->lock, flags);
 }
 
-void force_cpu_resched(int cpu)
-{
-	struct rq *rq = cpu_rq(cpu);
-	unsigned long flags;
-
-	raw_spin_lock_irqsave(&rq->lock, flags);
-	resched_task(cpu_curr(cpu));
-	raw_spin_unlock_irqrestore(&rq->lock, flags);
-}
 
 #ifdef CONFIG_NO_HZ_COMMON
 
@@ -735,11 +726,6 @@ void resched_task(struct task_struct *p)
 {
 	assert_raw_spin_locked(&task_rq(p)->lock);
 	set_tsk_need_resched(p);
-}
-
-void force_cpu_resched(int cpu)
-{
-	set_need_resched();
 }
 #endif /* CONFIG_SMP */
 
@@ -2214,7 +2200,6 @@ unsigned long this_cpu_load(void)
 /* Variables and functions for calc_load */
 static atomic_long_t calc_load_tasks;
 static unsigned long calc_load_update;
-static unsigned long calc_mask_update;
 unsigned long avenrun[3];
 EXPORT_SYMBOL(avenrun); /* should be removed */
 
@@ -2261,53 +2246,6 @@ calc_load(unsigned long load, unsigned long exp, unsigned long active)
 }
 
 #ifdef CONFIG_NO_HZ_COMMON
-
-static DEFINE_PER_CPU(int, cpu_load_update_mask);
-/*
- * Test if this cpu alread calculated its load
- *
- * Ret:
- * 1 -- load updating finish
- * 0 -- not finish
- */
-static int test_cpu_load_update_mask(void)
-{
-	if (__get_cpu_var(cpu_load_update_mask))
-		return 1;
-	return 0;
-}
-
-/*
- * For NO_HZ we delay the active fold to the next LOAD_FREQ update.
- * No protection here for race, so take care outside
- *
- * Ret:
- * 1 -- empty mask
- * 0 -- not empty
- */
-static int cpu_load_update_mask_empty(void)
-{
-	int cpu;
-
-	for_each_online_cpu(cpu) {
-		if (per_cpu(cpu_load_update_mask, cpu))
-			return 0;
-	}
-	return 1;
-}
-
-static void clear_all_cpu_load_update_mask(void)
-{
-	int cpu;
-
-	for_each_online_cpu(cpu) {
-		per_cpu(cpu_load_update_mask, cpu) = 0;
-	}
-}
-
-/* fold those not update cpus' idle */
-static atomic_long_t calc_unmask_cpu_load_idle;
-
 /*
  * Handle NO_HZ for the global load-average.
  *
@@ -2392,14 +2330,6 @@ void calc_load_enter_idle(void)
 		int idx = calc_load_write_idx();
 		atomic_long_add(delta, &calc_load_idle[idx]);
 	}
-	/*
-	 * calc_unmask_cpu_load_idle only used between first cpu load
-	 * accounting and final cpu load accounting (5HZ+1), and only
-	 * record idle on those not updating their load's cpus
-	 */
-	if (!cpu_load_update_mask_empty()
-		&& !test_cpu_load_update_mask())
-	atomic_long_add(delta, &calc_unmask_cpu_load_idle);
 }
 
 void calc_load_exit_idle(void)
@@ -2579,26 +2509,6 @@ void calc_global_load(unsigned long ticks)
 	 * In case we idled for multiple LOAD_FREQ intervals, catch up in bulk.
 	 */
 	calc_global_nohz();
-}
-
-void prepare_calc_load(void)
-{
-	long delta;
-
-	if (time_before(jiffies, calc_mask_update - 10))
-		return;
-
-	/* clear all cpu update mask */
-	clear_all_cpu_load_update_mask();
-	/* drop unmask cpus' idle */
-	atomic_long_xchg(&calc_unmask_cpu_load_idle, 0);
-
-	/* fold global idle */
-	delta = calc_load_fold_idle();
-	if (delta)
-		atomic_long_add(delta, &calc_load_tasks);
-
-	calc_mask_update += LOAD_FREQ;
 }
 
 /*
@@ -7230,8 +7140,6 @@ void __init sched_init(void)
 	init_idle(current, smp_processor_id());
 
 	calc_load_update = jiffies + LOAD_FREQ;
-
-	calc_mask_update = jiffies + LOAD_FREQ;
 
 	/*
 	 * During early bootup we pretend to be a normal task:
