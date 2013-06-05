@@ -53,12 +53,10 @@ void * __meminit vmemmap_alloc_block(unsigned long size, int node)
 		struct page *page;
 
 		if (node_state(node, N_HIGH_MEMORY))
-			page = alloc_pages_node(
-				node, GFP_KERNEL | __GFP_ZERO | __GFP_REPEAT,
-				get_order(size));
+			page = alloc_pages_node(node,
+				GFP_KERNEL | __GFP_ZERO, get_order(size));
 		else
-			page = alloc_pages(
-				GFP_KERNEL | __GFP_ZERO | __GFP_REPEAT,
+			page = alloc_pages(GFP_KERNEL | __GFP_ZERO,
 				get_order(size));
 		if (page)
 			return page_address(page);
@@ -147,10 +145,11 @@ pgd_t * __meminit vmemmap_pgd_populate(unsigned long addr, int node)
 	return pgd;
 }
 
-int __meminit vmemmap_populate_basepages(unsigned long start,
-					 unsigned long end, int node)
+int __meminit vmemmap_populate_basepages(struct page *start_page,
+						unsigned long size, int node)
 {
-	unsigned long addr = start;
+	unsigned long addr = (unsigned long)start_page;
+	unsigned long end = (unsigned long)(start_page + size);
 	pgd_t *pgd;
 	pud_t *pud;
 	pmd_t *pmd;
@@ -177,15 +176,9 @@ int __meminit vmemmap_populate_basepages(unsigned long start,
 
 struct page * __meminit sparse_mem_map_populate(unsigned long pnum, int nid)
 {
-	unsigned long start;
-	unsigned long end;
-	struct page *map;
-
-	map = pfn_to_page(pnum * PAGES_PER_SECTION);
-	start = (unsigned long)map;
-	end = (unsigned long)(map + PAGES_PER_SECTION);
-
-	if (vmemmap_populate(start, end, nid))
+	struct page *map = pfn_to_page(pnum * PAGES_PER_SECTION);
+	int error = vmemmap_populate(map, PAGES_PER_SECTION, nid);
+	if (error)
 		return NULL;
 
 	return map;

@@ -2935,9 +2935,11 @@ struct file *shmem_file_setup(const char *name, loff_t size, unsigned long flags
 	d_instantiate(path.dentry, inode);
 	inode->i_size = size;
 	clear_nlink(inode);	/* It is unlinked */
+#ifndef CONFIG_MMU
 	res = ERR_PTR(ramfs_nommu_expand_for_mapping(inode, size));
 	if (IS_ERR(res))
 		goto put_dentry;
+#endif
 
 	res = alloc_file(&path, FMODE_WRITE | FMODE_READ,
 		  &shmem_file_operations);
