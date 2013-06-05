@@ -1339,6 +1339,11 @@ static void do_nightmare_timer(struct work_struct *work)
 	nightmare_cpuinfo->delay = delay;
 	queue_delayed_work_on(nightmare_cpuinfo->cpu, dvfs_workqueue, &nightmare_cpuinfo->work, delay);
 	mutex_unlock(&nightmare_cpuinfo->timer_mutex);
+
+	INIT_WORK(&nightmare_cpuinfo->up_work, cpu_up_work);
+	INIT_WORK(&nightmare_cpuinfo->down_work, cpu_down_work);
+
+	queue_delayed_work_on(nightmare_cpuinfo->cpu, dvfs_workqueue, &nightmare_cpuinfo->work, nightmare_cpuinfo->delay);
 }
 
 static inline void nightmare_timer_init(struct cpufreq_nightmare_cpuinfo *nightmare_cpuinfo)
@@ -1349,12 +1354,7 @@ static inline void nightmare_timer_init(struct cpufreq_nightmare_cpuinfo *nightm
 	if (num_online_cpus() > 1 && delay > 0)
 		delay -= jiffies % delay;
 
-	nightmare_cpuinfo->delay = delay;
 	INIT_DEFERRABLE_WORK(&nightmare_cpuinfo->work, do_nightmare_timer);
-	INIT_WORK(&nightmare_cpuinfo->up_work, cpu_up_work);
-	INIT_WORK(&nightmare_cpuinfo->down_work, cpu_down_work);
-
-	queue_delayed_work_on(nightmare_cpuinfo->cpu, dvfs_workqueue, &nightmare_cpuinfo->work, nightmare_cpuinfo->delay);
 }
 
 static inline void nightmare_timer_exit(struct cpufreq_nightmare_cpuinfo *nightmare_cpuinfo)
