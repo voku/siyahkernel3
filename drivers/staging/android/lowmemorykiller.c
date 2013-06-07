@@ -44,6 +44,7 @@
 #include <linux/earlysuspend.h>
 
 static uint32_t lowmem_debug_level = 1;
+static uint32_t lowmem_auto_oom = 1;
 static short lowmem_adj[6] = {
 	0,
 	2,
@@ -58,24 +59,24 @@ static int lowmem_minfree[6] = {
 	2 * 1024,	/* 8MB */
 	4 * 1024,	/* 16MB */
 	8 * 1024,	/* 32MB */
-	12 * 1024,	/* 49MB */
-	32 * 1024,	/* 131MB */
+	16 * 1024,	/* 64MB */
+	32 * 1024,	/* 128MB */
 };
 static int lowmem_minfree_screen_off[6] = {
 	3 * 512,	/* 6MB */
 	2 * 1024,	/* 8MB */
 	4 * 1024,	/* 16MB */
 	8 * 1024,	/* 32MB */
-	12 * 1024,	/* 49MB */
-	32 * 1024,	/* 131MB */
+	16 * 1024,	/* 64MB */
+	32 * 1024,	/* 128MB */
 };
 static int lowmem_minfree_screen_on[6] = {
 	3 * 512,	/* 6MB */
 	2 * 1024,	/* 8MB */
 	4 * 1024,	/* 16MB */
 	8 * 1024,	/* 32MB */
-	12 * 1024,	/* 49MB */
-	32 * 1024,	/* 131MB */
+	16 * 1024,	/* 64MB */
+	32 * 1024,	/* 128MB */
 };
 static int lowmem_minfree_size = 6;
 
@@ -117,6 +118,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	int selected_tasksize = 0;
 	short selected_oom_score_adj;
 	int array_size = ARRAY_SIZE(lowmem_adj);
+	bool protected_task = false;
 #ifndef CONFIG_DMA_CMA
 /*	int other_free = global_page_state(NR_FREE_PAGES) -
 					totalreserve_pages; WILL SOD IF USED! */
@@ -190,11 +192,24 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		}
 		pcred = __task_cred(p);
 		uid = pcred->uid;
-		if (!avoid_to_kill(uid)) {
+
+		if (strcmp(p->comm, "d.process.acore") == 0 ||
+				strcmp(p->comm, "ndroid.systemui") == 0 ||
+				strcmp(p->comm, "d.process.media") == 0) {
+			protected_task = true;
+			lowmem_print(1, "lowmemkill: skiped %d (%s), adj %hd, size %d, uid %d\n",
+					p->pid, p->comm, oom_score_adj, tasksize, uid);
+			continue;
+		}
+
+		if (!avoid_to_kill(uid) && !protected_task) {
 			selected = p;
 			selected_tasksize = tasksize;
 			selected_oom_score_adj = oom_score_adj;
 			lowmem_print(2, "select %s' (%d), adj %hd, size %d, to kill\n",
+				 p->comm, p->pid, oom_score_adj, tasksize);
+		} else {
+			lowmem_print(1, "selected skiped %s' (%d), adj %hd, size %d, no to kill\n",
 				 p->comm, p->pid, oom_score_adj, tasksize);
 		}
 	}
@@ -215,6 +230,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		force_sig(SIGKILL, selected);
 		set_tsk_thread_flag(selected, TIF_MEMDIE);
 		rem -= selected_tasksize;
+		protected_task = false;
 	}
 	lowmem_print(4, "lowmem_shrink %lu, %x, return %d\n",
 		     sc->nr_to_scan, sc->gfp_mask, rem);
@@ -229,13 +245,16 @@ static struct shrinker lowmem_shrinker = {
 
 static void low_mem_early_suspend(struct early_suspend *handler)
 {
-	memcpy(lowmem_minfree_screen_on, lowmem_minfree, sizeof(lowmem_minfree));
-	memcpy(lowmem_minfree, lowmem_minfree_screen_off, sizeof(lowmem_minfree_screen_off));
+	if (lowmem_auto_oom) {
+		memcpy(lowmem_minfree_screen_on, lowmem_minfree, sizeof(lowmem_minfree));
+		memcpy(lowmem_minfree, lowmem_minfree_screen_off, sizeof(lowmem_minfree_screen_off));
+	}
 }
 
 static void low_mem_late_resume(struct early_suspend *handler)
 {
-	memcpy(lowmem_minfree, lowmem_minfree_screen_on, sizeof(lowmem_minfree_screen_on));
+	if (lowmem_auto_oom)
+		memcpy(lowmem_minfree, lowmem_minfree_screen_on, sizeof(lowmem_minfree_screen_on));
 }
 
 static struct early_suspend low_mem_suspend = {
@@ -348,6 +367,7 @@ module_param_array_named(minfree, lowmem_minfree, uint, &lowmem_minfree_size,
 module_param_array_named(minfree_screen_off, lowmem_minfree_screen_off, uint, &lowmem_minfree_size,
 			 S_IRUGO | S_IWUSR);
 module_param_named(debug_level, lowmem_debug_level, uint, S_IRUGO | S_IWUSR);
+module_param_named(auto_oom, lowmem_auto_oom, uint, S_IRUGO | S_IWUSR);
 
 module_init(lowmem_init);
 module_exit(lowmem_exit);
