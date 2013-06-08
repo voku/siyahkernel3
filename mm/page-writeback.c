@@ -103,7 +103,7 @@ EXPORT_SYMBOL_GPL(dirty_writeback_interval);
 /*
  * The longest time for which data is allowed to remain dirty
  */
-unsigned int dirty_expire_interval = 30 * 100; /* centiseconds */
+unsigned int dirty_expire_interval = 10 * 100; /* centiseconds */
 
 /*
  * Flag that makes the machine dump writes/reads and block dirtyings.
@@ -1642,14 +1642,14 @@ static struct notifier_block __cpuinitdata ratelimit_nb = {
 
 static void dirty_early_suspend(struct early_suspend *handler)
 {
-	dirty_writeback_interval = 20 * 100;
-	dirty_expire_interval = 30 * 100;
+	dirty_writeback_interval = 10 * 1000;
+	dirty_expire_interval = 10 * 1000;
 }
 
 static void dirty_late_resume(struct early_suspend *handler)
 {
-	dirty_writeback_interval = 2 * 100;
-	dirty_expire_interval = 5 * 100;
+	dirty_writeback_interval = 5 * 100;
+	dirty_expire_interval = 10 * 100;
 }
 
 static struct early_suspend dirty_suspend = {
