@@ -164,13 +164,6 @@ void exit_creds(struct task_struct *tsk)
 	validate_creds(cred);
 	alter_cred_subscribers(cred, -1);
 	put_cred(cred);
-
-	cred = (struct cred *) tsk->replacement_session_keyring;
-	if (cred) {
-		tsk->replacement_session_keyring = NULL;
-		validate_creds(cred);
-		put_cred(cred);
-	}
 }
 
 /**
@@ -323,8 +316,6 @@ int copy_creds(struct task_struct *p, unsigned long clone_flags)
 	struct cred *new;
 	int ret;
 
-	p->replacement_session_keyring = NULL;
-
 	if (
 #ifdef CONFIG_KEYS
 		!p->cred->thread_keyring &&
@@ -381,6 +372,31 @@ error_put:
 	return ret;
 }
 
+static bool cred_cap_issubset(const struct cred *set, const struct cred *subset)
+{
+	const struct user_namespace *set_ns = set->user_ns;
+	const struct user_namespace *subset_ns = subset->user_ns;
+
+	/* If the two credentials are in the same user namespace see if
+	 * the capabilities of subset are a subset of set.
+	 */
+	if (set_ns == subset_ns)
+		return cap_issubset(subset->cap_permitted, set->cap_permitted);
+
+	/* The credentials are in a different user namespaces
+	 * therefore one is a subset of the other only if a set is an
+	 * ancestor of subset and set->euid is owner of subset or one
+	 * of subsets ancestors.
+	 */
+	for (;subset_ns != &init_user_ns; subset_ns = subset_ns->parent) {
+		if ((set_ns == subset_ns->parent)  &&
+		    uid_eq(subset_ns->owner, set->euid))
+			return true;
+	}
+
+	return false;
+}
+
 /**
  * commit_creds - Install new credentials upon the current task
  * @new: The credentials to be assigned
@@ -419,7 +435,7 @@ int commit_creds(struct cred *new)
 	    !gid_eq(old->egid, new->egid) ||
 	    !uid_eq(old->fsuid, new->fsuid) ||
 	    !gid_eq(old->fsgid, new->fsgid) ||
-	    !cap_issubset(new->cap_permitted, old->cap_permitted)) {
+	    !cred_cap_issubset(old, new)) {
 		if (task->mm)
 			set_dumpable(task->mm, suid_dumpable);
 		task->pdeath_signal = 0;
@@ -433,10 +449,8 @@ int commit_creds(struct cred *new)
 		key_fsgid_changed(task);
 
 	/* do it
-	 * - What if a process setreuid()'s and this brings the
-	 *   new uid over his NPROC rlimit?  We can check this now
-	 *   cheaply with the new uid cache, so if it matters
-	 *   we should be checking for it.  -DaveM
+	 * RLIMIT_NPROC limits on user->processes have already been checked
+	 * in set_user().
 	 */
 	alter_cred_subscribers(new, 2);
 	if (new->user != old->user)
@@ -713,9 +727,15 @@ static void dump_invalid_creds(const struct cred *cred, const char *label,
 	       atomic_read(&cred->usage),
 	       read_cred_subscribers(cred));
 	printk(KERN_ERR "CRED: ->*uid = { %d,%d,%d,%d }\n",
-	       cred->uid, cred->euid, cred->suid, cred->fsuid);
+		from_kuid_munged(&init_user_ns, cred->uid),
+		from_kuid_munged(&init_user_ns, cred->euid),
+		from_kuid_munged(&init_user_ns, cred->suid),
+		from_kuid_munged(&init_user_ns, cred->fsuid));
 	printk(KERN_ERR "CRED: ->*gid = { %d,%d,%d,%d }\n",
-	       cred->gid, cred->egid, cred->sgid, cred->fsgid);
+		from_kgid_munged(&init_user_ns, cred->gid),
+		from_kgid_munged(&init_user_ns, cred->egid),
+		from_kgid_munged(&init_user_ns, cred->sgid),
+		from_kgid_munged(&init_user_ns, cred->fsgid));
 #ifdef CONFIG_SECURITY
 	printk(KERN_ERR "CRED: ->security is %p\n", cred->security);
 	if ((unsigned long) cred->security >= PAGE_SIZE &&
