@@ -106,6 +106,16 @@ static bool avoid_to_kill(uid_t uid)
 	return 0;
 }
 
+static bool protected_apps(char *comm)
+{
+	if (strcmp(comm, "d.process.acore") == 0 ||
+                                strcmp(comm, "ndroid.systemui") == 0 ||
+                                strcmp(comm, "d.process.media") == 0) {
+		return 1;
+	}
+	return 0;
+}
+
 static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 {
 	struct task_struct *tsk;
@@ -194,14 +204,14 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		pcred = __task_cred(p);
 		uid = pcred->uid;
 
-		if (!avoid_to_kill(uid)) {
+		if (!avoid_to_kill(uid) && !protected_apps(p->comm)) {
 			selected = p;
 			selected_tasksize = tasksize;
 			selected_oom_score_adj = oom_score_adj;
 			lowmem_print(2, "select %s' (%d), adj %hd, size %d, to kill\n",
 				 p->comm, p->pid, oom_score_adj, tasksize);
 		} else {
-			lowmem_print(1, "selected skiped %s' (%d), adj %hd, size %d, no to kill\n",
+			lowmem_print(1, "selected skipped %s' (%d), adj %hd, size %d, no to kill\n",
 				 p->comm, p->pid, oom_score_adj, tasksize);
 		}
 	}
