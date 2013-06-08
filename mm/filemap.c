@@ -35,9 +35,6 @@
 #include <linux/cleancache.h>
 #include "internal.h"
 
-#define CREATE_TRACE_POINTS
-#include <trace/events/filemap.h>
-
 /*
  * FIXME: remove all knowledge of the buffer layer from the core VM
  */
@@ -116,7 +113,6 @@ void __delete_from_page_cache(struct page *page)
 {
 	struct address_space *mapping = page->mapping;
 
-	trace_mm_filemap_delete_from_page_cache(page);
 	/*
 	 * if we're uptodate, flush out into the cleancache, otherwise
 	 * invalidate any existing cleancache entries.  We can't leave
@@ -186,17 +182,6 @@ static int sleep_on_page_killable(void *word)
 {
 	sleep_on_page(word);
 	return fatal_signal_pending(current) ? -EINTR : 0;
-}
-
-static int filemap_check_errors(struct address_space *mapping)
-{
-	int ret = 0;
-	/* Check for outstanding write errors */
-	if (test_and_clear_bit(AS_ENOSPC, &mapping->flags))
-		ret = -ENOSPC;
-	if (test_and_clear_bit(AS_EIO, &mapping->flags))
-		ret = -EIO;
-	return ret;
 }
 
 /**
@@ -280,10 +265,10 @@ int filemap_fdatawait_range(struct address_space *mapping, loff_t start_byte,
 	pgoff_t end = end_byte >> PAGE_CACHE_SHIFT;
 	struct pagevec pvec;
 	int nr_pages;
-	int ret2, ret = 0;
+	int ret = 0;
 
 	if (end_byte < start_byte)
-		goto out;
+		return 0;
 
 	pagevec_init(&pvec, 0);
 	while ((index <= end) &&
@@ -306,10 +291,12 @@ int filemap_fdatawait_range(struct address_space *mapping, loff_t start_byte,
 		pagevec_release(&pvec);
 		cond_resched();
 	}
-out:
-	ret2 = filemap_check_errors(mapping);
-	if (!ret)
-		ret = ret2;
+
+	/* Check for outstanding write errors */
+	if (test_and_clear_bit(AS_ENOSPC, &mapping->flags))
+		ret = -ENOSPC;
+	if (test_and_clear_bit(AS_EIO, &mapping->flags))
+		ret = -EIO;
 
 	return ret;
 }
@@ -350,8 +337,6 @@ int filemap_write_and_wait(struct address_space *mapping)
 			if (!err)
 				err = err2;
 		}
-	} else {
-		err = filemap_check_errors(mapping);
 	}
 	return err;
 }
@@ -383,8 +368,6 @@ int filemap_write_and_wait_range(struct address_space *mapping,
 			if (!err)
 				err = err2;
 		}
-	} else {
-		err = filemap_check_errors(mapping);
 	}
 	return err;
 }
@@ -481,7 +464,6 @@ int add_to_page_cache_locked(struct page *page, struct address_space *mapping,
 			mapping->nrpages++;
 			__inc_zone_page_state(page, NR_FILE_PAGES);
 			spin_unlock_irq(&mapping->tree_lock);
-			trace_mm_filemap_add_to_page_cache(page);
 		} else {
 			page->mapping = NULL;
 			/* Leave page->index set: truncation relies upon it */

@@ -63,8 +63,6 @@ int sysctl_overcommit_memory = OVERCOMMIT_GUESS; /* heuristic overcommit */
 int sysctl_overcommit_ratio = 50; /* default is 50% */
 int sysctl_max_map_count = DEFAULT_MAX_MAP_COUNT;
 int sysctl_nr_trim_pages = CONFIG_NOMMU_INITIAL_TRIM_EXCESS;
-unsigned long sysctl_user_reserve_kbytes __read_mostly = 1UL << 17; /* 128MB */
-unsigned long sysctl_admin_reserve_kbytes __read_mostly = 1UL << 13; /* 8MB */
 int heap_stack_gap = 0;
 
 atomic_long_t mmap_pages_allocated;
@@ -230,7 +228,8 @@ int follow_pfn(struct vm_area_struct *vma, unsigned long address,
 }
 EXPORT_SYMBOL(follow_pfn);
 
-LIST_HEAD(vmap_area_list);
+DEFINE_RWLOCK(vmlist_lock);
+struct vm_struct *vmlist;
 
 void vfree(const void *addr)
 {
@@ -1771,7 +1770,7 @@ unsigned long vm_brk(unsigned long addr, unsigned long len)
  *
  * MREMAP_FIXED is not supported under NOMMU conditions
  */
-static unsigned long do_mremap(unsigned long addr,
+unsigned long do_mremap(unsigned long addr,
 			unsigned long old_len, unsigned long new_len,
 			unsigned long flags, unsigned long new_addr)
 {
@@ -1806,6 +1805,7 @@ static unsigned long do_mremap(unsigned long addr,
 	vma->vm_end = vma->vm_start + new_len;
 	return vma->vm_start;
 }
+EXPORT_SYMBOL(do_mremap);
 
 SYSCALL_DEFINE5(mremap, unsigned long, addr, unsigned long, old_len,
 		unsigned long, new_len, unsigned long, flags,
@@ -1837,16 +1837,6 @@ int remap_pfn_range(struct vm_area_struct *vma, unsigned long addr,
 	return 0;
 }
 EXPORT_SYMBOL(remap_pfn_range);
-
-int vm_iomap_memory(struct vm_area_struct *vma, phys_addr_t start, unsigned long len)
-{
-	unsigned long pfn = start >> PAGE_SHIFT;
-	unsigned long vm_len = vma->vm_end - vma->vm_start;
-
-	pfn += vma->vm_pgoff;
-	return io_remap_pfn_range(vma, vma->vm_start, pfn, vm_len, vma->vm_page_prot);
-}
-EXPORT_SYMBOL(vm_iomap_memory);
 
 int remap_vmalloc_range(struct vm_area_struct *vma, void *addr,
 			unsigned long pgoff)
@@ -1898,7 +1888,7 @@ EXPORT_SYMBOL(unmap_mapping_range);
  */
 int __vm_enough_memory(struct mm_struct *mm, long pages, int cap_sys_admin)
 {
-	unsigned long free, allowed, reserve;
+	unsigned long free, allowed;
 
 	vm_acct_memory(pages);
 
@@ -1939,10 +1929,10 @@ int __vm_enough_memory(struct mm_struct *mm, long pages, int cap_sys_admin)
 			free -= totalreserve_pages;
 
 		/*
-		 * Reserve some for root
+		 * Leave the last 3% for root
 		 */
 		if (!cap_sys_admin)
-			free -= sysctl_admin_reserve_kbytes >> (PAGE_SHIFT - 10);
+			free -= free / 32;
 
 		if (free > pages)
 			return 0;
@@ -1952,19 +1942,16 @@ int __vm_enough_memory(struct mm_struct *mm, long pages, int cap_sys_admin)
 
 	allowed = totalram_pages * sysctl_overcommit_ratio / 100;
 	/*
-	 * Reserve some 3% for root
+	 * Leave the last 3% for root
 	 */
 	if (!cap_sys_admin)
-		allowed -= sysctl_admin_reserve_kbytes >> (PAGE_SHIFT - 10);
+		allowed -= allowed / 32;
 	allowed += total_swap_pages;
 
-	/*
-	 * Don't let a single process grow so big a user can't recover
-	 */
-	if (mm) {
-		reserve = sysctl_user_reserve_kbytes >> (PAGE_SHIFT - 10);
-		allowed -= min(mm->total_vm / 32, reserve);
-	}
+	/* Don't let a single process grow too big:
+	   leave 3% of the size of this process for other processes */
+	if (mm)
+		allowed -= mm->total_vm / 32;
 
 	if (percpu_counter_read_positive(&vm_committed_as) < allowed)
 		return 0;
@@ -2126,45 +2113,3 @@ int nommu_shrink_inode_mappings(struct inode *inode, size_t size,
 	up_write(&nommu_region_sem);
 	return 0;
 }
-
-/*
- * Initialise sysctl_user_reserve_kbytes.
- *
- * This is intended to prevent a user from starting a single memory hogging
- * process, such that they cannot recover (kill the hog) in OVERCOMMIT_NEVER
- * mode.
- *
- * The default value is min(3% of free memory, 128MB)
- * 128MB is enough to recover with sshd/login, bash, and top/kill.
- */
-static int __meminit init_user_reserve(void)
-{
-	unsigned long free_kbytes;
-
-	free_kbytes = global_page_state(NR_FREE_PAGES) << (PAGE_SHIFT - 10);
-
-	sysctl_user_reserve_kbytes = min(free_kbytes / 32, 1UL << 17);
-	return 0;
-}
-module_init(init_user_reserve)
-
-/*
- * Initialise sysctl_admin_reserve_kbytes.
- *
- * The purpose of sysctl_admin_reserve_kbytes is to allow the sys admin
- * to log in and kill a memory hogging process.
- *
- * Systems with more than 256MB will reserve 8MB, enough to recover
- * with sshd, bash, and top in OVERCOMMIT_GUESS. Smaller systems will
- * only reserve 3% of free pages by default.
- */
-static int __meminit init_admin_reserve(void)
-{
-	unsigned long free_kbytes;
-
-	free_kbytes = global_page_state(NR_FREE_PAGES) << (PAGE_SHIFT - 10);
-
-	sysctl_admin_reserve_kbytes = min(free_kbytes / 32, 1UL << 13);
-	return 0;
-}
-module_init(init_admin_reserve)

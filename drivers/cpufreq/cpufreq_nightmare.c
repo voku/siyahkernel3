@@ -1608,3 +1608,4 @@ fs_initcall(cpufreq_gov_nightmare_init);
 module_init(cpufreq_gov_nightmare_init);
 #endif
 module_exit(cpufreq_gov_nightmare_exit);
+

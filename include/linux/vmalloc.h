@@ -37,17 +37,6 @@ struct vm_struct {
 	const void		*caller;
 };
 
-struct vmap_area {
-	unsigned long va_start;
-	unsigned long va_end;
-	unsigned long flags;
-	struct rb_node rb_node;         /* address sorted rbtree */
-	struct list_head list;          /* address sorted list */
-	struct list_head purge_list;    /* "lazy purge" list */
-	struct vm_struct *vm;
-	struct rcu_head rcu_head;
-};
-
 /*
  *	Highlevel APIs for driver use
  */
@@ -143,7 +132,8 @@ extern long vwrite(char *buf, char *addr, unsigned long count);
 /*
  *	Internals.  Dont't use..
  */
-extern struct list_head vmap_area_list;
+extern rwlock_t vmlist_lock;
+extern struct vm_struct *vmlist;
 extern __init void vm_area_add_early(struct vm_struct *vm);
 extern __init void vm_area_register_early(struct vm_struct *vm, size_t align);
 
