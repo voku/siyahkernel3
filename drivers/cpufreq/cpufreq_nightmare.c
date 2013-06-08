@@ -1212,7 +1212,7 @@ static unsigned int nightmare_frequency_adjust(unsigned int next_freq, unsigned 
 	if (adjust_freq == cur_freq)
 		return cur_freq;
 
-	if (next_freq % 100000 > (unsigned int)scaling_freq_step * 1000)
+	if ((int)next_freq % 100000 > (scaling_freq_step * 1000))
 		adjust_freq += 100000;
 
 	return adjust_freq;
