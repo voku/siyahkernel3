@@ -44,7 +44,7 @@ struct loop_device {
 	int		lo_encrypt_key_size;
 	struct loop_func_table *lo_encryption;
 	__u32           lo_init[2];
-	uid_t		lo_key_owner;	/* Who set the key */
+	kuid_t		lo_key_owner;	/* Who set the key */
 	int		(*ioctl)(struct loop_device *, int cmd, 
 				 unsigned long arg); 
 
@@ -77,6 +77,7 @@ struct loop_device {
 enum {
 	LO_FLAGS_READ_ONLY	= 1,
 	LO_FLAGS_AUTOCLEAR	= 4,
+	LO_FLAGS_PARTSCAN	= 8,
 };
 
 #include <asm/posix_types.h>	/* for __kernel_old_dev_t */
