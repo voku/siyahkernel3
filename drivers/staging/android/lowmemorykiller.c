@@ -44,6 +44,7 @@
 #include <linux/earlysuspend.h>
 
 static uint32_t lowmem_debug_level = 1;
+static uint32_t lowmem_auto_oom = 1;
 static short lowmem_adj[6] = {
 	0,
 	2,
@@ -58,24 +59,24 @@ static int lowmem_minfree[6] = {
 	2 * 1024,	/* 8MB */
 	4 * 1024,	/* 16MB */
 	8 * 1024,	/* 32MB */
-	12 * 1024,	/* 49MB */
 	16 * 1024,	/* 64MB */
+	32 * 1024,	/* 128MB */
 };
 static int lowmem_minfree_screen_off[6] = {
 	3 * 512,	/* 6MB */
 	2 * 1024,	/* 8MB */
 	4 * 1024,	/* 16MB */
 	8 * 1024,	/* 32MB */
-	12 * 1024,	/* 49MB */
 	16 * 1024,	/* 64MB */
+	32 * 1024,	/* 128MB */
 };
 static int lowmem_minfree_screen_on[6] = {
 	3 * 512,	/* 6MB */
 	2 * 1024,	/* 8MB */
 	4 * 1024,	/* 16MB */
 	8 * 1024,	/* 32MB */
-	12 * 1024,	/* 49MB */
 	16 * 1024,	/* 64MB */
+	32 * 1024,	/* 128MB */
 };
 static int lowmem_minfree_size = 6;
 
@@ -92,12 +93,24 @@ static bool avoid_to_kill(uid_t uid)
 
 	if (uid == 0 || /* root */
 	   uid == 1001 || /* radio */
+	   uid == 1002 || /* bluetooth */
 	   uid == 1010 || /* wifi */
 	   uid == 1012 || /* install */
 	   uid == 1013 || /* media */
 	   uid == 1014 || /* dhcp */
+	   uid == 1017 || /* keystore */
 	   uid == 1019)	/* drm */
 	{
+		return 1;
+	}
+	return 0;
+}
+
+static bool protected_apps(char *comm)
+{
+	if (strcmp(comm, "d.process.acore") == 0 ||
+                                strcmp(comm, "ndroid.systemui") == 0 ||
+                                strcmp(comm, "d.process.media") == 0) {
 		return 1;
 	}
 	return 0;
@@ -190,11 +203,15 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		}
 		pcred = __task_cred(p);
 		uid = pcred->uid;
-		if (!avoid_to_kill(uid)) {
+
+		if (!avoid_to_kill(uid) && !protected_apps(p->comm)) {
 			selected = p;
 			selected_tasksize = tasksize;
 			selected_oom_score_adj = oom_score_adj;
 			lowmem_print(2, "select %s' (%d), adj %hd, size %d, to kill\n",
+				 p->comm, p->pid, oom_score_adj, tasksize);
+		} else {
+			lowmem_print(1, "selected skipped %s' (%d), adj %hd, size %d, no to kill\n",
 				 p->comm, p->pid, oom_score_adj, tasksize);
 		}
 	}
@@ -229,13 +246,16 @@ static struct shrinker lowmem_shrinker = {
 
 static void low_mem_early_suspend(struct early_suspend *handler)
 {
-	memcpy(lowmem_minfree_screen_on, lowmem_minfree, sizeof(lowmem_minfree));
-	memcpy(lowmem_minfree, lowmem_minfree_screen_off, sizeof(lowmem_minfree_screen_off));
+	if (lowmem_auto_oom) {
+		memcpy(lowmem_minfree_screen_on, lowmem_minfree, sizeof(lowmem_minfree));
+		memcpy(lowmem_minfree, lowmem_minfree_screen_off, sizeof(lowmem_minfree_screen_off));
+	}
 }
 
 static void low_mem_late_resume(struct early_suspend *handler)
 {
-	memcpy(lowmem_minfree, lowmem_minfree_screen_on, sizeof(lowmem_minfree_screen_on));
+	if (lowmem_auto_oom)
+		memcpy(lowmem_minfree, lowmem_minfree_screen_on, sizeof(lowmem_minfree_screen_on));
 }
 
 static struct early_suspend low_mem_suspend = {
@@ -348,6 +368,7 @@ module_param_array_named(minfree, lowmem_minfree, uint, &lowmem_minfree_size,
 module_param_array_named(minfree_screen_off, lowmem_minfree_screen_off, uint, &lowmem_minfree_size,
 			 S_IRUGO | S_IWUSR);
 module_param_named(debug_level, lowmem_debug_level, uint, S_IRUGO | S_IWUSR);
+module_param_named(auto_oom, lowmem_auto_oom, uint, S_IRUGO | S_IWUSR);
 
 module_init(lowmem_init);
 module_exit(lowmem_exit);

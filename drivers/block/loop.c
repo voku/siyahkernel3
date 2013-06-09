@@ -75,6 +75,8 @@
 #include <linux/splice.h>
 #include <linux/sysfs.h>
 #include <linux/miscdevice.h>
+#include <linux/falloc.h>
+
 #include <asm/uaccess.h>
 
 static DEFINE_IDR(loop_index_idr);
@@ -158,17 +160,20 @@ static struct loop_func_table *xfer_funcs[MAX_LO_CRYPT] = {
 	&xor_funcs
 };
 
-static loff_t get_loop_size(struct loop_device *lo, struct file *file)
+static loff_t get_size(loff_t offset, loff_t sizelimit, struct file *file)
 {
-	loff_t size, offset, loopsize;
+	loff_t loopsize;
 
 	/* Compute loopsize in bytes */
-	size = i_size_read(file->f_mapping->host);
-	offset = lo->lo_offset;
-	loopsize = size - offset;
-	if (lo->lo_sizelimit > 0 && lo->lo_sizelimit < loopsize)
-		loopsize = lo->lo_sizelimit;
+	loopsize = i_size_read(file->f_mapping->host);
+	if (offset > 0)
+		loopsize -= offset;
+	/* offset is beyond i_size, weird but possible */
+	if (loopsize < 0)
+		return 0;
 
+	if (sizelimit > 0 && sizelimit < loopsize)
+		loopsize = sizelimit;
 	/*
 	 * Unfortunately, if we want to do I/O on the device,
 	 * the number of 512-byte sectors has to fit into a sector_t.
@@ -176,17 +181,29 @@ static loff_t get_loop_size(struct loop_device *lo, struct file *file)
 	return loopsize >> 9;
 }
 
-static int
-figure_loop_size(struct loop_device *lo)
+static loff_t get_loop_size(struct loop_device *lo, struct file *file)
 {
-	loff_t size = get_loop_size(lo, lo->lo_backing_file);
+	return get_size(lo->lo_offset, lo->lo_sizelimit, file);
+}
+
+static int
+figure_loop_size(struct loop_device *lo, loff_t offset, loff_t sizelimit)
+{
+	loff_t size = get_size(offset, sizelimit, lo->lo_backing_file);
 	sector_t x = (sector_t)size;
+	struct block_device *bdev = lo->lo_device;
 
 	if (unlikely((loff_t)x != size))
 		return -EFBIG;
-
+	if (lo->lo_offset != offset)
+		lo->lo_offset = offset;
+	if (lo->lo_sizelimit != sizelimit)
+		lo->lo_sizelimit = sizelimit;
 	set_capacity(lo->lo_disk, x);
-	return 0;					
+	bd_set_size(bdev, (loff_t)get_capacity(bdev->bd_disk) << 9);
+	/* let user-space know about the new size */
+	kobject_uevent(&disk_to_dev(bdev->bd_disk)->kobj, KOBJ_CHANGE);
+	return 0;
 }
 
 static inline int
@@ -344,14 +361,14 @@ lo_direct_splice_actor(struct pipe_inode_info *pipe, struct splice_desc *sd)
 	return __splice_from_pipe(pipe, sd, lo_splice_actor);
 }
 
-static int
+static ssize_t
 do_lo_receive(struct loop_device *lo,
 	      struct bio_vec *bvec, int bsize, loff_t pos)
 {
 	struct lo_read_data cookie;
 	struct splice_desc sd;
 	struct file *file;
-	long retval;
+	ssize_t retval;
 
 	cookie.lo = lo;
 	cookie.page = bvec->bv_page;
@@ -367,25 +384,28 @@ do_lo_receive(struct loop_device *lo,
 	file = lo->lo_backing_file;
 	retval = splice_direct_to_actor(file, &sd, lo_direct_splice_actor);
 
-	if (retval < 0)
-		return retval;
-
-	return 0;
+	return retval;
 }
 
 static int
 lo_receive(struct loop_device *lo, struct bio *bio, int bsize, loff_t pos)
 {
 	struct bio_vec *bvec;
-	int i, ret = 0;
+	ssize_t s;
+	int i;
 
 	bio_for_each_segment(bvec, bio, i) {
-		ret = do_lo_receive(lo, bvec, bsize, pos);
-		if (ret < 0)
+		s = do_lo_receive(lo, bvec, bsize, pos);
+		if (s < 0)
+			return s;
+
+		if (s != bvec->bv_len) {
+			zero_fill_bio(bio);
 			break;
+		}
 		pos += bvec->bv_len;
 	}
-	return ret;
+	return 0;
 }
 
 static int do_bio_filebacked(struct loop_device *lo, struct bio *bio)
@@ -404,6 +424,29 @@ static int do_bio_filebacked(struct loop_device *lo, struct bio *bio)
 				ret = -EIO;
 				goto out;
 			}
+		}
+
+		/*
+		 * We use punch hole to reclaim the free space used by the
+		 * image a.k.a. discard. However we do not support discard if
+		 * encryption is enabled, because it may give an attacker
+		 * useful information.
+		 */
+		if (bio->bi_rw & REQ_DISCARD) {
+			struct file *file = lo->lo_backing_file;
+			int mode = FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE;
+
+			if ((!file->f_op->fallocate) ||
+			    lo->lo_encrypt_key_size) {
+				ret = -EOPNOTSUPP;
+				goto out;
+			}
+			ret = file->f_op->fallocate(file, mode, pos,
+						    bio->bi_size);
+			if (unlikely(ret && ret != -EINVAL &&
+				     ret != -EOPNOTSUPP))
+				ret = -EIO;
+			goto out;
 		}
 
 		ret = lo_send(lo, bio, pos);
@@ -629,7 +672,7 @@ static int loop_change_fd(struct loop_device *lo, struct block_device *bdev,
 		goto out_putf;
 
 	fput(old_file);
-	if (max_part > 0)
+	if (lo->lo_flags & LO_FLAGS_PARTSCAN)
 		ioctl_by_bdev(bdev, BLKRRPART, 0);
 	return 0;
 
@@ -706,16 +749,25 @@ static ssize_t loop_attr_autoclear_show(struct loop_device *lo, char *buf)
 	return sprintf(buf, "%s\n", autoclear ? "1" : "0");
 }
 
+static ssize_t loop_attr_partscan_show(struct loop_device *lo, char *buf)
+{
+	int partscan = (lo->lo_flags & LO_FLAGS_PARTSCAN);
+
+	return sprintf(buf, "%s\n", partscan ? "1" : "0");
+}
+
 LOOP_ATTR_RO(backing_file);
 LOOP_ATTR_RO(offset);
 LOOP_ATTR_RO(sizelimit);
 LOOP_ATTR_RO(autoclear);
+LOOP_ATTR_RO(partscan);
 
 static struct attribute *loop_attrs[] = {
 	&loop_attr_backing_file.attr,
 	&loop_attr_offset.attr,
 	&loop_attr_sizelimit.attr,
 	&loop_attr_autoclear.attr,
+	&loop_attr_partscan.attr,
 	NULL,
 };
 
@@ -734,6 +786,35 @@ static void loop_sysfs_exit(struct loop_device *lo)
 {
 	sysfs_remove_group(&disk_to_dev(lo->lo_disk)->kobj,
 			   &loop_attribute_group);
+}
+
+static void loop_config_discard(struct loop_device *lo)
+{
+	struct file *file = lo->lo_backing_file;
+	struct inode *inode = file->f_mapping->host;
+	struct request_queue *q = lo->lo_queue;
+
+	/*
+	 * We use punch hole to reclaim the free space used by the
+	 * image a.k.a. discard. However we do support discard if
+	 * encryption is enabled, because it may give an attacker
+	 * useful information.
+	 */
+	if ((!file->f_op->fallocate) ||
+	    lo->lo_encrypt_key_size) {
+		q->limits.discard_granularity = 0;
+		q->limits.discard_alignment = 0;
+		q->limits.max_discard_sectors = 0;
+		q->limits.discard_zeroes_data = 0;
+		queue_flag_clear_unlocked(QUEUE_FLAG_DISCARD, q);
+		return;
+	}
+
+	q->limits.discard_granularity = inode->i_sb->s_blocksize;
+	q->limits.discard_alignment = 0;
+	q->limits.max_discard_sectors = UINT_MAX >> 9;
+	q->limits.discard_zeroes_data = 1;
+	queue_flag_set_unlocked(QUEUE_FLAG_DISCARD, q);
 }
 
 static int loop_set_fd(struct loop_device *lo, fmode_t mode,
@@ -837,7 +918,9 @@ static int loop_set_fd(struct loop_device *lo, fmode_t mode,
 	}
 	lo->lo_state = Lo_bound;
 	wake_up_process(lo->lo_thread);
-	if (max_part > 0)
+	if (part_shift)
+		lo->lo_flags |= LO_FLAGS_PARTSCAN;
+	if (lo->lo_flags & LO_FLAGS_PARTSCAN)
 		ioctl_by_bdev(bdev, BLKRRPART, 0);
 
 	/* Grab the block_device to prevent its destruction after we
@@ -903,10 +986,11 @@ loop_init_xfer(struct loop_device *lo, struct loop_func_table *xfer,
 	return err;
 }
 
-static int loop_clr_fd(struct loop_device *lo, struct block_device *bdev)
+static int loop_clr_fd(struct loop_device *lo)
 {
 	struct file *filp = lo->lo_backing_file;
 	gfp_t gfp = lo->old_gfp_mask;
+	struct block_device *bdev = lo->lo_device;
 
 	if (lo->lo_state != Lo_bound)
 		return -ENXIO;
@@ -948,7 +1032,6 @@ static int loop_clr_fd(struct loop_device *lo, struct block_device *bdev)
 	lo->lo_offset = 0;
 	lo->lo_sizelimit = 0;
 	lo->lo_encrypt_key_size = 0;
-	lo->lo_flags = 0;
 	lo->lo_thread = NULL;
 	memset(lo->lo_encrypt_key, 0, LO_KEY_SIZE);
 	memset(lo->lo_crypt_name, 0, LO_NAME_SIZE);
@@ -968,8 +1051,11 @@ static int loop_clr_fd(struct loop_device *lo, struct block_device *bdev)
 	lo->lo_state = Lo_unbound;
 	/* This is safe: open() is still holding a reference. */
 	module_put(THIS_MODULE);
-	if (max_part > 0 && bdev)
+	if (lo->lo_flags & LO_FLAGS_PARTSCAN && bdev)
 		ioctl_by_bdev(bdev, BLKRRPART, 0);
+	lo->lo_flags = 0;
+	if (!part_shift)
+		lo->lo_disk->flags |= GENHD_FL_NO_PART_SCAN;
 	mutex_unlock(&lo->lo_ctl_mutex);
 	/*
 	 * Need not hold lo_ctl_mutex to fput backing file.
@@ -986,10 +1072,10 @@ loop_set_status(struct loop_device *lo, const struct loop_info64 *info)
 {
 	int err;
 	struct loop_func_table *xfer;
-	uid_t uid = current_uid();
+	kuid_t uid = current_uid();
 
 	if (lo->lo_encrypt_key_size &&
-	    lo->lo_key_owner != uid &&
+	    !uid_eq(lo->lo_key_owner, uid) &&
 	    !capable(CAP_SYS_ADMIN))
 		return -EPERM;
 	if (lo->lo_state != Lo_bound)
@@ -1017,12 +1103,11 @@ loop_set_status(struct loop_device *lo, const struct loop_info64 *info)
 		return err;
 
 	if (lo->lo_offset != info->lo_offset ||
-	    lo->lo_sizelimit != info->lo_sizelimit) {
-		lo->lo_offset = info->lo_offset;
-		lo->lo_sizelimit = info->lo_sizelimit;
-		if (figure_loop_size(lo))
+	    lo->lo_sizelimit != info->lo_sizelimit)
+		if (figure_loop_size(lo, info->lo_offset, info->lo_sizelimit))
 			return -EFBIG;
-	}
+
+	loop_config_discard(lo);
 
 	memcpy(lo->lo_file_name, info->lo_file_name, LO_NAME_SIZE);
 	memcpy(lo->lo_crypt_name, info->lo_crypt_name, LO_NAME_SIZE);
@@ -1037,6 +1122,13 @@ loop_set_status(struct loop_device *lo, const struct loop_info64 *info)
 	if ((lo->lo_flags & LO_FLAGS_AUTOCLEAR) !=
 	     (info->lo_flags & LO_FLAGS_AUTOCLEAR))
 		lo->lo_flags ^= LO_FLAGS_AUTOCLEAR;
+
+	if ((info->lo_flags & LO_FLAGS_PARTSCAN) &&
+	     !(lo->lo_flags & LO_FLAGS_PARTSCAN)) {
+		lo->lo_flags |= LO_FLAGS_PARTSCAN;
+		lo->lo_disk->flags &= ~GENHD_FL_NO_PART_SCAN;
+		ioctl_by_bdev(lo->lo_device, BLKRRPART, 0);
+	}
 
 	lo->lo_encrypt_key_size = info->lo_encrypt_key_size;
 	lo->lo_init[0] = info->lo_init[0];
@@ -1191,26 +1283,10 @@ loop_get_status64(struct loop_device *lo, struct loop_info64 __user *arg) {
 
 static int loop_set_capacity(struct loop_device *lo, struct block_device *bdev)
 {
-	int err;
-	sector_t sec;
-	loff_t sz;
-
-	err = -ENXIO;
 	if (unlikely(lo->lo_state != Lo_bound))
-		goto out;
-	err = figure_loop_size(lo);
-	if (unlikely(err))
-		goto out;
-	sec = get_capacity(lo->lo_disk);
-	/* the width of sector_t may be narrow for bit-shift */
-	sz = sec;
-	sz <<= 9;
-	bd_set_size(bdev, sz);
-	/* let user-space know about the new size */
-	kobject_uevent(&disk_to_dev(bdev->bd_disk)->kobj, KOBJ_CHANGE);
+		return -ENXIO;
 
- out:
-	return err;
+	return figure_loop_size(lo, lo->lo_offset, lo->lo_sizelimit);
 }
 
 static int lo_ioctl(struct block_device *bdev, fmode_t mode,
@@ -1229,18 +1305,24 @@ static int lo_ioctl(struct block_device *bdev, fmode_t mode,
 		break;
 	case LOOP_CLR_FD:
 		/* loop_clr_fd would have unlocked lo_ctl_mutex on success */
-		err = loop_clr_fd(lo, bdev);
+		err = loop_clr_fd(lo);
 		if (!err)
 			goto out_unlocked;
 		break;
 	case LOOP_SET_STATUS:
-		err = loop_set_status_old(lo, (struct loop_info __user *) arg);
+		err = -EPERM;
+		if ((mode & FMODE_WRITE) || capable(CAP_SYS_ADMIN))
+			err = loop_set_status_old(lo,
+					(struct loop_info __user *)arg);
 		break;
 	case LOOP_GET_STATUS:
 		err = loop_get_status_old(lo, (struct loop_info __user *) arg);
 		break;
 	case LOOP_SET_STATUS64:
-		err = loop_set_status64(lo, (struct loop_info64 __user *) arg);
+		err = -EPERM;
+		if ((mode & FMODE_WRITE) || capable(CAP_SYS_ADMIN))
+			err = loop_set_status64(lo,
+					(struct loop_info64 __user *) arg);
 		break;
 	case LOOP_GET_STATUS64:
 		err = loop_get_status64(lo, (struct loop_info64 __user *) arg);
@@ -1449,7 +1531,7 @@ static int lo_release(struct gendisk *disk, fmode_t mode)
 		 * In autoclear mode, stop the loop thread
 		 * and remove configuration after last close.
 		 */
-		err = loop_clr_fd(lo, NULL);
+		err = loop_clr_fd(lo);
 		if (!err)
 			goto out_unlocked;
 	} else {
@@ -1561,6 +1643,7 @@ static int loop_add(struct loop_device **l, int i)
 	if (err < 0)
 		goto out_free_dev;
 
+	err = -ENOMEM;
 	lo->lo_queue = blk_alloc_queue(GFP_KERNEL);
 	if (!lo->lo_queue)
 		goto out_free_dev;
@@ -1569,6 +1652,27 @@ static int loop_add(struct loop_device **l, int i)
 	if (!disk)
 		goto out_free_queue;
 
+	/*
+	 * Disable partition scanning by default. The in-kernel partition
+	 * scanning can be requested individually per-device during its
+	 * setup. Userspace can always add and remove partitions from all
+	 * devices. The needed partition minors are allocated from the
+	 * extended minor space, the main loop device numbers will continue
+	 * to match the loop minors, regardless of the number of partitions
+	 * used.
+	 *
+	 * If max_part is given, partition scanning is globally enabled for
+	 * all loop devices. The minors for the main loop devices will be
+	 * multiples of max_part.
+	 *
+	 * Note: Global-for-all-devices, set-only-at-init, read-only module
+	 * parameteters like 'max_loop' and 'max_part' make things needlessly
+	 * complicated, are too static, inflexible and may surprise
+	 * userspace tools. Parameters like this in general should be avoided.
+	 */
+	if (!part_shift)
+		disk->flags |= GENHD_FL_NO_PART_SCAN;
+	disk->flags |= GENHD_FL_EXT_DEVT;
 	mutex_init(&lo->lo_ctl_mutex);
 	lo->lo_number		= i;
 	lo->lo_thread		= NULL;
@@ -1749,11 +1853,15 @@ static int __init loop_init(void)
 		max_part = (1UL << part_shift) - 1;
 	}
 
-	if ((1UL << part_shift) > DISK_MAX_PARTS)
-		return -EINVAL;
+	if ((1UL << part_shift) > DISK_MAX_PARTS) {
+		err = -EINVAL;
+		goto misc_out;
+	}
 
-	if (max_loop > 1UL << (MINORBITS - part_shift))
-		return -EINVAL;
+	if (max_loop > 1UL << (MINORBITS - part_shift)) {
+		err = -EINVAL;
+		goto misc_out;
+	}
 
 	/*
 	 * If max_loop is specified, create that many devices upfront.
@@ -1771,8 +1879,10 @@ static int __init loop_init(void)
 		range = 1UL << MINORBITS;
 	}
 
-	if (register_blkdev(LOOP_MAJOR, "loop"))
-		return -EIO;
+	if (register_blkdev(LOOP_MAJOR, "loop")) {
+		err = -EIO;
+		goto misc_out;
+	}
 
 	blk_register_region(MKDEV(LOOP_MAJOR, 0), range,
 				  THIS_MODULE, loop_probe, NULL, NULL);
@@ -1785,6 +1895,10 @@ static int __init loop_init(void)
 
 	printk(KERN_INFO "loop: module loaded\n");
 	return 0;
+
+misc_out:
+	misc_deregister(&loop_misc);
+	return err;
 }
 
 static int loop_exit_cb(int id, void *ptr, void *data)

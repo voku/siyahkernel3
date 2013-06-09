@@ -1184,6 +1184,15 @@ config UIDGID_CONVERTED
 	# Filesystems
 	depends on XFS_FS = n
 
+	depends on !UML || HOSTFS = n
+
+	# The rare drivers that won't build
+	depends on ANDROID_BINDER_IPC = n
+
+	# Security modules
+	depends on SECURITY_TOMOYO = n
+	depends on SECURITY_APPARMOR = n
+
 config UIDGID_STRICT_TYPE_CHECKS
 	bool "Require conversions between uid/gids and their internal representation"
 	depends on UIDGID_CONVERTED

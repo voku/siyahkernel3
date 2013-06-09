@@ -1422,8 +1422,8 @@ static void init_cgroup_root(struct cgroupfs_root *root)
 	root->number_of_cgroups = 1;
 	cgrp->root = root;
 	cgrp->top_cgroup = cgrp;
-	list_add_tail(&cgrp->allcg_node, &root->allcg_list);
 	init_cgroup_housekeeping(cgrp);
+	list_add_tail(&cgrp->allcg_node, &root->allcg_list);
 }
 
 static bool init_root_id(struct cgroupfs_root *root)
@@ -2065,7 +2065,7 @@ static int cgroup_attach_proc(struct cgroup *cgrp, struct task_struct *leader)
 	if (!group)
 		return -ENOMEM;
 	/* pre-allocate to guarantee space while iterating in rcu read-side. */
-	retval = flex_array_prealloc(group, 0, group_size, GFP_KERNEL);
+	retval = flex_array_prealloc(group, 0, group_size - 1, GFP_KERNEL);
 	if (retval)
 		goto out_free_group_list;
 
