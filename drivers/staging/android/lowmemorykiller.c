@@ -93,12 +93,24 @@ static bool avoid_to_kill(uid_t uid)
 
 	if (uid == 0 || /* root */
 	   uid == 1001 || /* radio */
+	   uid == 1002 || /* bluetooth */
 	   uid == 1010 || /* wifi */
 	   uid == 1012 || /* install */
 	   uid == 1013 || /* media */
 	   uid == 1014 || /* dhcp */
+	   uid == 1017 || /* keystore */
 	   uid == 1019)	/* drm */
 	{
+		return 1;
+	}
+	return 0;
+}
+
+static bool protected_apps(char *comm)
+{
+	if (strcmp(comm, "d.process.acore") == 0 ||
+                                strcmp(comm, "ndroid.systemui") == 0 ||
+                                strcmp(comm, "d.process.media") == 0) {
 		return 1;
 	}
 	return 0;
@@ -118,7 +130,6 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	int selected_tasksize = 0;
 	short selected_oom_score_adj;
 	int array_size = ARRAY_SIZE(lowmem_adj);
-	bool protected_task = false;
 #ifndef CONFIG_DMA_CMA
 /*	int other_free = global_page_state(NR_FREE_PAGES) -
 					totalreserve_pages; WILL SOD IF USED! */
@@ -193,23 +204,14 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		pcred = __task_cred(p);
 		uid = pcred->uid;
 
-		if (strcmp(p->comm, "d.process.acore") == 0 ||
-				strcmp(p->comm, "ndroid.systemui") == 0 ||
-				strcmp(p->comm, "d.process.media") == 0) {
-			protected_task = true;
-			lowmem_print(1, "lowmemkill: skiped %d (%s), adj %hd, size %d, uid %d\n",
-					p->pid, p->comm, oom_score_adj, tasksize, uid);
-			continue;
-		}
-
-		if (!avoid_to_kill(uid) && !protected_task) {
+		if (!avoid_to_kill(uid) && !protected_apps(p->comm)) {
 			selected = p;
 			selected_tasksize = tasksize;
 			selected_oom_score_adj = oom_score_adj;
 			lowmem_print(2, "select %s' (%d), adj %hd, size %d, to kill\n",
 				 p->comm, p->pid, oom_score_adj, tasksize);
 		} else {
-			lowmem_print(1, "selected skiped %s' (%d), adj %hd, size %d, no to kill\n",
+			lowmem_print(1, "selected skipped %s' (%d), adj %hd, size %d, no to kill\n",
 				 p->comm, p->pid, oom_score_adj, tasksize);
 		}
 	}
@@ -230,7 +232,6 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		force_sig(SIGKILL, selected);
 		set_tsk_thread_flag(selected, TIF_MEMDIE);
 		rem -= selected_tasksize;
-		protected_task = false;
 	}
 	lowmem_print(4, "lowmem_shrink %lu, %x, return %d\n",
 		     sc->nr_to_scan, sc->gfp_mask, rem);
