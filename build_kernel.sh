@@ -84,7 +84,7 @@ if [[ $HOST_CHECK == "dorimanx-virtual-machine" ]]; then
 	NAMBEROFCPUS=32;
 	echo "Dori power detected!";
 else
-	NAMBEROFCPUS=`grep 'processor' /proc/cpuinfo | wc -l`;
+	NAMBEROFCPUS=expr `grep 'processor' /proc/cpuinfo | wc -l` + 1;
 fi;
 
 if [ "${1}" != "" ]; then
