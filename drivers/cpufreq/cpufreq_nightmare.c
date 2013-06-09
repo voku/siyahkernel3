@@ -1257,8 +1257,6 @@ static void nightmare_check_frequency(struct cpufreq_nightmare_cpuinfo *this_nig
 	int freq_for_calc_incr = atomic_read(&nightmare_tuners_ins.freq_for_calc_incr);
 	int freq_for_calc_decr = atomic_read(&nightmare_tuners_ins.freq_for_calc_decr);
 	int dec_cpu_load = atomic_read(&nightmare_tuners_ins.dec_cpu_load);
-	unsigned int min_freq = 0;
-	unsigned int max_freq = 0;
 	unsigned int prev_freq_set = 0;
 
 	for_each_online_cpu(j) {
@@ -1273,18 +1271,19 @@ static void nightmare_check_frequency(struct cpufreq_nightmare_cpuinfo *this_nig
 		int dec_load = 0;
 		unsigned int freq_up = 0;
 		unsigned int freq_down = 0;
+		unsigned int min_freq = 0;
+		unsigned int max_freq = 0;
 
 		cpu_policy = cpufreq_cpu_get(j);
 		if (!cpu_policy) {
 			continue;
 		}
-		// GET MIN MAX FREQ		
+		// GET MIN MAX FREQ
+		min_freq = cpu_policy->min;
+		max_freq = cpu_policy->max;
 		if (earlysuspend) {
 			min_freq = min(cpu_policy->min_suspend,min_freq);
 			max_freq = min(cpu_policy->max_suspend,max_freq);
-		} else {
-			min_freq = cpu_policy->min;
-			max_freq = cpu_policy->max;
 		}
 		cur_load = hotplug_history->usage[num_hist].load[j];
 		/* CPUs Online Scale Frequency*/
@@ -1450,7 +1449,6 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 	unsigned int j;
 	unsigned int min_freq = 0;
 	unsigned int max_freq = 0;
-	bool earlysuspend = 0;
 	bool ignore_nice = atomic_read(&nightmare_tuners_ins.ignore_nice) > 0;
 	int rc;
 
@@ -1539,8 +1537,7 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 		mutex_lock(&this_nightmare_cpuinfo->timer_mutex);
 		min_freq = policy->min;
 		max_freq = policy->max;
-		earlysuspend = atomic_read(&nightmare_tuners_ins.earlysuspend) > 0;
-		if (earlysuspend) {
+		if (atomic_read(&nightmare_tuners_ins.earlysuspend) > 0) {
 			min_freq = min(policy->min_suspend,min_freq);
 			max_freq = min(policy->max_suspend,max_freq);
 		}
