@@ -83,10 +83,14 @@ else
 fi;
 
 if [ $HOST_CHECK == "dorimanx-virtual-machine" ]; then
-	NAMBEROFCPUS=32;
+	NAMBEROFCPUS=16;
 	echo "Dori power detected!";
 else
 	NAMBEROFCPUS=`grep processor /proc/cpuinfo | wc -l`;
+	if [ "$NAMBEROFCPUS" -lt "4" ]; then
+		NAMBEROFCPUS=4;
+		echo "slow system detected, setting 4 build treads"
+	fi;
 fi;
 
 if [ "${1}" != "" ]; then
