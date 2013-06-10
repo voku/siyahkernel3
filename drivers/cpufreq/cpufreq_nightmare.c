@@ -1176,11 +1176,10 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 
 		if (!cpu_online(j)) {
 			continue;
-		} else {
-			cpu_policy = cpufreq_cpu_get(j);
-			if (!cpu_policy) {
-				continue;
-			}
+		}
+		cpu_policy = cpufreq_cpu_get(j);
+		if (!cpu_policy) {
+			continue;
 		}
 
 		if (ignore_nice) {
@@ -1225,7 +1224,6 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 			min_freq = min(cpu_policy->min_suspend,min_freq);
 			max_freq = min(cpu_policy->max_suspend,max_freq);
 		}
-		cur_load = hotplug_history->usage[num_hist].load[j];
 		/* CPUs Online Scale Frequency*/
 		if (cpu_policy->cur < freq_for_responsiveness) {
 			inc_cpu_load = atomic_read(&nightmare_tuners_ins.inc_cpu_load_at_min_freq);
