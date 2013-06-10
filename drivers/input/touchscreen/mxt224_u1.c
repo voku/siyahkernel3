@@ -3637,14 +3637,14 @@ static ssize_t slide2wake_call_store(struct device *dev,
 
 	if (s2w_enabled) {
 		if (slide2wake_call) {
-			copy_data->mxt224_enabled = 0;
 			touch_is_pressed = 0;
+			copy_data->mxt224_enabled = 0;
 			disable_irq(data->client->irq);
 			printk(KERN_INFO "slide2wake: call detected, touch screen is off\n");
 		} else {
+			copy_data->mxt224_enabled = 1;
 			touch_is_pressed = 0;
 			enable_irq(data->client->irq);
-			copy_data->mxt224_enabled = 1;
 			printk(KERN_INFO "slide2wake: no call detected, touch screen is on\n");
 		}
 	}
