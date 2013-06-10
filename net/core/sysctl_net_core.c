@@ -19,6 +19,7 @@
 #include <net/ip.h>
 #include <net/sock.h>
 #include <net/net_ratelimit.h>
+#include <net/ll_poll.h>
 
 static int zero = 0;
 static int ushort_max = USHRT_MAX;
@@ -175,6 +176,15 @@ static struct ctl_table net_core_table[] = {
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
 		.proc_handler	= rps_sock_flow_sysctl
+	},
+#endif
+#ifdef CONFIG_NET_LL_RX_POLL
+	{
+		.procname	= "low_latency_poll",
+		.data		= &sysctl_net_ll_poll,
+		.maxlen		= sizeof(unsigned long),
+		.mode		= 0644,
+		.proc_handler	= proc_doulongvec_minmax
 	},
 #endif
 #endif /* CONFIG_NET */
