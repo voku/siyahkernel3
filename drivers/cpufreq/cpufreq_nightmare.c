@@ -1225,8 +1225,12 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 		if (io_is_busy && idle_time >= iowait_time)
 			idle_time -= iowait_time;
 
+		if (!wall_time || wall_time < idle_time) {
+			continue;
+		}
+
 		cpu_policy = cpufreq_cpu_get(j);
-		if (!wall_time || wall_time < idle_time || !cpu_policy) {
+		if (!cpu_policy) {
 			continue;
 		}
 
