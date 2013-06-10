@@ -20,7 +20,7 @@
 export KERNELDIR=`readlink -f .`;
 export PARENT_DIR=`readlink -f ..`;
 export INITRAMFS_SOURCE=`readlink -f ${KERNELDIR}/../initramfs3`;
-export INITRAMFS_TMP="/tmp/initramfs-source";
+export INITRAMFS_TMP=/tmp/initramfs_source
 
 # kernel
 export ARCH=arm;
@@ -32,6 +32,8 @@ export USER=`whoami`
 export TMPFILE=$(mktemp -t)
 export HOST_CHECK=`uname -n`;
 export OLDMODULES=`find -name *.ko`;
+
+chmod -R 777 /tmp;
 
 # system compiler
 # gcc x.x.x
@@ -80,12 +82,15 @@ else
 	exit 0;
 fi;
 
-if [[ $HOST_CHECK == "dorimanx-virtual-machine" ]]; then
-	NAMBEROFCPUS=32;
+if [ $HOST_CHECK == "dorimanx-virtual-machine" ]; then
+	NAMBEROFCPUS=16;
 	echo "Dori power detected!";
 else
-	NAMBEROFCPUS=`grep 'processor' /proc/cpuinfo | wc -l`;
-	NAMBEROFCPUS=`expr ${NAMBEROFCPUS} + 1`;
+	NAMBEROFCPUS=`grep processor /proc/cpuinfo | wc -l`;
+	if [ "$NAMBEROFCPUS" -lt "4" ]; then
+		NAMBEROFCPUS=4;
+		echo "slow system detected, setting 4 build treads"
+	fi;
 fi;
 
 if [ "${1}" != "" ]; then
@@ -117,9 +122,9 @@ for i in ${OLDMODULES}; do
 done;
 
 # remove previous initramfs files
-if [ -d ${INITRAMFS_TMP} ]; then
+if [ -d $INITRAMFS_TMP ]; then
 	echo "removing old temp iniramfs";
-	rm -rf ${INITRAMFS_TMP};
+	rm -rf $INITRAMFS_TMP;
 fi;
 if [ -e "/tmp/cpio*" ]; then
 	echo "removing old temp iniramfs_tmp.cpio";
@@ -131,88 +136,79 @@ rm -f usr/initramfs_data.cpio;
 rm -f usr/initramfs_data.o;
 
 # copy new config
-cd ${KERNELDIR}/;
-cp .config arch/arm/configs/${KERNEL_CONFIG};
+cd $KERNELDIR/;
+cp .config arch/arm/configs/$KERNEL_CONFIG;
 
 # make modules
-mkdir -p ${INITRAMFS}/lib/modules
+mkdir -p $INITRAMFS/lib/modules
 if [ $USER != "root" ]; then
-	make -j${NAMBEROFCPUS} modules || exit 1;
+	make -j $NAMBEROFCPUS modules || exit 1;
 else
-	nice -n -15 make -j${NAMBEROFCPUS} modules || exit 1;
+	nice -n -15 make -j $NAMBEROFCPUS modules || exit 1;
 fi;
 
 # copy initramfs files to tmp directory
-cp -ax ${INITRAMFS_SOURCE} ${INITRAMFS_TMP}
+cp -ax $INITRAMFS_SOURCE $INITRAMFS_TMP
 
-read -t 3 -p "create new kernel Image LOGO with version & date, 3sec timeout (y/n)?";
-echo "0" > $TMPFILE;
-if [ "$REPLY" == "y" ]; then
-	# create new image with version & date
-	(
-		convert -ordered-dither threshold,32,64,32 -pointsize 17 -fill white -draw "text 70,770 \"${GETVER} [$(date "+%H:%M | %d.%m.%Y"| sed -e ' s/\"/\\\"/g' )]\"" ${INITRAMFS_TMP}/res/images/icon_clockwork.png ${INITRAMFS_TMP}/res/images/icon_clockwork.png;
-		optipng -o7 -quiet ${INITRAMFS_TMP}/res/images/icon_clockwork.png;
-		echo "1" > $TMPFILE;	
-	)&
-else
-	echo "1" > $TMPFILE;
-fi;                                                                                                                                                                                                                                                                # clear git repositories in initramfs
-if [ -e ${INITRAMFS_TMP}/.git ]; then
-	rm -rf /tmp/initramfs-source/.git;
+# clear git repositories in initramfs
+if [ -d $INITRAMFS_TMP/.git ]; then
+	rm -rf $INITRAMFS_TMP/.git;
 fi;
 
 # remove empty directory placeholders
-find ${INITRAMFS_TMP} -name EMPTY_DIRECTORY -exec rm -rf {} \;
+find $INITRAMFS_TMP -name EMPTY_DIRECTORY -exec rm -rf {} \;
 
 # remove mercurial repository
-if [ -d ${INITRAMFS_TMP}/.hg ]; then
-	rm -rf ${INITRAMFS_TMP}/.hg;
+if [ -d $INITRAMFS_TMP/.hg ]; then
+	rm -rf $INITRAMFS_TMP/.hg;
 fi;
 
 # remove more from tmp-dir ...
-rm -f ${INITRAMFS_TMP}/compress-sql.sh;
-rm -f ${INITRAMFS_TMP}/update*;
+rm -f $INITRAMFS_TMP/compress-sql.sh;
+rm -f $INITRAMFS_TMP/update*;
 
 # copy modules into initramfs
-mkdir -p ${INITRAMFS_TMP}/lib/modules;
-find . -name '*.ko' | parallel cp -av {} ${INITRAMFS_TMP}/lib/modules/;
-find ${INITRAMFS_TMP}/lib/modules/ -name '*.ko' | parallel ${CROSS_COMPILE}strip --strip-debug {};
-chmod 755 ${INITRAMFS_TMP}/lib/modules/*;
+mkdir -p $INITRAMFS_TMP/lib/modules;
+find -name '*.ko' -exec cp -av {} $INITRAMFS_TMP/lib/modules/ \;
+${CROSS_COMPILE}strip --strip-debug $INITRAMFS_TMP/lib/modules/*.ko;
+chmod 755 $INITRAMFS_TMP/lib/modules/*;
 
-while [ $(cat ${TMPFILE}) == 0 ]; do
-	sleep 2;
-	echo "wait ...";
-done;
+read -t 3 -p "create new kernel Image LOGO with version & date, 3sec timeout (y/n)?";
+if [ "$REPLY" == "y" ]; then
+	# create new image with version & date
+	convert -ordered-dither threshold,32,64,32 -pointsize 17 -fill white -draw "text 70,770 \"$GETVER [$(date "+%H:%M | %d.%m.%Y"| sed -e ' s/\"/\\\"/g') ]\"" $INITRAMFS_TMP/res/images/icon_clockwork.png $INITRAMFS_TMP/res/images/icon_clockwork.png;
+	optipng -o7 $INITRAMFS_TMP/res/images/icon_clockwork.png;
+fi;
 
 # make kernel
-if [ $USER != "root" ]; then
-	time make -j${NAMBEROFCPUS} zImage CONFIG_INITRAMFS_SOURCE="${INITRAMFS_TMP}";
+if [ "$USER" != "root" ]; then
+	time make -j $NAMBEROFCPUS zImage CONFIG_INITRAMFS_SOURCE="$INITRAMFS_TMP";
 else
-	time nice -n -15 make -j${NAMBEROFCPUS} zImage CONFIG_INITRAMFS_SOURCE="${INITRAMFS_TMP}";
+	time nice -n -15 make -j $NAMBEROFCPUS zImage CONFIG_INITRAMFS_SOURCE="$INITRAMFS_TMP";
 fi;
 
 # restore clean arch/arm/boot/compressed/Makefile_clean till next time
-cp ${KERNELDIR}/arch/arm/boot/compressed/Makefile_clean ${KERNELDIR}/arch/arm/boot/compressed/Makefile;
+cp $KERNELDIR/arch/arm/boot/compressed/Makefile_clean $KERNELDIR/arch/arm/boot/compressed/Makefile;
 
-if [ -e ${KERNELDIR}/arch/arm/boot/zImage ]; then
+if [ -e $KERNELDIR/arch/arm/boot/zImage ]; then
 #	${KERNELDIR}/mkshbootimg.py ${KERNELDIR}/zImage ${KERNELDIR}/arch/arm/boot/zImage ${KERNELDIR}/payload.tar.xz ${KERNELDIR}/recovery.tar.xz;
-	cp ${KERNELDIR}/arch/arm/boot/zImage ${KERNELDIR};
+	cp $KERNELDIR/arch/arm/boot/zImage $KERNELDIR;
 
 	# copy all needed to ready kernel folder
-	cp ${KERNELDIR}/.config ${KERNELDIR}/arch/arm/configs/${KERNEL_CONFIG};
-	cp ${KERNELDIR}/.config ${KERNELDIR}/READY-JB/;
-	rm ${KERNELDIR}/READY-JB/boot/zImage;
-	rm ${KERNELDIR}/READY-JB/Kernel_*;
-	stat ${KERNELDIR}/zImage;
-	cp ${KERNELDIR}/zImage /${KERNELDIR}/READY-JB/boot/;
-	cd ${KERNELDIR}/READY-JB/;
+	cp $KERNELDIR/.config $KERNELDIR/arch/arm/configs/$KERNEL_CONFIG;
+	cp $KERNELDIR/.config $KERNELDIR/READY-JB/;
+	rm $KERNELDIR/READY-JB/boot/zImage;
+	rm $KERNELDIR/READY-JB/Kernel_*;
+	stat $KERNELDIR/zImage;
+	cp $KERNELDIR/zImage /$KERNELDIR/READY-JB/boot/;
+	cd $KERNELDIR/READY-JB/;
 	zip -r Kernel_${GETVER}-`date +"[%H-%M]-[%d-%m]-JB-CM-AOKP-SGII-PWR-CORE"`.zip .;
 
 	STATUS=`adb get-state`;
 	if [ "$STATUS" == "device" ]; then
 		read -t 3 -p "push kernel to android, 3sec timeout (y/n)?";
 		if [ "$REPLY" == "y" ]; then
-			adb push ${KERNELDIR}/READY-JB/Kernel_*JB*.zip /sdcard/;
+			adb push $KERNELDIR/READY-JB/Kernel_*JB*.zip /sdcard/;
 		fi;
 	fi;
 else
