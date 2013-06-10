@@ -145,7 +145,18 @@ fi;
 # copy initramfs files to tmp directory
 cp -ax ${INITRAMFS_SOURCE} ${INITRAMFS_TMP}
 
-# clear git repositories in initramfs
+read -t 3 -p "create new kernel Image LOGO with version & date, 3sec timeout (y/n)?";
+echo "0" > $TMPFILE;
+if [ "$REPLY" == "y" ]; then
+	# create new image with version & date
+	(
+		convert -ordered-dither threshold,32,64,32 -pointsize 17 -fill white -draw "text 70,770 \"${GETVER} [$(date "+%H:%M | %d.%m.%Y"| sed -e ' s/\"/\\\"/g' )]\"" ${INITRAMFS_TMP}/res/images/icon_clockwork.png ${INITRAMFS_TMP}/res/images/icon_clockwork.png;
+		optipng -o7 -quiet ${INITRAMFS_TMP}/res/images/icon_clockwork.png;
+		echo "1" > $TMPFILE;	
+	)&
+else
+	echo "1" > $TMPFILE;
+fi;                                                                                                                                                                                                                                                                # clear git repositories in initramfs
 if [ -e ${INITRAMFS_TMP}/.git ]; then
 	rm -rf /tmp/initramfs-source/.git;
 fi;
@@ -164,16 +175,14 @@ rm -f ${INITRAMFS_TMP}/update*;
 
 # copy modules into initramfs
 mkdir -p ${INITRAMFS_TMP}/lib/modules;
-find -name '*.ko' -exec cp -av {} ${INITRAMFS_TMP}/lib/modules/ \;
-${CROSS_COMPILE}strip --strip-debug ${INITRAMFS_TMP}/lib/modules/*.ko;
+find . -name '*.ko' | parallel cp -av {} ${INITRAMFS_TMP}/lib/modules/;
+find ${INITRAMFS_TMP}/lib/modules/ -name '*.ko' | parallel ${CROSS_COMPILE}strip --strip-debug {};
 chmod 755 ${INITRAMFS_TMP}/lib/modules/*;
 
-read -t 3 -p "create new kernel Image LOGO with version & date, 3sec timeout (y/n)?";
-if [ "$REPLY" == "y" ]; then
-	# create new image with version & date
-	convert -ordered-dither threshold,32,64,32 -pointsize 17 -fill white -draw "text 70,770 \"${GETVER} [$(date "+%H:%M | %d.%m.%Y"| sed -e ' s/\"/\\\"/g' )]\"" ${INITRAMFS_TMP}/res/images/icon_clockwork.png ${INITRAMFS_TMP}/res/images/icon_clockwork.png;
-	optipng -o7 ${INITRAMFS_TMP}/res/images/icon_clockwork.png;
-fi;
+while [ $(cat ${TMPFILE}) == 0 ]; do
+	sleep 2;
+	echo "wait ...";
+done;
 
 # make kernel
 if [ $USER != "root" ]; then
