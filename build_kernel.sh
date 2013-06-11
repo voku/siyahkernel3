@@ -123,7 +123,7 @@ done;
 
 # remove previous initramfs files
 if [ -d $INITRAMFS_TMP ]; then
-	echo "removing old temp iniramfs";
+	echo "removing old temp initramfs_source";
 	rm -rf $INITRAMFS_TMP;
 fi;
 if [ -e "/tmp/cpio*" ]; then
