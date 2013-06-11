@@ -25,7 +25,6 @@
 #include <linux/smp.h>
 #include <linux/smpboot.h>
 #include <linux/tick.h>
-#include <linux/sched/rt.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/irq.h>
