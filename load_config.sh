@@ -1,2 +1,4 @@
-cp arch/arm/configs/dorimanx_defconfig .config
+#!/bin/bash
+
+cp arch/arm/configs/dorimanx_defconfig .config;
 

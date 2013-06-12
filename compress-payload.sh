@@ -1,10 +1,12 @@
-#!/bin/sh
-cd PAYLOAD
+#!/bin/bash
 
-rm -f ../payload.ta*
-tar -cvJ --xz . > payload.tar.xz
-stat payload.tar.xz
-mv payload.tar.xz ../
-cd ..
+# create a *.tar.xz archive
+tar -C PAYLOAD/ -cvpf - . | xz -9 -c - > payload_new.tar.xz;
+
+# check 
+stat payload_new.tar.xz || exit 1;
+
+# overwrite
+mv payload_new.tar.xz payload.tar.xz;
+
 echo "all done"
-
