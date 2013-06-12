@@ -30,6 +30,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 File modified for the Linux Kernel by
 Zeev Tarantov <zeev.tarantov@gmail.com>
+
+File modified for Sereal by
+Steffen Mueller <smueller@cpan.org>
 */
 
 #include "csnappy_internal.h"
@@ -40,7 +43,7 @@ Zeev Tarantov <zeev.tarantov@gmail.com>
 #include "csnappy.h"
 
 
-static inline char*
+static INLINE char*
 encode_varint32(char *sptr, uint32_t v)
 {
 	uint8_t* ptr = (uint8_t *)sptr;
@@ -69,16 +72,17 @@ encode_varint32(char *sptr, uint32_t v)
 	return (char *)ptr;
 }
 
-// The size of a compression block. Note that many parts of the compression
-// code assumes that kBlockSize <= 65536; in particular, the hash table
-// can only store 16-bit offsets, and EmitCopy() also assumes the offset
-// is 65535 bytes or less. Note also that if you change this, it will
-// affect the framing format (see framing_format.txt).
-//
-// Note that there might be older data around that is compressed with larger
-// block sizes, so the decompression code should not rely on the
-// non-existence of long backreferences.
-#define kBlockLog 16
+/*
+ * *** DO NOT CHANGE THE VALUE OF kBlockSize ***
+
+ * New Compression code chops up the input into blocks of at most
+ * the following size.  This ensures that back-references in the
+ * output never cross kBlockSize block boundaries.  This can be
+ * helpful in implementing blocked decompression.  However the
+ * decompression code should not rely on this guarantee since older
+ * compression code may not obey it.
+ */
+#define kBlockLog 15
 #define kBlockSize (1 << kBlockLog)
 
 
@@ -139,10 +143,12 @@ static uint8_t* emit_copy(
 	DCHECK_GE(len, 4);
 	if ((len < 12) && (offset < 2048)) {
 		int len_minus_4 = len - 4;
-		*op++ = COPY_1_BYTE_OFFSET + ((len_minus_4) << 2) + ((offset >> 8) << 5);
+		*op++ = COPY_1_BYTE_OFFSET   |
+			((len_minus_4) << 2) |
+			((offset >> 8) << 5);
 		*op++ = offset & 0xff;
 	} else {
-		*op++ = COPY_2_BYTE_OFFSET + ((len-1) << 2);
+		*op++ = COPY_2_BYTE_OFFSET | ((len-1) << 2);
 		*op++ = offset & 255;
 		*op++ = offset >> 8;
 	}
@@ -219,12 +225,12 @@ the_end:
  * input. Of course, it doesn't hurt if the hash function is reasonably fast
  * either, as it gets called a lot.
  */
-static inline uint32_t HashBytes(uint32_t bytes, int shift)
+static INLINE uint32_t HashBytes(uint32_t bytes, int shift)
 {
 	uint32_t kMul = 0x1e35a7bd;
 	return (bytes * kMul) >> shift;
 }
-static inline uint32_t Hash(const char *p, int shift)
+static INLINE uint32_t Hash(const char *p, int shift)
 {
 	return HashBytes(UNALIGNED_LOAD32(p), shift);
 }
@@ -244,7 +250,7 @@ static inline uint32_t Hash(const char *p, int shift)
  * x86_64 is little endian.
  */
 #if defined(__x86_64__)
-static inline int
+static INLINE int
 FindMatchLength(const char *s1, const char *s2, const char *s2_limit)
 {
 	uint64_t x;
@@ -288,7 +294,7 @@ FindMatchLength(const char *s1, const char *s2, const char *s2_limit)
 	return matched;
 }
 #else /* !defined(__x86_64__) */
-static inline int
+static INLINE int
 FindMatchLength(const char *s1, const char *s2, const char *s2_limit)
 {
 	/* Implementation based on the x86-64 version, above. */
@@ -323,7 +329,7 @@ FindMatchLength(const char *s1, const char *s2, const char *s2_limit)
 #endif /* !defined(__x86_64__) */
 
 
-static inline char*
+static INLINE char*
 EmitLiteral(char *op, const char *literal, int len, int allow_fast_path)
 {
 	int n = len - 1; /* Zero-length literals are disallowed */
@@ -364,7 +370,7 @@ EmitLiteral(char *op, const char *literal, int len, int allow_fast_path)
 	return op + len;
 }
 
-static inline char*
+static INLINE char*
 EmitCopyLessThan64(char *op, int offset, int len)
 {
 	DCHECK_LE(len, 64);
@@ -374,19 +380,19 @@ EmitCopyLessThan64(char *op, int offset, int len)
 	if ((len < 12) && (offset < 2048)) {
 		int len_minus_4 = len - 4;
 		DCHECK_LT(len_minus_4, 8); /* Must fit in 3 bits */
-		*op++ = COPY_1_BYTE_OFFSET   |
-			((len_minus_4) << 2) |
+		*op++ = COPY_1_BYTE_OFFSET   +
+			((len_minus_4) << 2) +
 			((offset >> 8) << 5);
 		*op++ = offset & 0xff;
 	} else {
-		*op++ = COPY_2_BYTE_OFFSET | ((len-1) << 2);
+		*op++ = COPY_2_BYTE_OFFSET + ((len-1) << 2);
 		put_unaligned_le16(offset, op);
 		op += 2;
 	}
 	return op;
 }
 
-static inline char*
+static INLINE char*
 EmitCopy(char *op, int offset, int len)
 {
 	/* Emit 64 byte copies but make sure to keep at least four bytes
@@ -417,7 +423,7 @@ empirically found that overlapping loads such as
 are slower than UNALIGNED_LOAD64(p) followed by shifts and casts to uint32.
 
 We have different versions for 64- and 32-bit; ideally we would avoid the
-two functions and just inline the UNALIGNED_LOAD64 call into
+two functions and just INLINE the UNALIGNED_LOAD64 call into
 GetUint32AtOffset, but GCC (at least not as of 4.6) is seemingly not clever
 enough to avoid loading the value multiple times then. For 64-bit, the load
 is done when GetEightBytesAt() is called, whereas for 32-bit, the load is
@@ -428,11 +434,11 @@ done at GetUint32AtOffset() time.
 
 typedef uint64_t EightBytesReference;
 
-static inline EightBytesReference GetEightBytesAt(const char* ptr) {
+static INLINE EightBytesReference GetEightBytesAt(const char* ptr) {
 	return UNALIGNED_LOAD64(ptr);
 }
 
-static inline uint32_t GetUint32AtOffset(uint64_t v, int offset) {
+static INLINE uint32_t GetUint32AtOffset(uint64_t v, int offset) {
 	DCHECK_GE(offset, 0);
 	DCHECK_LE(offset, 4);
 #ifdef __LITTLE_ENDIAN
@@ -446,11 +452,11 @@ static inline uint32_t GetUint32AtOffset(uint64_t v, int offset) {
 
 typedef const char* EightBytesReference;
 
-static inline EightBytesReference GetEightBytesAt(const char* ptr) {
+static INLINE EightBytesReference GetEightBytesAt(const char* ptr) {
 	return ptr;
 }
 
-static inline uint32_t GetUint32AtOffset(const char* v, int offset) {
+static INLINE uint32_t GetUint32AtOffset(const char* v, int offset) {
 	DCHECK_GE(offset, 0);
 	DCHECK_LE(offset, 4);
 	return UNALIGNED_LOAD32(v + offset);
