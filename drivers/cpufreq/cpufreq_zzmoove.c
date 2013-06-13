@@ -204,7 +204,7 @@
 #include <linux/sched.h>
 #include <linux/earlysuspend.h>
 
-// cpu load trigger
+/* cpu load trigger */
 #define DEF_SMOOTH_UP (75)
 
 /*
@@ -212,22 +212,22 @@
  * It helps to keep variable names smaller, simpler
  */
 
-// ZZ: midnight and zzmoove default values
+/* ZZ: midnight and zzmoove default values */
 #define DEF_FREQUENCY_UP_THRESHOLD		(70)
-#define DEF_FREQUENCY_UP_THRESHOLD_HOTPLUG1	(68)	// ZZ: default for hotplug up threshold for cpu1 (cpu0 stays allways on)
+#define DEF_FREQUENCY_UP_THRESHOLD_HOTPLUG1	(68)	/* ZZ: default for hotplug up threshold for cpu1 (cpu0 stays allways on) */
 #define DEF_FREQUENCY_DOWN_THRESHOLD		(52)
-#define DEF_FREQUENCY_DOWN_THRESHOLD_HOTPLUG1	(55)	// ZZ: default for hotplug down threshold for cpu1 (cpu0 stays allways on)
-#define DEF_IGNORE_NICE				(0)	// ZZ: default for ignore nice load
-#define DEF_FREQ_STEP				(5)	// ZZ: default for freq step at awake
-#define DEF_FREQ_STEP_SLEEP			(5)	// ZZ: default for freq step at early suspend
+#define DEF_FREQUENCY_DOWN_THRESHOLD_HOTPLUG1	(55)	/* ZZ: default for hotplug down threshold for cpu1 (cpu0 stays allways on) */
+#define DEF_IGNORE_NICE				(0)	/* ZZ: default for ignore nice load */
+#define DEF_FREQ_STEP				(5)	/* ZZ: default for freq step at awake */
+#define DEF_FREQ_STEP_SLEEP			(5)	/* ZZ: default for freq step at early suspend */
 
-// ZZ: LCDFreq Scaling default values
+/* ZZ: LCDFreq Scaling default values */
 #ifdef CONFIG_CPU_FREQ_LCD_FREQ_DFS
-#define LCD_FREQ_KICK_IN_DOWN_DELAY		(20)	// ZZ: default for kick in down delay
-#define LCD_FREQ_KICK_IN_UP_DELAY		(50)	// ZZ: default for kick in up delay
-#define LCD_FREQ_KICK_IN_FREQ			(500000)// ZZ: default kick in frequency
-#define LCD_FREQ_KICK_IN_CORES			(0)	// ZZ: number of cores which should be online before kicking in
-extern int _lcdfreq_lock(int lock);			// ZZ: external lcdfreq lock function
+#define LCD_FREQ_KICK_IN_DOWN_DELAY		(20)	/* ZZ: default for kick in down delay */
+#define LCD_FREQ_KICK_IN_UP_DELAY		(50)	/* ZZ: default for kick in up delay */
+#define LCD_FREQ_KICK_IN_FREQ			(500000)/* ZZ: default kick in frequency */
+#define LCD_FREQ_KICK_IN_CORES			(0)	/* ZZ: number of cores which should be online before kicking in */
+extern int _lcdfreq_lock(int lock);			/* ZZ: external lcdfreq lock function */
 #endif
 
 /*
@@ -243,106 +243,106 @@ extern int _lcdfreq_lock(int lock);			// ZZ: external lcdfreq lock function
 
 #define MIN_SAMPLING_RATE_RATIO			(2)
 
-// ZZ: Sampling down momentum variables
-static unsigned int min_sampling_rate;			// ZZ: minimal possible sampling rate
-static unsigned int orig_sampling_down_factor;		// ZZ: for saving previously set sampling down factor
-static unsigned int orig_sampling_down_max_mom;		// ZZ: for saving previously set smapling down max momentum
+/* ZZ: Sampling down momentum variables */
+static unsigned int min_sampling_rate;			/* ZZ: minimal possible sampling rate */
+static unsigned int orig_sampling_down_factor;		/* ZZ: for saving previously set sampling down factor */
+static unsigned int orig_sampling_down_max_mom;		/* ZZ: for saving previously set smapling down max momentum */
 
-// ZZ: search limit for frequencies in scaling array, variables for scaling modes and state flags for deadlock fix/suspend detection
-static unsigned int max_scaling_freq_soft = 0;		// ZZ: init value for "soft" scaling = 0 full range
-static unsigned int max_scaling_freq_hard = 0;		// ZZ: init value for "hard" scaling = 0 full range
-static unsigned int suspend_flag = 0;			// ZZ: init value for suspend status. 1 = in early suspend
-static unsigned int skip_hotplug_flag = 1;		// ZZ: initial start without hotplugging to fix lockup issues
-static unsigned int fast_scaling_down = 0;		// ZZ: init fast scaling without fast "down" scaling
-static unsigned int scaling_mode;			// ZZ: fast scaling up or up/down mode holding updown value during runtime
+/* ZZ: search limit for frequencies in scaling array, variables for scaling modes and state flags for deadlock fix/suspend detection */
+static unsigned int max_scaling_freq_soft = 0;		/* ZZ: init value for "soft" scaling = 0 full range */
+static unsigned int max_scaling_freq_hard = 0;		/* ZZ: init value for "hard" scaling = 0 full range */
+static unsigned int suspend_flag = 0;			/* ZZ: init value for suspend status. 1 = in early suspend */
+static unsigned int skip_hotplug_flag = 1;		/* ZZ: initial start without hotplugging to fix lockup issues */
+static unsigned int fast_scaling_down = 0;		/* ZZ: init fast scaling without fast "down" scaling */
+static unsigned int scaling_mode;			/* ZZ: fast scaling up or up/down mode holding updown value during runtime */
 
-// raise sampling rate to SR*multiplier and adjust sampling rate/thresholds/hotplug/scaling/freq limit/freq step on blank screen
+/* raise sampling rate to SR*multiplier and adjust sampling rate/thresholds/hotplug/scaling/freq limit/freq step on blank screen */
 
-// ZZ: LCDFreq scaling
+/* ZZ: LCDFreq scaling */
 #ifdef CONFIG_CPU_FREQ_LCD_FREQ_DFS
-static int lcdfreq_lock_current = 0;			// ZZ: LCDFreq scaling lock switch
-static int prev_lcdfreq_lock_current;			// ZZ: for saving previously set lock state
-static int prev_lcdfreq_enable;				// ZZ: for saving previously set enabled state
+static int lcdfreq_lock_current = 0;			/* ZZ: LCDFreq scaling lock switch */
+static int prev_lcdfreq_lock_current;			/* ZZ: for saving previously set lock state */
+static int prev_lcdfreq_enable;				/* ZZ: for saving previously set enabled state */
 #endif
 static unsigned int sampling_rate_awake;
 static unsigned int up_threshold_awake;
 static unsigned int down_threshold_awake;
 static unsigned int smooth_up_awake;
-static unsigned int freq_limit_awake;			// ZZ: for saving freqency limit awake value
-static unsigned int fast_scaling_awake;			// ZZ: for saving fast scaling awake value
-static unsigned int freq_step_awake;			// ZZ: for saving frequency step awake value
-static unsigned int hotplug1_awake;			// ZZ: for saving hotplug1 threshold awake value
-static unsigned int sampling_rate_asleep;		// ZZ: for setting sampling rate value on early suspend
-static unsigned int up_threshold_asleep;		// ZZ: for setting up threshold value on early suspend
-static unsigned int down_threshold_asleep;		// ZZ: for setting down threshold value on early suspend
-static unsigned int smooth_up_asleep;			// ZZ: for setting smooth scaling value on early suspend
-static unsigned int freq_limit_asleep;			// ZZ: for setting frequency limit value on early suspend
-static unsigned int fast_scaling_asleep;		// ZZ: for setting fast scaling value on early suspend
-static unsigned int freq_step_asleep;			// ZZ: for setting freq step value on early suspend
+static unsigned int freq_limit_awake;			/* ZZ: for saving freqency limit awake value */
+static unsigned int fast_scaling_awake;			/* ZZ: for saving fast scaling awake value */
+static unsigned int freq_step_awake;			/* ZZ: for saving frequency step awake value */
+static unsigned int hotplug1_awake;			/* ZZ: for saving hotplug1 threshold awake value */
+static unsigned int sampling_rate_asleep;		/* ZZ: for setting sampling rate value on early suspend */
+static unsigned int up_threshold_asleep;		/* ZZ: for setting up threshold value on early suspend */
+static unsigned int down_threshold_asleep;		/* ZZ: for setting down threshold value on early suspend */
+static unsigned int smooth_up_asleep;			/* ZZ: for setting smooth scaling value on early suspend */
+static unsigned int freq_limit_asleep;			/* ZZ: for setting frequency limit value on early suspend */
+static unsigned int fast_scaling_asleep;		/* ZZ: for setting fast scaling value on early suspend */
+static unsigned int freq_step_asleep;			/* ZZ: for setting freq step value on early suspend */
 
-// ZZ: midnight and zzmoove momentum defaults
+/* ZZ: midnight and zzmoove momentum defaults */
 #define LATENCY_MULTIPLIER			(1000)
 #define MIN_LATENCY_MULTIPLIER			(20)
-#define DEF_SAMPLING_DOWN_FACTOR		(1)	// ZZ: default for sampling down factor (stratosk default = 4) here disabled by default
-#define MAX_SAMPLING_DOWN_FACTOR		(100000)// ZZ: changed from 10 to 100000 for sampling down momentum implementation
+#define DEF_SAMPLING_DOWN_FACTOR		(1)	/* ZZ: default for sampling down factor (stratosk default = 4) here disabled by default */
+#define MAX_SAMPLING_DOWN_FACTOR		(100000)/* ZZ: changed from 10 to 100000 for sampling down momentum implementation */
 #define TRANSITION_LATENCY_LIMIT		(10 * 1000 * 1000)
 
-// ZZ: Sampling down momentum
-#define DEF_SAMPLING_DOWN_MOMENTUM		(0)	// ZZ: sampling down momentum disabled by default
-#define DEF_SAMPLING_DOWN_MAX_MOMENTUM		(0)	// ZZ: default for tuneable sampling_down_max_momentum stratosk default=16, here disabled by default
-#define DEF_SAMPLING_DOWN_MOMENTUM_SENSITIVITY  (50)	// ZZ: default for tuneable sampling_down_momentum_sensitivity
-#define MAX_SAMPLING_DOWN_MOMENTUM_SENSITIVITY  (1000)	// ZZ: max value for tuneable sampling_down_momentum_sensitivity
+/* ZZ: Sampling down momentum */
+#define DEF_SAMPLING_DOWN_MOMENTUM		(0)	/* ZZ: sampling down momentum disabled by default */
+#define DEF_SAMPLING_DOWN_MAX_MOMENTUM		(0)	/* ZZ: default for tuneable sampling_down_max_momentum stratosk default=16, here disabled by default */
+#define DEF_SAMPLING_DOWN_MOMENTUM_SENSITIVITY  (50)	/* ZZ: default for tuneable sampling_down_momentum_sensitivity */
+#define MAX_SAMPLING_DOWN_MOMENTUM_SENSITIVITY  (1000)	/* ZZ: max value for tuneable sampling_down_momentum_sensitivity */
 
-// ZZ: midnight and zzmoove defaults for suspend
-#define DEF_SAMPLING_RATE_SLEEP_MULTIPLIER	(2)	// ZZ: default for tuneable sampling_rate_sleep_multiplier
-#define MAX_SAMPLING_RATE_SLEEP_MULTIPLIER	(4)	// ZZ: maximum for tuneable sampling_rate_sleep_multiplier
-#define DEF_UP_THRESHOLD_SLEEP			(80)	// ZZ: default for tuneable up_threshold_sleep
-#define DEF_DOWN_THRESHOLD_SLEEP		(44)	// ZZ: default for tuneable down_threshold_sleep
-#define DEF_SMOOTH_UP_SLEEP			(100)	// ZZ: default for tuneable smooth_up_sleep
-
-/*
-* ZZ: Hotplug Sleep: 0 do not touch hotplug settings on early suspend, so all cores will be online
-* values 1, equivalent to cores which should be online on early suspend
-*/
-
-#define DEF_HOTPLUG_SLEEP			(0)	// ZZ: default for tuneable hotplug_sleep
-#define DEF_GRAD_UP_THRESHOLD			(25)	// ZZ: default for grad up threshold
+/* ZZ: midnight and zzmoove defaults for suspend */
+#define DEF_SAMPLING_RATE_SLEEP_MULTIPLIER	(2)	/* ZZ: default for tuneable sampling_rate_sleep_multiplier */
+#define MAX_SAMPLING_RATE_SLEEP_MULTIPLIER	(4)	/* ZZ: maximum for tuneable sampling_rate_sleep_multiplier */
+#define DEF_UP_THRESHOLD_SLEEP			(80)	/* ZZ: default for tuneable up_threshold_sleep */
+#define DEF_DOWN_THRESHOLD_SLEEP		(44)	/* ZZ: default for tuneable down_threshold_sleep */
+#define DEF_SMOOTH_UP_SLEEP			(100)	/* ZZ: default for tuneable smooth_up_sleep */
 
 /*
-* ZZ: Frequency Limit: 0 do not limit frequency and use the full range up to cpufreq->max limit
-* values 100000 -> 1600000 (khz)
-*/
+ * ZZ: Hotplug Sleep: 0 do not touch hotplug settings on early suspend, so all cores will be online
+ * values 1, equivalent to cores which should be online on early suspend
+ */
 
-#define DEF_FREQ_LIMIT				(0)	// ZZ: default for tuneable freq_limit
-#define DEF_FREQ_LIMIT_SLEEP			(0)	// ZZ: default for tuneable freq_limit_sleep
+#define DEF_HOTPLUG_SLEEP			(0)	/* ZZ: default for tuneable hotplug_sleep */
+#define DEF_GRAD_UP_THRESHOLD			(25)	/* ZZ: default for grad up threshold */
 
 /*
-* ZZ: Fast Scaling: 0 do not activate fast scaling function
-* values 1-4 to enable fast scaling with normal down scaling 5-8 to enable fast scaling with fast up and down scaling
-*/
+ * ZZ: Frequency Limit: 0 do not limit frequency and use the full range up to cpufreq->max limit
+ * values 100000 -> 1600000 (khz)
+ */
 
-#define DEF_FAST_SCALING			(0)	// ZZ: default for tuneable fast_scaling
-#define DEF_FAST_SCALING_SLEEP			(0)	// ZZ: default for tuneable fast_scaling_sleep
+#define DEF_FREQ_LIMIT				(0)	/* ZZ: default for tuneable freq_limit */
+#define DEF_FREQ_LIMIT_SLEEP			(0)	/* ZZ: default for tuneable freq_limit_sleep */
+
+/*
+ * ZZ: Fast Scaling: 0 do not activate fast scaling function
+ * values 1-4 to enable fast scaling with normal down scaling 5-8 to enable fast scaling with fast up and down scaling
+ */
+
+#define DEF_FAST_SCALING			(0)	/* ZZ: default for tuneable fast_scaling */
+#define DEF_FAST_SCALING_SLEEP			(0)	/* ZZ: default for tuneable fast_scaling_sleep */
 
 static void do_dbs_timer(struct work_struct *work);
 
 struct cpu_dbs_info_s {
-	u64 time_in_idle;				// ZZ: added exit time handling
-	u64 idle_exit_time;				// ZZ: added exit time handling
+	u64 time_in_idle;				/* ZZ: added exit time handling */
+	u64 idle_exit_time;				/* ZZ: added exit time handling */
 	u64 prev_cpu_idle;
 	u64 prev_cpu_wall;
 	unsigned int prev_cpu_wall_delta;
 	cputime64_t prev_cpu_nice;
 	struct cpufreq_policy *cur_policy;
 	struct delayed_work work;
-	unsigned int down_skip;				// ZZ: Smapling down reactivated
-	unsigned int check_cpu_skip;			// ZZ: check_cpu skip counter (to avoid potential deadlock because of double locks from hotplugging)
+	unsigned int down_skip;				/* ZZ: Smapling down reactivated */
+	unsigned int check_cpu_skip;			/* ZZ: check_cpu skip counter (to avoid potential deadlock because of double locks from hotplugging) */
 	unsigned int requested_freq;
-	unsigned int rate_mult;				// ZZ: Sampling down momentum sampling rate multiplier
-	unsigned int momentum_adder;			// ZZ: Sampling down momentum adder
+	unsigned int rate_mult;				/* ZZ: Sampling down momentum sampling rate multiplier */
+	unsigned int momentum_adder;			/* ZZ: Sampling down momentum adder */
 	int cpu;
 	unsigned int enable:1;
-	unsigned int prev_load;				// ZZ: Early demand var for previous load
+	unsigned int prev_load;				/* ZZ: Early demand var for previous load */
 	/*
 	 * percpu mutex that serializes governor limit change with
 	 * do_dbs_timer invocation. We do not want do_dbs_timer to run
@@ -361,73 +361,73 @@ static DEFINE_MUTEX(dbs_mutex);
 
 static struct dbs_tuners {
 	unsigned int sampling_rate;
-	unsigned int sampling_rate_sleep_multiplier;	// ZZ: added tuneable sampling_rate_sleep_multiplier
-	unsigned int sampling_down_factor;		// ZZ: Sampling down factor (reactivated)
-	unsigned int sampling_down_momentum;		// ZZ: Sampling down momentum tuneable
-	unsigned int sampling_down_max_mom;		// ZZ: Sampling down momentum max tuneable
-	unsigned int sampling_down_mom_sens;		// ZZ: Sampling down momentum sensitivity
+	unsigned int sampling_rate_sleep_multiplier;	/* ZZ: added tuneable sampling_rate_sleep_multiplier */
+	unsigned int sampling_down_factor;		/* ZZ: Sampling down factor (reactivated) */
+	unsigned int sampling_down_momentum;		/* ZZ: Sampling down momentum tuneable */
+	unsigned int sampling_down_max_mom;		/* ZZ: Sampling down momentum max tuneable */
+	unsigned int sampling_down_mom_sens;		/* ZZ: Sampling down momentum sensitivity */
 	unsigned int up_threshold;
-	unsigned int up_threshold_hotplug1;		// ZZ: added tuneable up_threshold_hotplug1 for core1
-	unsigned int up_threshold_sleep;		// ZZ: added tuneable up_threshold_sleep for early suspend
+	unsigned int up_threshold_hotplug1;		/* ZZ: added tuneable up_threshold_hotplug1 for core1 */
+	unsigned int up_threshold_sleep;		/* ZZ: added tuneable up_threshold_sleep for early suspend */
 	unsigned int down_threshold;
-	unsigned int down_threshold_hotplug1;		// ZZ: added tuneable down_threshold_hotplug1 for core1
-	unsigned int down_threshold_sleep;		// ZZ: added tuneable down_threshold_sleep for early suspend
+	unsigned int down_threshold_hotplug1;		/* ZZ: added tuneable down_threshold_hotplug1 for core1 */
+	unsigned int down_threshold_sleep;		/* ZZ: added tuneable down_threshold_sleep for early suspend */
 	unsigned int ignore_nice;
 	unsigned int freq_step;
-	unsigned int freq_step_sleep;			// ZZ: added tuneable freq_step_sleep for early suspend
+	unsigned int freq_step_sleep;			/* ZZ: added tuneable freq_step_sleep for early suspend */
 	unsigned int smooth_up;
-	unsigned int smooth_up_sleep;			// ZZ: added tuneable smooth_up_sleep for early suspend
-	unsigned int hotplug_sleep;			// ZZ: added tuneable hotplug_sleep for early suspend
-	unsigned int freq_limit;			// ZZ: added tuneable freq_limit
-	unsigned int freq_limit_sleep;			// ZZ: added tuneable freq_limit_sleep
-	unsigned int fast_scaling;			// ZZ: added tuneable fast_scaling
-	unsigned int fast_scaling_sleep;		// ZZ: added tuneable fast_scaling_sleep
-	unsigned int grad_up_threshold;			// ZZ: Early demand grad up threshold tuneable
-	unsigned int early_demand;			// ZZ: Early demand master switch
-	unsigned int disable_hotplug;			// ZZ: Hotplug switch
+	unsigned int smooth_up_sleep;			/* ZZ: added tuneable smooth_up_sleep for early suspend */
+	unsigned int hotplug_sleep;			/* ZZ: added tuneable hotplug_sleep for early suspend */
+	unsigned int freq_limit;			/* ZZ: added tuneable freq_limit */
+	unsigned int freq_limit_sleep;			/* ZZ: added tuneable freq_limit_sleep */
+	unsigned int fast_scaling;			/* ZZ: added tuneable fast_scaling */
+	unsigned int fast_scaling_sleep;		/* ZZ: added tuneable fast_scaling_sleep */
+	unsigned int grad_up_threshold;			/* ZZ: Early demand grad up threshold tuneable */
+	unsigned int early_demand;			/* ZZ: Early demand master switch */
+	unsigned int disable_hotplug;			/* ZZ: Hotplug switch */
 #ifdef CONFIG_CPU_FREQ_LCD_FREQ_DFS
-	int lcdfreq_enable;				// ZZ: LCDFreq Scaling switch
-	unsigned int lcdfreq_kick_in_down_delay;	// ZZ: LCDFreq Scaling kick in down delay counter
-	unsigned int lcdfreq_kick_in_down_left;		// ZZ: LCDFreq Scaling kick in down left counter
-	unsigned int lcdfreq_kick_in_up_delay;		// ZZ: LCDFreq Scaling kick in up delay counter
-	unsigned int lcdfreq_kick_in_up_left;		// ZZ: LCDFreq Scaling kick in up left counter
-	unsigned int lcdfreq_kick_in_freq;		// ZZ: LCDFreq Scaling kick in frequency
-	unsigned int lcdfreq_kick_in_cores;		// ZZ: LCDFreq Scaling kick in cores
+	int lcdfreq_enable;				/* ZZ: LCDFreq Scaling switch */
+	unsigned int lcdfreq_kick_in_down_delay;	/* ZZ: LCDFreq Scaling kick in down delay counter */
+	unsigned int lcdfreq_kick_in_down_left;		/* ZZ: LCDFreq Scaling kick in down left counter */
+	unsigned int lcdfreq_kick_in_up_delay;		/* ZZ: LCDFreq Scaling kick in up delay counter */
+	unsigned int lcdfreq_kick_in_up_left;		/* ZZ: LCDFreq Scaling kick in up left counter */
+	unsigned int lcdfreq_kick_in_freq;		/* ZZ: LCDFreq Scaling kick in frequency */
+	unsigned int lcdfreq_kick_in_cores;		/* ZZ: LCDFreq Scaling kick in cores */
 #endif
 
 } dbs_tuners_ins = {
 	.up_threshold = DEF_FREQUENCY_UP_THRESHOLD,
-	.up_threshold_hotplug1 = DEF_FREQUENCY_UP_THRESHOLD_HOTPLUG1,		// ZZ: set default value for new tuneable
-	.up_threshold_sleep = DEF_UP_THRESHOLD_SLEEP,				// ZZ: set default value for new tuneable
+	.up_threshold_hotplug1 = DEF_FREQUENCY_UP_THRESHOLD_HOTPLUG1,		/* ZZ: set default value for new tuneable */
+	.up_threshold_sleep = DEF_UP_THRESHOLD_SLEEP,				/* ZZ: set default value for new tuneable */
 	.down_threshold = DEF_FREQUENCY_DOWN_THRESHOLD,
-	.down_threshold_hotplug1 = DEF_FREQUENCY_DOWN_THRESHOLD_HOTPLUG1,	// ZZ: set default value for new tuneable
-	.down_threshold_sleep = DEF_DOWN_THRESHOLD_SLEEP,			// ZZ: set default value for new tuneable
-	.sampling_down_factor = DEF_SAMPLING_DOWN_FACTOR,			// ZZ: sampling down reactivated but disabled by default
-	.sampling_down_momentum = DEF_SAMPLING_DOWN_MOMENTUM,			// ZZ: Sampling down momentum initial disabled
-	.sampling_down_max_mom = DEF_SAMPLING_DOWN_MAX_MOMENTUM,		// ZZ: Sampling down momentum default for max momentum
-	.sampling_down_mom_sens = DEF_SAMPLING_DOWN_MOMENTUM_SENSITIVITY,	// ZZ: Sampling down momentum default for sensitivity
-	.sampling_rate_sleep_multiplier = DEF_SAMPLING_RATE_SLEEP_MULTIPLIER,	// ZZ: set default value for new tuneable
-	.ignore_nice = DEF_IGNORE_NICE,						// ZZ: set default value for tuneable
-	.freq_step = DEF_FREQ_STEP,						// ZZ: set default value for new tuneable
-	.freq_step_sleep = DEF_FREQ_STEP_SLEEP,					// ZZ: set default value for new tuneable
+	.down_threshold_hotplug1 = DEF_FREQUENCY_DOWN_THRESHOLD_HOTPLUG1,	/* ZZ: set default value for new tuneable */
+	.down_threshold_sleep = DEF_DOWN_THRESHOLD_SLEEP,			/* ZZ: set default value for new tuneable */
+	.sampling_down_factor = DEF_SAMPLING_DOWN_FACTOR,			/* ZZ: sampling down reactivated but disabled by default */
+	.sampling_down_momentum = DEF_SAMPLING_DOWN_MOMENTUM,			/* ZZ: Sampling down momentum initial disabled */
+	.sampling_down_max_mom = DEF_SAMPLING_DOWN_MAX_MOMENTUM,		/* ZZ: Sampling down momentum default for max momentum */
+	.sampling_down_mom_sens = DEF_SAMPLING_DOWN_MOMENTUM_SENSITIVITY,	/* ZZ: Sampling down momentum default for sensitivity */
+	.sampling_rate_sleep_multiplier = DEF_SAMPLING_RATE_SLEEP_MULTIPLIER,	/* ZZ: set default value for new tuneable */
+	.ignore_nice = DEF_IGNORE_NICE,						/* ZZ: set default value for tuneable */
+	.freq_step = DEF_FREQ_STEP,						/* ZZ: set default value for new tuneable */
+	.freq_step_sleep = DEF_FREQ_STEP_SLEEP,					/* ZZ: set default value for new tuneable */
 	.smooth_up = DEF_SMOOTH_UP,
-	.smooth_up_sleep = DEF_SMOOTH_UP_SLEEP,					// ZZ: set default value for new tuneable
-	.hotplug_sleep = DEF_HOTPLUG_SLEEP,					// ZZ: set default value for new tuneable
-	.freq_limit = DEF_FREQ_LIMIT,						// ZZ: set default value for new tuneable
-	.freq_limit_sleep = DEF_FREQ_LIMIT_SLEEP,				// ZZ: set default value for new tuneable
-	.fast_scaling = DEF_FAST_SCALING,					// ZZ: set default value for new tuneable
-	.fast_scaling_sleep = DEF_FAST_SCALING_SLEEP,				// ZZ: set default value for new tuneable
-	.grad_up_threshold = DEF_GRAD_UP_THRESHOLD,				// ZZ: Early demand default for grad up threshold
-	.early_demand = 0,							// ZZ: Early demand default off
-	.disable_hotplug = false,						// ZZ: Hotplug switch default off (hotplugging on)
+	.smooth_up_sleep = DEF_SMOOTH_UP_SLEEP,					/* ZZ: set default value for new tuneable */
+	.hotplug_sleep = DEF_HOTPLUG_SLEEP,					/* ZZ: set default value for new tuneable */
+	.freq_limit = DEF_FREQ_LIMIT,						/* ZZ: set default value for new tuneable */
+	.freq_limit_sleep = DEF_FREQ_LIMIT_SLEEP,				/* ZZ: set default value for new tuneable */
+	.fast_scaling = DEF_FAST_SCALING,					/* ZZ: set default value for new tuneable */
+	.fast_scaling_sleep = DEF_FAST_SCALING_SLEEP,				/* ZZ: set default value for new tuneable */
+	.grad_up_threshold = DEF_GRAD_UP_THRESHOLD,				/* ZZ: Early demand default for grad up threshold */
+	.early_demand = 0,							/* ZZ: Early demand default off */
+	.disable_hotplug = false,						/* ZZ: Hotplug switch default off (hotplugging on) */
 #ifdef CONFIG_CPU_FREQ_LCD_FREQ_DFS
-	.lcdfreq_enable = false,						// ZZ: LCDFreq Scaling default off
-	.lcdfreq_kick_in_down_delay = LCD_FREQ_KICK_IN_DOWN_DELAY,		// ZZ: LCDFreq Scaling default for down delay
-	.lcdfreq_kick_in_down_left = LCD_FREQ_KICK_IN_DOWN_DELAY,		// ZZ: LCDFreq Scaling default for down left
-	.lcdfreq_kick_in_up_delay = LCD_FREQ_KICK_IN_UP_DELAY,			// ZZ: LCDFreq Scaling default for up delay
-	.lcdfreq_kick_in_up_left = LCD_FREQ_KICK_IN_UP_DELAY,			// ZZ: LCDFreq Scaling default for up left
-	.lcdfreq_kick_in_freq = LCD_FREQ_KICK_IN_FREQ,				// ZZ: LCDFreq Scaling default for kick in freq
-	.lcdfreq_kick_in_cores = LCD_FREQ_KICK_IN_CORES,			// ZZ: LCDFreq Scaling default for kick in cores
+	.lcdfreq_enable = false,						/* ZZ: LCDFreq Scaling default off */
+	.lcdfreq_kick_in_down_delay = LCD_FREQ_KICK_IN_DOWN_DELAY,		/* ZZ: LCDFreq Scaling default for down delay */
+	.lcdfreq_kick_in_down_left = LCD_FREQ_KICK_IN_DOWN_DELAY,		/* ZZ: LCDFreq Scaling default for down left */
+	.lcdfreq_kick_in_up_delay = LCD_FREQ_KICK_IN_UP_DELAY,			/* ZZ: LCDFreq Scaling default for up delay */
+	.lcdfreq_kick_in_up_left = LCD_FREQ_KICK_IN_UP_DELAY,			/* ZZ: LCDFreq Scaling default for up left */
+	.lcdfreq_kick_in_freq = LCD_FREQ_KICK_IN_FREQ,				/* ZZ: LCDFreq Scaling default for kick in freq */
+	.lcdfreq_kick_in_cores = LCD_FREQ_KICK_IN_CORES,			/* ZZ: LCDFreq Scaling default for kick in cores */
 #endif
 	};
 
@@ -555,7 +555,7 @@ static int mn_get_next_freq(unsigned int curfreq, unsigned int updown, unsigned 
 	return (curfreq); /* not found */
 }
 
-#if 0 // MOVED to GLOBAL code governor.c
+#if 0 /* MOVED to GLOBAL code governor.c */
 static inline cputime64_t get_cpu_idle_time_jiffy(unsigned int cpu,
 							cputime64_t *wall)
 {
@@ -1569,14 +1569,14 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 	}
 
 	/* Check for frequency increase */
-	if (max_load > dbs_tuners_ins.up_threshold || boost_freq) { // ZZ: Early demand - added boost switch
+	if (max_load > dbs_tuners_ins.up_threshold || boost_freq) { /* ZZ: Early demand - added boost switch */
 
 		/* ZZ: Sampling down momentum - if momentum is inactive switch to "down_skip" method */
 		if (dbs_tuners_ins.sampling_down_max_mom == 0 && dbs_tuners_ins.sampling_down_factor > 1)
 			this_dbs_info->down_skip = 0;
 
 		/* if we are already at full speed then break out early */
-		if (policy->cur == policy->max) // ZZ: changed check from reqested_freq to current freq (DerTeufel1980)
+		if (policy->cur == policy->max) /* ZZ: changed check from reqested_freq to current freq (DerTeufel1980) */
 			return;
 
 		/* ZZ: Sampling down momentum - if momentum is active and we are switching to max speed, apply sampling_down_factor */
@@ -1798,7 +1798,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 
 			} else if (dbs_tuners_ins.lcdfreq_kick_in_down_left <= 0 &&
 					lcdfreq_lock_current != 1) {
-				// We reached down delay, set frequency to 40Hz
+				/* We reached down delay, set frequency to 40Hz */
 				lcdfreq_lock_current = 1;
 				_lcdfreq_lock(lcdfreq_lock_current);
 			}
