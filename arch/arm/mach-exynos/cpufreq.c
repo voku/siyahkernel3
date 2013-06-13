@@ -57,6 +57,8 @@ unsigned int g_cpufreq_lock_id;
 unsigned int g_cpufreq_lock_val[DVFS_LOCK_ID_END];
 unsigned int g_cpufreq_lock_level;
 
+int cpufreq_pm_lock_idx = 0;
+
 int exynos_verify_speed(struct cpufreq_policy *policy)
 {
 	return cpufreq_frequency_table_verify(policy,
@@ -289,7 +291,7 @@ int exynos_cpufreq_lock(unsigned int nId,
 		return -EPERM;
 
 	if (exynos_cpufreq_disable && (nId != DVFS_LOCK_ID_TMU)) {
-		pr_info("CPUFreq is already fixed\n");
+		pr_info("[exynos_cpufreq_lock] CPUFreq is already fixed, quitting because not TMU\n");
 		return -EPERM;
 	}
 
@@ -331,8 +333,10 @@ int exynos_cpufreq_lock(unsigned int nId,
 	/* Do not setting cpufreq lock frequency
 	 * because current governor doesn't support dvfs level lock
 	 * except DVFS_LOCK_ID_PM */
-	if (exynos_cpufreq_lock_disable && (nId != DVFS_LOCK_ID_PM))
+	if (exynos_cpufreq_lock_disable && (nId != DVFS_LOCK_ID_PM)) {
+		pr_info("exynos_cpufreq_lock cancelled early (%i)\n", g_cpufreq_lock_level);
 		return 0;
+	}
 
 	/* If current frequency is lower than requested freq,
 	 * it needs to update
@@ -340,6 +344,8 @@ int exynos_cpufreq_lock(unsigned int nId,
 	mutex_lock(&set_freq_lock);
 	freq_old = policy->cur;
 	freq_new = freq_table[cpufreq_level].frequency;
+
+	pr_info("exynos_cpufreq_lock called. (freq:%i, nId:%i)\n", g_cpufreq_lock_level, nId);
 
 	if (freq_old < freq_new) {
 		/* Find out current level index */
@@ -398,6 +404,7 @@ void exynos_cpufreq_lock_free(unsigned int nId)
 		}
 	}
 	mutex_unlock(&set_cpu_freq_lock);
+	pr_info("exynos_cpufreq_lock_free called (%i).\n", nId);
 }
 EXPORT_SYMBOL_GPL(exynos_cpufreq_lock_free);
 
@@ -458,7 +465,7 @@ int exynos_cpufreq_upper_limit(unsigned int nId,
 		return -EPERM;
 
 	if (exynos_cpufreq_disable) {
-		pr_info("CPUFreq is already fixed\n");
+		pr_info("[exynos_cpufreq_upper_limit] CPUFreq is already fixed\n");
 		return -EPERM;
 	}
 
@@ -532,8 +539,11 @@ int exynos_cpufreq_upper_limit(unsigned int nId,
 
 	mutex_unlock(&set_freq_lock);
 
+	pr_info("exynos_cpufreq_upper_limit called. (freq: %i, nId:%i)\n", g_cpufreq_limit_level, nId);
+
 	return ret;
 }
+//EXPORT_SYMBOL_GPL(exynos_cpufreq_upper_limit);
 
 void exynos_cpufreq_upper_limit_free(unsigned int nId)
 {
@@ -554,7 +564,10 @@ void exynos_cpufreq_upper_limit_free(unsigned int nId)
 		}
 	}
 	mutex_unlock(&set_cpu_freq_lock);
+	
+	pr_info("exynos_cpufreq_upper_limit_free called. (%i)\n", nId);
 }
+//EXPORT_SYMBOL_GPL(exynos_cpufreq_upper_limit_free);
 
 /* This API serve highest priority level locking */
 int exynos_cpufreq_level_fix(unsigned int freq)
@@ -570,10 +583,12 @@ int exynos_cpufreq_level_fix(unsigned int freq)
 		return -EPERM;
 
 	if (exynos_cpufreq_disable) {
-		pr_info("CPUFreq is already fixed\n");
+		pr_info("[exynos_cpufreq_level_fix] CPUFreq is already fixed\n");
 		return -EPERM;
 	}
 	ret = exynos_target(policy, freq, CPUFREQ_RELATION_L);
+
+	pr_info("CPUFreq disabled and at %i\n", freq);
 
 	exynos_cpufreq_disable = true;
 	return ret;
@@ -585,6 +600,8 @@ void exynos_cpufreq_level_unfix(void)
 {
 	if (!exynos_cpufreq_init_done)
 		return;
+
+	pr_info("CPUFreq reenabled\n");
 
 	exynos_cpufreq_disable = false;
 }
@@ -613,7 +630,7 @@ static void exynos_save_gov_freq(void)
 	unsigned int cpu = 0;
 
 	exynos_info->gov_support_freq = exynos_getspeed(cpu);
-	pr_debug("cur_freq[%d] saved to freq[%d]\n", exynos_getspeed(0),
+	pr_info("[cpufreq] cur_freq[%d] saved to freq[%d]\n", exynos_getspeed(0),
 			exynos_info->gov_support_freq);
 }
 
@@ -625,7 +642,7 @@ static void exynos_restore_gov_freq(struct cpufreq_policy *policy)
 		exynos_target(policy, exynos_info->gov_support_freq,
 				CPUFREQ_RELATION_H);
 
-	pr_debug("freq[%d] restored to cur_freq[%d]\n",
+	pr_info("[cpufreq] freq[%d] restored to cur_freq[%d]\n",
 			exynos_info->gov_support_freq, exynos_getspeed(cpu));
 }
 
@@ -646,13 +663,18 @@ static int exynos_cpufreq_notifier_event(struct notifier_block *this,
 		if (exynos_cpufreq_lock_disable)
 			exynos_save_gov_freq();
 
-		ret = exynos_cpufreq_lock(DVFS_LOCK_ID_PM,
-					   exynos_info->pm_lock_idx);
+		if (cpufreq_pm_lock_idx != exynos_info->pm_lock_idx) {
+			pr_info("PM_RESTORE_PREPARE for CPUFREQ. cpufreq_pm_lock_idx was %d. now: %d\n", cpufreq_pm_lock_idx, exynos_info->pm_lock_idx);
+			cpufreq_pm_lock_idx = exynos_info->pm_lock_idx;
+		} else {
+			pr_info("PM_RESTORE_PREPARE for CPUFREQ. gonna set: %d\n", cpufreq_pm_lock_idx);
+		}
+
+		ret = exynos_cpufreq_lock(DVFS_LOCK_ID_PM, cpufreq_pm_lock_idx);
 		if (ret < 0)
 			return NOTIFY_BAD;
 #if defined(CONFIG_CPU_EXYNOS4210) || defined(CONFIG_SLP)
-		ret = exynos_cpufreq_upper_limit(DVFS_LOCK_ID_PM,
-						exynos_info->pm_lock_idx);
+		ret = exynos_cpufreq_upper_limit(DVFS_LOCK_ID_PM, cpufreq_pm_lock_idx);
 		if (ret < 0)
 			return NOTIFY_BAD;
 #endif
@@ -669,12 +691,12 @@ static int exynos_cpufreq_notifier_event(struct notifier_block *this,
 		regulator_set_voltage(arm_regulator, 120000, 120000 + 25000);
 #endif
 
-		pr_debug("PM_SUSPEND_PREPARE for CPUFREQ\n");
+		pr_info("PM_SUSPEND_PREPARE for CPUFREQ\n");
 		return NOTIFY_OK;
 	case PM_POST_RESTORE:
 	case PM_POST_HIBERNATION:
 	case PM_POST_SUSPEND:
-		pr_debug("PM_POST_SUSPEND for CPUFREQ: %d\n", ret);
+		pr_info("PM_POST_SUSPEND for CPUFREQ: %d\n", ret);
 		exynos_cpufreq_lock_free(DVFS_LOCK_ID_PM);
 #if defined(CONFIG_CPU_EXYNOS4210) || defined(CONFIG_SLP)
 		exynos_cpufreq_upper_limit_free(DVFS_LOCK_ID_PM);
@@ -755,6 +777,8 @@ static int exynos_cpufreq_cpu_init(struct cpufreq_policy *policy)
 	policy->max_suspend = CPU_MAX_SUSPEND_FREQ;
 	policy->min_suspend = CPU_MIN_SUSPEND_FREQ;
 	cpufreq_frequency_table_cpuinfo(policy, exynos_info->freq_table);
+
+	pr_info("cpufreq: init()\n");
 
 	/* Safe default startup limits */
 
@@ -842,6 +866,8 @@ static int __init exynos_cpufreq_init(void)
 
 	g_cpufreq_lock_level = exynos_info->min_support_idx;
 	g_cpufreq_limit_level = exynos_info->max_support_idx;
+
+	cpufreq_pm_lock_idx = exynos_info->pm_lock_idx;
 
 	if (cpufreq_register_driver(&exynos_driver)) {
 		pr_err("failed to register cpufreq driver\n");
