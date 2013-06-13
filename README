@@ -3,6 +3,7 @@
 To compile you need to add
 sudo apt-get install ccache
 sudo apt-get install imagemagick
+sudo apt-get install moreutils
 
 ==================================================================
 My info guide.

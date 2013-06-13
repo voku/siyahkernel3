@@ -10,3 +10,4 @@ find . -type f \( -iname \*.rej \
 				-o -iname \*.c.REMOTE.[0-9]*.c \
 				-o -iname \*.org \) \
 					| parallel rm -fv {};
+
