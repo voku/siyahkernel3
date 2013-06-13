@@ -143,7 +143,7 @@ static inline void css_put(struct cgroup_subsys_state *css)
 /* bits in struct cgroup flags field */
 enum {
 	/* Control Group is dead */
-	CGRP_REMOVED,
+	CGRP_DEAD,
 	/*
 	 * Control Group has previously had a child cgroup or a task,
 	 * but no longer (only if CGRP_NOTIFY_ON_RELEASE is set)
@@ -187,6 +187,14 @@ struct cgroup {
 
 	struct cgroup *parent;		/* my parent */
 	struct dentry *dentry;		/* cgroup fs entry, RCU protected */
+
+	/*
+	 * Monotonically increasing unique serial number which defines a
+	 * uniform order among all cgroups.  It's guaranteed that all
+	 * ->children lists are in the ascending order of ->serial_nr.
+	 * It's used to allow interrupting and resuming iterations.
+	 */
+	u64 serial_nr;
 
 	/*
 	 * This is a copy of dentry->d_name, and it's needed because
@@ -673,6 +681,8 @@ static inline struct cgroup* task_cgroup(struct task_struct *task,
 {
 	return task_subsys_state(task, subsys_id)->cgroup;
 }
+
+struct cgroup *cgroup_next_sibling(struct cgroup *pos);
 
 /**
  * cgroup_for_each_child - iterate through children of a cgroup

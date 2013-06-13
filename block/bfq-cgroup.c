@@ -18,7 +18,7 @@ static DEFINE_MUTEX(bfqio_mutex);
 
 static bool bfqio_is_removed(struct cgroup *cgroup)
 {
-	return test_bit(CGRP_REMOVED, &cgroup->flags);
+	return test_bit(CGRP_DEAD, &cgroup->flags);
 }
 
 static struct bfqio_cgroup bfqio_root_cgroup = {
