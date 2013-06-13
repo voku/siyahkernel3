@@ -4697,9 +4697,9 @@ static int __devinit mxt224_probe(struct i2c_client *client,
 		printk(KERN_ERR "Failed to create device file(%s)!\n",
 			dev_attr_touchbooster_freq.attr.name);
 
-	if (device_create_file(sec_touchscreen, &dev_attr_touchbooster_freq) < 0)
+	if (device_create_file(sec_touchscreen, &dev_attr_touchbooster_msecs_on) < 0)
 		printk(KERN_ERR "Failed to create device file(%s)!\n",
-			dev_attr_touchbooster_freq.attr.name);
+			dev_attr_touchbooster_msecs_on.attr.name);
 #endif
 
 #ifdef CONFIG_TARGET_LOCALE_KOR
