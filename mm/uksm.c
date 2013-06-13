@@ -4907,7 +4907,7 @@ static int uksm_memory_callback(struct notifier_block *self,
 	static struct kobj_attribute _name##_attr = __ATTR_RO(_name)
 #define UKSM_ATTR(_name) \
 	static struct kobj_attribute _name##_attr = \
-		__ATTR(_name, 0644, _name##_show, _name##_store)
+		__ATTR(_name, 0766, _name##_show, _name##_store)
 
 static ssize_t max_cpu_percentage_show(struct kobject *kobj,
 				    struct kobj_attribute *attr, char *buf)
