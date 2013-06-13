@@ -209,6 +209,10 @@ if [ -e $KERNELDIR/arch/arm/boot/zImage ]; then
 		read -t 3 -p "push kernel to android, 3sec timeout (y/n)?";
 		if [ "$REPLY" == "y" ]; then
 			adb push $KERNELDIR/READY-JB/Kernel_*JB*.zip /sdcard/;
+			read -t 3 -p "reboot to recovery, 3sec timeout (y/n)?";
+			if [ "$REPLY" == "y" ]; then
+				adb reboot recovery;
+			fi;		
 		fi;
 	fi;
 else
