@@ -121,6 +121,7 @@ static struct nightmare_tuners {
 	atomic_t down_sf_step;
 	atomic_t earlysuspend;
 	atomic_t soft_scal;
+	atomic_t boost;
 } nightmare_tuners_ins = {
 	.sampling_rate = ATOMIC_INIT(60000),
 	.hotplug_lock = ATOMIC_INIT(0),
@@ -150,6 +151,7 @@ static struct nightmare_tuners {
 	.down_sf_step = ATOMIC_INIT(0),
 	.earlysuspend = ATOMIC_INIT(0),
 	.soft_scal = ATOMIC_INIT(0),
+	.boost = ATOMIC_INIT(0),
 };
 
 /*
@@ -241,6 +243,7 @@ show_one(freq_for_calc_decr, freq_for_calc_decr);
 show_one(up_sf_step, up_sf_step);
 show_one(down_sf_step, down_sf_step);
 show_one(soft_scal, soft_scal);
+show_one(boost, boost);
 
 #define show_hotplug_param(file_name, num_core, up_down)		\
 static ssize_t show_##file_name##_##num_core##_##up_down		\
@@ -862,6 +865,26 @@ static ssize_t store_soft_scal(struct kobject *a, struct attribute *b,
 	return count;
 }
 
+/* boost */
+static ssize_t store_boost(struct kobject *a, struct attribute *b,
+				   const char *buf, size_t count)
+{
+	int input;
+	int ret;
+
+	ret = sscanf(buf, "%d", &input);
+	if (ret != 1)
+		return -EINVAL;
+
+	input = input > 0;
+
+	if (input == atomic_read(&nightmare_tuners_ins.boost))
+		return count;
+
+	atomic_set(&nightmare_tuners_ins.boost,input);
+
+	return count;
+}
 
 define_one_global_rw(sampling_rate);
 define_one_global_rw(io_is_busy);
@@ -890,6 +913,7 @@ define_one_global_rw(freq_for_calc_decr);
 define_one_global_rw(up_sf_step);
 define_one_global_rw(down_sf_step);
 define_one_global_rw(soft_scal);
+define_one_global_rw(boost);
 
 static struct attribute *nightmare_attributes[] = {
 	&sampling_rate.attr,
@@ -929,6 +953,7 @@ static struct attribute *nightmare_attributes[] = {
 	&up_sf_step.attr,
 	&down_sf_step.attr,
 	&soft_scal.attr,
+	&boost.attr,
 	NULL
 };
 
@@ -1343,7 +1368,11 @@ static void do_nightmare_timer(struct work_struct *work)
 
 static inline void nightmare_timer_init(struct cpufreq_nightmare_cpuinfo *nightmare_cpuinfo)
 {
-	INIT_DELAYED_WORK(&nightmare_cpuinfo->work, do_nightmare_timer);
+	if (atomic_read(&nightmare_tuners_ins.boost) > 0)
+		INIT_DELAYED_WORK(&nightmare_cpuinfo->work, do_nightmare_timer);
+	else
+		INIT_DEFERRABLE_WORK(&nightmare_cpuinfo->work, do_nightmare_timer);
+
 	INIT_WORK(&nightmare_cpuinfo->up_work, cpu_up_work);
 	INIT_WORK(&nightmare_cpuinfo->down_work, cpu_down_work);
 	schedule_delayed_work_on(nightmare_cpuinfo->cpu, &nightmare_cpuinfo->work, 0);
