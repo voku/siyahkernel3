@@ -48,6 +48,17 @@ extern void thaw_processes(void);
 extern void thaw_kernel_threads(void);
 
 /*
+ * HACK: prevent sleeping while atomic warnings due to ARM signal handling
+ * disabling irqs
+ */
+static inline bool try_to_freeze_nowarn(void)
+{
+	if (likely(!freezing(current)))
+		return false;
+	return __refrigerator(false);
+}
+
+/*
  * DO NOT ADD ANY NEW CALLERS OF THIS FUNCTION
  * If try_to_freeze causes a lockdep warning it means the caller may deadlock
  */
@@ -167,86 +178,87 @@ static inline bool freezer_should_skip(struct task_struct *p)
 }
 
 /*
- * These macros are intended to be used whenever you want allow a task that's
+ * These functions are intended to be used whenever you want allow a task that's
  * sleeping in TASK_UNINTERRUPTIBLE or TASK_KILLABLE state to be frozen. Note
  * that neither return any clear indication of whether a freeze event happened
  * while in this function.
  */
 
 /* Like schedule(), but should not block the freezer. */
-#define freezable_schedule()						\
-({									\
-	freezer_do_not_count();						\
-	schedule();							\
-	freezer_count();						\
-})
+static inline void freezable_schedule(void)
+{
+	freezer_do_not_count();
+	schedule();
+	freezer_count();
+}
 
 /* DO NOT ADD ANY NEW CALLERS OF THIS FUNCTION */
-#define freezable_schedule_unsafe()					\
-({									\
-	freezer_do_not_count();						\
-	schedule();							\
-	freezer_count_unsafe();						\
-})
+static inline void freezable_schedule_unsafe(void)
+{
+	freezer_do_not_count();
+	schedule();
+	freezer_count_unsafe();
+}
 
 /*
  * Like freezable_schedule_timeout(), but should not block the freezer.  Do not
  * call this with locks held.
  */
-#define freezable_schedule_timeout(timeout)				\
-({									\
-	long __retval;							\
-	freezer_do_not_count();						\
-	__retval = schedule_timeout(timeout);				\
-	freezer_count();						\
-	__retval;							\
-})
-
-/* DO NOT ADD ANY NEW CALLERS OF THIS FUNCTION */
-#define freezable_schedule_timeout_killable_unsafe(timeout)		\
-({									\
-	long __retval;							\
-	freezer_do_not_count();						\
-	__retval = schedule_timeout_killable(timeout);			\
-	freezer_count_unsafe();						\
-	__retval;							\
-})
+static inline long freezable_schedule_timeout(long timeout)
+{
+	long __retval;
+	freezer_do_not_count();
+	__retval = schedule_timeout(timeout);
+	freezer_count();
+	return __retval;
+}
 
 /*
  * Like schedule_timeout_interruptible(), but should not block the freezer.  Do not
  * call this with locks held.
  */
-#define freezable_schedule_timeout_interruptible(timeout)		\
-({									\
-	long __retval;							\
-	freezer_do_not_count();						\
-	__retval = schedule_timeout_interruptible(timeout);		\
-	freezer_count();						\
-	__retval;						\
-})
+static inline long freezable_schedule_timeout_interruptible(long timeout)
+{
+	long __retval;
+	freezer_do_not_count();
+	__retval = schedule_timeout_interruptible(timeout);
+	freezer_count();
+	return __retval;
+}
 
 /* Like schedule_timeout_killable(), but should not block the freezer. */
-#define freezable_schedule_timeout_killable(timeout)			\
-({									\
-	long __retval;							\
-	freezer_do_not_count();						\
-	__retval = schedule_timeout_killable(timeout);			\
-	freezer_count();						\
-	__retval;							\
-})
+static inline long freezable_schedule_timeout_killable(long timeout)
+{
+	long __retval;
+	freezer_do_not_count();
+	__retval = schedule_timeout_killable(timeout);
+	freezer_count();
+	return __retval;
+}
 
- /*
+/* DO NOT ADD ANY NEW CALLERS OF THIS FUNCTION */
+static inline long freezable_schedule_timeout_killable_unsafe(long timeout)
+{
+	long __retval;
+	freezer_do_not_count();
+	__retval = schedule_timeout_killable(timeout);
+	freezer_count_unsafe();
+	return __retval;
+}
+
+/*
  * Like schedule_hrtimeout_range(), but should not block the freezer.  Do not
  * call this with locks held.
  */
-#define freezable_schedule_hrtimeout_range(expires, delta, mode)	\
-({									\
-	int __retval;							\
-	freezer_do_not_count();						\
-	__retval = schedule_hrtimeout_range(expires, delta, mode);	\
-	freezer_count();						\
-	__retval;							\
-})
+static inline int freezable_schedule_hrtimeout_range(ktime_t *expires,
+		unsigned long delta, const enum hrtimer_mode mode)
+{
+	int __retval;
+	freezer_do_not_count();
+	__retval = schedule_hrtimeout_range(expires, delta, mode);
+	freezer_count();
+	return __retval;
+}
 
 /*
  * Freezer-friendly wrappers around wait_event_interruptible(),
@@ -287,7 +299,7 @@ static inline bool freezer_should_skip(struct task_struct *p)
 	long __retval = timeout;					\
 	freezer_do_not_count();						\
 	__retval = wait_event_interruptible_timeout(wq,	(condition),	\
-				__retval); 				\
+				__retval);				\
 	freezer_count();						\
 	__retval;							\
 })
