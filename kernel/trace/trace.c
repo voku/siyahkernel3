@@ -115,6 +115,9 @@ cpumask_var_t __read_mostly	tracing_buffer_mask;
 
 enum ftrace_dump_mode ftrace_dump_on_oops;
 
+/* When set, tracing will stop when a WARN*() is hit */
+int __disable_trace_on_warning;
+
 static int tracing_set_tracer(const char *buf);
 
 #define MAX_TRACER_SIZE		100
@@ -147,6 +150,21 @@ static int __init set_ftrace_dump_on_oops(char *str)
 }
 __setup("ftrace_dump_on_oops", set_ftrace_dump_on_oops);
 
+static int __init stop_trace_on_warning(char *str)
+{
+	__disable_trace_on_warning = 1;
+	return 1;
+}
+__setup("traceoff_on_warning=", stop_trace_on_warning);
+
+static int __init boot_alloc_snapshot(char *str)
+{
+	allocate_snapshot = true;
+	/* We also need the main ring buffer expanded */
+	ring_buffer_expanded = true;
+	return 1;
+}
+__setup("alloc_snapshot", boot_alloc_snapshot);
 
 static char trace_boot_options_buf[MAX_TRACER_SIZE] __initdata;
 static char *trace_boot_options __initdata;
@@ -158,6 +176,7 @@ static int __init set_trace_boot_options(char *str)
 	return 0;
 }
 __setup("trace_options=", set_trace_boot_options);
+
 
 unsigned long long ns2usecs(cycle_t nsec)
 {
@@ -515,6 +534,12 @@ void tracing_off(void)
 	global_trace.buffer_disabled = 1;
 }
 EXPORT_SYMBOL_GPL(tracing_off);
+
+void disable_trace_on_warning(void)
+{
+	if (__disable_trace_on_warning)
+		tracing_off();
+}
 
 /**
  * tracing_is_on - show state of ring buffers enabled
