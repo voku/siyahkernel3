@@ -224,14 +224,14 @@ static inline long freezable_schedule_timeout_killable_unsafe(long timeout)
  * Like schedule_hrtimeout_range(), but should not block the freezer.  Do not
  * call this with locks held.
  */
-static inline long freezable_schedule_hrtimeout_range(expires, delta, mode)
-{
-	long __retval;
-	freezer_do_not_count();
-	__retval = schedule_hrtimeout_range(expires, delta, mode);
-	freezer_count();
-	return __retval;
-}
+#define freezable_schedule_hrtimeout_range(expires, delta, mode)	\
+({									\
+	int __retval;							\
+	freezer_do_not_count();						\
+	__retval = schedule_hrtimeout_range(expires, delta, mode);	\
+	freezer_count();						\
+	__retval;							\
+})
 
 /*
  * Freezer-friendly wrappers around wait_event_interruptible(),
