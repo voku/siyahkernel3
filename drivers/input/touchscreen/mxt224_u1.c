@@ -1434,9 +1434,6 @@ static void report_input_data(struct mxt224_data *data)
 #endif
 	touch_is_pressed = 0;
 
-	if (touch_state_val == true && touchbooster_enabled == 1)	
-		touchbooster_dvfs_lock_on();
-
 	for (i = 0; i < data->num_fingers; i++) {
 		if (TSP_STATE_INACTIVE == data->fingers[i].z)
 			continue;
@@ -1588,15 +1585,15 @@ static void report_input_data(struct mxt224_data *data)
 				 data->fingers[i].component);
 #endif
 
-		if (copy_data->touch_is_pressed_arr[i] == 1)
-			check_press = true;
-
 		if (copy_data->g_debug_switch)
 			printk(KERN_ERR "[TSP] ID-%d, %4d,%4d\n", i,
 			       data->fingers[i].x, data->fingers[i].y);
 
-		if (copy_data->touch_is_pressed_arr[i] != 0)
+		// toch [1] || move [2]
+		if (copy_data->touch_is_pressed_arr[i] != 0) {
 			touch_is_pressed = 1;
+			check_press = true;
+		}
 
 		/* logging */
 #ifdef __TSP_DEBUG
@@ -1619,6 +1616,8 @@ static void report_input_data(struct mxt224_data *data)
 
 	// export touch state
 	if (check_press) {
+		if (touchbooster_enabled == 1)
+    		touchbooster_dvfs_lock_on();
 		touch_state_val = true;
 	} else {
 		touch_state_val = false;
