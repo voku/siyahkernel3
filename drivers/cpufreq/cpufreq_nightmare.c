@@ -125,7 +125,7 @@ static struct nightmare_tuners {
 	.hotplug_enable = ATOMIC_INIT(0),
 	.max_cpu_lock = ATOMIC_INIT(0),
 	.min_cpu_lock = ATOMIC_INIT(0),
-	.ignore_dirty_time = ATOMIC_INIT(0),
+	.ignore_dirty_time = ATOMIC_INIT(1),
 	.cpu_up_rate = ATOMIC_INIT(10),
 	.cpu_down_rate = ATOMIC_INIT(5),
 	.hotplug_compare_level = ATOMIC_INIT(1),
@@ -192,13 +192,11 @@ struct nightmare_cpu_usage_history {
 
 static struct nightmare_cpu_usage_history *hotplug_history;
 
-static inline u64 get_idle_time(unsigned int cpu, u64 *wall, u64 *dirty, u64 *iowait)
+static inline u64 get_idle_time(unsigned int cpu, u64 *wall, u64 *iowait)
 {
 	u64 idle_time = -1ULL;
 	u64 iowait_time = -1ULL;
 	u64 idle;
-
-	*dirty = usecs_to_cputime64(ktime_to_us(ktime_get()));
 
 	*wall += kcpustat_cpu(cpu).cpustat[CPUTIME_USER];
 	*wall += kcpustat_cpu(cpu).cpustat[CPUTIME_NICE];
@@ -1127,6 +1125,7 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 	int dec_cpu_load = atomic_read(&nightmare_tuners_ins.dec_cpu_load);
 	unsigned int prev_freq_set = 0;
 	unsigned int calc_freq = 0;
+	u64 cur_dirty_time = usecs_to_cputime64(ktime_to_us(ktime_get()));
 
 	/* set num_hist used */
 	++hotplug_history->num_hist;
@@ -1134,7 +1133,7 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 	for_each_possible_cpu(j) {
 		struct cpufreq_nightmare_cpuinfo *j_nightmare_cpuinfo;
 		struct cpufreq_policy *cpu_policy;
-		u64 cur_wall_time=0, cur_dirty_time=0, cur_idle_time=0, cur_iowait_time=0;
+		u64 cur_wall_time=0, cur_idle_time=0, cur_iowait_time=0;
 		unsigned int idle_time, wall_time, dirty_time, iowait_time;
 		/* Extrapolated load of this CPU */
 		unsigned int load_at_max_freq = 0;
@@ -1157,7 +1156,7 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 		hotplug_history->usage[num_hist].freq[j] = 0;
 		hotplug_history->usage[num_hist].load[j] = 0;
 		
-		cur_idle_time = get_idle_time(j, &cur_wall_time, &cur_dirty_time, &cur_iowait_time);
+		cur_idle_time = get_idle_time(j, &cur_wall_time, &cur_iowait_time);
 
 		wall_time = (unsigned int)
 				(cur_wall_time - j_nightmare_cpuinfo->prev_cpu_wall);
@@ -1181,7 +1180,7 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 		}
 
 		if (!ignore_dirty)
-			wall_time += dirty_time;
+			wall_time = dirty_time;
 
 		if (unlikely(!wall_time || wall_time < idle_time)) {
 			continue;
@@ -1402,8 +1401,7 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 		for_each_possible_cpu(j) {
 			struct cpufreq_nightmare_cpuinfo *j_nightmare_cpuinfo;
 			j_nightmare_cpuinfo = &per_cpu(od_nightmare_cpuinfo, j);
-			j_nightmare_cpuinfo->prev_cpu_idle = get_idle_time(j, &j_nightmare_cpuinfo->prev_cpu_wall, 
-				&j_nightmare_cpuinfo->prev_cpu_dirty, &j_nightmare_cpuinfo->prev_cpu_iowait);
+			j_nightmare_cpuinfo->prev_cpu_idle = get_idle_time(j, &j_nightmare_cpuinfo->prev_cpu_wall, &j_nightmare_cpuinfo->prev_cpu_iowait);
 		}
 		this_nightmare_cpuinfo->cpu = cpu;
 		/*
