@@ -110,12 +110,12 @@ SECTIONS
   .init_array     :
   {
     KEEP (*(SORT(.init_array.*)))
-    KEEP (*(.init_array))
+    KEEP (*(.init_array ))
   }
   .fini_array     :
   {
     KEEP (*(SORT(.fini_array.*)))
-    KEEP (*(.fini_array))
+    KEEP (*(.fini_array ))
   }
   .ctors          :
   {
@@ -175,6 +175,7 @@ SECTIONS
   }
   _bss_end__ = . ; __bss_end__ = . ;
   . = ALIGN(32 / 8);
+  . = SEGMENT_START("ldata-segment", .);
   . = ALIGN(32 / 8);
   __end__ = . ;
   _end = .; PROVIDE (end = .);
@@ -223,5 +224,5 @@ SECTIONS
   }
   .ARM.attributes 0 : { KEEP (*(.ARM.attributes)) KEEP (*(.gnu.attributes)) }
   .note.gnu.arm.ident 0 : { KEEP (*(.note.gnu.arm.ident)) }
-  /DISCARD/ : { *(.note.GNU-stack) *(.gnu_debuglink) *(.gnu.lto_*) }
+  /DISCARD/ : { *(.note.GNU-stack) *(.gnu_debuglink) *(.gnu.lto_*) *(.gnu_object_only) }
 }
