@@ -197,7 +197,7 @@ static const uint16_t char_table[256] = {
  * Note that this does not match the semantics of either memcpy()
  * or memmove().
  */
-static INLINE void IncrementalCopy(const char *src, char *op, int len)
+static INLINE void IncrementalCopy(const char *src, char *op, ssize_t len)
 {
 	DCHECK_GT(len, 0);
 	do {
@@ -238,7 +238,7 @@ static INLINE void IncrementalCopy(const char *src, char *op, int len)
  * position 1. Thus, ten excess bytes.
  */
 static const int kMaxIncrementCopyOverflow = 10;
-static INLINE void IncrementalCopyFastPath(const char *src, char *op, int len)
+static INLINE void IncrementalCopyFastPath(const char *src, char *op, ssize_t len)
 {
 	while (op - src < 8) {
 		UnalignedCopy64(src, op);
