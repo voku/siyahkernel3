@@ -28,6 +28,8 @@
 #include <mach/cpufreq.h>
 #include <linux/input/mt.h>
 #include <linux/wakelock.h>
+#include <linux/mutex.h>
+#include <linux/workqueue.h>
 
 #ifdef CONFIG_TOUCHSCREEN_GESTURES
 #include <linux/spinlock.h>
@@ -97,13 +99,23 @@
 
 #define MAX_USING_FINGER_NUM 		10
 
+#define TOUCH_BOOSTER        	1
+#define TOUCH_BOOSTER_FREQ    	500000
+#define TOUCH_BOOSTER_FREQ_MAX	800000
+#define TOUCH_BOOSTER_FREQ_MIN  200000
+#define TOUCH_BOOSTER_MSECS_ON	2000
+
 #define MXT224_AUTOCAL_WAIT_TIME	2000
+
 /* no debug !!! */
 #define printk(arg, ...)
 
 #if defined(U1_EUR_TARGET)
 static bool gbfilter;
 #endif
+
+bool touch_state_val = false;
+EXPORT_SYMBOL(touch_state_val);
 
 struct object_t {
 	u8 object_type;
@@ -245,6 +257,17 @@ static bool gestures_enabled = true;
 
 DECLARE_WAIT_QUEUE_HEAD(gestures_wq);
 static spinlock_t gestures_lock;
+#endif
+
+#if TOUCH_BOOSTER
+// touch-booster
+static int touchbooster_cpufreq_level;
+static unsigned int touchbooster_freq = TOUCH_BOOSTER_FREQ;
+static struct mutex touchbooster_dvfs_lock;
+static struct delayed_work work_touchbooster_dvfs_off;
+static int touchbooster_dvfs_locked;
+static unsigned int touchbooster_msecs_on = TOUCH_BOOSTER_MSECS_ON;
+static unsigned int touchbooster_enabled = TOUCH_BOOSTER;
 #endif
 
 #define CLEAR_MEDIAN_FILTER_ERROR
@@ -1325,10 +1348,74 @@ extern void flash_led_buttons(unsigned int);
 static unsigned int flash_timeout = 0;
 #endif
 
+#if TOUCH_BOOSTER
+static void touchbooster_dvfs_lock_off(struct work_struct *work) {
+	mutex_lock(&touchbooster_dvfs_lock);
+
+	exynos_cpufreq_lock_free(DVFS_LOCK_ID_TSP);
+	touchbooster_dvfs_locked = 0;
+	pr_info("[touchbooster] boost off!\n");
+
+	mutex_unlock(&touchbooster_dvfs_lock);
+}
+
+static void touchbooster_dvfs_lock_on(void) {
+	unsigned int maxfreq = 0;
+	unsigned int minfreq = 0;
+	unsigned int curfreq = 0;
+
+	curfreq = exynos_cpufreq_get_curfreq();
+	if (curfreq >= touchbooster_freq) {
+		return;
+	}
+
+	mutex_lock(&touchbooster_dvfs_lock);
+
+	if (touchbooster_cpufreq_level < 0) {
+		maxfreq = exynos_cpufreq_get_maxfreq();
+		minfreq = exynos_cpufreq_get_minfreq();
+
+		if (maxfreq < 1) {
+			// something went wrong. just set a safe value.
+			maxfreq = TOUCH_BOOSTER_FREQ_MAX;
+		}
+
+		if (minfreq < 1) {
+			// something went wrong. just set a safe value.
+			minfreq = TOUCH_BOOSTER_FREQ_MIN;
+		}
+
+		if (touchbooster_freq < minfreq) {
+			touchbooster_freq = minfreq;
+			pr_info("[touchbooster] touchbooster_freq too low. set to: %d\n", minfreq);
+		} else if (touchbooster_freq > maxfreq) {
+			touchbooster_freq = maxfreq;
+			pr_info("[touchbooster] touchbooster_freq too high. set to: %d\n", maxfreq);
+		}
+
+		exynos_cpufreq_get_level(touchbooster_freq, &touchbooster_cpufreq_level);
+		pr_info("[touchbooster] got level %d for freq: %d\n", touchbooster_cpufreq_level, touchbooster_freq);
+	}
+
+	if (!touchbooster_dvfs_locked) {
+
+		exynos_cpufreq_lock(DVFS_LOCK_ID_TSP, touchbooster_cpufreq_level);
+
+		// set timer to disable in x ms.
+		schedule_delayed_work(&work_touchbooster_dvfs_off, msecs_to_jiffies(touchbooster_msecs_on));
+
+		touchbooster_dvfs_locked = 1;
+		pr_info("[touchbooster] boost on! boosted to %d mhz [L%d] for %d msecs\n",
+			  touchbooster_freq, touchbooster_cpufreq_level, touchbooster_msecs_on);
+	}
+
+	mutex_unlock(&touchbooster_dvfs_lock);
+}
+#endif
+
 static void report_input_data(struct mxt224_data *data)
 {
 	int i;
-	static unsigned int level = ~0;
 	bool tsp_state = false;
 	bool check_press = false;
 	u16 object_address = 0;
@@ -1346,9 +1433,6 @@ static void report_input_data(struct mxt224_data *data)
 	track_gestures = copy_data->mxt224_enabled;
 #endif
 	touch_is_pressed = 0;
-
-	if (level == ~0)
-		exynos_cpufreq_get_level(500000, &level);
 
 	for (i = 0; i < data->num_fingers; i++) {
 		if (TSP_STATE_INACTIVE == data->fingers[i].z)
@@ -1501,15 +1585,15 @@ static void report_input_data(struct mxt224_data *data)
 				 data->fingers[i].component);
 #endif
 
-		if (copy_data->touch_is_pressed_arr[i] == 1)
-			check_press = true;
-
 		if (copy_data->g_debug_switch)
 			printk(KERN_ERR "[TSP] ID-%d, %4d,%4d\n", i,
 			       data->fingers[i].x, data->fingers[i].y);
 
-		if (copy_data->touch_is_pressed_arr[i] != 0)
+		// toch [1] || move [2]
+		if (copy_data->touch_is_pressed_arr[i] != 0) {
 			touch_is_pressed = 1;
+			check_press = true;
+		}
 
 		/* logging */
 #ifdef __TSP_DEBUG
@@ -1529,6 +1613,15 @@ static void report_input_data(struct mxt224_data *data)
 	data->finger_mask = 0;
 	copy_data->touch_state = 0;
 	input_sync(data->input_dev);
+
+	// export touch state
+	if (check_press) {
+		if (touchbooster_enabled == 1)
+    		touchbooster_dvfs_lock_on();
+		touch_state_val = true;
+	} else {
+		touch_state_val = false;
+	}
 
 	if ((touch_is_pressed == 0) &&
 		(copy_data->freq_table.fherr_setting >= 2)) {
@@ -1604,16 +1697,7 @@ static void report_input_data(struct mxt224_data *data)
 	}
 #endif
 
-	if (!tsp_state && copy_data->lock_status) {
-		exynos_cpufreq_lock_free(DVFS_LOCK_ID_TSP);
-		copy_data->lock_status = 0;
-	} else if ((copy_data->lock_status == 0) && check_press) {
-		if (level != ~0) {
-			exynos_cpufreq_lock(
-				DVFS_LOCK_ID_TSP,
-				level);
-			copy_data->lock_status = 1;
-		}
+	if (check_press) {
 #ifdef CONFIG_KEYBOARD_CYPRESS_AOKP
 		if (flash_timeout)
 			flash_led_buttons(flash_timeout);
@@ -3676,6 +3760,123 @@ static ssize_t led_flash_timeout_store(struct device *dev,
 }
 #endif
 
+#if TOUCH_BOOSTER
+static ssize_t touchbooster_enabled_show(struct device *dev,
+                                     struct device_attribute *attr, char *buf)
+{
+	sprintf(buf, "%d\n", touchbooster_enabled ? 1 : 0);
+	return strlen(buf);
+}
+
+static ssize_t touchbooster_enabled_store(struct device *dev, struct device_attribute *attr,
+                                      const char *buf, size_t size)
+{
+	unsigned int input;
+	int ret;
+	
+	ret = sscanf(buf, "%u", &input);
+	
+	if (ret != 1 && (input > 1 || input < 0)) {
+		return -EINVAL;
+	}
+	
+	if (input == 0) {
+		touchbooster_enabled = 0;
+		pr_info("[touchbooster] touchbooster disabled\n");
+	} else if (input == 1) {
+		touchbooster_enabled = 1;
+		pr_info("[touchbooster] touchbooster enabled\n");
+	}
+	
+	return size;
+}
+
+static ssize_t touchbooster_freq_show(struct device *dev,
+										   struct device_attribute *attr, char *buf)
+{
+	sprintf(buf, "%d\n", touchbooster_freq);
+	return strlen(buf);
+}
+
+static ssize_t touchbooster_freq_store(struct device *dev, struct device_attribute *attr,
+											const char *buf, size_t size)
+{
+	unsigned int input;
+	int ret;
+	unsigned int maxfreq = 0;
+	unsigned int minfreq = 0;
+	
+	ret = sscanf(buf, "%u", &input);
+	
+	if (ret != 1) {
+		return -EINVAL;
+	}
+	
+	maxfreq = exynos_cpufreq_get_maxfreq();
+	minfreq = exynos_cpufreq_get_minfreq();
+	
+	if (maxfreq < 1) {
+		// something went wrong. just set a safe value.
+		maxfreq = TOUCH_BOOSTER_FREQ_MAX;
+	}
+	
+	if (minfreq < 1) {
+		// something went wrong. just set a safe value.
+		minfreq = TOUCH_BOOSTER_FREQ_MIN;
+	}
+	
+	if (input == 0) {
+		// set to default.
+		touchbooster_freq = TOUCH_BOOSTER_FREQ;
+	} else if (input < minfreq) {
+		touchbooster_freq = minfreq;
+		pr_info("[touchbooster] boost_freq too low. set to: %d\n", minfreq);
+	} else if (input > maxfreq) {
+		touchbooster_freq = maxfreq;
+		pr_info("[touchbooster] boost_freq too high. set to: %d\n", maxfreq);
+	} else {
+		touchbooster_freq = input;
+		pr_info("[touchbooster] boost_freq set to: %d\n", input);
+	}
+	
+	// reset the level so it can be set later with the new freq.
+	touchbooster_cpufreq_level = -1;
+	
+	return size;
+}
+
+static ssize_t touchbooster_msecs_on_show(struct device *dev,
+										   struct device_attribute *attr, char *buf)
+{
+	sprintf(buf, "%d\n", touchbooster_msecs_on);
+	return strlen(buf);
+}
+
+static ssize_t touchbooster_msecs_on_store(struct device *dev, struct device_attribute *attr,
+											const char *buf, size_t size)
+{
+	unsigned int input;
+	int ret;
+	
+	ret = sscanf(buf, "%u", &input);
+	
+	if (ret != 1 && (input < 0 || input > 20000)) {
+		return -EINVAL;
+	}
+	
+	if (input == 0) {
+		// set to default.
+		touchbooster_msecs_on = TOUCH_BOOSTER_MSECS_ON;
+		pr_info("[touchbooster] touchbooster msecs on set to default (%d)\n", TOUCH_BOOSTER_MSECS_ON);
+	} else {
+		touchbooster_msecs_on = input;
+		pr_info("[touchbooster] touchbooster msecs_on set to: %d\n", input);
+	}
+	
+	return size;
+}
+#endif
+
 static DEVICE_ATTR(set_refer0, S_IRUGO | S_IWUSR | S_IWGRP,
 		   set_refer0_mode_show, NULL);
 static DEVICE_ATTR(set_delta0, S_IRUGO | S_IWUSR | S_IWGRP,
@@ -3754,6 +3955,14 @@ static DEVICE_ATTR(tsp_slide2wake, S_IRUGO | S_IWUSR | S_IWGRP,
 		   slide2wake_show, slide2wake_store);
 static DEVICE_ATTR(tsp_slide2wake_call, S_IRUGO | S_IWUSR | S_IWGRP,
 		   slide2wake_call_show, slide2wake_call_store);
+#if TOUCH_BOOSTER
+static DEVICE_ATTR(touchbooster_enabled, S_IRUGO | S_IWUSR,
+                   touchbooster_enabled_show, touchbooster_enabled_store);
+static DEVICE_ATTR(touchbooster_freq, S_IRUGO | S_IWUSR,
+                   touchbooster_freq_show, touchbooster_freq_store);
+static DEVICE_ATTR(touchbooster_msecs_on, S_IRUGO | S_IWUSR,
+                   touchbooster_msecs_on_show, touchbooster_msecs_on_store);
+#endif
 
 static int sec_touchscreen_enable(struct mxt224_data *data)
 {
@@ -4122,6 +4331,13 @@ static int __devinit mxt224_probe(struct i2c_client *client,
 	int gain_ta_pre;
 #endif
 
+#if TOUCH_BOOSTER
+	mutex_init(&touchbooster_dvfs_lock);
+	INIT_DELAYED_WORK(&work_touchbooster_dvfs_off, touchbooster_dvfs_lock_off);
+	touchbooster_cpufreq_level = -1;
+	touchbooster_dvfs_locked = 0;
+#endif
+
 	touch_is_pressed = 0;
 
 	if (!pdata) {
@@ -4470,6 +4686,20 @@ static int __devinit mxt224_probe(struct i2c_client *client,
 	    0)
 		printk(KERN_ERR "Failed to create device file(%s)!\n",
 		       dev_attr_tsp_config_version.attr.name);
+
+#if TOUCH_BOOSTER
+	if (device_create_file(sec_touchscreen, &dev_attr_touchbooster_enabled) < 0)
+		printk(KERN_ERR "Failed to create device file(%s)!\n",
+			dev_attr_touchbooster_enabled.attr.name);
+
+	if (device_create_file(sec_touchscreen, &dev_attr_touchbooster_freq) < 0)
+		printk(KERN_ERR "Failed to create device file(%s)!\n",
+			dev_attr_touchbooster_freq.attr.name);
+
+	if (device_create_file(sec_touchscreen, &dev_attr_touchbooster_msecs_on) < 0)
+		printk(KERN_ERR "Failed to create device file(%s)!\n",
+			dev_attr_touchbooster_msecs_on.attr.name);
+#endif
 
 #ifdef CONFIG_TARGET_LOCALE_KOR
 	if (device_create_file
