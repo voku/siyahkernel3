@@ -2,42 +2,38 @@
 
 ###############################################################################
 # To all DEV around the world :)                                              #
+# to build this kernel you need to be ROOT and to have bash as script loader  #
+# do this:                                                                    #
+# cd /bin                                                                     #
+# rm -f sh                                                                    #
+# ln -s bash sh                                                               #
+# now go back to kernel folder and run:                                       #
+# sh load_config.sh                                                           #
+# sh clean_kernel.sh                                                          #
 #                                                                             #
-# 1.) use the "bash"                                                          #
-# chsh -s /bin/bash `whoami`                                                  #
-#                                                                             #
-# 2.) load the ".config"                                                      #
-# ./load_config.sh                                                            #
-#                                                                             #
-# 3.) clean the sources                                                       #
-# ./clean_kernel.sh                                                           #
-#                                                                             #
-# 4.) now you can build my kernel                                             #
-# ./build_kernel.sh                                                           #
-#                                                                             #
+# Now you can build my kernel.                                                #
+# using bash will make your life easy. so it's best that way.                 #
 # Have fun and update me if something nice can be added to my source.         #
 ###############################################################################
 
 # location
-if [ "${1}" != "" ]; then
-	export KERNELDIR=`readlink -f ${1}`;
-else
-	export KERNELDIR=`readlink -f .`;
-fi;
-
-export PARENT_DIR=`readlink -f ${KERNELDIR}/..`;
+export KERNELDIR=`readlink -f .`;
+export PARENT_DIR=`readlink -f ..`;
 export INITRAMFS_SOURCE=`readlink -f ${KERNELDIR}/../initramfs3`;
-export INITRAMFS_TMP=/tmp/initramfs_source;
+export INITRAMFS_TMP=/tmp/initramfs_source
 
 # kernel
 export ARCH=arm;
 export USE_SEC_FIPS_MODE=true;
-export KERNEL_CONFIG=dorimanx_defconfig;
+export KERNEL_CONFIG="dorimanx_defconfig";
 
 # build script
-export USER=`whoami`;
-export HOST=`uname -n`;
-export TMPFILE=`mktemp -t`;
+export USER=`whoami`
+export TMPFILE=$(mktemp -t)
+export HOST_CHECK=`uname -n`;
+export OLDMODULES=`find -name *.ko`;
+
+chmod -R 777 /tmp;
 
 # system compiler
 # gcc x.x.x
@@ -50,45 +46,43 @@ export TMPFILE=`mktemp -t`;
 # export CROSS_COMPILE=$PARENT_DIR/linaro/bin/arm-eabi-;
 
 # gcc 4.7.2 (Linaro 12.07)
-export CROSS_COMPILE=$KERNELDIR/android-toolchain/bin/arm-eabi-;
+export CROSS_COMPILE=${KERNELDIR}/android-toolchain/bin/arm-eabi-;
 
 # importing PATCH for GCC depend on GCC version
 GCCVERSION=`./scripts/gcc-version.sh ${CROSS_COMPILE}gcc`;
 
 # check xml-config for "STweaks"-app
 XML2CHECK="${INITRAMFS_SOURCE}/res/customconfig/customconfig.xml";
-xmllint --noout $XML2CHECK;
+xmllint --noout ${XML2CHECK};
 if [ $? == 1 ]; then
-	echo "xml-Error: $XML2CHECK";
+	echo "xml-Error: ${XML2CHECK}";
 	exit 1;
 fi;
 
-# compiler detection
 if [ "a$GCCVERSION" == "a0404" ]; then
-	cp $KERNELDIR/arch/arm/boot/compressed/Makefile_old_gcc $KERNELDIR/arch/arm/boot/compressed/Makefile;
+	cp ${KERNELDIR}/arch/arm/boot/compressed/Makefile_old_gcc ${KERNELDIR}/arch/arm/boot/compressed/Makefile;
 	echo "GCC 4.3.X Compiler Detected, building";
 elif [ "a$GCCVERSION" == "a0404" ]; then
-	cp $KERNELDIR/arch/arm/boot/compressed/Makefile_old_gcc $KERNELDIR/arch/arm/boot/compressed/Makefile;
+	cp ${KERNELDIR}/arch/arm/boot/compressed/Makefile_old_gcc ${KERNELDIR}/arch/arm/boot/compressed/Makefile;
 	echo "GCC 4.4.X Compiler Detected, building";
 elif [ "a$GCCVERSION" == "a0405" ]; then
-	cp $KERNELDIR/arch/arm/boot/compressed/Makefile_old_gcc $KERNELDIR/arch/arm/boot/compressed/Makefile;
+	cp ${KERNELDIR}/arch/arm/boot/compressed/Makefile_old_gcc ${KERNELDIR}/arch/arm/boot/compressed/Makefile;
 	echo "GCC 4.5.X Compiler Detected, building";
 elif [ "a$GCCVERSION" == "a0406" ]; then
-	cp $KERNELDIR/arch/arm/boot/compressed/Makefile_linaro $KERNELDIR/arch/arm/boot/compressed/Makefile;
+	cp ${KERNELDIR}/arch/arm/boot/compressed/Makefile_linaro ${KERNELDIR}/arch/arm/boot/compressed/Makefile;
 	echo "GCC 4.6.X Compiler Detected, building";
 elif [ "a$GCCVERSION" == "a0407" ]; then
-	cp $KERNELDIR/arch/arm/boot/compressed/Makefile_linaro $KERNELDIR/arch/arm/boot/compressed/Makefile;
+	cp ${KERNELDIR}/arch/arm/boot/compressed/Makefile_linaro ${KERNELDIR}/arch/arm/boot/compressed/Makefile;
 	echo "GCC 4.7.X Compiler Detected, building";
 elif [ "a$GCCVERSION" == "a0408" ]; then
-	cp $KERNELDIR/arch/arm/boot/compressed/Makefile_linaro $KERNELDIR/arch/arm/boot/compressed/Makefile;
+	cp ${KERNELDIR}/arch/arm/boot/compressed/Makefile_linaro ${KERNELDIR}/arch/arm/boot/compressed/Makefile;
 	echo "GCC 4.8.X Compiler Detected, building";
 else
 	echo "Compiler not recognized! please fix the 'build_kernel.sh'-script to match your compiler.";
 	exit 0;
 fi;
 
-# dorimanx detection ;)
-if [ $HOST == "dorimanx-virtual-machine" ]; then
+if [ $HOST_CHECK == "dorimanx-virtual-machine" ]; then
 	NAMBEROFCPUS=16;
 	echo "Dori power detected!";
 else
@@ -99,40 +93,51 @@ else
 	fi;
 fi;
 
-# copy config
-if [ ! -f $KERNELDIR/.config ]; then
-	cp $KERNELDIR/arch/arm/configs/$KERNEL_CONFIG $KERNELDIR/.config;
+if [ "${1}" != "" ]; then
+	export KERNELDIR=`readlink -f ${1}`;
 fi;
 
-# read config
-. $KERNELDIR/.config;
+if [ ! -f ${KERNELDIR}/.config ]; then
+	cp ${KERNELDIR}/arch/arm/configs/${KERNEL_CONFIG} .config;
+	make ${KERNEL_CONFIG};
+fi;
 
-# get version from config
-GETVER=`grep 'Siyah-.*-V' $KERNELDIR/.config | sed 's/.*".//g' | sed 's/-J.*//g'`;
+. ${KERNELDIR}/.config;
+
+# get version
+GETVER=`grep 'Siyah-.*-V' ${KERNELDIR}/.config | sed 's/.*".//g' | sed 's/-J.*//g'`;
 
 # remove previous zImage files
-if [ -e $KERNELDIR/zImage ]; then
-	rm $KERNELDIR/zImage;
+if [ -e ${KERNELDIR}/zImage ]; then
+	rm ${KERNELDIR}/zImage;
 fi;
-if [ -e $KERNELDIR/arch/arm/boot/zImage ]; then
-	rm $KERNELDIR/arch/arm/boot/zImage;
+if [ -e ${KERNELDIR}/arch/arm/boot/zImage ]; then
+	rm ${KERNELDIR}/arch/arm/boot/zImage;
 fi;
+
+# remove all old modules before compile
+cd ${KERNELDIR};
+for i in ${OLDMODULES}; do
+	rm -f $i;
+done;
 
 # remove previous initramfs files
 if [ -d $INITRAMFS_TMP ]; then
 	echo "removing old temp initramfs_source";
 	rm -rf $INITRAMFS_TMP;
 fi;
+if [ -e "/tmp/cpio*" ]; then
+	echo "removing old temp iniramfs_tmp.cpio";
+	rm -f /tmp/cpio*;
+fi;
 
 # clean initramfs old compile data
-rm -f $KERNELDIR/usr/initramfs_data.cpio;
-rm -f $KERNELDIR/usr/initramfs_data.o;
+rm -f usr/initramfs_data.cpio;
+rm -f usr/initramfs_data.o;
 
 # copy new config
-cp $KERNELDIR/.config $KERNELDIR/arch/arm/configs/$KERNEL_CONFIG;
-
-# remove all old modules before compile
-find $KERNELDIR -name "*.ko" | parallel rm -rf {};
+cd $KERNELDIR/;
+cp .config arch/arm/configs/$KERNEL_CONFIG;
 
 # make modules
 mkdir -p $INITRAMFS/lib/modules
@@ -143,58 +148,39 @@ else
 fi;
 
 # copy initramfs files to tmp directory
-cp -ax $INITRAMFS_SOURCE $INITRAMFS_TMP;
+cp -ax $INITRAMFS_SOURCE $INITRAMFS_TMP
 
-# create new image with version & date
-read -t 3 -p "create new kernel Image LOGO with version & date, 3sec timeout (y/n)?";
-echo "0" > $TMPFILE;
-if [ "$REPLY" == "y" ]; then
-	(
-		boot_image=${INITRAMFS_TMP}/res/images/icon_clockwork.png;
-
-		convert -ordered-dither threshold,32,64,32 -pointsize 17 -fill white -draw "text 70,770 \"$GETVER \
-			[`date "+%H:%M | %d.%m.%Y"| sed -e ' s/\"/\\\"/g' `]\"" \
-			$boot_image \
-			$boot_image;
-
-		optipng -o7 -quiet $boot_image;
-
-		echo "1" > $TMPFILE;	
-	)&
-else
-	echo "1" > $TMPFILE;
-fi;    
-
-# clear git repository from tmp-initramfs
+# clear git repositories in initramfs
 if [ -d $INITRAMFS_TMP/.git ]; then
 	rm -rf $INITRAMFS_TMP/.git;
 fi;
 
-# clear mercurial repository from tmp-initramfs
+# remove empty directory placeholders
+find $INITRAMFS_TMP -name EMPTY_DIRECTORY -exec rm -rf {} \;
+
+# remove mercurial repository
 if [ -d $INITRAMFS_TMP/.hg ]; then
 	rm -rf $INITRAMFS_TMP/.hg;
 fi;
 
-# remove empty directory placeholders from tmp-initramfs
-find $INITRAMFS_TMP -name EMPTY_DIRECTORY | parallel rm -rf {};
-
-# remove more from from tmp-initramfs ...
+# remove more from tmp-dir ...
 rm -f $INITRAMFS_TMP/compress-sql.sh;
 rm -f $INITRAMFS_TMP/update*;
 
-# copy modules into tmp-initramfs
+# copy modules into initramfs
 mkdir -p $INITRAMFS_TMP/lib/modules;
-find $KERNELDIR -name '*.ko' | parallel cp -av {} $INITRAMFS_TMP/lib/modules/;
-find $INITRAMFS_TMP/lib/modules/ -name '*.ko' | parallel ${CROSS_COMPILE}strip --strip-debug {};
+find -name '*.ko' -exec cp -av {} $INITRAMFS_TMP/lib/modules/ \;
+${CROSS_COMPILE}strip --strip-debug $INITRAMFS_TMP/lib/modules/*.ko;
 chmod 755 $INITRAMFS_TMP/lib/modules/*;
 
-# wait for the boot-image
-while [ $(cat ${TMPFILE}) == 0 ]; do
-	sleep 2;
-	echo "wait for image ...";
-done;
+read -t 3 -p "create new kernel Image LOGO with version & date, 3sec timeout (y/n)?";
+if [ "$REPLY" == "y" ]; then
+	# create new image with version & date
+	convert -ordered-dither threshold,32,64,32 -pointsize 17 -fill white -draw "text 70,770 \"$GETVER [$(date "+%H:%M | %d.%m.%Y"| sed -e ' s/\"/\\\"/g') ]\"" $INITRAMFS_TMP/res/images/icon_clockwork.png $INITRAMFS_TMP/res/images/icon_clockwork.png;
+	optipng -o7 $INITRAMFS_TMP/res/images/icon_clockwork.png;
+fi;
 
-# make kernel!!!
+# make kernel
 if [ "$USER" != "root" ]; then
 	time make -j $NAMBEROFCPUS zImage CONFIG_INITRAMFS_SOURCE="$INITRAMFS_TMP";
 else
@@ -205,24 +191,21 @@ fi;
 cp $KERNELDIR/arch/arm/boot/compressed/Makefile_clean $KERNELDIR/arch/arm/boot/compressed/Makefile;
 
 if [ -e $KERNELDIR/arch/arm/boot/zImage ]; then
-	cp $KERNELDIR/arch/arm/boot/zImage $KERNELDIR/;
-	cp $KERNELDIR/.config $KERNELDIR/arch/arm/configs/$KERNEL_CONFIG;
-
-	# clean old files ...
-	rm $KERNELDIR/READY-JB/boot/zImage;
-	rm $KERNELDIR/READY-JB/Kernel_*;
+#	${KERNELDIR}/mkshbootimg.py ${KERNELDIR}/zImage ${KERNELDIR}/arch/arm/boot/zImage ${KERNELDIR}/payload.tar.xz ${KERNELDIR}/recovery.tar.xz;
+	cp $KERNELDIR/arch/arm/boot/zImage $KERNELDIR;
 
 	# copy all needed to ready kernel folder
+	cp $KERNELDIR/.config $KERNELDIR/arch/arm/configs/$KERNEL_CONFIG;
 	cp $KERNELDIR/.config $KERNELDIR/READY-JB/;
-	stat $KERNELDIR/zImage || exit 1;
+	rm $KERNELDIR/READY-JB/boot/zImage;
+	rm $KERNELDIR/READY-JB/Kernel_*;
+	stat $KERNELDIR/zImage;
 	cp $KERNELDIR/zImage /$KERNELDIR/READY-JB/boot/;
+	cd $KERNELDIR/READY-JB/;
+	zip -r Kernel_${GETVER}-`date +"[%H-%M]-[%d-%m]-JB-CM-AOKP-SGII-PWR-CORE"`.zip .;
 
-	# create zip-file
-	cd $KERNELDIR/READY-JB/ && zip -r Kernel_${GETVER}-`date +"[%H-%M]-[%d-%m]-JB-CM-AOKP-SGII-PWR-CORE"`.zip .;
-
-	# push to android
-	ADB_STATUS=`adb get-state`;
-	if [ "$ADB_STATUS" == "device" ]; then
+	STATUS=`adb get-state`;
+	if [ "$STATUS" == "device" ]; then
 		read -t 3 -p "push kernel to android, 3sec timeout (y/n)?";
 		if [ "$REPLY" == "y" ]; then
 			adb push $KERNELDIR/READY-JB/Kernel_*JB*.zip /sdcard/;
