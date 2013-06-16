@@ -90,7 +90,6 @@ static DEFINE_MUTEX(nightmare_mutex);
 
 /* nightmare tuners */
 static struct nightmare_tuners {
-	atomic_t delayer_rate;
 	atomic_t sampling_rate;
 	atomic_t hotplug_lock;
 	atomic_t hotplug_enable;
@@ -116,7 +115,6 @@ static struct nightmare_tuners {
 	atomic_t earlysuspend;
 	atomic_t soft_scal;
 } nightmare_tuners_ins = {
-	.delayer_rate = ATOMIC_INIT(0),
 	.sampling_rate = ATOMIC_INIT(60000),
 	.hotplug_lock = ATOMIC_INIT(0),
 	.hotplug_enable = ATOMIC_INIT(0),
@@ -195,7 +193,6 @@ static ssize_t show_##file_name						\
 {									\
 	return sprintf(buf, "%d\n", atomic_read(&nightmare_tuners_ins.object));		\
 }
-show_one(delayer_rate, delayer_rate);
 show_one(sampling_rate, sampling_rate);
 show_one(max_cpu_lock, max_cpu_lock);
 show_one(min_cpu_lock, min_cpu_lock);
@@ -266,27 +263,6 @@ define_one_global_rw(hotplug_freq_3_0);
 define_one_global_rw(hotplug_freq_3_1);
 define_one_global_rw(hotplug_freq_4_0);
 #endif
-
-/* delayer_rate */
-static ssize_t store_delayer_rate(struct kobject *a, struct attribute *b,
-				   const char *buf, size_t count)
-{
-	int input;
-	int ret;
-
-	ret = sscanf(buf, "%d", &input);
-	if (ret != 1)
-		return -EINVAL;
-
-	input = max(input,0);
-
-	if (input == atomic_read(&nightmare_tuners_ins.delayer_rate))
-		return count;
-
-	atomic_set(&nightmare_tuners_ins.delayer_rate,input);
-
-	return count;
-}
 
 /* sampling_rate */
 static ssize_t store_sampling_rate(struct kobject *a, struct attribute *b,
@@ -749,7 +725,6 @@ static ssize_t store_soft_scal(struct kobject *a, struct attribute *b,
 	return count;
 }
 
-define_one_global_rw(delayer_rate);
 define_one_global_rw(sampling_rate);
 define_one_global_rw(hotplug_enable);
 define_one_global_rw(max_cpu_lock);
@@ -774,7 +749,6 @@ define_one_global_rw(down_sf_step);
 define_one_global_rw(soft_scal);
 
 static struct attribute *nightmare_attributes[] = {
-	&delayer_rate.attr,
 	&sampling_rate.attr,
 	&hotplug_enable.attr,
 	&max_cpu_lock.attr,
@@ -1164,11 +1138,10 @@ static void do_nightmare_timer(struct work_struct *work)
 
 static inline void nightmare_timer_init(struct cpufreq_nightmare_cpuinfo *nightmare_cpuinfo)
 {
-	int delay = usecs_to_jiffies(atomic_read(&nightmare_tuners_ins.delayer_rate));
 	INIT_DEFERRABLE_WORK(&nightmare_cpuinfo->work, do_nightmare_timer);
 	INIT_WORK(&nightmare_cpuinfo->up_work, cpu_up_work);
 	INIT_WORK(&nightmare_cpuinfo->down_work, cpu_down_work);
-	schedule_delayed_work_on(nightmare_cpuinfo->cpu, &nightmare_cpuinfo->work, delay);
+	schedule_delayed_work_on(nightmare_cpuinfo->cpu, &nightmare_cpuinfo->work, 0);
 }
 
 static inline void nightmare_timer_exit(struct cpufreq_nightmare_cpuinfo *nightmare_cpuinfo)
