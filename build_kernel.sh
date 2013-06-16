@@ -25,6 +25,11 @@ else
 	export KERNELDIR=`readlink -f .`;
 fi;
 
+# check if parallel installed, if not install
+if [ ! -e /usr/bin/parallel ]; then
+	sudo dpkg -i parallel_20120422-1_all.deb
+fi;
+
 export PARENT_DIR=`readlink -f ${KERNELDIR}/..`;
 export INITRAMFS_SOURCE=`readlink -f ${KERNELDIR}/../initramfs3`;
 export INITRAMFS_TMP=/tmp/initramfs_source;
