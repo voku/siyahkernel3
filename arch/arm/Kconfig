@@ -1431,7 +1431,7 @@ source kernel/Kconfig.preempt
 
 config HZ
 	int
-	default 200 if ARCH_EXYNOS4
+	default 250 if ARCH_EXYNOS
 	default 100
 
 config THUMB2_KERNEL
