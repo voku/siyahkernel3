@@ -205,15 +205,16 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		pcred = __task_cred(p);
 		uid = pcred->uid;
 
-		if (!avoid_to_kill(uid) && !protected_apps(p->comm)) {
+		if ((!avoid_to_kill(uid) && !protected_apps(p->comm)) ||
+				tasksize * (long)(PAGE_SIZE / 1024) >= 80000) {
 			selected = p;
 			selected_tasksize = tasksize;
 			selected_oom_score_adj = oom_score_adj;
-			lowmem_print(2, "select %s' (%d), adj %hd, size %d, to kill\n",
-				 p->comm, p->pid, oom_score_adj, tasksize);
+			lowmem_print(2, "select %s' (%d), adj %hd, size %ldkB, to kill\n",
+				 p->comm, p->pid, oom_score_adj, tasksize * (long)(PAGE_SIZE / 1024));
 		} else {
-			lowmem_print(3, "selected skipped %s' (%d), adj %hd, size %d, no to kill\n",
-				 p->comm, p->pid, oom_score_adj, tasksize);
+			lowmem_print(3, "selected skipped %s' (%d), adj %hd, size %ldkB, no to kill\n",
+				 p->comm, p->pid, oom_score_adj, tasksize * (long)(PAGE_SIZE / 1024));
 		}
 	}
 	if (selected) {

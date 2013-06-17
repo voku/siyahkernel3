@@ -1,9 +1,10 @@
                        This is Dorimanx Kernel 9.X/8.x
 
+This kernel is compiled on Ubuntu 12.04 x86/64BIT
+
 To compile you need to add
 sudo apt-get install ccache
 sudo apt-get install imagemagick
-sudo apt-get install moreutils
 
 ==================================================================
 My info guide.
