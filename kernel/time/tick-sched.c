@@ -21,7 +21,6 @@
 #include <linux/sched.h>
 #include <linux/module.h>
 #include <linux/irq_work.h>
-#include <linux/vtime.h>
 #include <linux/posix-timers.h>
 #include <linux/perf_event.h>
 
@@ -411,7 +410,6 @@ static void tick_nohz_update_jiffies(ktime_t now)
 	tick_do_update_jiffies64(now);
 	local_irq_restore(flags);
 
-/*	calc_load_exit_idle(); */
 	touch_softlockup_watchdog();
 }
 
@@ -1063,15 +1061,6 @@ static inline void tick_check_nohz(int cpu)
 		tick_nohz_update_jiffies(now);
 		tick_nohz_kick_tick(cpu, now);
 	}
-}
-
-void tick_shutdown_nohz(unsigned int *cpup)
-{
-	unsigned int cpu = *cpup;
-
-	struct tick_sched *ts = &per_cpu(tick_cpu_sched, cpu);
-
-	memset(ts, 0, sizeof(*ts));
 }
 
 #else
