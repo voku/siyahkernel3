@@ -214,7 +214,7 @@ static DEVICE_ATTR(offline, 0444, print_cpus_offline, NULL);
  *
  * Initialize and register the CPU device.
  */
-int __cpuinit register_cpu(struct cpu *cpu, int num)
+int register_cpu(struct cpu *cpu, int num)
 {
 	int error;
 
