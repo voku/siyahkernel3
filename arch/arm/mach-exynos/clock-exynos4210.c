@@ -276,8 +276,6 @@ static int exynos4210_epll_set_rate(struct clk *clk, unsigned long rate)
 
 
 static struct vpll_div_data vpll_div_4210[] = {
-	{54000000, 3, 53, 3, 1024, 0, 17, 0},
-	{66000000, 3, 63, 3, 1024, 0, 20, 1},
 	{108000000, 3, 53, 2, 1024, 0, 17, 0},
 	{160000000, 2, 53, 2, 1024, 1,  1, 1},
 	{200000000, 2, 63, 2, 1024, 1,  1, 1},

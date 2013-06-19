@@ -67,7 +67,7 @@ typedef struct mali_dvfs_stepTag{
 }mali_dvfs_step;
 
 mali_dvfs_step step[MALI_DVFS_STEPS]={
-	/*step 0 clk*/ {108,   900000},
+	/*step 0 clk*/ {108,   950000},
 #if (MALI_DVFS_STEPS > 1)
 	/*step 1 clk*/ {160,   950000},
 #if (MALI_DVFS_STEPS > 2)
@@ -106,7 +106,7 @@ mali_dvfs_staycount_table mali_dvfs_staycount[MALI_DVFS_STEPS]={
 // L4 = 160Mhz, 0.875V
 
 int step0_clk = 108;
-int step0_vol = 900000;
+int step0_vol = 950000;
 #if (MALI_DVFS_STEPS > 1)
 int step1_clk = 160;
 int step1_vol = 950000;
@@ -133,14 +133,14 @@ int step4_down = 70;
 #endif
 
 mali_dvfs_table mali_dvfs_all[MAX_MALI_DVFS_STEPS]={
-	{108   ,1000000   ,  900000},
+	{108   ,1000000   ,  950000},
 	{160   ,1000000   ,  950000},
 	{200   ,1000000   , 1000000},
 	{267   ,1000000   , 1050000},
 	{267   ,1000000   , 1050000} };
 
 mali_dvfs_table mali_dvfs[MALI_DVFS_STEPS]={
-	{108  ,1000000    , 900000},
+	{108  ,1000000    , 950000},
 #if (MALI_DVFS_STEPS > 1)
 	{160  ,1000000    , 950000},
 #if (MALI_DVFS_STEPS > 2)
