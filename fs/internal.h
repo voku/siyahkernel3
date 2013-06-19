@@ -131,6 +131,7 @@ extern int d_set_mounted(struct dentry *dentry);
  * read_write.c
  */
 extern ssize_t __kernel_write(struct file *, const char *, size_t, loff_t *);
+extern int rw_verify_area(int, struct file *, const loff_t *, size_t);
 
 /*
  * splice.c
