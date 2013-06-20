@@ -251,7 +251,7 @@ static struct s3c2410_uartcfg smdkc210_uartcfgs[] __initdata = {
 		.ucon = SMDKC210_UCON_DEFAULT,
 		.ulcon = SMDKC210_ULCON_DEFAULT,
 		.ufcon = SMDKC210_UFCON_DEFAULT,
-//		.set_runstate = set_gps_uart_op,
+		.set_runstate = set_gps_uart_op,
 	},
 	[2] = {
 		.hwport = 2,
@@ -3127,7 +3127,7 @@ static struct regulator_init_data buck2_init_data = {
 static struct regulator_init_data buck3_init_data = {
 	.constraints	= {
 		.name		= "G3D_1.1V",
-		.min_uV		= 800000,
+		.min_uV		= 850000,
 		.max_uV		= 1500000,
 		.always_on	= 0,
 		.boot_on	= 0,

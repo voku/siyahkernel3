@@ -3,5 +3,3 @@
 cp arch/arm/configs/dorimanx_defconfig .config;
 echo "done ...";
 
-echo "done ...";
-
