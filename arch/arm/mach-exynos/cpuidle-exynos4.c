@@ -17,6 +17,8 @@
 #include <linux/time.h>
 
 #include <asm/proc-fns.h>
+#include <asm/tlbflush.h>
+#include <asm/cacheflush.h>
 #include <asm/smp_scu.h>
 #include <asm/suspend.h>
 #include <asm/unified.h>
@@ -61,6 +63,17 @@ static struct cpuidle_driver exynos4_idle_driver = {
 	.safe_state_index = 0,
 };
 
+void exynos4_flush_cache(void *addr, phys_addr_t phy_ttb_base)
+{
+	outer_clean_range(virt_to_phys(addr - 0x40),
+          virt_to_phys(addr + 0x40));
+	outer_clean_range(virt_to_phys(cpu_resume),
+          virt_to_phys(cpu_resume + 0x40));
+	outer_clean_range(phy_ttb_base, phy_ttb_base + 0xffff);
+	flush_cache_all();
+}
+
+
 /* Ext-GIC nIRQ/nFIQ is the only wakeup source in AFTR */
 static void exynos4_set_wakeupmask(void)
 {
@@ -102,7 +115,7 @@ static int exynos4_enter_core0_aftr(struct cpuidle_device *dev,
 	exynos4_set_wakeupmask();
 
 	/* Set value of power down register for aftr mode */
-	exynos_sys_powerdown_conf(SYS_AFTR);
+	exynos4_sys_powerdown_conf(SYS_AFTR);
 
 	__raw_writel(virt_to_phys(s3c_cpu_resume), REG_DIRECTGO_ADDR);
 	__raw_writel(S5P_CHECK_AFTR, REG_DIRECTGO_FLAG);

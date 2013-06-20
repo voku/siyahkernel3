@@ -97,7 +97,7 @@ struct exynos_pmu_conf {
 	unsigned int val[NUM_SYS_POWERDOWN];
 };
 
-extern void exynos_sys_powerdown_conf(enum sys_powerdown mode);
+extern void exynos4_sys_powerdown_conf(enum sys_powerdown mode);
 extern void s3c_cpu_resume(void);
 
 #endif /* __ARCH_ARM_MACH_EXYNOS_COMMON_H */

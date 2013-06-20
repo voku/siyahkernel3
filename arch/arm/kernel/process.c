@@ -214,6 +214,9 @@ static void default_idle(void)
 	local_irq_enable();
 }
 
+void (*pm_idle)(void) = default_idle;
+EXPORT_SYMBOL(pm_idle);
+
 void arch_cpu_idle_prepare(void)
 {
 	local_fiq_enable();
@@ -582,6 +585,7 @@ EXPORT_SYMBOL(kernel_thread);
 
 unsigned long get_wchan(struct task_struct *p)
 {
+/*
 	struct stackframe frame;
 	int count = 0;
 	if (!p || p == current || p->state == TASK_RUNNING)
@@ -599,6 +603,7 @@ unsigned long get_wchan(struct task_struct *p)
 		if (!in_sched_functions(frame.pc))
 			return frame.pc;
 	} while (count ++ < 16);
+*/
 	return 0;
 }
 

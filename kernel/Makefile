@@ -23,6 +23,8 @@ CFLAGS_REMOVE_irq_work.o = -pg
 endif
 
 obj-y += sched/
+obj-y += power/
+obj-y += cpu/
 
 ifeq ($(CONFIG_CHECKPOINT_RESTORE),y)
 obj-$(CONFIG_X86) += kcmp.o

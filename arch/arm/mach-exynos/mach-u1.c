@@ -251,7 +251,7 @@ static struct s3c2410_uartcfg smdkc210_uartcfgs[] __initdata = {
 		.ucon = SMDKC210_UCON_DEFAULT,
 		.ulcon = SMDKC210_ULCON_DEFAULT,
 		.ufcon = SMDKC210_UFCON_DEFAULT,
-		.set_runstate = set_gps_uart_op,
+//		.set_runstate = set_gps_uart_op,
 	},
 	[2] = {
 		.hwport = 2,

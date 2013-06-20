@@ -660,6 +660,7 @@ struct signal_struct {
 #define SIGNAL_STOP_STOPPED	0x00000001 /* job control stop in effect */
 #define SIGNAL_STOP_CONTINUED	0x00000002 /* SIGCONT since WCONTINUED reap */
 #define SIGNAL_GROUP_EXIT	0x00000004 /* group exit in progress */
+#define SIGNAL_GROUP_COREDUMP   0x00000008 /* coredump in progress */
 /*
  * Pending notifications to parent.
  */
@@ -824,6 +825,8 @@ struct sched_domain_attr {
 }
 
 extern int sched_domain_level_max;
+
+struct sched_group;
 
 struct sched_domain {
 	/* These fields must be setup */
@@ -2501,6 +2504,47 @@ static inline int spin_needbreak(spinlock_t *lock)
 	return 0;
 #endif
 }
+
+/*
+ * Idle thread specific functions to determine the need_resched
+ * polling state. We have two versions, one based on TS_POLLING in
+ * thread_info.status and one based on TIF_POLLING_NRFLAG in
+ * thread_info.flags
+ */
+#ifdef TS_POLLING
+static inline int tsk_is_polling(struct task_struct *p)
+{
+	return task_thread_info(p)->status & TS_POLLING;
+}
+static inline void current_set_polling(void)
+{
+	current_thread_info()->status |= TS_POLLING;
+}
+
+static inline void current_clr_polling(void)
+{
+	current_thread_info()->status &= ~TS_POLLING;
+	smp_mb__after_clear_bit();
+}
+#elif defined(TIF_POLLING_NRFLAG)
+static inline int tsk_is_polling(struct task_struct *p)
+{
+	return test_tsk_thread_flag(p, TIF_POLLING_NRFLAG);
+}
+static inline void current_set_polling(void)
+{
+	set_thread_flag(TIF_POLLING_NRFLAG);
+}
+
+static inline void current_clr_polling(void)
+{
+	clear_thread_flag(TIF_POLLING_NRFLAG);
+}
+#else
+static inline int tsk_is_polling(struct task_struct *p) { return 0; }
+static inline void current_set_polling(void) { }
+static inline void current_clr_polling(void) { }
+#endif
 
 /*
  * Thread group CPU time accounting.
