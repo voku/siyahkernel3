@@ -797,33 +797,32 @@ static int exynos4_enter_lowpower(struct cpuidle_device *dev,
                 struct cpuidle_driver *drv,
                 int index);
 
+static struct cpuidle_state exynos4_cpuidle_set[] = {
+	[0] = {
+		.enter			= exynos4_enter_idle,
+		.exit_latency		= 1,
+		.target_residency	= 10000,
+		.flags			= CPUIDLE_FLAG_TIME_VALID,
+		.name			= "IDLE",
+		.desc			= "ARM clock gating(WFI)",
+	},
+#ifdef CONFIG_EXYNOS4_LOWPWR_IDLE
+	[1] = {
+		.enter			= exynos4_enter_lowpower,
+		.exit_latency		= 300,
+		.target_residency	= 10000,
+		.flags			= CPUIDLE_FLAG_TIME_VALID,
+		.name			= "LOW_POWER",
+		.desc			= "ARM power down",
+	},
+#endif
+};
+
 static DEFINE_PER_CPU(struct cpuidle_device, exynos4_cpuidle_device);
 
 static struct cpuidle_driver exynos4_idle_driver = {
 	.name		= "exynos4_idle",
 	.owner		= THIS_MODULE,
-	.states = {
-    [0] = {
-        .enter          = exynos4_enter_idle,
-        .exit_latency       = 1,
-        .target_residency   = 10000,
-        .flags          = CPUIDLE_FLAG_TIME_VALID,
-        .name           = "IDLE",
-        .desc           = "ARM clock gating(WFI)",
-    },
-#ifdef CONFIG_EXYNOS4_LOWPWR_IDLE
-    [1] = {
-        .enter          = exynos4_enter_lowpower,
-        .exit_latency       = 300,
-        .target_residency   = 10000,
-        .flags          = CPUIDLE_FLAG_TIME_VALID,
-        .name           = "LOW_POWER",
-        .desc           = "ARM power down",
-    },
-#endif
-	},
-    .state_count = 2,
-    .safe_state_index = 0,
 };
 
 static unsigned int cpu_core;
@@ -923,14 +922,8 @@ static int exynos4_enter_lowpower(struct cpuidle_device *dev,
 	int ret;
 
 	/* This mode only can be entered when only Core0 is online */
-	if (num_online_cpus() != 1) {
+	if (num_online_cpus() != 1)
 		return exynos4_enter_idle(dev, drv, index);
-	}
-
-	if (!soc_is_exynos4210()) {
-		tmp = S5P_USE_STANDBY_WFI0 | S5P_USE_STANDBY_WFE0;
-		__raw_writel(tmp, S5P_CENTRAL_SEQ_OPTION);
-	}
 
 	enter_mode = exynos4_check_entermode();
 	if (!enter_mode)
@@ -1070,7 +1063,7 @@ static void exynos4_init_cpuidle_post_hib(void)
 
 static int __init exynos4_init_cpuidle(void)
 {
-	int i, cpu_id, ret;
+	int i, max_cpuidle_state, cpu_id, ret;
 	struct cpuidle_device *device;
 	struct platform_device *pdev;
 	struct resource *res;
@@ -1091,20 +1084,31 @@ static int __init exynos4_init_cpuidle(void)
 		return ret;
 	}
 
-    for_each_online_cpu(cpu_id) {
-        device = &per_cpu(exynos4_cpuidle_device, cpu_id);
-        device->cpu = cpu_id;
+	for_each_online_cpu(cpu_id) {
+		device = &per_cpu(exynos4_cpuidle_device, cpu_id);
+		device->cpu = cpu_id;
 
-        /* Support IDLE only */
-        if (cpu_id != 0)
-            device->state_count = 1;
+		if (cpu_id == 0)
+			device->state_count = ARRAY_SIZE(exynos4_cpuidle_set);
+		else
+			device->state_count = 1;	/* Support IDLE only */
 
-        ret = cpuidle_register_device(device);
-        if (ret) {
-            printk(KERN_ERR "CPUidle register device failed\n");
-            return ret;
-        }
-    }
+		max_cpuidle_state = device->state_count;
+
+		for (i = 0; i < max_cpuidle_state; i++) {
+			memcpy(&device->states[i], &exynos4_cpuidle_set[i],
+					sizeof(struct cpuidle_state));
+		}
+
+		device->safe_state = &device->states[0];
+
+		ret = cpuidle_register_device(device);
+		if (ret) {
+			cpuidle_unregister_driver(&exynos4_idle_driver);
+			printk(KERN_ERR "CPUidle register device failed\n,");
+			return ret;
+		}
+	}
 
 	sdmmc_dev_num = ARRAY_SIZE(chk_sdhc_op);
 
