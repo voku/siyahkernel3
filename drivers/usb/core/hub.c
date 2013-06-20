@@ -2618,10 +2618,12 @@ int usb_port_resume(struct usb_device *udev, pm_message_t msg)
 	}
 
  SuspendCleared:
+/*
 #if defined(CONFIG_LINK_DEVICE_HSIC) || defined(CONFIG_LINK_DEVICE_USB) \
 					|| defined(CONFIG_MDM_HSIC_PM)
 	pr_info("mif: %s: %d, %d\n", __func__, portstatus, portchange);
 #endif
+*/
 	if (status == 0) {
 		if (hub_is_superspeed(hub->hdev)) {
 			if (portchange & USB_PORT_STAT_C_LINK_STATE)

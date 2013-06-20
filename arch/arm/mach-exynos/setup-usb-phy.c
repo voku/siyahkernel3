@@ -1156,7 +1156,7 @@ int s5p_usb_phy_suspend(struct platform_device *pdev, int type)
 		if (soc_is_exynos4210() ||
 			soc_is_exynos4212() ||
 			soc_is_exynos4412()) {
-			dev_info(&pdev->dev, "host_phy_susp\n");
+			/* dev_info(&pdev->dev, "host_phy_susp\n"); */
 			ret = exynos4_usb_phy1_suspend(pdev);
 		} else
 			ret = exynos5_usb_phy_host_suspend(pdev);

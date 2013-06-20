@@ -41,8 +41,8 @@ static inline int max8922_is_charging(struct max8922_info *info)
 	int ta_nconnected = gpio_get_value(info->pdata->gpio_ta_nconnected);
 	int chg_ing = gpio_get_value(info->pdata->gpio_chg_ing);
 
-	dev_info(info->dev, "%s: charging state = 0x%x\n", __func__,
-		 (ta_nconnected << 1) | chg_ing);
+/*	dev_info(info->dev, "%s: charging state = 0x%x\n", __func__,
+		 (ta_nconnected << 1) | chg_ing); */
 
 	/*return (ta_nconnected == 0 && chg_ing == 0); */
 	return (ta_nconnected << 1) | chg_ing;

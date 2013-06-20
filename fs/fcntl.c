@@ -444,29 +444,23 @@ static int check_fcntl_cmd(unsigned cmd)
 
 SYSCALL_DEFINE3(fcntl, unsigned int, fd, unsigned int, cmd, unsigned long, arg)
 {	
-	struct file *filp;
+	struct fd f = fdget_raw(fd);
 	long err = -EBADF;
 
-	filp = fget_raw(fd);
-	if (!filp)
+	if (!f.file)
 		goto out;
 
-	if (unlikely(filp->f_mode & FMODE_PATH)) {
-		if (!check_fcntl_cmd(cmd)) {
-			fput(filp);
-			goto out;
-		}
+	if (unlikely(f.file->f_mode & FMODE_PATH)) {
+		if (!check_fcntl_cmd(cmd))
+			goto out1;
 	}
 
-	err = security_file_fcntl(filp, cmd, arg);
-	if (err) {
-		fput(filp);
-		return err;
-	}
+	err = security_file_fcntl(f.file, cmd, arg);
+	if (!err)
+		err = do_fcntl(fd, cmd, arg, f.file);
 
-	err = do_fcntl(fd, cmd, arg, filp);
-
- 	fput(filp);
+out1:
+ 	fdput(f);
 out:
 	return err;
 }
@@ -475,42 +469,36 @@ out:
 SYSCALL_DEFINE3(fcntl64, unsigned int, fd, unsigned int, cmd,
 		unsigned long, arg)
 {	
-	struct file * filp;
-	long err;
+	struct fd f = fdget_raw(fd);
+	long err = -EBADF;
 
-	err = -EBADF;
-	filp = fget_raw(fd);
-	if (!filp)
+	if (!f.file)
 		goto out;
 
-	if (unlikely(filp->f_mode & FMODE_PATH)) {
-		if (!check_fcntl_cmd(cmd)) {
-			fput(filp);
-			goto out;
-		}
+	if (unlikely(f.file->f_mode & FMODE_PATH)) {
+		if (!check_fcntl_cmd(cmd))
+			goto out1;
 	}
 
-	err = security_file_fcntl(filp, cmd, arg);
-	if (err) {
-		fput(filp);
-		return err;
-	}
-	err = -EBADF;
+	err = security_file_fcntl(f.file, cmd, arg);
+	if (err)
+		goto out1;
 	
 	switch (cmd) {
 		case F_GETLK64:
-			err = fcntl_getlk64(filp, (struct flock64 __user *) arg);
+			err = fcntl_getlk64(f.file, (struct flock64 __user *) arg);
 			break;
 		case F_SETLK64:
 		case F_SETLKW64:
-			err = fcntl_setlk64(fd, filp, cmd,
+			err = fcntl_setlk64(fd, f.file, cmd,
 					(struct flock64 __user *) arg);
 			break;
 		default:
-			err = do_fcntl(fd, cmd, arg, filp);
+			err = do_fcntl(fd, cmd, arg, f.file);
 			break;
 	}
-	fput(filp);
+out1:
+	fdput(f);
 out:
 	return err;
 }

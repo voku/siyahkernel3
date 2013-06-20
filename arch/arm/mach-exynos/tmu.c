@@ -1024,7 +1024,7 @@ static irqreturn_t exynos4210_tmu_irq_handler(int irq, void *id)
 	disable_irq_nosync(irq);
 
 	status = __raw_readl(info->tmu_base + EXYNOS4_TMU_INTSTAT);
-	pr_info("EXYNOS4212_tmu interrupt: INTSTAT = 0x%08x\n", status);
+/*	pr_info("EXYNOS4212_tmu interrupt: INTSTAT = 0x%08x\n", status); */
 
 	/* To handle multiple interrupt pending,
 	 * interrupt by high temperature are serviced with priority.

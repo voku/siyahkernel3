@@ -170,6 +170,9 @@ config ARCH_TASK_STRUCT_ALLOCATOR
 config ARCH_THREAD_INFO_ALLOCATOR
 	bool
 
+config HAVE_GENERIC_INIT_TASK
+       bool
+
 config HAVE_REGS_AND_STACK_ACCESS_API
 	bool
 	help
@@ -302,5 +305,20 @@ config HAVE_UNDERSCORE_SYMBOL_PREFIX
 	help
 	  Some architectures generate an _ in front of C symbols; things like
 	  module loading and assembly files need to know about this.
+
+config ODD_RT_SIGACTION
+	bool
+	help
+	  Architecture has unusual rt_sigaction(2) arguments
+
+config OLD_SIGSUSPEND
+	bool
+	help
+	  Architecture has old sigsuspend(2) syscall, of one-argument variety
+
+config OLD_SIGSUSPEND3
+	bool
+	help
+	  Even weirder antique ABI - three-argument sigsuspend(2)
 
 source "kernel/gcov/Kconfig"
