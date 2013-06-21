@@ -155,6 +155,7 @@ extern unsigned int rom_feature_set;
 /* used by init/main.c */
 void setup_arch(char **);
 void prepare_namespace(void);
+void __init load_default_modules(void);
 
 extern void (*late_time_init)(void);
 

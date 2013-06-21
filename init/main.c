@@ -686,11 +686,8 @@ int __init_or_module do_one_initcall(initcall_t fn)
 
 	msgbuf[0] = 0;
 
-	if (ret && ret != -ENODEV && initcall_debug)
-		sprintf(msgbuf, "error code %d ", ret);
-
 	if (preempt_count() != count) {
-		strlcat(msgbuf, "preemption imbalance ", sizeof(msgbuf));
+		sprintf(msgbuf, "preemption imbalance ");
 		preempt_count() = count;
 	}
 	if (irqs_disabled()) {
@@ -794,6 +791,17 @@ static void __init do_pre_smp_initcalls(void)
 		do_one_initcall(*fn);
 }
 
+/*
+ * This function requests modules which should be loaded by default and is
+ * called twice right after initrd is mounted and right before init is
+ * exec'd.  If such modules are on either initrd or rootfs, they will be
+ * loaded before control is passed to userland.
+ */
+void __init load_default_modules(void)
+{
+	load_default_elevator_module();
+}
+
 static int run_init_process(const char *init_filename)
 {
 	int ret = 0;
@@ -801,11 +809,11 @@ static int run_init_process(const char *init_filename)
 	return kernel_execve(init_filename, argv_init, envp_init);
 }
 
-/* This is a non __init function. Force it to be noinline otherwise gcc
- * makes it inline to init() and it becomes part of init.text section
- */
-static noinline int init_post(void)
+static noinline void __init kernel_init_freeable(void);
+
+static int __ref kernel_init(void *unused)
 {
+	kernel_init_freeable();
 	/* need to finish all async __init code before freeing the memory */
 	async_synchronize_full();
 	free_initmem();
@@ -816,8 +824,7 @@ static noinline int init_post(void)
 	if (ramdisk_execute_command) {
 		if (!run_init_process(ramdisk_execute_command))
 			return 0;
-		printk(KERN_WARNING "Failed to execute %s\n",
-				ramdisk_execute_command);
+		pr_err("Failed to execute %s\n", ramdisk_execute_command);
 	}
 
 	/*
@@ -829,12 +836,13 @@ static noinline int init_post(void)
 	if (execute_command) {
 		if (!run_init_process(execute_command))
 			return 0;
-		printk(KERN_WARNING "Failed to execute %s.  Attempting "
-					"defaults...\n", execute_command);
+		pr_err("Failed to execute %s.  Attempting defaults...\n",
+			execute_command);
 	}
 	if (!run_init_process("/sbin/init") ||
 	    !run_init_process("/etc/init") ||
 	    !run_init_process("/bin/init") ||
+		!run_init_process("/init") ||
 	    !run_init_process("/bin/sh"))
 		return 0;
 
@@ -842,7 +850,7 @@ static noinline int init_post(void)
 	      "See Linux Documentation/init.txt for guidance.");
 }
 
-static int __init kernel_init(void * unused)
+static noinline void __init kernel_init_freeable(void)
 {
 	/*
 	 * Wait until kthreadd is all set-up.
@@ -898,6 +906,6 @@ static int __init kernel_init(void * unused)
 	 * initmem segments and start the user-mode stuff..
 	 */
 
-	init_post();
-	return 0;
+	/* rootfs is available now, try loading default modules */
+	load_default_modules();
 }

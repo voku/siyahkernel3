@@ -3,6 +3,7 @@
 #define _ARP_H
 
 #include <linux/if_arp.h>
+#include <linux/hash.h>
 #include <net/neighbour.h>
 
 
