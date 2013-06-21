@@ -2478,6 +2478,7 @@ static int encode_caps_cb(struct inode *inode, struct ceph_cap *cap,
 
 	if (recon_state->flock) {
 		int num_fcntl_locks, num_flock_locks;
+<<<<<<< HEAD
 		struct ceph_pagelist_cursor trunc_point;
 
 		ceph_pagelist_set_cursor(pagelist, &trunc_point);
@@ -2507,6 +2508,43 @@ static int encode_caps_cb(struct inode *inode, struct ceph_cap *cap,
 				unlock_flocks();
 			}
 		} while (err == -ENOSPC);
+=======
+		struct ceph_filelock *flocks;
+
+encode_again:
+		spin_lock(&inode->i_lock);
+		ceph_count_locks(inode, &num_fcntl_locks, &num_flock_locks);
+		spin_unlock(&inode->i_lock);
+		flocks = kmalloc((num_fcntl_locks+num_flock_locks) *
+				 sizeof(struct ceph_filelock), GFP_NOFS);
+		if (!flocks) {
+			err = -ENOMEM;
+			goto out_free;
+		}
+		spin_lock(&inode->i_lock);
+		err = ceph_encode_locks_to_buffer(inode, flocks,
+						  num_fcntl_locks,
+						  num_flock_locks);
+		spin_unlock(&inode->i_lock);
+		if (err) {
+			kfree(flocks);
+			if (err == -ENOSPC)
+				goto encode_again;
+			goto out_free;
+		}
+		/*
+		 * number of encoded locks is stable, so copy to pagelist
+		 */
+		rec.v2.flock_len = cpu_to_le32(2*sizeof(u32) +
+				    (num_fcntl_locks+num_flock_locks) *
+				    sizeof(struct ceph_filelock));
+		err = ceph_pagelist_append(pagelist, &rec, reclen);
+		if (!err)
+			err = ceph_locks_to_pagelist(flocks, pagelist,
+						     num_fcntl_locks,
+						     num_flock_locks);
+		kfree(flocks);
+>>>>>>> 1c8c601... locks: protect most of the file_lock handling with i_lock
 	} else {
 		err = ceph_pagelist_append(pagelist, &rec, reclen);
 	}
