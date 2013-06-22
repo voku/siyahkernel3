@@ -2047,10 +2047,15 @@ void mmc_rescan(struct work_struct *work)
 	if (host->rescan_disable)
 		return;
 
+#if 0  /* this function brake suspend mode,
+	* device not entering deep sleep! 
+	* Dev Dorimanx@XDA */
+
 	/* If there is a non-removable card registered, only scan once */
 	if ((host->caps & MMC_CAP_NONREMOVABLE) && host->rescan_entered)
 		return;
 	host->rescan_entered = 1;
+#endif
 
 	mmc_bus_get(host);
 
