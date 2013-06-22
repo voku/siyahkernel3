@@ -66,8 +66,8 @@ struct cpufreq_governor cpufreq_gov_darkness = {
 };
 
 struct cpufreq_darkness_cpuinfo {
-	u64 prev_cpu_idle;
-	u64 prev_cpu_wall;
+	cputime64_t prev_cpu_idle;
+	cputime64_t prev_cpu_wall;
 	struct delayed_work work;
 	struct work_struct up_work;
 	struct work_struct down_work;
@@ -529,7 +529,7 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 	for_each_possible_cpu(j) {
 		struct cpufreq_darkness_cpuinfo *j_darkness_cpuinfo;
 		struct cpufreq_policy *cpu_policy;
-		u64 cur_idle_time=0, cur_wall_time=0;
+		cputime64_t cur_idle_time=0, cur_wall_time=0;
 		unsigned int idle_time, wall_time;
 		/* Current load across this CPU */
 		int cur_load = 0;

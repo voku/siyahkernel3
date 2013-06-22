@@ -66,8 +66,8 @@ struct cpufreq_governor cpufreq_gov_nightmare = {
 };
 
 struct cpufreq_nightmare_cpuinfo {
-	u64 prev_cpu_idle;
-	u64 prev_cpu_wall;
+	cputime64_t prev_cpu_idle;
+	cputime64_t prev_cpu_wall;
 	struct delayed_work work;
 	struct work_struct up_work;
 	struct work_struct down_work;
@@ -852,7 +852,7 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 		int freq_step = atomic_read(&nightmare_tuners_ins.freq_step);
 		int freq_up_brake = atomic_read(&nightmare_tuners_ins.freq_up_brake);
 		int freq_step_dec = atomic_read(&nightmare_tuners_ins.freq_step_dec);
-		u64 cur_idle_time=0, cur_wall_time=0;
+		cputime64_t cur_idle_time=0, cur_wall_time=0;
 		unsigned int idle_time, wall_time;
 		/* Current load across this CPU */
 		int cur_load = 0;
