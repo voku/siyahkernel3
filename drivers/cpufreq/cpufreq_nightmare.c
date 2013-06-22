@@ -863,11 +863,11 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 		j_nightmare_cpuinfo = &per_cpu(od_nightmare_cpuinfo, j);
 		
 		/*cur_idle_time = get_cpu_idle_time_us(j, &cur_wall_time);*/
-		cur_idle_time = kcpustat_cpu(j).cpustat[CPUTIME_IDLE];
 		cur_wall_time = kcpustat_cpu(j).cpustat[CPUTIME_USER] + kcpustat_cpu(j).cpustat[CPUTIME_SYSTEM]
 						+ kcpustat_cpu(j).cpustat[CPUTIME_IOWAIT] + kcpustat_cpu(j).cpustat[CPUTIME_IRQ]
 						+ kcpustat_cpu(j).cpustat[CPUTIME_SOFTIRQ] + kcpustat_cpu(j).cpustat[CPUTIME_STEAL]
-						+ kcpustat_cpu(j).cpustat[CPUTIME_NICE] + cur_idle_time;
+						+ kcpustat_cpu(j).cpustat[CPUTIME_NICE];
+		cur_idle_time = kcpustat_cpu(j).cpustat[CPUTIME_IDLE];
 
 		wall_time = (unsigned int)
 				(cur_wall_time - j_nightmare_cpuinfo->prev_cpu_wall);
@@ -886,7 +886,7 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 				cpufreq_cpu_put(cpu_policy);
 			continue;
 		}		
-		cur_load = (int)((100 * (wall_time - idle_time)) / wall_time);
+		cur_load = (int)((100 * wall_time) / (wall_time + idle_time));
 		hotplug_history->usage[num_hist].freq[j] = cpu_policy->cur;
 		hotplug_history->usage[num_hist].load[j] = cur_load;
 		// GET MIN MAX FREQ
@@ -1031,11 +1031,11 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 			struct cpufreq_nightmare_cpuinfo *j_nightmare_cpuinfo;			
 			j_nightmare_cpuinfo = &per_cpu(od_nightmare_cpuinfo, j);
 			/*j_nightmare_cpuinfo->prev_cpu_idle = get_cpu_idle_time_us(j, &j_nightmare_cpuinfo->prev_cpu_wall);*/
-			j_nightmare_cpuinfo->prev_cpu_idle=kcpustat_cpu(j).cpustat[CPUTIME_IDLE];
 			j_nightmare_cpuinfo->prev_cpu_wall = kcpustat_cpu(j).cpustat[CPUTIME_USER] + kcpustat_cpu(j).cpustat[CPUTIME_SYSTEM]
 						+ kcpustat_cpu(j).cpustat[CPUTIME_IOWAIT] + kcpustat_cpu(j).cpustat[CPUTIME_IRQ]
 						+ kcpustat_cpu(j).cpustat[CPUTIME_SOFTIRQ] + kcpustat_cpu(j).cpustat[CPUTIME_STEAL]
-						+ kcpustat_cpu(j).cpustat[CPUTIME_NICE] + j_nightmare_cpuinfo->prev_cpu_idle;
+						+ kcpustat_cpu(j).cpustat[CPUTIME_NICE];
+			j_nightmare_cpuinfo->prev_cpu_idle=kcpustat_cpu(j).cpustat[CPUTIME_IDLE];
 		}
 		this_nightmare_cpuinfo->cpu = cpu;
 		/*

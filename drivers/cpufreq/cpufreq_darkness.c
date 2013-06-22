@@ -540,11 +540,11 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 		j_darkness_cpuinfo = &per_cpu(od_darkness_cpuinfo, j);
 		
 		/*cur_idle_time = get_cpu_idle_time_us(j, &cur_wall_time);*/
-		cur_idle_time = kcpustat_cpu(j).cpustat[CPUTIME_IDLE];
 		cur_wall_time = kcpustat_cpu(j).cpustat[CPUTIME_USER] + kcpustat_cpu(j).cpustat[CPUTIME_SYSTEM]
 						+ kcpustat_cpu(j).cpustat[CPUTIME_IOWAIT] + kcpustat_cpu(j).cpustat[CPUTIME_IRQ]
 						+ kcpustat_cpu(j).cpustat[CPUTIME_SOFTIRQ] + kcpustat_cpu(j).cpustat[CPUTIME_STEAL]
-						+ kcpustat_cpu(j).cpustat[CPUTIME_NICE] + cur_idle_time;
+						+ kcpustat_cpu(j).cpustat[CPUTIME_NICE];
+		cur_idle_time = kcpustat_cpu(j).cpustat[CPUTIME_IDLE];
 
 		wall_time = (unsigned int)
 				(cur_wall_time - j_darkness_cpuinfo->prev_cpu_wall);
@@ -563,7 +563,7 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 				cpufreq_cpu_put(cpu_policy);
 			continue;
 		}		
-		cur_load = (int)((100 * (wall_time - idle_time)) / wall_time);
+		cur_load = (int)((100 * wall_time) / (wall_time + idle_time));
 		hotplug_history->usage[num_hist].freq[j] = cpu_policy->cur;
 		hotplug_history->usage[num_hist].load[j] = cur_load;
 		// GET MIN MAX FREQ
@@ -576,7 +576,7 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 		/* CPUs Online Scale Frequency*/
 		next_freq = (cur_load * max_freq) / 100;
 		next_freq = darkness_frequency_adjust(next_freq, cpu_policy->cur, min_freq, max_freq, next_freq >= cpu_policy->cur ? up_sf_step : down_sf_step);
-			/* printk(KERN_ERR "FREQ CALC.: CPU[%u], load[%d], target freq[%u], cur freq[%u], min freq[%u], max_freq[%u]\n",j, cur_load, next_freq, cpu_policy->cur, min_freq, max_freq); */
+		/*printk(KERN_ERR "FREQ CALC.: CPU[%u], load[%d], target freq[%u], cur freq[%u], min freq[%u], max_freq[%u]\n",j, cur_load, next_freq, cpu_policy->cur, min_freq, max_freq); */
 		if (next_freq != cpu_policy->cur) {				
 			__cpufreq_driver_target(cpu_policy, next_freq, CPUFREQ_RELATION_L);
 		}
@@ -672,11 +672,11 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 		for_each_possible_cpu(j) {
 			struct cpufreq_darkness_cpuinfo *j_darkness_cpuinfo;			
 			j_darkness_cpuinfo = &per_cpu(od_darkness_cpuinfo, j);
-			j_darkness_cpuinfo->prev_cpu_idle=kcpustat_cpu(j).cpustat[CPUTIME_IDLE];
 			j_darkness_cpuinfo->prev_cpu_wall = kcpustat_cpu(j).cpustat[CPUTIME_USER] + kcpustat_cpu(j).cpustat[CPUTIME_SYSTEM]
 						+ kcpustat_cpu(j).cpustat[CPUTIME_IOWAIT] + kcpustat_cpu(j).cpustat[CPUTIME_IRQ]
 						+ kcpustat_cpu(j).cpustat[CPUTIME_SOFTIRQ] + kcpustat_cpu(j).cpustat[CPUTIME_STEAL]
-						+ kcpustat_cpu(j).cpustat[CPUTIME_NICE] + j_darkness_cpuinfo->prev_cpu_idle;
+						+ kcpustat_cpu(j).cpustat[CPUTIME_NICE];
+			j_darkness_cpuinfo->prev_cpu_idle=kcpustat_cpu(j).cpustat[CPUTIME_IDLE];
 		}
 		this_darkness_cpuinfo->cpu = cpu;
 		/*
