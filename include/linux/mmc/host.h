@@ -243,23 +243,23 @@ struct mmc_host {
 
 	unsigned int		caps2;		/* More host capabilities */
 
-#define MMC_CAP2_BOOTPART_NOACC (1 << 0)        /* Boot partition no access */
+#define MMC_CAP2_BOOTPART_NOACC	(1 << 0)	/* Boot partition no access */
 #define MMC_CAP2_CACHE_CTRL	(1 << 1)	/* Allow cache control */
 #define MMC_CAP2_POWEROFF_NOTIFY (1 << 2)	/* Notify poweroff supported */
-#define MMC_CAP2_PACKED_RD	(1 << 3)	/* Allow packed read */
-#define MMC_CAP2_PACKED_WR	(1 << 4)	/* Allow packed write */
-#define MMC_CAP2_PACKED_CMD	(MMC_CAP2_PACKED_RD | \
-				 MMC_CAP2_PACKED_WR) /* Allow packed commands */
-#define MMC_CAP2_NO_MULTI_READ	(1 << 5)	/* Multiblock reads don't work */
-#define MMC_CAP2_NO_SLEEP_CMD	(1 << 6)	/* Don't allow sleep command */
-#define MMC_CAP2_HS200_1_8V_SDR	(1 << 7)        /* can support */
-#define MMC_CAP2_HS200_1_2V_SDR	(1 << 8)        /* can support */
+#define MMC_CAP2_NO_MULTI_READ	(1 << 3)	/* Multiblock reads don't work */
+#define MMC_CAP2_NO_SLEEP_CMD	(1 << 4)	/* Don't allow sleep command */
+#define MMC_CAP2_HS200_1_8V_SDR	(1 << 5)        /* can support */
+#define MMC_CAP2_HS200_1_2V_SDR	(1 << 6)        /* can support */
 #define MMC_CAP2_HS200		(MMC_CAP2_HS200_1_8V_SDR | \
 				 MMC_CAP2_HS200_1_2V_SDR)
+#define MMC_CAP2_BROKEN_VOLTAGE	(1 << 7)	/* Use the broken voltage */
+#define MMC_CAP2_DETECT_ON_ERR	(1 << 8)	/* On I/O err check card removal */
+#define MMC_CAP2_HC_ERASE_SZ	(1 << 9)	/* High-capacity erase size */
 #define MMC_CAP2_ADAPT_PACKED	(1 << 9)	/* Disable packed write adaptively */
-#define MMC_CAP2_HC_ERASE_SZ	(1 << 10)	/* High-capacity erase size */
-#define MMC_CAP2_BROKEN_VOLTAGE	(1 << 11)	/* Use the broken voltage */
-#define MMC_CAP2_DETECT_ON_ERR	(1 << 12)	/* On I/O err check card removal */
+#define MMC_CAP2_PACKED_RD	(1 << 12)	/* Allow packed read */
+#define MMC_CAP2_PACKED_WR	(1 << 13)	/* Allow packed write */
+#define MMC_CAP2_PACKED_CMD	(MMC_CAP2_PACKED_RD | \
+				 MMC_CAP2_PACKED_WR) /* Allow packed commands */
 
 	mmc_pm_flag_t		pm_caps;	/* supported pm features */
 	unsigned int        power_notify_type;
