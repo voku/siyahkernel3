@@ -248,7 +248,6 @@ static int __mmc_start_req(struct mmc_host *host, struct mmc_request *mrq)
 {
 	init_completion(&mrq->completion);
 	mrq->done = mmc_wait_done;
-
 	if (mmc_card_removed(host->card)) {
 		mrq->cmd->error = -ENOMEDIUM;
 		complete(&mrq->completion);
@@ -260,7 +259,7 @@ static int __mmc_start_req(struct mmc_host *host, struct mmc_request *mrq)
 	defined(CONFIG_MACH_TRATS)
 #ifndef CONFIG_MMC_POLLING_WAIT_CMD23
 
-	if(mrq->sbc) {
+	if (mrq->sbc) {
 		struct mmc_request tmp_mrq;
 
 		memcpy(&tmp_mrq, mrq, sizeof(struct mmc_request));
@@ -313,7 +312,8 @@ static void mmc_wait_for_req_done(struct mmc_host *host,
 			wait_for_completion(&mrq->completion);
 
 			cmd = mrq->cmd;
-			if (!cmd->error || !cmd->retries)
+			if (!cmd->error || !cmd->retries ||
+					mmc_card_removed(host->card))
 				break;
 
 			pr_debug("%s: req failed (CMD%u): %d, retrying...\n",
