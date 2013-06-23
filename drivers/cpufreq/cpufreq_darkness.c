@@ -67,7 +67,6 @@ struct cpufreq_governor cpufreq_gov_darkness = {
 
 struct cpufreq_darkness_cpuinfo {
 	u64 prev_cpu_busy;
-	u64 prev_cpu_wall;
 	struct delayed_work work;
 	struct work_struct up_work;
 	struct work_struct down_work;
@@ -121,6 +120,7 @@ struct darkness_cpu_usage {
 struct darkness_cpu_usage_history {
 	struct darkness_cpu_usage usage[MAX_HOTPLUG_RATE];
 	int num_hist;
+	u64 prev_cpu_wall;
 };
 
 static struct darkness_cpu_usage_history *hotplug_history;
@@ -522,15 +522,14 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 	int down_sf_step = atomic_read(&darkness_tuners_ins.down_sf_step);	
 	int num_hist = hotplug_history->num_hist;
 	unsigned int j;
-
-	/* set num_hist used */
-	++hotplug_history->num_hist;
+	u64 cur_wall_time = usecs_to_cputime64(ktime_to_us(ktime_get()));
+	unsigned int wall_time = (unsigned int)(cur_wall_time - hotplug_history->prev_cpu_wall);
 	
 	for_each_possible_cpu(j) {
 		struct cpufreq_darkness_cpuinfo *j_darkness_cpuinfo;
 		struct cpufreq_policy *cpu_policy;
-		u64 cur_busy_time=0, cur_wall_time=0;
-		unsigned int busy_time, wall_time;
+		u64 cur_busy_time=0;
+		unsigned int busy_time;
 		/* Current load across this CPU */
 		int cur_load = 0;
 		int next_freq = 0;
@@ -539,14 +538,9 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 
 		j_darkness_cpuinfo = &per_cpu(od_darkness_cpuinfo, j);
 
-		cur_wall_time = usecs_to_cputime64(ktime_to_us(ktime_get()));
 		cur_busy_time = kcpustat_cpu(j).cpustat[CPUTIME_USER] + kcpustat_cpu(j).cpustat[CPUTIME_SYSTEM]
 						+ kcpustat_cpu(j).cpustat[CPUTIME_IRQ] + kcpustat_cpu(j).cpustat[CPUTIME_SOFTIRQ] 
-						+ kcpustat_cpu(j).cpustat[CPUTIME_STEAL] + kcpustat_cpu(j).cpustat[CPUTIME_NICE];
-
-		wall_time = (unsigned int)
-				(cur_wall_time - j_darkness_cpuinfo->prev_cpu_wall);
-		j_darkness_cpuinfo->prev_cpu_wall = cur_wall_time;
+						+ kcpustat_cpu(j).cpustat[CPUTIME_STEAL] + kcpustat_cpu(j).cpustat[CPUTIME_NICE];/*+ kcpustat_cpu(j).cpustat[CPUTIME_IOWAIT]*/
 
 		busy_time = (unsigned int)
 				(cur_busy_time - j_darkness_cpuinfo->prev_cpu_busy);
@@ -561,7 +555,7 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 				cpufreq_cpu_put(cpu_policy);
 			continue;
 		}		
-		cur_load = (int)((100 * (wall_time - (wall_time - busy_time))) / wall_time);
+		cur_load = (100 * (wall_time - (wall_time - busy_time))) / wall_time;
 		hotplug_history->usage[num_hist].freq[j] = cpu_policy->cur;
 		hotplug_history->usage[num_hist].load[j] = cur_load;
 		// GET MIN MAX FREQ
@@ -580,6 +574,10 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 		}
 		cpufreq_cpu_put(cpu_policy);
 	}
+
+	/* set num_hist used */
+	++hotplug_history->num_hist;
+	hotplug_history->prev_cpu_wall = cur_wall_time;
 
 	if (hotplug_enable) {
 		/*Check for CPU hotplug*/
@@ -667,10 +665,10 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 
 		darkness_enable++;
 
+		hotplug_history->prev_cpu_wall=usecs_to_cputime64(ktime_to_us(ktime_get()));
 		for_each_possible_cpu(j) {
-			struct cpufreq_darkness_cpuinfo *j_darkness_cpuinfo;			
+			struct cpufreq_darkness_cpuinfo *j_darkness_cpuinfo;
 			j_darkness_cpuinfo = &per_cpu(od_darkness_cpuinfo, j);
-			j_darkness_cpuinfo->prev_cpu_wall = usecs_to_cputime64(ktime_to_us(ktime_get()));
 			j_darkness_cpuinfo->prev_cpu_busy = kcpustat_cpu(j).cpustat[CPUTIME_USER] + kcpustat_cpu(j).cpustat[CPUTIME_SYSTEM]
 						+ kcpustat_cpu(j).cpustat[CPUTIME_IRQ] + kcpustat_cpu(j).cpustat[CPUTIME_SOFTIRQ] 
 						+ kcpustat_cpu(j).cpustat[CPUTIME_STEAL] + kcpustat_cpu(j).cpustat[CPUTIME_NICE];
