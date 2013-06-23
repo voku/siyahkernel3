@@ -10,6 +10,7 @@
 #ifndef LINUX_MMC_CARD_H
 #define LINUX_MMC_CARD_H
 
+#include <linux/device.h>
 #include <linux/mmc/core.h>
 #include <linux/mod_devicetable.h>
 #include <linux/genhd.h>
@@ -247,12 +248,10 @@ struct mmc_card {
 #define MMC_QUIRK_DISABLE_CD	(1<<5)		/* disconnect CD/DAT[3] resistor */
 #define MMC_QUIRK_INAND_CMD38	(1<<6)		/* iNAND devices have broken CMD38 */
 #define MMC_QUIRK_BLK_NO_CMD23	(1<<7)		/* Avoid CMD23 for regular multiblock */
-#define MMC_QUIRK_BROKEN_BYTE_MODE_512 (1<<8)   /* Avoid sending 512 bytes in */
-                                                /* byte mode */
+#define MMC_QUIRK_BROKEN_BYTE_MODE_512 (1<<8)	/* Avoid sending 512 bytes in */
 /* MoviNAND secure issue */
 #define MMC_QUIRK_LONG_READ_TIME (1<<9)		/* Data read time > CSD says */
 #define MMC_QUIRK_SEC_ERASE_TRIM_BROKEN (1<<10)	/* Skip secure for erase/trim */
-		/* byte mode */
 						/* byte mode */
 
 	unsigned int		erase_size;	/* erase size in sectors */
@@ -304,6 +303,11 @@ static inline void mmc_part_add(struct mmc_card *card, unsigned int size,
 	card->part[card->nr_parts].force_ro = ro;
 	card->part[card->nr_parts].area_type = area_type;
 	card->nr_parts++;
+}
+
+static inline bool mmc_large_sector(struct mmc_card *card)
+{
+	return card->ext_csd.data_sector_size == 4096;
 }
 
 /*
@@ -474,14 +478,14 @@ static inline int mmc_card_nonstd_func_interface(const struct mmc_card *c)
 	return c->quirks & MMC_QUIRK_NONSTD_FUNC_IF;
 }
 
-static inline int mmc_card_long_read_time(const struct mmc_card *c)
-{
-	return c->quirks & MMC_QUIRK_LONG_READ_TIME;
-}
-
 static inline int mmc_card_broken_byte_mode_512(const struct mmc_card *c)
 {
 	return c->quirks & MMC_QUIRK_BROKEN_BYTE_MODE_512;
+}
+
+static inline int mmc_card_long_read_time(const struct mmc_card *c)
+{
+	return c->quirks & MMC_QUIRK_LONG_READ_TIME;
 }
 
 #define mmc_card_name(c)	((c)->cid.prod_name)
@@ -510,4 +514,4 @@ extern void mmc_unregister_driver(struct mmc_driver *);
 extern void mmc_fixup_device(struct mmc_card *card,
 			     const struct mmc_fixup *table);
 
-#endif
+#endif /* LINUX_MMC_CARD_H */

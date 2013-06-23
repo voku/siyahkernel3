@@ -9,7 +9,7 @@
 #define LINUX_MMC_CORE_H
 
 #include <linux/interrupt.h>
-#include <linux/device.h>
+#include <linux/completion.h>
 
 struct request;
 struct mmc_data;
@@ -20,6 +20,7 @@ struct mmc_command {
 	u32			arg;
 #define MMC_CMD23_ARG_REL_WR	(1 << 31)
 #define MMC_CMD23_ARG_PACKED	((0 << 31) | (1 << 30))
+#define MMC_CMD23_ARG_TAG_REQ	(1 << 29)
 	u32			resp[4];
 	unsigned int		flags;		/* expected response type */
 #define MMC_RSP_PRESENT	(1 << 0)
@@ -122,6 +123,7 @@ struct mmc_data {
 	s32			host_cookie;	/* host private data */
 };
 
+struct mmc_host;
 struct mmc_request {
 	struct mmc_command	*sbc;		/* SET_BLOCK_COUNT for multiblock */
 	struct mmc_command	*cmd;
@@ -130,9 +132,9 @@ struct mmc_request {
 
 	struct completion	completion;
 	void			(*done)(struct mmc_request *);/* completion function */
+	struct mmc_host		*host;
 };
 
-struct mmc_host;
 struct mmc_card;
 struct mmc_async_req;
 
@@ -205,4 +207,4 @@ static inline void mmc_claim_host(struct mmc_host *host)
 
 extern u32 mmc_vddrange_to_ocrmask(int vdd_min, int vdd_max);
 
-#endif
+#endif /* LINUX_MMC_CORE_H */

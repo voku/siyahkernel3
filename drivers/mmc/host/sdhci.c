@@ -37,7 +37,7 @@
 #define DRIVER_NAME "sdhci"
 
 #define DBG(f, x...) \
-	pr_debug(DRIVER_NAME " [%s()]: " f,  __func__, ## x)
+	pr_debug(DRIVER_NAME " [%s()]: " f, __func__,## x)
 
 #ifndef CONFIG_FAST_RESUME
 #if defined(CONFIG_LEDS_CLASS) || (defined(CONFIG_LEDS_CLASS_MODULE) && \
@@ -1081,7 +1081,7 @@ static void sdhci_finish_command(struct sdhci_host *host)
 	if (host->cmd->flags & MMC_RSP_PRESENT) {
 		if (host->cmd->flags & MMC_RSP_136) {
 			/* CRC is stripped so we need to do some shifting. */
-			for (i = 0 ; i < 4 ; i++) {
+			for (i = 0;i < 4;i++) {
 				host->cmd->resp[i] = sdhci_readl(host,
 					SDHCI_RESPONSE + (3-i)*4) << 8;
 				if (i != 3)
@@ -1358,6 +1358,7 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 				host->mrq = mrq;
 			}
 		}
+
 		if (mrq->sbc && !(host->flags & SDHCI_AUTO_CMD23))
 			sdhci_send_command(host, mrq->sbc);
 		else
@@ -2053,9 +2054,9 @@ static void sdhci_card_event(struct mmc_host *mmc)
 	/* Check host->mrq first in case we are runtime suspended */
 	if (host->mrq &&
 	    !(sdhci_readl(host, SDHCI_PRESENT_STATE) & SDHCI_CARD_PRESENT)) {
-		printk(KERN_ERR "%s: Card removed during transfer!\n",
+		pr_err("%s: Card removed during transfer!\n",
 			mmc_hostname(host->mmc));
-		printk(KERN_ERR "%s: Resetting controller.\n",
+		pr_err("%s: Resetting controller.\n",
 			mmc_hostname(host->mmc));
 
 		sdhci_reset(host, SDHCI_RESET_CMD);
@@ -2105,7 +2106,7 @@ static void sdhci_tasklet_finish(unsigned long param)
 	unsigned long flags;
 	struct mmc_request *mrq;
 
-	host = (struct sdhci_host *)param;
+	host = (struct sdhci_host*)param;
 
 	spin_lock_irqsave(&host->lock, flags);
 
@@ -2172,7 +2173,7 @@ static void sdhci_timeout_timer(unsigned long data)
 	struct sdhci_host *host;
 	unsigned long flags;
 
-	host = (struct sdhci_host *)data;
+	host = (struct sdhci_host*)data;
 
 	spin_lock_irqsave(&host->lock, flags);
 
@@ -2425,7 +2426,7 @@ static irqreturn_t sdhci_irq(int irq, void *dev_id)
 
 	if (host->runtime_suspended) {
 		spin_unlock(&host->lock);
-		printk(KERN_WARNING "%s: got irq while runtime suspended\n",
+		pr_warning("%s: got irq while runtime suspended\n",
 		       mmc_hostname(host->mmc));
 		return IRQ_HANDLED;
 	}
@@ -2941,8 +2942,7 @@ int sdhci_add_host(struct sdhci_host *host)
 			host->timeout_clk = host->ops->get_timeout_clock(host);
 		} else if (!(host->quirks &
 				SDHCI_QUIRK_DATA_TIMEOUT_USES_SDCLK)) {
-			printk(KERN_ERR
-			       "%s: Hardware doesn't specify timeout clock "
+			pr_err("%s: Hardware doesn't specify timeout clock "
 			       "frequency.\n", mmc_hostname(mmc));
 			return -ENODEV;
 		}
