@@ -215,7 +215,7 @@ mmc_start_request(struct mmc_host *host, struct mmc_request *mrq)
 			 mrq->stop->arg, mrq->stop->flags);
 	}
 
-	WARN_ON(!host->claimed);
+	/* WARN_ON(!host->claimed); */
 
 	mrq->cmd->error = 0;
 	mrq->cmd->mrq = mrq;
@@ -563,7 +563,7 @@ int mmc_wait_for_cmd(struct mmc_host *host, struct mmc_command *cmd, int retries
 {
 	struct mmc_request mrq = {NULL};
 
-	WARN_ON(!host->claimed);
+	/* WARN_ON(!host->claimed); */
 
 	memset(cmd->resp, 0, sizeof(cmd->resp));
 	cmd->retries = retries;
