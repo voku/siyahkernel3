@@ -844,7 +844,7 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 	u64 cur_wall_time = usecs_to_cputime64(ktime_to_us(ktime_get()));
 	unsigned int wall_time = (unsigned int)(cur_wall_time - hotplug_history->prev_cpu_wall);
 
-	for_each_possible_cpu(j) {
+	for_each_online_cpu(j) {
 		struct cpufreq_nightmare_cpuinfo *j_nightmare_cpuinfo;
 		struct cpufreq_policy *cpu_policy;
 		int inc_cpu_load = atomic_read(&nightmare_tuners_ins.inc_cpu_load);		
@@ -863,7 +863,7 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 
 		cur_busy_time = kcpustat_cpu(j).cpustat[CPUTIME_USER] + kcpustat_cpu(j).cpustat[CPUTIME_SYSTEM]
 						+ kcpustat_cpu(j).cpustat[CPUTIME_IRQ] + kcpustat_cpu(j).cpustat[CPUTIME_SOFTIRQ] 
-						+ kcpustat_cpu(j).cpustat[CPUTIME_NICE] + kcpustat_cpu(j).cpustat[CPUTIME_STEAL];/*+ kcpustat_cpu(j).cpustat[CPUTIME_IOWAIT]*/
+						+ kcpustat_cpu(j).cpustat[CPUTIME_STEAL] + kcpustat_cpu(j).cpustat[CPUTIME_NICE];/*- kcpustat_cpu(j).cpustat[CPUTIME_IOWAIT]*/
 
 		busy_time = (unsigned int)
 				(cur_busy_time - j_nightmare_cpuinfo->prev_cpu_busy);
@@ -871,14 +871,12 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 
 		/*printk(KERN_ERR "TIMER CPU[%u], wall[%u], idle[%u]\n",j, wall_time, wall_time - busy_time);*/
 		cpu_policy = cpufreq_cpu_get(j);
-		if (!cpu_online(j) || !cpu_policy) {
+		if (!cpu_policy) {
 			hotplug_history->usage[num_hist].freq[j] = 0;
 			hotplug_history->usage[num_hist].load[j] = 0;
-			if (cpu_policy)
-				cpufreq_cpu_put(cpu_policy);
-			continue;
+			cpufreq_cpu_put(cpu_policy);
 		}		
-		cur_load = (100 * (wall_time - (wall_time - busy_time))) / wall_time;
+		cur_load = (100 * busy_time) / wall_time;
 		hotplug_history->usage[num_hist].freq[j] = cpu_policy->cur;
 		hotplug_history->usage[num_hist].load[j] = cur_load;
 		// GET MIN MAX FREQ
@@ -1029,7 +1027,7 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 			j_nightmare_cpuinfo = &per_cpu(od_nightmare_cpuinfo, j);
 			j_nightmare_cpuinfo->prev_cpu_busy = kcpustat_cpu(j).cpustat[CPUTIME_USER] + kcpustat_cpu(j).cpustat[CPUTIME_SYSTEM]
 						+ kcpustat_cpu(j).cpustat[CPUTIME_IRQ] + kcpustat_cpu(j).cpustat[CPUTIME_SOFTIRQ] 
-						+ kcpustat_cpu(j).cpustat[CPUTIME_STEAL] + kcpustat_cpu(j).cpustat[CPUTIME_NICE];
+						+ kcpustat_cpu(j).cpustat[CPUTIME_STEAL] + kcpustat_cpu(j).cpustat[CPUTIME_NICE];/*+ kcpustat_cpu(j).cpustat[CPUTIME_IOWAIT]*/
 		}
 		this_nightmare_cpuinfo->cpu = cpu;
 		/*
