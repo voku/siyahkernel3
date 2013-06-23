@@ -306,30 +306,21 @@ static void mmc_wait_for_req_done(struct mmc_host *host,
 				  struct mmc_request *mrq)
 {
 	struct mmc_command *cmd;
-#if (defined(CONFIG_MIDAS_COMMON) && !defined(CONFIG_EXYNOS4_DEV_DWMCI))
-#ifndef CONFIG_MMC_POLLING_WAIT_CMD23
-	if (mrq->sbc && mrq->sbc->error) {
-		/* if an sbc error exists, do not wait completion.
-		   completion is already called.
-		   nothing to do at this condition. */
-	} else
-#endif
-#endif
-		while (1) {
-			wait_for_completion(&mrq->completion);
 
-			cmd = mrq->cmd;
-			if (!cmd->error || !cmd->retries ||
-					mmc_card_removed(host->card))
-				break;
+	while (1) {
+		wait_for_completion(&mrq->completion);
 
-			pr_debug("%s: req failed (CMD%u): %d, retrying...\n",
-				mmc_hostname(host), cmd->opcode, cmd->error);
-			cmd->retries--;
-			cmd->error = 0;
-			host->ops->request(host, mrq);
-		} 
+		cmd = mrq->cmd;
+		if (!cmd->error || !cmd->retries ||
+		    mmc_card_removed(host->card))
+			break;
 
+		pr_debug("%s: req failed (CMD%u): %d, retrying...\n",
+			 mmc_hostname(host), cmd->opcode, cmd->error);
+		cmd->retries--;
+		cmd->error = 0;
+		host->ops->request(host, mrq);
+	}
 
 	cmd = mrq->cmd;
 
@@ -1530,7 +1521,6 @@ void mmc_detect_change(struct mmc_host *host, unsigned long delay)
 	WARN_ON(host->removed);
 	spin_unlock_irqrestore(&host->lock, flags);
 #endif
-
 	host->detect_change = 1;
 	wake_lock(&host->detect_wake_lock);
 	mmc_schedule_delayed_work(&host->detect, delay);
@@ -2313,7 +2303,6 @@ int mmc_cache_ctrl(struct mmc_host *host, u8 enable)
 			timeout = enable ? card->ext_csd.generic_cmd6_time : 0;
 			err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 					EXT_CSD_CACHE_CTRL, enable, timeout);
-
 			if (err)
 				pr_err("%s: cache %s error %d\n",
 						mmc_hostname(card->host),
