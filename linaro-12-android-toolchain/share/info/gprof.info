@@ -1,5 +1,5 @@
 This is gprof.info, produced by makeinfo version 4.13 from
-/mnt/jenkins/workspace/linaro-android_toolchain-4.8-13.05/build/objdir/../build/../binutils/binutils-current/gprof/gprof.texi.
+/mnt/jenkins/workspace/linaro-android_toolchain-4.7-2013.05/build/objdir/../build/../binutils/binutils-current/gprof/gprof.texi.
 
 INFO-DIR-SECTION Software development
 START-INFO-DIR-ENTRY
@@ -2441,35 +2441,35 @@ permit their use in free software.
 
 
 Tag Table:
-Node: Top893
-Node: Introduction2229
-Node: Compiling4721
-Node: Executing8777
-Node: Invoking11565
-Node: Output Options12980
-Node: Analysis Options20069
-Node: Miscellaneous Options23767
-Node: Deprecated Options25022
-Node: Symspecs27091
-Node: Output28917
-Node: Flat Profile29957
-Node: Call Graph34910
-Node: Primary38142
-Node: Callers40730
-Node: Subroutines42847
-Node: Cycles44688
-Node: Line-by-line51465
-Node: Annotated Source55538
-Node: Inaccuracy58537
-Node: Sampling Error58795
-Node: Assumptions61699
-Node: How do I?63169
-Node: Incompatibilities64723
-Node: Details66217
-Node: Implementation66610
-Node: File Format72507
-Node: Internals76797
-Node: Debugging85292
-Node: GNU Free Documentation License86893
+Node: Top895
+Node: Introduction2231
+Node: Compiling4723
+Node: Executing8779
+Node: Invoking11567
+Node: Output Options12982
+Node: Analysis Options20071
+Node: Miscellaneous Options23769
+Node: Deprecated Options25024
+Node: Symspecs27093
+Node: Output28919
+Node: Flat Profile29959
+Node: Call Graph34912
+Node: Primary38144
+Node: Callers40732
+Node: Subroutines42849
+Node: Cycles44690
+Node: Line-by-line51467
+Node: Annotated Source55540
+Node: Inaccuracy58539
+Node: Sampling Error58797
+Node: Assumptions61701
+Node: How do I?63171
+Node: Incompatibilities64725
+Node: Details66219
+Node: Implementation66612
+Node: File Format72509
+Node: Internals76799
+Node: Debugging85294
+Node: GNU Free Documentation License86895
 
 End Tag Table

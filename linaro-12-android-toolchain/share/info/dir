@@ -65,5 +65,4 @@ Software development
 * gcc: (gcc).                   The GNU Compiler Collection.
 * gccinstall: (gccinstall).     Installing the GNU Compiler Collection.
 * gccint: (gccint).             Internals of the GNU Compiler Collection.
-* gcov: (gcc) Gcov.             `gcov'--a test coverage program.
 * gprof: (gprof).               Profiling your program's execution
