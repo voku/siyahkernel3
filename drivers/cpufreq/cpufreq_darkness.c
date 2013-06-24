@@ -71,13 +71,8 @@ struct cpufreq_darkness_cpuinfo {
 	struct work_struct up_work;
 	struct work_struct down_work;
 	int cpu;
-	/*
-	 * percpu mutex that serializes governor limit change with
-	 * do_darkness_timer invocation. We do not want do_darkness_timer to run
-	 * when user is changing the governor or limits.
-	 */
-	struct mutex timer_mutex;
 };
+
 static DEFINE_PER_CPU(struct cpufreq_darkness_cpuinfo, od_darkness_cpuinfo);
 
 static unsigned int darkness_enable;	/* number of CPUs using this policy */
@@ -596,7 +591,6 @@ static void do_darkness_timer(struct work_struct *work)
 		container_of(work, struct cpufreq_darkness_cpuinfo, work.work);
 	int delay;
 
-	mutex_lock(&darkness_cpuinfo->timer_mutex);
 	darkness_check_cpu(darkness_cpuinfo);
 	/* We want all CPUs to do sampling nearly on
 	 * same jiffy
@@ -606,7 +600,6 @@ static void do_darkness_timer(struct work_struct *work)
 		delay -= jiffies % delay;
 	}
 	schedule_delayed_work_on(darkness_cpuinfo->cpu, &darkness_cpuinfo->work, delay);
-	mutex_unlock(&darkness_cpuinfo->timer_mutex);
 }
 
 static inline void darkness_timer_init(struct cpufreq_darkness_cpuinfo *darkness_cpuinfo)
@@ -643,8 +636,6 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 	unsigned int cpu = policy->cpu;
 	struct cpufreq_darkness_cpuinfo *this_darkness_cpuinfo;
 	unsigned int j;
-	unsigned int min_freq = 0;
-	unsigned int max_freq = 0;
 	int rc;
 
 	this_darkness_cpuinfo = &per_cpu(od_darkness_cpuinfo, cpu);
@@ -688,8 +679,6 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 		}
 		mutex_unlock(&darkness_mutex);
 
-		mutex_init(&this_darkness_cpuinfo->timer_mutex);
-
 		darkness_timer_init(this_darkness_cpuinfo);
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -704,8 +693,6 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 
 		darkness_timer_exit(this_darkness_cpuinfo);
 
-		mutex_destroy(&this_darkness_cpuinfo->timer_mutex);
-
 		mutex_lock(&darkness_mutex);
 		darkness_enable--;
 
@@ -718,19 +705,7 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 		break;
 
 	case CPUFREQ_GOV_LIMITS:
-		mutex_lock(&this_darkness_cpuinfo->timer_mutex);
-		min_freq = policy->min;
-		max_freq = policy->max;
-		if (atomic_read(&darkness_tuners_ins.earlysuspend) > 0) {
-			min_freq = min(policy->min_suspend,min_freq);
-			max_freq = min(policy->max_suspend,max_freq);
-		}
-		if (max_freq < policy->cur) {
-			__cpufreq_driver_target(policy,max_freq,CPUFREQ_RELATION_L);
-		} else if (min_freq > policy->cur) {
-			__cpufreq_driver_target(policy,min_freq,CPUFREQ_RELATION_L);
-		}
-		mutex_unlock(&this_darkness_cpuinfo->timer_mutex);
+		/*WE DON'T NEED TO USE MUTEX FOR FREQUENCY CHANGING BECAUSE TIMER FUNCTION USES POLICY BY CPU*/
 		break;
 	}
 	return 0;

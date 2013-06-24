@@ -71,13 +71,8 @@ struct cpufreq_nightmare_cpuinfo {
 	struct work_struct up_work;
 	struct work_struct down_work;
 	int cpu;
-	/*
-	 * percpu mutex that serializes governor limit change with
-	 * do_nightmare_timer invocation. We do not want do_nightmare_timer to run
-	 * when user is changing the governor or limits.
-	 */
-	struct mutex timer_mutex;
 };
+
 static DEFINE_PER_CPU(struct cpufreq_nightmare_cpuinfo, od_nightmare_cpuinfo);
 
 static unsigned int nightmare_enable;	/* number of CPUs using this policy */
@@ -953,7 +948,6 @@ static void do_nightmare_timer(struct work_struct *work)
 		container_of(work, struct cpufreq_nightmare_cpuinfo, work.work);
 	int delay;
 
-	mutex_lock(&nightmare_cpuinfo->timer_mutex);
 	nightmare_check_cpu(nightmare_cpuinfo);
 	/* We want all CPUs to do sampling nearly on
 	 * same jiffy
@@ -963,7 +957,6 @@ static void do_nightmare_timer(struct work_struct *work)
 		delay -= jiffies % delay;
 	}
 	schedule_delayed_work_on(nightmare_cpuinfo->cpu, &nightmare_cpuinfo->work, delay);
-	mutex_unlock(&nightmare_cpuinfo->timer_mutex);
 }
 
 static inline void nightmare_timer_init(struct cpufreq_nightmare_cpuinfo *nightmare_cpuinfo)
@@ -1045,8 +1038,6 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 		}
 		mutex_unlock(&nightmare_mutex);
 
-		mutex_init(&this_nightmare_cpuinfo->timer_mutex);
-
 		nightmare_timer_init(this_nightmare_cpuinfo);
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -1061,8 +1052,6 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 
 		nightmare_timer_exit(this_nightmare_cpuinfo);
 
-		mutex_destroy(&this_nightmare_cpuinfo->timer_mutex);
-
 		mutex_lock(&nightmare_mutex);
 		nightmare_enable--;
 
@@ -1075,19 +1064,7 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 		break;
 
 	case CPUFREQ_GOV_LIMITS:
-		mutex_lock(&this_nightmare_cpuinfo->timer_mutex);
-		min_freq = policy->min;
-		max_freq = policy->max;
-		if (atomic_read(&nightmare_tuners_ins.earlysuspend) > 0) {
-			min_freq = min(policy->min_suspend,min_freq);
-			max_freq = min(policy->max_suspend,max_freq);
-		}
-		if (max_freq < policy->cur) {
-			__cpufreq_driver_target(policy,max_freq,CPUFREQ_RELATION_L);
-		} else if (min_freq > policy->cur) {
-			__cpufreq_driver_target(policy,min_freq,CPUFREQ_RELATION_L);
-		}
-		mutex_unlock(&this_nightmare_cpuinfo->timer_mutex);
+		/*WE DON'T NEED TO USE MUTEX FOR FREQUENCY CHANGING BECAUSE TIMER FUNCTION USES POLICY BY CPU*/
 		break;
 	}
 	return 0;
