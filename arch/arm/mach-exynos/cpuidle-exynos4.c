@@ -560,8 +560,7 @@ static void vfp_enable(void *unused)
 }
 
 static int exynos4_enter_core0_aftr(struct cpuidle_device *dev,
-                struct cpuidle_driver *drv,
-                int index)
+				    struct cpuidle_state *state)
 {
 	struct timeval before, after;
 	int idle_time;
@@ -649,8 +648,7 @@ early_wakeup:
 extern void bt_uart_rts_ctrl(int flag);
 
 static int exynos4_enter_core0_lpa(struct cpuidle_device *dev,
-                struct cpuidle_driver *drv,
-                int index)
+				   struct cpuidle_state *state)
 {
 	struct timeval before, after;
 	int idle_time;
@@ -790,12 +788,10 @@ early_wakeup:
 }
 
 static int exynos4_enter_idle(struct cpuidle_device *dev,
-                struct cpuidle_driver *drv,
-                int index);
+			      struct cpuidle_state *state);
 
 static int exynos4_enter_lowpower(struct cpuidle_device *dev,
-                struct cpuidle_driver *drv,
-                int index);
+				  struct cpuidle_state *state);
 
 static struct cpuidle_state exynos4_cpuidle_set[] = {
 	[0] = {
@@ -830,8 +826,7 @@ static unsigned int old_div;
 static DEFINE_SPINLOCK(idle_lock);
 
 static int exynos4_enter_idle(struct cpuidle_device *dev,
-                struct cpuidle_driver *drv,
-                int index)
+			      struct cpuidle_state *state)
 {
 	struct timeval before, after;
 	int idle_time;
@@ -914,28 +909,39 @@ extern int etm_disable(int pm_enable);
 #endif
 
 static int exynos4_enter_lowpower(struct cpuidle_device *dev,
-                struct cpuidle_driver *drv,
-                int index)
+				  struct cpuidle_state *state)
 {
+	struct cpuidle_state *new_state = state;
 	unsigned int enter_mode;
 	unsigned int tmp;
 	int ret;
 
 	/* This mode only can be entered when only Core0 is online */
-	if (num_online_cpus() != 1)
-		return exynos4_enter_idle(dev, drv, index);
+	if (num_online_cpus() != 1) {
+		BUG_ON(!dev->safe_state);
+		new_state = dev->safe_state;
+	}
+	dev->last_state = new_state;
+
+	if (!soc_is_exynos4210()) {
+		tmp = S5P_USE_STANDBY_WFI0 | S5P_USE_STANDBY_WFE0;
+		__raw_writel(tmp, S5P_CENTRAL_SEQ_OPTION);
+	}
+
+	if (new_state == &dev->states[0])
+		return exynos4_enter_idle(dev, new_state);
 
 	enter_mode = exynos4_check_entermode();
 	if (!enter_mode)
-		return exynos4_enter_idle(dev, drv, index);
+		return exynos4_enter_idle(dev, new_state);
 	else {
 #ifdef CONFIG_CORESIGHT_ETM
 		etm_disable(0);
 #endif
 		if (enter_mode == S5P_CHECK_DIDLE)
-			ret = exynos4_enter_core0_aftr(dev, drv, index);
+			ret = exynos4_enter_core0_aftr(dev, new_state);
 		else
-			ret = exynos4_enter_core0_lpa(dev, drv, index);
+			ret = exynos4_enter_core0_lpa(dev, new_state);
 #ifdef CONFIG_CORESIGHT_ETM
 		etm_enable(0);
 #endif

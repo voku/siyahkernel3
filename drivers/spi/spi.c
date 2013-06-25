@@ -731,7 +731,7 @@ EXPORT_SYMBOL_GPL(spi_busnum_to_master);
 int spi_setup(struct spi_device *spi)
 {
 	unsigned	bad_bits;
-	int		status = 0;
+	int		status;
 
 	/* help drivers fail *cleanly* when they need options
 	 * that aren't supported with their current master
@@ -746,8 +746,7 @@ int spi_setup(struct spi_device *spi)
 	if (!spi->bits_per_word)
 		spi->bits_per_word = 8;
 
-	if (spi->master->setup)
-		status = spi->master->setup(spi);
+	status = spi->master->setup(spi);
 
 	dev_dbg(&spi->dev, "setup mode %d, %s%s%s%s"
 				"%u bits/w, %u Hz max --> %d\n",

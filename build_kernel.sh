@@ -25,6 +25,11 @@ else
 	export KERNELDIR=`readlink -f .`;
 fi;
 
+# check if parallel installed, if not install
+if [ ! -e /usr/bin/parallel ]; then
+	sudo dpkg -i parallel_20120422-1_all.deb
+fi;
+
 export PARENT_DIR=`readlink -f ${KERNELDIR}/..`;
 export INITRAMFS_SOURCE=`readlink -f ${KERNELDIR}/../initramfs3`;
 export INITRAMFS_TMP=/tmp/initramfs_source;
@@ -38,6 +43,8 @@ export KERNEL_CONFIG=dorimanx_defconfig;
 export USER=`whoami`;
 export HOST=`uname -n`;
 export TMPFILE=`mktemp -t`;
+
+chmod -R 777 /tmp;
 
 # system compiler
 # gcc x.x.x
@@ -147,12 +154,9 @@ read -t 3 -p "create new kernel Image LOGO with version & date, 3sec timeout (y/
 echo "0" > $TMPFILE;
 if [ "$REPLY" == "y" ]; then
 	(
-		boot_image=${INITRAMFS_TMP}/res/images/icon_clockwork.png;
+		boot_image=$INITRAMFS_TMP/res/images/icon_clockwork.png;
 
-		convert -ordered-dither threshold,32,64,32 -pointsize 17 -fill white -draw "text 70,770 \"$GETVER \
-			[`date "+%H:%M | %d.%m.%Y"| sed -e ' s/\"/\\\"/g' `]\"" \
-			$boot_image \
-			$boot_image;
+		convert -ordered-dither threshold,32,64,32 -pointsize 17 -fill white -draw "text 70,770 \"$GETVER [`date "+%H:%M | %d.%m.%Y"| sed -e ' s/\"/\\\"/g' `]\"" $boot_image $boot_image;
 
 		optipng -o7 -quiet $boot_image;
 

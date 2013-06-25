@@ -246,7 +246,7 @@
 extern int _lcdfreq_lock(int lock);			/* ZZ: external lcdfreq lock function */
 #endif
 
-extern bool touch_state_val;
+extern bool touch_is_pressed;
 
 /*
  * The polling frequency of this governor depends on the capability of
@@ -521,7 +521,7 @@ static int mn_get_next_freq(unsigned int curfreq, unsigned int updown, unsigned 
 	int target = 0; /* Yank : Target column in freq. array */
 
 	/* Yank : Decide what column to use as target */
-	if (load < dbs_tuners_ins.smooth_up && touch_state_val == false) {
+	if (load < dbs_tuners_ins.smooth_up && touch_is_pressed == 0) {
 		/* normal scale columns */
 		target=updown + 0;
 	} else {

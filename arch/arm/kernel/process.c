@@ -169,7 +169,7 @@ void soft_restart(unsigned long addr)
 
 	/* Flush the console to make sure all the relevant messages make it
 	* out to the console drivers */
-	arm_machine_flush_console();
+        arm_machine_flush_console();
 
 	/* Disable interrupts first */
 	local_irq_disable();
@@ -199,6 +199,26 @@ EXPORT_SYMBOL(pm_power_off);
 void (*arm_pm_restart)(char str, const char *cmd) = null_restart;
 EXPORT_SYMBOL_GPL(arm_pm_restart);
 
+static void do_nothing(void *unused)
+{
+}
+
+/*
+ * cpu_idle_wait - Used to ensure that all the CPUs discard old value of
+ * pm_idle and update to new pm_idle value. Required while changing pm_idle
+ * handler on SMP systems.
+ *
+ * Caller must have changed pm_idle to the new value before the call. Old
+ * pm_idle value will not be used by any CPU after the return of this function.
+ */
+void cpu_idle_wait(void)
+{
+	smp_mb();
+	/* kick all the CPUs so that they exit out of pm_idle */
+	smp_call_function(do_nothing, NULL, 1);
+}
+EXPORT_SYMBOL_GPL(cpu_idle_wait);
+
 /*
  * This is our default idle handler.
  */
@@ -217,40 +237,56 @@ static void default_idle(void)
 void (*pm_idle)(void) = default_idle;
 EXPORT_SYMBOL(pm_idle);
 
-void arch_cpu_idle_prepare(void)
+/*
+ * The idle thread, has rather strange semantics for calling pm_idle,
+ * but this is what x86 does and we need to do the same, so that
+ * things like cpuidle get called in the same way.  The only difference
+ * is that we always respect 'hlt_counter' to prevent low power idle.
+ */
+void cpu_idle(void)
 {
 	local_fiq_enable();
-}
 
-void arch_cpu_idle_enter(void)
-{
-	idle_notifier_call_chain(IDLE_START);
-	ledtrig_cpu(CPU_LED_IDLE_START);
-#ifdef CONFIG_PL310_ERRATA_769419
-	wmb();
-#endif
-}
-
-void arch_cpu_idle_exit(void)
-{
-	ledtrig_cpu(CPU_LED_IDLE_END);
-	idle_notifier_call_chain(IDLE_END);
-}
-
+	/* endless idle loop with no priority at all */
+	while (1) {
+		idle_notifier_call_chain(IDLE_START);
+		tick_nohz_idle_enter();
+		rcu_idle_enter();
+		while (!need_resched()) {
 #ifdef CONFIG_HOTPLUG_CPU
-void arch_cpu_idle_dead(void)
-{
-	cpu_die();
-}
+			if (cpu_is_offline(smp_processor_id()))
+				cpu_die();
 #endif
 
-/*
- * Called from the core idle loop.
- */
-void arch_cpu_idle(void)
-{
-	if (cpuidle_idle_call())
-		default_idle();
+			/*
+			 * We need to disable interrupts here
+			 * to ensure we don't miss a wakeup call.
+			 */
+			local_irq_disable();
+#ifdef CONFIG_PL310_ERRATA_769419
+			wmb();
+#endif
+			if (hlt_counter) {
+				local_irq_enable();
+				cpu_relax();
+			} else if (!need_resched()) {
+				stop_critical_timings();
+				if (cpuidle_idle_call())
+					pm_idle();
+				start_critical_timings();
+				/*
+				 * pm_idle functions must always
+				 * return with IRQs enabled.
+				 */
+				WARN_ON(irqs_disabled());
+			} else
+				local_irq_enable();
+		}
+		rcu_idle_exit();
+		tick_nohz_idle_exit();
+		idle_notifier_call_chain(IDLE_END);
+		schedule_preempt_disabled();
+	}
 }
 
 static char reboot_mode = 'h';

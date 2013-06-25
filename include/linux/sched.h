@@ -84,10 +84,10 @@ extern void get_avenrun(unsigned long *loads, unsigned long offset, int shift);
 
 #define FSHIFT		11		/* nr of bits of precision */
 #define FIXED_1		(1<<FSHIFT)	/* 1.0 as fixed-point */
-#define LOAD_FREQ	(5*HZ+1)	/* 5 sec intervals */
-#define EXP_1		1884		/* 1/exp(5sec/1min) as fixed-point */
-#define EXP_5		2014		/* 1/exp(5sec/5min) */
-#define EXP_15		2037		/* 1/exp(5sec/15min) */
+#define LOAD_FREQ	(4*HZ+153)	/* 4.612 sec intervals (e.g.: for HZ=250 -> 4*250+153=1153 ticks, 1153/250=4.612 sec) */
+#define EXP_1    	1896		/* 1/exp(4.61sec/1min) as fixed-point */
+#define EXP_5    	2017		/* 1/exp(4.61sec/5min) */
+#define EXP_15    	2038		/* 1/exp(4.61sec/15min) */
 
 #define CALC_LOAD(load,exp,n) \
 	load *= exp; \
@@ -660,7 +660,6 @@ struct signal_struct {
 #define SIGNAL_STOP_STOPPED	0x00000001 /* job control stop in effect */
 #define SIGNAL_STOP_CONTINUED	0x00000002 /* SIGCONT since WCONTINUED reap */
 #define SIGNAL_GROUP_EXIT	0x00000004 /* group exit in progress */
-#define SIGNAL_GROUP_COREDUMP   0x00000008 /* coredump in progress */
 /*
  * Pending notifications to parent.
  */
@@ -825,8 +824,6 @@ struct sched_domain_attr {
 }
 
 extern int sched_domain_level_max;
-
-struct sched_group;
 
 struct sched_domain {
 	/* These fields must be setup */
@@ -2504,47 +2501,6 @@ static inline int spin_needbreak(spinlock_t *lock)
 	return 0;
 #endif
 }
-
-/*
- * Idle thread specific functions to determine the need_resched
- * polling state. We have two versions, one based on TS_POLLING in
- * thread_info.status and one based on TIF_POLLING_NRFLAG in
- * thread_info.flags
- */
-#ifdef TS_POLLING
-static inline int tsk_is_polling(struct task_struct *p)
-{
-	return task_thread_info(p)->status & TS_POLLING;
-}
-static inline void current_set_polling(void)
-{
-	current_thread_info()->status |= TS_POLLING;
-}
-
-static inline void current_clr_polling(void)
-{
-	current_thread_info()->status &= ~TS_POLLING;
-	smp_mb__after_clear_bit();
-}
-#elif defined(TIF_POLLING_NRFLAG)
-static inline int tsk_is_polling(struct task_struct *p)
-{
-	return test_tsk_thread_flag(p, TIF_POLLING_NRFLAG);
-}
-static inline void current_set_polling(void)
-{
-	set_thread_flag(TIF_POLLING_NRFLAG);
-}
-
-static inline void current_clr_polling(void)
-{
-	clear_thread_flag(TIF_POLLING_NRFLAG);
-}
-#else
-static inline int tsk_is_polling(struct task_struct *p) { return 0; }
-static inline void current_set_polling(void) { }
-static inline void current_clr_polling(void) { }
-#endif
 
 /*
  * Thread group CPU time accounting.
