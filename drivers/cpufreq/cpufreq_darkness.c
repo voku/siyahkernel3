@@ -549,6 +549,8 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 		busy_time = (unsigned int)
 				(cur_busy_time - j_darkness_cpuinfo->prev_cpu_busy);
 		j_darkness_cpuinfo->prev_cpu_busy = cur_busy_time;
+		if (busy_time == 0)
+			busy_time++;
 
 		idle_time = (unsigned int)
 				(cur_idle_time - j_darkness_cpuinfo->prev_cpu_idle);
@@ -557,7 +559,6 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 		/*printk(KERN_ERR "TIMER CPU[%u], wall[%u], idle[%u]\n",j, busy_time + idle_time, idle_time);*/
 		cpu_policy = cpufreq_cpu_get(j);
 		if (unlikely(!cpu_policy)) {
-			cpufreq_cpu_put(cpu_policy);
 			continue;
 		}
 		cur_load = (100 * busy_time) / (busy_time + idle_time);
@@ -644,6 +645,7 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 {
 	unsigned int cpu = policy->cpu;
 	struct cpufreq_darkness_cpuinfo *this_darkness_cpuinfo;
+	struct cpufreq_policy *cpu_policy;
 	unsigned int j;
 	int rc;
 
@@ -720,6 +722,18 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 	case CPUFREQ_GOV_LIMITS:
 		mutex_lock(&timer_mutex);
 		/* NOTHING TO DO JUST WATT */
+		cpu_policy = cpufreq_cpu_get(cpu);
+		if(!cpu_policy) {
+			mutex_unlock(&timer_mutex);
+			break;
+		}
+		if (policy->max < cpu_policy->cur)
+			__cpufreq_driver_target(cpu_policy,
+				policy->max, CPUFREQ_RELATION_H);
+		else if (policy->min > cpu_policy->cur)
+			__cpufreq_driver_target(cpu_policy,
+				policy->min, CPUFREQ_RELATION_L);
+		cpufreq_cpu_put(cpu_policy);
 		mutex_unlock(&timer_mutex);
 		break;
 	}
