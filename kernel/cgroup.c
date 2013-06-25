@@ -1422,9 +1422,26 @@ static void init_cgroup_root(struct cgroupfs_root *root)
 	init_cgroup_housekeeping(cgrp);
 }
 
-static bool init_root_id(struct cgroupfs_root *root)
+static int cgroup_init_root_id(struct cgroupfs_root *root, int start, int end)
 {
-	int ret = 0;
+	int id;
+
+	lockdep_assert_held(&cgroup_mutex);
+	lockdep_assert_held(&cgroup_root_mutex);
+
+	id = idr_alloc_cyclic(&cgroup_hierarchy_idr, root, start, end,
+			      GFP_KERNEL);
+	if (id < 0)
+		return id;
+
+	root->hierarchy_id = id;
+	return 0;
+}
+
+static void cgroup_exit_root_id(struct cgroupfs_root *root)
+{
+	lockdep_assert_held(&cgroup_mutex);
+	lockdep_assert_held(&cgroup_root_mutex);
 
 	do {
 		if (!ida_pre_get(&hierarchy_ida, GFP_KERNEL))
@@ -1637,7 +1654,8 @@ static struct dentry *cgroup_mount(struct file_system_type *fs_type,
 		if (ret)
 			goto unlock_drop;
 
-		ret = cgroup_init_root_id(root);
+		/* ID 0 is reserved for dummy root, 1 for unified hierarchy */
+		ret = cgroup_init_root_id(root, 2, 0);
 		if (ret)
 			goto unlock_drop;
 
@@ -4895,7 +4913,7 @@ int __init cgroup_init(void)
 	key = css_set_hash(init_css_set.subsys);
 	hash_add(css_set_table, &init_css_set.hlist, key);
 
-	BUG_ON(cgroup_init_root_id(&cgroup_dummy_root));
+	BUG_ON(cgroup_init_root_id(&cgroup_dummy_root, 0, 1));
 
 	mutex_unlock(&cgroup_root_mutex);
 	mutex_unlock(&cgroup_mutex);
