@@ -550,8 +550,6 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 		/*printk(KERN_ERR "TIMER CPU[%u], wall[%u], idle[%u]\n",j, wall_time, wall_time - idle_time);*/
 		cpu_policy = cpufreq_cpu_get(j);
 		if (!cpu_policy) {
-			hotplug_history->usage[num_hist].freq[j] = 0;
-			hotplug_history->usage[num_hist].load[j] = 0;
 			cpufreq_cpu_put(cpu_policy);
 			continue;
 		}		
