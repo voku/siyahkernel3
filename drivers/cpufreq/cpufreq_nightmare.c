@@ -871,7 +871,7 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 
 		/*printk(KERN_ERR "TIMER CPU[%u], wall[%u], idle[%u]\n",j, wall_time, wall_time - busy_time);*/
 		cpu_policy = cpufreq_cpu_get(j);
-		if (!cpu_policy) {
+		if (unlikely(!cpu_policy || !wall_time)) {
 			cpufreq_cpu_put(cpu_policy);
 			continue;
 		}		
