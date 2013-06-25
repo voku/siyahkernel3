@@ -251,7 +251,7 @@ error_put:
 	return ret;
 }
 
-static int blktrans_release(struct gendisk *disk, fmode_t mode)
+static void blktrans_release(struct gendisk *disk, fmode_t mode)
 {
 	struct mtd_blktrans_dev *dev = blktrans_dev_get(disk);
 	int ret = 0;

@@ -1,5 +1,5 @@
 This is binutils.info, produced by makeinfo version 4.13 from
-/mnt/jenkins/workspace/linaro-android_toolchain-4.8-13.05/build/objdir/../build/../binutils/binutils-current/binutils/doc/binutils.texi.
+/mnt/jenkins/workspace/linaro-android_toolchain-4.7-2013.05/build/objdir/../build/../binutils/binutils-current/binutils/doc/binutils.texi.
 
 Copyright (C) 1991-2013 Free Software Foundation, Inc.
 
@@ -4850,35 +4850,35 @@ Binutils Index
 
 
 Tag Table:
-Node: Top2016
-Node: ar3739
-Node: ar cmdline6877
-Node: ar scripts17092
-Node: nm22780
-Node: objcopy32676
-Node: objdump64445
-Node: ranlib86574
-Node: size88091
-Node: strings91095
-Node: strip93553
-Node: c++filt100785
-Ref: c++filt-Footnote-1105626
-Node: addr2line105732
-Node: nlmconv110069
-Node: windmc112674
-Node: windres116323
-Node: dlltool122684
-Node: def file format135564
-Node: readelf138103
-Node: elfedit145653
-Node: Common Options147907
-Node: Selecting the Target System148947
-Node: Target Selection149879
-Node: Architecture Selection151861
-Node: Reporting Bugs152689
-Node: Bug Criteria153468
-Node: Bug Reporting154021
-Node: GNU Free Documentation License160922
-Node: Binutils Index186101
+Node: Top2018
+Node: ar3741
+Node: ar cmdline6879
+Node: ar scripts17094
+Node: nm22782
+Node: objcopy32678
+Node: objdump64447
+Node: ranlib86576
+Node: size88093
+Node: strings91097
+Node: strip93555
+Node: c++filt100787
+Ref: c++filt-Footnote-1105628
+Node: addr2line105734
+Node: nlmconv110071
+Node: windmc112676
+Node: windres116325
+Node: dlltool122686
+Node: def file format135566
+Node: readelf138105
+Node: elfedit145655
+Node: Common Options147909
+Node: Selecting the Target System148949
+Node: Target Selection149881
+Node: Architecture Selection151863
+Node: Reporting Bugs152691
+Node: Bug Criteria153470
+Node: Bug Reporting154023
+Node: GNU Free Documentation License160924
+Node: Binutils Index186103
 
 End Tag Table

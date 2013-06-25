@@ -66,19 +66,18 @@ struct cpufreq_governor cpufreq_gov_nightmare = {
 };
 
 struct cpufreq_nightmare_cpuinfo {
-	u64 prev_cpu_idle;
-	u64 prev_cpu_wall;
+	u64 prev_cpu_busy;
 	struct delayed_work work;
 	struct work_struct up_work;
 	struct work_struct down_work;
 	int cpu;
-	/*
-	 * percpu mutex that serializes governor limit change with
-	 * do_nightmare_timer invocation. We do not want do_nightmare_timer to run
-	 * when user is changing the governor or limits.
-	 */
-	struct mutex timer_mutex;
 };
+/*
+ * mutex that serializes governor limit change with
+ * do_nightmare_timer invocation. We do not want do_nightmare_timer to run
+ * when user is changing the governor or limits.
+ */
+static struct mutex timer_mutex;
 static DEFINE_PER_CPU(struct cpufreq_nightmare_cpuinfo, od_nightmare_cpuinfo);
 
 static unsigned int nightmare_enable;	/* number of CPUs using this policy */
@@ -109,7 +108,7 @@ static struct nightmare_tuners {
 	atomic_t up_sf_step;
 	atomic_t down_sf_step;
 	atomic_t earlysuspend;
-	atomic_t soft_scal;
+	atomic_t up_soft_scal;
 } nightmare_tuners_ins = {
 	.sampling_rate = ATOMIC_INIT(60000),
 	.hotplug_enable = ATOMIC_INIT(0),
@@ -131,7 +130,7 @@ static struct nightmare_tuners {
 	.up_sf_step = ATOMIC_INIT(0),
 	.down_sf_step = ATOMIC_INIT(0),
 	.earlysuspend = ATOMIC_INIT(0),
-	.soft_scal = ATOMIC_INIT(0),
+	.up_soft_scal = ATOMIC_INIT(0),
 };
 
 /*
@@ -145,6 +144,7 @@ struct nightmare_cpu_usage {
 struct nightmare_cpu_usage_history {
 	struct nightmare_cpu_usage usage[MAX_HOTPLUG_RATE];
 	int num_hist;
+	u64 prev_cpu_wall;
 };
 
 static struct nightmare_cpu_usage_history *hotplug_history;
@@ -177,7 +177,7 @@ show_one(freq_step_dec, freq_step_dec);
 show_one(freq_step_dec_at_max_freq, freq_step_dec_at_max_freq);
 show_one(up_sf_step, up_sf_step);
 show_one(down_sf_step, down_sf_step);
-show_one(soft_scal, soft_scal);
+show_one(up_soft_scal, up_soft_scal);
 
 #define show_hotplug_param(file_name, num_core, up_down)		\
 static ssize_t show_##file_name##_##num_core##_##up_down		\
@@ -625,8 +625,8 @@ static ssize_t store_down_sf_step(struct kobject *a, struct attribute *b,
 	return count;
 }
 
-/* soft_scal */
-static ssize_t store_soft_scal(struct kobject *a, struct attribute *b,
+/* up_soft_scal */
+static ssize_t store_up_soft_scal(struct kobject *a, struct attribute *b,
 				   const char *buf, size_t count)
 {
 	int input;
@@ -638,10 +638,10 @@ static ssize_t store_soft_scal(struct kobject *a, struct attribute *b,
 
 	input = input > 0;
 
-	if (input == atomic_read(&nightmare_tuners_ins.soft_scal))
+	if (input == atomic_read(&nightmare_tuners_ins.up_soft_scal))
 		return count;
 
-	atomic_set(&nightmare_tuners_ins.soft_scal,input);
+	atomic_set(&nightmare_tuners_ins.up_soft_scal,input);
 
 	return count;
 }
@@ -665,7 +665,7 @@ define_one_global_rw(freq_step_dec);
 define_one_global_rw(freq_step_dec_at_max_freq);
 define_one_global_rw(up_sf_step);
 define_one_global_rw(down_sf_step);
-define_one_global_rw(soft_scal);
+define_one_global_rw(up_soft_scal);
 
 static struct attribute *nightmare_attributes[] = {
 	&sampling_rate.attr,
@@ -695,7 +695,7 @@ static struct attribute *nightmare_attributes[] = {
 	&freq_step_dec_at_max_freq.attr,
 	&up_sf_step.attr,
 	&down_sf_step.attr,
-	&soft_scal.attr,
+	&up_soft_scal.attr,
 	NULL
 };
 
@@ -831,7 +831,7 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 	int max_hotplug_rate = max(atomic_read(&nightmare_tuners_ins.cpu_up_rate),atomic_read(&nightmare_tuners_ins.cpu_down_rate));
 	bool earlysuspend = atomic_read(&nightmare_tuners_ins.earlysuspend) > 0;
 	bool hotplug_enable = atomic_read(&nightmare_tuners_ins.hotplug_enable) > 0;
-	bool soft_scal = atomic_read(&nightmare_tuners_ins.soft_scal);
+	bool soft_scal = atomic_read(&nightmare_tuners_ins.up_soft_scal);
 	unsigned int freq_for_responsiveness = atomic_read(&nightmare_tuners_ins.freq_for_responsiveness);
 	unsigned int freq_for_responsiveness_max = atomic_read(&nightmare_tuners_ins.freq_for_responsiveness_max);
 	int up_sf_step = atomic_read(&nightmare_tuners_ins.up_sf_step);
@@ -841,19 +841,18 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 	unsigned int calc_freq = 0;
 	int num_hist = hotplug_history->num_hist;
 	unsigned int j;
+	u64 cur_wall_time = usecs_to_cputime64(ktime_to_us(ktime_get()));
+	unsigned int wall_time = (unsigned int)(cur_wall_time - hotplug_history->prev_cpu_wall);
 
-	/* set num_hist used */
-	++hotplug_history->num_hist;
-	
-	for_each_possible_cpu(j) {
+	for_each_online_cpu(j) {
 		struct cpufreq_nightmare_cpuinfo *j_nightmare_cpuinfo;
 		struct cpufreq_policy *cpu_policy;
 		int inc_cpu_load = atomic_read(&nightmare_tuners_ins.inc_cpu_load);		
 		int freq_step = atomic_read(&nightmare_tuners_ins.freq_step);
 		int freq_up_brake = atomic_read(&nightmare_tuners_ins.freq_up_brake);
 		int freq_step_dec = atomic_read(&nightmare_tuners_ins.freq_step_dec);
-		u64 cur_idle_time=0, cur_wall_time=0;
-		unsigned int idle_time, wall_time;
+		u64 cur_busy_time=0;
+		unsigned int busy_time;
 		/* Current load across this CPU */
 		int cur_load = 0;
 		int next_freq = 0;
@@ -861,32 +860,22 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 		unsigned int max_freq = 0;
 
 		j_nightmare_cpuinfo = &per_cpu(od_nightmare_cpuinfo, j);
-		
-		/*cur_idle_time = get_cpu_idle_time_us(j, &cur_wall_time);*/
-		cur_idle_time = kcpustat_cpu(j).cpustat[CPUTIME_IDLE];
-		cur_wall_time = kcpustat_cpu(j).cpustat[CPUTIME_USER] + kcpustat_cpu(j).cpustat[CPUTIME_SYSTEM]
-						+ kcpustat_cpu(j).cpustat[CPUTIME_IOWAIT] + kcpustat_cpu(j).cpustat[CPUTIME_IRQ]
-						+ kcpustat_cpu(j).cpustat[CPUTIME_SOFTIRQ] + kcpustat_cpu(j).cpustat[CPUTIME_STEAL]
-						+ kcpustat_cpu(j).cpustat[CPUTIME_NICE] + cur_idle_time;
 
-		wall_time = (unsigned int)
-				(cur_wall_time - j_nightmare_cpuinfo->prev_cpu_wall);
-		j_nightmare_cpuinfo->prev_cpu_wall = cur_wall_time;
+		cur_busy_time = kcpustat_cpu(j).cpustat[CPUTIME_USER] + kcpustat_cpu(j).cpustat[CPUTIME_SYSTEM]
+						+ kcpustat_cpu(j).cpustat[CPUTIME_IRQ] + kcpustat_cpu(j).cpustat[CPUTIME_SOFTIRQ] 
+						+ kcpustat_cpu(j).cpustat[CPUTIME_STEAL] + kcpustat_cpu(j).cpustat[CPUTIME_NICE];/*+ kcpustat_cpu(j).cpustat[CPUTIME_IOWAIT]*/
 
-		idle_time = (unsigned int)
-				(cur_idle_time - j_nightmare_cpuinfo->prev_cpu_idle);
-		j_nightmare_cpuinfo->prev_cpu_idle = cur_idle_time;
+		busy_time = (unsigned int)
+				(cur_busy_time - j_nightmare_cpuinfo->prev_cpu_busy);
+		j_nightmare_cpuinfo->prev_cpu_busy = cur_busy_time;
 
-		/*printk(KERN_ERR "TIMER CPU[%u], wall[%u], idle[%u]\n",j, wall_time, idle_time);*/
+		/*printk(KERN_ERR "TIMER CPU[%u], wall[%u], idle[%u]\n",j, wall_time, wall_time - busy_time);*/
 		cpu_policy = cpufreq_cpu_get(j);
-		if (!cpu_online(j) || !cpu_policy) {
-			hotplug_history->usage[num_hist].freq[j] = 0;
-			hotplug_history->usage[num_hist].load[j] = 0;
-			if (cpu_policy)
-				cpufreq_cpu_put(cpu_policy);
+		if (!cpu_policy) {
+			cpufreq_cpu_put(cpu_policy);
 			continue;
 		}		
-		cur_load = (int)((100 * (wall_time - idle_time)) / wall_time);
+		cur_load = (100 * busy_time) / wall_time;
 		hotplug_history->usage[num_hist].freq[j] = cpu_policy->cur;
 		hotplug_history->usage[num_hist].load[j] = cur_load;
 		// GET MIN MAX FREQ
@@ -901,18 +890,22 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 			inc_cpu_load = atomic_read(&nightmare_tuners_ins.inc_cpu_load_at_min_freq);
 			freq_step = atomic_read(&nightmare_tuners_ins.freq_step_at_min_freq);
 			freq_up_brake = atomic_read(&nightmare_tuners_ins.freq_up_brake_at_min_freq);
+		} else if (cpu_policy->cur > freq_for_responsiveness_max) {
+			freq_step_dec = atomic_read(&nightmare_tuners_ins.freq_step_dec_at_max_freq);
 		}
-		if (soft_scal && calc_freq == 0) {
-			calc_freq = cpu_policy->cur;
-		} else if (!soft_scal) {
-			calc_freq = cpu_policy->cur;
-		}
+
 		/* Check for frequency increase or for frequency decrease */
 		if (cur_load >= inc_cpu_load) {
 			/* if we cannot increment the frequency anymore, break out early */
 			if (cpu_policy->cur == max_freq) {
 				cpufreq_cpu_put(cpu_policy);
 				continue;
+			}
+
+			if (soft_scal && calc_freq == 0) {
+				calc_freq = cpu_policy->cur;
+			} else if (!soft_scal) {
+				calc_freq = cpu_policy->cur;
 			}
 
 			next_freq = nightmare_frequency_adjust(calc_freq + (((cur_load + freq_step - freq_up_brake) * 200000) / 100), cpu_policy->cur, min_freq, max_freq, up_sf_step);
@@ -927,11 +920,7 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 				continue;
 			}
 
-			if (cpu_policy->cur > freq_for_responsiveness_max) {
-				freq_step_dec = atomic_read(&nightmare_tuners_ins.freq_step_dec_at_max_freq);
-			}
-
-			next_freq = nightmare_frequency_adjust(calc_freq - (((100 - cur_load + freq_step_dec) * 200000) / 100), cpu_policy->cur, min_freq, max_freq, down_sf_step);
+			next_freq = nightmare_frequency_adjust(cpu_policy->cur - (((100 - cur_load + freq_step_dec) * 200000) / 100), cpu_policy->cur, min_freq, max_freq, down_sf_step);
 			/* printk(KERN_ERR "DOWN FREQ CALC.: CPU[%u], load[%d]<dec_cpu_load[%d], target freq[%u], cur freq[%u], min freq[%u], max_freq[%u]\n",j, cur_load, dec_cpu_load, freq_down, cpu_policy->cur, min_freq, max_freq); */
 			if (next_freq < cpu_policy->cur && next_freq != prev_freq_set) {
 				__cpufreq_driver_target(cpu_policy, next_freq, CPUFREQ_RELATION_L);				
@@ -940,6 +929,10 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 		cpufreq_cpu_put(cpu_policy);
 		prev_freq_set = next_freq;
 	}
+
+	/* set num_hist used */
+	++hotplug_history->num_hist;
+	hotplug_history->prev_cpu_wall = cur_wall_time;
 
 	if (hotplug_enable) {
 		/*Check for CPU hotplug*/
@@ -959,7 +952,7 @@ static void do_nightmare_timer(struct work_struct *work)
 		container_of(work, struct cpufreq_nightmare_cpuinfo, work.work);
 	int delay;
 
-	mutex_lock(&nightmare_cpuinfo->timer_mutex);
+	mutex_lock(&timer_mutex);
 	nightmare_check_cpu(nightmare_cpuinfo);
 	/* We want all CPUs to do sampling nearly on
 	 * same jiffy
@@ -969,7 +962,7 @@ static void do_nightmare_timer(struct work_struct *work)
 		delay -= jiffies % delay;
 	}
 	schedule_delayed_work_on(nightmare_cpuinfo->cpu, &nightmare_cpuinfo->work, delay);
-	mutex_unlock(&nightmare_cpuinfo->timer_mutex);
+	mutex_unlock(&timer_mutex);
 }
 
 static inline void nightmare_timer_init(struct cpufreq_nightmare_cpuinfo *nightmare_cpuinfo)
@@ -1027,15 +1020,13 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 
 		nightmare_enable++;
 
+		hotplug_history->prev_cpu_wall = usecs_to_cputime64(ktime_to_us(ktime_get()));
 		for_each_possible_cpu(j) {
-			struct cpufreq_nightmare_cpuinfo *j_nightmare_cpuinfo;			
+			struct cpufreq_nightmare_cpuinfo *j_nightmare_cpuinfo;
 			j_nightmare_cpuinfo = &per_cpu(od_nightmare_cpuinfo, j);
-			/*j_nightmare_cpuinfo->prev_cpu_idle = get_cpu_idle_time_us(j, &j_nightmare_cpuinfo->prev_cpu_wall);*/
-			j_nightmare_cpuinfo->prev_cpu_idle=kcpustat_cpu(j).cpustat[CPUTIME_IDLE];
-			j_nightmare_cpuinfo->prev_cpu_wall = kcpustat_cpu(j).cpustat[CPUTIME_USER] + kcpustat_cpu(j).cpustat[CPUTIME_SYSTEM]
-						+ kcpustat_cpu(j).cpustat[CPUTIME_IOWAIT] + kcpustat_cpu(j).cpustat[CPUTIME_IRQ]
-						+ kcpustat_cpu(j).cpustat[CPUTIME_SOFTIRQ] + kcpustat_cpu(j).cpustat[CPUTIME_STEAL]
-						+ kcpustat_cpu(j).cpustat[CPUTIME_NICE] + j_nightmare_cpuinfo->prev_cpu_idle;
+			j_nightmare_cpuinfo->prev_cpu_busy = kcpustat_cpu(j).cpustat[CPUTIME_USER] + kcpustat_cpu(j).cpustat[CPUTIME_SYSTEM]
+						+ kcpustat_cpu(j).cpustat[CPUTIME_IRQ] + kcpustat_cpu(j).cpustat[CPUTIME_SOFTIRQ] 
+						+ kcpustat_cpu(j).cpustat[CPUTIME_STEAL] + kcpustat_cpu(j).cpustat[CPUTIME_NICE];/*+ kcpustat_cpu(j).cpustat[CPUTIME_IOWAIT]*/
 		}
 		this_nightmare_cpuinfo->cpu = cpu;
 		/*
@@ -1053,7 +1044,7 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 		}
 		mutex_unlock(&nightmare_mutex);
 
-		mutex_init(&this_nightmare_cpuinfo->timer_mutex);
+		mutex_init(&timer_mutex);
 
 		nightmare_timer_init(this_nightmare_cpuinfo);
 
@@ -1069,7 +1060,7 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 
 		nightmare_timer_exit(this_nightmare_cpuinfo);
 
-		mutex_destroy(&this_nightmare_cpuinfo->timer_mutex);
+		mutex_destroy(&timer_mutex);
 
 		mutex_lock(&nightmare_mutex);
 		nightmare_enable--;
@@ -1083,27 +1074,9 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 		break;
 
 	case CPUFREQ_GOV_LIMITS:
-		mutex_lock(&this_nightmare_cpuinfo->timer_mutex);
-		min_freq = policy->min;
-		max_freq = policy->max;
-		if (atomic_read(&nightmare_tuners_ins.earlysuspend) > 0) {
-			min_freq = min(policy->min_suspend,min_freq);
-			max_freq = min(policy->max_suspend,max_freq);
-		}
-		for_each_online_cpu(j) {
-			struct cpufreq_policy *cpu_policy;
-			cpu_policy = cpufreq_cpu_get(j);
-			if (!cpu_policy) {
-				continue;
-			}
-			if (max_freq < cpu_policy->cur) {
-				__cpufreq_driver_target(cpu_policy,max_freq,CPUFREQ_RELATION_L);
-			} else if (min_freq > cpu_policy->cur) {
-				__cpufreq_driver_target(cpu_policy,min_freq,CPUFREQ_RELATION_L);
-			}
-			cpufreq_cpu_put(cpu_policy);
-		}
-		mutex_unlock(&this_nightmare_cpuinfo->timer_mutex);
+		mutex_lock(&timer_mutex);
+		/* NOTHING TO DO JUST WATT */
+		mutex_unlock(&timer_mutex);
 		break;
 	}
 	return 0;
