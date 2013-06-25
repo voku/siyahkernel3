@@ -1074,10 +1074,10 @@ static int do_read(struct fsg_common *common)
 		curlun->sense_data = SS_LOGICAL_BLOCK_ADDRESS_OUT_OF_RANGE;
 		return -EINVAL;
 	}
-  if (curlun->cdrom)
-    file_offset = ((loff_t) lba) << 11;
-  else
-    file_offset = ((loff_t) lba) << 9;
+	if (curlun->cdrom)
+		file_offset = ((loff_t) lba) << 11;
+	else
+		file_offset = ((loff_t) lba) << 9;
 
 
 	/* Carry out the file reads */
@@ -1093,8 +1093,8 @@ static int do_read(struct fsg_common *common)
 		bh->inreq->length = 0;
 		return -EIO;		/* No default reply */
 	}
-  if (curlun->cdrom)
-    amount_left <<= 2;
+	if (curlun->cdrom)
+		amount_left <<= 2;
 
 	for (;;) {
 		/*
@@ -3270,9 +3270,9 @@ static struct fsg_common *fsg_common_init(struct fsg_common *common,
 		rc = device_create_file(&curlun->dev, &dev_attr_nofua);
 		if (rc)
 			goto error_luns;
-    rc = device_create_file(&curlun->dev, &dev_attr_cdrom);
-    if (rc)
-      goto error_luns;
+		rc = device_create_file(&curlun->dev, &dev_attr_cdrom);
+		if (rc)
+			goto error_luns;
 
 
 		if (lcfg->filename) {
