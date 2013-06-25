@@ -945,7 +945,7 @@ static inline void nightmare_timer_init(struct cpufreq_nightmare_cpuinfo *nightm
 
 static inline void nightmare_timer_exit(struct cpufreq_nightmare_cpuinfo *nightmare_cpuinfo)
 {
-	cancel_delayed_work_sync(&nightmare_cpuinfo->work);
+	cancel_delayed_work(&nightmare_cpuinfo->work);
 	cancel_work_sync(&nightmare_cpuinfo->up_work);
 	cancel_work_sync(&nightmare_cpuinfo->down_work);
 }

@@ -622,7 +622,7 @@ static inline void darkness_timer_init(struct cpufreq_darkness_cpuinfo *darkness
 
 static inline void darkness_timer_exit(struct cpufreq_darkness_cpuinfo *darkness_cpuinfo)
 {
-	cancel_delayed_work_sync(&darkness_cpuinfo->work);
+	cancel_delayed_work(&darkness_cpuinfo->work);
 	cancel_work_sync(&darkness_cpuinfo->up_work);
 	cancel_work_sync(&darkness_cpuinfo->down_work);
 }
