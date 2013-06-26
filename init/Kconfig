@@ -20,12 +20,8 @@ config CONSTRUCTORS
 	bool
 	depends on !UML
 
-config HAVE_IRQ_WORK
-	bool
-
 config IRQ_WORK
 	bool
-	depends on HAVE_IRQ_WORK
 
 config BUILDTIME_EXTABLE_SORT
 	bool
@@ -169,7 +165,7 @@ config KERNEL_BZIP2
 	depends on HAVE_KERNEL_BZIP2
 	help
 	  Its compression ratio and speed is intermediate.
-	  Decompression speed is slowest among the three.  The kernel
+	  Decompression speed is slowest among the choices.  The kernel
 	  size is about 10% smaller with bzip2, in comparison to gzip.
 	  Bzip2 uses a large amount of memory. For modern kernels you
 	  will need at least 8MB RAM or more for booting.
@@ -178,10 +174,9 @@ config KERNEL_LZMA
 	bool "LZMA"
 	depends on HAVE_KERNEL_LZMA
 	help
-	  The most recent compression algorithm.
-	  Its ratio is best, decompression speed is between the other
-	  two. Compression is slowest.	The kernel size is about 33%
-	  smaller with LZMA in comparison to gzip.
+	  This compression algorithm's ratio is best.  Decompression speed
+	  is between gzip and bzip2.  Compression is slowest.
+	  The kernel size is about 33% smaller with LZMA in comparison to gzip.
 
 config KERNEL_XZ
 	bool "XZ"
@@ -202,7 +197,7 @@ config KERNEL_LZO
 	bool "LZO"
 	depends on HAVE_KERNEL_LZO
 	help
-	  Its compression ratio is the poorest among the 4. The kernel
+	  Its compression ratio is the poorest among the choices. The kernel
 	  size is about 10% bigger than gzip; however its speed
 	  (both compression and decompression) is the fastest.
 
@@ -301,7 +296,7 @@ config AUDIT
 
 config AUDITSYSCALL
 	bool "Enable system-call auditing support"
-	depends on AUDIT && (X86 || PPC || S390 || IA64 || UML || SPARC64 || SUPERH || ARM)
+	depends on AUDIT && (X86 || PPC || S390 || IA64 || UML || SPARC64 || SUPERH || (ARM && AEABI && !OABI_COMPAT))
 	default y if SECURITY_SELINUX
 	help
 	  Enable low-overhead system-call auditing infrastructure that
@@ -348,7 +343,7 @@ choice
 # Kind of a stub config for the pure tick based cputime accounting
 config TICK_CPU_ACCOUNTING
 	bool "Simple tick based cputime accounting"
-	depends on !S390 && !NO_HZ_FULL && 64BIT
+	depends on !S390 && !NO_HZ_FULL
 	help
 	  This is the basic tick based cputime accounting that maintains
 	  statistics about user, system and idle time spent on per jiffies
@@ -477,7 +472,6 @@ choice
 config TREE_RCU
 	bool "Tree-based hierarchical RCU"
 	depends on !PREEMPT && SMP
-	select IRQ_WORK
 	help
 	  This option selects the RCU implementation that is
 	  designed for very large SMP system with hundreds or
@@ -1122,7 +1116,7 @@ config IPC_NS
 
 config USER_NS
 	bool "User namespace (EXPERIMENTAL)"
-	depends on EXPERIMENTAL
+	depends on UIDGID_CONVERTED
 	select UIDGID_STRICT_TYPE_CHECKS
 
 	default n
@@ -1317,14 +1311,28 @@ config SYSCTL
 config ANON_INODES
 	bool
 
+config HAVE_UID16
+	bool
+
 config PANIC_TIMEOUT
 	int "Default panic timeout"
 	default 0
 	help
 	  Set default panic timeout.
 
+config HOTPLUG
+	bool "Support for hot-pluggable devices" if EXPERT
+	default y
+	help
+	  This option is provided for the case where no hotplug or uevent
+	  capabilities is wanted by the kernel.  You should only consider
+	  disabling this option for embedded systems that do not use modules, a
+	  dynamic /dev tree, or dynamic device discovery.  Just say Y.
+
 menuconfig EXPERT
 	bool "Configure standard kernel features (expert users)"
+	# Unhide debug options, to make the on-by-default options visible
+	select DEBUG_KERNEL
 	help
 	  This option allows certain base kernel options and settings
           to be disabled or tweaked. This is for specialized
@@ -1333,7 +1341,7 @@ menuconfig EXPERT
 
 config UID16
 	bool "Enable 16-bit UID system calls" if EXPERT
-	depends on ARM || BLACKFIN || CRIS || FRV || H8300 || X86_32 || M68K || (S390 && !64BIT) || SUPERH || SPARC32 || (SPARC64 && COMPAT) || UML || (X86_64 && IA32_EMULATION)
+	depends on HAVE_UID16
 	default y
 	help
 	  This enables the legacy 16-bit UID syscall wrappers.
@@ -1379,15 +1387,6 @@ config KALLSYMS_ALL
 	   something like this).
 
 	   Say N unless you really need all symbols.
-
-config HOTPLUG
-	bool "Support for hot-pluggable devices" if EXPERT
-	default y
-	help
-	  This option is provided for the case where no hotplug or uevent
-	  capabilities is wanted by the kernel.  You should only consider
-	  disabling this option for embedded systems that do not use modules, a
-	  dynamic /dev tree, or dynamic device discovery.  Just say Y.
 
 config PRINTK
 	default y

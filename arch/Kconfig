@@ -74,8 +74,9 @@ config OPTPROBES
 
 config UPROBES
 	bool "Transparent user-space probes (EXPERIMENTAL)"
-	depends on ARCH_SUPPORTS_UPROBES
+	depends on UPROBE_EVENT && PERF_EVENTS
 	default n
+	select PERCPU_RWSEM
 	help
 	  Uprobes is the user-space counterpart to kprobes: they
 	  enable instrumentation applications (such as 'perf probe')
@@ -134,6 +135,9 @@ config HAVE_KRETPROBES
 
 config HAVE_OPTPROBES
 	bool
+
+config HAVE_NMI_WATCHDOG
+	bool
 #
 # An arch should select this if it provides all these things:
 #
@@ -153,13 +157,20 @@ config HAVE_ARCH_TRACEHOOK
 config HAVE_DMA_ATTRS
 	bool
 
-config USE_GENERIC_SMP_HELPERS
-	bool
-
 config HAVE_DMA_CONTIGUOUS
 	bool
 
+config USE_GENERIC_SMP_HELPERS
+	bool
+
 config GENERIC_SMP_IDLE_THREAD
+       bool
+
+config GENERIC_IDLE_POLL_SETUP
+       bool
+
+# Select if arch init_task initializer is different to init/init_task.c
+config ARCH_INIT_TASK
        bool
 
 # Select if arch has its private alloc_task_struct() function
@@ -248,18 +259,6 @@ config HAVE_MOD_ARCH_SPECIFIC
 	  just need a simple module loader without arch specific data - those
 	  should not enable this.
 
-config MODULES_USE_ELF_RELA
-	bool
-	help
-	  Modules only use ELF RELA relocations.  Modules with ELF REL
-	  relocations will give an error.
-
-config MODULES_USE_ELF_REL
-	bool
-	help
-	  Modules only use ELF REL relocations.  Modules with ELF RELA
-	  relocations will give an error.
-
 config GENERIC_KERNEL_THREAD
 	bool
 
@@ -299,6 +298,21 @@ config HAVE_CONTEXT_TRACKING
 	  wrapped as well. Irqs are already protected inside
 	  rcu_irq_enter/rcu_irq_exit() but preemption or signal handling on
 	  irq exit still need to be protected.
+
+config HAVE_ARCH_TRANSPARENT_HUGEPAGE
+	bool
+
+config MODULES_USE_ELF_RELA
+	bool
+	help
+	  Modules only use ELF RELA relocations.  Modules with ELF REL
+	  relocations will give an error.
+
+config MODULES_USE_ELF_REL
+	bool
+	help
+	  Modules only use ELF REL relocations.  Modules with ELF RELA
+	  relocations will give an error.
 
 config HAVE_UNDERSCORE_SYMBOL_PREFIX
 	bool

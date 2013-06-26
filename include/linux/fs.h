@@ -1547,8 +1547,6 @@ struct inode_operations {
 	int (*update_time)(struct inode *, struct timespec *, int);
 } ____cacheline_aligned;
 
-struct seq_file;
-
 ssize_t rw_copy_check_uvector(int type, const struct iovec __user * uvector,
 			      unsigned long nr_segs, unsigned long fast_segs,
 			      struct iovec *fast_pointer,
