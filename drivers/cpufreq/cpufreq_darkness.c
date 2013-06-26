@@ -289,7 +289,7 @@ static ssize_t store_cpu_load_bias(struct kobject *a, struct attribute *b,
 	if (ret != 1)
 		return -EINVAL;
 
-	input = max(min(input,5),0);
+	input = max(min(input,4),0);
 
 	if (input == atomic_read(&darkness_tuners_ins.cpu_load_bias))
 		return count;
@@ -688,7 +688,6 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 		mutex_lock(&darkness_mutex);
 
 		darkness_enable++;
-
 		for_each_possible_cpu(j) {
 			struct cpufreq_darkness_cpuinfo *j_darkness_cpuinfo;
 			per_cpu(cpufreq_cpu_data, j) = policy;
@@ -735,6 +734,10 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 
 		mutex_lock(&darkness_mutex);
 		darkness_enable--;
+
+		for_each_possible_cpu(j) {
+			per_cpu(cpufreq_cpu_data, j) = NULL;
+		}
 
 		if (!darkness_enable) {
 			sysfs_remove_group(cpufreq_global_kobject,

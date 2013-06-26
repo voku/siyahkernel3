@@ -94,7 +94,6 @@ static struct nightmare_tuners {
 	atomic_t hotplug_enable;
 	atomic_t cpu_up_rate;
 	atomic_t cpu_down_rate;
-	atomic_t cpu_load_bias;
 	atomic_t up_load;
 	atomic_t down_load;
 	atomic_t inc_cpu_load_at_min_freq;
@@ -116,7 +115,6 @@ static struct nightmare_tuners {
 	.hotplug_enable = ATOMIC_INIT(0),
 	.cpu_up_rate = ATOMIC_INIT(10),
 	.cpu_down_rate = ATOMIC_INIT(5),
-	.cpu_load_bias = ATOMIC_INIT(0),
 	.up_load = ATOMIC_INIT(65),
 	.down_load = ATOMIC_INIT(30),
 	.inc_cpu_load_at_min_freq = ATOMIC_INIT(60),
@@ -163,7 +161,6 @@ show_one(sampling_rate, sampling_rate);
 show_one(hotplug_enable, hotplug_enable);
 show_one(cpu_up_rate, cpu_up_rate);
 show_one(cpu_down_rate, cpu_down_rate);
-show_one(cpu_load_bias, cpu_load_bias);
 show_one(up_load, up_load);
 show_one(down_load, down_load);
 show_one(inc_cpu_load_at_min_freq, inc_cpu_load_at_min_freq);
@@ -307,26 +304,6 @@ static ssize_t store_cpu_down_rate(struct kobject *a, struct attribute *b,
 		return count;
 
 	atomic_set(&nightmare_tuners_ins.cpu_down_rate,input);
-	return count;
-}
-
-/* cpu_load_bias */
-static ssize_t store_cpu_load_bias(struct kobject *a, struct attribute *b,
-				   const char *buf, size_t count)
-{
-	int input;
-	int ret;
-
-	ret = sscanf(buf, "%d", &input);
-	if (ret != 1)
-		return -EINVAL;
-
-	input = max(min(input,5),0);
-
-	if (input == atomic_read(&nightmare_tuners_ins.cpu_load_bias))
-		return count;
-
-	atomic_set(&nightmare_tuners_ins.cpu_load_bias,input);
 	return count;
 }
 
@@ -650,7 +627,6 @@ define_one_global_rw(sampling_rate);
 define_one_global_rw(hotplug_enable);
 define_one_global_rw(cpu_up_rate);
 define_one_global_rw(cpu_down_rate);
-define_one_global_rw(cpu_load_bias);
 define_one_global_rw(up_load);
 define_one_global_rw(down_load);
 define_one_global_rw(inc_cpu_load_at_min_freq);
@@ -680,7 +656,6 @@ static struct attribute *nightmare_attributes[] = {
 #endif
 	&cpu_up_rate.attr,
 	&cpu_down_rate.attr,
-	&cpu_load_bias.attr,
 	&up_load.attr,
 	&down_load.attr,
 	&inc_cpu_load_at_min_freq.attr,
@@ -831,7 +806,6 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 	int max_hotplug_rate = max(atomic_read(&nightmare_tuners_ins.cpu_up_rate),atomic_read(&nightmare_tuners_ins.cpu_down_rate));
 	bool earlysuspend = atomic_read(&nightmare_tuners_ins.earlysuspend) > 0;
 	bool hotplug_enable = atomic_read(&nightmare_tuners_ins.hotplug_enable) > 0;
-	int cpu_load_bias = atomic_read(&nightmare_tuners_ins.cpu_load_bias);
 	unsigned int freq_for_responsiveness = atomic_read(&nightmare_tuners_ins.freq_for_responsiveness);
 	unsigned int freq_for_responsiveness_max = atomic_read(&nightmare_tuners_ins.freq_for_responsiveness_max);
 	int up_sf_step = atomic_read(&nightmare_tuners_ins.up_sf_step);
@@ -879,7 +853,7 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 		if (!cpu_policy || busy_time + idle_time == 0) { /*if busy_time and idle_time are 0, evaluate cpu load next time*/
 			continue;
 		}
-		cur_load = busy_time ? (100 * busy_time) / (busy_time + idle_time + cpu_load_bias) : 1;/*if busy_time is 0 cpu_load is equal to 1*/
+		cur_load = busy_time ? (100 * busy_time) / (busy_time + idle_time) : 1;/*if busy_time is 0 cpu_load is equal to 1*/
 		hotplug_history->usage[num_hist].freq[j] = cpu_policy->cur;
 		hotplug_history->usage[num_hist].load[j] = cur_load;
 		// GET MIN MAX FREQ
@@ -1009,7 +983,6 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 		mutex_lock(&nightmare_mutex);
 
 		nightmare_enable++;
-
 		for_each_possible_cpu(j) {
 			struct cpufreq_nightmare_cpuinfo *j_nightmare_cpuinfo;
 			per_cpu(cpufreq_cpu_data, j) = policy;
@@ -1058,6 +1031,10 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 
 		mutex_lock(&nightmare_mutex);
 		nightmare_enable--;
+
+		for_each_possible_cpu(j) {
+			per_cpu(cpufreq_cpu_data, j) = NULL;
+		}
 
 		if (!nightmare_enable) {
 			sysfs_remove_group(cpufreq_global_kobject,
