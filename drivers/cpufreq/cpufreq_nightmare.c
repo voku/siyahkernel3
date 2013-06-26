@@ -1012,7 +1012,7 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 
 		for_each_possible_cpu(j) {
 			struct cpufreq_nightmare_cpuinfo *j_nightmare_cpuinfo;
-			per_cpu(cpufreq_cpu_data, j) = cpufreq_cpu_get(j);
+			per_cpu(cpufreq_cpu_data, j) = policy;
 			j_nightmare_cpuinfo = &per_cpu(od_nightmare_cpuinfo, j);
 			j_nightmare_cpuinfo->prev_cpu_busy = kcpustat_cpu(j).cpustat[CPUTIME_USER] + kcpustat_cpu(j).cpustat[CPUTIME_SYSTEM]
 						+ kcpustat_cpu(j).cpustat[CPUTIME_IRQ] + kcpustat_cpu(j).cpustat[CPUTIME_SOFTIRQ]

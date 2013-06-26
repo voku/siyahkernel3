@@ -691,7 +691,7 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 
 		for_each_possible_cpu(j) {
 			struct cpufreq_darkness_cpuinfo *j_darkness_cpuinfo;
-			per_cpu(cpufreq_cpu_data, j) = cpufreq_cpu_get(j);
+			per_cpu(cpufreq_cpu_data, j) = policy;
 			j_darkness_cpuinfo = &per_cpu(od_darkness_cpuinfo, j);
 			j_darkness_cpuinfo->prev_cpu_busy = kcpustat_cpu(j).cpustat[CPUTIME_USER] + kcpustat_cpu(j).cpustat[CPUTIME_SYSTEM]
 						+ kcpustat_cpu(j).cpustat[CPUTIME_IRQ] + kcpustat_cpu(j).cpustat[CPUTIME_SOFTIRQ]
