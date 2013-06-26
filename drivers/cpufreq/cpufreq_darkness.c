@@ -81,6 +81,7 @@ struct cpufreq_darkness_cpuinfo {
 static struct mutex timer_mutex;
 
 static DEFINE_PER_CPU(struct cpufreq_darkness_cpuinfo, od_darkness_cpuinfo);
+static DEFINE_PER_CPU(struct cpufreq_policy *, cpufreq_cpu_data);
 
 static unsigned int darkness_enable;	/* number of CPUs using this policy */
 /*
@@ -94,6 +95,7 @@ static struct darkness_tuners {
 	atomic_t hotplug_enable;
 	atomic_t cpu_up_rate;
 	atomic_t cpu_down_rate;
+	atomic_t cpu_load_bias;
 	atomic_t up_load;
 	atomic_t down_load;
 	atomic_t up_sf_step;
@@ -104,6 +106,7 @@ static struct darkness_tuners {
 	.hotplug_enable = ATOMIC_INIT(0),
 	.cpu_up_rate = ATOMIC_INIT(10),
 	.cpu_down_rate = ATOMIC_INIT(5),
+	.cpu_load_bias = ATOMIC_INIT(0),
 	.up_load = ATOMIC_INIT(65),
 	.down_load = ATOMIC_INIT(30),
 	.up_sf_step = ATOMIC_INIT(0),
@@ -139,6 +142,7 @@ show_one(sampling_rate, sampling_rate);
 show_one(hotplug_enable, hotplug_enable);
 show_one(cpu_up_rate, cpu_up_rate);
 show_one(cpu_down_rate, cpu_down_rate);
+show_one(cpu_load_bias, cpu_load_bias);
 show_one(up_load, up_load);
 show_one(down_load, down_load);
 show_one(up_sf_step, up_sf_step);
@@ -274,6 +278,26 @@ static ssize_t store_cpu_down_rate(struct kobject *a, struct attribute *b,
 	return count;
 }
 
+/* cpu_load_bias */
+static ssize_t store_cpu_load_bias(struct kobject *a, struct attribute *b,
+				   const char *buf, size_t count)
+{
+	int input;
+	int ret;
+
+	ret = sscanf(buf, "%d", &input);
+	if (ret != 1)
+		return -EINVAL;
+
+	input = max(min(input,5),0);
+
+	if (input == atomic_read(&darkness_tuners_ins.cpu_load_bias))
+		return count;
+
+	atomic_set(&darkness_tuners_ins.cpu_load_bias,input);
+	return count;
+}
+
 /* up_load */
 static ssize_t store_up_load(struct kobject *a, struct attribute *b,
 					const char *buf, size_t count)
@@ -362,6 +386,7 @@ define_one_global_rw(sampling_rate);
 define_one_global_rw(hotplug_enable);
 define_one_global_rw(cpu_up_rate);
 define_one_global_rw(cpu_down_rate);
+define_one_global_rw(cpu_load_bias);
 define_one_global_rw(up_load);
 define_one_global_rw(down_load);
 define_one_global_rw(up_sf_step);
@@ -380,6 +405,7 @@ static struct attribute *darkness_attributes[] = {
 #endif
 	&cpu_up_rate.attr,
 	&cpu_down_rate.attr,
+	&cpu_load_bias.attr,
 	&up_load.attr,
 	&down_load.attr,
 	&up_sf_step.attr,
@@ -519,6 +545,7 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 	int max_hotplug_rate = max(atomic_read(&darkness_tuners_ins.cpu_up_rate),atomic_read(&darkness_tuners_ins.cpu_down_rate));
 	bool earlysuspend = atomic_read(&darkness_tuners_ins.earlysuspend) > 0;
 	bool hotplug_enable = atomic_read(&darkness_tuners_ins.hotplug_enable) > 0;
+	int cpu_load_bias = atomic_read(&darkness_tuners_ins.cpu_load_bias);
 	int up_sf_step = atomic_read(&darkness_tuners_ins.up_sf_step);
 	int down_sf_step = atomic_read(&darkness_tuners_ins.down_sf_step);	
 	int num_hist = hotplug_history->num_hist;
@@ -529,7 +556,7 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 
 	for_each_online_cpu(j) {
 		struct cpufreq_darkness_cpuinfo *j_darkness_cpuinfo;
-		struct cpufreq_policy *cpu_policy;
+		struct cpufreq_policy *cpu_policy = per_cpu(cpufreq_cpu_data, j);
 		u64 cur_busy_time=0, cur_idle_time=0;
 		unsigned int busy_time, idle_time;
 		/* Current load across this CPU */
@@ -549,19 +576,16 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 		busy_time = (unsigned int)
 				(cur_busy_time - j_darkness_cpuinfo->prev_cpu_busy);
 		j_darkness_cpuinfo->prev_cpu_busy = cur_busy_time;
-		if (busy_time == 0)
-			busy_time++;
 
 		idle_time = (unsigned int)
 				(cur_idle_time - j_darkness_cpuinfo->prev_cpu_idle);
 		j_darkness_cpuinfo->prev_cpu_idle = cur_idle_time;
 
 		/*printk(KERN_ERR "TIMER CPU[%u], wall[%u], idle[%u]\n",j, busy_time + idle_time, idle_time);*/
-		cpu_policy = cpufreq_cpu_get(j);
-		if (unlikely(!cpu_policy)) {
+		if (!cpu_policy || busy_time + idle_time == 0) { /*if busy_time and idle_time are 0, evaluate cpu load next time*/
 			continue;
 		}
-		cur_load = (100 * busy_time) / (busy_time + idle_time);
+		cur_load = busy_time ? (100 * busy_time) / (busy_time + idle_time + cpu_load_bias) : 1;/*if busy_time is 0 cpu_load is equal to 1*/
 		hotplug_history->usage[num_hist].freq[j] = cpu_policy->cur;
 		hotplug_history->usage[num_hist].load[j] = cur_load;
 		// GET MIN MAX FREQ
@@ -578,7 +602,6 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 		if (next_freq != cpu_policy->cur) {
 			__cpufreq_driver_target(cpu_policy, next_freq, CPUFREQ_RELATION_L);
 		}
-		cpufreq_cpu_put(cpu_policy);
 	}	
 
 	if (hotplug_enable) {
@@ -668,6 +691,7 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 
 		for_each_possible_cpu(j) {
 			struct cpufreq_darkness_cpuinfo *j_darkness_cpuinfo;
+			per_cpu(cpufreq_cpu_data, j) = cpufreq_cpu_get(j);
 			j_darkness_cpuinfo = &per_cpu(od_darkness_cpuinfo, j);
 			j_darkness_cpuinfo->prev_cpu_busy = kcpustat_cpu(j).cpustat[CPUTIME_USER] + kcpustat_cpu(j).cpustat[CPUTIME_SYSTEM]
 						+ kcpustat_cpu(j).cpustat[CPUTIME_IRQ] + kcpustat_cpu(j).cpustat[CPUTIME_SOFTIRQ]
@@ -703,8 +727,9 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 #ifdef CONFIG_HAS_EARLYSUSPEND
 		unregister_early_suspend(&early_suspend);
 #endif
-
+		mutex_lock(&darkness_mutex);
 		darkness_timer_exit(this_darkness_cpuinfo);
+		mutex_unlock(&darkness_mutex);
 
 		mutex_destroy(&timer_mutex);
 
@@ -722,7 +747,7 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 	case CPUFREQ_GOV_LIMITS:
 		mutex_lock(&timer_mutex);
 		/* NOTHING TO DO JUST WATT */
-		cpu_policy = cpufreq_cpu_get(cpu);
+		cpu_policy = per_cpu(cpufreq_cpu_data, cpu);
 		if(!cpu_policy) {
 			mutex_unlock(&timer_mutex);
 			break;
@@ -733,7 +758,6 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 		else if (policy->min > cpu_policy->cur)
 			__cpufreq_driver_target(cpu_policy,
 				policy->min, CPUFREQ_RELATION_L);
-		cpufreq_cpu_put(cpu_policy);
 		mutex_unlock(&timer_mutex);
 		break;
 	}
