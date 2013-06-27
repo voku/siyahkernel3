@@ -109,7 +109,6 @@ static struct nightmare_tuners {
 	atomic_t freq_step_dec_at_max_freq;
 	atomic_t up_sf_step;
 	atomic_t down_sf_step;
-	atomic_t exynos_trans_limit;
 	atomic_t earlysuspend;
 } nightmare_tuners_ins = {
 	.sampling_rate = ATOMIC_INIT(60000),
@@ -131,7 +130,6 @@ static struct nightmare_tuners {
 	.freq_step_dec_at_max_freq = ATOMIC_INIT(10),
 	.up_sf_step = ATOMIC_INIT(0),
 	.down_sf_step = ATOMIC_INIT(0),
-	.exynos_trans_limit = ATOMIC_INIT(2),
 	.earlysuspend = ATOMIC_INIT(0),
 };
 
@@ -179,7 +177,6 @@ show_one(freq_step_dec, freq_step_dec);
 show_one(freq_step_dec_at_max_freq, freq_step_dec_at_max_freq);
 show_one(up_sf_step, up_sf_step);
 show_one(down_sf_step, down_sf_step);
-show_one(exynos_trans_limit, exynos_trans_limit);
 
 #define show_hotplug_param(file_name, num_core, up_down)		\
 static ssize_t show_##file_name##_##num_core##_##up_down		\
@@ -627,29 +624,6 @@ static ssize_t store_down_sf_step(struct kobject *a, struct attribute *b,
 	return count;
 }
 
-/* exynos_trans_limit */
-static ssize_t store_exynos_trans_limit(struct kobject *a, struct attribute *b,
-				   const char *buf, size_t count)
-{
-	int input;
-	int ret;
-
-	ret = sscanf(buf, "%d", &input);
-	if (ret != 1)
-		return -EINVAL;
-
-	if (input > num_possible_cpus())
-		input = num_possible_cpus();
-	input = max(input,1);
-
-	if (input == atomic_read(&nightmare_tuners_ins.exynos_trans_limit))
-		return count;
-
-	atomic_set(&nightmare_tuners_ins.exynos_trans_limit,input);
-
-	return count;
-}
-
 define_one_global_rw(sampling_rate);
 define_one_global_rw(hotplug_enable);
 define_one_global_rw(cpu_up_rate);
@@ -669,7 +643,6 @@ define_one_global_rw(freq_step_dec);
 define_one_global_rw(freq_step_dec_at_max_freq);
 define_one_global_rw(up_sf_step);
 define_one_global_rw(down_sf_step);
-define_one_global_rw(exynos_trans_limit);
 
 static struct attribute *nightmare_attributes[] = {
 	&sampling_rate.attr,
@@ -699,7 +672,6 @@ static struct attribute *nightmare_attributes[] = {
 	&freq_step_dec_at_max_freq.attr,
 	&up_sf_step.attr,
 	&down_sf_step.attr,
-	&exynos_trans_limit.attr,
 	NULL
 };
 
@@ -839,7 +811,6 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 	unsigned int freq_for_responsiveness_max = atomic_read(&nightmare_tuners_ins.freq_for_responsiveness_max);
 	int up_sf_step = atomic_read(&nightmare_tuners_ins.up_sf_step);
 	int down_sf_step = atomic_read(&nightmare_tuners_ins.down_sf_step);
-	int exynos_trans_limit = atomic_read(&nightmare_tuners_ins.exynos_trans_limit);	
 	int dec_cpu_load = atomic_read(&nightmare_tuners_ins.dec_cpu_load);
 	unsigned int prev_freq_set = 0;
 	int num_hist = hotplug_history->num_hist;
@@ -905,7 +876,7 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 		}
 
 		/* Check for frequency increase or for frequency decrease */
-		if (cur_load >= inc_cpu_load && j < exynos_trans_limit) {
+		if (cur_load >= inc_cpu_load) {
 			/* if we cannot increment the frequency anymore, break out early */
 			if (cpu_policy->cur == max_freq) {
 				continue;
@@ -916,7 +887,7 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 			if (next_freq != cpu_policy->cur && next_freq != prev_freq_set) {
 				__cpufreq_driver_target(cpu_policy, next_freq, CPUFREQ_RELATION_L);
 			}
-		} else if (cur_load < dec_cpu_load && j < exynos_trans_limit) {
+		} else if (cur_load < dec_cpu_load) {
 			/* if we cannot reduce the frequency anymore, break out early */
 			if (cpu_policy->cur == min_freq) {
 				continue;

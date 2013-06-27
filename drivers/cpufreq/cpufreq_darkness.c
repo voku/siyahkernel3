@@ -100,7 +100,6 @@ static struct darkness_tuners {
 	atomic_t down_load;
 	atomic_t up_sf_step;
 	atomic_t down_sf_step;
-	atomic_t exynos_trans_limit;
 	atomic_t earlysuspend;
 } darkness_tuners_ins = {
 	.sampling_rate = ATOMIC_INIT(60000),
@@ -112,7 +111,6 @@ static struct darkness_tuners {
 	.down_load = ATOMIC_INIT(30),
 	.up_sf_step = ATOMIC_INIT(0),
 	.down_sf_step = ATOMIC_INIT(0),
-	.exynos_trans_limit = ATOMIC_INIT(2),
 	.earlysuspend = ATOMIC_INIT(0),
 };
 
@@ -150,7 +148,6 @@ show_one(up_load, up_load);
 show_one(down_load, down_load);
 show_one(up_sf_step, up_sf_step);
 show_one(down_sf_step, down_sf_step);
-show_one(exynos_trans_limit, exynos_trans_limit);
 
 #define show_hotplug_param(file_name, num_core, up_down)		\
 static ssize_t show_##file_name##_##num_core##_##up_down		\
@@ -293,7 +290,7 @@ static ssize_t store_cpu_load_bias(struct kobject *a, struct attribute *b,
 	if (ret != 1)
 		return -EINVAL;
 
-	input = max(min(input,4),0);
+	input = max(min(input,1),0);
 
 	if (input == atomic_read(&darkness_tuners_ins.cpu_load_bias))
 		return count;
@@ -386,29 +383,6 @@ static ssize_t store_down_sf_step(struct kobject *a, struct attribute *b,
 	return count;
 }
 
-/* exynos_trans_limit */
-static ssize_t store_exynos_trans_limit(struct kobject *a, struct attribute *b,
-				   const char *buf, size_t count)
-{
-	int input;
-	int ret;
-
-	ret = sscanf(buf, "%d", &input);
-	if (ret != 1)
-		return -EINVAL;
-
-	if (input > num_possible_cpus())
-		input = num_possible_cpus();
-	input = max(input,1);
-
-	if (input == atomic_read(&darkness_tuners_ins.exynos_trans_limit))
-		return count;
-
-	atomic_set(&darkness_tuners_ins.exynos_trans_limit,input);
-
-	return count;
-}
-
 define_one_global_rw(sampling_rate);
 define_one_global_rw(hotplug_enable);
 define_one_global_rw(cpu_up_rate);
@@ -418,7 +392,6 @@ define_one_global_rw(up_load);
 define_one_global_rw(down_load);
 define_one_global_rw(up_sf_step);
 define_one_global_rw(down_sf_step);
-define_one_global_rw(exynos_trans_limit);
 
 static struct attribute *darkness_attributes[] = {
 	&sampling_rate.attr,
@@ -438,7 +411,6 @@ static struct attribute *darkness_attributes[] = {
 	&down_load.attr,
 	&up_sf_step.attr,
 	&down_sf_step.attr,
-	&exynos_trans_limit.attr,
 	NULL
 };
 
@@ -577,7 +549,6 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 	int cpu_load_bias = atomic_read(&darkness_tuners_ins.cpu_load_bias);
 	int up_sf_step = atomic_read(&darkness_tuners_ins.up_sf_step);
 	int down_sf_step = atomic_read(&darkness_tuners_ins.down_sf_step);
-	int exynos_trans_limit = atomic_read(&darkness_tuners_ins.exynos_trans_limit);
 	int num_hist = hotplug_history->num_hist;
 	unsigned int j;
 	u64 cur_rwall_time = usecs_to_cputime64(ktime_to_us(ktime_get()));
@@ -631,7 +602,7 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 		next_freq = (cur_load * max_freq) / 100;
 		next_freq = darkness_frequency_adjust(next_freq, cpu_policy->cur, min_freq, max_freq, next_freq >= cpu_policy->cur ? up_sf_step : down_sf_step);
 		/*printk(KERN_ERR "FREQ CALC.: CPU[%u], load[%d], target freq[%u], cur freq[%u], min freq[%u], max_freq[%u]\n",j, cur_load, next_freq, cpu_policy->cur, min_freq, max_freq); */
-		if (next_freq != cpu_policy->cur && j < exynos_trans_limit) {
+		if (next_freq != cpu_policy->cur) {
 			__cpufreq_driver_target(cpu_policy, next_freq, CPUFREQ_RELATION_L);
 		}
 	}
