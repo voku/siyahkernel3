@@ -186,7 +186,7 @@ restart:	adr	r0, LC0
 		 * We might be running at a different address.  We need
 		 * to fix up various pointers.
 		 */
-		sub  r0, r0, r1		@ calculate the delta offset
+		sub	r0, r0, r1		@ calculate the delta offset
 		add	r6, r6, r0		@ _edata
 		add	r10, r10, r0		@ inflated kernel size location
 
