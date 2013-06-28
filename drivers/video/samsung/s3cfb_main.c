@@ -58,17 +58,12 @@
 #include <mach/regs-pmu.h>
 #include <plat/regs-fb-s5p.h>
 
-bool s3cfb_mdnie_force_disable;
-bool s3cfb_mdnie_suspended;
-
 #ifdef CONFIG_FB_S5P_SYSMMU
 #include <plat/s5p-sysmmu.h>
 #endif
 
-#ifdef CONFIG_FB_S5P_VSYNC_SYSFS
 #if defined(CONFIG_CPU_EXYNOS4210)
 #define FEATURE_VSYNC_EVENT_VIA_SYSFS
-#endif
 #endif
 
 struct s3cfb_fimd_desc		*fbfimd;
@@ -339,9 +334,6 @@ static int s3cfb_sysfs_store_win_power(struct device *dev,
 	struct s3cfb_global *fbdev[1];
 	fbdev[0] = fbfimd->fbdev[0];
 
-	if (s3cfb_mdnie_suspended)
-		return len;
-
 	while (*p != '\0') {
 		if (!isspace(*p))
 			strncat(temp, p, 1);
@@ -408,19 +400,6 @@ static ssize_t fimd_dump_show(struct device *dev,
 	return strlen(buf);
 }
 static DEVICE_ATTR(fimd_dump, 0444, fimd_dump_show, NULL);
-
-#ifndef CONFIG_FB_S5P_VSYNC_SYSFS
-/* changmin */
-static ssize_t s3cfb_vsync_time(struct device *dev,
-				struct device_attribute *attr, char *buf)
-{
-	struct s3cfb_global *fbdev[1];
-	fbdev[0] = fbfimd->fbdev[0];
-	return snprintf(buf, PAGE_SIZE, "%llu", ktime_to_ns(fbdev[0]->vsync_info.timestamp));
-}
-
-static DEVICE_ATTR(vsync_time, S_IRUGO, s3cfb_vsync_time, NULL);
-#endif
 
 #ifdef CONFIG_FB_S5P_VSYNC_SYSFS
 static ssize_t s3c_fb_vsync_time(struct device *dev,
@@ -497,6 +476,7 @@ static int s3cfb_wait_for_vsync_thread(void *data)
 			sysfs_notify(&fbdev->fb[pdata->default_win]->dev->kobj,
 				NULL, "vsync_event");
 #else
+#if defined(CONFIG_FB_S5P_VSYNC_SEND_UEVENTS)
 			char *envp[2];
 			char buf[64];
 			snprintf(buf, sizeof(buf), "VSYNC=%llu",
@@ -505,6 +485,7 @@ static int s3cfb_wait_for_vsync_thread(void *data)
 			envp[1] = NULL;
 			kobject_uevent_env(&fbdev->dev->kobj, KOBJ_CHANGE,
 							envp);
+#endif
 #endif
 #if defined(CONFIG_FB_S5P_VSYNC_SYSFS)
 			sysfs_notify(&fbdev->dev->kobj, NULL, "vsync_time");
@@ -742,16 +723,15 @@ static int s3cfb_probe(struct platform_device *pdev)
 		if (ret < 0)
 			dev_err(fbdev[0]->dev, "failed to add sysfs entries\n");
 
+#ifdef CONFIG_FB_S5P_VSYNC_SYSFS
+        ret = device_create_file(fbdev[i]->dev, &dev_attr_vsync_time);
+        if (ret < 0)
+            dev_err(fbdev[0]->dev, "failed to add sysfs entries\n");
+#endif
+
 #ifdef FEATURE_VSYNC_EVENT_VIA_SYSFS
 		ret = device_create_file(fbdev[i]->fb[pdata->default_win]->dev,
 					&dev_attr_vsync_event);
-		if (ret < 0)
-			dev_err(fbdev[0]->dev, "failed to add sysfs entries\n");
-#endif
-
-#ifdef CONFIG_FB_S5P_VSYNC_SYSFS
-		/* changmin or cm (/sys/devices/platform/samsung-pd.2/s3cfb.0/vsync_time) */
-		ret = device_create_file(fbdev[i]->dev, &dev_attr_vsync_time);
 		if (ret < 0)
 			dev_err(fbdev[0]->dev, "failed to add sysfs entries\n");
 #endif
@@ -769,9 +749,6 @@ static int s3cfb_probe(struct platform_device *pdev)
 	ret = device_create_file(&(pdev->dev), &dev_attr_win_power);
 	if (ret < 0)
 		dev_err(fbdev[0]->dev, "failed to add sysfs entries\n");
-
-	s3cfb_mdnie_force_disable = false;
-	s3cfb_mdnie_suspended = false;
 
 #ifdef DISPLAY_BOOT_PROGRESS
 	if (!(readl(S5P_INFORM2)))
@@ -955,8 +932,6 @@ void s3cfb_early_suspend(struct early_suspend *h)
 
 	printk(KERN_INFO "+%s\n", __func__);
 
-	s3cfb_mdnie_suspended = true;
-
 #ifdef CONFIG_FB_S5P_MIPI_DSIM
 	if (lcd_early_suspend)
 		lcd_early_suspend();
@@ -1139,7 +1114,6 @@ void s3cfb_late_resume(struct early_suspend *h)
 	if (lcd_late_resume)
 		lcd_late_resume();
 #endif
-	s3cfb_mdnie_suspended = false;
 
 	dev_info(info->dev, "-%s\n", __func__);
 

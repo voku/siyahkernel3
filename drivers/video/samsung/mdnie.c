@@ -444,7 +444,7 @@ static int mdnie_set_brightness(struct backlight_device *bd)
 
 	if ((mdnie->enable) && (mdnie->bd_enable)) {
 		ret = update_brightness(mdnie);
-		dev_dbg(&bd->dev, "brightness=%d\n", bd->props.brightness);
+		/* dev_info(&bd->dev, "brightness=%d\n", bd->props.brightness); */
 		if (ret < 0)
 			return -EINVAL;
 	}
@@ -875,12 +875,13 @@ static struct device_attribute mdnie_attributes[] = {
 void mdnie_early_suspend(struct early_suspend *h)
 {
 	struct mdnie_info *mdnie = container_of(h, struct mdnie_info, early_suspend);
-#if defined(CONFIG_FB_MDNIE_PWM)
-	struct lcd_platform_data *pd = mdnie->lcd_pd;
-#endif
+	struct lcd_platform_data *pd = NULL;
+
 	dev_info(mdnie->dev, "+%s\n", __func__);
 
 #if defined(CONFIG_FB_MDNIE_PWM)
+	pd = mdnie->lcd_pd;
+
 	mdnie->bd_enable = FALSE;
 
 	if (mdnie->enable)
@@ -904,13 +905,13 @@ void mdnie_late_resume(struct early_suspend *h)
 {
 	u32 i;
 	struct mdnie_info *mdnie = container_of(h, struct mdnie_info, early_suspend);
-#if defined(CONFIG_FB_MDNIE_PWM)
-	struct lcd_platform_data *pd = mdnie->lcd_pd;
-#endif
+	struct lcd_platform_data *pd = NULL;
 
 	dev_info(mdnie->dev, "+%s\n", __func__);
 
 #if defined(CONFIG_FB_MDNIE_PWM)
+	pd = mdnie->lcd_pd;
+
 	if (mdnie->enable)
 		mdnie_pwm_control(mdnie, 0);
 
@@ -923,7 +924,7 @@ void mdnie_late_resume(struct early_suspend *h)
 		pd->power_on(NULL, 1);
 
 	if (mdnie->enable) {
-		dev_dbg(&mdnie->bd->dev, "brightness=%d\n", mdnie->bd->props.brightness);
+		dev_info(&mdnie->bd->dev, "brightness=%d\n", mdnie->bd->props.brightness);
 		update_brightness(mdnie);
 	}
 
