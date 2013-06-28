@@ -22,6 +22,8 @@
 #include <linux/workqueue.h>
 #include <linux/cpu.h>
 #include <linux/sched.h>
+#include <linux/reboot.h>
+#include <linux/cpufreq.h>
 #include <linux/mutex.h>
 #include <linux/module.h>
 #include <linux/slab.h>
@@ -50,6 +52,7 @@ static DEFINE_MUTEX(intelli_plug_mutex);
 
 struct delayed_work intelli_plug_work;
 
+static unsigned int excluded_governor=0;
 static unsigned int intelli_plug_active = 1;
 module_param(intelli_plug_active, uint, 0644);
 
@@ -229,7 +232,7 @@ static void __cpuinit intelli_plug_work_fn(struct work_struct *work)
 	unsigned int nr_run_stat, sampling_rate, online_cpus;
 	unsigned int min_sampling_rate_jiffies = 0;
 
-	if (intelli_plug_active == 1) {
+	if (intelli_plug_active == 1 && !excluded_governor) {
 		online_cpus = num_online_cpus();
 		nr_run_stat = calculate_thread_stats();
 
@@ -321,9 +324,53 @@ static struct early_suspend intelli_plug_early_suspend_struct_driver = {
 };
 #endif	/* CONFIG_HAS_EARLYSUSPEND */
 
+static int intelli_plug_cpufreq_policy_notifier_call(struct notifier_block *this,
+				unsigned long code, void *data)
+{
+	struct cpufreq_policy *policy = data;
+
+	switch (code) {
+	case CPUFREQ_ADJUST:
+		if (
+			(!strnicmp(policy->governor->name, "performance", CPUFREQ_NAME_LEN))
+			)
+		{
+			if (!excluded_governor) {
+				mutex_lock(&intelli_plug_mutex);
+				excluded_governor = 1;
+				pr_info("intelli_plug is disabled: governor=%s\n",
+									policy->governor->name);
+				mutex_unlock(&intelli_plug_mutex);
+			}
+		} else {
+			if (excluded_governor) {
+				mutex_lock(&intelli_plug_mutex);
+				excluded_governor = 0;
+				pr_info("intelli_plug is enabled: governor=%s\n",
+								policy->governor->name);
+				mutex_unlock(&intelli_plug_mutex);
+			}
+		}
+		break;
+	case CPUFREQ_INCOMPATIBLE:
+	case CPUFREQ_NOTIFY:
+	default:
+		break;
+	}
+
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block intelli_plug_cpufreq_policy_notifier = {
+	.notifier_call = intelli_plug_cpufreq_policy_notifier_call,
+};
+
 int __init intelli_plug_init(void)
 {
 	int ret, delay;
+
+	cpufreq_register_notifier(&intelli_plug_cpufreq_policy_notifier,
+						CPUFREQ_POLICY_NOTIFIER);
 
 	ret = init_rq_avg();
 	if (ret) return ret;
