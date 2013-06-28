@@ -870,23 +870,13 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 		}
 
 		/* Check for frequency increase or for frequency decrease */
-		if (cur_load >= inc_cpu_load) {
-			/* if we cannot increment the frequency anymore, break out early */
-			if (cpu_policy->cur == max_freq) {
-				continue;
-			}
-
+		if (cur_load >= inc_cpu_load && cpu_policy->cur < max_freq) {
 			next_freq = nightmare_frequency_adjust(cpu_policy->cur + ((cur_load + freq_step - freq_up_brake == 0 ? 1 : cur_load + freq_step - freq_up_brake) * 2000), cpu_policy->cur, min_freq, max_freq, up_sf_step);
 			/* printk(KERN_ERR "UP FREQ CALC.: CPU[%u], load[%d]>=inc_cpu_load[%d], target freq[%u], cur freq[%u], min freq[%u], max_freq[%u]\n",j, cur_load, inc_cpu_load, next_freq, cpu_policy->cur, min_freq, max_freq); */
 			if (next_freq != cpu_policy->cur && next_freq != prev_freq_set) {
 				__cpufreq_driver_target(cpu_policy, next_freq, CPUFREQ_RELATION_L);
 			}
-		} else if (cur_load < dec_cpu_load) {
-			/* if we cannot reduce the frequency anymore, break out early */
-			if (cpu_policy->cur == min_freq) {
-				continue;
-			}
-
+		} else if (cur_load < dec_cpu_load && cpu_policy->cur > min_freq) {
 			next_freq = nightmare_frequency_adjust(cpu_policy->cur - ((100 - cur_load + freq_step_dec == 0 ? 1 : 100 - cur_load + freq_step_dec) * 2000), cpu_policy->cur, min_freq, max_freq, down_sf_step);
 			/* printk(KERN_ERR "DOWN FREQ CALC.: CPU[%u], load[%d]<dec_cpu_load[%d], target freq[%u], cur freq[%u], min freq[%u], max_freq[%u]\n",j, cur_load, dec_cpu_load, next_freq, cpu_policy->cur, min_freq, max_freq); */
 			if (next_freq < cpu_policy->cur && next_freq != prev_freq_set) {
