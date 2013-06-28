@@ -125,7 +125,6 @@ struct darkness_cpu_usage {
 struct darkness_cpu_usage_history {
 	struct darkness_cpu_usage usage[MAX_HOTPLUG_RATE];
 	int num_hist;
-	u64 prev_cpu_rwall;
 };
 
 static struct darkness_cpu_usage_history *hotplug_history;
@@ -551,8 +550,6 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 	int down_sf_step = atomic_read(&darkness_tuners_ins.down_sf_step);
 	int num_hist = hotplug_history->num_hist;
 	unsigned int j;
-	u64 cur_rwall_time = usecs_to_cputime64(ktime_to_us(ktime_get()));
-	unsigned int rwall_time = (unsigned int)(cur_rwall_time - hotplug_history->prev_cpu_rwall);
 
 	for_each_online_cpu(j) {
 		struct cpufreq_darkness_cpuinfo *j_darkness_cpuinfo;
@@ -581,9 +578,6 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 				(cur_idle_time - j_darkness_cpuinfo->prev_cpu_idle);
 		j_darkness_cpuinfo->prev_cpu_idle = cur_idle_time;
 
-		if (rwall_time > busy_time + idle_time)
-			idle_time = rwall_time - busy_time;
-
 		/*printk(KERN_ERR "TIMER CPU[%u], wall[%u], idle[%u]\n",j, busy_time + idle_time, idle_time);*/
 		if (!cpu_policy || busy_time + idle_time == 0) { /*if busy_time and idle_time are 0, evaluate cpu load next time*/
 			continue;
@@ -609,8 +603,6 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 
 	/* set num_hist used */
 	++hotplug_history->num_hist;
-	/* set current real wall_time */
-	hotplug_history->prev_cpu_rwall = cur_rwall_time;
 
 	if (hotplug_enable) {
 		/*Check for CPU hotplug*/
@@ -696,7 +688,6 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 		mutex_lock(&darkness_mutex);
 
 		darkness_enable++;
-		hotplug_history->prev_cpu_rwall=usecs_to_cputime64(ktime_to_us(ktime_get()));
 		for_each_possible_cpu(j) {
 			struct cpufreq_darkness_cpuinfo *j_darkness_cpuinfo;
 			per_cpu(cpufreq_cpu_data, j) = policy;

@@ -144,7 +144,6 @@ struct nightmare_cpu_usage {
 struct nightmare_cpu_usage_history {
 	struct nightmare_cpu_usage usage[MAX_HOTPLUG_RATE];
 	int num_hist;
-	u64 prev_cpu_rwall;
 };
 
 static struct nightmare_cpu_usage_history *hotplug_history;
@@ -812,11 +811,9 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 	int up_sf_step = atomic_read(&nightmare_tuners_ins.up_sf_step);
 	int down_sf_step = atomic_read(&nightmare_tuners_ins.down_sf_step);
 	int dec_cpu_load = atomic_read(&nightmare_tuners_ins.dec_cpu_load);
-	unsigned int prev_freq_set = 0;
 	int num_hist = hotplug_history->num_hist;
+	int prev_freq_set=0;
 	unsigned int j;
-	u64 cur_rwall_time = usecs_to_cputime64(ktime_to_us(ktime_get()));
-	unsigned int rwall_time = (unsigned int)(cur_rwall_time - hotplug_history->prev_cpu_rwall);
 
 	for_each_online_cpu(j) {
 		struct cpufreq_nightmare_cpuinfo *j_nightmare_cpuinfo;
@@ -849,9 +846,6 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 				(cur_idle_time - j_nightmare_cpuinfo->prev_cpu_idle);
 		j_nightmare_cpuinfo->prev_cpu_idle = cur_idle_time;
 
-		if (rwall_time > busy_time + idle_time)
-			idle_time = rwall_time - busy_time;
-
 		/*printk(KERN_ERR "TIMER CPU[%u], wall[%u], idle[%u]\n",j, busy_time + idle_time, idle_time);*/
 		if (!cpu_policy || busy_time + idle_time == 0) { /*if busy_time and idle_time are 0, evaluate cpu load next time*/
 			continue;
@@ -882,7 +876,7 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 				continue;
 			}
 
-			next_freq = nightmare_frequency_adjust(cpu_policy->cur + (((cur_load + freq_step - freq_up_brake) * 200000) / 100), cpu_policy->cur, min_freq, max_freq, up_sf_step);
+			next_freq = nightmare_frequency_adjust(cpu_policy->cur + ((cur_load + freq_step - freq_up_brake == 0 ? 1 : cur_load + freq_step - freq_up_brake) * 2000), cpu_policy->cur, min_freq, max_freq, up_sf_step);
 			/* printk(KERN_ERR "UP FREQ CALC.: CPU[%u], load[%d]>=inc_cpu_load[%d], target freq[%u], cur freq[%u], min freq[%u], max_freq[%u]\n",j, cur_load, inc_cpu_load, next_freq, cpu_policy->cur, min_freq, max_freq); */
 			if (next_freq != cpu_policy->cur && next_freq != prev_freq_set) {
 				__cpufreq_driver_target(cpu_policy, next_freq, CPUFREQ_RELATION_L);
@@ -893,7 +887,7 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 				continue;
 			}
 
-			next_freq = nightmare_frequency_adjust(cpu_policy->cur - (((100 - cur_load + freq_step_dec) * 200000) / 100), cpu_policy->cur, min_freq, max_freq, down_sf_step);
+			next_freq = nightmare_frequency_adjust(cpu_policy->cur - ((100 - cur_load + freq_step_dec == 0 ? 1 : 100 - cur_load + freq_step_dec) * 2000), cpu_policy->cur, min_freq, max_freq, down_sf_step);
 			/* printk(KERN_ERR "DOWN FREQ CALC.: CPU[%u], load[%d]<dec_cpu_load[%d], target freq[%u], cur freq[%u], min freq[%u], max_freq[%u]\n",j, cur_load, dec_cpu_load, next_freq, cpu_policy->cur, min_freq, max_freq); */
 			if (next_freq < cpu_policy->cur && next_freq != prev_freq_set) {
 				__cpufreq_driver_target(cpu_policy, next_freq, CPUFREQ_RELATION_L);
@@ -904,8 +898,6 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 
 	/* set num_hist used */
 	++hotplug_history->num_hist;
-	/* set current real wall_time */
-	hotplug_history->prev_cpu_rwall = cur_rwall_time;
 
 	if (hotplug_enable) {
 		/*Check for CPU hotplug*/
@@ -991,7 +983,6 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 		mutex_lock(&nightmare_mutex);
 
 		nightmare_enable++;
-		hotplug_history->prev_cpu_rwall=usecs_to_cputime64(ktime_to_us(ktime_get()));
 		for_each_possible_cpu(j) {
 			struct cpufreq_nightmare_cpuinfo *j_nightmare_cpuinfo;
 			per_cpu(cpufreq_cpu_data, j) = policy;
