@@ -483,7 +483,7 @@ static ssize_t mode_store(struct device *dev,
 	dev_info(dev, "%s :: value=%d\n", __func__, value);
 
 	if (value >= MODE_MAX) {
-		value = STANDARD;
+		value = DYNAMIC;
 		return -EINVAL;
 	}
 
@@ -521,11 +521,11 @@ static ssize_t scenario_store(struct device *dev,
 	dev_info(dev, "%s :: value=%d\n", __func__, value);
 
 	if (!SCENARIO_IS_VALID(value))
-		value = UI_MODE;
+		value = CAMERA_MODE;
 
 #if defined(CONFIG_FB_MDNIE_PWM)
 	if (value >= SCENARIO_MAX)
-		value = UI_MODE;
+		value = CAMERA_MODE;
 #endif
 
 	mutex_lock(&mdnie->lock);
@@ -1004,8 +1004,8 @@ static int mdnie_probe(struct platform_device *pdev)
 		dev_err(&mdnie->bd->dev, "failed to add sysfs entries, %d\n", __LINE__);
 #endif
 
-	mdnie->scenario = UI_MODE;
-	mdnie->mode = STANDARD;
+	mdnie->scenario = CAMERA_MODE;
+	mdnie->mode = DYNAMIC;
 	mdnie->tone = TONE_NORMAL;
 	mdnie->outdoor = OUTDOOR_OFF;
 #if defined(CONFIG_FB_MDNIE_PWM)
