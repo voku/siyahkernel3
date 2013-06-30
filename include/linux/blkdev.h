@@ -33,7 +33,7 @@ struct blk_trace;
 struct request;
 struct sg_io_hdr;
 struct bsg_job;
-struct blkio_group;
+struct blkcg_gq;
 
 #define BLKDEV_MIN_RQ	4
 #define BLKDEV_MAX_RQ	128	/* Default maximum */
@@ -394,7 +394,7 @@ struct request_queue {
 	struct list_head	icq_list;
 #ifdef CONFIG_BLK_CGROUP
 	DECLARE_BITMAP		(blkcg_pols, BLKCG_MAX_POLS);
-	struct blkio_group	*root_blkg;
+	struct blkcg_gq		*root_blkg;
 	struct list_head	blkg_list;
 #endif
 
@@ -470,14 +470,10 @@ struct request_queue {
 				 (1 << QUEUE_FLAG_SAME_COMP)	|	\
 				 (1 << QUEUE_FLAG_ADD_RANDOM))
 
-static inline int queue_is_locked(struct request_queue *q)
+static inline void queue_lockdep_assert_held(struct request_queue *q)
 {
-#ifdef CONFIG_SMP
-	spinlock_t *lock = q->queue_lock;
-	return lock && spin_is_locked(lock);
-#else
-	return 1;
-#endif
+	if (q->queue_lock)
+		lockdep_assert_held(q->queue_lock);
 }
 
 static inline void queue_flag_set_unlocked(unsigned int flag,
@@ -489,7 +485,7 @@ static inline void queue_flag_set_unlocked(unsigned int flag,
 static inline int queue_flag_test_and_clear(unsigned int flag,
 					    struct request_queue *q)
 {
-	WARN_ON_ONCE(!queue_is_locked(q));
+	queue_lockdep_assert_held(q);
 
 	if (test_bit(flag, &q->queue_flags)) {
 		__clear_bit(flag, &q->queue_flags);
@@ -502,7 +498,7 @@ static inline int queue_flag_test_and_clear(unsigned int flag,
 static inline int queue_flag_test_and_set(unsigned int flag,
 					  struct request_queue *q)
 {
-	WARN_ON_ONCE(!queue_is_locked(q));
+	queue_lockdep_assert_held(q);
 
 	if (!test_bit(flag, &q->queue_flags)) {
 		__set_bit(flag, &q->queue_flags);
@@ -514,7 +510,7 @@ static inline int queue_flag_test_and_set(unsigned int flag,
 
 static inline void queue_flag_set(unsigned int flag, struct request_queue *q)
 {
-	WARN_ON_ONCE(!queue_is_locked(q));
+	queue_lockdep_assert_held(q);
 	__set_bit(flag, &q->queue_flags);
 }
 
@@ -531,7 +527,7 @@ static inline int queue_in_flight(struct request_queue *q)
 
 static inline void queue_flag_clear(unsigned int flag, struct request_queue *q)
 {
-	WARN_ON_ONCE(!queue_is_locked(q));
+	queue_lockdep_assert_held(q);
 	__clear_bit(flag, &q->queue_flags);
 }
 
@@ -847,7 +843,7 @@ static inline unsigned int blk_queue_get_max_sectors(struct request_queue *q,
 						     unsigned int cmd_flags)
 {
 	if (unlikely(cmd_flags & REQ_DISCARD))
-		return q->limits.max_discard_sectors;
+		return min(q->limits.max_discard_sectors, UINT_MAX >> 9);
 
 	if (unlikely(cmd_flags & REQ_WRITE_SAME))
 		return q->limits.max_write_same_sectors;
@@ -1201,14 +1197,25 @@ static inline int queue_discard_alignment(struct request_queue *q)
 
 static inline int queue_limit_discard_alignment(struct queue_limits *lim, sector_t sector)
 {
-	sector_t alignment = sector << 9;
-	alignment = sector_div(alignment, lim->discard_granularity);
+	unsigned int alignment, granularity, offset;
 
 	if (!lim->max_discard_sectors)
 		return 0;
 
-	alignment = lim->discard_granularity + lim->discard_alignment - alignment;
-	return sector_div(alignment, lim->discard_granularity);
+	/* Why are these in bytes, not sectors? */
+	alignment = lim->discard_alignment >> 9;
+	granularity = lim->discard_granularity >> 9;
+	if (!granularity)
+		return 0;
+
+	/* Offset of the partition start in 'granularity' sectors */
+	offset = sector_div(sector, granularity);
+
+	/* And why do we do this modulus *again* in blkdev_issue_discard()? */
+	offset = (granularity + alignment - offset) % granularity;
+
+	/* Turn it back into bytes, gaah */
+	return offset << 9;
 }
 
 static inline int bdev_discard_alignment(struct block_device *bdev)
