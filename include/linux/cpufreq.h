@@ -465,5 +465,6 @@ const char *cpufreq_get_current_driver(void);
  *                     Governor Helpers				     *
  *********************************************************************/
 u64 get_cpu_idle_time(unsigned int cpu, u64 *wall);
+u64 get_cpu_idle_time_plus(unsigned int cpu, u64 *wall, int io_busy);
 
 #endif /* _LINUX_CPUFREQ_H */
