@@ -880,7 +880,7 @@ static enum row_queue_prio row_get_queue_prio(struct request *rq,
 	const int data_dir = rq_data_dir(rq);
 	const bool is_sync = rq_is_sync(rq);
 	enum row_queue_prio q_type = ROWQ_MAX_PRIO;
-	int ioprio_class = IOPRIO_PRIO_CLASS(rq->elv.icq->ioc->ioprio);
+	int ioprio_class = IOPRIO_PRIO_CLASS(rq->ioprio);
 
 	switch (ioprio_class) {
 	case IOPRIO_CLASS_RT:
@@ -1065,8 +1065,8 @@ static struct elevator_type iosched_row = {
 		.elevator_init_fn		= row_init_queue,
 		.elevator_exit_fn		= row_exit_queue,
 	},
-	.icq_size = sizeof(struct io_cq),
-	.icq_align = __alignof__(struct io_cq),
+	/* .icq_size = sizeof(struct io_cq),
+	.icq_align = __alignof__(struct io_cq), */
 	.elevator_attrs = row_attrs,
 	.elevator_name = "row",
 	.elevator_owner = THIS_MODULE,
