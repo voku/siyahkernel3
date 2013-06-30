@@ -928,7 +928,8 @@ static enum row_queue_prio row_get_queue_prio(struct request *rq,
  *
  */
 static int
-row_set_request(struct request_queue *q, struct request *rq, gfp_t gfp_mask)
+row_set_request(struct request_queue *q, struct request *rq,
+		struct bio *bio, gfp_t gfp_mask)
 {
 	struct row_data *rd = (struct row_data *)q->elevator->elevator_data;
 	unsigned long flags;
