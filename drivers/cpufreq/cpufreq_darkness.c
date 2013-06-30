@@ -472,10 +472,8 @@ static int check_up(bool earlysuspend)
 	cur_freq = usage->freq[0];
 	cur_load = usage->load[0];
 
-	if (cur_freq >= up_freq) {
-		if (cur_load < up_load) {
-			return 0;
-		}
+	if (cur_freq >= up_freq
+		 &&	cur_load >= up_load) {
 		/* printk(KERN_ERR "[HOTPLUG IN] %s %u>=%u\n",
 			__func__, cur_freq, up_freq); */
 		hotplug_history->num_hist = 0;
@@ -509,8 +507,8 @@ static int check_down(bool earlysuspend)
 	cur_freq = usage->freq[1];
 	cur_load = usage->load[1];
 
-	if ((cur_freq <= down_freq) 
-		|| (cur_load < down_load)) {
+	if (cur_freq <= down_freq
+		|| cur_load < down_load) {
 		/* printk(KERN_ERR "[HOTPLUG OUT] %s %u<=%u\n",
 			__func__, cur_freq, down_freq); */
 		hotplug_history->num_hist = 0;
@@ -593,8 +591,7 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 			max_freq = min(cpu_policy->max_suspend,max_freq);
 		}
 		/* CPUs Online Scale Frequency*/
-		next_freq = (cur_load * max_freq) / 100;
-		next_freq = darkness_frequency_adjust(next_freq, cpu_policy->cur, min_freq, max_freq, next_freq >= cpu_policy->cur ? up_sf_step : down_sf_step);
+		next_freq = darkness_frequency_adjust((cur_load * (max_freq / 100)), cpu_policy->cur, min_freq, max_freq, next_freq >= cpu_policy->cur ? up_sf_step : down_sf_step);
 		/*printk(KERN_ERR "FREQ CALC.: CPU[%u], load[%d], target freq[%u], cur freq[%u], min freq[%u], max_freq[%u]\n",j, cur_load, next_freq, cpu_policy->cur, min_freq, max_freq); */
 		if (next_freq != cpu_policy->cur) {
 			__cpufreq_driver_target(cpu_policy, next_freq, CPUFREQ_RELATION_L);
@@ -627,10 +624,10 @@ static void do_darkness_timer(struct work_struct *work)
 	/* We want all CPUs to do sampling nearly on
 	 * same jiffy
 	 */
-	delay = usecs_to_jiffies(atomic_read(&darkness_tuners_ins.sampling_rate));
-	if (num_online_cpus() > 1) {
+	delay = usecs_to_jiffies(atomic_read(&darkness_tuners_ins.sampling_rate)) - (num_online_cpus() - 1);
+	/*if (num_online_cpus() > 1) {
 		delay -= jiffies % delay;
-	}
+	}*/
 	schedule_delayed_work_on(darkness_cpuinfo->cpu, &darkness_cpuinfo->work, delay);
 	mutex_unlock(&timer_mutex);
 }
