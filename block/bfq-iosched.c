@@ -1185,7 +1185,7 @@ static void bfq_arm_slice_timer(struct bfq_data *bfqd)
 
 	/* Tasks have exited, don't wait. */
 	bic = bfqd->active_bic;
-	if (bic == NULL || atomic_read(&bic->icq.ioc->nr_tasks) == 0)
+	if (bic == NULL || atomic_read(&bic->icq.ioc->active_ref) == 0)
 		return;
 
 	bfq_mark_bfqq_wait_request(bfqq);
@@ -2140,7 +2140,7 @@ static void bfq_exit_icq(struct io_cq *icq)
  * Update the entity prio values; note that the new values will not
  * be used until the next (re)activation.
  */
-static void bfq_init_prio_data(struct bfq_queue *bfqq, struct io_context *ioc)
+static void bfq_init_prio_data(struct bfq_queue *bfqq, struct bfq_io_cq *bic)
 {
 	struct task_struct *tsk = current;
 	int ioprio_class;
@@ -2148,7 +2148,7 @@ static void bfq_init_prio_data(struct bfq_queue *bfqq, struct io_context *ioc)
 	if (!bfq_bfqq_prio_changed(bfqq))
 		return;
 
-	ioprio_class = IOPRIO_PRIO_CLASS(ioc->ioprio);
+	ioprio_class = IOPRIO_PRIO_CLASS(bic->ioprio);
 	switch (ioprio_class) {
 	default:
 		printk(KERN_ERR "bfq: bad prio %x\n", ioprio_class);
@@ -2160,11 +2160,11 @@ static void bfq_init_prio_data(struct bfq_queue *bfqq, struct io_context *ioc)
 		bfqq->entity.new_ioprio_class = task_nice_ioclass(tsk);
 		break;
 	case IOPRIO_CLASS_RT:
-		bfqq->entity.new_ioprio = task_ioprio(ioc);
+		bfqq->entity.new_ioprio = IOPRIO_PRIO_DATA(bic->ioprio);
 		bfqq->entity.new_ioprio_class = IOPRIO_CLASS_RT;
 		break;
 	case IOPRIO_CLASS_BE:
-		bfqq->entity.new_ioprio = task_ioprio(ioc);
+		bfqq->entity.new_ioprio = IOPRIO_PRIO_DATA(bic->ioprio);
 		bfqq->entity.new_ioprio_class = IOPRIO_CLASS_BE;
 		break;
 	case IOPRIO_CLASS_IDLE:
@@ -2184,23 +2184,27 @@ static void bfq_init_prio_data(struct bfq_queue *bfqq, struct io_context *ioc)
 	bfq_clear_bfqq_prio_changed(bfqq);
 }
 
-static void bfq_changed_ioprio(struct io_context *ioc,
-			       struct bfq_io_cq *bic)
+static void bfq_changed_ioprio(struct bfq_io_cq *bic)
 {
 	struct bfq_data *bfqd;
 	struct bfq_queue *bfqq, *new_bfqq;
 	struct bfq_group *bfqg;
 	unsigned long uninitialized_var(flags);
+	int ioprio = bic->icq.ioc->ioprio;
 
 	bfqd = bfq_get_bfqd_locked(&(bic->icq.q->elevator->elevator_data), &flags);
-	if (unlikely(bfqd == NULL))
-		return;
+	/*
+	 * This condition may trigger on a newly created bic, be sure to drop the
+	 * lock before returning.
+	 */
+	if (unlikely(bfqd == NULL) || likely(bic->ioprio == ioprio))
+		goto out;
 
 	bfqq = bic->bfqq[BLK_RW_ASYNC];
 	if (bfqq != NULL) {
 		bfqg = container_of(bfqq->entity.sched_data, struct bfq_group,
 				    sched_data);
-		new_bfqq = bfq_get_queue(bfqd, bfqg, BLK_RW_ASYNC, bic->icq.ioc,
+		new_bfqq = bfq_get_queue(bfqd, bfqg, BLK_RW_ASYNC, bic,
 					 GFP_ATOMIC);
 		if (new_bfqq != NULL) {
 			bic->bfqq[BLK_RW_ASYNC] = new_bfqq;
@@ -2215,6 +2219,9 @@ static void bfq_changed_ioprio(struct io_context *ioc,
 	if (bfqq != NULL)
 		bfq_mark_bfqq_prio_changed(bfqq);
 
+	bic->ioprio = ioprio;
+
+out:
 	bfq_put_bfqd_unlock(bfqd, &flags);
 }
 
@@ -2247,14 +2254,12 @@ static void bfq_init_bfqq(struct bfq_data *bfqd, struct bfq_queue *bfqq,
 static struct bfq_queue *bfq_find_alloc_queue(struct bfq_data *bfqd,
 					      struct bfq_group *bfqg,
 					      int is_sync,
-					      struct io_context *ioc,
+					      struct bfq_io_cq *bic,
 					      gfp_t gfp_mask)
 {
 	struct bfq_queue *bfqq, *new_bfqq = NULL;
-	struct bfq_io_cq *bic;
 
 retry:
-	bic = bfq_bic_lookup(bfqd, ioc);
 	/* bic always exists here */
 	bfqq = bic_to_bfqq(bic, is_sync);
 
@@ -2289,7 +2294,7 @@ retry:
 			bfq_log_bfqq(bfqd, bfqq, "using oom bfqq");
 		}
 
-		bfq_init_prio_data(bfqq, ioc);
+		bfq_init_prio_data(bfqq, bic);
 		bfq_init_entity(&bfqq->entity, bfqg);
 	}
 
@@ -2306,6 +2311,9 @@ static struct bfq_queue **bfq_async_queue_prio(struct bfq_data *bfqd,
 	switch (ioprio_class) {
 	case IOPRIO_CLASS_RT:
 		return &bfqg->async_bfqq[0][ioprio];
+	case IOPRIO_CLASS_NONE:
+		ioprio = IOPRIO_NORM;
+		/* fall through */
 	case IOPRIO_CLASS_BE:
 		return &bfqg->async_bfqq[1][ioprio];
 	case IOPRIO_CLASS_IDLE:
@@ -2317,10 +2325,10 @@ static struct bfq_queue **bfq_async_queue_prio(struct bfq_data *bfqd,
 
 static struct bfq_queue *bfq_get_queue(struct bfq_data *bfqd,
 				       struct bfq_group *bfqg, int is_sync,
-				       struct io_context *ioc, gfp_t gfp_mask)
+				       struct bfq_io_cq *bic, gfp_t gfp_mask)
 {
-	const int ioprio = task_ioprio(ioc);
-	const int ioprio_class = task_ioprio_class(ioc);
+	const int ioprio = IOPRIO_PRIO_DATA(bic->ioprio);
+	const int ioprio_class = IOPRIO_PRIO_CLASS(bic->ioprio);
 	struct bfq_queue **async_bfqq = NULL;
 	struct bfq_queue *bfqq = NULL;
 
@@ -2331,7 +2339,7 @@ static struct bfq_queue *bfq_get_queue(struct bfq_data *bfqd,
 	}
 
 	if (bfqq == NULL)
-		bfqq = bfq_find_alloc_queue(bfqd, bfqg, is_sync, ioc, gfp_mask);
+		bfqq = bfq_find_alloc_queue(bfqd, bfqg, is_sync, bic, gfp_mask);
 
 	/*
 	 * Pin the queue now that it's allocated, scheduler exit will prune it.
@@ -2426,7 +2434,7 @@ static void bfq_update_idle_window(struct bfq_data *bfqd,
 
 	enable_idle = bfq_bfqq_idle_window(bfqq);
 
-	if (atomic_read(&bic->icq.ioc->nr_tasks) == 0 ||
+	if (atomic_read(&bic->icq.ioc->active_ref) == 0 ||
 	    bfqd->bfq_slice_idle == 0 ||
 		(bfqd->hw_tag && BFQQ_SEEKY(bfqq) &&
 			bfqq->raising_coeff == 1))
@@ -2543,7 +2551,7 @@ static void bfq_insert_request(struct request_queue *q, struct request *rq)
 		bfqq = new_bfqq;
 	}
 
-	bfq_init_prio_data(bfqq, RQ_BIC(rq)->icq.ioc);
+	bfq_init_prio_data(bfqq, RQ_BIC(rq));
 
 	bfq_add_rq_rb(rq);
 
@@ -2656,7 +2664,7 @@ static int bfq_may_queue(struct request_queue *q, int rw)
 
 	bfqq = bic_to_bfqq(bic, rw_is_sync(rw));
 	if (bfqq != NULL) {
-		bfq_init_prio_data(bfqq, bic->icq.ioc);
+		bfq_init_prio_data(bfqq, bic);
 
 		return __bfq_may_queue(bfqq);
 	}
@@ -2717,7 +2725,7 @@ bfq_split_bfqq(struct bfq_io_cq *bic, struct bfq_queue *bfqq)
  * Allocate bfq data structures associated with this request.
  */
 static int bfq_set_request(struct request_queue *q, struct request *rq,
-			   gfp_t gfp_mask)
+			   struct bio *bio, gfp_t gfp_mask)
 {
 	struct bfq_data *bfqd = q->elevator->elevator_data;
 	struct bfq_io_cq *bic = icq_to_bic(rq->elv.icq);
@@ -2728,12 +2736,9 @@ static int bfq_set_request(struct request_queue *q, struct request *rq,
 	unsigned long flags;
 	bool split = false;
 
-	/* handle changed prio notifications; cgroup change is handled separately */
-	if (unlikely(bic->icq.changed))
-		if (test_and_clear_bit(ICQ_IOPRIO_CHANGED, &bic->icq.changed))
-			bfq_changed_ioprio(bic->icq.ioc, bic);
-
 	might_sleep_if(gfp_mask & __GFP_WAIT);
+
+	bfq_changed_ioprio(bic);
 
 	spin_lock_irqsave(q->queue_lock, flags);
 
@@ -2745,7 +2750,7 @@ static int bfq_set_request(struct request_queue *q, struct request *rq,
 new_queue:
 	bfqq = bic_to_bfqq(bic, is_sync);
 	if (bfqq == NULL || bfqq == &bfqd->oom_bfqq) {
-		bfqq = bfq_get_queue(bfqd, bfqg, is_sync, bic->icq.ioc, gfp_mask);
+		bfqq = bfq_get_queue(bfqd, bfqg, is_sync, bic, gfp_mask);
 		bic_set_bfqq(bic, bfqq, is_sync);
 	} else {
 		/* If the queue was seeky for too long, break it apart. */
@@ -2925,14 +2930,14 @@ static void bfq_exit_queue(struct elevator_queue *e)
 	kfree(bfqd);
 }
 
-static void *bfq_init_queue(struct request_queue *q)
+static int bfq_init_queue(struct request_queue *q)
 {
 	struct bfq_group *bfqg;
 	struct bfq_data *bfqd;
 
 	bfqd = kmalloc_node(sizeof(*bfqd), GFP_KERNEL | __GFP_ZERO, q->node);
 	if (bfqd == NULL)
-		return NULL;
+		return -ENOMEM;
 
 	/*
 	 * Our fallback bfqq if bfq_find_alloc_queue() runs into OOM issues.
@@ -2943,11 +2948,12 @@ static void *bfq_init_queue(struct request_queue *q)
 	atomic_inc(&bfqd->oom_bfqq.ref);
 
 	bfqd->queue = q;
+	q->elevator->elevator_data = bfqd;
 
 	bfqg = bfq_alloc_root_group(bfqd, q->node);
 	if (bfqg == NULL) {
 		kfree(bfqd);
-		return NULL;
+		return -ENOMEM;
 	}
 
 	bfqd->root_group = bfqg;
@@ -2996,10 +3002,9 @@ static void *bfq_init_queue(struct request_queue *q)
 		bfqd->peak_rate = R_rot;
 	}
 
-	return bfqd;
+	return 0;
 }
 
-#if 0
 static void bfq_slab_kill(void)
 {
 	if (bfq_pool != NULL)
@@ -3013,7 +3018,6 @@ static int __init bfq_slab_setup(void)
 		return -ENOMEM;
 	return 0;
 }
-#endif
 
 static ssize_t bfq_var_show(unsigned int var, char *page)
 {
@@ -3116,7 +3120,7 @@ static ssize_t								\
 __FUNC(struct elevator_queue *e, const char *page, size_t count)	\
 {									\
 	struct bfq_data *bfqd = e->elevator_data;			\
-	unsigned long __data;						\
+	unsigned long uninitialized_var(__data);			\
 	int ret = bfq_var_store(&__data, (page), count);		\
 	if (__data < (MIN))						\
 		__data = (MIN);						\
@@ -3176,7 +3180,7 @@ static ssize_t bfq_max_budget_store(struct elevator_queue *e,
 				    const char *page, size_t count)
 {
 	struct bfq_data *bfqd = e->elevator_data;
-	unsigned long __data;
+	unsigned long uninitialized_var(__data);
 	int ret = bfq_var_store(&__data, (page), count);
 
 	if (__data == 0)
@@ -3196,7 +3200,7 @@ static ssize_t bfq_timeout_sync_store(struct elevator_queue *e,
 				      const char *page, size_t count)
 {
 	struct bfq_data *bfqd = e->elevator_data;
-	unsigned long __data;
+	unsigned long uninitialized_var(__data);
 	int ret = bfq_var_store(&__data, (page), count);
 
 	if (__data < 1)
@@ -3215,7 +3219,7 @@ static ssize_t bfq_low_latency_store(struct elevator_queue *e,
 				     const char *page, size_t count)
 {
 	struct bfq_data *bfqd = e->elevator_data;
-	unsigned long __data;
+	unsigned long uninitialized_var(__data);
 	int ret = bfq_var_store(&__data, (page), count);
 
 	if (__data > 1)
@@ -3282,8 +3286,6 @@ static struct elevator_type iosched_bfq = {
 
 static int __init bfq_init(void)
 {
-	int ret;
-
 	/*
 	 * Can be 0 on HZ < 1000 setups.
 	 */
@@ -3293,15 +3295,10 @@ static int __init bfq_init(void)
 	if (bfq_timeout_async == 0)
 		bfq_timeout_async = 1;
 
-	bfq_pool = KMEM_CACHE(bfq_queue, 0);
-	if (bfq_pool == NULL)
+	if (bfq_slab_setup())
 		return -ENOMEM;
 
-	ret = elv_register(&iosched_bfq);
-	if (ret) {
-		kmem_cache_destroy(bfq_pool);
-		return ret;
-	}
+	elv_register(&iosched_bfq);
 
 	return 0;
 }
@@ -3309,7 +3306,7 @@ static int __init bfq_init(void)
 static void __exit bfq_exit(void)
 {
 	elv_unregister(&iosched_bfq);
-	kmem_cache_destroy(bfq_pool);
+	bfq_slab_kill();
 }
 
 module_init(bfq_init);

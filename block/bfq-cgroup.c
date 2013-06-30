@@ -548,11 +548,11 @@ static void bfq_end_raising_async(struct bfq_data *bfqd)
  */
 static void bfq_disconnect_groups(struct bfq_data *bfqd)
 {
-	struct hlist_node *n;
+	struct hlist_node *tmp;
 	struct bfq_group *bfqg;
 
 	bfq_log(bfqd, "disconnect_groups beginning") ;
-	hlist_for_each_entry_safe(bfqg, n, &bfqd->group_list, bfqd_node) {
+	hlist_for_each_entry_safe(bfqg, tmp, &bfqd->group_list, bfqd_node) {
 		hlist_del(&bfqg->bfqd_node);
 
 		__bfq_deactivate_entity(bfqg->my_entity, 0);
@@ -697,18 +697,10 @@ static struct cftype bfqio_files[] = {
 		.read_u64 = bfqio_cgroup_ioprio_class_read,
 		.write_u64 = bfqio_cgroup_ioprio_class_write,
 	},
-	{ }  /* terminate */
+	{ },	/* terminate */
 };
 
-#if 0
-static int bfqio_populate(struct cgroup_subsys *subsys, struct cgroup *cgroup)
-{
-	return cgroup_add_files(cgroup, subsys, bfqio_files,
-				ARRAY_SIZE(bfqio_files));
-}
-#endif
-
-static struct cgroup_subsys_state *bfqio_css_alloc(struct cgroup *cgroup)
+static struct cgroup_subsys_state *bfqio_create(struct cgroup *cgroup)
 {
 	struct bfqio_cgroup *bgrp;
 
@@ -789,7 +781,7 @@ static void bfqio_attach(struct cgroup *cgroup, struct cgroup_taskset *tset)
 	}
 }
 
-static void bfqio_css_free(struct cgroup *cgroup)
+static void bfqio_destroy(struct cgroup *cgroup)
 {
 	struct bfqio_cgroup *bgrp = cgroup_to_bfqio(cgroup);
 	struct hlist_node *tmp;
@@ -812,11 +804,10 @@ static void bfqio_css_free(struct cgroup *cgroup)
 
 struct cgroup_subsys bfqio_subsys = {
 	.name = "bfqio",
-	.css_alloc = bfqio_css_alloc, /* was .create = bfqio_create, */
+	.css_alloc = bfqio_create,
 	.can_attach = bfqio_can_attach,
 	.attach = bfqio_attach,
-	.css_free = bfqio_css_free, /* was .destroy = bfqio_destroy, */
-	/* .populate = bfqio_populate, */
+	.css_free = bfqio_destroy,
 	.subsys_id = bfqio_subsys_id,
 	.base_cftypes = bfqio_files,
 };

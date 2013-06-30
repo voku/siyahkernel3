@@ -67,7 +67,7 @@ SUBSYS(perf)
 
 /* */
 
-#ifdef CONFIG_CGROUP_BFQIO
+#if IS_SUBSYS_ENABLED(CONFIG_CGROUP_BFQIO)
 SUBSYS(bfqio)
 #endif
 
@@ -79,7 +79,7 @@ SUBSYS(net_prio)
 
 /* */
 
-#ifdef CONFIG_CGROUP_TIMER_SLACK
+#if IS_SUBSYS_ENABLED(CONFIG_CGROUP_TIMER_SLACK)
 SUBSYS(timer_slack)
 #endif
 
