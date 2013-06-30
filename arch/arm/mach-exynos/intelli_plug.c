@@ -331,10 +331,8 @@ static int intelli_plug_cpufreq_policy_notifier_call(struct notifier_block *this
 
 	switch (code) {
 	case CPUFREQ_ADJUST:
-		if ((!strnicmp(policy->governor->name,
-				"performance", CPUFREQ_NAME_LEN)) ||
-				(!strnicmp(policy->governor->name,
-				"pegasusq", CPUFREQ_NAME_LEN))) {
+		if (!strnicmp(policy->governor->name,
+				"performance", CPUFREQ_NAME_LEN)) {
 			if (!excluded_governor) {
 				mutex_lock(&intelli_plug_mutex);
 				excluded_governor = 1;
