@@ -62,19 +62,15 @@ bool should_fail(struct fault_attr *attr, ssize_t size);
 
 #ifdef CONFIG_FAULT_INJECTION_DEBUG_FS
 
-int init_fault_attr_dentries(struct fault_attr *attr, const char *name);
-void cleanup_fault_attr_dentries(struct fault_attr *attr);
+struct dentry *fault_create_debugfs_attr(const char *name,
+			struct dentry *parent, struct fault_attr *attr);
 
 #else /* CONFIG_FAULT_INJECTION_DEBUG_FS */
 
-static inline int init_fault_attr_dentries(struct fault_attr *attr,
-					  const char *name)
+static inline struct dentry *fault_create_debugfs_attr(const char *name,
+			struct dentry *parent, struct fault_attr *attr)
 {
-	return -ENODEV;
-}
-
-static inline void cleanup_fault_attr_dentries(struct fault_attr *attr)
-{
+	return ERR_PTR(-ENODEV);
 }
 
 #endif /* CONFIG_FAULT_INJECTION_DEBUG_FS */
