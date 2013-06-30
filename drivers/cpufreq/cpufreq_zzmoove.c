@@ -383,7 +383,6 @@ static DEFINE_MUTEX(dbs_mutex);
 
 static struct dbs_tuners {
 	unsigned int sampling_rate;
-	unsigned int io_is_busy;
 	unsigned int sampling_rate_sleep_multiplier;	/* ZZ: added tuneable sampling_rate_sleep_multiplier */
 	unsigned int sampling_down_factor;		/* ZZ: Sampling down factor (reactivated) */
 	unsigned int sampling_down_momentum;		/* ZZ: Sampling down momentum tuneable */
@@ -636,7 +635,6 @@ static ssize_t show_##file_name						\
 	return sprintf(buf, "%u\n", dbs_tuners_ins.object);		\
 }
 show_one(sampling_rate, sampling_rate);
-show_one(io_is_busy, io_is_busy);
 show_one(sampling_rate_sleep_multiplier, sampling_rate_sleep_multiplier);	/* ZZ: added sampling_rate_sleep_multiplier tuneable for early suspend */
 show_one(sampling_down_factor, sampling_down_factor);				/* ZZ: reactivated sampling down factor */
 show_one(sampling_down_max_momentum, sampling_down_max_mom);			/* ZZ: added Sampling down momentum tuneable */
@@ -672,35 +670,9 @@ show_one(lcdfreq_kick_in_freq, lcdfreq_kick_in_freq);				/* ZZ: added LCDFreq Sc
 show_one(lcdfreq_kick_in_cores, lcdfreq_kick_in_cores);				/* ZZ: added LCDFreq Scaling tuneable kick in cores */
 #endif
 
-/* io_is_busy */
-static ssize_t store_io_is_busy(struct kobject *a, struct attribute *b,
-				const char *buf, size_t count)
-{
-	unsigned int input, j;
-	int ret;
-
-	ret = sscanf(buf, "%u", &input);
-	if (ret != 1)
-		return -EINVAL;
-
-	dbs_tuners_ins.io_is_busy = !!input;
-
-	for_each_online_cpu(j) {
-		struct cpu_dbs_info_s *dbs_info;
-		dbs_info = &per_cpu(cs_cpu_dbs_info, j);
-		dbs_info->prev_cpu_idle = get_cpu_idle_time(j,
-						&dbs_info->prev_cpu_wall, dbs_tuners_ins.io_is_busy);
-		if (dbs_tuners_ins.ignore_nice)
-			dbs_info->prev_cpu_nice = kcpustat_cpu(j).cpustat[CPUTIME_NICE];
-	}
-
-	return count;
-}
-
 /* ZZ: added tuneable for Sampling down momentum -> possible values: 0
  * (disable) to MAX_SAMPLING_DOWN_FACTOR, if not set default is 0
  */
-
 static ssize_t store_sampling_down_max_momentum(struct kobject *a,
 		struct attribute *b, const char *buf, size_t count)
 {
@@ -1027,7 +999,7 @@ static ssize_t store_ignore_nice_load(struct kobject *a, struct attribute *b,
 		struct cpu_dbs_info_s *dbs_info;
 		dbs_info = &per_cpu(cs_cpu_dbs_info, j);
 		dbs_info->prev_cpu_idle = get_cpu_idle_time(j,
-						&dbs_info->prev_cpu_wall, dbs_tuners_ins.io_is_busy);
+						&dbs_info->prev_cpu_wall);
 		if (dbs_tuners_ins.ignore_nice)
 			dbs_info->prev_cpu_nice = kcpustat_cpu(j).cpustat[CPUTIME_NICE];
 	}
@@ -1424,7 +1396,6 @@ static ssize_t store_disable_hotplug(struct kobject *a, struct attribute *b,
 }
 
 define_one_global_rw(sampling_rate);
-define_one_global_rw(io_is_busy);
 define_one_global_rw(sampling_rate_sleep_multiplier);		/* ZZ: added tuneable */
 define_one_global_rw(sampling_down_factor);			/* ZZ: Sampling down factor (reactived) */
 define_one_global_rw(sampling_down_max_momentum);		/* ZZ: Sampling down momentum tuneable */
@@ -1462,7 +1433,6 @@ define_one_global_rw(lcdfreq_kick_in_cores);			/* ZZ: LCDFreq Scaling tuneable *
 static struct attribute *dbs_attributes[] = {
 	&sampling_rate_min.attr,
 	&sampling_rate.attr,
-	&io_is_busy.attr,
 	&sampling_rate_sleep_multiplier.attr,			/* ZZ: added tuneable */
 	&sampling_down_factor.attr,
 	&sampling_down_max_momentum.attr,			/* ZZ: Sampling down momentum tuneable */
@@ -1554,7 +1524,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 
 		j_dbs_info = &per_cpu(cs_cpu_dbs_info, j);
 
-		cur_idle_time = get_cpu_idle_time(j, &cur_wall_time, dbs_tuners_ins.io_is_busy);
+		cur_idle_time = get_cpu_idle_time(j, &cur_wall_time);
 
 		wall_time = (unsigned int)
 			(cur_wall_time - j_dbs_info->prev_cpu_wall);
@@ -2279,7 +2249,7 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 				j_dbs_info->cur_policy = policy;
 
 				j_dbs_info->prev_cpu_idle = get_cpu_idle_time(j,
-						&j_dbs_info->prev_cpu_wall, dbs_tuners_ins.io_is_busy);
+						&j_dbs_info->prev_cpu_wall);
 				if (dbs_tuners_ins.ignore_nice) {
 					j_dbs_info->prev_cpu_nice =
 							kcpustat_cpu(j).cpustat[CPUTIME_NICE];
