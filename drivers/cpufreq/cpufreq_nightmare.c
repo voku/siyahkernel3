@@ -733,10 +733,8 @@ static int check_up(bool earlysuspend)
 	cur_freq = usage->freq[0];
 	cur_load = usage->load[0];
 
-	if (cur_freq >= up_freq) {
-		if (cur_load < up_load) {
-			return 0;
-		}
+	if (cur_freq >= up_freq
+		&& cur_load < up_load) {
 		/* printk(KERN_ERR "[HOTPLUG IN] %s %u>=%u\n",
 			__func__, cur_freq, up_freq); */
 		hotplug_history->num_hist = 0;
@@ -770,8 +768,8 @@ static int check_down(bool earlysuspend)
 	cur_freq = usage->freq[1];
 	cur_load = usage->load[1];
 
-	if ((cur_freq <= down_freq) 
-		|| (cur_load < down_load)) {
+	if (cur_freq <= down_freq 
+		|| cur_load < down_load) {
 		/* printk(KERN_ERR "[HOTPLUG OUT] %s %u<=%u\n",
 			__func__, cur_freq, down_freq); */
 		hotplug_history->num_hist = 0;
@@ -832,11 +830,11 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 
 		j_nightmare_cpuinfo = &per_cpu(od_nightmare_cpuinfo, j);
 
-		cur_busy_time = kcpustat_cpu(j).cpustat[CPUTIME_USER] + kcpustat_cpu(j).cpustat[CPUTIME_SYSTEM]
+		cur_busy_time = cputime_to_usecs(kcpustat_cpu(j).cpustat[CPUTIME_USER] + kcpustat_cpu(j).cpustat[CPUTIME_SYSTEM]
 						+ kcpustat_cpu(j).cpustat[CPUTIME_IRQ] + kcpustat_cpu(j).cpustat[CPUTIME_SOFTIRQ]
-						+ kcpustat_cpu(j).cpustat[CPUTIME_STEAL] + kcpustat_cpu(j).cpustat[CPUTIME_NICE];/*+ kcpustat_cpu(j).cpustat[CPUTIME_IOWAIT]*/
+						+ kcpustat_cpu(j).cpustat[CPUTIME_STEAL] + kcpustat_cpu(j).cpustat[CPUTIME_NICE]);
 
-		cur_idle_time = kcpustat_cpu(j).cpustat[CPUTIME_IDLE];
+		cur_idle_time = cputime_to_usecs(kcpustat_cpu(j).cpustat[CPUTIME_IDLE] + kcpustat_cpu(j).cpustat[CPUTIME_IOWAIT]);
 
 		busy_time = (unsigned int)
 				(cur_busy_time - j_nightmare_cpuinfo->prev_cpu_busy);
@@ -912,10 +910,10 @@ static void do_nightmare_timer(struct work_struct *work)
 	/* We want all CPUs to do sampling nearly on
 	 * same jiffy
 	 */
-	delay = usecs_to_jiffies(atomic_read(&nightmare_tuners_ins.sampling_rate)) - (num_online_cpus() - 1);
-	/*if (num_online_cpus() > 1) {
+	delay = usecs_to_jiffies(atomic_read(&nightmare_tuners_ins.sampling_rate));
+	if (num_online_cpus() > 1) {
 		delay -= jiffies % delay;
-	}*/
+	}
 	schedule_delayed_work_on(nightmare_cpuinfo->cpu, &nightmare_cpuinfo->work, delay);
 	mutex_unlock(&timer_mutex);
 }
@@ -977,11 +975,11 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 			struct cpufreq_nightmare_cpuinfo *j_nightmare_cpuinfo;
 			per_cpu(cpufreq_cpu_data, j) = policy;
 			j_nightmare_cpuinfo = &per_cpu(od_nightmare_cpuinfo, j);
-			j_nightmare_cpuinfo->prev_cpu_busy = kcpustat_cpu(j).cpustat[CPUTIME_USER] + kcpustat_cpu(j).cpustat[CPUTIME_SYSTEM]
+			j_nightmare_cpuinfo->prev_cpu_busy = cputime_to_usecs(kcpustat_cpu(j).cpustat[CPUTIME_USER] + kcpustat_cpu(j).cpustat[CPUTIME_SYSTEM]
 						+ kcpustat_cpu(j).cpustat[CPUTIME_IRQ] + kcpustat_cpu(j).cpustat[CPUTIME_SOFTIRQ]
-						+ kcpustat_cpu(j).cpustat[CPUTIME_STEAL] + kcpustat_cpu(j).cpustat[CPUTIME_NICE];/*+ kcpustat_cpu(j).cpustat[CPUTIME_IOWAIT]*/
+						+ kcpustat_cpu(j).cpustat[CPUTIME_STEAL] + kcpustat_cpu(j).cpustat[CPUTIME_NICE]);
 
-			j_nightmare_cpuinfo->prev_cpu_idle = kcpustat_cpu(j).cpustat[CPUTIME_IDLE];
+			j_nightmare_cpuinfo->prev_cpu_idle = cputime_to_usecs(kcpustat_cpu(j).cpustat[CPUTIME_IDLE] + kcpustat_cpu(j).cpustat[CPUTIME_IOWAIT]);
 		}
 		this_nightmare_cpuinfo->cpu = cpu;
 		/*

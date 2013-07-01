@@ -562,11 +562,11 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 
 		j_darkness_cpuinfo = &per_cpu(od_darkness_cpuinfo, j);
 
-		cur_busy_time = kcpustat_cpu(j).cpustat[CPUTIME_USER] + kcpustat_cpu(j).cpustat[CPUTIME_SYSTEM]
+		cur_busy_time = cputime_to_usecs(kcpustat_cpu(j).cpustat[CPUTIME_USER] + kcpustat_cpu(j).cpustat[CPUTIME_SYSTEM]
 						+ kcpustat_cpu(j).cpustat[CPUTIME_IRQ] + kcpustat_cpu(j).cpustat[CPUTIME_SOFTIRQ]
-						+ kcpustat_cpu(j).cpustat[CPUTIME_STEAL] + kcpustat_cpu(j).cpustat[CPUTIME_NICE];/*+ kcpustat_cpu(j).cpustat[CPUTIME_IOWAIT]*/
+						+ kcpustat_cpu(j).cpustat[CPUTIME_STEAL] + kcpustat_cpu(j).cpustat[CPUTIME_NICE]);
 
-		cur_idle_time = kcpustat_cpu(j).cpustat[CPUTIME_IDLE];
+		cur_idle_time = cputime_to_usecs(kcpustat_cpu(j).cpustat[CPUTIME_IDLE] + kcpustat_cpu(j).cpustat[CPUTIME_IOWAIT]);
 
 		busy_time = (unsigned int)
 				(cur_busy_time - j_darkness_cpuinfo->prev_cpu_busy);
@@ -624,10 +624,10 @@ static void do_darkness_timer(struct work_struct *work)
 	/* We want all CPUs to do sampling nearly on
 	 * same jiffy
 	 */
-	delay = usecs_to_jiffies(atomic_read(&darkness_tuners_ins.sampling_rate)) - (num_online_cpus() - 1);
-	/*if (num_online_cpus() > 1) {
+	delay = usecs_to_jiffies(atomic_read(&darkness_tuners_ins.sampling_rate));
+	if (num_online_cpus() > 1) {
 		delay -= jiffies % delay;
-	}*/
+	}
 	schedule_delayed_work_on(darkness_cpuinfo->cpu, &darkness_cpuinfo->work, delay);
 	mutex_unlock(&timer_mutex);
 }
@@ -689,10 +689,11 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 			struct cpufreq_darkness_cpuinfo *j_darkness_cpuinfo;
 			per_cpu(cpufreq_cpu_data, j) = policy;
 			j_darkness_cpuinfo = &per_cpu(od_darkness_cpuinfo, j);
-			j_darkness_cpuinfo->prev_cpu_busy = kcpustat_cpu(j).cpustat[CPUTIME_USER] + kcpustat_cpu(j).cpustat[CPUTIME_SYSTEM]
+			j_darkness_cpuinfo->prev_cpu_busy = cputime_to_usecs(kcpustat_cpu(j).cpustat[CPUTIME_USER] + kcpustat_cpu(j).cpustat[CPUTIME_SYSTEM]
 						+ kcpustat_cpu(j).cpustat[CPUTIME_IRQ] + kcpustat_cpu(j).cpustat[CPUTIME_SOFTIRQ]
-						+ kcpustat_cpu(j).cpustat[CPUTIME_STEAL] + kcpustat_cpu(j).cpustat[CPUTIME_NICE];/*+ kcpustat_cpu(j).cpustat[CPUTIME_IOWAIT]*/
-			j_darkness_cpuinfo->prev_cpu_idle = kcpustat_cpu(j).cpustat[CPUTIME_IDLE];
+						+ kcpustat_cpu(j).cpustat[CPUTIME_STEAL] + kcpustat_cpu(j).cpustat[CPUTIME_NICE]);
+
+			j_darkness_cpuinfo->prev_cpu_idle = cputime_to_usecs(kcpustat_cpu(j).cpustat[CPUTIME_IDLE] + kcpustat_cpu(j).cpustat[CPUTIME_IOWAIT]);
 		}
 		this_darkness_cpuinfo->cpu = cpu;
 		/*
