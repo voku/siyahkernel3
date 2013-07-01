@@ -1,95 +1,12 @@
 #ifndef _LINUX_PTRACE_H
 #define _LINUX_PTRACE_H
-/* ptrace.h */
-/* structs and defines to help the user use the ptrace system call. */
 
-/* has the defines to get at the registers. */
+#include <linux/compiler.h>		/* For unlikely.  */
+#include <linux/sched.h>		/* For struct task_struct.  */
+#include <linux/err.h>			/* for IS_ERR_VALUE */
+#include <linux/bug.h>			/* For BUG_ON.  */
+#include <uapi/linux/ptrace.h>
 
-#include <linux/types.h>
-
-#define PTRACE_TRACEME		   0
-#define PTRACE_PEEKTEXT		   1
-#define PTRACE_PEEKDATA		   2
-#define PTRACE_PEEKUSR		   3
-#define PTRACE_POKETEXT		   4
-#define PTRACE_POKEDATA		   5
-#define PTRACE_POKEUSR		   6
-#define PTRACE_CONT		   7
-#define PTRACE_KILL		   8
-#define PTRACE_SINGLESTEP	   9
-
-#define PTRACE_ATTACH		  16
-#define PTRACE_DETACH		  17
-
-#define PTRACE_SYSCALL		  24
-
-/* 0x4200-0x4300 are reserved for architecture-independent additions.  */
-#define PTRACE_SETOPTIONS	0x4200
-#define PTRACE_GETEVENTMSG	0x4201
-#define PTRACE_GETSIGINFO	0x4202
-#define PTRACE_SETSIGINFO	0x4203
-
-/*
- * Generic ptrace interface that exports the architecture specific regsets
- * using the corresponding NT_* types (which are also used in the core dump).
- * Please note that the NT_PRSTATUS note type in a core dump contains a full
- * 'struct elf_prstatus'. But the user_regset for NT_PRSTATUS contains just the
- * elf_gregset_t that is the pr_reg field of 'struct elf_prstatus'. For all the
- * other user_regset flavors, the user_regset layout and the ELF core dump note
- * payload are exactly the same layout.
- *
- * This interface usage is as follows:
- *	struct iovec iov = { buf, len};
- *
- *	ret = ptrace(PTRACE_GETREGSET/PTRACE_SETREGSET, pid, NT_XXX_TYPE, &iov);
- *
- * On the successful completion, iov.len will be updated by the kernel,
- * specifying how much the kernel has written/read to/from the user's iov.buf.
- */
-#define PTRACE_GETREGSET	0x4204
-#define PTRACE_SETREGSET	0x4205
-
-#define PTRACE_SEIZE		0x4206
-#define PTRACE_INTERRUPT	0x4207
-#define PTRACE_LISTEN		0x4208
-
-#define PTRACE_PEEKSIGINFO	0x4209
-
-struct ptrace_peeksiginfo_args {
-	__u64 off;	/* from which siginfo to start */
-	__u32 flags;
-	__s32 nr;	/* how may siginfos to take */
-};
-
-/* Read signals from a shared (process wide) queue */
-#define PTRACE_PEEKSIGINFO_SHARED	(1 << 0)
-
-/* Wait extended result codes for the above trace options.  */
-#define PTRACE_EVENT_FORK	1
-#define PTRACE_EVENT_VFORK	2
-#define PTRACE_EVENT_CLONE	3
-#define PTRACE_EVENT_EXEC	4
-#define PTRACE_EVENT_VFORK_DONE	5
-#define PTRACE_EVENT_EXIT	6
-#define PTRACE_EVENT_STOP	7
-
-/* Options set using PTRACE_SETOPTIONS or using PTRACE_SEIZE @data param */
-#define PTRACE_O_TRACESYSGOOD	1
-#define PTRACE_O_TRACEFORK	(1 << PTRACE_EVENT_FORK)
-#define PTRACE_O_TRACEVFORK	(1 << PTRACE_EVENT_VFORK)
-#define PTRACE_O_TRACECLONE	(1 << PTRACE_EVENT_CLONE)
-#define PTRACE_O_TRACEEXEC	(1 << PTRACE_EVENT_EXEC)
-#define PTRACE_O_TRACEVFORKDONE	(1 << PTRACE_EVENT_VFORK_DONE)
-#define PTRACE_O_TRACEEXIT	(1 << PTRACE_EVENT_EXIT)
-
-/* eventless options */
-#define PTRACE_O_EXITKILL  (1 << 20)
-
-#define PTRACE_O_MASK    (0x000000ff | PTRACE_O_EXITKILL)
-
-#include <asm/ptrace.h>
-
-#ifdef __KERNEL__
 /*
  * Ptrace flags
  *
@@ -113,6 +30,7 @@ struct ptrace_peeksiginfo_args {
 #define PT_TRACE_EXEC		PT_EVENT_FLAG(PTRACE_EVENT_EXEC)
 #define PT_TRACE_VFORK_DONE	PT_EVENT_FLAG(PTRACE_EVENT_VFORK_DONE)
 #define PT_TRACE_EXIT		PT_EVENT_FLAG(PTRACE_EVENT_EXIT)
+#define PT_TRACE_SECCOMP	PT_EVENT_FLAG(PTRACE_EVENT_SECCOMP)
 
 #define PT_EXITKILL		(PTRACE_O_EXITKILL << PT_OPT_FLAG_SHIFT)
 
@@ -121,11 +39,6 @@ struct ptrace_peeksiginfo_args {
 #define PT_SINGLESTEP		(1<<PT_SINGLESTEP_BIT)
 #define PT_BLOCKSTEP_BIT	30
 #define PT_BLOCKSTEP		(1<<PT_BLOCKSTEP_BIT)
-
-#include <linux/compiler.h>		/* For unlikely.  */
-#include <linux/sched.h>		/* For struct task_struct.  */
-#include <linux/err.h>			/* for IS_ERR_VALUE */
-#include <linux/bug.h>			/* For BUG_ON.  */
 
 extern long arch_ptrace(struct task_struct *child, long request,
 			unsigned long addr, unsigned long data);
@@ -147,7 +60,7 @@ extern bool ptrace_may_access(struct task_struct *task, unsigned int mode);
 
 static inline int ptrace_reparented(struct task_struct *child)
 {
-	return child->real_parent != child->parent;
+	return !same_thread_group(child->real_parent, child->parent);
 }
 
 static inline void ptrace_unlink(struct task_struct *child)
@@ -208,9 +121,10 @@ static inline void ptrace_event(int event, unsigned long message)
 	if (unlikely(ptrace_event_enabled(current, event))) {
 		current->ptrace_message = message;
 		ptrace_notify((event << 8) | SIGTRAP);
-	} else if (event == PTRACE_EVENT_EXEC && unlikely(current->ptrace)) {
+	} else if (event == PTRACE_EVENT_EXEC) {
 		/* legacy EXEC report via SIGTRAP */
-		send_sig(SIGTRAP, current, 0);
+		if ((current->ptrace & (PT_PTRACED|PT_SEIZED)) == PT_PTRACED)
+			send_sig(SIGTRAP, current, 0);
 	}
 }
 
@@ -228,16 +142,24 @@ static inline void ptrace_init_task(struct task_struct *child, bool ptrace)
 {
 	INIT_LIST_HEAD(&child->ptrace_entry);
 	INIT_LIST_HEAD(&child->ptraced);
-	child->parent = child->real_parent;
-	child->ptrace = 0;
-	if (unlikely(ptrace) && (current->ptrace & PT_PTRACED)) {
-		child->ptrace = current->ptrace;
-		__ptrace_link(child, current->parent);
-	}
-
 #ifdef CONFIG_HAVE_HW_BREAKPOINT
 	atomic_set(&child->ptrace_bp_refcnt, 1);
 #endif
+	child->jobctl = 0;
+	child->ptrace = 0;
+	child->parent = child->real_parent;
+
+	if (unlikely(ptrace) && current->ptrace) {
+		child->ptrace = current->ptrace;
+		__ptrace_link(child, current->parent);
+
+		if (child->ptrace & PT_SEIZED)
+			task_set_jobctl_pending(child, JOBCTL_TRAP_STOP);
+		else
+			sigaddset(&child->pending.signal, SIGSTOP);
+
+		set_tsk_thread_flag(child, TIF_SIGPENDING);
+	}
 }
 
 /**
@@ -404,6 +326,27 @@ static inline void user_single_step_siginfo(struct task_struct *tsk,
 #define arch_ptrace_stop(code, info)		do { } while (0)
 #endif
 
+#ifndef current_pt_regs
+#define current_pt_regs() task_pt_regs(current)
+#endif
+
+#ifndef ptrace_signal_deliver
+#define ptrace_signal_deliver() ((void)0)
+#endif
+
+/*
+ * unlike current_pt_regs(), this one is equal to task_pt_regs(current)
+ * on *all* architectures; the only reason to have a per-arch definition
+ * is optimisation.
+ */
+#ifndef signal_pt_regs
+#define signal_pt_regs() task_pt_regs(current)
+#endif
+
+#ifndef current_user_stack_pointer
+#define current_user_stack_pointer() user_stack_pointer(current_pt_regs())
+#endif
+
 extern int task_current_syscall(struct task_struct *target, long *callno,
 				unsigned long args[6], unsigned int maxargs,
 				unsigned long *sp, unsigned long *pc);
@@ -414,7 +357,5 @@ extern void ptrace_put_breakpoints(struct task_struct *tsk);
 #else
 static inline void ptrace_put_breakpoints(struct task_struct *tsk) { }
 #endif /* CONFIG_HAVE_HW_BREAKPOINT */
-
-#endif /* __KERNEL */
 
 #endif
