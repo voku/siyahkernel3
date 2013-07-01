@@ -474,7 +474,7 @@ static int check_up(bool earlysuspend)
 	cur_load = usage->load[0];
 
 	if (cur_freq >= up_freq
-		 &&	cur_load >= up_load) {
+		 && cur_load >= up_load) {
 		/* printk(KERN_ERR "[HOTPLUG IN] %s %u>=%u\n",
 			__func__, cur_freq, up_freq); */
 		hotplug_history->num_hist = 0;
