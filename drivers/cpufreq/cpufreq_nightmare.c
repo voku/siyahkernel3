@@ -890,9 +890,9 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 	if (hotplug_enable) {
 		/*Check for CPU hotplug*/
 		if (check_up(earlysuspend)) {
-			schedule_work_on(this_nightmare_cpuinfo->cpu, &this_nightmare_cpuinfo->up_work);
+			queue_work_on(this_nightmare_cpuinfo->cpu, system_wq, &this_nightmare_cpuinfo->up_work);
 		} else if (check_down(earlysuspend)) {
-			schedule_work_on(this_nightmare_cpuinfo->cpu, &this_nightmare_cpuinfo->down_work);
+			queue_work_on(this_nightmare_cpuinfo->cpu, system_wq, &this_nightmare_cpuinfo->down_work);
 		}
 	}
 	if (hotplug_history->num_hist == max_hotplug_rate)
@@ -914,7 +914,7 @@ static void do_nightmare_timer(struct work_struct *work)
 	if (num_online_cpus() > 1) {
 		delay -= jiffies % delay;
 	}
-	schedule_delayed_work_on(nightmare_cpuinfo->cpu, &nightmare_cpuinfo->work, delay);
+	mod_delayed_work_on(nightmare_cpuinfo->cpu, system_wq, &nightmare_cpuinfo->work, delay);
 	mutex_unlock(&timer_mutex);
 }
 
@@ -924,14 +924,17 @@ static inline void nightmare_timer_init(struct cpufreq_nightmare_cpuinfo *nightm
 	INIT_WORK(&nightmare_cpuinfo->up_work, cpu_up_work);
 	INIT_WORK(&nightmare_cpuinfo->down_work, cpu_down_work);
 
-	schedule_delayed_work_on(nightmare_cpuinfo->cpu, &nightmare_cpuinfo->work, 0);
+	mod_delayed_work_on(nightmare_cpuinfo->cpu, system_wq, &nightmare_cpuinfo->work, 0);
 }
 
 static inline void nightmare_timer_exit(struct cpufreq_nightmare_cpuinfo *nightmare_cpuinfo)
 {
-	cancel_delayed_work(&nightmare_cpuinfo->work);
-	cancel_work_sync(&nightmare_cpuinfo->up_work);
-	cancel_work_sync(&nightmare_cpuinfo->down_work);
+	unsigned int j;
+	for_each_possible_cpu(j) {
+		cancel_delayed_work_sync(&nightmare_cpuinfo->work);
+		cancel_work_sync(&nightmare_cpuinfo->up_work);
+		cancel_work_sync(&nightmare_cpuinfo->down_work);
+	}
 }
 
 #ifdef CONFIG_HAS_EARLYSUSPEND

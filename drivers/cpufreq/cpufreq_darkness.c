@@ -604,9 +604,9 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 	if (hotplug_enable) {
 		/*Check for CPU hotplug*/
 		if (check_up(earlysuspend)) {
-			schedule_work_on(this_darkness_cpuinfo->cpu, &this_darkness_cpuinfo->up_work);
+			queue_work_on(this_darkness_cpuinfo->cpu, system_wq, &this_darkness_cpuinfo->up_work);
 		} else if (check_down(earlysuspend)) {
-			schedule_work_on(this_darkness_cpuinfo->cpu, &this_darkness_cpuinfo->down_work);
+			queue_work_on(this_darkness_cpuinfo->cpu, system_wq, &this_darkness_cpuinfo->down_work);
 		}
 	}
 	if (hotplug_history->num_hist == max_hotplug_rate)
@@ -628,7 +628,7 @@ static void do_darkness_timer(struct work_struct *work)
 	if (num_online_cpus() > 1) {
 		delay -= jiffies % delay;
 	}
-	schedule_delayed_work_on(darkness_cpuinfo->cpu, &darkness_cpuinfo->work, delay);
+	mod_delayed_work_on(darkness_cpuinfo->cpu, system_wq, &darkness_cpuinfo->work, delay);
 	mutex_unlock(&timer_mutex);
 }
 
@@ -638,14 +638,17 @@ static inline void darkness_timer_init(struct cpufreq_darkness_cpuinfo *darkness
 	INIT_WORK(&darkness_cpuinfo->up_work, cpu_up_work);
 	INIT_WORK(&darkness_cpuinfo->down_work, cpu_down_work);
 
-	schedule_delayed_work_on(darkness_cpuinfo->cpu, &darkness_cpuinfo->work, 0);
+	mod_delayed_work_on(darkness_cpuinfo->cpu, system_wq, &darkness_cpuinfo->work, 0);
 }
 
 static inline void darkness_timer_exit(struct cpufreq_darkness_cpuinfo *darkness_cpuinfo)
 {
-	cancel_delayed_work(&darkness_cpuinfo->work);
-	cancel_work_sync(&darkness_cpuinfo->up_work);
-	cancel_work_sync(&darkness_cpuinfo->down_work);
+	unsigned int j;
+	for_each_possible_cpu(j) {
+		cancel_delayed_work_sync(&darkness_cpuinfo->work);
+		cancel_work_sync(&darkness_cpuinfo->up_work);
+		cancel_work_sync(&darkness_cpuinfo->down_work);
+	}
 }
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
