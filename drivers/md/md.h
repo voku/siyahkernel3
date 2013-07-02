@@ -282,7 +282,7 @@ struct mddev {
 
 	sector_t			resync_max_sectors; /* may be set by personality */
 
-	sector_t			resync_mismatches; /* count of sectors where
+	atomic64_t			resync_mismatches; /* count of sectors where
 							    * parity/replica mismatch found
 							    */
 
@@ -307,6 +307,7 @@ struct mddev {
 	 * REQUEST:  user-space has requested a sync (used with SYNC)
 	 * CHECK:    user-space request for check-only, no repair
 	 * RESHAPE:  A reshape is happening
+	 * ERROR:    sync-action interrupted because io-error
 	 *
 	 * If neither SYNC or RESHAPE are set, then it is a recovery.
 	 */
@@ -320,6 +321,7 @@ struct mddev {
 #define	MD_RECOVERY_CHECK	7
 #define MD_RECOVERY_RESHAPE	8
 #define	MD_RECOVERY_FROZEN	9
+#define	MD_RECOVERY_ERROR	10
 
 	unsigned long			recovery;
 	/* If a RAID personality determines that recovery (of a particular
@@ -504,7 +506,7 @@ static inline char * mdname (struct mddev * mddev)
 static inline int sysfs_link_rdev(struct mddev *mddev, struct md_rdev *rdev)
 {
 	char nm[20];
-	if (!test_bit(Replacement, &rdev->flags)) {
+	if (!test_bit(Replacement, &rdev->flags) && mddev->kobj.sd) {
 		sprintf(nm, "rd%d", rdev->raid_disk);
 		return sysfs_create_link(&mddev->kobj, &rdev->kobj, nm);
 	} else
@@ -514,7 +516,7 @@ static inline int sysfs_link_rdev(struct mddev *mddev, struct md_rdev *rdev)
 static inline void sysfs_unlink_rdev(struct mddev *mddev, struct md_rdev *rdev)
 {
 	char nm[20];
-	if (!test_bit(Replacement, &rdev->flags)) {
+	if (!test_bit(Replacement, &rdev->flags) && mddev->kobj.sd) {
 		sprintf(nm, "rd%d", rdev->raid_disk);
 		sysfs_remove_link(&mddev->kobj, nm);
 	}
@@ -540,41 +542,16 @@ static inline void sysfs_unlink_rdev(struct mddev *mddev, struct md_rdev *rdev)
 	list_for_each_entry_rcu(rdev, &((mddev)->disks), same_set)
 
 struct md_thread {
-	void			(*run) (struct mddev *mddev);
+	void			(*run) (struct md_thread *thread);
 	struct mddev		*mddev;
 	wait_queue_head_t	wqueue;
 	unsigned long           flags;
 	struct task_struct	*tsk;
 	unsigned long		timeout;
+	void			*private;
 };
 
 #define THREAD_WAKEUP  0
-
-#define __wait_event_lock_irq(wq, condition, lock, cmd) 		\
-do {									\
-	wait_queue_t __wait;						\
-	init_waitqueue_entry(&__wait, current);				\
-									\
-	add_wait_queue(&wq, &__wait);					\
-	for (;;) {							\
-		set_current_state(TASK_UNINTERRUPTIBLE);		\
-		if (condition)						\
-			break;						\
-		spin_unlock_irq(&lock);					\
-		cmd;							\
-		schedule();						\
-		spin_lock_irq(&lock);					\
-	}								\
-	current->state = TASK_RUNNING;					\
-	remove_wait_queue(&wq, &__wait);				\
-} while (0)
-
-#define wait_event_lock_irq(wq, condition, lock, cmd) 			\
-do {									\
-	if (condition)	 						\
-		break;							\
-	__wait_event_lock_irq(wq, condition, lock, cmd);		\
-} while (0)
 
 static inline void safe_put_page(struct page *p)
 {
@@ -584,12 +561,13 @@ static inline void safe_put_page(struct page *p)
 extern int register_md_personality(struct md_personality *p);
 extern int unregister_md_personality(struct md_personality *p);
 extern struct md_thread *md_register_thread(
-	void (*run)(struct mddev *mddev),
+	void (*run)(struct md_thread *thread),
 	struct mddev *mddev,
 	const char *name);
 extern void md_unregister_thread(struct md_thread **threadp);
 extern void md_wakeup_thread(struct md_thread *thread);
 extern void md_check_recovery(struct mddev *mddev);
+extern void md_reap_sync_thread(struct mddev *mddev);
 extern void md_write_start(struct mddev *mddev, struct bio *bi);
 extern void md_write_end(struct mddev *mddev);
 extern void md_done_sync(struct mddev *mddev, int blocks, int ok);
@@ -603,7 +581,7 @@ extern void md_super_write(struct mddev *mddev, struct md_rdev *rdev,
 extern void md_super_wait(struct mddev *mddev);
 extern int sync_page_io(struct md_rdev *rdev, sector_t sector, int size, 
 			struct page *page, int rw, bool metadata_op);
-extern void md_do_sync(struct mddev *mddev);
+extern void md_do_sync(struct md_thread *thread);
 extern void md_new_event(struct mddev *mddev);
 extern int md_allow_write(struct mddev *mddev);
 extern void md_wait_for_blocked_rdev(struct md_rdev *rdev, struct mddev *mddev);
