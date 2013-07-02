@@ -41,6 +41,7 @@
 EXPORT_TRACEPOINT_SYMBOL_GPL(block_bio_remap);
 EXPORT_TRACEPOINT_SYMBOL_GPL(block_rq_remap);
 EXPORT_TRACEPOINT_SYMBOL_GPL(block_bio_complete);
+EXPORT_TRACEPOINT_SYMBOL_GPL(block_unplug);
 
 DEFINE_IDA(blk_queue_ida);
 
@@ -1676,7 +1677,6 @@ static inline void blk_partition_remap(struct bio *bio)
 static void handle_bad_sector(struct bio *bio)
 {
 	char b[BDEVNAME_SIZE];
-	struct hd_struct *part;
 
 	printk(KERN_INFO "attempt to access beyond end of device\n");
 	printk(KERN_INFO "%s: rw=%ld, want=%Lu, limit=%Lu\n",
@@ -2969,6 +2969,15 @@ void blk_start_plug(struct blk_plug *plug)
 }
 EXPORT_SYMBOL(blk_start_plug);
 
+static int plug_rq_cmp(void *priv, struct list_head *a, struct list_head *b)
+{
+	struct request *rqa = container_of(a, struct request, queuelist);
+	struct request *rqb = container_of(b, struct request, queuelist);
+
+	return !(rqa->q < rqb->q ||
+		(rqa->q == rqb->q && blk_rq_pos(rqa) < blk_rq_pos(rqb)));
+}
+
 /*
  * If 'from_schedule' is true, then postpone the dispatch of requests
  * until a safe kblockd context. We due this to avoid accidental big
@@ -3061,6 +3070,8 @@ void blk_flush_plug_list(struct blk_plug *plug, bool from_schedule)
 		return;
 
 	list_splice_init(&plug->list, &list);
+
+	list_sort(NULL, &list, plug_rq_cmp);
 
 	q = NULL;
 	depth = 0;
