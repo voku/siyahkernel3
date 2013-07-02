@@ -1642,7 +1642,7 @@ init:	/* Initialize the cache structs */
 	dmc->writeback = 0;
 	dmc->dirty = 0;
 
-	ti->split_io = dmc->block_size;
+	ti->max_io_len = dmc->block_size;
 	ti->private = dmc;
 	return 0;
 
