@@ -1065,8 +1065,8 @@ static struct elevator_type iosched_row = {
 		.elevator_init_fn		= row_init_queue,
 		.elevator_exit_fn		= row_exit_queue,
 	},
-	/* .icq_size = sizeof(struct io_cq),
-	.icq_align = __alignof__(struct io_cq), */
+	.icq_size = sizeof(struct io_cq),
+	.icq_align = __alignof__(struct io_cq),
 	.elevator_attrs = row_attrs,
 	.elevator_name = "row",
 	.elevator_owner = THIS_MODULE,
