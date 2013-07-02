@@ -71,7 +71,6 @@ struct cpufreq_darkness_cpuinfo {
 	struct delayed_work work;
 	struct work_struct up_work;
 	struct work_struct down_work;
-	ktime_t time_stamp;
 	int cpu;
 };
 /*
@@ -614,29 +613,6 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 		hotplug_history->num_hist = 0;
 }
 
-/* Will return if we need to evaluate cpu load again or not */
-static bool need_load_eval(int cpu,
-		unsigned int sampling_rate, int *delay)
-{
-	ktime_t time_now = ktime_get();
-	struct cpufreq_darkness_cpuinfo *darkness_cpuinfo = &per_cpu(od_darkness_cpuinfo, cpu);
-	s64 delta_us = ktime_us_delta(time_now, darkness_cpuinfo->time_stamp);
-	/* We want all CPUs to do sampling nearly on
-	 * same jiffy
-	 */
-	*delay = usecs_to_jiffies(sampling_rate);
-	if (num_online_cpus() > 1) {
-		*delay -= jiffies % *delay;
-	}
-	/* Do nothing if we recently have sampled */
-	if (delta_us < (s64)(sampling_rate / 2))
-		return false;
-	else
-		darkness_cpuinfo->time_stamp = time_now;
-
-	return true;
-}
-
 static void do_darkness_timer(struct work_struct *work)
 {
 	struct cpufreq_darkness_cpuinfo *darkness_cpuinfo =
@@ -644,12 +620,15 @@ static void do_darkness_timer(struct work_struct *work)
 	int delay;
 
 	mutex_lock(&timer_mutex);
-	if (!need_load_eval(darkness_cpuinfo->cpu, atomic_read(&darkness_tuners_ins.sampling_rate), &delay))
-		goto max_delay;
-
 	darkness_check_cpu(darkness_cpuinfo);
+	/* We want all CPUs to do sampling nearly on
+	 * same jiffy
+	 */
+	delay = usecs_to_jiffies(atomic_read(&darkness_tuners_ins.sampling_rate));
+	if (num_online_cpus() > 1) {
+		delay -= jiffies % delay;
+	}	
 
-max_delay:
 	mod_delayed_work_on(darkness_cpuinfo->cpu, system_wq, &darkness_cpuinfo->work, delay);
 	mutex_unlock(&timer_mutex);
 }
@@ -735,7 +714,6 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 
 		mutex_init(&timer_mutex);
 
-		this_darkness_cpuinfo->time_stamp = ktime_get();
 		darkness_timer_init(this_darkness_cpuinfo);
 
 #ifdef CONFIG_HAS_EARLYSUSPEND

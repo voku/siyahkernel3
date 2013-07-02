@@ -71,7 +71,6 @@ struct cpufreq_nightmare_cpuinfo {
 	struct delayed_work work;
 	struct work_struct up_work;
 	struct work_struct down_work;
-	ktime_t time_stamp;
 	int cpu;
 };
 /*
@@ -898,29 +897,6 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 		hotplug_history->num_hist = 0;
 }
 
-/* Will return if we need to evaluate cpu load again or not */
-static bool need_load_eval(int cpu,
-		unsigned int sampling_rate, int *delay)
-{
-	ktime_t time_now = ktime_get();
-	struct cpufreq_nightmare_cpuinfo *nightmare_cpuinfo = &per_cpu(od_nightmare_cpuinfo, cpu);
-	s64 delta_us = ktime_us_delta(time_now, nightmare_cpuinfo->time_stamp);
-	/* We want all CPUs to do sampling nearly on
-	 * same jiffy
-	 */
-	*delay = usecs_to_jiffies(sampling_rate);
-	if (num_online_cpus() > 1) {
-		*delay -= jiffies % *delay;
-	}
-	/* Do nothing if we recently have sampled */
-	if (delta_us < (s64)(sampling_rate / 2))
-		return false;
-	else
-		nightmare_cpuinfo->time_stamp = time_now;
-
-	return true;
-}
-
 static void do_nightmare_timer(struct work_struct *work)
 {
 	struct cpufreq_nightmare_cpuinfo *nightmare_cpuinfo =
@@ -928,12 +904,15 @@ static void do_nightmare_timer(struct work_struct *work)
 	int delay;
 
 	mutex_lock(&timer_mutex);
-	if (!need_load_eval(nightmare_cpuinfo->cpu, atomic_read(&nightmare_tuners_ins.sampling_rate), &delay))
-		goto max_delay;
-
 	nightmare_check_cpu(nightmare_cpuinfo);
+	/* We want all CPUs to do sampling nearly on
+	 * same jiffy
+	 */
+	delay = usecs_to_jiffies(atomic_read(&nightmare_tuners_ins.sampling_rate));
+	if (num_online_cpus() > 1) {
+		delay -= jiffies % delay;
+	}	
 
-max_delay:
 	mod_delayed_work_on(nightmare_cpuinfo->cpu, system_wq, &nightmare_cpuinfo->work, delay);
 	mutex_unlock(&timer_mutex);
 }
@@ -1019,7 +998,6 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 
 		mutex_init(&timer_mutex);
 
-		this_nightmare_cpuinfo->time_stamp = ktime_get();
 		nightmare_timer_init(this_nightmare_cpuinfo);
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
