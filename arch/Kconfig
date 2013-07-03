@@ -302,6 +302,9 @@ config HAVE_CONTEXT_TRACKING
 config HAVE_ARCH_TRANSPARENT_HUGEPAGE
 	bool
 
+config HAVE_ARCH_SOFT_DIRTY
+	bool
+
 config MODULES_USE_ELF_RELA
 	bool
 	help
