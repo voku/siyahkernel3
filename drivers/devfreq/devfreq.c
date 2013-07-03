@@ -533,7 +533,7 @@ struct devfreq *devfreq_add_device(struct device *dev,
 		pm_qos_add_notifier(profile->qos_type, &devfreq->qos_nb);
 	}
 
-	dev_set_name(&devfreq->dev, dev_name(dev));
+	dev_set_name(&devfreq->dev, "%s", dev_name(dev));
 	err = device_register(&devfreq->dev);
 	if (err) {
 		put_device(&devfreq->dev);
