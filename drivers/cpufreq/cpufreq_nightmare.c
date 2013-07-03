@@ -811,7 +811,6 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 	int down_sf_step = atomic_read(&nightmare_tuners_ins.down_sf_step);
 	int dec_cpu_load = atomic_read(&nightmare_tuners_ins.dec_cpu_load);
 	int num_hist = hotplug_history->num_hist;
-	int prev_freq_set=0;
 	unsigned int j;
 
 	for_each_online_cpu(j) {
@@ -872,17 +871,16 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 		if (cur_load >= inc_cpu_load && cpu_policy->cur < max_freq) {
 			next_freq = nightmare_frequency_adjust((cpu_policy->cur + ((cur_load + freq_step - freq_up_brake == 0 ? 1 : cur_load + freq_step - freq_up_brake) * 2000)), cpu_policy->cur, min_freq, max_freq, up_sf_step);
 			/* printk(KERN_ERR "UP FREQ CALC.: CPU[%u], load[%d]>=inc_cpu_load[%d], target freq[%u], cur freq[%u], min freq[%u], max_freq[%u]\n",j, cur_load, inc_cpu_load, next_freq, cpu_policy->cur, min_freq, max_freq); */
-			if (next_freq != cpu_policy->cur && next_freq != prev_freq_set) {
+			if (next_freq != cpu_policy->cur) {
 				__cpufreq_driver_target(cpu_policy, next_freq, CPUFREQ_RELATION_L);
 			}
 		} else if (cur_load < dec_cpu_load && cpu_policy->cur > min_freq) {
 			next_freq = nightmare_frequency_adjust((cpu_policy->cur - ((100 - cur_load + freq_step_dec == 0 ? 1 : 100 - cur_load + freq_step_dec) * 2000)), cpu_policy->cur, min_freq, max_freq, down_sf_step);
 			/* printk(KERN_ERR "DOWN FREQ CALC.: CPU[%u], load[%d]<dec_cpu_load[%d], target freq[%u], cur freq[%u], min freq[%u], max_freq[%u]\n",j, cur_load, dec_cpu_load, next_freq, cpu_policy->cur, min_freq, max_freq); */
-			if (next_freq < cpu_policy->cur && next_freq != prev_freq_set) {
+			if (next_freq < cpu_policy->cur) {
 				__cpufreq_driver_target(cpu_policy, next_freq, CPUFREQ_RELATION_L);
 			}
 		}
-		prev_freq_set = next_freq;
 	}
 
 	/* set num_hist used */
