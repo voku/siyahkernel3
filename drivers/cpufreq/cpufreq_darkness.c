@@ -69,8 +69,6 @@ struct cpufreq_darkness_cpuinfo {
 	u64 prev_cpu_busy;
 	u64 prev_cpu_idle;
 	struct delayed_work work;
-	struct work_struct up_work;
-	struct work_struct down_work;
 	int cpu;
 };
 /*
@@ -79,6 +77,7 @@ struct cpufreq_darkness_cpuinfo {
  * when user is changing the governor or limits.
  */
 static struct mutex timer_mutex;
+static struct workqueue_struct *dvfs_workqueue;
 
 static DEFINE_PER_CPU(struct cpufreq_darkness_cpuinfo, od_darkness_cpuinfo);
 static DEFINE_PER_CPU(struct cpufreq_policy *, cpufreq_cpu_data);
@@ -420,36 +419,6 @@ static struct attribute_group darkness_attr_group = {
 
 /************************** sysfs end ************************/
 
-static void cpu_up_work(struct work_struct *work)
-{
-	int cpu;
-	int nr_up = 1;
-
-	for_each_cpu_not(cpu, cpu_online_mask) {
-		if (cpu == 0)
-			continue;
-		/* printk(KERN_ERR "CPU_UP %d\n", cpu); */
-		cpu_up(cpu);
-		if (--nr_up == 0)
-			break;
-	}
-}
-
-static void cpu_down_work(struct work_struct *work)
-{
-	int cpu;
-	int nr_down = 1;
-
-	for_each_online_cpu(cpu) {
-		if (cpu == 0)
-			continue;
-		/* printk(KERN_ERR "CPU_DOWN %d\n", cpu); */
-		cpu_down(cpu);
-		if (--nr_down == 0)
-			break;
-	}
-}
-
 static int check_up(bool earlysuspend)
 {
 	int up_rate = atomic_read(&darkness_tuners_ins.cpu_up_rate);
@@ -604,9 +573,9 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 	if (hotplug_enable) {
 		/*Check for CPU hotplug*/
 		if (check_up(earlysuspend)) {
-			queue_work_on(this_darkness_cpuinfo->cpu, system_wq, &this_darkness_cpuinfo->up_work);
+			cpu_up(1);
 		} else if (check_down(earlysuspend)) {
-			queue_work_on(this_darkness_cpuinfo->cpu, system_wq, &this_darkness_cpuinfo->down_work);
+			cpu_down(1);
 		}
 	}
 	if (hotplug_history->num_hist == max_hotplug_rate)
@@ -629,24 +598,20 @@ static void do_darkness_timer(struct work_struct *work)
 		delay -= jiffies % delay;
 	}	
 
-	mod_delayed_work_on(darkness_cpuinfo->cpu, system_wq, &darkness_cpuinfo->work, delay);
+	mod_delayed_work_on(darkness_cpuinfo->cpu, dvfs_workqueue, &darkness_cpuinfo->work, delay);
 	mutex_unlock(&timer_mutex);
 }
 
 static inline void darkness_timer_init(struct cpufreq_darkness_cpuinfo *darkness_cpuinfo)
 {
 	INIT_DEFERRABLE_WORK(&darkness_cpuinfo->work, do_darkness_timer);
-	INIT_WORK(&darkness_cpuinfo->up_work, cpu_up_work);
-	INIT_WORK(&darkness_cpuinfo->down_work, cpu_down_work);
 
-	mod_delayed_work_on(darkness_cpuinfo->cpu, system_wq, &darkness_cpuinfo->work, 0);
+	mod_delayed_work_on(darkness_cpuinfo->cpu, dvfs_workqueue, &darkness_cpuinfo->work, 0);
 }
 
 static inline void darkness_timer_exit(struct cpufreq_darkness_cpuinfo *darkness_cpuinfo)
 {
 	cancel_delayed_work(&darkness_cpuinfo->work);
-	cancel_work_sync(&darkness_cpuinfo->up_work);
-	cancel_work_sync(&darkness_cpuinfo->down_work);
 }
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -777,9 +742,16 @@ static int __init cpufreq_gov_darkness_init(void)
 		goto err_free;
 	}
 
+	dvfs_workqueue = create_singlethread_workqueue("kdarkness");
+	if (!dvfs_workqueue) {
+		pr_err("%s cannot create workqueue\n", __func__);
+		ret = -ENOMEM;
+		goto err_queue;
+	}
+
 	ret = cpufreq_register_governor(&cpufreq_gov_darkness);
 	if (ret)
-		goto err_queue;
+		goto err_reg;
 
 	early_suspend.suspend = cpufreq_darkness_early_suspend;
 	early_suspend.resume = cpufreq_darkness_late_resume;
@@ -787,6 +759,8 @@ static int __init cpufreq_gov_darkness_init(void)
 
 	return ret;
 
+err_reg:
+	destroy_workqueue(dvfs_workqueue);
 err_queue:
 	kfree(hotplug_history);
 err_free:
@@ -798,13 +772,14 @@ err_free:
 static void __exit cpufreq_gov_darkness_exit(void)
 {
 	cpufreq_unregister_governor(&cpufreq_gov_darkness);
+	destroy_workqueue(dvfs_workqueue);
 	kfree(hotplug_history);
 	kfree(&darkness_tuners_ins);
 	kfree(&hotplug_freq);
 }
 
 MODULE_AUTHOR("Alucard24@XDA");
-MODULE_DESCRIPTION("'cpufreq_darkness' - A dynamic cpufreq/cpuhotplug governor v.0.9");
+MODULE_DESCRIPTION("'cpufreq_darkness' - A dynamic cpufreq/cpuhotplug governor v.1.1");
 MODULE_LICENSE("GPL");
 
 #ifdef CONFIG_CPU_FREQ_DEFAULT_GOV_darkness
