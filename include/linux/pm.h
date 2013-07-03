@@ -35,6 +35,19 @@ extern void (*pm_idle)(void);
 extern void (*pm_power_off)(void);
 extern void (*pm_power_off_prepare)(void);
 
+struct device; /* we have a circular dep with device.h */
+#ifdef CONFIG_VT_CONSOLE_SLEEP
+extern void pm_vt_switch_required(struct device *dev, bool required);
+extern void pm_vt_switch_unregister(struct device *dev);
+#else
+static inline void pm_vt_switch_required(struct device *dev, bool required)
+{
+}
+static inline void pm_vt_switch_unregister(struct device *dev)
+{
+}
+#endif /* CONFIG_VT_CONSOLE_SLEEP */
+
 /*
  * Device power management
  */
@@ -54,96 +67,112 @@ typedef struct pm_message {
 /**
  * struct dev_pm_ops - device PM callbacks
  *
- * Several driver power state transitions are externally visible, affecting
+ * Several device power state transitions are externally visible, affecting
  * the state of pending I/O queues and (for drivers that touch hardware)
  * interrupts, wakeups, DMA, and other hardware state.  There may also be
- * internal transitions to various low power modes, which are transparent
+ * internal transitions to various low-power modes which are transparent
  * to the rest of the driver stack (such as a driver that's ON gating off
  * clocks which are not in active use).
  *
- * The externally visible transitions are handled with the help of the following
- * callbacks included in this structure:
+ * The externally visible transitions are handled with the help of callbacks
+ * included in this structure in such a way that two levels of callbacks are
+ * involved.  First, the PM core executes callbacks provided by PM domains,
+ * device types, classes and bus types.  They are the subsystem-level callbacks
+ * supposed to execute callbacks provided by device drivers, although they may
+ * choose not to do that.  If the driver callbacks are executed, they have to
+ * collaborate with the subsystem-level callbacks to achieve the goals
+ * appropriate for the given system transition, given transition phase and the
+ * subsystem the device belongs to.
  *
- * @prepare: Prepare the device for the upcoming transition, but do NOT change
- *	its hardware state.  Prevent new children of the device from being
- *	registered after @prepare() returns (the driver's subsystem and
- *	generally the rest of the kernel is supposed to prevent new calls to the
- *	probe method from being made too once @prepare() has succeeded).  If
- *	@prepare() detects a situation it cannot handle (e.g. registration of a
- *	child already in progress), it may return -EAGAIN, so that the PM core
- *	can execute it once again (e.g. after the new child has been registered)
- *	to recover from the race condition.  This method is executed for all
- *	kinds of suspend transitions and is followed by one of the suspend
- *	callbacks: @suspend(), @freeze(), or @poweroff().
- *	The PM core executes @prepare() for all devices before starting to
- *	execute suspend callbacks for any of them, so drivers may assume all of
- *	the other devices to be present and functional while @prepare() is being
- *	executed.  In particular, it is safe to make GFP_KERNEL memory
- *	allocations from within @prepare().  However, drivers may NOT assume
- *	anything about the availability of the user space at that time and it
- *	is not correct to request firmware from within @prepare() (it's too
- *	late to do that).  [To work around this limitation, drivers may
- *	register suspend and hibernation notifiers that are executed before the
- *	freezing of tasks.]
+ * @prepare: The principal role of this callback is to prevent new children of
+ *	the device from being registered after it has returned (the driver's
+ *	subsystem and generally the rest of the kernel is supposed to prevent
+ *	new calls to the probe method from being made too once @prepare() has
+ *	succeeded).  If @prepare() detects a situation it cannot handle (e.g.
+ *	registration of a child already in progress), it may return -EAGAIN, so
+ *	that the PM core can execute it once again (e.g. after a new child has
+ *	been registered) to recover from the race condition.
+ *	This method is executed for all kinds of suspend transitions and is
+ *	followed by one of the suspend callbacks: @suspend(), @freeze(), or
+ *	@poweroff().  The PM core executes subsystem-level @prepare() for all
+ *	devices before starting to invoke suspend callbacks for any of them, so
+ *	generally devices may be assumed to be functional or to respond to
+ *	runtime resume requests while @prepare() is being executed.  However,
+ *	device drivers may NOT assume anything about the availability of user
+ *	space at that time and it is NOT valid to request firmware from within
+ *	@prepare() (it's too late to do that).  It also is NOT valid to allocate
+ *	substantial amounts of memory from @prepare() in the GFP_KERNEL mode.
+ *	[To work around these limitations, drivers may register suspend and
+ *	hibernation notifiers to be executed before the freezing of tasks.]
  *
  * @complete: Undo the changes made by @prepare().  This method is executed for
  *	all kinds of resume transitions, following one of the resume callbacks:
  *	@resume(), @thaw(), @restore().  Also called if the state transition
- *	fails before the driver's suspend callback (@suspend(), @freeze(),
- *	@poweroff()) can be executed (e.g. if the suspend callback fails for one
+ *	fails before the driver's suspend callback: @suspend(), @freeze() or
+ *	@poweroff(), can be executed (e.g. if the suspend callback fails for one
  *	of the other devices that the PM core has unsuccessfully attempted to
  *	suspend earlier).
- *	The PM core executes @complete() after it has executed the appropriate
- *	resume callback for all devices.
+ *	The PM core executes subsystem-level @complete() after it has executed
+ *	the appropriate resume callbacks for all devices.
  *
  * @suspend: Executed before putting the system into a sleep state in which the
- *	contents of main memory are preserved.  Quiesce the device, put it into
- *	a low power state appropriate for the upcoming system state (such as
- *	PCI_D3hot), and enable wakeup events as appropriate.
+ *	contents of main memory are preserved.  The exact action to perform
+ *	depends on the device's subsystem (PM domain, device type, class or bus
+ *	type), but generally the device must be quiescent after subsystem-level
+ *	@suspend() has returned, so that it doesn't do any I/O or DMA.
+ *	Subsystem-level @suspend() is executed for all devices after invoking
+ *	subsystem-level @prepare() for all of them.
  *
  * @suspend_late: Continue operations started by @suspend().  For a number of
  *	devices @suspend_late() may point to the same callback routine as the
  *	runtime suspend callback.
  *
  * @resume: Executed after waking the system up from a sleep state in which the
- *	contents of main memory were preserved.  Put the device into the
- *	appropriate state, according to the information saved in memory by the
- *	preceding @suspend().  The driver starts working again, responding to
- *	hardware events and software requests.  The hardware may have gone
- *	through a power-off reset, or it may have maintained state from the
- *	previous suspend() which the driver may rely on while resuming.  On most
- *	platforms, there are no restrictions on availability of resources like
- *	clocks during @resume().
+ *	contents of main memory were preserved.  The exact action to perform
+ *	depends on the device's subsystem, but generally the driver is expected
+ *	to start working again, responding to hardware events and software
+ *	requests (the device itself may be left in a low-power state, waiting
+ *	for a runtime resume to occur).  The state of the device at the time its
+ *	driver's @resume() callback is run depends on the platform and subsystem
+ *	the device belongs to.  On most platforms, there are no restrictions on
+ *	availability of resources like clocks during @resume().
+ *	Subsystem-level @resume() is executed for all devices after invoking
+ *	subsystem-level @resume_noirq() for all of them.
  *
  * @resume_early: Prepare to execute @resume().  For a number of devices
  *	@resume_early() may point to the same callback routine as the runtime
  *	resume callback.
  *
  * @freeze: Hibernation-specific, executed before creating a hibernation image.
- *	Quiesce operations so that a consistent image can be created, but do NOT
- *	otherwise put the device into a low power device state and do NOT emit
- *	system wakeup events.  Save in main memory the device settings to be
- *	used by @restore() during the subsequent resume from hibernation or by
- *	the subsequent @thaw(), if the creation of the image or the restoration
- *	of main memory contents from it fails.
+ *	Analogous to @suspend(), but it should not enable the device to signal
+ *	wakeup events or change its power state.  The majority of subsystems
+ *	(with the notable exception of the PCI bus type) expect the driver-level
+ *	@freeze() to save the device settings in memory to be used by @restore()
+ *	during the subsequent resume from hibernation.
+ *	Subsystem-level @freeze() is executed for all devices after invoking
+ *	subsystem-level @prepare() for all of them.
  *
  * @freeze_late: Continue operations started by @freeze().  Analogous to
  *	@suspend_late(), but it should not enable the device to signal wakeup
  *	events or change its power state.
  *
  * @thaw: Hibernation-specific, executed after creating a hibernation image OR
- *	if the creation of the image fails.  Also executed after a failing
+ *	if the creation of an image has failed.  Also executed after a failing
  *	attempt to restore the contents of main memory from such an image.
  *	Undo the changes made by the preceding @freeze(), so the device can be
  *	operated in the same way as immediately before the call to @freeze().
+ *	Subsystem-level @thaw() is executed for all devices after invoking
+ *	subsystem-level @thaw_noirq() for all of them.  It also may be executed
+ *	directly after @freeze() in case of a transition error.
  *
  * @thaw_early: Prepare to execute @thaw().  Undo the changes made by the
  *	preceding @freeze_late().
  *
  * @poweroff: Hibernation-specific, executed after saving a hibernation image.
- *	Quiesce the device, put it into a low power state appropriate for the
- *	upcoming system state (such as PCI_D3hot), and enable wakeup events as
- *	appropriate.
+ *	Analogous to @suspend(), but it need not save the device's settings in
+ *	memory.
+ *	Subsystem-level @poweroff() is executed for all devices after invoking
+ *	subsystem-level @prepare() for all of them.
  *
  * @poweroff_late: Continue operations started by @poweroff().  Analogous to
  *	@suspend_late(), but it need not save the device's settings in memory.
@@ -195,9 +224,9 @@ typedef struct pm_message {
  *
  * All of the above callbacks, except for @complete(), return error codes.
  * However, the error codes returned by the resume operations, @resume(),
- * @thaw(), @restore(), @resume_noirq(), @thaw_noirq(), and @restore_noirq() do
+ * @thaw(), @restore(), @resume_noirq(), @thaw_noirq(), and @restore_noirq(), do
  * not cause the PM core to abort the resume transition during which they are
- * returned.  The error codes returned in that cases are only printed by the PM
+ * returned.  The error codes returned in those cases are only printed by the PM
  * core to the system logs for debugging purposes.  Still, it is recommended
  * that drivers only return error codes from their resume methods in case of an
  * unrecoverable failure (i.e. when the device being handled refuses to resume
@@ -206,31 +235,43 @@ typedef struct pm_message {
  * their children.
  *
  * It is allowed to unregister devices while the above callbacks are being
- * executed.  However, it is not allowed to unregister a device from within any
- * of its own callbacks.
+ * executed.  However, a callback routine must NOT try to unregister the device
+ * it was called for, although it may unregister children of that device (for
+ * example, if it detects that a child was unplugged while the system was
+ * asleep).
  *
- * There also are the following callbacks related to run-time power management
- * of devices:
+ * Refer to Documentation/power/devices.txt for more information about the role
+ * of the above callbacks in the system suspend process.
+ *
+ * There also are callbacks related to runtime power management of devices.
+ * Again, these callbacks are executed by the PM core only for subsystems
+ * (PM domains, device types, classes and bus types) and the subsystem-level
+ * callbacks are supposed to invoke the driver callbacks.  Moreover, the exact
+ * actions to be performed by a device driver's callbacks generally depend on
+ * the platform and subsystem the device belongs to.
  *
  * @runtime_suspend: Prepare the device for a condition in which it won't be
  *	able to communicate with the CPU(s) and RAM due to power management.
- *	This need not mean that the device should be put into a low power state.
+ *	This need not mean that the device should be put into a low-power state.
  *	For example, if the device is behind a link which is about to be turned
  *	off, the device may remain at full power.  If the device does go to low
- *	power and is capable of generating run-time wake-up events, remote
- *	wake-up (i.e., a hardware mechanism allowing the device to request a
- *	change of its power state via a wake-up event, such as PCI PME) should
- *	be enabled for it.
+ *	power and is capable of generating runtime wakeup events, remote wakeup
+ *	(i.e., a hardware mechanism allowing the device to request a change of
+ *	its power state via an interrupt) should be enabled for it.
  *
  * @runtime_resume: Put the device into the fully active state in response to a
- *	wake-up event generated by hardware or at the request of software.  If
- *	necessary, put the device into the full power state and restore its
+ *	wakeup event generated by hardware or at the request of software.  If
+ *	necessary, put the device into the full-power state and restore its
  *	registers, so that it is fully operational.
  *
- * @runtime_idle: Device appears to be inactive and it might be put into a low
- *	power state if all of the necessary conditions are satisfied.  Check
+ * @runtime_idle: Device appears to be inactive and it might be put into a
+ *	low-power state if all of the necessary conditions are satisfied.  Check
  *	these conditions and handle the device as appropriate, possibly queueing
  *	a suspend request for it.  The return value is ignored by the PM core.
+ *
+ * Refer to Documentation/power/runtime_pm.txt for more information about the
+ * role of the above callbacks in device runtime power management.
+ *
  */
 
 struct dev_pm_ops {
@@ -292,6 +333,15 @@ const struct dev_pm_ops name = { \
 /*
  * Use this for defining a set of PM operations to be used in all situations
  * (sustem suspend, hibernation or runtime PM).
+ * NOTE: In general, system suspend callbacks, .suspend() and .resume(), should
+ * be different from the corresponding runtime PM callbacks, .runtime_suspend(),
+ * and .runtime_resume(), because .runtime_suspend() always works on an already
+ * quiescent device, while .suspend() should assume that the device may be doing
+ * something when it is called (it should ensure that the device will be
+ * quiescent after it has returned).  Therefore it's better to point the "late"
+ * suspend and "early" resume callback pointers, .suspend_late() and
+ * .resume_early(), to the same routines as .runtime_suspend() and
+ * .runtime_resume(), respectively (and analogously for hibernation).
  */
 #define UNIVERSAL_DEV_PM_OPS(name, suspend_fn, resume_fn, idle_fn) \
 const struct dev_pm_ops name = { \
@@ -481,6 +531,12 @@ struct dev_pm_info {
 	unsigned int		should_wakeup:1;
 #endif
 #ifdef CONFIG_PM_RUNTIME
+	struct timer_list	suspend_timer;
+	unsigned long		timer_expires;
+	struct work_struct	work;
+	wait_queue_head_t	wait_queue;
+	atomic_t		usage_count;
+	atomic_t		child_count;
 	unsigned int		disable_depth:3;
 	unsigned int		idle_notification:1;
 	unsigned int		request_pending:1;
@@ -494,12 +550,6 @@ struct dev_pm_info {
 	unsigned int		memalloc_noio:1;
 	enum rpm_request	request;
 	enum rpm_status		runtime_status;
-	struct timer_list	suspend_timer;
-	unsigned long		timer_expires;
-	struct work_struct	work;
-	wait_queue_head_t	wait_queue;
-	atomic_t		usage_count;
-	atomic_t		child_count;
 	int			runtime_error;
 	int			autosuspend_delay;
 	unsigned long		last_busy;
