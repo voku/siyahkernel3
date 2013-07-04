@@ -227,12 +227,20 @@
 /* ZZ: midnight and zzmoove default values */
 #define DEF_FREQUENCY_UP_THRESHOLD		(70)
 #define DEF_FREQUENCY_UP_THRESHOLD_HOTPLUG1	(68)	/* ZZ: default for hotplug up threshold for cpu1 (cpu0 stays allways on) */
+
+#ifndef CONFIG_CPU_EXYNOS4210
 #define DEF_FREQUENCY_UP_THRESHOLD_HOTPLUG2	(68)	/* ZZ: default for hotplug up threshold for cpu2 (cpu0 stays allways on) */
 #define DEF_FREQUENCY_UP_THRESHOLD_HOTPLUG3	(68)	/* ZZ: default for hotplug up threshold for cpu3 (cpu0 stays allways on) */
+#endif
+
 #define DEF_FREQUENCY_DOWN_THRESHOLD		(52)
 #define DEF_FREQUENCY_DOWN_THRESHOLD_HOTPLUG1	(55)	/* ZZ: default for hotplug down threshold for cpu1 (cpu0 stays allways on) */
+
+#ifndef CONFIG_CPU_EXYNOS4210
 #define DEF_FREQUENCY_DOWN_THRESHOLD_HOTPLUG2	(55)	/* ZZ: default for hotplug down threshold for cpu2 (cpu0 stays allways on) */
 #define DEF_FREQUENCY_DOWN_THRESHOLD_HOTPLUG3	(55)	/* ZZ: default for hotplug down threshold for cpu3 (cpu0 stays allways on) */
+#endif
+
 #define DEF_IGNORE_NICE				(0)	/* ZZ: default for ignore nice load */
 #define DEF_FREQ_STEP				(5)	/* ZZ: default for freq step at awake */
 #define DEF_FREQ_STEP_SLEEP			(5)	/* ZZ: default for freq step at early suspend */
@@ -292,8 +300,10 @@ static unsigned int freq_limit_awake;			/* ZZ: for saving freqency limit awake v
 static unsigned int fast_scaling_awake;			/* ZZ: for saving fast scaling awake value */
 static unsigned int freq_step_awake;			/* ZZ: for saving frequency step awake value */
 static unsigned int hotplug1_awake;			/* ZZ: for saving hotplug1 threshold awake value */
+#ifndef CONFIG_CPU_EXYNOS4210
 static unsigned int hotplug2_awake;			/* ZZ: for saving hotplug2 threshold awake value */
 static unsigned int hotplug3_awake;			/* ZZ: for saving hotplug3 threshold awake value */
+#endif
 static unsigned int sampling_rate_asleep;		/* ZZ: for setting sampling rate value on early suspend */
 static unsigned int up_threshold_asleep;		/* ZZ: for setting up threshold value on early suspend */
 static unsigned int down_threshold_asleep;		/* ZZ: for setting down threshold value on early suspend */
@@ -390,13 +400,17 @@ static struct dbs_tuners {
 	unsigned int sampling_down_mom_sens;		/* ZZ: Sampling down momentum sensitivity */
 	unsigned int up_threshold;
 	unsigned int up_threshold_hotplug1;		/* ZZ: added tuneable up_threshold_hotplug1 for core1 */
+#ifndef CONFIG_CPU_EXYNOS4210
 	unsigned int up_threshold_hotplug2;		/* ZZ: added tuneable up_threshold_hotplug2 for core2 */
 	unsigned int up_threshold_hotplug3;		/* ZZ: added tuneable up_threshold_hotplug3 for core3 */
+#endif
 	unsigned int up_threshold_sleep;		/* ZZ: added tuneable up_threshold_sleep for early suspend */
 	unsigned int down_threshold;
 	unsigned int down_threshold_hotplug1;		/* ZZ: added tuneable down_threshold_hotplug1 for core1 */
+#ifndef CONFIG_CPU_EXYNOS4210
 	unsigned int down_threshold_hotplug2;		/* ZZ: added tuneable down_threshold_hotplug2 for core2 */
 	unsigned int down_threshold_hotplug3;		/* ZZ: added tuneable down_threshold_hotplug3 for core3 */
+#endif
 	unsigned int down_threshold_sleep;		/* ZZ: added tuneable down_threshold_sleep for early suspend */
 	unsigned int ignore_nice;
 	unsigned int freq_step;
@@ -424,13 +438,17 @@ static struct dbs_tuners {
 } dbs_tuners_ins = {
 	.up_threshold = DEF_FREQUENCY_UP_THRESHOLD,
 	.up_threshold_hotplug1 = DEF_FREQUENCY_UP_THRESHOLD_HOTPLUG1,		/* ZZ: set default value for new tuneable */
+#ifndef CONFIG_CPU_EXYNOS4210
 	.up_threshold_hotplug2 = DEF_FREQUENCY_UP_THRESHOLD_HOTPLUG2,		/* ZZ: set default value for new tuneable */
 	.up_threshold_hotplug3 = DEF_FREQUENCY_UP_THRESHOLD_HOTPLUG3,		/* ZZ: set default value for new tuneable */
+#endif
 	.up_threshold_sleep = DEF_UP_THRESHOLD_SLEEP,				/* ZZ: set default value for new tuneable */
 	.down_threshold = DEF_FREQUENCY_DOWN_THRESHOLD,
 	.down_threshold_hotplug1 = DEF_FREQUENCY_DOWN_THRESHOLD_HOTPLUG1,	/* ZZ: set default value for new tuneable */
+#ifndef CONFIG_CPU_EXYNOS4210
 	.down_threshold_hotplug2 = DEF_FREQUENCY_DOWN_THRESHOLD_HOTPLUG2,	/* ZZ: set default value for new tuneable */
 	.down_threshold_hotplug3 = DEF_FREQUENCY_DOWN_THRESHOLD_HOTPLUG3,	/* ZZ: set default value for new tuneable */
+#endif
 	.down_threshold_sleep = DEF_DOWN_THRESHOLD_SLEEP,			/* ZZ: set default value for new tuneable */
 	.sampling_down_factor = DEF_SAMPLING_DOWN_FACTOR,			/* ZZ: sampling down reactivated but disabled by default */
 	.sampling_down_momentum = DEF_SAMPLING_DOWN_MOMENTUM,			/* ZZ: Sampling down momentum initial disabled */
@@ -642,13 +660,17 @@ show_one(sampling_down_momentum_sensitivity, sampling_down_mom_sens);		/* ZZ: ad
 show_one(up_threshold, up_threshold);
 show_one(up_threshold_sleep, up_threshold_sleep);				/* ZZ: added up_threshold_sleep tuneable for early suspend */
 show_one(up_threshold_hotplug1, up_threshold_hotplug1);				/* ZZ: added up_threshold_hotplug1 tuneable for cpu1 */
+#ifndef CONFIG_CPU_EXYNOS4210
 show_one(up_threshold_hotplug2, up_threshold_hotplug2);				/* ZZ: added up_threshold_hotplug2 tuneable for cpu2 */
 show_one(up_threshold_hotplug3, up_threshold_hotplug3);				/* ZZ: added up_threshold_hotplug3 tuneable for cpu3 */
+#endif
 show_one(down_threshold, down_threshold);
 show_one(down_threshold_sleep, down_threshold_sleep);				/* ZZ: added down_threshold_sleep tuneable for early suspend */
 show_one(down_threshold_hotplug1, down_threshold_hotplug1);			/* ZZ: added down_threshold_hotplug1 tuneable for cpu1 */
+#ifndef CONFIG_CPU_EXYNOS4210
 show_one(down_threshold_hotplug2, down_threshold_hotplug2);			/* ZZ: added down_threshold_hotplug2 tuneable for cpu2 */
 show_one(down_threshold_hotplug3, down_threshold_hotplug3);			/* ZZ: added down_threshold_hotplug3 tuneable for cpu3 */
+#endif
 show_one(ignore_nice_load, ignore_nice);
 show_one(freq_step, freq_step);
 show_one(freq_step_sleep, freq_step_sleep);					/* ZZ: added freq_step_sleep tuneable for early suspend */
@@ -840,6 +862,7 @@ static ssize_t store_up_threshold_hotplug1(struct kobject *a, struct attribute *
 	return count;
 }
 
+#ifndef CONFIG_CPU_EXYNOS4210
 /* ZZ: added tuneable -> possible values: 0 to disable core,
  * range from down_threshold up to 100, if not set default is 68
  */
@@ -875,6 +898,7 @@ static ssize_t store_up_threshold_hotplug3(struct kobject *a, struct attribute *
 	dbs_tuners_ins.up_threshold_hotplug3 = input;
 	return count;
 }
+#endif
 
 static ssize_t store_down_threshold(struct kobject *a, struct attribute *b,
 				    const char *buf, size_t count)
@@ -934,6 +958,7 @@ static ssize_t store_down_threshold_hotplug1(struct kobject *a, struct attribute
 	return count;
 }
 
+#ifndef CONFIG_CPU_EXYNOS4210
 /* ZZ: added tuneable -> possible values:
  * range from 11 to up_threshold but not up_threshold,
  * if not set default is 55
@@ -973,6 +998,7 @@ static ssize_t store_down_threshold_hotplug3(struct kobject *a, struct attribute
 	dbs_tuners_ins.down_threshold_hotplug3 = input;
 	return count;
 }
+#endif
 
 static ssize_t store_ignore_nice_load(struct kobject *a, struct attribute *b,
 				      const char *buf, size_t count)
@@ -1403,13 +1429,17 @@ define_one_global_rw(sampling_down_momentum_sensitivity);	/* ZZ: Sampling down m
 define_one_global_rw(up_threshold);
 define_one_global_rw(up_threshold_sleep);			/* ZZ: added tuneable */
 define_one_global_rw(up_threshold_hotplug1);			/* ZZ: added tuneable */
+#ifndef CONFIG_CPU_EXYNOS4210
 define_one_global_rw(up_threshold_hotplug2);			/* ZZ: added tuneable */
 define_one_global_rw(up_threshold_hotplug3);			/* ZZ: added tuneable */
+#endif
 define_one_global_rw(down_threshold);
 define_one_global_rw(down_threshold_sleep);			/* ZZ: added tuneable */
 define_one_global_rw(down_threshold_hotplug1);			/* ZZ: added tuneable */
+#ifndef CONFIG_CPU_EXYNOS4210
 define_one_global_rw(down_threshold_hotplug2);			/* ZZ: added tuneable */
 define_one_global_rw(down_threshold_hotplug3);			/* ZZ: added tuneable */
+#endif
 define_one_global_rw(ignore_nice_load);
 define_one_global_rw(freq_step);
 define_one_global_rw(freq_step_sleep);				/* ZZ: added tuneable */
@@ -1438,13 +1468,17 @@ static struct attribute *dbs_attributes[] = {
 	&sampling_down_max_momentum.attr,			/* ZZ: Sampling down momentum tuneable */
 	&sampling_down_momentum_sensitivity.attr,		/* ZZ: Sampling down momentum tuneable */
 	&up_threshold_hotplug1.attr,				/* ZZ: added tuneable */
+#ifndef CONFIG_CPU_EXYNOS4210
 	&up_threshold_hotplug2.attr,				/* ZZ: added tuneable */
 	&up_threshold_hotplug3.attr,				/* ZZ: added tuneable */
+#endif
 	&down_threshold.attr,
 	&down_threshold_sleep.attr,				/* ZZ: added tuneable */
 	&down_threshold_hotplug1.attr,				/* ZZ: added tuneable */
+#ifndef CONFIG_CPU_EXYNOS4210
 	&down_threshold_hotplug2.attr,				/* ZZ: added tuneable */
 	&down_threshold_hotplug3.attr,				/* ZZ: added tuneable */
+#endif
 	&ignore_nice_load.attr,
 	&freq_step.attr,
 	&freq_step_sleep.attr,					/* ZZ: added tuneable */
@@ -1644,12 +1678,14 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 				if (i == 1 && dbs_tuners_ins.up_threshold_hotplug1 != 0 &&
 							max_load > dbs_tuners_ins.up_threshold_hotplug1) {
 					switch_core = 1;
+#ifndef CONFIG_CPU_EXYNOS4210
 				} else if (i == 2 && dbs_tuners_ins.up_threshold_hotplug2 != 0 &&
 							max_load > dbs_tuners_ins.up_threshold_hotplug2) {
 					switch_core = 2;
 				} else if (i == 3 && dbs_tuners_ins.up_threshold_hotplug3 != 0 &&
 							max_load > dbs_tuners_ins.up_threshold_hotplug3) {
 					switch_core = 3;
+#endif
 				}
 				if (!cpu_online(switch_core) && switch_core != 0 &&
 							skip_hotplug_flag == 0)
@@ -1804,13 +1840,19 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 		switch_core = 0;
 		for (i = 1; i < num_possible_cpus(); i++) {
 			if (skip_hotplug_flag == 0) {
+#ifndef CONFIG_CPU_EXYNOS4210
 				if (i == 3 && max_load < dbs_tuners_ins.down_threshold_hotplug3) {
 					switch_core = 3;
 				} else if (i == 2 && max_load < dbs_tuners_ins.down_threshold_hotplug2) {
 					switch_core = 2;
 				} else if (i == 1 && max_load < dbs_tuners_ins.down_threshold_hotplug1) {
 					switch_core = 1;
-			}
+				}
+#else
+				if (i == 1 && max_load < dbs_tuners_ins.down_threshold_hotplug1) {
+					switch_core = 1;
+				}
+#endif			
 				if (cpu_online(switch_core) && switch_core != 0 && skip_hotplug_flag == 0)
 					cpu_down(switch_core);
 			}
@@ -2090,8 +2132,10 @@ static void powersave_early_suspend(struct early_suspend *handler)
 
 	if (dbs_tuners_ins.hotplug_sleep != 0) {				/* ZZ: if set to 0 do not touch hotplugging values */
 		hotplug1_awake = dbs_tuners_ins.up_threshold_hotplug1;		/* ZZ: save hotplug1 value for restore on awake */
+#ifndef CONFIG_CPU_EXYNOS4210
 		hotplug2_awake = dbs_tuners_ins.up_threshold_hotplug2;		/* ZZ: save hotplug2 value for restore on awake */
 		hotplug3_awake = dbs_tuners_ins.up_threshold_hotplug3;		/* ZZ: save hotplug3 value for restore on awake */
+#endif
 	}
 
 	sampling_rate_asleep = dbs_tuners_ins.sampling_rate_sleep_multiplier;	/* ZZ: save sleep multiplier */
@@ -2136,6 +2180,7 @@ static void powersave_early_suspend(struct early_suspend *handler)
 	if (dbs_tuners_ins.hotplug_sleep != 0) {					/* ZZ: if set to 0 do not touch hotplugging values */
 		if (dbs_tuners_ins.hotplug_sleep == 1) {
 			dbs_tuners_ins.up_threshold_hotplug1 = 0;			/* ZZ: set to one core */
+#ifndef CONFIG_CPU_EXYNOS4210
 			dbs_tuners_ins.up_threshold_hotplug2 = 0;			/* ZZ: set to one core */
 			dbs_tuners_ins.up_threshold_hotplug3 = 0;			/* ZZ: set to one core */
 		}
@@ -2145,6 +2190,7 @@ static void powersave_early_suspend(struct early_suspend *handler)
 		}
 		if (dbs_tuners_ins.hotplug_sleep == 3) {
 			dbs_tuners_ins.up_threshold_hotplug3 = 0;			/* ZZ: set to three cores */
+#endif
 		}
 	}
 
@@ -2177,8 +2223,10 @@ static void powersave_late_resume(struct early_suspend *handler)
 
 	if (dbs_tuners_ins.hotplug_sleep != 0) {
 		dbs_tuners_ins.up_threshold_hotplug1 = hotplug1_awake;		/* ZZ: restore previous settings */
+#ifndef CONFIG_CPU_EXYNOS4210
 		dbs_tuners_ins.up_threshold_hotplug2 = hotplug2_awake;		/* ZZ: restore previous settings */
 		dbs_tuners_ins.up_threshold_hotplug3 = hotplug3_awake;		/* ZZ: restore previous settings */
+#endif
 	}
 
 	dbs_tuners_ins.sampling_down_max_mom = orig_sampling_down_max_mom;	/* ZZ: Sampling down momentum - restore max value */
