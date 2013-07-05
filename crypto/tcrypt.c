@@ -33,12 +33,9 @@
 #include <linux/jiffies.h>
 #include <linux/timex.h>
 #include <linux/interrupt.h>
-#ifdef CRYPTO_SPEED_TESTS
 #include "tcrypt.h"
-#endif
 #include "internal.h"
 
-#ifdef CRYPTO_SPEED_TESTS
 /*
  * Need slab memory for testing (size in number of pages).
  */
@@ -54,15 +51,12 @@
  * Used by test_cipher_speed()
  */
 static unsigned int sec;
-#endif
 
 static char *alg = NULL;
 static u32 type;
 static u32 mask;
 static int mode;
-#ifdef CRYPTO_SPEED_TESTS
 static char *tvmem[TVMEMSIZE];
-#endif
 
 static char *check[] = {
 	"des", "md5", "des3_ede", "rot13", "sha1", "sha224", "sha256",
@@ -72,7 +66,7 @@ static char *check[] = {
 	"camellia", "seed", "salsa20", "rmd128", "rmd160", "rmd256", "rmd320",
 	"lzo", "cts", "zlib", NULL
 };
-#ifdef CRYPTO_SPEED_TESTS
+
 static int test_cipher_jiffies(struct blkcipher_desc *desc, int enc,
 			       struct scatterlist *sg, int blen, int sec)
 {
@@ -718,7 +712,6 @@ static void test_ahash_speed(const char *algo, unsigned int sec,
 out:
 	crypto_free_ahash(tfm);
 }
-#endif
 
 static inline int do_one_acipher_op(struct ablkcipher_request *req, int ret)
 {
@@ -1273,7 +1266,6 @@ static int do_test(int m)
 		break;
 #endif
 
-#ifdef CRYPTO_SPEED_TESTS
 	case 152:
 		ret += tcrypt_test("rfc4543(gcm(aes))");
 		break;
@@ -1622,7 +1614,6 @@ static int do_test(int m)
 
 	case 499:
 		break;
-#endif
 
 	case 500:
 		test_acipher_speed("ecb(aes)", ENCRYPT, sec, NULL, 0,
@@ -1849,7 +1840,6 @@ static int do_alg_test(const char *alg, u32 type, u32 mask)
 static int __init tcrypt_mod_init(void)
 {
 	int err = -ENOMEM;
-#ifdef CRYPTO_SPEED_TESTS
 	int i;
 
 	for (i = 0; i < TVMEMSIZE; i++) {
@@ -1857,7 +1847,6 @@ static int __init tcrypt_mod_init(void)
 		if (!tvmem[i])
 			goto err_free_tv;
 	}
-#endif
 
 	testmgr_crypto_proc_init();
 
@@ -1886,10 +1875,9 @@ static int __init tcrypt_mod_init(void)
 		err = -EAGAIN;
 
 err_free_tv:
-#ifdef CRYPTO_SPEED_TESTS
 	for (i = 0; i < TVMEMSIZE && tvmem[i]; i++)
 		free_page((unsigned long)tvmem[i]);
-#endif
+
 	return err;
 }
 
