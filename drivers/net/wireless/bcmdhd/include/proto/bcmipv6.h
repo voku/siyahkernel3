@@ -42,7 +42,7 @@
 #define ICMPV6_ND_OPT_TYPE_SRC_MAC		1
 
 #define IPV6_VERSION	6
-#define IPV6_HOP_LIMIT		255
+#define IPV6_HOP_LIMIT	255
 
 #define IPV6_ADDR_NULL(a)	((a[0] | a[1] | a[2] | a[3] | a[4] | \
 							 a[5] | a[6] | a[7] | a[8] | a[9] | \

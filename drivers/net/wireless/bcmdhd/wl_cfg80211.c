@@ -116,7 +116,7 @@ u32 wl_dbg_level = WL_DBG_ERR;
 
 #ifdef VSDB
 /* sleep time to keep STA's connecting or connection for continuous af tx or finding a peer */
-#define DEFAULT_SLEEP_TIME_VSDB	120
+#define DEFAULT_SLEEP_TIME_VSDB		120
 #define OFF_CHAN_TIME_THRESHOLD_MS	200
 
 /* if sta is connected or connecting, sleep for a while before retry af tx or finding a peer */

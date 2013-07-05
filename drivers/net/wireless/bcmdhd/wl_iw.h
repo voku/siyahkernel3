@@ -33,12 +33,12 @@
 #include <proto/ethernet.h>
 #include <wlioctl.h>
 
-#define WL_SCAN_PARAMS_SSID_MAX	10
+#define WL_SCAN_PARAMS_SSID_MAX		10
 #define GET_SSID			"SSID="
 #define GET_CHANNEL			"CH="
 #define GET_NPROBE			"NPROBE="
 #define GET_ACTIVE_ASSOC_DWELL		"ACTIVE="
-#define GET_PASSIVE_ASSOC_DWELL	"PASSIVE="
+#define GET_PASSIVE_ASSOC_DWELL		"PASSIVE="
 #define GET_HOME_DWELL			"HOME="
 #define GET_SCAN_TYPE			"TYPE="
 
@@ -88,8 +88,8 @@ struct cntry_locales_custom {
 #define WL_IW_SET_STOP				(SIOCIWFIRSTPRIV+11)
 #define WL_IW_SET_START			(SIOCIWFIRSTPRIV+13)
 
-#define		G_SCAN_RESULTS 8*1024
-#define		WE_ADD_EVENT_FIX	0x80
+#define			G_SCAN_RESULTS 8*1024
+#define			WE_ADD_EVENT_FIX	0x80
 #define          G_WLAN_SET_ON	0
 #define          G_WLAN_SET_OFF	1
 

@@ -22,7 +22,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: linuxver.h 367714 2012-11-09 03:26:01Z $
+ * $Id: linuxver.h 387186 2013-02-24 08:45:22Z $
  */
 
 #ifndef _linuxver_h_
@@ -511,7 +511,6 @@ typedef struct {
 #else
 #define SMP_RD_BARRIER_DEPENDS(x) smp_rmb(x)
 #endif
-
 
 #ifdef USE_KTHREAD_API
 #define PROC_START(thread_func, owner, tsk_ctl, flags, name) \

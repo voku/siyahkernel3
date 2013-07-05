@@ -64,12 +64,6 @@
 #define WIFI_TURNOFF_DELAY	200
 #endif /* CONFIG_ARCH_MSM8960 */
 
-#ifdef CONFIG_MACH_JF
-#undef CUSTOM_TXGLOM_SIZE
-#define CUSTOM_TXGLOM_SIZE 32
-#define DHD_TXBOUND 32
-#endif /* CONFIG_MACH_JF */
-
 #if defined(CONFIG_BCM4335) || defined (CONFIG_BCM4335_MODULE)
 #define POWERUP_MAX_RETRY 5 /* Due to late start-up of FPGA in JF project */
 #endif /* CONFIG_BCM4335 || CONFIG_BCM4335_MODULE */

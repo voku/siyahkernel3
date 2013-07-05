@@ -1512,7 +1512,7 @@ hndcrc32(uint8 *pdata, uint nbytes, uint32 crc)
 
 #ifdef notdef
 #define CLEN	1499	/*  CRC Length */
-#define CBUFSIZ	(CLEN+4)
+#define CBUFSIZ		(CLEN+4)
 #define CNBUFS		5 /* # of bufs */
 
 void

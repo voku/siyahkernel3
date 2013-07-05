@@ -3048,6 +3048,11 @@ dhd_stop(struct net_device *net)
 	dhd_info_t *dhd = *(dhd_info_t **)netdev_priv(net);
 	DHD_OS_WAKE_LOCK(&dhd->pub);
 	DHD_TRACE(("%s: Enter %p\n", __FUNCTION__, net));
+
+#ifdef FIX_CPU_MIN_CLOCK
+	dhd_cpu_unlock(dhd);
+#endif /* FIX_CPU_MIN_CLOCK */
+
 	if (dhd->pub.up == 0) {
 		goto exit;
 	}
@@ -4267,7 +4272,7 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 	bcm_mkiovar("lpc", (char *)&lpc, 4, iovbuf, sizeof(iovbuf));
 	if ((ret = dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf,
 		sizeof(iovbuf), TRUE, 0)) < 0) {
-		DHD_TRACE(("%s Set lpc failed  %d\n", __FUNCTION__, ret));
+		DHD_ERROR(("%s Set lpc failed  %d\n", __FUNCTION__, ret));
 	}
 
 #if defined(CUSTOMER_HW4) && defined(CONFIG_CONTROL_PM)
@@ -4479,7 +4484,7 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 
 #ifdef PKT_FILTER_SUPPORT
 	/* Setup default defintions for pktfilter , enable in suspend */
-	dhd->pktfilter_count = 5;
+	dhd->pktfilter_count = 6;
 	/* Setup filter to allow only unicast */
 	dhd->pktfilter[0] = "100 0 0 0 0x01 0x00";
 	dhd->pktfilter[1] = "102 0 0 36 0xffffffff 0x11940009"; /* discard NAT Keepalive packets */
@@ -4487,29 +4492,9 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 	dhd->pktfilter[3] = NULL;
 	/* Add filter to pass multicastDNS packet and NOT filter out as Broadcast */
 	dhd->pktfilter[4] = "106 0 0 0 0xFFFFFFFFFFFF 0x01005E0000FB";
-
-#if defined(CUSTOMER_HW4) && defined(GAN_LITE_NAT_KEEPALIVE_FILTER)
-	dhd->pktfilter_count = 4;
-	/* Setup filter to block broadcast and NAT Keepalive packets */
-	dhd->pktfilter[0] = "100 0 0 0 0xffffff 0xffffff"; /* discard all broadcast packets */
-	dhd->pktfilter[1] = "102 0 0 36 0xffffffff 0x11940009"; /* discard NAT Keepalive packets */
-	dhd->pktfilter[2] = "104 0 0 38 0xffffffff 0x11940009"; /* discard NAT Keepalive packets */
-	dhd->pktfilter[3] = NULL;
-#else
-	/* Setup filter to allow only unicast */
-#if defined(BLOCK_IPV6_PACKET) && defined(CUSTOMER_HW4)
-	dhd->pktfilter[0] = "100 0 0 0 "
-		HEX_PREF_STR UNI_FILTER_STR ZERO_ADDR_STR ETHER_TYPE_STR IPV6_FILTER_STR
-		" "
-		HEX_PREF_STR ZERO_ADDR_STR ZERO_ADDR_STR ETHER_TYPE_STR ZERO_TYPE_STR;
-#else
-	dhd->pktfilter[0] = "100 0 0 0 0x01 0x00";
-#endif /* BLOCK_IPV6_PACKET && CUSTOMER_HW4 */
 #if defined(PASS_IPV4_SUSPEND) && defined(CUSTOMER_HW4)
-	dhd->pktfilter_count = 5;
-	dhd->pktfilter[4] = "104 0 0 0 0xFFFFFF 0x01005E";
+	dhd->pktfilter[5] = "104 0 0 0 0xFFFFFF 0x01005E";
 #endif /* PASS_IPV4_SUSPEND && CUSTOMER_HW4 */
-#endif /* GAN_LITE_NAT_KEEPALIVE_FILTER  && CUSTOMER_HW4 */
 
 #if defined(SOFTAP)
 	if (ap_fw_loaded) {

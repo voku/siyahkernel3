@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: bcmsdstd.h 347614 2012-07-27 10:24:51Z $
+ * $Id: bcmsdstd.h 372377 2012-12-03 12:24:59Z $
  */
 #ifndef	_BCM_SD_STD_H
 #define	_BCM_SD_STD_H
@@ -191,8 +191,8 @@ struct sdioh_info {
 /* States for Tuning and corr data */
 #define TUNING_IDLE			0
 #define TUNING_START			1
-#define TUNING_START_AFTER_DAT		2
-#define TUNING_ONGOING				3
+#define TUNING_START_AFTER_DAT	2
+#define TUNING_ONGOING			3
 
 #define DATA_TRANSFER_IDLE		0
 #define DATA_TRANSFER_ONGOING	1
