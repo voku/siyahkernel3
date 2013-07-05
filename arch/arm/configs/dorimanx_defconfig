@@ -693,7 +693,7 @@ CONFIG_ALIGNMENT_TRAP=y
 # CONFIG_USE_OF is not set
 CONFIG_ZBOOT_ROM_TEXT=0
 CONFIG_ZBOOT_ROM_BSS=0
-CONFIG_CMDLINE="console=ttySAC2,115200 vmalloc=512M consoleblank=0 zswap.enabled=1 zswap.compressor=snappy"
+CONFIG_CMDLINE="console=ttySAC2,115200 vmalloc=256m consoleblank=0 zswap.enabled=1 zswap.compressor=snappy"
 CONFIG_CMDLINE_FROM_BOOTLOADER=y
 # CONFIG_CMDLINE_EXTEND is not set
 # CONFIG_CMDLINE_FORCE is not set
@@ -3208,6 +3208,7 @@ CONFIG_CRYPTO_TWOFISH_COMMON=y
 CONFIG_CRYPTO_DEFLATE=y
 # CONFIG_CRYPTO_ZLIB is not set
 CONFIG_CRYPTO_LZO=y
+CONFIG_CRYPTO_SNAPPY=y
 
 #
 # Random Number Generation
@@ -3258,3 +3259,4 @@ CONFIG_CPU_RMAP=y
 CONFIG_NLATTR=y
 # CONFIG_AVERAGE is not set
 # CONFIG_CORDIC is not set
+CONFIG_SNAPPY=y

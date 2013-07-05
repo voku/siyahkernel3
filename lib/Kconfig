@@ -334,4 +334,11 @@ config CORDIC
 	  so its calculations are in fixed point. Modules can select this
 	  when they require this function. Module will be called cordic.
 
+
+config SNAPPY
+       tristate "Snappy compressor"
+       help
+          Add the snappy compressor. This is a reasonable compressor that
+	  compresses and decompresses extremly fast.
+
 endmenu
