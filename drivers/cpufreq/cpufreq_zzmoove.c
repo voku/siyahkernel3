@@ -1491,7 +1491,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 		if (dbs_tuners_ins.sampling_down_max_mom != 0 && this_dbs_info->momentum_adder < dbs_tuners_ins.sampling_down_mom_sens) {
 			this_dbs_info->momentum_adder++;
 			dbs_tuners_ins.sampling_down_momentum = (this_dbs_info->momentum_adder * dbs_tuners_ins.sampling_down_max_mom) / dbs_tuners_ins.sampling_down_mom_sens;
-			sampling_down_factor += dbs_tuners_ins.sampling_down_factor + dbs_tuners_ins.sampling_down_momentum;
+			sampling_down_factor = dbs_tuners_ins.sampling_down_factor + dbs_tuners_ins.sampling_down_momentum;
 		}
 		return;
 
@@ -1532,7 +1532,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 		if (dbs_tuners_ins.sampling_down_max_mom != 0 && this_dbs_info->momentum_adder < dbs_tuners_ins.sampling_down_mom_sens) {
 				this_dbs_info->momentum_adder++;
 			dbs_tuners_ins.sampling_down_momentum = (this_dbs_info->momentum_adder * dbs_tuners_ins.sampling_down_max_mom) / dbs_tuners_ins.sampling_down_mom_sens;
-			dbs_tuners_ins.sampling_down_factor = dbs_tuners_ins.sampling_down_factor + dbs_tuners_ins.sampling_down_momentum;
+			sampling_down_factor = dbs_tuners_ins.sampling_down_factor + dbs_tuners_ins.sampling_down_momentum;
 		}
 		return;
 	}
