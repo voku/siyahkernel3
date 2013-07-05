@@ -138,7 +138,9 @@ static int _get_more_prng_bytes(struct prng_context *ctx, int cont_test)
 					DEFAULT_BLK_SZ)) {
 				if (cont_test) {
 #ifdef CONFIG_CRYPTO_FIPS
+#ifdef CONFIG_CRYPTO_TEST
 					set_in_fips_err();
+#endif
 #endif
 				}
 

@@ -17,6 +17,12 @@
 
 #define ZIMAGE_ADDR (_stext + CONFIG_CRYPTO_FIPS_INTEG_OFFSET)
 
+#ifndef CONFIG_CRYPTO_TEST
+static void set_in_fips_err(void)
+{
+}
+#endif
+
 static bool need_integrity_check = true;
 
 void do_integrity_check(void)
