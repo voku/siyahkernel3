@@ -50,7 +50,7 @@
 #endif
 
 #if defined(WIN32) && (defined(BCMDLL) || defined(WLMDLL))
-#include <bcmstdlib.h> 	/* For wl/exe/GNUmakefile.brcm_wlu and GNUmakefile.wlm_dll */
+#include <bcmstdlib.h>	/* For wl/exe/GNUmakefile.brcm_wlu and GNUmakefile.wlm_dll */
 #endif
 
 #ifndef D11AC_IOTYPES
@@ -309,7 +309,7 @@ wf_chspec_ctlchspec(chanspec_t chspec)
  * <channel>:
  *	primary channel of 40MHz, channel <= 14 is 2GHz, otherwise 5GHz
  * <ctl-sideband>:
- * 	"U" for upper, "L" for lower (or lower case "u" "l")
+ *	"U" for upper, "L" for lower (or lower case "u" "l")
  *
  * 5 GHz Examples:
  *      Chanspec        BW        Center Ch  Channel Range  Primary Ch

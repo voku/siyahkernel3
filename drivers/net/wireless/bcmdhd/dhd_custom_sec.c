@@ -23,7 +23,7 @@
  *
  * $Id: dhd_custom_sec.c 334946 2012-05-24 20:38:00Z $
  */
- 
+
 /* Function list
 	1. Module Type
 		a. For CID - Use 'USE_CID_CHECK' Feature
@@ -39,7 +39,7 @@
 		b. Frame Burst Control (11ac) - Use 'USE_WL_FRAMEBURST' Feature
 			sec_control_frameburst()
  */
- 
+
 #ifdef CUSTOMER_HW4
 #include <typedefs.h>
 #include <linuxver.h>

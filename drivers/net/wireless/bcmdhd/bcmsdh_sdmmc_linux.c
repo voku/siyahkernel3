@@ -211,7 +211,7 @@ static int bcmsdh_sdmmc_suspend(struct device *pdev)
 #if 0
 	/* why keep power while host suspended?
 	 * and make a wakelock and prevent deep sleep! so it's disabled!
-	 */ 
+	 */
 	sdio_flags = sdio_get_host_pm_caps(func);
 
 	if (!(sdio_flags & MMC_PM_KEEP_POWER)) {
