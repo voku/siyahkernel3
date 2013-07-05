@@ -42,10 +42,6 @@
 #include <linux/profile.h>
 #include <linux/notifier.h>
 #include <linux/earlysuspend.h>
-#ifdef CONFIG_MEMORY_HOTPLUG
-#include <linux/memory.h>
-#include <linux/memory_hotplug.h>
-#endif
 
 #ifdef CONFIG_ANDROID_OOM_KILLER
 #define MULTIPLE_OOM_KILLER
@@ -97,10 +93,6 @@ static int lowmem_minfree_screen_on[6] = {
 };
 static int lowmem_minfree_size = 6;
 
-#ifdef CONFIG_MEMORY_HOTPLUG
-static unsigned int offlining = 0;
-#endif
-
 static unsigned long lowmem_deathpending_timeout;
 
 #define lowmem_print(level, x...)			\
@@ -138,30 +130,6 @@ static bool protected_apps(char *comm)
 	return 0;
 }
 
-#ifdef CONFIG_MEMORY_HOTPLUG
-static int lmk_hotplug_callback(struct notifier_block *self,
-				unsigned long cmd, void *data)
-{
-	switch (cmd) {
-	/* Don't care LMK cases */
-	case MEM_ONLINE:
-	case MEM_OFFLINE:
-	case MEM_CANCEL_ONLINE:
-	case MEM_CANCEL_OFFLINE:
-	case MEM_GOING_ONLINE:
-		offlining = 0;
-		lowmem_print(4, "lmk in normal mode\n");
-		break;
-	/* LMK should account for movable zone */
-	case MEM_GOING_OFFLINE:
-		offlining = 1;
-		lowmem_print(4, "lmk in hotplug mode\n");
-		break;
-	}
-	return NOTIFY_DONE;
-}
-#endif
-
 static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 {
 	struct task_struct *tsk;
@@ -186,22 +154,6 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 #endif
 	int other_file = global_page_state(NR_FILE_PAGES) -
 						global_page_state(NR_SHMEM);
-#ifdef CONFIG_MEMORY_HOTPLUG
-	struct zone *zone;
-
-	if (offlining) {
-		/* Discount all free space in the section being offlined */
-		for_each_zone(zone) {
-			 if (zone_idx(zone) == ZONE_MOVABLE) {
-				other_free -= zone_page_state(zone,
-						NR_FREE_PAGES);
-				lowmem_print(4, "lowmem_shrink discounted "
-					"%lu pages in movable zone\n",
-					zone_page_state(zone, NR_FREE_PAGES));
-			}
-		}
-	}
-#endif
 
 	if (lowmem_adj_size < array_size)
 		array_size = lowmem_adj_size;
@@ -360,12 +312,12 @@ static int android_oom_handler(struct notifier_block *nb,
 	int i;
 #ifdef MULTIPLE_OOM_KILLER
 	int selected_tasksize[OOM_DEPTH] = {0,};
-	int selected_oom_score_adj[OOM_DEPTH] = {OOM_ADJUST_MAX,};
+	short selected_oom_score_adj[OOM_DEPTH] = {OOM_ADJUST_MAX,};
 	int all_selected_oom = 0;
 	int max_selected_oom_idx = 0;
 #else
 	int selected_tasksize = 0;
-	int selected_oom_score_adj;
+	short selected_oom_score_adj;
 #endif
 
 	unsigned long *freed = data;
@@ -388,7 +340,7 @@ static int android_oom_handler(struct notifier_block *nb,
 	read_lock(&tasklist_lock);
 	for_each_process(tsk) {
 		struct task_struct *p;
-		int oom_score_adj;
+		short oom_score_adj;
 #ifdef MULTIPLE_OOM_KILLER
 		int is_exist_oom_task = 0;
 #endif
@@ -533,9 +485,6 @@ static int __init lowmem_init(void)
 #ifdef CONFIG_ANDROID_OOM_KILLER
 	register_oom_notifier(&android_oom_notifier);
 #endif
-#ifdef CONFIG_MEMORY_HOTPLUG
-	hotplug_memory_notifier(lmk_hotplug_callback, 0);
-#endif
 	return 0;
 }
 
@@ -640,7 +589,6 @@ module_param_named(debug_level, lowmem_debug_level, uint, S_IRUGO | S_IWUSR);
 #ifdef OOM_COUNT_READ
 module_param_named(oomcount, oom_count, uint, S_IRUGO);
 #endif
-
 module_param_named(auto_oom, lowmem_auto_oom, uint, S_IRUGO | S_IWUSR);
 
 module_init(lowmem_init);
