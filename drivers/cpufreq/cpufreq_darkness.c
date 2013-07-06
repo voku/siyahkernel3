@@ -560,7 +560,7 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 			max_freq = min(cpu_policy->max_suspend,max_freq);
 		}
 		/* CPUs Online Scale Frequency*/
-		next_freq = darkness_frequency_adjust((cur_load * (max_freq / 100)), cpu_policy->cur, min_freq, max_freq, cur_load * (max_freq / 100)) >= cpu_policy->cur ? up_sf_step : down_sf_step);
+		next_freq = darkness_frequency_adjust((cur_load * (max_freq / 100)), cpu_policy->cur, min_freq, max_freq, (cur_load * (max_freq / 100)) >= cpu_policy->cur ? up_sf_step : down_sf_step);
 		/*printk(KERN_ERR "FREQ CALC.: CPU[%u], load[%d], target freq[%u], cur freq[%u], min freq[%u], max_freq[%u]\n",j, cur_load, next_freq, cpu_policy->cur, min_freq, max_freq); */
 		if (next_freq != cpu_policy->cur) {
 			__cpufreq_driver_target(cpu_policy, next_freq, CPUFREQ_RELATION_L);
