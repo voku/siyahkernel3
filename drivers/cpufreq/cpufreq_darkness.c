@@ -538,18 +538,6 @@ static void do_darkness_timer(struct work_struct *work)
 	mutex_unlock(&timer_mutex);
 }
 
-static inline void darkness_timer_init(struct cpufreq_darkness_cpuinfo *darkness_cpuinfo)
-{
-	INIT_DEFERRABLE_WORK(&darkness_cpuinfo->work, do_darkness_timer);
-
-	mod_delayed_work_on(darkness_cpuinfo->cpu, dvfs_workqueue, &darkness_cpuinfo->work, 0);
-}
-
-static inline void darkness_timer_exit(struct cpufreq_darkness_cpuinfo *darkness_cpuinfo)
-{
-	cancel_delayed_work(&darkness_cpuinfo->work);
-}
-
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static struct early_suspend early_suspend;
 static inline void cpufreq_darkness_early_suspend(struct early_suspend *h)
@@ -598,6 +586,8 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 			j_darkness_cpuinfo->prev_cpu_idle = cputime_to_usecs(kcpustat_cpu(j).cpustat[CPUTIME_IDLE] + kcpustat_cpu(j).cpustat[CPUTIME_IOWAIT]);
 		}
 		this_darkness_cpuinfo->cpu = cpu;
+		mutex_init(&timer_mutex);
+		INIT_DEFERRABLE_WORK(&this_darkness_cpuinfo->work, do_darkness_timer);
 		/*
 		 * Start the timerschedule work, when this governor
 		 * is used for first time
@@ -613,9 +603,7 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 		}
 		mutex_unlock(&darkness_mutex);
 
-		mutex_init(&timer_mutex);
-
-		darkness_timer_init(this_darkness_cpuinfo);
+		mod_delayed_work_on(this_darkness_cpuinfo->cpu, dvfs_workqueue, &this_darkness_cpuinfo->work, 0);
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 		register_early_suspend(&early_suspend);
@@ -627,12 +615,10 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 		unregister_early_suspend(&early_suspend);
 #endif
 		mutex_lock(&darkness_mutex);
-		darkness_timer_exit(this_darkness_cpuinfo);
-		mutex_unlock(&darkness_mutex);
+		cancel_delayed_work(&this_darkness_cpuinfo->work);
 
 		mutex_destroy(&timer_mutex);
 
-		mutex_lock(&darkness_mutex);
 		darkness_enable--;
 
 		for_each_possible_cpu(j) {

@@ -887,18 +887,6 @@ static void do_nightmare_timer(struct work_struct *work)
 	mutex_unlock(&timer_mutex);
 }
 
-static inline void nightmare_timer_init(struct cpufreq_nightmare_cpuinfo *nightmare_cpuinfo)
-{
-	INIT_DEFERRABLE_WORK(&nightmare_cpuinfo->work, do_nightmare_timer);
-
-	mod_delayed_work_on(nightmare_cpuinfo->cpu, dvfs_workqueue, &nightmare_cpuinfo->work, 0);
-}
-
-static inline void nightmare_timer_exit(struct cpufreq_nightmare_cpuinfo *nightmare_cpuinfo)
-{
-	cancel_delayed_work(&nightmare_cpuinfo->work);
-}
-
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static struct early_suspend early_suspend;
 static inline void cpufreq_nightmare_early_suspend(struct early_suspend *h)
@@ -947,6 +935,8 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 			j_nightmare_cpuinfo->prev_cpu_idle = cputime_to_usecs(kcpustat_cpu(j).cpustat[CPUTIME_IDLE] + kcpustat_cpu(j).cpustat[CPUTIME_IOWAIT]);
 		}
 		this_nightmare_cpuinfo->cpu = cpu;
+		mutex_init(&timer_mutex);
+		INIT_DEFERRABLE_WORK(&this_nightmare_cpuinfo->work, do_nightmare_timer);
 		/*
 		 * Start the timerschedule work, when this governor
 		 * is used for first time
@@ -962,9 +952,7 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 		}
 		mutex_unlock(&nightmare_mutex);
 
-		mutex_init(&timer_mutex);
-
-		nightmare_timer_init(this_nightmare_cpuinfo);
+		mod_delayed_work_on(this_nightmare_cpuinfo->cpu, dvfs_workqueue, &this_nightmare_cpuinfo->work, 0);
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 		register_early_suspend(&early_suspend);
@@ -977,12 +965,10 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 #endif
 
 		mutex_lock(&nightmare_mutex);
-		nightmare_timer_exit(this_nightmare_cpuinfo);
-		mutex_unlock(&nightmare_mutex);
+		cancel_delayed_work(&this_nightmare_cpuinfo->work);
 
 		mutex_destroy(&timer_mutex);
 
-		mutex_lock(&nightmare_mutex);
 		nightmare_enable--;
 
 		for_each_possible_cpu(j) {
