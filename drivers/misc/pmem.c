@@ -188,19 +188,19 @@ struct file_operations pmem_fops = {
 
 static int get_id(struct file *file)
 {
-	return MINOR(file->f_dentry->d_inode->i_rdev);
+	return MINOR(file_inode(file)->i_rdev);
 }
 
 int is_pmem_file(struct file *file)
 {
 	int id;
 
-	if (unlikely(!file || !file->f_dentry || !file->f_dentry->d_inode))
+	if (unlikely(!file || !file->f_dentry || !file_inode(file)))
 		return 0;
 	id = get_id(file);
 	if (unlikely(id >= PMEM_MAX_DEVICES))
 		return 0;
-	if (unlikely(file->f_dentry->d_inode->i_rdev !=
+	if (unlikely(file_inode(file)->i_rdev !=
 	     MKDEV(MISC_MAJOR, pmem[id].dev.minor)))
 		return 0;
 	return 1;

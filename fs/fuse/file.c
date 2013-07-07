@@ -1371,7 +1371,7 @@ static const struct vm_operations_struct fuse_file_vm_ops = {
 static int fuse_file_mmap(struct file *file, struct vm_area_struct *vma)
 {
 	if ((vma->vm_flags & VM_SHARED) && (vma->vm_flags & VM_MAYWRITE)) {
-		struct inode *inode = file->f_dentry->d_inode;
+		struct inode *inode = file_inode(file);
 		struct fuse_conn *fc = get_fuse_conn(inode);
 		struct fuse_inode *fi = get_fuse_inode(inode);
 		struct fuse_file *ff = file->private_data;
@@ -1975,7 +1975,7 @@ EXPORT_SYMBOL_GPL(fuse_do_ioctl);
 static long fuse_file_ioctl_common(struct file *file, unsigned int cmd,
 				   unsigned long arg, unsigned int flags)
 {
-	struct inode *inode = file->f_dentry->d_inode;
+	struct inode *inode = file_inode(file);
 	struct fuse_conn *fc = get_fuse_conn(inode);
 
 	if (!fuse_allow_task(fc, current))

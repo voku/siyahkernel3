@@ -300,7 +300,7 @@ int ecryptfs_read_lower_page_segment(struct page *page_for_ecryptfs,
 int ecryptfs_read(char *data, loff_t offset, size_t size,
 		  struct file *ecryptfs_file)
 {
-	struct inode *ecryptfs_inode = ecryptfs_file->f_dentry->d_inode;
+	struct inode *ecryptfs_inode = ecryptfs_file_inode(file);
 	struct page *ecryptfs_page;
 	char *ecryptfs_page_virt;
 	loff_t ecryptfs_file_size = i_size_read(ecryptfs_inode);

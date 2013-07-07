@@ -2592,7 +2592,7 @@ long tty_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	void __user *p = (void __user *)arg;
 	int retval;
 	struct tty_ldisc *ld;
-	struct inode *inode = file->f_dentry->d_inode;
+	struct inode *inode = file_inode(file);
 
 	if (tty_paranoia_check(tty, inode, "tty_ioctl"))
 		return -EINVAL;
@@ -2730,7 +2730,7 @@ long tty_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 static long tty_compat_ioctl(struct file *file, unsigned int cmd,
 				unsigned long arg)
 {
-	struct inode *inode = file->f_dentry->d_inode;
+	struct inode *inode = file_inode(file);
 	struct tty_struct *tty = file_tty(file);
 	struct tty_ldisc *ld;
 	int retval = -ENOIOCTLCMD;
