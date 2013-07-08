@@ -84,7 +84,7 @@ __setup("fpe=", fpe_setup);
 
 extern void paging_init(struct machine_desc *desc);
 extern void sanity_check_meminfo(void);
-extern void reboot_setup(char *str);
+extern enum reboot_mode reboot_mode;
 #ifdef CONFIG_DMA_CMA
 extern void setup_dma_zone(struct machine_desc *desc);
 #endif
@@ -964,8 +964,9 @@ void __init setup_arch(char **cmdline_p)
 #ifdef CONFIG_DMA_CMA
 	setup_dma_zone(mdesc);
 #endif
-	if (mdesc->soft_reboot)
-		reboot_setup("s");
+
+	if (mdesc->reboot_mode != REBOOT_HARD)
+		reboot_mode = mdesc->reboot_mode;
 
 	init_mm.start_code = (unsigned long) _text;
 	init_mm.end_code   = (unsigned long) _etext;
