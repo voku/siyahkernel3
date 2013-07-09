@@ -4647,7 +4647,6 @@ void cgroup_unload_subsys(struct cgroup_subsys *ss)
 	ss->active = 0;
 
 	if (ss->use_id) {
-		idr_remove_all(&ss->idr);
 		idr_destroy(&ss->idr);
 	}
 
