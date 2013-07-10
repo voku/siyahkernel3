@@ -36,6 +36,14 @@ struct hash_cell {
 	struct dm_table *new_map;
 };
 
+/*
+ * A dummy definition to make RCU happy.
+ * struct dm_table should never be dereferenced in this file.
+ */
+struct dm_table {
+	int undefined__;
+};
+
 struct vers_iter {
     size_t param_size;
     struct dm_target_versions *vers, *old_vers;
@@ -224,9 +232,10 @@ static int dm_hash_insert(const char *name, const char *uuid, struct mapped_devi
 	return -EBUSY;
 }
 
-static void __hash_remove(struct hash_cell *hc)
+static struct dm_table *__hash_remove(struct hash_cell *hc)
 {
 	struct dm_table *table;
+	int srcu_idx;
 
 	/* remove from the dev hash */
 	list_del(&hc->uuid_list);
@@ -235,16 +244,18 @@ static void __hash_remove(struct hash_cell *hc)
 	dm_set_mdptr(hc->md, NULL);
 	mutex_unlock(&dm_hash_cells_mutex);
 
-	table = dm_get_live_table(hc->md);
-	if (table) {
+	table = dm_get_live_table(hc->md, &srcu_idx);
+	if (table)
 		dm_table_event(table);
-		dm_table_put(table);
-	}
+	dm_put_live_table(hc->md, srcu_idx);
 
+	table = NULL;
 	if (hc->new_map)
-		dm_table_destroy(hc->new_map);
+		table = hc->new_map;
 	dm_put(hc->md);
 	free_cell(hc);
+
+	return table;
 }
 
 static void dm_hash_remove_all(int keep_open_devices)
@@ -252,6 +263,7 @@ static void dm_hash_remove_all(int keep_open_devices)
 	int i, dev_skipped;
 	struct hash_cell *hc;
 	struct mapped_device *md;
+	struct dm_table *t;
 
 retry:
 	dev_skipped = 0;
@@ -269,10 +281,14 @@ retry:
 				continue;
 			}
 
-			__hash_remove(hc);
+			t = __hash_remove(hc);
 
 			up_write(&_hash_lock);
 
+			if (t) {
+				dm_sync_table(md);
+				dm_table_destroy(t);
+			}
 			dm_put(md);
 			if (likely(keep_open_devices))
 				dm_destroy(md);
@@ -338,6 +354,7 @@ static struct mapped_device *dm_hash_rename(struct dm_ioctl *param,
 	struct dm_table *table;
 	struct mapped_device *md;
 	unsigned change_uuid = (param->flags & DM_UUID_FLAG) ? 1 : 0;
+	int srcu_idx;
 
 	/*
 	 * duplicate new.
@@ -400,11 +417,10 @@ static struct mapped_device *dm_hash_rename(struct dm_ioctl *param,
 	/*
 	 * Wake up any dm event waiters.
 	 */
-	table = dm_get_live_table(hc->md);
-	if (table) {
+	table = dm_get_live_table(hc->md, &srcu_idx);
+	if (table)
 		dm_table_event(table);
-		dm_table_put(table);
-	}
+	dm_put_live_table(hc->md, srcu_idx);
 
 	if (!dm_kobject_uevent(hc->md, KOBJ_CHANGE, param->event_nr))
 		param->flags |= DM_UEVENT_GENERATED_FLAG;
@@ -602,10 +618,13 @@ static int check_name(const char *name)
  * _hash_lock without first calling dm_table_put, because dm_table_destroy
  * waits for this dm_table_put and could be called under this lock.
  */
-static struct dm_table *dm_get_inactive_table(struct mapped_device *md)
+static struct dm_table *dm_get_inactive_table(struct mapped_device *md, int *srcu_idx)
 {
 	struct hash_cell *hc;
 	struct dm_table *table = NULL;
+
+	/* increment rcu count, we don't care about the table pointer */
+	dm_get_live_table(md, srcu_idx);
 
 	down_read(&_hash_lock);
 	hc = dm_get_mdptr(md);
@@ -615,8 +634,6 @@ static struct dm_table *dm_get_inactive_table(struct mapped_device *md)
 	}
 
 	table = hc->new_map;
-	if (table)
-		dm_table_get(table);
 
 out:
 	up_read(&_hash_lock);
@@ -625,10 +642,11 @@ out:
 }
 
 static struct dm_table *dm_get_live_or_inactive_table(struct mapped_device *md,
-						      struct dm_ioctl *param)
+						      struct dm_ioctl *param,
+						      int *srcu_idx)
 {
 	return (param->flags & DM_QUERY_INACTIVE_TABLE_FLAG) ?
-		dm_get_inactive_table(md) : dm_get_live_table(md);
+		dm_get_inactive_table(md, srcu_idx) : dm_get_live_table(md, srcu_idx);
 }
 
 /*
@@ -639,6 +657,7 @@ static void __dev_status(struct mapped_device *md, struct dm_ioctl *param)
 {
 	struct gendisk *disk = dm_disk(md);
 	struct dm_table *table;
+	int srcu_idx;
 
 	param->flags &= ~(DM_SUSPEND_FLAG | DM_READONLY_FLAG |
 			  DM_ACTIVE_PRESENT_FLAG);
@@ -658,26 +677,27 @@ static void __dev_status(struct mapped_device *md, struct dm_ioctl *param)
 	param->event_nr = dm_get_event_nr(md);
 	param->target_count = 0;
 
-	table = dm_get_live_table(md);
+	table = dm_get_live_table(md, &srcu_idx);
 	if (table) {
 		if (!(param->flags & DM_QUERY_INACTIVE_TABLE_FLAG)) {
 			if (get_disk_ro(disk))
 				param->flags |= DM_READONLY_FLAG;
 			param->target_count = dm_table_get_num_targets(table);
 		}
-		dm_table_put(table);
 
 		param->flags |= DM_ACTIVE_PRESENT_FLAG;
 	}
+	dm_put_live_table(md, srcu_idx);
 
 	if (param->flags & DM_QUERY_INACTIVE_TABLE_FLAG) {
-		table = dm_get_inactive_table(md);
+		int srcu_idx;
+		table = dm_get_inactive_table(md, &srcu_idx);
 		if (table) {
 			if (!(dm_table_get_mode(table) & FMODE_WRITE))
 				param->flags |= DM_READONLY_FLAG;
 			param->target_count = dm_table_get_num_targets(table);
-			dm_table_put(table);
 		}
+		dm_put_live_table(md, srcu_idx);
 	}
 }
 
@@ -774,6 +794,7 @@ static int dev_remove(struct dm_ioctl *param, size_t param_size)
 	struct hash_cell *hc;
 	struct mapped_device *md;
 	int r;
+	struct dm_table *t;
 
 	down_write(&_hash_lock);
 	hc = __find_device_hash_cell(param);
@@ -797,8 +818,13 @@ static int dev_remove(struct dm_ioctl *param, size_t param_size)
 		return r;
 	}
 
-	__hash_remove(hc);
+	t = __hash_remove(hc);
 	up_write(&_hash_lock);
+
+	if (t) {
+		dm_sync_table(md);
+		dm_table_destroy(t);
+	}
 
 	if (!dm_kobject_uevent(md, KOBJ_REMOVE, param->event_nr))
 		param->flags |= DM_UEVENT_GENERATED_FLAG;
@@ -964,6 +990,7 @@ static int do_resume(struct dm_ioctl *param)
 
 		old_map = dm_swap_table(md, new_map);
 		if (IS_ERR(old_map)) {
+			dm_sync_table(md);
 			dm_table_destroy(new_map);
 			dm_put(md);
 			return PTR_ERR(old_map);
@@ -981,6 +1008,10 @@ static int do_resume(struct dm_ioctl *param)
 			param->flags |= DM_UEVENT_GENERATED_FLAG;
 	}
 
+	/*
+	 * Since dm_swap_table synchronizes RCU, nobody should be in
+	 * read-side critical section already.
+	 */
 	if (old_map)
 		dm_table_destroy(old_map);
 
@@ -1103,6 +1134,7 @@ static int dev_wait(struct dm_ioctl *param, size_t param_size)
 	int r = 0;
 	struct mapped_device *md;
 	struct dm_table *table;
+	int srcu_idx;
 
 	md = find_device(param);
 	if (!md)
@@ -1123,11 +1155,10 @@ static int dev_wait(struct dm_ioctl *param, size_t param_size)
 	 */
 	__dev_status(md, param);
 
-	table = dm_get_live_or_inactive_table(md, param);
-	if (table) {
+	table = dm_get_live_or_inactive_table(md, param, &srcu_idx);
+	if (table)
 		retrieve_status(table, param, param_size);
-		dm_table_put(table);
-	}
+	dm_put_live_table(md, srcu_idx);
 
 out:
 	dm_put(md);
@@ -1199,7 +1230,7 @@ static int table_load(struct dm_ioctl *param, size_t param_size)
 {
 	int r;
 	struct hash_cell *hc;
-	struct dm_table *t;
+	struct dm_table *t, *old_map = NULL;
 	struct mapped_device *md;
 	struct target_type *immutable_target_type;
 
@@ -1255,14 +1286,14 @@ static int table_load(struct dm_ioctl *param, size_t param_size)
 	hc = dm_get_mdptr(md);
 	if (!hc || hc->md != md) {
 		DMWARN("device has been removed from the dev hash table.");
-		dm_table_destroy(t);
 		up_write(&_hash_lock);
+		dm_table_destroy(t);
 		r = -ENXIO;
 		goto out;
 	}
 
 	if (hc->new_map)
-		dm_table_destroy(hc->new_map);
+		old_map = hc->new_map;
 	hc->new_map = t;
 	up_write(&_hash_lock);
 
@@ -1270,6 +1301,11 @@ static int table_load(struct dm_ioctl *param, size_t param_size)
 	__dev_status(md, param);
 
 out:
+	if (old_map) {
+		dm_sync_table(md);
+		dm_table_destroy(old_map);
+	}
+
 	dm_put(md);
 
 	return r;
@@ -1279,6 +1315,7 @@ static int table_clear(struct dm_ioctl *param, size_t param_size)
 {
 	struct hash_cell *hc;
 	struct mapped_device *md;
+	struct dm_table *old_map = NULL;
 
 	down_write(&_hash_lock);
 
@@ -1290,7 +1327,7 @@ static int table_clear(struct dm_ioctl *param, size_t param_size)
 	}
 
 	if (hc->new_map) {
-		dm_table_destroy(hc->new_map);
+		old_map = hc->new_map;
 		hc->new_map = NULL;
 	}
 
@@ -1299,6 +1336,10 @@ static int table_clear(struct dm_ioctl *param, size_t param_size)
 	__dev_status(hc->md, param);
 	md = hc->md;
 	up_write(&_hash_lock);
+	if (old_map) {
+		dm_sync_table(md);
+		dm_table_destroy(old_map);
+	}
 	dm_put(md);
 
 	return 0;
@@ -1348,6 +1389,7 @@ static int table_deps(struct dm_ioctl *param, size_t param_size)
 {
 	struct mapped_device *md;
 	struct dm_table *table;
+	int srcu_idx;
 
 	md = find_device(param);
 	if (!md)
@@ -1355,11 +1397,10 @@ static int table_deps(struct dm_ioctl *param, size_t param_size)
 
 	__dev_status(md, param);
 
-	table = dm_get_live_or_inactive_table(md, param);
-	if (table) {
+	table = dm_get_live_or_inactive_table(md, param, &srcu_idx);
+	if (table)
 		retrieve_deps(table, param, param_size);
-		dm_table_put(table);
-	}
+	dm_put_live_table(md, srcu_idx);
 
 	dm_put(md);
 
@@ -1374,6 +1415,7 @@ static int table_status(struct dm_ioctl *param, size_t param_size)
 {
 	struct mapped_device *md;
 	struct dm_table *table;
+	int srcu_idx;
 
 	md = find_device(param);
 	if (!md)
@@ -1381,11 +1423,10 @@ static int table_status(struct dm_ioctl *param, size_t param_size)
 
 	__dev_status(md, param);
 
-	table = dm_get_live_or_inactive_table(md, param);
-	if (table) {
+	table = dm_get_live_or_inactive_table(md, param, &srcu_idx);
+	if (table)
 		retrieve_status(table, param, param_size);
-		dm_table_put(table);
-	}
+	dm_put_live_table(md, srcu_idx);
 
 	dm_put(md);
 
@@ -1421,6 +1462,7 @@ static int target_message(struct dm_ioctl *param, size_t param_size)
 	struct dm_target_msg *tmsg = (void *) param + param->data_start;
 	size_t maxlen;
 	char *result = get_result_buffer(param, param_size, &maxlen);
+	int srcu_idx;
 
 	md = find_device(param);
 	if (!md)
@@ -1448,9 +1490,9 @@ static int target_message(struct dm_ioctl *param, size_t param_size)
 	if (r <= 1)
 		goto out_argv;
 
-	table = dm_get_live_table(md);
+	table = dm_get_live_table(md, &srcu_idx);
 	if (!table)
-		goto out_argv;
+		goto out_table;
 
 	if (dm_deleting_md(md)) {
 		r = -ENXIO;
@@ -1469,7 +1511,7 @@ static int target_message(struct dm_ioctl *param, size_t param_size)
 	}
 
  out_table:
-	dm_table_put(table);
+	dm_put_live_table(md, srcu_idx);
  out_argv:
 	kfree(argv);
  out:
