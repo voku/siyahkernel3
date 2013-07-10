@@ -30,9 +30,6 @@
 #include <linux/ktime.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
-#include <linux/suspend.h>
-#include <linux/reboot.h>
-
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
 #endif
@@ -674,11 +671,11 @@ static int __init cpufreq_gov_darkness_init(void)
 	ret = cpufreq_register_governor(&cpufreq_gov_darkness);
 	if (ret)
 		goto err_reg;
-
+#ifdef CONFIG_HAS_EARLYSUSPEND
 	early_suspend.suspend = cpufreq_darkness_early_suspend;
 	early_suspend.resume = cpufreq_darkness_late_resume;
-	early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB;
-
+	early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN;
+#endif
 	return ret;
 
 err_reg:
