@@ -19,7 +19,7 @@
 #include <net/ip.h>
 #include <net/sock.h>
 #include <net/net_ratelimit.h>
-#include <net/ll_poll.h>
+#include <net/busy_poll.h>
 
 static int zero = 0;
 static int ushort_max = USHRT_MAX;

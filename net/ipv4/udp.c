@@ -106,6 +106,7 @@
 #include <net/xfrm.h>
 #include <trace/events/skb.h>
 #include <trace/events/udp.h>
+#include <net/busy_poll.h>
 #include "udp_impl.h"
 
 struct udp_table udp_table __read_mostly;

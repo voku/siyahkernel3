@@ -280,6 +280,7 @@
 
 #include <asm/uaccess.h>
 #include <asm/ioctls.h>
+#include <net/busy_poll.h>
 
 int sysctl_tcp_fin_timeout __read_mostly = TCP_FIN_TIMEOUT;
 
