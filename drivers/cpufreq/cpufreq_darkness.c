@@ -453,7 +453,6 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 		/* Current load across this CPU */
 		int cur_load = 0;
 		int next_freq = 0;
-		unsigned int min_freq = 0;
 		unsigned int max_freq = 0;
 
 		j_darkness_cpuinfo = &per_cpu(od_darkness_cpuinfo, j);
@@ -478,16 +477,11 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 		}
 		cur_load = busy_time ? (100 * busy_time) / (busy_time + idle_time + cpu_load_bias) : 1;/*if busy_time is 0 cpu_load is equal to 1*/
 		hotplug_history->usage[num_hist].load[j] = cur_load;
-		// GET MIN MAX FREQ
-		min_freq = cpu_policy->min;
-		max_freq = cpu_policy->max;
-		if (earlysuspend) {
-			min_freq = min(cpu_policy->min_suspend,min_freq);
-			max_freq = min(cpu_policy->max_suspend,max_freq);
-		}
+		// GET MAX FREQ
+		max_freq = !earlysuspend ? cpu_policy->max : min(cpu_policy->max_suspend,cpu_policy->max);
 		/* CPUs Online Scale Frequency*/
-		next_freq = darkness_frequency_adjust((cur_load * (max_freq / 100)), cpu_policy->cur, min_freq, max_freq, (cur_load * (max_freq / 100)) >= cpu_policy->cur ? up_sf_step : down_sf_step);
-		/*printk(KERN_ERR "FREQ CALC.: CPU[%u], load[%d], target freq[%u], cur freq[%u], min freq[%u], max_freq[%u]\n",j, cur_load, next_freq, cpu_policy->cur, min_freq, max_freq); */
+		next_freq = darkness_frequency_adjust((cur_load * (max_freq / 100)), cpu_policy->cur, cpu_policy->min, max_freq, (cur_load * (max_freq / 100)) >= cpu_policy->cur ? up_sf_step : down_sf_step);
+		/*printk(KERN_ERR "FREQ CALC.: CPU[%u], load[%d], target freq[%u], cur freq[%u], min freq[%u], max_freq[%u]\n",j, cur_load, next_freq, cpu_policy->cur, cpu_policy->min, max_freq); */
 #ifdef CONFIG_CPU_EXYNOS4210
 		req_freq += next_freq;
 		if ((req_freq / online) != cpu_policy->cur && j == (online - 1)) {
@@ -596,7 +590,6 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 				mutex_unlock(&darkness_mutex);
 				return rc;
 			}
-			atomic_set(&darkness_tuners_ins.earlysuspend,0);
 		}
 		mutex_unlock(&darkness_mutex);
 
@@ -617,7 +610,6 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 		mutex_destroy(&timer_mutex);
 
 		darkness_enable--;
-
 		for_each_possible_cpu(j) {
 			per_cpu(cpufreq_cpu_data, j) = NULL;
 		}
@@ -626,6 +618,7 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 			sysfs_remove_group(cpufreq_global_kobject,
 					   &darkness_attr_group);
 		}
+		atomic_set(&darkness_tuners_ins.earlysuspend,0);
 		mutex_unlock(&darkness_mutex);
 		
 		break;
