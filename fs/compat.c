@@ -33,11 +33,9 @@
 #include <linux/nfs4_mount.h>
 #include <linux/syscalls.h>
 #include <linux/ctype.h>
-#include <linux/module.h>
 #include <linux/dirent.h>
 #include <linux/fsnotify.h>
 #include <linux/highuid.h>
-#include <linux/nfsd/syscall.h>
 #include <linux/personality.h>
 #include <linux/rwsem.h>
 #include <linux/tsacct_kern.h>
@@ -46,7 +44,6 @@
 #include <linux/signal.h>
 #include <linux/poll.h>
 #include <linux/mm.h>
-#include <linux/eventpoll.h>
 #include <linux/fs_struct.h>
 #include <linux/slab.h>
 #include <linux/pagemap.h>
@@ -240,11 +237,8 @@ static int put_compat_statfs(struct compat_statfs __user *ubuf, struct kstatfs *
 	    __put_user(kbuf->f_fsid.val[0], &ubuf->f_fsid.val[0]) ||
 	    __put_user(kbuf->f_fsid.val[1], &ubuf->f_fsid.val[1]) ||
 	    __put_user(kbuf->f_frsize, &ubuf->f_frsize) ||
-	    __put_user(0, &ubuf->f_spare[0]) || 
-	    __put_user(0, &ubuf->f_spare[1]) || 
-	    __put_user(0, &ubuf->f_spare[2]) || 
-	    __put_user(0, &ubuf->f_spare[3]) || 
-	    __put_user(0, &ubuf->f_spare[4]))
+	    __put_user(kbuf->f_flags, &ubuf->f_flags) ||
+	    __clear_user(ubuf->f_spare, sizeof(ubuf->f_spare)))
 		return -EFAULT;
 	return 0;
 }
@@ -784,16 +778,16 @@ asmlinkage long compat_sys_mount(const char __user * dev_name,
 	char *kernel_type;
 	unsigned long data_page;
 	char *kernel_dev;
-	char *dir_page;
+	struct filename *dir;
 	int retval;
 
 	retval = copy_mount_string(type, &kernel_type);
 	if (retval < 0)
 		goto out;
 
-	dir_page = getname(dir_name);
-	retval = PTR_ERR(dir_page);
-	if (IS_ERR(dir_page))
+	dir = getname(dir_name);
+	retval = PTR_ERR(dir);
+	if (IS_ERR(dir))
 		goto out1;
 
 	retval = copy_mount_string(dev_name, &kernel_dev);
@@ -815,7 +809,7 @@ asmlinkage long compat_sys_mount(const char __user * dev_name,
 		}
 	}
 
-	retval = do_mount(kernel_dev, dir_page, kernel_type,
+	retval = do_mount(kernel_dev, dir->name, kernel_type,
 			flags, (void*)data_page);
 
  out4:
@@ -823,7 +817,7 @@ asmlinkage long compat_sys_mount(const char __user * dev_name,
  out3:
 	kfree(kernel_dev);
  out2:
-	putname(dir_page);
+	putname(dir);
  out1:
 	kfree(kernel_type);
  out:
@@ -838,6 +832,7 @@ struct compat_old_linux_dirent {
 };
 
 struct compat_readdir_callback {
+	struct dir_context ctx;
 	struct compat_old_linux_dirent __user *dirent;
 	int result;
 };
@@ -879,15 +874,15 @@ asmlinkage long compat_sys_old_readdir(unsigned int fd,
 {
 	int error;
 	struct fd f = fdget(fd);
-	struct compat_readdir_callback buf;
+	struct compat_readdir_callback buf = {
+		.ctx.actor = compat_fillonedir,
+		.dirent = dirent
+	};
 
 	if (!f.file)
 		return -EBADF;
 
-	buf.result = 0;
-	buf.dirent = dirent;
-
-	error = vfs_readdir(f.file, compat_fillonedir, &buf);
+	error = iterate_dir(f.file, &buf.ctx);
 	if (buf.result)
 		error = buf.result;
 
@@ -903,6 +898,7 @@ struct compat_linux_dirent {
 };
 
 struct compat_getdents_callback {
+	struct dir_context ctx;
 	struct compat_linux_dirent __user *current_dir;
 	struct compat_linux_dirent __user *previous;
 	int count;
@@ -957,7 +953,11 @@ asmlinkage long compat_sys_getdents(unsigned int fd,
 {
 	struct fd f;
 	struct compat_linux_dirent __user * lastdirent;
-	struct compat_getdents_callback buf;
+	struct compat_getdents_callback buf = {
+		.ctx.actor = compat_filldir,
+		.current_dir = dirent,
+		.count = count
+	};
 	int error;
 
 	if (!access_ok(VERIFY_WRITE, dirent, count))
@@ -967,17 +967,12 @@ asmlinkage long compat_sys_getdents(unsigned int fd,
 	if (!f.file)
 		return -EBADF;
 
-	buf.current_dir = dirent;
-	buf.previous = NULL;
-	buf.count = count;
-	buf.error = 0;
-
-	error = vfs_readdir(f.file, compat_filldir, &buf);
+	error = iterate_dir(f.file, &buf.ctx);
 	if (error >= 0)
 		error = buf.error;
 	lastdirent = buf.previous;
 	if (lastdirent) {
-		if (put_user(f.file->f_pos, &lastdirent->d_off))
+		if (put_user(buf.ctx.pos, &lastdirent->d_off))
 			error = -EFAULT;
 		else
 			error = count - buf.count;
@@ -989,6 +984,7 @@ asmlinkage long compat_sys_getdents(unsigned int fd,
 #ifndef __ARCH_OMIT_COMPAT_SYS_GETDENTS64
 
 struct compat_getdents_callback64 {
+	struct dir_context ctx;
 	struct linux_dirent64 __user *current_dir;
 	struct linux_dirent64 __user *previous;
 	int count;
@@ -1042,7 +1038,11 @@ asmlinkage long compat_sys_getdents64(unsigned int fd,
 {
 	struct fd f;
 	struct linux_dirent64 __user * lastdirent;
-	struct compat_getdents_callback64 buf;
+	struct compat_getdents_callback64 buf = {
+		.ctx.actor = compat_filldir64,
+		.current_dir = dirent,
+		.count = count
+	};
 	int error;
 
 	if (!access_ok(VERIFY_WRITE, dirent, count))
@@ -1052,17 +1052,12 @@ asmlinkage long compat_sys_getdents64(unsigned int fd,
 	if (!f.file)
 		return -EBADF;
 
-	buf.current_dir = dirent;
-	buf.previous = NULL;
-	buf.count = count;
-	buf.error = 0;
-
-	error = vfs_readdir(f.file, compat_filldir64, &buf);
+	error = iterate_dir(f.file, &buf.ctx);
 	if (error >= 0)
 		error = buf.error;
 	lastdirent = buf.previous;
 	if (lastdirent) {
-		typeof(lastdirent->d_off) d_off = f.file->f_pos;
+		typeof(lastdirent->d_off) d_off = buf.ctx.pos;
 		if (__put_user_unaligned(d_off, &lastdirent->d_off))
 			error = -EFAULT;
 		else
@@ -1077,8 +1072,7 @@ asmlinkage long compat_sys_getdents64(unsigned int fd,
  * Exactly like fs/open.c:sys_open(), except that it doesn't set the
  * O_LARGEFILE flag.
  */
-asmlinkage long
-compat_sys_open(const char __user *filename, int flags, umode_t mode)
+COMPAT_SYSCALL_DEFINE3(open, const char __user *, filename, int, flags, umode_t, mode)
 {
 	return do_sys_open(AT_FDCWD, filename, flags, mode);
 }
@@ -1087,8 +1081,7 @@ compat_sys_open(const char __user *filename, int flags, umode_t mode)
  * Exactly like fs/open.c:sys_openat(), except that it doesn't set the
  * O_LARGEFILE flag.
  */
-asmlinkage long
-compat_sys_openat(unsigned int dfd, const char __user *filename, int flags, umode_t mode)
+COMPAT_SYSCALL_DEFINE4(openat, int, dfd, const char __user *, filename, int, flags, umode_t, mode)
 {
 	return do_sys_open(dfd, filename, flags, mode);
 }
@@ -1460,133 +1453,13 @@ asmlinkage long compat_sys_ppoll(struct pollfd __user *ufds,
 	return ret;
 }
 
-#ifdef CONFIG_EPOLL
-
-asmlinkage long compat_sys_epoll_pwait(int epfd,
-			struct compat_epoll_event __user *events,
-			int maxevents, int timeout,
-			const compat_sigset_t __user *sigmask,
-			compat_size_t sigsetsize)
-{
-	long err;
-	compat_sigset_t csigmask;
-	sigset_t ksigmask, sigsaved;
-
-	/*
-	 * If the caller wants a certain signal mask to be set during the wait,
-	 * we apply it here.
-	 */
-	if (sigmask) {
-		if (sigsetsize != sizeof(compat_sigset_t))
-			return -EINVAL;
-		if (copy_from_user(&csigmask, sigmask, sizeof(csigmask)))
-			return -EFAULT;
-		sigset_from_compat(&ksigmask, &csigmask);
-		sigdelsetmask(&ksigmask, sigmask(SIGKILL) | sigmask(SIGSTOP));
-		sigprocmask(SIG_SETMASK, &ksigmask, &sigsaved);
-	}
-
-	err = sys_epoll_wait(epfd, events, maxevents, timeout);
-
-	/*
-	 * If we changed the signal mask, we need to restore the original one.
-	 * In case we've got a signal while waiting, we do not restore the
-	 * signal mask yet, and we allow do_signal() to deliver the signal on
-	 * the way back to userspace, before the signal mask is restored.
-	 */
-	if (sigmask) {
-		if (err == -EINTR) {
-			memcpy(&current->saved_sigmask, &sigsaved,
-			       sizeof(sigsaved));
-			set_restore_sigmask();
-		} else
-			sigprocmask(SIG_SETMASK, &sigsaved, NULL);
-	}
-
-	return err;
-}
-
-#endif /* CONFIG_EPOLL */
-
-#ifdef CONFIG_SIGNALFD
-
-asmlinkage long compat_sys_signalfd4(int ufd,
-				     const compat_sigset_t __user *sigmask,
-				     compat_size_t sigsetsize, int flags)
-{
-	compat_sigset_t ss32;
-	sigset_t tmp;
-	sigset_t __user *ksigmask;
-
-	if (sigsetsize != sizeof(compat_sigset_t))
-		return -EINVAL;
-	if (copy_from_user(&ss32, sigmask, sizeof(ss32)))
-		return -EFAULT;
-	sigset_from_compat(&tmp, &ss32);
-	ksigmask = compat_alloc_user_space(sizeof(sigset_t));
-	if (copy_to_user(ksigmask, &tmp, sizeof(sigset_t)))
-		return -EFAULT;
-
-	return sys_signalfd4(ufd, ksigmask, sizeof(sigset_t), flags);
-}
-
-asmlinkage long compat_sys_signalfd(int ufd,
-				    const compat_sigset_t __user *sigmask,
-				    compat_size_t sigsetsize)
-{
-	return compat_sys_signalfd4(ufd, sigmask, sigsetsize, 0);
-}
-#endif /* CONFIG_SIGNALFD */
-
-#ifdef CONFIG_TIMERFD
-
-asmlinkage long compat_sys_timerfd_settime(int ufd, int flags,
-				   const struct compat_itimerspec __user *utmr,
-				   struct compat_itimerspec __user *otmr)
-{
-	int error;
-	struct itimerspec t;
-	struct itimerspec __user *ut;
-
-	if (get_compat_itimerspec(&t, utmr))
-		return -EFAULT;
-	ut = compat_alloc_user_space(2 * sizeof(struct itimerspec));
-	if (copy_to_user(&ut[0], &t, sizeof(t)))
-		return -EFAULT;
-	error = sys_timerfd_settime(ufd, flags, &ut[0], &ut[1]);
-	if (!error && otmr)
-		error = (copy_from_user(&t, &ut[1], sizeof(struct itimerspec)) ||
-			 put_compat_itimerspec(otmr, &t)) ? -EFAULT: 0;
-
-	return error;
-}
-
-asmlinkage long compat_sys_timerfd_gettime(int ufd,
-				   struct compat_itimerspec __user *otmr)
-{
-	int error;
-	struct itimerspec t;
-	struct itimerspec __user *ut;
-
-	ut = compat_alloc_user_space(sizeof(struct itimerspec));
-	error = sys_timerfd_gettime(ufd, ut);
-	if (!error)
-		error = (copy_from_user(&t, ut, sizeof(struct itimerspec)) ||
-			 put_compat_itimerspec(otmr, &t)) ? -EFAULT: 0;
-
-	return error;
-}
-
-#endif /* CONFIG_TIMERFD */
-
 #ifdef CONFIG_FHANDLE
 /*
  * Exactly like fs/open.c:sys_open_by_handle_at(), except that it
  * doesn't set the O_LARGEFILE flag.
  */
-asmlinkage long
-compat_sys_open_by_handle_at(int mountdirfd,
-			     struct file_handle __user *handle, int flags)
+COMPAT_SYSCALL_DEFINE3(open_by_handle_at, int, mountdirfd,
+			     struct file_handle __user *, handle, int, flags)
 {
 	return do_handle_open(mountdirfd, handle, flags);
 }

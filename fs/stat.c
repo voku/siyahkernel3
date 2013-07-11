@@ -61,7 +61,8 @@ int vfs_fstat(unsigned int fd, struct kstat *stat)
 	int error = -EBADF;
 
 	if (f.file) {
-		error = vfs_getattr(f.file->f_path.mnt, f.file->f_path.dentry, stat);
+		error = vfs_getattr(f.file->f_path.mnt, f.file->f_path.dentry,
+				stat);
 		fdput(f);
 	}
 	return error;

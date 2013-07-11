@@ -580,7 +580,6 @@ SYSCALL_DEFINE3(fchown, unsigned int, fd, uid_t, user, gid_t, group)
 {
 	struct fd f = fdget(fd);
 	int error = -EBADF;
-	struct dentry * dentry;
 
 	if (!f.file)
 		goto out;
@@ -588,8 +587,7 @@ SYSCALL_DEFINE3(fchown, unsigned int, fd, uid_t, user, gid_t, group)
 	error = mnt_want_write_file(f.file);
 	if (error)
 		goto out_fput;
-	dentry = f.file->f_path.dentry;
-	audit_inode(NULL, dentry);
+	audit_inode(NULL, f.file->f_path.dentry);
 	error = chown_common(&f.file->f_path, user, group);
 	mnt_drop_write_file(f.file);
 out_fput:
