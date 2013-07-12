@@ -20,6 +20,8 @@
  */
 
 #include <linux/init.h>
+#include <linux/export.h>
+#include <linux/moduleparam.h>
 #include <linux/time.h>
 #include <linux/slab.h>
 #include <linux/ioport.h>
@@ -70,7 +72,7 @@ void __snd_printk(unsigned int level, const char *path, int line,
 	char verbose_fmt[] = KERN_DEFAULT "ALSA %s:%d %pV";
 #endif
 
-#ifdef CONFIG_SND_DEBUG	
+#ifdef CONFIG_SND_DEBUG
 	if (debug < level)
 		return;
 #endif
@@ -85,6 +87,7 @@ void __snd_printk(unsigned int level, const char *path, int line,
 	} else if (level)
 		memcpy(verbose_fmt, KERN_DEBUG, 3);
 	printk(verbose_fmt, sanity_file_name(path), line, &vaf);
+
 #else
 	vprintk(format, args);
 #endif

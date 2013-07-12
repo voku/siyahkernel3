@@ -13,6 +13,7 @@
 #include <linux/completion.h>
 #include <linux/kernel.h>
 #include <linux/mempool.h>
+#include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/init.h>
 #include <linux/pci.h>

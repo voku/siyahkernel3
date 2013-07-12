@@ -12,6 +12,7 @@
 
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
+#include <linux/module.h>
 
 #include <mach/irqs.h>
 #include <mach/map.h>

@@ -15,6 +15,7 @@
 
 #ifdef __KERNEL__
 #include <linux/mutex.h>
+#include <linux/module.h>
 #include <linux/fb.h>
 #ifdef CONFIG_HAS_WAKELOCK
 #include <linux/wakelock.h>

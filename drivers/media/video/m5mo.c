@@ -15,6 +15,7 @@
 
 #include <linux/i2c.h>
 #include <linux/init.h>
+#include <linux/module.h>
 #include <media/v4l2-device.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>

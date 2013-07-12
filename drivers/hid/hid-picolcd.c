@@ -20,6 +20,7 @@
 #include <linux/hid.h>
 #include <linux/hid-debug.h>
 #include <linux/input.h>
+#include <linux/module.h>
 #include "hid-ids.h"
 #include "usbhid/usbhid.h"
 #include <linux/usb.h>

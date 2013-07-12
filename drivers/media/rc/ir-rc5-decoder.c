@@ -20,6 +20,7 @@
  * the first two bits are start bits, and a third one is a filing bit
  */
 
+#include <linux/module.h>
 #include "rc-core-priv.h"
 
 #define RC5_NBITS		14

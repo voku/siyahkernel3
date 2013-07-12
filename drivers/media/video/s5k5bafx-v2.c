@@ -13,6 +13,7 @@
  */
 
 #include <linux/i2c.h>
+#include <linux/module.h>
 #include <linux/delay.h>
 #include <linux/version.h>
 #include <media/v4l2-device.h>

@@ -7,6 +7,7 @@
 
 #include <linux/pm_runtime.h>
 #include <linux/async.h>
+#include <linux/module.h>
 
 #include <scsi/scsi.h>
 #include <scsi/scsi_device.h>

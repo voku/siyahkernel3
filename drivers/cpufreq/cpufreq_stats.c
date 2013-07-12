@@ -14,6 +14,7 @@
 #include <linux/cpu.h>
 #include <linux/sysfs.h>
 #include <linux/cpufreq.h>
+#include <linux/module.h>
 #include <linux/jiffies.h>
 #include <linux/percpu.h>
 #include <linux/kobject.h>

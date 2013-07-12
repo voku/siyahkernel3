@@ -10,6 +10,7 @@
  */
 
 #include <linux/input.h>
+#include <linux/module.h>
 
 #define RC_TYPE_UNKNOWN	0
 #define RC_TYPE_RC5	(1  << 0)	/* Philips RC5 protocol */

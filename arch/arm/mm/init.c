@@ -8,6 +8,7 @@
  * published by the Free Software Foundation.
  */
 #include <linux/kernel.h>
+#include <linux/export.h>
 #include <linux/errno.h>
 #include <linux/swap.h>
 #include <linux/init.h>

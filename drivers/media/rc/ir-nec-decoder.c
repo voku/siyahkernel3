@@ -12,6 +12,7 @@
  *  GNU General Public License for more details.
  */
 
+#include <linux/module.h>
 #include <linux/bitrev.h>
 #include "rc-core-priv.h"
 

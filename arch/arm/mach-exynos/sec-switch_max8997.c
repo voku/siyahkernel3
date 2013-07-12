@@ -1,4 +1,5 @@
 #include <linux/platform_device.h>
+#include <linux/module.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/spi_gpio.h>
 #include <linux/gpio.h>

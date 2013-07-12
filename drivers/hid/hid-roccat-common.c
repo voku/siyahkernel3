@@ -11,6 +11,7 @@
  * any later version.
  */
 
+#include <linux/module.h>
 #include <linux/slab.h>
 #include "hid-roccat-common.h"
 

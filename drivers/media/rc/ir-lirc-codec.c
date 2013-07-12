@@ -12,6 +12,7 @@
  *  GNU General Public License for more details.
  */
 
+#include <linux/module.h>
 #include <linux/sched.h>
 #include <linux/wait.h>
 #include <media/lirc.h>

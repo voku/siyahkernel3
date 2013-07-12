@@ -12,6 +12,7 @@
 */
 
 #include <linux/rtc.h>
+#include <linux/module.h>
 #include <linux/sched.h>
 #include <linux/log2.h>
 #include <linux/workqueue.h>

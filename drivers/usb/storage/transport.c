@@ -43,6 +43,7 @@
  * 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
+#include <linux/module.h>
 #include <linux/sched.h>
 #include <linux/gfp.h>
 #include <linux/errno.h>
