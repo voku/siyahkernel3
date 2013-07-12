@@ -154,17 +154,6 @@ config MD_RAID456
 
 	  If unsure, say Y.
 
-config MULTICORE_RAID456
-	bool "RAID-4/RAID-5/RAID-6 Multicore processing (EXPERIMENTAL)"
-	depends on MD_RAID456
-	depends on SMP
-	depends on EXPERIMENTAL
-	---help---
-	  Enable the raid456 module to dispatch per-stripe raid operations to a
-	  thread pool.
-
-	  If unsure, say N.
-
 config MD_MULTIPATH
 	tristate "Multipath I/O support"
 	depends on BLK_DEV_MD
@@ -253,8 +242,8 @@ config DM_SNAPSHOT
          Allow volume managers to take writable snapshots of a device.
 
 config DM_THIN_PROVISIONING
-       tristate "Thin provisioning target (EXPERIMENTAL)"
-       depends on BLK_DEV_DM && EXPERIMENTAL
+       tristate "Thin provisioning target"
+       depends on BLK_DEV_DM
        select DM_PERSISTENT_DATA
        select DM_BIO_PRISON
        ---help---
@@ -335,8 +324,8 @@ config DM_RAID
 	 in one of the available parity distribution methods.
 
 config DM_LOG_USERSPACE
-	tristate "Mirror userspace logging (EXPERIMENTAL)"
-	depends on DM_MIRROR && EXPERIMENTAL && NET
+	tristate "Mirror userspace logging"
+	depends on DM_MIRROR && NET
 	select CONNECTOR
 	---help---
 	  The userspace logging module provides a mechanism for
@@ -383,8 +372,8 @@ config DM_MULTIPATH_ST
 	  If unsure, say N.
 
 config DM_DELAY
-	tristate "I/O delaying target (EXPERIMENTAL)"
-	depends on BLK_DEV_DM && EXPERIMENTAL
+	tristate "I/O delaying target"
+	depends on BLK_DEV_DM
 	---help---
 	A target that delays reads and/or writes and can send
 	them to different devices.  Useful for testing.
@@ -392,14 +381,14 @@ config DM_DELAY
 	If unsure, say N.
 
 config DM_UEVENT
-	bool "DM uevents (EXPERIMENTAL)"
-	depends on BLK_DEV_DM && EXPERIMENTAL
+	bool "DM uevents"
+	depends on BLK_DEV_DM
 	---help---
 	Generate udev events for DM events.
 
 config DM_FLAKEY
-       tristate "Flakey target (EXPERIMENTAL)"
-       depends on BLK_DEV_DM && EXPERIMENTAL
+       tristate "Flakey target"
+       depends on BLK_DEV_DM
        ---help---
          A target that intermittently fails I/O for debugging purposes.
 
@@ -420,6 +409,20 @@ config DM_VERITY
 
 	  To compile this code as a module, choose M here: the module will
 	  be called dm-verity.
+
+	  If unsure, say N.
+
+config DM_SWITCH
+	tristate "Switch target support (EXPERIMENTAL)"
+	depends on BLK_DEV_DM
+	---help---
+	  This device-mapper target creates a device that supports an arbitrary
+	  mapping of fixed-size regions of I/O across a fixed set of paths.
+	  The path used for any specific region can be switched dynamically
+	  by sending the target a message.
+
+	  To compile this code as a module, choose M here: the module will
+	  be called dm-switch.
 
 	  If unsure, say N.
 
