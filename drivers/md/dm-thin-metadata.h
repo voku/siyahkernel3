@@ -8,6 +8,7 @@
 #define DM_THIN_METADATA_H
 
 #include "persistent-data/dm-block-manager.h"
+#include "persistent-data/dm-space-map.h"
 
 #define THIN_METADATA_BLOCK_SIZE 4096
 
@@ -38,7 +39,8 @@ typedef uint64_t dm_thin_id;
  * Reopens or creates a new, empty metadata volume.
  */
 struct dm_pool_metadata *dm_pool_metadata_open(struct block_device *bdev,
-					       sector_t data_block_size);
+					       sector_t data_block_size,
+					       bool format_device);
 
 int dm_pool_metadata_close(struct dm_pool_metadata *pmd);
 
@@ -77,6 +79,16 @@ int dm_pool_delete_thin_device(struct dm_pool_metadata *pmd,
  * updates.
  */
 int dm_pool_commit_metadata(struct dm_pool_metadata *pmd);
+
+/*
+ * Discards all uncommitted changes.  Rereads the superblock, rolling back
+ * to the last good transaction.  Thin devices remain open.
+ * dm_thin_aborted_changes() tells you if they had uncommitted changes.
+ *
+ * If this call fails it's only useful to call dm_pool_metadata_close().
+ * All other methods will fail with -EINVAL.
+ */
+int dm_pool_abort_metadata(struct dm_pool_metadata *pmd);
 
 /*
  * Set/get userspace transaction id.
@@ -119,7 +131,7 @@ dm_thin_id dm_thin_dev_id(struct dm_thin_device *td);
 
 struct dm_thin_lookup_result {
 	dm_block_t block;
-	int shared;
+	unsigned shared:1;
 };
 
 /*
@@ -147,6 +159,10 @@ int dm_thin_remove_block(struct dm_thin_device *td, dm_block_t block);
 /*
  * Queries.
  */
+bool dm_thin_changed_this_transaction(struct dm_thin_device *td);
+
+bool dm_thin_aborted_changes(struct dm_thin_device *td);
+
 int dm_thin_get_highest_mapped_block(struct dm_thin_device *td,
 				     dm_block_t *highest_mapped);
 
@@ -170,6 +186,18 @@ int dm_pool_get_data_dev_size(struct dm_pool_metadata *pmd, dm_block_t *result);
  * blocks would be lost.
  */
 int dm_pool_resize_data_dev(struct dm_pool_metadata *pmd, dm_block_t new_size);
+int dm_pool_resize_metadata_dev(struct dm_pool_metadata *pmd, dm_block_t new_size);
+
+/*
+ * Flicks the underlying block manager into read only mode, so you know
+ * that nothing is changing.
+ */
+void dm_pool_metadata_read_only(struct dm_pool_metadata *pmd);
+
+int dm_pool_register_metadata_threshold(struct dm_pool_metadata *pmd,
+					dm_block_t threshold,
+					dm_sm_threshold_fn fn,
+					void *context);
 
 /*----------------------------------------------------------------*/
 
