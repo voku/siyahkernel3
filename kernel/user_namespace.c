@@ -9,7 +9,7 @@
 #include <linux/nsproxy.h>
 #include <linux/slab.h>
 #include <linux/user_namespace.h>
-#include <linux/proc_fs.h>
+#include <linux/proc_ns.h>
 #include <linux/highuid.h>
 #include <linux/cred.h>
 #include <linux/securebits.h>
@@ -60,6 +60,7 @@ int create_user_ns(struct cred *new)
 	struct user_namespace *ns, *parent_ns = new->user_ns;
 	kuid_t owner = new->euid;
 	kgid_t group = new->egid;
+	int ret;
 
 	/*
 	 * Verify that we can not violate the policy of which files
@@ -82,6 +83,12 @@ int create_user_ns(struct cred *new)
 	if (!ns)
 		return -ENOMEM;
 
+	ret = proc_alloc_inum(&ns->proc_inum);
+	if (ret) {
+		kmem_cache_free(user_ns_cachep, ns);
+		return ret;
+	}
+
 	atomic_set(&ns->count, 1);
 	/* Leave the new->user_ns reference with the new user namespace. */
 	ns->parent = parent_ns;
@@ -89,6 +96,8 @@ int create_user_ns(struct cred *new)
 	ns->group = group;
 
 	set_cred_user_ns(new, ns);
+
+	update_mnt_policy(ns);
 
 	return 0;
 }
@@ -114,6 +123,7 @@ void free_user_ns(struct user_namespace *ns)
 
 	do {
 		parent = ns->parent;
+		proc_free_inum(ns->proc_inum);
 		kmem_cache_free(user_ns_cachep, ns);
 		ns = parent;
 	} while (atomic_dec_and_test(&parent->count));
@@ -859,12 +869,19 @@ static int userns_install(struct nsproxy *nsproxy, void *ns)
 	return commit_creds(cred);
 }
 
+static unsigned int userns_inum(void *ns)
+{
+	struct user_namespace *user_ns = ns;
+	return user_ns->proc_inum;
+}
+
 const struct proc_ns_operations userns_operations = {
 	.name		= "user",
 	.type		= CLONE_NEWUSER,
 	.get		= userns_get,
 	.put		= userns_put,
 	.install	= userns_install,
+	.inum		= userns_inum,
 };
 
 static __init int user_namespaces_init(void)
