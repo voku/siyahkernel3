@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm 3.1.0-R85 Kernel Configuration
+# Linux/arm 3.1.0-R86 Kernel Configuration
 #
 CONFIG_ARM=y
 CONFIG_GENERIC_GPIO=y
@@ -144,7 +144,6 @@ CONFIG_KALLSYMS=y
 CONFIG_KALLSYMS_ALL=y
 CONFIG_PRINTK=y
 CONFIG_BUG=y
-CONFIG_ELF_CORE=y
 CONFIG_BASE_FULL=y
 CONFIG_FUTEX=y
 CONFIG_EPOLL=y
@@ -736,11 +735,10 @@ CONFIG_NEON=y
 # Userspace binary formats
 #
 CONFIG_BINFMT_ELF=y
-# CONFIG_CORE_DUMP_DEFAULT_ELF_HEADERS is not set
 CONFIG_HAVE_AOUT=y
 # CONFIG_BINFMT_AOUT is not set
 CONFIG_BINFMT_MISC=y
-CONFIG_COREDUMP=y
+# CONFIG_COREDUMP is not set
 
 #
 # Power management options

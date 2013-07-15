@@ -205,21 +205,19 @@ int parse_args(const char *doing,
 			printk(KERN_WARNING "parse_args(): option '%s' enabled "
 					"irq's!\n", param);
 		}
+
 		switch (ret) {
 		case -ENOENT:
-			printk(KERN_ERR "%s: Unknown parameter `%s'\n",
-			       doing, param);
+			pr_err("%s: Unknown parameter `%s'\n", doing, param);
 			return ret;
 		case -ENOSPC:
-			printk(KERN_ERR
-			       "%s: `%s' too large for parameter `%s'\n",
+			pr_err("%s: `%s' too large for parameter `%s'\n",
 			       doing, val ?: "", param);
 			return ret;
 		case 0:
 			break;
 		default:
-			printk(KERN_ERR
-			       "%s: `%s' invalid for parameter `%s'\n",
+			pr_err("%s: `%s' invalid for parameter `%s'\n",
 			       doing, val ?: "", param);
 			return ret;
 		}
@@ -266,8 +264,7 @@ STANDARD_PARAM_DEF(ulong, unsigned long, "%lu", unsigned long, strict_strtoul);
 int param_set_charp(const char *val, const struct kernel_param *kp)
 {
 	if (strlen(val) > 1024) {
-		printk(KERN_ERR "%s: string parameter too long\n",
-		       kp->name);
+		pr_err("%s: string parameter too long\n", kp->name);
 		return -ENOSPC;
 	}
 
@@ -403,8 +400,7 @@ static int param_array(const char *name,
 		int len;
 
 		if (*num == max) {
-			printk(KERN_ERR "%s: can only take %i arguments\n",
-			       name, max);
+			pr_err("%s: can only take %i arguments\n", name, max);
 			return -EINVAL;
 		}
 		len = strcspn(val, ",");
@@ -423,8 +419,7 @@ static int param_array(const char *name,
 	} while (save == ',');
 
 	if (*num < min) {
-		printk(KERN_ERR "%s: needs at least %i arguments\n",
-		       name, min);
+		pr_err("%s: needs at least %i arguments\n", name, min);
 		return -EINVAL;
 	}
 	return 0;
@@ -483,7 +478,7 @@ int param_set_copystring(const char *val, const struct kernel_param *kp)
 	const struct kparam_string *kps = kp->str;
 
 	if (strlen(val)+1 > kps->maxlen) {
-		printk(KERN_ERR "%s: string doesn't fit in %u chars.\n",
+		pr_err("%s: string doesn't fit in %u chars.\n",
 		       kp->name, kps->maxlen-1);
 		return -ENOSPC;
 	}
@@ -753,11 +748,8 @@ static struct module_kobject * __init locate_module_kobject(const char *name)
 #endif
 		if (err) {
 			kobject_put(&mk->kobj);
-			printk(KERN_ERR
-				"Module '%s' failed add to sysfs, error number %d\n",
+			pr_crit("Adding module '%s' to sysfs failed (%d), the system may be unstable.\n",
 				name, err);
-			printk(KERN_ERR
-				"The system will be unstable now.\n");
 			return NULL;
 		}
 
@@ -793,7 +785,7 @@ static void __init kernel_add_sysfs_param(const char *name,
 }
 
 /*
- * param_sysfs_builtin - add contents in /sys/parameters for built-in modules
+ * param_sysfs_builtin - add sysfs parameters for built-in modules
  *
  * Add module_parameters to sysfs for "modules" built into the kernel.
  *
