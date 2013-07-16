@@ -1,11 +1,8 @@
 #ifndef _LINUX_SIGNAL_H
 #define _LINUX_SIGNAL_H
 
-#include <asm/signal.h>
-#include <asm/siginfo.h>
-
-#ifdef __KERNEL__
 #include <linux/list.h>
+#include <uapi/linux/signal.h>
 
 struct task_struct;
 
@@ -281,8 +278,15 @@ struct old_sigaction {
 };
 #endif
 
+struct ksignal {
+	struct k_sigaction ka;
+	siginfo_t info;
+	int sig;
+};
+
 extern int get_signal_to_deliver(siginfo_t *info, struct k_sigaction *return_ka, struct pt_regs *regs, void *cookie);
 extern void block_sigmask(struct k_sigaction *ka, int signr);
+extern void signal_delivered(int sig, siginfo_t *info, struct k_sigaction *ka, struct pt_regs *regs, int stepping);
 extern void exit_signals(struct task_struct *tsk);
 
 extern struct kmem_cache *sighand_cachep;
@@ -413,7 +417,5 @@ int unhandled_signal(struct task_struct *tsk, int sig);
 	 (t)->sighand->action[(signr)-1].sa.sa_handler == SIG_DFL)
 
 void signals_init(void);
-
-#endif /* __KERNEL__ */
 
 #endif /* _LINUX_SIGNAL_H */
