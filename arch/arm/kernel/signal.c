@@ -488,11 +488,11 @@ setup_rt_frame(int usig, struct k_sigaction *ka, siginfo_t *info,
  */	
 static int
 handle_signal(unsigned long sig, struct k_sigaction *ka,
-	      siginfo_t *info, sigset_t *oldset,
-	      struct pt_regs * regs)
+		siginfo_t *info, struct pt_regs *regs)
 {
 	struct thread_info *thread = current_thread_info();
 	struct task_struct *tsk = current;
+	sigset_t *oldset = sigmask_to_save();
 	int usig = sig;
 	int ret;
 
@@ -577,8 +577,6 @@ static void do_signal(struct pt_regs *regs, int syscall)
 	 */
 	signr = get_signal_to_deliver(&info, &ka, regs, NULL);
 	if (signr > 0) {
-		sigset_t *oldset;
-
 		/*
 		 * Depending on the signal settings we may need to revert the
 		 * decision to restart the system call.  But skip this if a
@@ -593,11 +591,7 @@ static void do_signal(struct pt_regs *regs, int syscall)
 			}
 		}
 
-		if (test_thread_flag(TIF_RESTORE_SIGMASK))
-			oldset = &current->saved_sigmask;
-		else
-			oldset = &current->blocked;
-		if (handle_signal(signr, &ka, &info, oldset, regs) == 0) {
+		if (handle_signal(signr, &ka, &info, regs) == 0) {
 			/*
 			 * A signal was successfully delivered; the saved
 			 * sigmask will have been stored in the signal frame,
@@ -642,11 +636,7 @@ static void do_signal(struct pt_regs *regs, int syscall)
 		}
 	}
 
-	/* If there's no signal to deliver, we just put the saved sigmask
-	 * back.
-	 */
-	if (test_and_clear_thread_flag(TIF_RESTORE_SIGMASK))
-		set_current_blocked(&current->saved_sigmask);
+	restore_saved_sigmask();
 }
 
 asmlinkage void
