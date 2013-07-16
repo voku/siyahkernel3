@@ -1974,6 +1974,8 @@ static void ptrace_do_notify(int signr, int exit_code, int why)
 void ptrace_notify(int exit_code)
 {
 	BUG_ON((exit_code & (0x7f | ~0xffff)) != SIGTRAP);
+	if (unlikely(current->task_works))
+		task_work_run();
 
 	spin_lock_irq(&current->sighand->siglock);
 	ptrace_do_notify(SIGTRAP, exit_code, CLD_TRAPPED);
@@ -2193,6 +2195,9 @@ int get_signal_to_deliver(siginfo_t *info, struct k_sigaction *return_ka,
 	struct sighand_struct *sighand = current->sighand;
 	struct signal_struct *signal = current->signal;
 	int signr;
+
+	if (unlikely(current->task_works))
+		task_work_run();
 
 	if (unlikely(uprobe_deny_signal()))
 		return 0;
@@ -2521,7 +2526,13 @@ static void __set_task_blocked(struct task_struct *tsk, const sigset_t *newset)
  * It is wrong to change ->blocked directly, this helper should be used
  * to ensure the process can't miss a shared signal we are going to block.
  */
-void set_current_blocked(const sigset_t *newset)
+void set_current_blocked(sigset_t *newset)
+{
+	sigdelsetmask(newset, sigmask(SIGKILL) | sigmask(SIGSTOP));
+	__set_current_blocked(newset);
+}
+
+void __set_current_blocked(const sigset_t *newset)
 {
 	struct task_struct *tsk = current;
 
@@ -2561,7 +2572,7 @@ int sigprocmask(int how, sigset_t *set, sigset_t *oldset)
 		return -EINVAL;
 	}
 
-	set_current_blocked(&newset);
+	__set_current_blocked(&newset);
 	return 0;
 }
 
@@ -3276,7 +3287,6 @@ SYSCALL_DEFINE3(sigprocmask, int, how, old_sigset_t __user *, nset,
 	if (nset) {
 		if (copy_from_user(&new_set, nset, sizeof(*nset)))
 			return -EFAULT;
-		new_set &= ~(sigmask(SIGKILL) | sigmask(SIGSTOP));
 
 		new_blocked = current->blocked;
 
@@ -3483,7 +3493,7 @@ SYSCALL_DEFINE1(ssetmask, int, newmask)
 	int old = current->blocked.sig[0];
 	sigset_t newset;
 
-	siginitset(&newset, newmask & ~(sigmask(SIGKILL) | sigmask(SIGSTOP)));
+	siginitset(&newset, newmask);
 	set_current_blocked(&newset);
 
 	return old;
@@ -3524,8 +3534,6 @@ SYSCALL_DEFINE0(pause)
 
 int sigsuspend(sigset_t *set)
 {
-	sigdelsetmask(set, sigmask(SIGKILL)|sigmask(SIGSTOP));
-
 	current->saved_sigmask = current->blocked;
 	set_current_blocked(set);
 
