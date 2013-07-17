@@ -341,10 +341,11 @@ static int ip6_forward_proxy_check(struct sk_buff *skb)
 {
 	struct ipv6hdr *hdr = ipv6_hdr(skb);
 	u8 nexthdr = hdr->nexthdr;
+	__be16 frag_off;
 	int offset;
 
 	if (ipv6_ext_hdr(nexthdr)) {
-		offset = ipv6_skip_exthdr(skb, sizeof(*hdr), &nexthdr);
+		offset = ipv6_skip_exthdr(skb, sizeof(*hdr), &nexthdr, &frag_off);
 		if (offset < 0)
 			return 0;
 	} else
@@ -1225,7 +1226,7 @@ int ip6_append_data(struct sock *sk, int getfrag(void *from, char *to,
 			if (WARN_ON(np->cork.opt))
 				return -EINVAL;
 
-			np->cork.opt = kzalloc(opt->tot_len, sk->sk_allocation);
+			np->cork.opt = kmalloc(opt->tot_len, sk->sk_allocation);
 			if (unlikely(np->cork.opt == NULL))
 				return -ENOBUFS;
 

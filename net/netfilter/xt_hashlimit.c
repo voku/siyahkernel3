@@ -465,6 +465,9 @@ hashlimit_init_dst(const struct xt_hashlimit_htable *hinfo,
 		break;
 #if defined(CONFIG_IP6_NF_IPTABLES) || defined(CONFIG_IP6_NF_IPTABLES_MODULE)
 	case NFPROTO_IPV6:
+	{
+		__be16 frag_off;
+
 		if (hinfo->cfg.mode & XT_HASHLIMIT_HASH_DIP) {
 			memcpy(&dst->ip6.dst, &ipv6_hdr(skb)->daddr,
 			       sizeof(dst->ip6.dst));
@@ -480,10 +483,11 @@ hashlimit_init_dst(const struct xt_hashlimit_htable *hinfo,
 		      (XT_HASHLIMIT_HASH_DPT | XT_HASHLIMIT_HASH_SPT)))
 			return 0;
 		nexthdr = ipv6_hdr(skb)->nexthdr;
-		protoff = ipv6_skip_exthdr(skb, sizeof(struct ipv6hdr), &nexthdr);
+		protoff = ipv6_skip_exthdr(skb, sizeof(struct ipv6hdr), &nexthdr, &frag_off);
 		if ((int)protoff < 0)
 			return -1;
 		break;
+	}
 #endif
 	default:
 		BUG();
