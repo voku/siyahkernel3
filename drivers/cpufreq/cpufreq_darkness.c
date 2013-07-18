@@ -93,6 +93,8 @@ static struct darkness_tuners {
 	atomic_t cpu_down_rate;
 	atomic_t up_load;
 	atomic_t down_load;
+	atomic_t up_sf_step;
+	atomic_t down_sf_step;
 	atomic_t force_freqs_step;
 	atomic_t earlysuspend;
 } darkness_tuners_ins = {
@@ -101,6 +103,8 @@ static struct darkness_tuners {
 	.cpu_up_rate = ATOMIC_INIT(10),
 	.cpu_down_rate = ATOMIC_INIT(5),
 	.up_load = ATOMIC_INIT(65),
+	.up_sf_step = ATOMIC_INIT(0),
+	.down_sf_step = ATOMIC_INIT(0),
 	.force_freqs_step = ATOMIC_INIT(0),
 	.earlysuspend = ATOMIC_INIT(0),
 };
@@ -154,6 +158,8 @@ show_one(cpu_up_rate, cpu_up_rate);
 show_one(cpu_down_rate, cpu_down_rate);
 show_one(up_load, up_load);
 show_one(down_load, down_load);
+show_one(up_sf_step, up_sf_step);
+show_one(down_sf_step, down_sf_step);
 show_one(force_freqs_step, force_freqs_step);
 
 #define show_hotplug_param(file_name, num_core, up_down)		\
@@ -328,6 +334,48 @@ static ssize_t store_down_load(struct kobject *a, struct attribute *b,
 	return count;
 }
 
+/* up_sf_step */
+static ssize_t store_up_sf_step(struct kobject *a, struct attribute *b,
+				   const char *buf, size_t count)
+{
+	int input;
+	int ret;
+
+	ret = sscanf(buf, "%d", &input);
+	if (ret != 1)
+		return -EINVAL;
+
+	input = max(min(input,99),0);
+
+	if (input == atomic_read(&darkness_tuners_ins.up_sf_step))
+		return count;
+
+	 atomic_set(&darkness_tuners_ins.up_sf_step,input);
+
+	return count;
+}
+
+/* down_sf_step */
+static ssize_t store_down_sf_step(struct kobject *a, struct attribute *b,
+				   const char *buf, size_t count)
+{
+	int input;
+	int ret;
+
+	ret = sscanf(buf, "%d", &input);
+	if (ret != 1)
+		return -EINVAL;
+
+	input = max(min(input,99),0);
+
+	if (input == atomic_read(&darkness_tuners_ins.down_sf_step))
+		return count;
+
+	atomic_set(&darkness_tuners_ins.down_sf_step,input);
+
+	return count;
+}
+
 /* force_freqs_step */
 static ssize_t store_force_freqs_step(struct kobject *a, struct attribute *b,
 					const char *buf, size_t count)
@@ -355,6 +403,8 @@ define_one_global_rw(cpu_up_rate);
 define_one_global_rw(cpu_down_rate);
 define_one_global_rw(up_load);
 define_one_global_rw(down_load);
+define_one_global_rw(up_sf_step);
+define_one_global_rw(down_sf_step);
 define_one_global_rw(force_freqs_step);
 
 static struct attribute *darkness_attributes[] = {
@@ -372,6 +422,8 @@ static struct attribute *darkness_attributes[] = {
 	&cpu_down_rate.attr,
 	&up_load.attr,
 	&down_load.attr,
+	&up_sf_step.attr,
+	&down_sf_step.attr,
 	&force_freqs_step.attr,
 	NULL
 };
@@ -450,22 +502,36 @@ static int check_down(bool earlysuspend)
 	return 0;
 }
 
-static inline unsigned int darkness_frequency_adjust(int next_freq, unsigned int min_freq, unsigned int max_freq, int ffs)
-{
+static unsigned int darkness_frequency_adjust(int next_freq, unsigned int min_freq, unsigned int cur_freq, unsigned int max_freq, int ffs)
+{	
+	unsigned int scaling_freq_step = next_freq >= cur_freq ? atomic_read(&darkness_tuners_ins.up_sf_step) : atomic_read(&darkness_tuners_ins.down_sf_step);
+	unsigned int adjust_freq = cur_freq;
 	int i=0;
+
 	if (next_freq >= max_freq) {
 		return max_freq;
 	} else if (next_freq <= min_freq) {
 		return min_freq;
 	}
 
-	for (i = 0; i < 16; i++) {
-		if (next_freq >= freqs_step[i][ffs]) {
-			return freqs_step[i][ffs];
+	if (!ffs) {
+		adjust_freq = (next_freq / 100000) * 100000;
+		/* Avoid to manage freq with up_sf_step or down_sf_step */
+		if (adjust_freq == cur_freq) {
+			return cur_freq;
+		}
+		if ((next_freq % 100000) > (scaling_freq_step * 1000)) {
+			adjust_freq += 100000;
+		}
+		return adjust_freq;	
+	} else {
+		for (i = 0; i < 16; i++) {
+			if (next_freq >= freqs_step[i][ffs]) {
+				return freqs_step[i][ffs];
+			}
 		}
 	}
-
-	return min_freq;		
+	return adjust_freq;		
 }
 
 static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cpuinfo)
@@ -478,22 +544,23 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 	unsigned int j;
 
 	for_each_online_cpu(j) {
+		u64 *cpustat = kcpustat_cpu(j).cpustat;
 		struct cpufreq_darkness_cpuinfo *j_darkness_cpuinfo;
 		struct cpufreq_policy *cpu_policy = per_cpu(cpufreq_cpu_data, j);
-		u64 cur_busy_time=0, cur_idle_time=0;
+		u64 cur_busy_time, cur_idle_time;
 		unsigned int busy_time, idle_time;
 		/* Current load across this CPU */
-		int cur_load = 0;
-		int next_freq = 0;
-		unsigned int max_freq = 0;
+		int cur_load;
+		unsigned int next_freq;
+		unsigned int max_freq;
 
 		j_darkness_cpuinfo = &per_cpu(od_darkness_cpuinfo, j);
 
-		cur_busy_time = cputime_to_usecs(kcpustat_cpu(j).cpustat[CPUTIME_USER] + kcpustat_cpu(j).cpustat[CPUTIME_SYSTEM]
-						+ kcpustat_cpu(j).cpustat[CPUTIME_IRQ] + kcpustat_cpu(j).cpustat[CPUTIME_SOFTIRQ]
-						+ kcpustat_cpu(j).cpustat[CPUTIME_STEAL] + kcpustat_cpu(j).cpustat[CPUTIME_NICE]);
+		cur_busy_time = cputime_to_usecs(cpustat[CPUTIME_USER] + cpustat[CPUTIME_SYSTEM]
+						+ cpustat[CPUTIME_IRQ] + cpustat[CPUTIME_SOFTIRQ]
+						+ cpustat[CPUTIME_STEAL] + cpustat[CPUTIME_NICE]);
 
-		cur_idle_time = cputime_to_usecs(kcpustat_cpu(j).cpustat[CPUTIME_IDLE] + kcpustat_cpu(j).cpustat[CPUTIME_IOWAIT]);
+		cur_idle_time = cputime_to_usecs(cpustat[CPUTIME_IDLE] + cpustat[CPUTIME_IOWAIT]);
 
 		busy_time = (unsigned int)
 				(cur_busy_time - j_darkness_cpuinfo->prev_cpu_busy);
@@ -513,10 +580,10 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 		// GET MAX FREQ
 		max_freq = !earlysuspend ? cpu_policy->max : min(cpu_policy->max_suspend,cpu_policy->max);
 		/* CPUs Online Scale Frequency*/
-		next_freq = darkness_frequency_adjust((cur_load * (max_freq / 100)), cpu_policy->min, max_freq, force_freq_steps);
+		next_freq = darkness_frequency_adjust((cur_load * (max_freq / 100)), cpu_policy->min, cpu_policy->cur, max_freq, force_freq_steps);
 		/*printk(KERN_ERR "FREQ CALC.: CPU[%u], load[%d], target freq[%u], cur freq[%u], min freq[%u], max_freq[%u]\n",j, cur_load, next_freq, cpu_policy->cur, cpu_policy->min, max_freq); */
 		if (next_freq != cpu_policy->cur) {
-			__cpufreq_driver_target(cpu_policy, next_freq, CPUFREQ_RELATION_H);
+			__cpufreq_driver_target(cpu_policy, next_freq, CPUFREQ_RELATION_L);
 		}
 	}
 
@@ -593,14 +660,15 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 
 		darkness_enable++;
 		for_each_possible_cpu(j) {
+			u64 *cpustat = kcpustat_cpu(j).cpustat;
 			struct cpufreq_darkness_cpuinfo *j_darkness_cpuinfo;
 			per_cpu(cpufreq_cpu_data, j) = policy;
 			j_darkness_cpuinfo = &per_cpu(od_darkness_cpuinfo, j);
-			j_darkness_cpuinfo->prev_cpu_busy = cputime_to_usecs(kcpustat_cpu(j).cpustat[CPUTIME_USER] + kcpustat_cpu(j).cpustat[CPUTIME_SYSTEM]
-						+ kcpustat_cpu(j).cpustat[CPUTIME_IRQ] + kcpustat_cpu(j).cpustat[CPUTIME_SOFTIRQ]
-						+ kcpustat_cpu(j).cpustat[CPUTIME_STEAL] + kcpustat_cpu(j).cpustat[CPUTIME_NICE]);
+			j_darkness_cpuinfo->prev_cpu_busy = cputime_to_usecs(cpustat[CPUTIME_USER] + cpustat[CPUTIME_SYSTEM]
+						+ cpustat[CPUTIME_IRQ] + cpustat[CPUTIME_SOFTIRQ]
+						+ cpustat[CPUTIME_STEAL] + cpustat[CPUTIME_NICE]);
 
-			j_darkness_cpuinfo->prev_cpu_idle = cputime_to_usecs(kcpustat_cpu(j).cpustat[CPUTIME_IDLE] + kcpustat_cpu(j).cpustat[CPUTIME_IOWAIT]);
+			j_darkness_cpuinfo->prev_cpu_idle = cputime_to_usecs(cpustat[CPUTIME_IDLE] + cpustat[CPUTIME_IOWAIT]);
 		}
 		this_darkness_cpuinfo->cpu = cpu;
 		/*
@@ -693,7 +761,7 @@ static int __init cpufreq_gov_darkness_init(void)
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	early_suspend.suspend = cpufreq_darkness_early_suspend;
 	early_suspend.resume = cpufreq_darkness_late_resume;
-	early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN;
+	early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB;
 #endif
 	return ret;
 
@@ -703,6 +771,7 @@ err_queue:
 	kfree(hotplug_history);
 err_free:
 	kfree(&darkness_tuners_ins);
+	kfree(&hotplug_freq);
 	return ret;
 }
 
@@ -712,6 +781,7 @@ static void __exit cpufreq_gov_darkness_exit(void)
 	destroy_workqueue(dvfs_workqueue);
 	kfree(hotplug_history);
 	kfree(&darkness_tuners_ins);
+	kfree(&hotplug_freq);
 }
 
 MODULE_AUTHOR("Alucard24@XDA");
