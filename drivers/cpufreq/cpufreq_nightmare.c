@@ -1017,7 +1017,7 @@ static int __init cpufreq_gov_nightmare_init(void)
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	early_suspend.suspend = cpufreq_nightmare_early_suspend;
 	early_suspend.resume = cpufreq_nightmare_late_resume;
-	early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN;
+	early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB;
 #endif
 	return ret;
 
