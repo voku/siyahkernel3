@@ -614,9 +614,9 @@ static void do_darkness_timer(struct work_struct *work)
 	 * same jiffy
 	 */
 	delay = usecs_to_jiffies(atomic_read(&darkness_tuners_ins.sampling_rate));
-	if (num_online_cpus() > 1) {
+	/*if (num_online_cpus() > 1) {
 		delay -= jiffies % delay;
-	}	
+	}*/
 
 	mod_delayed_work_on(darkness_cpuinfo->cpu, dvfs_workqueue, &darkness_cpuinfo->work, delay);
 	mutex_unlock(&timer_mutex);
