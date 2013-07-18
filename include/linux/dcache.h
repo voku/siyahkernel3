@@ -311,7 +311,7 @@ static inline unsigned d_count(const struct dentry *dentry)
 	return dentry->d_lockref.count;
 }
 
-static inline unsigned d_count(struct dentry *dentry)
+static inline unsigned d_count(const struct dentry *dentry)
 {
 	return dentry->d_count;
 }
