@@ -810,7 +810,7 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 		j_nightmare_cpuinfo->prev_cpu_idle = cur_idle_time;
 
 		/*printk(KERN_ERR "TIMER CPU[%u], wall[%u], idle[%u]\n",j, busy_time + idle_time, idle_time);*/
-		if (!cpu_policy || busy_time + idle_time == 0) { /*if busy_time and idle_time are 0, evaluate cpu load next time*/
+		if (unlikely(!cpu_policy || busy_time + idle_time == 0)) { /*if busy_time and idle_time are 0, evaluate cpu load next time*/
 			continue;
 		}
 		cur_load = busy_time ? (100 * busy_time) / (busy_time + idle_time) : 1;/*if busy_time is 0 cpu_load is equal to 1*/
