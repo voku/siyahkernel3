@@ -327,8 +327,8 @@ static inline int exec_permission(struct inode *inode, unsigned int flags)
 			goto ok;
 		if (ret != -EACCES)
 			return ret;
-		if (ns_capable(ns, CAP_DAC_OVERRIDE) ||
-				ns_capable(ns, CAP_DAC_READ_SEARCH))
+		if (inode_capable(inode, CAP_DAC_OVERRIDE) ||
+				inode_capable(inode, CAP_DAC_READ_SEARCH))
 			goto ok;
 	}
 	return ret;
