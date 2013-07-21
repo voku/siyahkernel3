@@ -1641,7 +1641,7 @@ static int path_init(int dfd, const char *name, unsigned int flags,
 				return -ENOTDIR;
 			}
 
-			retval = file_permission(f.file, MAY_EXEC);
+			retval = exec_permission(dentry->d_inode, 0);
 			if (retval) {
 				fdput(f);
 				return retval;
