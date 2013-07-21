@@ -532,19 +532,19 @@ static inline int exec_permission(struct inode *inode, unsigned int flags)
 
 	if (inode->i_op->permission) {
 		ret = inode->i_op->permission(inode, MAY_EXEC, flags);
+		if (likely(!ret))
+			goto ok;
 	} else {
 		ret = acl_permission_check(inode, MAY_EXEC, flags,
 				inode->i_op->check_acl);
+		if (likely(!ret))
+			goto ok;
+		if (ret != -EACCES)
+			return ret;
+		if (inode_capable(inode, CAP_DAC_OVERRIDE) ||
+				inode_capable(inode, CAP_DAC_READ_SEARCH))
+			goto ok;
 	}
-	if (likely(!ret))
-		goto ok;
-	if (ret == -ECHILD)
-		return ret;
-
-	if (inode_capable(inode, CAP_DAC_OVERRIDE) ||
-			inode_capable(inode, CAP_DAC_READ_SEARCH))
-		goto ok;
-
 	return ret;
 ok:
 	return security_inode_exec_permission(inode, flags);
