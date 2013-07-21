@@ -66,6 +66,7 @@ struct cpufreq_darkness_cpuinfo {
 	u64 prev_cpu_busy;
 	u64 prev_cpu_idle;
 	struct delayed_work work;
+	int cpu_sampling_rate;
 	int cpu;
 };
 /*
@@ -583,6 +584,7 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 		next_freq = darkness_frequency_adjust((cur_load * (max_freq / 100)), cpu_policy->min, cpu_policy->cur, max_freq, force_freq_steps);
 		/*printk(KERN_ERR "FREQ CALC.: CPU[%u], load[%d], target freq[%u], cur freq[%u], min freq[%u], max_freq[%u]\n",j, cur_load, next_freq, cpu_policy->cur, cpu_policy->min, max_freq); */
 		if (next_freq != cpu_policy->cur) {
+			this_darkness_cpuinfo->cpu_sampling_rate = (next_freq / 100) - (cpu_policy->min / 100);
 			__cpufreq_driver_target(cpu_policy, next_freq, CPUFREQ_RELATION_L);
 		}
 	}
@@ -613,7 +615,7 @@ static void do_darkness_timer(struct work_struct *work)
 	/* We want all CPUs to do sampling nearly on
 	 * same jiffy
 	 */
-	delay = usecs_to_jiffies(atomic_read(&darkness_tuners_ins.sampling_rate));
+	delay = usecs_to_jiffies(atomic_read(&darkness_tuners_ins.sampling_rate) - darkness_cpuinfo->cpu_sampling_rate);
 	/*if (num_online_cpus() > 1) {
 		delay -= jiffies % delay;
 	}*/
@@ -671,6 +673,7 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 			j_darkness_cpuinfo->prev_cpu_idle = cputime_to_usecs(cpustat[CPUTIME_IDLE] + cpustat[CPUTIME_IOWAIT]);
 		}
 		this_darkness_cpuinfo->cpu = cpu;
+		this_darkness_cpuinfo->cpu_sampling_rate = 0;
 		/*
 		 * Start the timerschedule work, when this governor
 		 * is used for first time
@@ -718,6 +721,7 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 		break;
 
 	case CPUFREQ_GOV_LIMITS:
+		get_online_cpus();
 		mutex_lock(&timer_mutex);
 		/* NOTHING TO DO JUST WATT */
 		cpu_policy = per_cpu(cpufreq_cpu_data, cpu);
@@ -732,6 +736,7 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 			__cpufreq_driver_target(cpu_policy,
 				policy->min, CPUFREQ_RELATION_L);
 		mutex_unlock(&timer_mutex);
+		put_online_cpus();
 		break;
 	}
 	return 0;
@@ -785,7 +790,7 @@ static void __exit cpufreq_gov_darkness_exit(void)
 }
 
 MODULE_AUTHOR("Alucard24@XDA");
-MODULE_DESCRIPTION("'cpufreq_darkness' - A dynamic cpufreq/cpuhotplug governor v.1.1");
+MODULE_DESCRIPTION("'cpufreq_darkness' - A dynamic cpufreq/cpuhotplug governor v.1.3");
 MODULE_LICENSE("GPL");
 
 #ifdef CONFIG_CPU_FREQ_DEFAULT_GOV_darkness
