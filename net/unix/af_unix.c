@@ -892,8 +892,6 @@ out_mknod_drop_write:
 	} else {
 		list = &unix_socket_table[dentry->d_inode->i_ino & (UNIX_HASH_SIZE-1)];
 		u->path = path;
-		u->dentry = path.dentry;
-		u->mnt    = path.mnt;
 	}
 
 	err = 0;

@@ -697,7 +697,7 @@ EXPORT_SYMBOL(dget_parent);
  * If the inode has an IS_ROOT, DCACHE_DISCONNECTED alias, then prefer
  * any other hashed alias over that.
  */
-static struct dentry *__d_find_alias(struct inode *inode)
+static struct dentry *__d_find_alias(struct inode *inode, int want_discon)
 {
 	struct dentry *alias, *discon_alias;
 
@@ -709,7 +709,7 @@ again:
 			if (IS_ROOT(alias) &&
 			    (alias->d_flags & DCACHE_DISCONNECTED)) {
 				discon_alias = alias;
-			} else {
+			} else if (!want_discon) {
 				__dget_dlock(alias);
 				spin_unlock(&alias->d_lock);
 				return alias;
@@ -740,7 +740,7 @@ struct dentry *d_find_alias(struct inode *inode)
 
 	if (!list_empty(&inode->i_dentry)) {
 		spin_lock(&inode->i_lock);
-		de = __d_find_alias(inode);
+		de = __d_find_alias(inode, 0);
 		spin_unlock(&inode->i_lock);
 	}
 	return de;
@@ -2505,7 +2505,7 @@ struct dentry *d_materialise_unique(struct dentry *dentry, struct inode *inode)
 		struct dentry *alias;
 
 		/* Does an aliased dentry already exist? */
-		alias = __d_find_alias(inode);
+		alias = __d_find_alias(inode, 0);
 		if (alias) {
 			actual = alias;
 			write_seqlock(&rename_lock);
