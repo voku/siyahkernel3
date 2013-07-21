@@ -2067,7 +2067,7 @@ gadgetfs_fill_super (struct super_block *sb, void *opts, int silent)
 	if (!inode)
 		goto enomem0;
 	inode->i_op = &simple_dir_inode_operations;
-	if (!(d = d_alloc_root (inode)))
+	if (!(d = d_make_root(inode)))
 		goto enomem1;
 	sb->s_root = d;
 

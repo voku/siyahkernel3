@@ -947,17 +947,11 @@ root_found:
 	s->s_d_op = &isofs_dentry_ops[table];
 
 	/* get the root dentry */
-<<<<<<< HEAD
-	s->s_root = d_alloc_root(inode);
-	if (!(s->s_root))
-		goto out_no_root;
-=======
 	s->s_root = d_make_root(inode);
 	if (!(s->s_root)) {
 		error = -ENOMEM;
 		goto out_no_inode;
 	}
->>>>>>> 48fde70... switch open-coded instances of d_make_root() to new helper
 
 	kfree(opt.iocharset);
 

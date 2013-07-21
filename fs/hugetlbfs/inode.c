@@ -848,19 +848,8 @@ hugetlbfs_fill_super(struct super_block *sb, void *data, int silent)
 	sb->s_magic = HUGETLBFS_MAGIC;
 	sb->s_op = &hugetlbfs_ops;
 	sb->s_time_gran = 1;
-<<<<<<< HEAD
-	inode = hugetlbfs_get_inode(sb, config.uid, config.gid,
-					S_IFDIR | config.mode, 0);
-	if (!inode)
-		goto out_free;
-
-	root = d_alloc_root(inode);
-	if (!root) {
-		iput(inode);
-=======
 	sb->s_root = d_make_root(hugetlbfs_get_root(sb, &config));
 	if (!sb->s_root)
->>>>>>> 48fde70... switch open-coded instances of d_make_root() to new helper
 		goto out_free;
 	return 0;
 out_free:

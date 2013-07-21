@@ -632,14 +632,6 @@ static struct dentry *open_root_dentry(struct ceph_fs_client *fsc,
 	err = ceph_mdsc_do_request(mdsc, NULL, req);
 	if (err == 0) {
 		dout("open_root_inode success\n");
-<<<<<<< HEAD
-		if (ceph_ino(req->r_target_inode) == CEPH_INO_ROOT &&
-		    fsc->sb->s_root == NULL)
-			root = d_alloc_root(req->r_target_inode);
-		else
-			root = d_obtain_alias(req->r_target_inode);
-		req->r_target_inode = NULL;
-=======
 		if (ceph_ino(inode) == CEPH_INO_ROOT &&
 		    fsc->sb->s_root == NULL) {
 			root = d_make_root(inode);
@@ -651,7 +643,6 @@ static struct dentry *open_root_dentry(struct ceph_fs_client *fsc,
 			root = d_obtain_alias(inode);
 		}
 		ceph_init_dentry(root);
->>>>>>> 48fde70... switch open-coded instances of d_make_root() to new helper
 		dout("open_root_inode success, root dentry is %p\n", root);
 	} else {
 		root = ERR_PTR(err);

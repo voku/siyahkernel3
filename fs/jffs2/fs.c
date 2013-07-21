@@ -561,7 +561,7 @@ int jffs2_do_fill_super(struct super_block *sb, void *data, int silent)
 
 	ret = -ENOMEM;
 
-	D1(printk(KERN_DEBUG "jffs2_do_fill_super(): d_alloc_root()\n"));
+	D1(printk(KERN_DEBUG "jffs2_do_fill_super(): d_make_root()\n"));
 	sb->s_root = d_make_root(root_i);
 	if (!sb->s_root)
 		goto out_root;

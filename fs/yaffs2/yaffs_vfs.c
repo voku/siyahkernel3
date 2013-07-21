@@ -2351,9 +2351,9 @@ static struct super_block *yaffs_internal_read_super(int yaffs_version,
 
 	yaffs_trace(YAFFS_TRACE_OS, "yaffs_read_super: got root inode");
 
-	root = d_alloc_root(inode);
+	root = d_make_root(inode);
 
-	yaffs_trace(YAFFS_TRACE_OS, "yaffs_read_super: d_alloc_root done");
+	yaffs_trace(YAFFS_TRACE_OS, "yaffs_read_super: d_make_root done");
 
 	if (!root) {
 		iput(inode);

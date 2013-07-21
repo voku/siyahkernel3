@@ -724,16 +724,8 @@ static int hppfs_fill_super(struct super_block *sb, void *d, int silent)
 	sb->s_fs_info = proc_mnt;
 
 	err = -ENOMEM;
-<<<<<<< HEAD
-	root_inode = get_inode(sb, dget(proc_mnt->mnt_sb->s_root));
-	if (!root_inode)
-		goto out_mntput;
-
-	sb->s_root = d_alloc_root(root_inode);
-=======
 	root_inode = get_inode(sb, dget(proc_mnt->mnt_root));
 	sb->s_root = d_make_root(root_inode);
->>>>>>> 48fde70... switch open-coded instances of d_make_root() to new helper
 	if (!sb->s_root)
 		goto out_mntput;
 

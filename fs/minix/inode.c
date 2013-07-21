@@ -263,7 +263,7 @@ static int minix_fill_super(struct super_block *s, void *data, int silent)
 	}
 
 	ret = -ENOMEM;
-	s->s_root = d_alloc_root(root_inode);
+	s->s_root = d_make_root(root_inode);
 	if (!s->s_root)
 		goto out_iput;
 

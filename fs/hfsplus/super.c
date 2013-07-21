@@ -499,7 +499,7 @@ static int hfsplus_fill_super(struct super_block *sb, void *data, int silent)
 	}
 
 	sb->s_d_op = &hfsplus_dentry_operations;
-	sb->s_root = d_alloc_root(root);
+	sb->s_root = d_make_root(root);
 	if (!sb->s_root) {
 		err = -ENOMEM;
 		goto out_put_hidden_dir;

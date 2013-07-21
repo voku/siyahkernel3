@@ -141,7 +141,7 @@ struct fid {
  *    it should return a %NULL pointer if the file was found but no acceptable
  *    &dentries were available, or an %ERR_PTR error code indicating why it
  *    couldn't be found (e.g. %ENOENT or %ENOMEM).  Any suitable dentry can be
- *    returned including, if necessary, a new dentry created with d_alloc_root.
+ *    returned including, if necessary, a new dentry created with d_make_root.
  *    The caller can then find any other extant dentries by following the
  *    d_alias links.
  *
