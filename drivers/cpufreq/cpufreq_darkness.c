@@ -721,7 +721,6 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 		break;
 
 	case CPUFREQ_GOV_LIMITS:
-		get_online_cpus();
 		mutex_lock(&timer_mutex);
 		/* NOTHING TO DO JUST WATT */
 		cpu_policy = per_cpu(cpufreq_cpu_data, cpu);
@@ -736,7 +735,6 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 			__cpufreq_driver_target(cpu_policy,
 				policy->min, CPUFREQ_RELATION_L);
 		mutex_unlock(&timer_mutex);
-		put_online_cpus();
 		break;
 	}
 	return 0;
