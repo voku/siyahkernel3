@@ -548,12 +548,12 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 		u64 *cpustat = kcpustat_cpu(j).cpustat;
 		struct cpufreq_darkness_cpuinfo *j_darkness_cpuinfo;
 		struct cpufreq_policy *cpu_policy = per_cpu(cpufreq_cpu_data, j);
-		u64 cur_busy_time, cur_idle_time;
-		unsigned int busy_time, idle_time;
+		u64 cur_busy_time=0, cur_idle_time=0;
+		unsigned int busy_time=0, idle_time=0;
 		/* Current load across this CPU */
-		int cur_load;
-		unsigned int next_freq;
-		unsigned int max_freq;
+		int cur_load=0;
+		unsigned int next_freq=0;
+		unsigned int max_freq=(!earlysuspend) ? cpu_policy->max : min(cpu_policy->max_suspend,cpu_policy->max);
 
 		j_darkness_cpuinfo = &per_cpu(od_darkness_cpuinfo, j);
 
@@ -578,13 +578,11 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 		cur_load = busy_time ? (100 * busy_time) / (busy_time + idle_time) : 1;/*if busy_time is 0 cpu_load is equal to 1*/
 		hotplug_history->usage[num_hist].freq[j] = cpu_policy->cur;
 		hotplug_history->usage[num_hist].load[j] = cur_load;
-		// GET MAX FREQ
-		max_freq = !earlysuspend ? cpu_policy->max : min(cpu_policy->max_suspend,cpu_policy->max);
 		/* CPUs Online Scale Frequency*/
 		next_freq = darkness_frequency_adjust((cur_load * (max_freq / 100)), cpu_policy->min, cpu_policy->cur, max_freq, force_freq_steps);
 		/*printk(KERN_ERR "FREQ CALC.: CPU[%u], load[%d], target freq[%u], cur freq[%u], min freq[%u], max_freq[%u]\n",j, cur_load, next_freq, cpu_policy->cur, cpu_policy->min, max_freq); */
 		if (next_freq != cpu_policy->cur) {
-			this_darkness_cpuinfo->cpu_sampling_rate = (next_freq / 100) - (cpu_policy->min / 100);
+			this_darkness_cpuinfo->cpu_sampling_rate = (next_freq > cpu_policy->min) ? (next_freq - cpu_policy->min) / 100 : 0;
 			__cpufreq_driver_target(cpu_policy, next_freq, CPUFREQ_RELATION_L);
 		}
 	}
