@@ -118,7 +118,12 @@ static int vmem_add_mem(unsigned long start, unsigned long size, int ro)
 		    !(address & ~PMD_MASK) && (address + PMD_SIZE <= end)) {
 			pmd_val(*pm_dir) = __pa(address) |
 				_SEGMENT_ENTRY | _SEGMENT_ENTRY_LARGE |
+<<<<<<< HEAD
 				(ro ? _SEGMENT_ENTRY_RO : 0);
+=======
+				_SEGMENT_ENTRY_YOUNG |
+				(ro ? _SEGMENT_ENTRY_PROTECT : 0);
+>>>>>>> 0944fe3... s390/mm: implement software referenced bits
 			address += PMD_SIZE;
 			continue;
 		}
