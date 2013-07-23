@@ -879,15 +879,21 @@ static void do_nightmare_timer(struct work_struct *work)
 }
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
-static struct early_suspend early_suspend;
 static inline void cpufreq_nightmare_early_suspend(struct early_suspend *h)
 {
-	atomic_inc(&nightmare_tuners_ins.earlysuspend);
+	atomic_set(&nightmare_tuners_ins.earlysuspend, 1);
 }
+
 static inline void cpufreq_nightmare_late_resume(struct early_suspend *h)
 {
-	atomic_dec(&nightmare_tuners_ins.earlysuspend);
+	atomic_set(&nightmare_tuners_ins.earlysuspend, 0);
 }
+
+static struct early_suspend nightmare_early_suspend = {
+	.suspend = cpufreq_nightmare_early_suspend,
+	.resume = cpufreq_nightmare_late_resume,
+	.level = EARLY_SUSPEND_LEVEL_DISABLE_FB,
+};
 #endif
 
 static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
@@ -937,6 +943,7 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 				mutex_unlock(&nightmare_mutex);
 				return rc;
 			}
+			atomic_set(&nightmare_tuners_ins.earlysuspend,0);
 		}
 		mutex_unlock(&nightmare_mutex);
 
@@ -945,20 +952,18 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 		mod_delayed_work_on(this_nightmare_cpuinfo->cpu, dvfs_workqueue, &this_nightmare_cpuinfo->work, 0);
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
-		register_early_suspend(&early_suspend);
+		register_early_suspend(&nightmare_early_suspend);
 #endif
 		break;
 
 	case CPUFREQ_GOV_STOP:
 #ifdef CONFIG_HAS_EARLYSUSPEND
-		unregister_early_suspend(&early_suspend);
+		unregister_early_suspend(&nightmare_early_suspend);
 #endif
-
-		mutex_lock(&nightmare_mutex);
 		cancel_delayed_work(&this_nightmare_cpuinfo->work);
-
 		mutex_destroy(&timer_mutex);
 
+		mutex_lock(&nightmare_mutex);
 		nightmare_enable--;
 		for_each_possible_cpu(j) {
 			per_cpu(cpufreq_cpu_data, j) = NULL;
@@ -968,7 +973,6 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 			sysfs_remove_group(cpufreq_global_kobject,
 					   &nightmare_attr_group);
 		}
-		atomic_set(&nightmare_tuners_ins.earlysuspend,0);
 		mutex_unlock(&nightmare_mutex);
 		
 		break;
@@ -988,6 +992,7 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 			__cpufreq_driver_target(cpu_policy,
 				policy->min, CPUFREQ_RELATION_L);
 		mutex_unlock(&timer_mutex);
+
 		break;
 	}
 	return 0;
@@ -1014,11 +1019,7 @@ static int __init cpufreq_gov_nightmare_init(void)
 	ret = cpufreq_register_governor(&cpufreq_gov_nightmare);
 	if (ret)
 		goto err_reg;
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	early_suspend.suspend = cpufreq_nightmare_early_suspend;
-	early_suspend.resume = cpufreq_nightmare_late_resume;
-	early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB;
-#endif
+
 	return ret;
 
 err_reg:
