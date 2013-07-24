@@ -336,6 +336,17 @@ config HAVE_UNDERSCORE_SYMBOL_PREFIX
 #
 # ABI hall of shame
 #
+config CLONE_BACKWARDS
+	bool
+	help
+	  Architecture has tls passed as the 4th argument of clone(2),
+	  not the 5th one.
+
+config CLONE_BACKWARDS2
+	bool
+	help
+	  Architecture has the first two arguments of clone(2) swapped.
+
 config ODD_RT_SIGACTION
 	bool
 	help

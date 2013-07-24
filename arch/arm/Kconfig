@@ -54,7 +54,6 @@ config ARM
 	select OLD_SIGSUSPEND3
 	select OLD_SIGACTION
 	select HAVE_CONTEXT_TRACKING
-	select CLONE_BACKWARDS
 	select GENERIC_KERNEL_THREAD
 	help
 	  The ARM series is a line of low-power-consumption RISC chip designs
