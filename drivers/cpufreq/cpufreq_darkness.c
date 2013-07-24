@@ -66,9 +66,10 @@ struct cpufreq_darkness_cpuinfo {
 	u64 prev_cpu_busy;
 	u64 prev_cpu_idle;
 	struct delayed_work work;
-	int cpu_sampling_rate;
 	int cpu;
 };
+static int cpu_sampling_rate = 0;
+
 /*
  * mutex that serializes governor limit change with
  * do_darkness_timer invocation. We do not want do_darkness_timer to run
@@ -548,11 +549,11 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 		u64 *cpustat = kcpustat_cpu(j).cpustat;
 		struct cpufreq_darkness_cpuinfo *j_darkness_cpuinfo;
 		struct cpufreq_policy *cpu_policy = per_cpu(cpufreq_cpu_data, j);
-		u64 cur_busy_time=0, cur_idle_time=0;
-		unsigned int busy_time=0, idle_time=0;
+		u64 cur_busy_time, cur_idle_time;
+		unsigned int busy_time, idle_time;
 		/* Current load across this CPU */
-		int cur_load=0;
-		unsigned int next_freq=0;
+		int cur_load;
+		unsigned int next_freq;
 		unsigned int max_freq=(!earlysuspend) ? cpu_policy->max : min(cpu_policy->max_suspend,cpu_policy->max);
 
 		j_darkness_cpuinfo = &per_cpu(od_darkness_cpuinfo, j);
@@ -582,7 +583,7 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 		next_freq = darkness_frequency_adjust((cur_load * (max_freq / 100)), cpu_policy->min, cpu_policy->cur, max_freq, force_freq_steps);
 		/*printk(KERN_ERR "FREQ CALC.: CPU[%u], load[%d], target freq[%u], cur freq[%u], min freq[%u], max_freq[%u]\n",j, cur_load, next_freq, cpu_policy->cur, cpu_policy->min, max_freq); */
 		if (next_freq != cpu_policy->cur) {
-			this_darkness_cpuinfo->cpu_sampling_rate = (next_freq > cpu_policy->min) ? (next_freq - cpu_policy->min) / 100 : 0;
+			cpu_sampling_rate = (next_freq - cpu_policy->min) / 100;
 			__cpufreq_driver_target(cpu_policy, next_freq, CPUFREQ_RELATION_L);
 		}
 	}
@@ -613,7 +614,7 @@ static void do_darkness_timer(struct work_struct *work)
 	/* We want all CPUs to do sampling nearly on
 	 * same jiffy
 	 */
-	delay = usecs_to_jiffies(atomic_read(&darkness_tuners_ins.sampling_rate) - darkness_cpuinfo->cpu_sampling_rate);
+	delay = usecs_to_jiffies(atomic_read(&darkness_tuners_ins.sampling_rate) - cpu_sampling_rate);
 	/*if (num_online_cpus() > 1) {
 		delay -= jiffies % delay;
 	}*/
@@ -677,7 +678,6 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 			j_darkness_cpuinfo->prev_cpu_idle = cputime_to_usecs(cpustat[CPUTIME_IDLE] + cpustat[CPUTIME_IOWAIT]);
 		}
 		this_darkness_cpuinfo->cpu = cpu;
-		this_darkness_cpuinfo->cpu_sampling_rate = 0;
 		/*
 		 * Start the timerschedule work, when this governor
 		 * is used for first time
