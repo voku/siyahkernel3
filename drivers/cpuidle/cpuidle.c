@@ -28,8 +28,8 @@ DEFINE_MUTEX(cpuidle_lock);
 LIST_HEAD(cpuidle_detected_devices);
 
 static int enabled_devices;
-static int initialized __read_mostly;
 static int off __read_mostly;
+static int initialized __read_mostly;
 
 int cpuidle_disabled(void)
 {
@@ -64,6 +64,9 @@ int cpuidle_idle_call(void)
 	struct cpuidle_device *dev = __this_cpu_read(cpuidle_devices);
 	struct cpuidle_state *target_state;
 	int next_state;
+
+	if (off)
+		return -ENODEV;
 
 	if (!initialized)
 		return -ENODEV;
