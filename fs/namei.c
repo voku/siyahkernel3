@@ -1535,8 +1535,6 @@ unsigned int full_name_hash(const unsigned char *name, unsigned int len)
 }
 EXPORT_SYMBOL(full_name_hash);
 
-#endif
-
 /*
  * We know there's a real path component here of at least
  * one character.
@@ -1555,6 +1553,8 @@ static inline unsigned long hash_name(const char *name, unsigned int *hashp)
 	*hashp = end_name_hash(hash);
 	return len;
 }
+
+#endif
 
 /*
  * Name resolution.
