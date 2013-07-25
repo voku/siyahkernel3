@@ -138,12 +138,11 @@ static int create_xattr(struct ubifs_info *c, struct inode *host,
 	ui = ubifs_inode(inode);
 	ui->xattr = 1;
 	ui->flags |= UBIFS_XATTR_FL;
-	ui->data = kmalloc(size, GFP_NOFS);
+	ui->data = kmemdup(value, size, GFP_NOFS);
 	if (!ui->data) {
 		err = -ENOMEM;
 		goto out_free;
 	}
-	memcpy(ui->data, value, size);
 	inode->i_size = ui->ui_size = size;
 	ui->data_len = size;
 
@@ -204,12 +203,11 @@ static int change_xattr(struct ubifs_info *c, struct inode *host,
 		return err;
 
 	kfree(ui->data);
-	ui->data = kmalloc(size, GFP_NOFS);
+	ui->data = kmemdup(value, size, GFP_NOFS);
 	if (!ui->data) {
 		err = -ENOMEM;
 		goto out_free;
 	}
-	memcpy(ui->data, value, size);
 	inode->i_size = ui->ui_size = size;
 	ui->data_len = size;
 
@@ -401,8 +399,8 @@ ssize_t ubifs_getxattr(struct dentry *dentry, const char *name, void *buf,
 	if (buf) {
 		/* If @buf is %NULL we are supposed to return the length */
 		if (ui->data_len > size) {
-			dbg_err("buffer size %zd, xattr len %d",
-				size, ui->data_len);
+			ubifs_err("buffer size %zd, xattr len %d",
+				  size, ui->data_len);
 			err = -ERANGE;
 			goto out_iput;
 		}

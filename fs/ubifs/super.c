@@ -85,7 +85,7 @@ static int validate_inode(struct ubifs_info *c, const struct inode *inode)
 	if (ui->data_len < 0 || ui->data_len > UBIFS_MAX_INO_DATA)
 		return 4;
 
-	if (ui->xattr && (inode->i_mode & S_IFMT) != S_IFREG)
+	if (ui->xattr && !S_ISREG(inode->i_mode))
 		return 5;
 
 	if (!ubifs_compr_present(ui->compr_type)) {
@@ -94,7 +94,7 @@ static int validate_inode(struct ubifs_info *c, const struct inode *inode)
 			   ubifs_compr_name(ui->compr_type));
 	}
 
-	err = dbg_check_dir_size(c, inode);
+	err = dbg_check_dir(c, inode);
 	return err;
 }
 
@@ -246,8 +246,8 @@ struct inode *ubifs_iget(struct super_block *sb, unsigned long inum)
 
 out_invalid:
 	ubifs_err("inode %lu validation failed, error %d", inode->i_ino, err);
-	dbg_dump_node(c, ino);
-	dbg_dump_inode(c, inode);
+	ubifs_dump_node(c, ino);
+	ubifs_dump_inode(c, inode);
 	err = -EINVAL;
 out_ino:
 	kfree(ino);
@@ -668,8 +668,8 @@ static int init_constants_sb(struct ubifs_info *c)
 	tmp = UBIFS_CS_NODE_SZ + UBIFS_REF_NODE_SZ * c->jhead_cnt;
 	tmp = ALIGN(tmp, c->min_io_size);
 	if (tmp > c->leb_size) {
-		dbg_err("too small LEB size %d, at least %d needed",
-			c->leb_size, tmp);
+		ubifs_err("too small LEB size %d, at least %d needed",
+			  c->leb_size, tmp);
 		return -EINVAL;
 	}
 
@@ -683,8 +683,8 @@ static int init_constants_sb(struct ubifs_info *c)
 	tmp /= c->leb_size;
 	tmp += 1;
 	if (c->log_lebs < tmp) {
-		dbg_err("too small log %d LEBs, required min. %d LEBs",
-			c->log_lebs, tmp);
+		ubifs_err("too small log %d LEBs, required min. %d LEBs",
+			  c->log_lebs, tmp);
 		return -EINVAL;
 	}
 
@@ -813,13 +813,10 @@ static int alloc_wbufs(struct ubifs_info *c)
 		c->jheads[i].grouped = 1;
 	}
 
-	c->jheads[BASEHD].wbuf.dtype = UBI_SHORTTERM;
 	/*
-	 * Garbage Collector head likely contains long-term data and
-	 * does not need to be synchronized by timer. Also GC head nodes are
-	 * not grouped.
+	 * Garbage Collector head does not need to be synchronized by timer.
+	 * Also GC head nodes are not grouped.
 	 */
-	c->jheads[GCHD].wbuf.dtype = UBI_LONGTERM;
 	c->jheads[GCHD].wbuf.no_timer = 1;
 	c->jheads[GCHD].grouped = 0;
 
@@ -863,7 +860,7 @@ static void free_orphans(struct ubifs_info *c)
 		orph = list_entry(c->orph_list.next, struct ubifs_orphan, list);
 		list_del(&orph->list);
 		kfree(orph);
-		dbg_err("orphan list not empty at unmount");
+		ubifs_err("orphan list not empty at unmount");
 	}
 
 	vfree(c->orph_buf);
@@ -913,7 +910,7 @@ static int check_volume_empty(struct ubifs_info *c)
 
 	c->empty = 1;
 	for (lnum = 0; lnum < c->leb_cnt; lnum++) {
-		err = ubi_is_mapped(c->ubi, lnum);
+		err = ubifs_is_mapped(c, lnum);
 		if (unlikely(err < 0))
 			return err;
 		if (err == 1) {
@@ -1147,8 +1144,8 @@ static int check_free_space(struct ubifs_info *c)
 	ubifs_assert(c->dark_wm > 0);
 	if (c->lst.total_free + c->lst.total_dirty < c->dark_wm) {
 		ubifs_err("insufficient free space to mount in R/W mode");
-		dbg_dump_budg(c, &c->bi);
-		dbg_dump_lprops(c);
+		ubifs_dump_budg(c, &c->bi);
+		ubifs_dump_lprops(c);
 		return -ENOSPC;
 	}
 	return 0;
@@ -1301,7 +1298,7 @@ static int mount_ubifs(struct ubifs_info *c)
 	if (!c->ro_mount && c->space_fixup) {
 		err = ubifs_fixup_free_space(c);
 		if (err)
-			goto out_master;
+			goto out_lpt;
 	}
 
 	if (!c->ro_mount) {
@@ -1582,12 +1579,6 @@ static int ubifs_remount_rw(struct ubifs_info *c)
 	c->remounting_rw = 1;
 	c->ro_mount = 0;
 
-	if (c->space_fixup) {
-		err = ubifs_fixup_free_space(c);
-		if (err)
-			return err;
-	}
-
 	err = check_free_space(c);
 	if (err)
 		goto out;
@@ -1702,6 +1693,12 @@ static int ubifs_remount_rw(struct ubifs_info *c)
 		 * because, for example, the old index size was imprecise.
 		 */
 		err = dbg_check_space_info(c);
+	}
+
+	if (c->space_fixup) {
+		err = ubifs_fixup_free_space(c);
+		if (err)
+			goto out;
 	}
 
 	mutex_unlock(&c->umount_mutex);
@@ -2126,8 +2123,8 @@ static struct dentry *ubifs_mount(struct file_system_type *fs_type, int flags,
 	 */
 	ubi = open_ubi(name, UBI_READONLY);
 	if (IS_ERR(ubi)) {
-		dbg_err("cannot open \"%s\", error %d",
-			name, (int)PTR_ERR(ubi));
+		ubifs_err("cannot open \"%s\", error %d",
+			  name, (int)PTR_ERR(ubi));
 		return ERR_CAST(ubi);
 	}
 
@@ -2260,19 +2257,12 @@ static int __init ubifs_init(void)
 		return -EINVAL;
 	}
 
-	err = register_filesystem(&ubifs_fs_type);
-	if (err) {
-		ubifs_err("cannot register file system, error %d", err);
-		return err;
-	}
-
-	err = -ENOMEM;
 	ubifs_inode_slab = kmem_cache_create("ubifs_inode_slab",
 				sizeof(struct ubifs_inode), 0,
 				SLAB_MEM_SPREAD | SLAB_RECLAIM_ACCOUNT,
 				&inode_slab_ctor);
 	if (!ubifs_inode_slab)
-		goto out_reg;
+		return -ENOMEM;
 
 	register_shrinker(&ubifs_shrinker_info);
 
@@ -2284,15 +2274,20 @@ static int __init ubifs_init(void)
 	if (err)
 		goto out_compr;
 
+	err = register_filesystem(&ubifs_fs_type);
+	if (err) {
+		ubifs_err("cannot register file system, error %d", err);
+		goto out_dbg;
+	}
 	return 0;
 
+out_dbg:
+	dbg_debugfs_exit();
 out_compr:
 	ubifs_compressors_exit();
 out_shrinker:
 	unregister_shrinker(&ubifs_shrinker_info);
 	kmem_cache_destroy(ubifs_inode_slab);
-out_reg:
-	unregister_filesystem(&ubifs_fs_type);
 	return err;
 }
 /* late_initcall to let compressors initialize first */
