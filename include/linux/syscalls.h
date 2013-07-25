@@ -839,6 +839,15 @@ int kernel_execve(const char *filename, const char *const argv[], const char *co
 		current_pt_regs())
 #endif
 
+asmlinkage long sys_fork(void);
+asmlinkage long sys_vfork(void);
+#ifdef CONFIG_CLONE_BACKWARDS
+asmlinkage long sys_clone(unsigned long, unsigned long, int __user *, int,
+	       int __user *);
+#else
+asmlinkage long sys_clone(unsigned long, unsigned long, int __user *,
+	       int __user *, int);
+#endif
 
 asmlinkage long sys_perf_event_open(
 		struct perf_event_attr __user *attr_uptr,
