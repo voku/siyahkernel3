@@ -17,9 +17,7 @@
  */
 #include "xfs.h"
 #include "xfs_fs.h"
-#include "xfs_bit.h"
 #include "xfs_log.h"
-#include "xfs_inum.h"
 #include "xfs_trans.h"
 #include "xfs_sb.h"
 #include "xfs_ag.h"
@@ -59,7 +57,7 @@ xfs_trans_dqjoin(
 	xfs_trans_add_item(tp, &dqp->q_logitem.qli_item);
 
 	/*
-	 * Initialize i_transp so we can later determine if this dquot is
+	 * Initialize d_transp so we can later determine if this dquot is
 	 * associated with this transaction.
 	 */
 	dqp->q_transp = tp;
@@ -387,18 +385,18 @@ xfs_trans_apply_dquot_deltas(
 				qtrx->qt_delbcnt_delta;
 			totalrtbdelta = qtrx->qt_rtbcount_delta +
 				qtrx->qt_delrtb_delta;
-#ifdef QUOTADEBUG
+#ifdef DEBUG
 			if (totalbdelta < 0)
 				ASSERT(be64_to_cpu(d->d_bcount) >=
-				       (xfs_qcnt_t) -totalbdelta);
+				       -totalbdelta);
 
 			if (totalrtbdelta < 0)
 				ASSERT(be64_to_cpu(d->d_rtbcount) >=
-				       (xfs_qcnt_t) -totalrtbdelta);
+				       -totalrtbdelta);
 
 			if (qtrx->qt_icount_delta < 0)
 				ASSERT(be64_to_cpu(d->d_icount) >=
-				       (xfs_qcnt_t) -qtrx->qt_icount_delta);
+				       -qtrx->qt_icount_delta);
 #endif
 			if (totalbdelta)
 				be64_add_cpu(&d->d_bcount, (xfs_qcnt_t)totalbdelta);
@@ -605,7 +603,7 @@ xfs_trans_dqresv(
 	time_t		timer;
 	xfs_qwarncnt_t	warns;
 	xfs_qwarncnt_t	warnlimit;
-	xfs_qcnt_t	count;
+	xfs_qcnt_t	total_count;
 	xfs_qcnt_t	*resbcountp;
 	xfs_quotainfo_t	*q = mp->m_quotainfo;
 
@@ -642,24 +640,18 @@ xfs_trans_dqresv(
 	    ((XFS_IS_UQUOTA_ENFORCED(dqp->q_mount) && XFS_QM_ISUDQ(dqp)) ||
 	     (XFS_IS_OQUOTA_ENFORCED(dqp->q_mount) &&
 	      (XFS_QM_ISPDQ(dqp) || XFS_QM_ISGDQ(dqp))))) {
-#ifdef QUOTADEBUG
-		xfs_debug(mp,
-			"BLK Res: nblks=%ld + resbcount=%Ld > hardlimit=%Ld?",
-			nblks, *resbcountp, hardlimit);
-#endif
 		if (nblks > 0) {
 			/*
 			 * dquot is locked already. See if we'd go over the
 			 * hardlimit or exceed the timelimit if we allocate
 			 * nblks.
 			 */
-			if (hardlimit > 0ULL &&
-			    hardlimit <= nblks + *resbcountp) {
+			total_count = *resbcountp + nblks;
+			if (hardlimit && total_count > hardlimit) {
 				xfs_quota_warn(mp, dqp, QUOTA_NL_BHARDWARN);
 				goto error_return;
 			}
-			if (softlimit > 0ULL &&
-			    softlimit <= nblks + *resbcountp) {
+			if (softlimit && total_count > softlimit) {
 				if ((timer != 0 && get_seconds() > timer) ||
 				    (warns != 0 && warns >= warnlimit)) {
 					xfs_quota_warn(mp, dqp,
@@ -671,7 +663,7 @@ xfs_trans_dqresv(
 			}
 		}
 		if (ninos > 0) {
-			count = be64_to_cpu(dqp->q_core.d_icount);
+			total_count = be64_to_cpu(dqp->q_core.d_icount) + ninos;
 			timer = be32_to_cpu(dqp->q_core.d_itimer);
 			warns = be16_to_cpu(dqp->q_core.d_iwarns);
 			warnlimit = dqp->q_mount->m_quotainfo->qi_iwarnlimit;
@@ -682,11 +674,11 @@ xfs_trans_dqresv(
 			if (!softlimit)
 				softlimit = q->qi_isoftlimit;
 
-			if (hardlimit > 0ULL && count >= hardlimit) {
+			if (hardlimit && total_count > hardlimit) {
 				xfs_quota_warn(mp, dqp, QUOTA_NL_IHARDWARN);
 				goto error_return;
 			}
-			if (softlimit > 0ULL && count >= softlimit) {
+			if (softlimit && total_count > softlimit) {
 				if  ((timer != 0 && get_seconds() > timer) ||
 				     (warns != 0 && warns >= warnlimit)) {
 					xfs_quota_warn(mp, dqp,
@@ -881,7 +873,7 @@ STATIC void
 xfs_trans_alloc_dqinfo(
 	xfs_trans_t	*tp)
 {
-	tp->t_dqinfo = kmem_zone_zalloc(xfs_Gqm->qm_dqtrxzone, KM_SLEEP);
+	tp->t_dqinfo = kmem_zone_zalloc(xfs_qm_dqtrxzone, KM_SLEEP);
 }
 
 void
@@ -890,6 +882,6 @@ xfs_trans_free_dqinfo(
 {
 	if (!tp->t_dqinfo)
 		return;
-	kmem_zone_free(xfs_Gqm->qm_dqtrxzone, tp->t_dqinfo);
+	kmem_zone_free(xfs_qm_dqtrxzone, tp->t_dqinfo);
 	tp->t_dqinfo = NULL;
 }

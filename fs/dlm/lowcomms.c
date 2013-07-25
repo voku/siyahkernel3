@@ -52,6 +52,7 @@
 #include <linux/mutex.h>
 #include <linux/sctp.h>
 #include <linux/slab.h>
+#include <net/sctp/sctp.h>
 #include <net/sctp/user.h>
 #include <net/ipv6.h>
 
@@ -141,6 +142,7 @@ struct writequeue_entry {
 
 static struct sockaddr_storage *dlm_local_addr[DLM_MAX_ADDR_COUNT];
 static int dlm_local_count;
+static int dlm_allow_conn;
 
 /* Work queues */
 static struct workqueue_struct *recv_workqueue;
@@ -165,11 +167,12 @@ static inline int nodeid_hash(int nodeid)
 static struct connection *__find_con(int nodeid)
 {
 	int r;
+	struct hlist_node *h;
 	struct connection *con;
 
 	r = nodeid_hash(nodeid);
 
-	hlist_for_each_entry(con, &connection_hash[r], list) {
+	hlist_for_each_entry(con, h, &connection_hash[r], list) {
 		if (con->nodeid == nodeid)
 			return con;
 	}
@@ -219,12 +222,13 @@ static struct connection *__nodeid2con(int nodeid, gfp_t alloc)
 static void foreach_conn(void (*conn_func)(struct connection *c))
 {
 	int i;
-	struct hlist_node *n;
+	struct hlist_node *h, *n;
 	struct connection *con;
 
 	for (i = 0; i < CONN_HASH_SIZE; i++) {
-		hlist_for_each_entry_safe(con, n, &connection_hash[i], list)
+		hlist_for_each_entry_safe(con, h, n, &connection_hash[i], list){
 			conn_func(con);
+		}
 	}
 }
 
@@ -243,12 +247,13 @@ static struct connection *nodeid2con(int nodeid, gfp_t allocation)
 static struct connection *assoc2con(int assoc_id)
 {
 	int i;
+	struct hlist_node *h;
 	struct connection *con;
 
 	mutex_lock(&connections_lock);
 
 	for (i = 0 ; i < CONN_HASH_SIZE; i++) {
-		hlist_for_each_entry(con, &connection_hash[i], list) {
+		hlist_for_each_entry(con, h, &connection_hash[i], list) {
 			if (con->sctp_assoc == assoc_id) {
 				mutex_unlock(&connections_lock);
 				return con;
@@ -471,9 +476,6 @@ static void process_sctp_notification(struct connection *con,
 			int prim_len, ret;
 			int addr_len;
 			struct connection *new_con;
-			sctp_peeloff_arg_t parg;
-			int parglen = sizeof(parg);
-			int err;
 
 			/*
 			 * We get this before any data for an association.
@@ -509,12 +511,10 @@ static void process_sctp_notification(struct connection *con,
 			}
 			make_sockaddr(&prim.ssp_addr, 0, &addr_len);
 			if (dlm_addr_to_nodeid(&prim.ssp_addr, &nodeid)) {
-				int i;
 				unsigned char *b=(unsigned char *)&prim.ssp_addr;
 				log_print("reject connect from unknown addr");
-				for (i=0; i<sizeof(struct sockaddr_storage);i++)
-					printk("%02x ", b[i]);
-				printk("\n");
+				print_hex_dump_bytes("ss: ", DUMP_PREFIX_NONE, 
+						     b, sizeof(struct sockaddr_storage));
 				sctp_send_shutdown(prim.ssp_assoc_id);
 				return;
 			}
@@ -524,23 +524,19 @@ static void process_sctp_notification(struct connection *con,
 				return;
 
 			/* Peel off a new sock */
-			parg.associd = sn->sn_assoc_change.sac_assoc_id;
-			ret = kernel_getsockopt(con->sock, IPPROTO_SCTP,
-						SCTP_SOCKOPT_PEELOFF,
-						(void *)&parg, &parglen);
+			sctp_lock_sock(con->sock->sk);
+			ret = sctp_do_peeloff(con->sock->sk,
+				sn->sn_assoc_change.sac_assoc_id,
+				&new_con->sock);
+			sctp_release_sock(con->sock->sk);
 			if (ret < 0) {
 				log_print("Can't peel off a socket for "
 					  "connection %d to node %d: err=%d",
-					  parg.associd, nodeid, ret);
-				return;
-			}
-			new_con->sock = sockfd_lookup(parg.sd, &err);
-			if (!new_con->sock) {
-				log_print("sockfd_lookup error %d", err);
+					  (int)sn->sn_assoc_change.sac_assoc_id,
+					  nodeid, ret);
 				return;
 			}
 			add_sock(new_con->sock, new_con);
-			sockfd_put(new_con->sock);
 
 			log_print("connecting to %d sctp association %d",
 				 nodeid, (int)sn->sn_assoc_change.sac_assoc_id);
@@ -715,6 +711,13 @@ static int tcp_accept_from_sock(struct connection *con)
 	struct connection *newcon;
 	struct connection *addcon;
 
+	mutex_lock(&connections_lock);
+	if (!dlm_allow_conn) {
+		mutex_unlock(&connections_lock);
+		return -1;
+	}
+	mutex_unlock(&connections_lock);
+
 	memset(&peeraddr, 0, sizeof(peeraddr));
 	result = sock_create_kern(dlm_local_addr[0]->ss_family, SOCK_STREAM,
 				  IPPROTO_TCP, &newsock);
@@ -745,7 +748,10 @@ static int tcp_accept_from_sock(struct connection *con)
 	/* Get the new node's NODEID */
 	make_sockaddr(&peeraddr, 0, &len);
 	if (dlm_addr_to_nodeid(&peeraddr, &nodeid)) {
+		unsigned char *b=(unsigned char *)&peeraddr;
 		log_print("connect from non cluster node");
+		print_hex_dump_bytes("ss: ", DUMP_PREFIX_NONE, 
+				     b, sizeof(struct sockaddr_storage));
 		sock_release(newsock);
 		mutex_unlock(&con->sock_mutex);
 		return -1;
@@ -1078,7 +1084,7 @@ static void init_local(void)
 	int i;
 
 	dlm_local_count = 0;
-	for (i = 0; i < DLM_MAX_ADDR_COUNT - 1; i++) {
+	for (i = 0; i < DLM_MAX_ADDR_COUNT; i++) {
 		if (dlm_our_addr(&sas, i))
 			break;
 
@@ -1505,6 +1511,7 @@ void dlm_lowcomms_stop(void)
 	   socket activity.
 	*/
 	mutex_lock(&connections_lock);
+	dlm_allow_conn = 0;
 	foreach_conn(stop_conn);
 	mutex_unlock(&connections_lock);
 
@@ -1532,7 +1539,7 @@ int dlm_lowcomms_start(void)
 	if (!dlm_local_count) {
 		error = -ENOTCONN;
 		log_print("no local IP address has been set");
-		goto out;
+		goto fail;
 	}
 
 	error = -ENOMEM;
@@ -1540,7 +1547,13 @@ int dlm_lowcomms_start(void)
 				      __alignof__(struct connection), 0,
 				      NULL);
 	if (!con_cache)
-		goto out;
+		goto fail;
+
+	error = work_start();
+	if (error)
+		goto fail_destroy;
+
+	dlm_allow_conn = 1;
 
 	/* Start listening */
 	if (dlm_config.ci_protocol == 0)
@@ -1550,20 +1563,17 @@ int dlm_lowcomms_start(void)
 	if (error)
 		goto fail_unlisten;
 
-	error = work_start();
-	if (error)
-		goto fail_unlisten;
-
 	return 0;
 
 fail_unlisten:
+	dlm_allow_conn = 0;
 	con = nodeid2con(0,0);
 	if (con) {
 		close_connection(con, false);
 		kmem_cache_free(con_cache, con);
 	}
+fail_destroy:
 	kmem_cache_destroy(con_cache);
-
-out:
+fail:
 	return error;
 }

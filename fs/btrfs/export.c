@@ -22,10 +22,10 @@ static int btrfs_encode_fh(struct inode *inode, u32 *fh, int *max_len,
 
 	if (parent && (len < BTRFS_FID_SIZE_CONNECTABLE)) {
 		*max_len = BTRFS_FID_SIZE_CONNECTABLE;
-		return FILEID_INVALID;
+		return 255;
 	} else if (len < BTRFS_FID_SIZE_NON_CONNECTABLE) {
 		*max_len = BTRFS_FID_SIZE_NON_CONNECTABLE;
-		return FILEID_INVALID;
+		return 255;
 	}
 
 	len  = BTRFS_FID_SIZE_NON_CONNECTABLE;
@@ -60,7 +60,7 @@ static struct dentry *btrfs_get_dentry(struct super_block *sb, u64 objectid,
 				       u64 root_objectid, u32 generation,
 				       int check_generation)
 {
-	struct btrfs_fs_info *fs_info = btrfs_sb(sb)->fs_info;
+	struct btrfs_fs_info *fs_info = btrfs_sb(sb);
 	struct btrfs_root *root;
 	struct inode *inode;
 	struct btrfs_key key;
@@ -186,7 +186,7 @@ static struct dentry *btrfs_get_parent(struct dentry *child)
 	if (ret < 0)
 		goto fail;
 
-	BUG_ON(ret == 0);
+	BUG_ON(ret == 0); /* Key with offset of -1 found */
 	if (path->slots[0] == 0) {
 		ret = -ENOENT;
 		goto fail;

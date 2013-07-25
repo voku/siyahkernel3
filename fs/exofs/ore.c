@@ -401,7 +401,7 @@ static void _clear_bio(struct bio *bio)
 	struct bio_vec *bv;
 	unsigned i;
 
-	bio_for_each_segment_all(bv, bio, i) {
+	__bio_for_each_segment(bv, bio, i, 0) {
 		unsigned this_count = bv->bv_len;
 
 		if (likely(PAGE_SIZE == this_count))
@@ -735,7 +735,13 @@ static int _prepare_for_striping(struct ore_io_state *ios)
 out:
 	ios->numdevs = devs_in_group;
 	ios->pages_consumed = cur_pg;
-	return ret;
+	if (unlikely(ret)) {
+		if (length == ios->length)
+			return ret;
+		else
+			ios->length -= length;
+	}
+	return 0;
 }
 
 int ore_create(struct ore_io_state *ios)
@@ -814,8 +820,8 @@ static int _write_mirror(struct ore_io_state *ios, int cur_comp)
 			struct bio *bio;
 
 			if (per_dev != master_dev) {
-				bio = bio_clone_kmalloc(master_dev->bio,
-							GFP_KERNEL);
+				bio = bio_kmalloc(GFP_KERNEL,
+						  master_dev->bio->bi_max_vecs);
 				if (unlikely(!bio)) {
 					ORE_DBGMSG(
 					      "Failed to allocate BIO size=%u\n",
@@ -824,6 +830,7 @@ static int _write_mirror(struct ore_io_state *ios, int cur_comp)
 					goto out;
 				}
 
+				__bio_clone(bio, master_dev->bio);
 				bio->bi_bdev = NULL;
 				bio->bi_next = NULL;
 				per_dev->offset = master_dev->offset;
@@ -836,11 +843,11 @@ static int _write_mirror(struct ore_io_state *ios, int cur_comp)
 				bio->bi_rw |= REQ_WRITE;
 			}
 
-			osd_req_write(or, _ios_obj(ios, cur_comp),
-				      per_dev->offset, bio, per_dev->length);
+			osd_req_write(or, _ios_obj(ios, dev), per_dev->offset,
+				      bio, per_dev->length);
 			ORE_DBGMSG("write(0x%llx) offset=0x%llx "
 				      "length=0x%llx dev=%d\n",
-				     _LLU(_ios_obj(ios, cur_comp)->id),
+				     _LLU(_ios_obj(ios, dev)->id),
 				     _LLU(per_dev->offset),
 				     _LLU(per_dev->length), dev);
 		} else if (ios->kern_buff) {
@@ -852,20 +859,20 @@ static int _write_mirror(struct ore_io_state *ios, int cur_comp)
 			       (ios->si.unit_off + ios->length >
 				ios->layout->stripe_unit));
 
-			ret = osd_req_write_kern(or, _ios_obj(ios, cur_comp),
+			ret = osd_req_write_kern(or, _ios_obj(ios, per_dev->dev),
 						 per_dev->offset,
 						 ios->kern_buff, ios->length);
 			if (unlikely(ret))
 				goto out;
 			ORE_DBGMSG2("write_kern(0x%llx) offset=0x%llx "
 				      "length=0x%llx dev=%d\n",
-				     _LLU(_ios_obj(ios, cur_comp)->id),
+				     _LLU(_ios_obj(ios, dev)->id),
 				     _LLU(per_dev->offset),
 				     _LLU(ios->length), per_dev->dev);
 		} else {
-			osd_req_set_attributes(or, _ios_obj(ios, cur_comp));
+			osd_req_set_attributes(or, _ios_obj(ios, dev));
 			ORE_DBGMSG2("obj(0x%llx) set_attributes=%d dev=%d\n",
-				     _LLU(_ios_obj(ios, cur_comp)->id),
+				     _LLU(_ios_obj(ios, dev)->id),
 				     ios->out_attr_len, dev);
 		}
 

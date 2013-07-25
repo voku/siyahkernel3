@@ -36,7 +36,7 @@
  *	Sep 1998	2.1.122		another VFS change (follow_link)
  *	Apr 1999	2.2.7		no more EBADF checking in
  *					  lookup/readdir, use ERR_PTR
- *	Jun 1999	2.3.6		d_make_root use changed
+ *	Jun 1999	2.3.6		d_alloc_root use changed
  *			2.3.9		clean up usage of ENOENT/negative
  *					  dentries in lookup
  *					clean up page flags setting
@@ -147,7 +147,7 @@ static const struct address_space_operations romfs_aops = {
  */
 static int romfs_readdir(struct file *filp, void *dirent, filldir_t filldir)
 {
-	struct inode *i = file_inode(filp);
+	struct inode *i = filp->f_dentry->d_inode;
 	struct romfs_inode ri;
 	unsigned long offset, maxoff;
 	int j, ino, nextfh;

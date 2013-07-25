@@ -234,7 +234,7 @@ static unsigned char exofs_type_by_mode[S_IFMT >> S_SHIFT] = {
 static inline
 void exofs_set_de_type(struct exofs_dir_entry *de, struct inode *inode)
 {
-	mode_t mode = inode->i_mode;
+	umode_t mode = inode->i_mode;
 	de->file_type = exofs_type_by_mode[(mode & S_IFMT) >> S_SHIFT];
 }
 
@@ -242,7 +242,7 @@ static int
 exofs_readdir(struct file *filp, void *dirent, filldir_t filldir)
 {
 	loff_t pos = filp->f_pos;
-	struct inode *inode = file_inode(filp);
+	struct inode *inode = filp->f_path.dentry->d_inode;
 	unsigned int offset = pos & ~PAGE_CACHE_MASK;
 	unsigned long n = pos >> PAGE_CACHE_SHIFT;
 	unsigned long npages = dir_pages(inode);

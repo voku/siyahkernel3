@@ -790,9 +790,8 @@ static int udf_rmdir(struct inode *dir, struct dentry *dentry)
 	if (retval)
 		goto end_rmdir;
 	if (inode->i_nlink != 2)
-		udf_warning(inode->i_sb, "udf_rmdir",
-			    "empty directory has nlink != 2 (%d)",
-			    inode->i_nlink);
+		udf_warn(inode->i_sb, "empty directory has nlink != 2 (%d)\n",
+			 inode->i_nlink);
 	clear_nlink(inode);
 	inode->i_size = 0;
 	inode_dec_link_count(dir);
@@ -1271,16 +1270,15 @@ static int udf_encode_fh(struct inode *inode, __u32 *fh, int *lenp,
 
 	if (parent && (len < 5)) {
 		*lenp = 5;
-		return FILEID_INVALID;
+		return 255;
 	} else if (len < 3) {
 		*lenp = 3;
-		return FILEID_INVALID;
+		return 255;
 	}
 
 	*lenp = 3;
 	fid->udf.block = location.logicalBlockNum;
 	fid->udf.partref = location.partitionReferenceNum;
-	fid->udf.parent_partref = 0;
 	fid->udf.generation = inode->i_generation;
 
 	if (parent) {

@@ -485,7 +485,6 @@ static int jfs_fill_super(struct super_block *sb, void *data, int silent)
 		goto out_unload;
 	}
 	inode->i_ino = 0;
-	inode->i_nlink = 1;
 	inode->i_size = sb->s_bdev->bd_inode->i_size;
 	inode->i_mapping->a_ops = &jfs_metapage_aops;
 	insert_inode_hash(inode);
@@ -602,11 +601,6 @@ static int jfs_sync_fs(struct super_block *sb, int wait)
 
 	/* log == NULL indicates read-only mount */
 	if (log) {
-		/*
-		 * Write quota structures to quota file, sync_blockdev() will
-		 * write them to disk later
-		 */
-		dquot_writeback_dquots(sb, -1);
 		jfs_flush_journal(log, wait);
 		jfs_syncpt(log, 0);
 	}
@@ -866,8 +860,14 @@ static int __init init_jfs_fs(void)
 	jfs_proc_init();
 #endif
 
-	return register_filesystem(&jfs_fs_type);
+	rc = register_filesystem(&jfs_fs_type);
+	if (!rc)
+		return 0;
 
+#ifdef PROC_FS_JFS
+	jfs_proc_clean();
+#endif
+	kthread_stop(jfsSyncThread);
 kill_committask:
 	for (i = 0; i < commit_threads; i++)
 		kthread_stop(jfsCommitThread[i]);

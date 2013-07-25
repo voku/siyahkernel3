@@ -223,7 +223,7 @@ static void encode_nlm_stat(struct xdr_stream *xdr,
 {
 	__be32 *p;
 
-	WARN_ON_ONCE(be32_to_cpu(stat) > NLM_LCK_DENIED_GRACE_PERIOD);
+	BUG_ON(be32_to_cpu(stat) > NLM_LCK_DENIED_GRACE_PERIOD);
 	p = xdr_reserve_space(xdr, 4);
 	*p = stat;
 }
@@ -596,19 +596,19 @@ static struct rpc_procinfo	nlm_procedures[] = {
 	PROC(GRANTED_RES,	res,		norep),
 };
 
-static struct rpc_version	nlm_version1 = {
+static const struct rpc_version	nlm_version1 = {
 		.number		= 1,
 		.nrprocs	= ARRAY_SIZE(nlm_procedures),
 		.procs		= nlm_procedures,
 };
 
-static struct rpc_version	nlm_version3 = {
+static const struct rpc_version	nlm_version3 = {
 		.number		= 3,
 		.nrprocs	= ARRAY_SIZE(nlm_procedures),
 		.procs		= nlm_procedures,
 };
 
-static struct rpc_version	*nlm_versions[] = {
+static const struct rpc_version	*nlm_versions[] = {
 	[1] = &nlm_version1,
 	[3] = &nlm_version3,
 #ifdef CONFIG_LOCKD_V4
@@ -618,7 +618,7 @@ static struct rpc_version	*nlm_versions[] = {
 
 static struct rpc_stat		nlm_rpc_stats;
 
-struct rpc_program		nlm_program = {
+const struct rpc_program	nlm_program = {
 		.name		= "lockd",
 		.number		= NLM_PROGRAM,
 		.nrvers		= ARRAY_SIZE(nlm_versions),

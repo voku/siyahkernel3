@@ -593,10 +593,14 @@ ncp_fill_cache(struct file *filp, void *dirent, filldir_t filldir,
 		return 1; /* I'm not sure */
 
 	qname.name = __name;
+	qname.hash = full_name_hash(qname.name, qname.len);
 
-	newdent = d_hash_and_lookup(dentry, &qname);
-	if (unlikely(IS_ERR(newdent)))
-		goto end_advance;
+	if (dentry->d_op && dentry->d_op->d_hash)
+		if (dentry->d_op->d_hash(dentry, dentry->d_inode, &qname) != 0)
+			goto end_advance;
+
+	newdent = d_lookup(dentry, &qname);
+
 	if (!newdent) {
 		newdent = d_alloc(dentry, &qname);
 		if (!newdent)
@@ -915,7 +919,7 @@ out_close:
 	goto out;
 }
 
-int ncp_create_new(struct inode *dir, struct dentry *dentry, int mode,
+int ncp_create_new(struct inode *dir, struct dentry *dentry, umode_t mode,
 		   dev_t rdev, __le32 attributes)
 {
 	struct ncp_server *server = NCP_SERVER(dir);
@@ -924,7 +928,7 @@ int ncp_create_new(struct inode *dir, struct dentry *dentry, int mode,
 	int opmode;
 	__u8 __name[NCP_MAXPATHLEN + 1];
 	
-	PPRINTK("ncp_create_new: creating %s/%s, mode=%x\n",
+	PPRINTK("ncp_create_new: creating %s/%s, mode=%hx\n",
 		dentry->d_parent->d_name.name, dentry->d_name.name, mode);
 
 	ncp_age_dentry(server, dentry);

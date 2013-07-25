@@ -33,7 +33,7 @@
  * The xattrs themselves are protected by the xattr_sem.
  */
 
-#include <linux/reiserfs_fs.h>
+#include "reiserfs.h"
 #include <linux/capability.h>
 #include <linux/dcache.h>
 #include <linux/namei.h>
@@ -43,8 +43,8 @@
 #include <linux/file.h>
 #include <linux/pagemap.h>
 #include <linux/xattr.h>
-#include <linux/reiserfs_xattr.h>
-#include <linux/reiserfs_acl.h>
+#include "xattr.h"
+#include "acl.h"
 #include <asm/uaccess.h>
 #include <net/checksum.h>
 #include <linux/stat.h>
@@ -187,8 +187,8 @@ fill_with_dentries(void *buf, const char *name, int namelen, loff_t offset,
 	if (dbuf->count == ARRAY_SIZE(dbuf->dentries))
 		return -ENOSPC;
 
-	if (name[0] == '.' && (namelen < 2 ||
-			       (namelen == 2 && name[1] == '.')))
+	if (name[0] == '.' && (name[1] == '\0' ||
+			       (name[1] == '.' && name[2] == '\0')))
 		return 0;
 
 	dentry = lookup_one_len(name, dbuf->xadir, namelen);

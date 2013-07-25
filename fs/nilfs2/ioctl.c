@@ -119,7 +119,7 @@ static int nilfs_ioctl_setflags(struct inode *inode, struct file *filp,
 	if (get_user(flags, (int __user *)argp))
 		return -EFAULT;
 
-	ret = mnt_want_write(filp->f_path.mnt);
+	ret = mnt_want_write_file(filp);
 	if (ret)
 		return ret;
 
@@ -174,7 +174,7 @@ static int nilfs_ioctl_change_cpmode(struct inode *inode, struct file *filp,
 	if (!capable(CAP_SYS_ADMIN))
 		return -EPERM;
 
-	ret = mnt_want_write(filp->f_path.mnt);
+	ret = mnt_want_write_file(filp);
 	if (ret)
 		return ret;
 
@@ -182,7 +182,7 @@ static int nilfs_ioctl_change_cpmode(struct inode *inode, struct file *filp,
 	if (copy_from_user(&cpmode, argp, sizeof(cpmode)))
 		goto out;
 
-	mutex_lock(&nilfs->ns_snapshot_mount_mutex);
+	down_read(&inode->i_sb->s_umount);
 
 	nilfs_transaction_begin(inode->i_sb, &ti, 0);
 	ret = nilfs_cpfile_change_cpmode(
@@ -192,7 +192,7 @@ static int nilfs_ioctl_change_cpmode(struct inode *inode, struct file *filp,
 	else
 		nilfs_transaction_commit(inode->i_sb); /* never fails */
 
-	mutex_unlock(&nilfs->ns_snapshot_mount_mutex);
+	up_read(&inode->i_sb->s_umount);
 out:
 	mnt_drop_write_file(filp);
 	return ret;
@@ -210,7 +210,7 @@ nilfs_ioctl_delete_checkpoint(struct inode *inode, struct file *filp,
 	if (!capable(CAP_SYS_ADMIN))
 		return -EPERM;
 
-	ret = mnt_want_write(filp->f_path.mnt);
+	ret = mnt_want_write_file(filp);
 	if (ret)
 		return ret;
 
@@ -591,7 +591,7 @@ static int nilfs_ioctl_clean_segments(struct inode *inode, struct file *filp,
 	if (!capable(CAP_SYS_ADMIN))
 		return -EPERM;
 
-	ret = mnt_want_write(filp->f_path.mnt);
+	ret = mnt_want_write_file(filp);
 	if (ret)
 		return ret;
 
@@ -602,6 +602,8 @@ static int nilfs_ioctl_clean_segments(struct inode *inode, struct file *filp,
 	ret = -EINVAL;
 	nsegs = argv[4].v_nmembs;
 	if (argv[4].v_size != argsz[4])
+		goto out;
+	if (nsegs > UINT_MAX / sizeof(__u64))
 		goto out;
 
 	/*
@@ -623,6 +625,9 @@ static int nilfs_ioctl_clean_segments(struct inode *inode, struct file *filp,
 			goto out_free;
 
 		if (argv[n].v_nmembs > nsegs * nilfs->ns_blocks_per_segment)
+			goto out_free;
+
+		if (argv[n].v_nmembs >= UINT_MAX / argv[n].v_size)
 			goto out_free;
 
 		len = argv[n].v_size * argv[n].v_nmembs;
@@ -661,11 +666,8 @@ static int nilfs_ioctl_clean_segments(struct inode *inode, struct file *filp,
 	if (ret < 0)
 		printk(KERN_ERR "NILFS: GC failed during preparation: "
 			"cannot read source blocks: err=%d\n", ret);
-	else {
-		if (nilfs_sb_need_update(nilfs))
-			set_nilfs_discontinued(nilfs);
+	else
 		ret = nilfs_clean_segments(inode->i_sb, argv, kbufs);
-	}
 
 	nilfs_remove_all_gcinodes(nilfs);
 	clear_nilfs_gc_running(nilfs);
@@ -690,8 +692,14 @@ static int nilfs_ioctl_sync(struct inode *inode, struct file *filp,
 	if (ret < 0)
 		return ret;
 
+	nilfs = inode->i_sb->s_fs_info;
+	if (nilfs_test_opt(nilfs, BARRIER)) {
+		ret = blkdev_issue_flush(inode->i_sb->s_bdev, GFP_KERNEL, NULL);
+		if (ret == -EIO)
+			return ret;
+	}
+
 	if (argp != NULL) {
-		nilfs = inode->i_sb->s_fs_info;
 		down_read(&nilfs->ns_segctor_sem);
 		cno = nilfs->ns_cno - 1;
 		up_read(&nilfs->ns_segctor_sem);
@@ -710,7 +718,7 @@ static int nilfs_ioctl_resize(struct inode *inode, struct file *filp,
 	if (!capable(CAP_SYS_ADMIN))
 		goto out;
 
-	ret = mnt_want_write(filp->f_path.mnt);
+	ret = mnt_want_write_file(filp);
 	if (ret)
 		goto out;
 
@@ -787,7 +795,7 @@ static int nilfs_ioctl_get_info(struct inode *inode, struct file *filp,
 
 long nilfs_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
-	struct inode *inode = file_inode(filp);
+	struct inode *inode = filp->f_dentry->d_inode;
 	void __user *argp = (void __user *)arg;
 
 	switch (cmd) {

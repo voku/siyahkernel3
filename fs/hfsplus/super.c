@@ -73,11 +73,13 @@ struct inode *hfsplus_iget(struct super_block *sb, unsigned long ino)
 
 	if (inode->i_ino >= HFSPLUS_FIRSTUSER_CNID ||
 	    inode->i_ino == HFSPLUS_ROOT_CNID) {
-		hfs_find_init(HFSPLUS_SB(inode->i_sb)->cat_tree, &fd);
-		err = hfsplus_find_cat(inode->i_sb, inode->i_ino, &fd);
-		if (!err)
-			err = hfsplus_cat_read_inode(inode, &fd);
-		hfs_find_exit(&fd);
+		err = hfs_find_init(HFSPLUS_SB(inode->i_sb)->cat_tree, &fd);
+		if (!err) {
+			err = hfsplus_find_cat(inode->i_sb, inode->i_ino, &fd);
+			if (!err)
+				err = hfsplus_cat_read_inode(inode, &fd);
+			hfs_find_exit(&fd);
+		}
 	} else {
 		err = hfsplus_system_read_inode(inode);
 	}
@@ -133,9 +135,13 @@ static int hfsplus_system_write_inode(struct inode *inode)
 static int hfsplus_write_inode(struct inode *inode,
 		struct writeback_control *wbc)
 {
+	int err;
+
 	dprint(DBG_INODE, "hfsplus_write_inode: %lu\n", inode->i_ino);
 
-	hfsplus_ext_write_extent(inode);
+	err = hfsplus_ext_write_extent(inode);
+	if (err)
+		return err;
 
 	if (inode->i_ino >= HFSPLUS_FIRSTUSER_CNID ||
 	    inode->i_ino == HFSPLUS_ROOT_CNID)
@@ -429,6 +435,8 @@ static int hfsplus_fill_super(struct super_block *sb, void *data, int silent)
 		sb->s_flags |= MS_RDONLY;
 	}
 
+	err = -EINVAL;
+
 	/* Load metadata objects (B*Trees) */
 	sbi->ext_tree = hfs_btree_open(sb, HFSPLUS_EXT_CNID);
 	if (!sbi->ext_tree) {
@@ -457,9 +465,18 @@ static int hfsplus_fill_super(struct super_block *sb, void *data, int silent)
 		goto out_put_alloc_file;
 	}
 
+	sb->s_d_op = &hfsplus_dentry_operations;
+	sb->s_root = d_make_root(root);
+	if (!sb->s_root) {
+		err = -ENOMEM;
+		goto out_put_alloc_file;
+	}
+
 	str.len = sizeof(HFSP_HIDDENDIR_NAME) - 1;
 	str.name = HFSP_HIDDENDIR_NAME;
-	hfs_find_init(sbi->cat_tree, &fd);
+	err = hfs_find_init(sbi->cat_tree, &fd);
+	if (err)
+		goto out_put_root;
 	hfsplus_cat_build_key(sb, fd.search_key, HFSPLUS_ROOT_CNID, &str);
 	if (!hfs_brec_read(&fd, &entry, sizeof(entry))) {
 		hfs_find_exit(&fd);
@@ -489,20 +506,20 @@ static int hfsplus_fill_super(struct super_block *sb, void *data, int silent)
 		if (!sbi->hidden_dir) {
 			mutex_lock(&sbi->vh_mutex);
 			sbi->hidden_dir = hfsplus_new_inode(sb, S_IFDIR);
-			hfsplus_create_cat(sbi->hidden_dir->i_ino, root, &str,
-					   sbi->hidden_dir);
+			if (!sbi->hidden_dir) {
+				mutex_unlock(&sbi->vh_mutex);
+				err = -ENOMEM;
+				goto out_put_root;
+			}
+			err = hfsplus_create_cat(sbi->hidden_dir->i_ino, root,
+						 &str, sbi->hidden_dir);
 			mutex_unlock(&sbi->vh_mutex);
+			if (err)
+				goto out_put_hidden_dir;
 
 			hfsplus_mark_inode_dirty(sbi->hidden_dir,
 						 HFSPLUS_I_CAT_DIRTY);
 		}
-	}
-
-	sb->s_d_op = &hfsplus_dentry_operations;
-	sb->s_root = d_make_root(root);
-	if (!sb->s_root) {
-		err = -ENOMEM;
-		goto out_put_hidden_dir;
 	}
 
 	unload_nls(sbi->nls);
@@ -512,7 +529,8 @@ static int hfsplus_fill_super(struct super_block *sb, void *data, int silent)
 out_put_hidden_dir:
 	iput(sbi->hidden_dir);
 out_put_root:
-	iput(root);
+	dput(sb->s_root);
+	sb->s_root = NULL;
 out_put_alloc_file:
 	iput(sbi->alloc_file);
 out_close_cat_tree:

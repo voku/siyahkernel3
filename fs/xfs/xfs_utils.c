@@ -18,9 +18,7 @@
 #include "xfs.h"
 #include "xfs_fs.h"
 #include "xfs_types.h"
-#include "xfs_bit.h"
 #include "xfs_log.h"
-#include "xfs_inum.h"
 #include "xfs_trans.h"
 #include "xfs_sb.h"
 #include "xfs_ag.h"
@@ -53,7 +51,7 @@ xfs_dir_ialloc(
 					   output: may be a new transaction. */
 	xfs_inode_t	*dp,		/* directory within whose allocate
 					   the inode. */
-	mode_t		mode,
+	umode_t		mode,
 	xfs_nlink_t	nlink,
 	xfs_dev_t	rdev,
 	prid_t		prid,		/* project id */

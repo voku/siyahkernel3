@@ -30,7 +30,7 @@ static inline struct hostfs_inode_info *HOSTFS_I(struct inode *inode)
 	return list_entry(inode, struct hostfs_inode_info, vfs_inode);
 }
 
-#define FILE_HOSTFS_I(file) HOSTFS_I(file_inode(file))
+#define FILE_HOSTFS_I(file) HOSTFS_I((file)->f_path.dentry->d_inode)
 
 static int hostfs_d_delete(const struct dentry *dentry)
 {
@@ -283,6 +283,7 @@ int hostfs_readdir(struct file *file, void *ent, filldir_t filldir)
 	char *name;
 	unsigned long long next, ino;
 	int error, len;
+	unsigned int type;
 
 	name = dentry_name(file->f_path.dentry);
 	if (name == NULL)
@@ -292,9 +293,9 @@ int hostfs_readdir(struct file *file, void *ent, filldir_t filldir)
 	if (dir == NULL)
 		return -error;
 	next = file->f_pos;
-	while ((name = read_dir(dir, &next, &ino, &len)) != NULL) {
+	while ((name = read_dir(dir, &next, &ino, &len, &type)) != NULL) {
 		error = (*filldir)(ent, name, len, file->f_pos,
-				   ino, DT_UNKNOWN);
+				   ino, type);
 		if (error) break;
 		file->f_pos = next;
 	}

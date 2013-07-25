@@ -54,6 +54,7 @@
 #include "ocfs1_fs_compat.h"
 
 #include "alloc.h"
+#include "aops.h"
 #include "blockcheck.h"
 #include "dlmglue.h"
 #include "export.h"
@@ -1106,9 +1107,9 @@ static int ocfs2_fill_super(struct super_block *sb, void *data, int silent)
 
 		ocfs2_set_ro_flag(osb, 1);
 
-		printk(KERN_NOTICE "Readonly device detected. No cluster "
-		       "services will be utilized for this mount. Recovery "
-		       "will be skipped.\n");
+		printk(KERN_NOTICE "ocfs2: Readonly device (%s) detected. "
+		       "Cluster services will not be used for this mount. "
+		       "Recovery will be skipped.\n", osb->dev_str);
 	}
 
 	if (!ocfs2_is_hard_readonly(osb)) {
@@ -1153,11 +1154,11 @@ static int ocfs2_fill_super(struct super_block *sb, void *data, int silent)
 	}
 
 	status = ocfs2_mount_volume(sb);
-	if (osb->root_inode)
-		inode = igrab(osb->root_inode);
-
 	if (status < 0)
 		goto read_super_error;
+
+	if (osb->root_inode)
+		inode = igrab(osb->root_inode);
 
 	if (!inode) {
 		status = -EIO;
@@ -1218,9 +1219,6 @@ static int ocfs2_fill_super(struct super_block *sb, void *data, int silent)
 
 read_super_error:
 	brelse(bh);
-
-	if (inode)
-		iput(inode);
 
 	if (osb) {
 		atomic_set(&osb->vol_state, VOLUME_DISABLED);
@@ -1614,28 +1612,29 @@ static int ocfs2_show_options(struct seq_file *s, struct dentry *root)
 	return 0;
 }
 
+wait_queue_head_t ocfs2__ioend_wq[OCFS2_IOEND_WQ_HASH_SZ];
+
 static int __init ocfs2_init(void)
 {
-	int status;
+	int status, i;
 
 	ocfs2_print_version();
 
+	for (i = 0; i < OCFS2_IOEND_WQ_HASH_SZ; i++)
+		init_waitqueue_head(&ocfs2__ioend_wq[i]);
+
 	status = init_ocfs2_uptodate_cache();
-	if (status < 0) {
-		mlog_errno(status);
-		goto leave;
-	}
+	if (status < 0)
+		goto out1;
 
 	status = ocfs2_initialize_mem_caches();
-	if (status < 0) {
-		mlog_errno(status);
-		goto leave;
-	}
+	if (status < 0)
+		goto out2;
 
 	ocfs2_wq = create_singlethread_workqueue("ocfs2_wq");
 	if (!ocfs2_wq) {
 		status = -ENOMEM;
-		goto leave;
+		goto out3;
 	}
 
 	ocfs2_debugfs_root = debugfs_create_dir("ocfs2", NULL);
@@ -1647,17 +1646,23 @@ static int __init ocfs2_init(void)
 	ocfs2_set_locking_protocol();
 
 	status = register_quota_format(&ocfs2_quota_format);
-leave:
-	if (status < 0) {
-		ocfs2_free_mem_caches();
-		exit_ocfs2_uptodate_cache();
-		mlog_errno(status);
-	}
+	if (status < 0)
+		goto out4;
+	status = register_filesystem(&ocfs2_fs_type);
+	if (!status)
+		return 0;
 
-	if (status >= 0) {
-		return register_filesystem(&ocfs2_fs_type);
-	} else
-		return -1;
+	unregister_quota_format(&ocfs2_quota_format);
+out4:
+	destroy_workqueue(ocfs2_wq);
+	debugfs_remove(ocfs2_debugfs_root);
+out3:
+	ocfs2_free_mem_caches();
+out2:
+	exit_ocfs2_uptodate_cache();
+out1:
+	mlog_errno(status);
+	return status;
 }
 
 static void __exit ocfs2_exit(void)
@@ -1758,7 +1763,7 @@ static void ocfs2_inode_init_once(void *data)
 	ocfs2_extent_map_init(&oi->vfs_inode);
 	INIT_LIST_HEAD(&oi->ip_io_markers);
 	oi->ip_dir_start_lookup = 0;
-
+	atomic_set(&oi->ip_unaligned_aio, 0);
 	init_rwsem(&oi->ip_alloc_sem);
 	init_rwsem(&oi->ip_xattr_sem);
 	mutex_init(&oi->ip_io_mutex);
@@ -1972,7 +1977,8 @@ static void ocfs2_dismount_volume(struct super_block *sb, int mnt_err)
 	 * If we failed before we got a uuid_str yet, we can't stop
 	 * heartbeat.  Otherwise, do it.
 	 */
-	if (!mnt_err && !ocfs2_mount_local(osb) && osb->uuid_str)
+	if (!mnt_err && !ocfs2_mount_local(osb) && osb->uuid_str &&
+	    !ocfs2_is_hard_readonly(osb))
 		hangup_needed = 1;
 
 	if (osb->cconn)
@@ -2351,7 +2357,7 @@ static int ocfs2_initialize_super(struct super_block *sb,
 		mlog_errno(status);
 		goto bail;
 	}
-	cleancache_init_shared_fs((char *)&uuid_net_key, sb);
+	cleancache_init_shared_fs((char *)&di->id2.i_super.s_uuid, sb);
 
 bail:
 	return status;
@@ -2460,8 +2466,8 @@ static int ocfs2_check_volume(struct ocfs2_super *osb)
 			goto finally;
 		}
 	} else {
-		mlog(ML_NOTICE, "File system was not unmounted cleanly, "
-		     "recovering volume.\n");
+		printk(KERN_NOTICE "ocfs2: File system on device (%s) was not "
+		       "unmounted cleanly, recovering it.\n", osb->dev_str);
 	}
 
 	local = ocfs2_mount_local(osb);

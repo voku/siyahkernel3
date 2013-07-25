@@ -169,28 +169,11 @@ struct dentry *ocfs2_find_local_alias(struct inode *inode,
 				      u64 parent_blkno,
 				      int skip_unhashed)
 {
-<<<<<<< HEAD
-<<<<<<< HEAD
-	struct list_head *p;
-	struct dentry *dentry = NULL;
-
-	spin_lock(&inode->i_lock);
-	list_for_each(p, &inode->i_dentry) {
-		dentry = list_entry(p, struct dentry, d_alias);
-
-=======
-	struct dentry *dentry;
-
-	spin_lock(&inode->i_lock);
-	hlist_for_each_entry(dentry, &inode->i_dentry, d_alias) {
->>>>>>> b67bfe0... hlist: drop the node parameter from iterators
-=======
 	struct hlist_node *p;
 	struct dentry *dentry;
 
 	spin_lock(&inode->i_lock);
 	hlist_for_each_entry(dentry, p, &inode->i_dentry, d_alias) {
->>>>>>> b3d9b7a... vfs: switch i_dentry/d_alias to hlist
 		spin_lock(&dentry->d_lock);
 		if (ocfs2_match_dentry(dentry, parent_blkno, skip_unhashed)) {
 			trace_ocfs2_find_local_alias(dentry->d_name.len,
@@ -198,16 +181,13 @@ struct dentry *ocfs2_find_local_alias(struct inode *inode,
 
 			dget_dlock(dentry);
 			spin_unlock(&dentry->d_lock);
-			break;
+			spin_unlock(&inode->i_lock);
+			return dentry;
 		}
 		spin_unlock(&dentry->d_lock);
-
-		dentry = NULL;
 	}
-
 	spin_unlock(&inode->i_lock);
-
-	return dentry;
+	return NULL;
 }
 
 DEFINE_SPINLOCK(dentry_attach_lock);

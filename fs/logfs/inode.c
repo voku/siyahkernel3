@@ -198,7 +198,6 @@ static void logfs_init_inode(struct super_block *sb, struct inode *inode)
 	inode->i_blocks	= 0;
 	inode->i_ctime	= CURRENT_TIME;
 	inode->i_mtime	= CURRENT_TIME;
-	inode->i_nlink	= 1;
 	li->li_refcount = 1;
 	INIT_LIST_HEAD(&li->li_freeing_list);
 
@@ -287,7 +286,7 @@ static int logfs_write_inode(struct inode *inode, struct writeback_control *wbc)
 	if (logfs_inode(inode)->li_flags & LOGFS_IF_STILLBORN)
 		return 0;
 
-	ret = __logfs_write_inode(inode, flags);
+	ret = __logfs_write_inode(inode, NULL, flags);
 	LOGFS_BUG_ON(ret, inode->i_sb);
 	return ret;
 }
@@ -324,7 +323,7 @@ static void logfs_set_ino_generation(struct super_block *sb,
 	mutex_unlock(&super->s_journal_mutex);
 }
 
-struct inode *logfs_new_inode(struct inode *dir, int mode)
+struct inode *logfs_new_inode(struct inode *dir, umode_t mode)
 {
 	struct super_block *sb = dir->i_sb;
 	struct inode *inode;
@@ -364,7 +363,9 @@ static void logfs_init_once(void *_li)
 
 static int logfs_sync_fs(struct super_block *sb, int wait)
 {
+	logfs_get_wblocks(sb, NULL, WF_LOCK);
 	logfs_write_anchor(sb);
+	logfs_put_wblocks(sb, NULL, WF_LOCK);
 	return 0;
 }
 

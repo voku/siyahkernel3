@@ -24,6 +24,21 @@
 #include "ordered-data.h"
 #include "delayed-inode.h"
 
+/*
+ * ordered_data_close is set by truncate when a file that used
+ * to have good data has been truncated to zero.  When it is set
+ * the btrfs file release call will add this inode to the
+ * ordered operations list so that we make sure to flush out any
+ * new data the application may have written before commit.
+ */
+#define BTRFS_INODE_ORDERED_DATA_CLOSE		0
+#define BTRFS_INODE_ORPHAN_META_RESERVED	1
+#define BTRFS_INODE_DUMMY			2
+#define BTRFS_INODE_IN_DEFRAG			3
+#define BTRFS_INODE_DELALLOC_META_RESERVED	4
+#define BTRFS_INODE_HAS_ORPHAN_ITEM		5
+#define BTRFS_INODE_HAS_ASYNC_EXTENT		6
+
 /* in memory btrfs inode */
 struct btrfs_inode {
 	/* which subvolume this inode belongs to */
@@ -51,11 +66,11 @@ struct btrfs_inode {
 	/* held while logging the inode in tree-log.c */
 	struct mutex log_mutex;
 
+	/* held while doing delalloc reservations */
+	struct mutex delalloc_mutex;
+
 	/* used to order data wrt metadata */
 	struct btrfs_ordered_inode_tree ordered_tree;
-
-	/* for keeping track of orphaned inodes */
-	struct list_head i_orphan;
 
 	/* list of all the delalloc inodes in the FS.  There are times we need
 	 * to write all the delalloc pages to disk, and this list is used
@@ -75,13 +90,12 @@ struct btrfs_inode {
 	/* the space_info for where this inode's data allocations are done */
 	struct btrfs_space_info *space_info;
 
+	unsigned long runtime_flags;
+
 	/* full 64 bit generation number, struct vfs_inode doesn't have a big
 	 * enough field for this.
 	 */
 	u64 generation;
-
-	/* sequence number for NFS changes */
-	u64 sequence;
 
 	/*
 	 * transid of the trans_handle that last modified this inode
@@ -103,20 +117,12 @@ struct btrfs_inode {
 	 */
 	u64 delalloc_bytes;
 
-	/* total number of bytes that may be used for this inode for
-	 * delalloc
-	 */
-	u64 reserved_bytes;
-
 	/*
 	 * the size of the file stored in the metadata on disk.  data=ordered
 	 * means the in-memory i_size might be larger than the size on disk
 	 * because not all the blocks are written yet.
 	 */
 	u64 disk_i_size;
-
-	/* flags field from the on disk inode */
-	u32 flags;
 
 	/*
 	 * if this is a directory then index_cnt is the counter for the index
@@ -132,6 +138,15 @@ struct btrfs_inode {
 	u64 last_unlink_trans;
 
 	/*
+	 * Number of bytes outstanding that are going to need csums.  This is
+	 * used in ENOSPC accounting.
+	 */
+	u64 csum_bytes;
+
+	/* flags field from the on disk inode */
+	u32 flags;
+
+	/*
 	 * Counters to keep track of the number of extent item's we may use due
 	 * to delalloc and such.  outstanding_extents is the number of extent
 	 * items we think we'll end up using, and reserved_extents is the number
@@ -141,24 +156,9 @@ struct btrfs_inode {
 	unsigned reserved_extents;
 
 	/*
-	 * ordered_data_close is set by truncate when a file that used
-	 * to have good data has been truncated to zero.  When it is set
-	 * the btrfs file release call will add this inode to the
-	 * ordered operations list so that we make sure to flush out any
-	 * new data the application may have written before commit.
-	 *
-	 * yes, its silly to have a single bitflag, but we might grow more
-	 * of these.
-	 */
-	unsigned ordered_data_close:1;
-	unsigned orphan_meta_reserved:1;
-	unsigned dummy_inode:1;
-	unsigned in_defrag:1;
-
-	/*
 	 * always compress this one file
 	 */
-	unsigned force_compress:4;
+	unsigned force_compress;
 
 	struct btrfs_delayed_node *delayed_node;
 
@@ -198,6 +198,19 @@ static inline bool btrfs_is_free_space_inode(struct btrfs_root *root,
 	    BTRFS_I(inode)->location.objectid == BTRFS_FREE_INO_OBJECTID)
 		return true;
 	return false;
+}
+
+static inline int btrfs_inode_in_log(struct inode *inode, u64 generation)
+{
+	struct btrfs_root *root = BTRFS_I(inode)->root;
+	int ret = 0;
+
+	mutex_lock(&root->log_mutex);
+	if (BTRFS_I(inode)->logged_trans == generation &&
+	    BTRFS_I(inode)->last_sub_trans <= root->last_log_commit)
+		ret = 1;
+	mutex_unlock(&root->log_mutex);
+	return ret;
 }
 
 #endif

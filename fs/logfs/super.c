@@ -13,6 +13,7 @@
 #include <linux/bio.h>
 #include <linux/slab.h>
 #include <linux/blkdev.h>
+#include <linux/module.h>
 #include <linux/mtd/mtd.h>
 #include <linux/statfs.h>
 #include <linux/buffer_head.h>
@@ -483,14 +484,15 @@ static void logfs_kill_sb(struct super_block *sb)
 	/* Alias entries slow down mount, so evict as many as possible */
 	sync_filesystem(sb);
 	logfs_write_anchor(sb);
+	free_areas(sb);
 
 	/*
 	 * From this point on alias entries are simply dropped - and any
 	 * writes to the object store are considered bugs.
 	 */
-	super->s_flags |= LOGFS_SB_FLAG_SHUTDOWN;
 	log_super("LogFS: Now in shutdown\n");
 	generic_shutdown_super(sb);
+	super->s_flags |= LOGFS_SB_FLAG_SHUTDOWN;
 
 	BUG_ON(super->s_dirty_used_bytes || super->s_dirty_free_bytes);
 
@@ -517,7 +519,7 @@ static struct dentry *logfs_get_sb_device(struct logfs_super *super,
 	log_super("LogFS: Start mount %x\n", mount_count++);
 
 	err = -EINVAL;
-	sb = sget(type, logfs_sb_test, logfs_sb_set, flags | MS_NOATIME, super);
+	sb = sget(type, logfs_sb_test, logfs_sb_set, super);
 	if (IS_ERR(sb)) {
 		super->s_devops->put_device(super);
 		kfree(super);
@@ -540,6 +542,7 @@ static struct dentry *logfs_get_sb_device(struct logfs_super *super,
 	sb->s_maxbytes	= (1ull << 43) - 1;
 	sb->s_max_links = LOGFS_LINK_MAX;
 	sb->s_op	= &logfs_super_operations;
+	sb->s_flags	= flags | MS_NOATIME;
 
 	err = logfs_read_sb(sb, sb->s_flags & MS_RDONLY);
 	if (err)
@@ -623,7 +626,10 @@ static int __init logfs_init(void)
 	if (ret)
 		goto out2;
 
-	return register_filesystem(&logfs_fs_type);
+	ret = register_filesystem(&logfs_fs_type);
+	if (!ret)
+		return 0;
+	logfs_destroy_inode_cache();
 out2:
 	logfs_compr_exit();
 out1:

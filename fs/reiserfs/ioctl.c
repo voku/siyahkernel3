@@ -5,7 +5,7 @@
 #include <linux/capability.h>
 #include <linux/fs.h>
 #include <linux/mount.h>
-#include <linux/reiserfs_fs.h>
+#include "reiserfs.h"
 #include <linux/time.h>
 #include <asm/uaccess.h>
 #include <linux/pagemap.h>
@@ -21,7 +21,7 @@
  */
 long reiserfs_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
-	struct inode *inode = file_inode(filp);
+	struct inode *inode = filp->f_path.dentry->d_inode;
 	unsigned int flags;
 	int err = 0;
 
@@ -55,7 +55,7 @@ long reiserfs_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 				break;
 			}
 
-			err = mnt_want_write(filp->f_path.mnt);
+			err = mnt_want_write_file(filp);
 			if (err)
 				break;
 
@@ -107,7 +107,7 @@ setflags_out:
 			err = -EPERM;
 			break;
 		}
-		err = mnt_want_write(filp->f_path.mnt);
+		err = mnt_want_write_file(filp);
 		if (err)
 			break;
 		if (get_user(inode->i_generation, (int __user *)arg)) {

@@ -81,7 +81,6 @@ static void ext2_release_inode(struct super_block *sb, int group, int dir)
 	spin_unlock(sb_bgl_lock(EXT2_SB(sb), group));
 	if (dir)
 		percpu_counter_dec(&EXT2_SB(sb)->s_dirs_counter);
-	sb->s_dirt = 1;
 	mark_buffer_dirty(bh);
 }
 
@@ -119,6 +118,7 @@ void ext2_free_inode (struct inode * inode)
 	 * as writing the quota to disk may need the lock as well.
 	 */
 	/* Quota is already initialized in iput() */
+	ext2_xattr_delete_inode(inode);
 	dquot_free_inode(inode);
 	dquot_drop(inode);
 
@@ -428,7 +428,7 @@ found:
 	return group;
 }
 
-struct inode *ext2_new_inode(struct inode *dir, int mode,
+struct inode *ext2_new_inode(struct inode *dir, umode_t mode,
 			     const struct qstr *qstr)
 {
 	struct super_block *sb;
@@ -542,7 +542,6 @@ got:
 	}
 	spin_unlock(sb_bgl_lock(sbi, group));
 
-	sb->s_dirt = 1;
 	mark_buffer_dirty(bh2);
 	if (test_opt(sb, GRPID)) {
 		inode->i_mode = mode;

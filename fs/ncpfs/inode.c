@@ -11,7 +11,6 @@
 
 #include <linux/module.h>
 
-#include <asm/system.h>
 #include <asm/uaccess.h>
 #include <asm/byteorder.h>
 
@@ -315,11 +314,11 @@ static void ncp_stop_tasks(struct ncp_server *server) {
 	release_sock(sk);
 	del_timer_sync(&server->timeout_tm);
 
-	flush_work(&server->rcv.tq);
+	flush_work_sync(&server->rcv.tq);
 	if (sk->sk_socket->type == SOCK_STREAM)
-		flush_work(&server->tx.tq);
+		flush_work_sync(&server->tx.tq);
 	else
-		flush_work(&server->timeout_tq);
+		flush_work_sync(&server->timeout_tq);
 }
 
 static int  ncp_show_options(struct seq_file *seq, struct dentry *root)
@@ -521,7 +520,7 @@ static int ncp_fill_super(struct super_block *sb, void *raw_data, int silent)
 	if (!ncp_filp)
 		goto out;
 	error = -ENOTSOCK;
-	sock_inode = file_inode(ncp_filp);
+	sock_inode = ncp_filp->f_path.dentry->d_inode;
 	if (!S_ISSOCK(sock_inode->i_mode))
 		goto out_fput;
 	sock = SOCKET_I(sock_inode);
@@ -547,7 +546,7 @@ static int ncp_fill_super(struct super_block *sb, void *raw_data, int silent)
 
 	error = bdi_setup_and_register(&server->bdi, "ncpfs", BDI_CAP_MAP_COPY);
 	if (error)
-		goto out_bdi;
+		goto out_fput;
 
 	server->ncp_filp = ncp_filp;
 	server->ncp_sock = sock;
@@ -558,9 +557,9 @@ static int ncp_fill_super(struct super_block *sb, void *raw_data, int silent)
 		error = -EBADF;
 		server->info_filp = fget(data.info_fd);
 		if (!server->info_filp)
-			goto out_fput;
+			goto out_bdi;
 		error = -ENOTSOCK;
-		sock_inode = file_inode(server->info_filp);
+		sock_inode = server->info_filp->f_path.dentry->d_inode;
 		if (!S_ISSOCK(sock_inode->i_mode))
 			goto out_fput2;
 		info_sock = SOCKET_I(sock_inode);
@@ -743,9 +742,9 @@ out_nls:
 out_fput2:
 	if (server->info_filp)
 		fput(server->info_filp);
-out_fput:
-	bdi_destroy(&server->bdi);
 out_bdi:
+	bdi_destroy(&server->bdi);
+out_fput:
 	/* 23/12/1998 Marcin Dalecki <dalecki@cs.net.pl>:
 	 * 
 	 * The previously used put_filp(ncp_filp); was bogus, since

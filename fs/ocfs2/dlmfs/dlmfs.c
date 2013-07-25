@@ -224,7 +224,7 @@ static int dlmfs_file_setattr(struct dentry *dentry, struct iattr *attr)
 static unsigned int dlmfs_file_poll(struct file *file, poll_table *wait)
 {
 	int event = 0;
-	struct inode *inode = file_inode(file);
+	struct inode *inode = file->f_path.dentry->d_inode;
 	struct dlmfs_inode_private *ip = DLMFS_I(inode);
 
 	poll_wait(file, &ip->ip_lockres.l_event, wait);
@@ -245,7 +245,7 @@ static ssize_t dlmfs_file_read(struct file *filp,
 	int bytes_left;
 	ssize_t readlen, got;
 	char *lvb_buf;
-	struct inode *inode = file_inode(filp);
+	struct inode *inode = filp->f_path.dentry->d_inode;
 
 	mlog(0, "inode %lu, count = %zu, *ppos = %llu\n",
 		inode->i_ino, count, *ppos);
@@ -293,7 +293,7 @@ static ssize_t dlmfs_file_write(struct file *filp,
 	int bytes_left;
 	ssize_t writelen;
 	char *lvb_buf;
-	struct inode *inode = file_inode(filp);
+	struct inode *inode = filp->f_path.dentry->d_inode;
 
 	mlog(0, "inode %lu, count = %zu, *ppos = %llu\n",
 		inode->i_ino, count, *ppos);
@@ -400,16 +400,14 @@ static struct backing_dev_info dlmfs_backing_dev_info = {
 static struct inode *dlmfs_get_root_inode(struct super_block *sb)
 {
 	struct inode *inode = new_inode(sb);
-	int mode = S_IFDIR | 0755;
+	umode_t mode = S_IFDIR | 0755;
 	struct dlmfs_inode_private *ip;
 
 	if (inode) {
 		ip = DLMFS_I(inode);
 
 		inode->i_ino = get_next_ino();
-		inode->i_mode = mode;
-		inode->i_uid = current_fsuid();
-		inode->i_gid = current_fsgid();
+		inode_init_owner(inode, NULL, mode);
 		inode->i_mapping->backing_dev_info = &dlmfs_backing_dev_info;
 		inode->i_atime = inode->i_mtime = inode->i_ctime = CURRENT_TIME;
 		inc_nlink(inode);
@@ -423,7 +421,7 @@ static struct inode *dlmfs_get_root_inode(struct super_block *sb)
 
 static struct inode *dlmfs_get_inode(struct inode *parent,
 				     struct dentry *dentry,
-				     int mode)
+				     umode_t mode)
 {
 	struct super_block *sb = parent->i_sb;
 	struct inode * inode = new_inode(sb);
@@ -433,9 +431,7 @@ static struct inode *dlmfs_get_inode(struct inode *parent,
 		return NULL;
 
 	inode->i_ino = get_next_ino();
-	inode->i_mode = mode;
-	inode->i_uid = current_fsuid();
-	inode->i_gid = current_fsgid();
+	inode_init_owner(inode, parent, mode);
 	inode->i_mapping->backing_dev_info = &dlmfs_backing_dev_info;
 	inode->i_atime = inode->i_mtime = inode->i_ctime = CURRENT_TIME;
 
@@ -472,13 +468,6 @@ static struct inode *dlmfs_get_inode(struct inode *parent,
 		inc_nlink(inode);
 		break;
 	}
-
-	if (parent->i_mode & S_ISGID) {
-		inode->i_gid = parent->i_gid;
-		if (S_ISDIR(mode))
-			inode->i_mode |= S_ISGID;
-	}
-
 	return inode;
 }
 

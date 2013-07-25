@@ -22,9 +22,7 @@
 #include <asm/uaccess.h>
 #include "xfs.h"
 #include "xfs_fs.h"
-#include "xfs_bit.h"
 #include "xfs_log.h"
-#include "xfs_inum.h"
 #include "xfs_trans.h"
 #include "xfs_sb.h"
 #include "xfs_ag.h"
@@ -293,7 +291,7 @@ xfs_compat_ioc_bulkstat(
 		int res;
 
 		error = xfs_bulkstat_one_compat(mp, inlast, bulkreq.ubuffer,
-				sizeof(compat_xfs_bstat_t), 0, &res);
+				sizeof(compat_xfs_bstat_t), NULL, &res);
 	} else if (cmd == XFS_IOC_FSBULKSTAT_32) {
 		error = xfs_bulkstat(mp, &inlast, &count,
 			xfs_bulkstat_one_compat, sizeof(compat_xfs_bstat_t),
@@ -454,7 +452,7 @@ xfs_compat_attrmulti_by_handle(
 					&ops[i].am_length, ops[i].am_flags);
 			break;
 		case ATTR_OP_SET:
-			ops[i].am_error = mnt_want_write(parfilp->f_path.mnt);
+			ops[i].am_error = mnt_want_write_file(parfilp);
 			if (ops[i].am_error)
 				break;
 			ops[i].am_error = xfs_attrmulti_attr_set(
@@ -464,7 +462,7 @@ xfs_compat_attrmulti_by_handle(
 			mnt_drop_write_file(parfilp);
 			break;
 		case ATTR_OP_REMOVE:
-			ops[i].am_error = mnt_want_write(parfilp->f_path.mnt);
+			ops[i].am_error = mnt_want_write_file(parfilp);
 			if (ops[i].am_error)
 				break;
 			ops[i].am_error = xfs_attrmulti_attr_remove(
@@ -532,7 +530,7 @@ xfs_file_compat_ioctl(
 	unsigned		cmd,
 	unsigned long		p)
 {
-	struct inode		*inode = file_inode(filp);
+	struct inode		*inode = filp->f_path.dentry->d_inode;
 	struct xfs_inode	*ip = XFS_I(inode);
 	struct xfs_mount	*mp = ip->i_mount;
 	void			__user *arg = (void __user *)p;

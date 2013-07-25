@@ -1184,8 +1184,7 @@ static int __ocfs2_delete_entry(handle_t *handle, struct inode *dir,
 			if (pde)
 				le16_add_cpu(&pde->rec_len,
 						le16_to_cpu(de->rec_len));
-			else
-				de->inode = 0;
+			de->inode = 0;
 			dir->i_version++;
 			ocfs2_journal_dirty(handle, bh);
 			goto bail;
@@ -2016,7 +2015,7 @@ int ocfs2_dir_foreach(struct inode *inode, loff_t *f_pos, void *priv,
 int ocfs2_readdir(struct file * filp, void * dirent, filldir_t filldir)
 {
 	int error = 0;
-	struct inode *inode = file_inode(filp);
+	struct inode *inode = filp->f_path.dentry->d_inode;
 	int lock_level = 0;
 
 	trace_ocfs2_readdir((unsigned long long)OCFS2_I(inode)->ip_blkno);

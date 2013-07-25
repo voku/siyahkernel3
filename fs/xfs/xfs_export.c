@@ -17,7 +17,6 @@
  */
 #include "xfs.h"
 #include "xfs_types.h"
-#include "xfs_inum.h"
 #include "xfs_log.h"
 #include "xfs_trans.h"
 #include "xfs_sb.h"
@@ -48,7 +47,7 @@ static int xfs_fileid_length(int fileid_type)
 	case FILEID_INO32_GEN_PARENT | XFS_FILEID_TYPE_64FLAG:
 		return 6;
 	}
-	return FILEID_INVALID;
+	return 255; /* invalid */
 }
 
 STATIC int
@@ -90,7 +89,7 @@ xfs_fs_encode_fh(
 	len = xfs_fileid_length(fileid_type);
 	if (*max_len < len) {
 		*max_len = len;
-		return FILEID_INVALID;
+		return 255;
 	}
 	*max_len = len;
 
@@ -146,14 +145,14 @@ xfs_nfs_get_inode(
 		 * We don't use ESTALE directly down the chain to not
 		 * confuse applications using bulkstat that expect EINVAL.
 		 */
-		if (error == EINVAL)
+		if (error == EINVAL || error == ENOENT)
 			error = ESTALE;
 		return ERR_PTR(-error);
 	}
 
 	if (ip->i_d.di_gen != generation) {
 		IRELE(ip);
-		return ERR_PTR(-ENOENT);
+		return ERR_PTR(-ESTALE);
 	}
 
 	return VFS_I(ip);
@@ -190,9 +189,6 @@ xfs_fs_fh_to_parent(struct super_block *sb, struct fid *fid,
 	struct xfs_fid64	*fid64 = (struct xfs_fid64 *)fid;
 	struct inode		*inode = NULL;
 
-	if (fh_len < xfs_fileid_length(fileid_type))
-		return NULL;
-
 	switch (fileid_type) {
 	case FILEID_INO32_GEN_PARENT:
 		inode = xfs_nfs_get_inode(sb, fid->i32.parent_ino,
@@ -227,16 +223,16 @@ xfs_fs_nfs_commit_metadata(
 {
 	struct xfs_inode	*ip = XFS_I(inode);
 	struct xfs_mount	*mp = ip->i_mount;
-	int			error = 0;
+	xfs_lsn_t		lsn = 0;
 
 	xfs_ilock(ip, XFS_ILOCK_SHARED);
-	if (xfs_ipincount(ip)) {
-		error = _xfs_log_force_lsn(mp, ip->i_itemp->ili_last_lsn,
-				XFS_LOG_SYNC, NULL);
-	}
+	if (xfs_ipincount(ip))
+		lsn = ip->i_itemp->ili_last_lsn;
 	xfs_iunlock(ip, XFS_ILOCK_SHARED);
 
-	return error;
+	if (!lsn)
+		return 0;
+	return _xfs_log_force_lsn(mp, lsn, XFS_LOG_SYNC, NULL);
 }
 
 const struct export_operations xfs_export_operations = {

@@ -561,7 +561,12 @@ static void afs_vlocation_reaper(struct work_struct *work)
 		if (expiry > now) {
 			delay = (expiry - now) * HZ;
 			_debug("delay %lu", delay);
-			mod_delayed_work(afs_wq, &afs_vlocation_reap, delay);
+			if (!queue_delayed_work(afs_wq, &afs_vlocation_reap,
+						delay)) {
+				cancel_delayed_work(&afs_vlocation_reap);
+				queue_delayed_work(afs_wq, &afs_vlocation_reap,
+						   delay);
+			}
 			break;
 		}
 
@@ -609,10 +614,13 @@ void afs_vlocation_purge(void)
 	spin_lock(&afs_vlocation_updates_lock);
 	list_del_init(&afs_vlocation_updates);
 	spin_unlock(&afs_vlocation_updates_lock);
-	mod_delayed_work(afs_vlocation_update_worker, &afs_vlocation_update, 0);
+	cancel_delayed_work(&afs_vlocation_update);
+	queue_delayed_work(afs_vlocation_update_worker,
+			   &afs_vlocation_update, 0);
 	destroy_workqueue(afs_vlocation_update_worker);
 
-	mod_delayed_work(afs_wq, &afs_vlocation_reap, 0);
+	cancel_delayed_work(&afs_vlocation_reap);
+	queue_delayed_work(afs_wq, &afs_vlocation_reap, 0);
 }
 
 /*

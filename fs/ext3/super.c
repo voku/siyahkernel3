@@ -17,22 +17,12 @@
  */
 
 #include <linux/module.h>
-#include <linux/string.h>
-#include <linux/fs.h>
-#include <linux/time.h>
-#include <linux/jbd.h>
-#include <linux/ext3_fs.h>
-#include <linux/ext3_jbd.h>
-#include <linux/slab.h>
-#include <linux/init.h>
 #include <linux/blkdev.h>
 #include <linux/parser.h>
-#include <linux/buffer_head.h>
 #include <linux/exportfs.h>
-#include <linux/vfs.h>
+#include <linux/statfs.h>
 #include <linux/random.h>
 #include <linux/mount.h>
-#include <linux/namei.h>
 #include <linux/quotaops.h>
 #include <linux/seq_file.h>
 #include <linux/log2.h>
@@ -40,6 +30,9 @@
 
 #include <asm/uaccess.h>
 
+#define CREATE_TRACE_POINTS
+
+#include "ext3.h"
 #include "xattr.h"
 #include "acl.h"
 #include "namei.h"
@@ -371,7 +364,7 @@ static struct block_device *ext3_blkdev_get(dev_t dev, struct super_block *sb)
 	return bdev;
 
 fail:
-	ext3_msg(sb, KERN_ERR, "error: failed to open journal device %s: %ld",
+	ext3_msg(sb, "error: failed to open journal device %s: %ld",
 		__bdevname(dev, b), PTR_ERR(bdev));
 
 	return NULL;
@@ -497,6 +490,14 @@ static struct inode *ext3_alloc_inode(struct super_block *sb)
 	return &ei->vfs_inode;
 }
 
+static int ext3_drop_inode(struct inode *inode)
+{
+	int drop = generic_drop_inode(inode);
+
+	trace_ext3_drop_inode(inode, drop);
+	return drop;
+}
+
 static void ext3_i_callback(struct rcu_head *head)
 {
 	struct inode *inode = container_of(head, struct inode, i_rcu);
@@ -616,13 +617,15 @@ static int ext3_show_options(struct seq_file *seq, struct dentry *root)
 		seq_puts(seq, ",grpid");
 	if (!test_opt(sb, GRPID) && (def_mount_opts & EXT3_DEFM_BSDGROUPS))
 		seq_puts(seq, ",nogrpid");
-	if (sbi->s_resuid != EXT3_DEF_RESUID ||
+	if (!uid_eq(sbi->s_resuid, make_kuid(&init_user_ns, EXT3_DEF_RESUID)) ||
 	    le16_to_cpu(es->s_def_resuid) != EXT3_DEF_RESUID) {
-		seq_printf(seq, ",resuid=%u", sbi->s_resuid);
+		seq_printf(seq, ",resuid=%u",
+				from_kuid_munged(&init_user_ns, sbi->s_resuid));
 	}
-	if (sbi->s_resgid != EXT3_DEF_RESGID ||
+	if (!gid_eq(sbi->s_resgid, make_kgid(&init_user_ns, EXT3_DEF_RESGID)) ||
 	    le16_to_cpu(es->s_def_resgid) != EXT3_DEF_RESGID) {
-		seq_printf(seq, ",resgid=%u", sbi->s_resgid);
+		seq_printf(seq, ",resgid=%u",
+				from_kgid_munged(&init_user_ns, sbi->s_resgid));
 	}
 	if (test_opt(sb, ERRORS_RO)) {
 		int def_errors = le16_to_cpu(es->s_errors);
@@ -640,8 +643,6 @@ static int ext3_show_options(struct seq_file *seq, struct dentry *root)
 		seq_puts(seq, ",nouid32");
 	if (test_opt(sb, DEBUG))
 		seq_puts(seq, ",debug");
-	if (test_opt(sb, OLDALLOC))
-		seq_puts(seq, ",oldalloc");
 #ifdef CONFIG_EXT3_FS_XATTR
 	if (test_opt(sb, XATTR_USER))
 		seq_puts(seq, ",user_xattr");
@@ -787,6 +788,7 @@ static const struct super_operations ext3_sops = {
 	.destroy_inode	= ext3_destroy_inode,
 	.write_inode	= ext3_write_inode,
 	.dirty_inode	= ext3_dirty_inode,
+	.drop_inode	= ext3_drop_inode,
 	.evict_inode	= ext3_evict_inode,
 	.put_super	= ext3_put_super,
 	.sync_fs	= ext3_sync_fs,
@@ -891,7 +893,7 @@ static ext3_fsblk_t get_sb_block(void **data, struct super_block *sb)
 	/*todo: use simple_strtoll with >32bit ext3 */
 	sb_block = simple_strtoul(options, &options, 0);
 	if (*options && *options != ',') {
-		ext3_msg(sb, KERN_ERR, "error: invalid sb specification: %s",
+		ext3_msg(sb, "error: invalid sb specification: %s",
 		       (char *) *data);
 		return 1;
 	}
@@ -967,6 +969,8 @@ static int parse_options (char *options, struct super_block *sb,
 	substring_t args[MAX_OPT_ARGS];
 	int data_opt = 0;
 	int option;
+	kuid_t uid;
+	kgid_t gid;
 #ifdef CONFIG_QUOTA
 	int qfmt;
 #endif
@@ -1000,12 +1004,23 @@ static int parse_options (char *options, struct super_block *sb,
 		case Opt_resuid:
 			if (match_int(&args[0], &option))
 				return 0;
-			sbi->s_resuid = option;
+			uid = make_kuid(current_user_ns(), option);
+			if (!uid_valid(uid)) {
+				ext3_msg(sb, KERN_ERR, "Invalid uid value %d", option);
+				return -1;
+
+			}
+			sbi->s_resuid = uid;
 			break;
 		case Opt_resgid:
 			if (match_int(&args[0], &option))
 				return 0;
-			sbi->s_resgid = option;
+			gid = make_kgid(current_user_ns(), option);
+			if (!gid_valid(gid)) {
+				ext3_msg(sb, KERN_ERR, "Invalid gid value %d", option);
+				return -1;
+			}
+			sbi->s_resgid = gid;
 			break;
 		case Opt_sb:
 			/* handled by get_sb_block() instead of here */
@@ -1036,10 +1051,12 @@ static int parse_options (char *options, struct super_block *sb,
 			set_opt (sbi->s_mount_opt, DEBUG);
 			break;
 		case Opt_oldalloc:
-			set_opt (sbi->s_mount_opt, OLDALLOC);
+			ext3_msg(sb, KERN_WARNING,
+				"Ignoring deprecated oldalloc option");
 			break;
 		case Opt_orlov:
-			clear_opt (sbi->s_mount_opt, OLDALLOC);
+			ext3_msg(sb, KERN_WARNING,
+				"Ignoring deprecated orlov option");
 			break;
 #ifdef CONFIG_EXT3_FS_XATTR
 		case Opt_user_xattr:
@@ -1649,8 +1666,8 @@ static int ext3_fill_super (struct super_block *sb, void *data, int silent)
 	}
 	sb->s_fs_info = sbi;
 	sbi->s_mount_opt = 0;
-	sbi->s_resuid = EXT3_DEF_RESUID;
-	sbi->s_resgid = EXT3_DEF_RESGID;
+	sbi->s_resuid = make_kuid(&init_user_ns, EXT3_DEF_RESUID);
+	sbi->s_resgid = make_kgid(&init_user_ns, EXT3_DEF_RESGID);
 	sbi->s_sb_block = sb_block;
 
 	blocksize = sb_min_blocksize(sb, EXT3_MIN_BLOCK_SIZE);
@@ -1714,9 +1731,11 @@ static int ext3_fill_super (struct super_block *sb, void *data, int silent)
 	else
 		set_opt(sbi->s_mount_opt, ERRORS_RO);
 
-	sbi->s_resuid = le16_to_cpu(es->s_def_resuid);
-	sbi->s_resgid = le16_to_cpu(es->s_def_resgid);
+	sbi->s_resuid = make_kuid(&init_user_ns, le16_to_cpu(es->s_def_resuid));
+	sbi->s_resgid = make_kgid(&init_user_ns, le16_to_cpu(es->s_def_resgid));
 
+	/* enable barriers by default */
+	set_opt(sbi->s_mount_opt, BARRIER);
 	set_opt(sbi->s_mount_opt, RESERVATION);
 
 	if (!parse_options ((char *) data, sb, &journal_inum, &journal_devnum,
@@ -2507,11 +2526,6 @@ static int ext3_sync_fs(struct super_block *sb, int wait)
 	tid_t target;
 
 	trace_ext3_sync_fs(sb, wait);
-	/*
-	 * Writeback quota in non-journalled quota case - journalled quota has
-	 * no dirty dquots
-	 */
-	dquot_writeback_dquots(sb, -1);
 	if (journal_start_commit(EXT3_SB(sb)->s_journal, &target)) {
 		if (wait)
 			log_wait_commit(EXT3_SB(sb)->s_journal, target);
@@ -2659,13 +2673,13 @@ static int ext3_remount (struct super_block * sb, int * flags, char * data)
 			/*
 			 * If we have an unprocessed orphan list hanging
 			 * around from a previously readonly bdev mount,
-			 * require a full umount/remount for now.
+			 * require a full umount & mount for now.
 			 */
 			if (es->s_last_orphan) {
 				ext3_msg(sb, KERN_WARNING, "warning: couldn't "
 				       "remount RDWR because of unprocessed "
 				       "orphan inode list.  Please "
-				       "umount/remount instead.");
+				       "umount & mount instead.");
 				err = -EINVAL;
 				goto restore_opts;
 			}
@@ -3001,7 +3015,6 @@ static ssize_t ext3_quota_write(struct super_block *sb, int type,
 			(unsigned long long)off, (unsigned long long)len);
 		return -EIO;
 	}
-	mutex_lock_nested(&inode->i_mutex, I_MUTEX_QUOTA);
 	bh = ext3_bread(handle, inode, blk, 1, &err);
 	if (!bh)
 		goto out;
@@ -3025,10 +3038,8 @@ static ssize_t ext3_quota_write(struct super_block *sb, int type,
 	}
 	brelse(bh);
 out:
-	if (err) {
-		mutex_unlock(&inode->i_mutex);
+	if (err)
 		return err;
-	}
 	if (inode->i_size < off + len) {
 		i_size_write(inode, off + len);
 		EXT3_I(inode)->i_disksize = inode->i_size;
@@ -3036,7 +3047,6 @@ out:
 	inode->i_version++;
 	inode->i_mtime = inode->i_ctime = CURRENT_TIME;
 	ext3_mark_inode_dirty(handle, inode);
-	mutex_unlock(&inode->i_mutex);
 	return len;
 }
 

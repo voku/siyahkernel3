@@ -125,16 +125,15 @@ isofs_export_encode_fh(struct inode *inode,
 	 */
 	if (parent && (len < 5)) {
 		*max_len = 5;
-		return FILEID_INVALID;
+		return 255;
 	} else if (len < 3) {
 		*max_len = 3;
-		return FILEID_INVALID;
+		return 255;
 	}
 
 	len = 3;
 	fh32[0] = ei->i_iget5_block;
  	fh16[2] = (__u16)ei->i_iget5_offset;  /* fh16 [sic] */
-	fh16[3] = 0;  /* avoid leaking uninitialized data */
 	fh32[2] = inode->i_generation;
 	if (parent) {
 		struct iso_inode_info *eparent;
@@ -175,7 +174,7 @@ static struct dentry *isofs_fh_to_parent(struct super_block *sb,
 {
 	struct isofs_fid *ifid = (struct isofs_fid *)fid;
 
-	if (fh_len < 2 || fh_type != 2)
+	if (fh_type != 2)
 		return NULL;
 
 	return isofs_export_iget(sb,

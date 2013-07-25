@@ -183,7 +183,7 @@ static int logfs_releasepage(struct page *page, gfp_t only_xfs_uses_this)
 
 long logfs_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
-	struct inode *inode = file_inode(file);
+	struct inode *inode = file->f_path.dentry->d_inode;
 	struct logfs_inode *li = logfs_inode(inode);
 	unsigned int oldflags, flags;
 	int err;
@@ -230,7 +230,9 @@ int logfs_fsync(struct file *file, loff_t start, loff_t end, int datasync)
 		return ret;
 
 	mutex_lock(&inode->i_mutex);
+	logfs_get_wblocks(sb, NULL, WF_LOCK);
 	logfs_write_anchor(sb);
+	logfs_put_wblocks(sb, NULL, WF_LOCK);
 	mutex_unlock(&inode->i_mutex);
 
 	return 0;

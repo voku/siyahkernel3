@@ -12,8 +12,7 @@
 #include <linux/time.h>
 #include <linux/seq_file.h>
 #include <asm/uaccess.h>
-#include <linux/reiserfs_fs.h>
-#include <linux/reiserfs_fs_sb.h>
+#include "reiserfs.h"
 #include <linux/init.h>
 #include <linux/proc_fs.h>
 
@@ -282,7 +281,7 @@ static int show_oidmap(struct seq_file *m, struct super_block *sb)
 	}
 #if defined( REISERFS_USE_OIDMAPF )
 	if (sb_info->oidmap.use_file && (sb_info->oidmap.mapf != NULL)) {
-		loff_t size = file_inode(sb_info->oidmap.mapf)->i_size;
+		loff_t size = sb_info->oidmap.mapf->f_path.dentry->d_inode->i_size;
 		total_used += size / sizeof(reiserfs_oidinterval_d_t);
 	}
 #endif
@@ -404,7 +403,7 @@ static void *r_start(struct seq_file *m, loff_t * pos)
 	if (l)
 		return NULL;
 
-	if (IS_ERR(sget(&reiserfs_fs_type, test_sb, set_sb, 0, s)))
+	if (IS_ERR(sget(&reiserfs_fs_type, test_sb, set_sb, s)))
 		return NULL;
 
 	up_write(&s->s_umount);
