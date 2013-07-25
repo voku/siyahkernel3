@@ -410,12 +410,13 @@ static const struct file_operations proc_lstats_operations = {
 
 static int proc_oom_score(struct task_struct *task, char *buffer)
 {
+	unsigned long totalpages = totalram_pages + total_swap_pages;
 	unsigned long points = 0;
 
 	read_lock(&tasklist_lock);
 	if (pid_alive(task))
-		points = oom_badness(task, NULL, NULL,
-					totalram_pages + total_swap_pages);
+		points = oom_badness(task, NULL, NULL, totalpages) *
+						1000 / totalpages;
 	read_unlock(&tasklist_lock);
 	return sprintf(buffer, "%lu\n", points);
 }
@@ -546,9 +547,9 @@ int proc_setattr(struct dentry *dentry, struct iattr *attr)
 	if (error)
 		return error;
 
-    setattr_copy(inode, attr);
-    mark_inode_dirty(inode);
-    return 0;
+	setattr_copy(inode, attr);
+	mark_inode_dirty(inode);
+	return 0;
 }
 
 /*
@@ -758,7 +759,7 @@ static ssize_t mem_read(struct file *file, char __user *buf,
 #ifndef mem_write
 /* This is a security hazard */
 static ssize_t mem_write(struct file *file, const char __user *buf,
-			size_t count, loff_t *ppos)
+			 size_t count, loff_t *ppos)
 {
 	return mem_rw(file, (char __user*)buf, count, ppos, 1);
 }
@@ -890,7 +891,7 @@ static ssize_t oom_adjust_read(struct file *file, char __user *buf,
 }
 
 static ssize_t oom_adjust_write(struct file *file, const char __user *buf,
-				size_t count, loff_t *ppos)
+			     size_t count, loff_t *ppos)
 {
 	struct task_struct *task;
 	char buffer[PROC_NUMBUF];
