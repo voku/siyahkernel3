@@ -86,6 +86,7 @@
 #include <linux/fs_struct.h>
 #include <linux/slab.h>
 #include <linux/flex_array.h>
+#include <linux/posix-timers.h>
 #ifdef CONFIG_HARDWALL
 #include <asm/hardwall.h>
 #endif
@@ -615,6 +616,7 @@ static int proc_pid_permission(struct inode *inode, int mask)
 }
 
 
+
 static const struct inode_operations proc_def_inode_operations = {
 	.setattr	= proc_setattr,
 };
@@ -888,36 +890,36 @@ static const struct file_operations proc_environ_operations = {
 	.release	= mem_release,
 };
 
-static ssize_t oom_adjust_read(struct file *file, char __user *buf,
-				size_t count, loff_t *ppos)
+static ssize_t oom_adj_read(struct file *file, char __user *buf, size_t count,
+			    loff_t *ppos)
 {
 	struct task_struct *task = get_proc_task(file_inode(file));
 	char buffer[PROC_NUMBUF];
+	int oom_adj = OOM_ADJUST_MIN;
 	size_t len;
-	int oom_adjust = OOM_DISABLE;
 	unsigned long flags;
 
 	if (!task)
 		return -ESRCH;
-
 	if (lock_task_sighand(task, &flags)) {
-		oom_adjust = task->signal->oom_adj;
+		if (task->signal->oom_score_adj == OOM_SCORE_ADJ_MAX)
+			oom_adj = OOM_ADJUST_MAX;
+		else
+			oom_adj = (task->signal->oom_score_adj * -OOM_DISABLE) /
+				  OOM_SCORE_ADJ_MAX;
 		unlock_task_sighand(task, &flags);
 	}
-
 	put_task_struct(task);
-
-	len = snprintf(buffer, sizeof(buffer), "%i\n", oom_adjust);
-
+	len = snprintf(buffer, sizeof(buffer), "%d\n", oom_adj);
 	return simple_read_from_buffer(buf, count, ppos, buffer, len);
 }
 
-static ssize_t oom_adjust_write(struct file *file, const char __user *buf,
+static ssize_t oom_adj_write(struct file *file, const char __user *buf,
 			     size_t count, loff_t *ppos)
 {
 	struct task_struct *task;
 	char buffer[PROC_NUMBUF];
-	int oom_adjust;
+	int oom_adj;
 	unsigned long flags;
 	int err;
 
@@ -929,11 +931,11 @@ static ssize_t oom_adjust_write(struct file *file, const char __user *buf,
 		goto out;
 	}
 
-	err = kstrtoint(strstrip(buffer), 0, &oom_adjust);
+	err = kstrtoint(strstrip(buffer), 0, &oom_adj);
 	if (err)
 		goto out;
-	if ((oom_adjust < OOM_ADJUST_MIN || oom_adjust > OOM_ADJUST_MAX) &&
-	     oom_adjust != OOM_DISABLE) {
+	if ((oom_adj < OOM_ADJUST_MIN || oom_adj > OOM_ADJUST_MAX) &&
+	     oom_adj != OOM_DISABLE) {
 		err = -EINVAL;
 		goto out;
 	}
@@ -955,28 +957,30 @@ static ssize_t oom_adjust_write(struct file *file, const char __user *buf,
 		goto err_task_lock;
 	}
 
-	if (oom_adjust < task->signal->oom_adj && !capable(CAP_SYS_RESOURCE)) {
+	/*
+	 * Scale /proc/pid/oom_score_adj appropriately ensuring that a maximum
+	 * value is always attainable.
+	 */
+	if (oom_adj == OOM_ADJUST_MAX)
+		oom_adj = OOM_SCORE_ADJ_MAX;
+	else
+		oom_adj = (oom_adj * OOM_SCORE_ADJ_MAX) / -OOM_DISABLE;
+
+	if (oom_adj < task->signal->oom_score_adj &&
+	    !capable(CAP_SYS_RESOURCE)) {
 		err = -EACCES;
 		goto err_sighand;
 	}
 
 	/*
-	 * Warn that /proc/pid/oom_adj is deprecated, see
-	 * Documentation/feature-removal-schedule.txt.
+	 * /proc/pid/oom_adj is provided for legacy purposes, ask users to use
+	 * /proc/pid/oom_score_adj instead.
 	 */
 	pr_warn_once("%s (%d): /proc/%d/oom_adj is deprecated, please use /proc/%d/oom_score_adj instead.\n",
 		  current->comm, task_pid_nr(current), task_pid_nr(task),
 		  task_pid_nr(task));
-	task->signal->oom_adj = oom_adjust;
-	/*
-	 * Scale /proc/pid/oom_score_adj appropriately ensuring that a maximum
-	 * value is always attainable.
-	 */
-	if (task->signal->oom_adj == OOM_ADJUST_MAX)
-		task->signal->oom_score_adj = OOM_SCORE_ADJ_MAX;
-	else
-		task->signal->oom_score_adj = (oom_adjust * OOM_SCORE_ADJ_MAX) /
-								-OOM_DISABLE;
+
+	task->signal->oom_score_adj = oom_adj;
 	trace_oom_score_adj_update(task);
 err_sighand:
 	unlock_task_sighand(task, &flags);
@@ -1012,13 +1016,13 @@ static int oom_adjust_permission(struct inode *inode, int mask)
 	return generic_permission(inode, mask);
 }
 
-static const struct inode_operations proc_oom_adjust_inode_operations = {
+static const struct inode_operations proc_oom_adj_inode_operations = {
 	.permission	= oom_adjust_permission,
 };
 
-static const struct file_operations proc_oom_adjust_operations = {
-	.read		= oom_adjust_read,
-	.write		= oom_adjust_write,
+static const struct file_operations proc_oom_adj_operations = {
+	.read		= oom_adj_read,
+	.write		= oom_adj_write,
 	.llseek		= generic_file_llseek,
 };
 
@@ -1095,15 +1099,7 @@ static ssize_t oom_score_adj_write(struct file *file, const char __user *buf,
 	if (has_capability_noaudit(current, CAP_SYS_RESOURCE))
 		task->signal->oom_score_adj_min = (short)oom_score_adj;
 	trace_oom_score_adj_update(task);
-	/*
-	 * Scale /proc/pid/oom_adj appropriately ensuring that OOM_DISABLE is
-	 * always attainable.
-	 */
-	if (task->signal->oom_score_adj == OOM_SCORE_ADJ_MIN)
-		task->signal->oom_adj = OOM_DISABLE;
-	else
-		task->signal->oom_adj = (oom_score_adj * OOM_ADJUST_MAX) /
-							OOM_SCORE_ADJ_MAX;
+
 err_sighand:
 	unlock_task_sighand(task, &flags);
 err_task_lock:
@@ -1874,7 +1870,7 @@ out:
 }
 
 struct map_files_info {
-	struct file	*file;
+	fmode_t		mode;
 	unsigned long	len;
 	unsigned char	name[4*sizeof(long)+2]; /* max: %lx-%lx\0 */
 };
@@ -1883,12 +1879,9 @@ static struct dentry *
 proc_map_files_instantiate(struct inode *dir, struct dentry *dentry,
 			   struct task_struct *task, const void *ptr)
 {
-	const struct file *file = ptr;
+	fmode_t mode = (fmode_t)(unsigned long)ptr;
 	struct proc_inode *ei;
 	struct inode *inode;
-
-	if (!file)
-		return ERR_PTR(-ENOENT);
 
 	inode = proc_pid_make_inode(dir->i_sb, task);
 	if (!inode)
@@ -1901,9 +1894,9 @@ proc_map_files_instantiate(struct inode *dir, struct dentry *dentry,
 	inode->i_size = 64;
 	inode->i_mode = S_IFLNK;
 
-	if (file->f_mode & FMODE_READ)
+	if (mode & FMODE_READ)
 		inode->i_mode |= S_IRUSR;
-	if (file->f_mode & FMODE_WRITE)
+	if (mode & FMODE_WRITE)
 		inode->i_mode |= S_IWUSR;
 
 	d_set_d_op(dentry, &tid_map_files_dentry_operations);
@@ -2070,15 +2063,6 @@ proc_map_files_readdir(struct file *filp, void *dirent, filldir_t filldir)
 			if (ret)
 				break;
 			filp->f_pos++;
-			fput(p->file);
-		}
-		for (; i < nr_files; i++) {
-			/*
-			 * In case of error don't forget
-			 * to put rest of file refs.
-			 */
-			p = flex_array_get(fa, i);
-			fput(p->file);
 		}
 		if (fa)
 			flex_array_free(fa);
@@ -2098,6 +2082,103 @@ static const struct file_operations proc_map_files_operations = {
 	.llseek		= default_llseek,
 };
 
+struct timers_private {
+	struct pid *pid;
+	struct task_struct *task;
+	struct sighand_struct *sighand;
+	struct pid_namespace *ns;
+	unsigned long flags;
+};
+
+static void *timers_start(struct seq_file *m, loff_t *pos)
+{
+	struct timers_private *tp = m->private;
+
+	tp->task = get_pid_task(tp->pid, PIDTYPE_PID);
+	if (!tp->task)
+		return ERR_PTR(-ESRCH);
+
+	tp->sighand = lock_task_sighand(tp->task, &tp->flags);
+	if (!tp->sighand)
+		return ERR_PTR(-ESRCH);
+
+	return seq_list_start(&tp->task->signal->posix_timers, *pos);
+}
+
+static void *timers_next(struct seq_file *m, void *v, loff_t *pos)
+{
+	struct timers_private *tp = m->private;
+	return seq_list_next(v, &tp->task->signal->posix_timers, pos);
+}
+
+static void timers_stop(struct seq_file *m, void *v)
+{
+	struct timers_private *tp = m->private;
+
+	if (tp->sighand) {
+		unlock_task_sighand(tp->task, &tp->flags);
+		tp->sighand = NULL;
+	}
+
+	if (tp->task) {
+		put_task_struct(tp->task);
+		tp->task = NULL;
+	}
+}
+
+static int show_timer(struct seq_file *m, void *v)
+{
+	struct k_itimer *timer;
+	struct timers_private *tp = m->private;
+	int notify;
+	static char *nstr[] = {
+		[SIGEV_SIGNAL] = "signal",
+		[SIGEV_NONE] = "none",
+		[SIGEV_THREAD] = "thread",
+	};
+
+	timer = list_entry((struct list_head *)v, struct k_itimer, list);
+	notify = timer->it_sigev_notify;
+
+	seq_printf(m, "ID: %d\n", timer->it_id);
+	seq_printf(m, "signal: %d/%p\n", timer->sigq->info.si_signo,
+			timer->sigq->info.si_value.sival_ptr);
+	seq_printf(m, "notify: %s/%s.%d\n",
+		nstr[notify & ~SIGEV_THREAD_ID],
+		(notify & SIGEV_THREAD_ID) ? "tid" : "pid",
+		pid_nr_ns(timer->it_pid, tp->ns));
+	seq_printf(m, "ClockID: %d\n", timer->it_clock);
+
+	return 0;
+}
+
+static const struct seq_operations proc_timers_seq_ops = {
+	.start	= timers_start,
+	.next	= timers_next,
+	.stop	= timers_stop,
+	.show	= show_timer,
+};
+
+static int proc_timers_open(struct inode *inode, struct file *file)
+{
+	struct timers_private *tp;
+
+	tp = __seq_open_private(file, &proc_timers_seq_ops,
+			sizeof(struct timers_private));
+	if (!tp)
+		return -ENOMEM;
+
+	tp->pid = proc_pid(inode);
+	tp->ns = inode->i_sb->s_fs_info;
+	return 0;
+}
+
+static const struct file_operations proc_timers_operations = {
+	.open		= proc_timers_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= seq_release_private,
+};
 #endif /* CONFIG_CHECKPOINT_RESTORE */
 
 static struct dentry *proc_pident_instantiate(struct inode *dir,
@@ -2784,7 +2865,7 @@ static const struct pid_entry tgid_base_stuff[] = {
 	REG("cgroup",  S_IRUGO, proc_cgroup_operations),
 #endif
 	INF("oom_score",  S_IRUGO, proc_oom_score),
-	ANDROID("oom_adj",S_IRUGO|S_IWUSR, oom_adjust),
+	ANDROID("oom_adj", S_IRUGO|S_IWUSR, oom_adj),
 	REG("oom_score_adj", S_IRUGO|S_IWUSR, proc_oom_score_adj_operations),
 #ifdef CONFIG_ANDROID
 	REG("oom_killed", S_IRUGO, proc_oom_killed_operations),
@@ -3150,7 +3231,7 @@ static const struct pid_entry tid_base_stuff[] = {
 	REG("cgroup",  S_IRUGO, proc_cgroup_operations),
 #endif
 	INF("oom_score", S_IRUGO, proc_oom_score),
-	REG("oom_adj",   S_IRUGO|S_IWUSR, proc_oom_adjust_operations),
+	REG("oom_adj",   S_IRUGO|S_IWUSR, proc_oom_adj_operations),
 	REG("oom_score_adj", S_IRUGO|S_IWUSR, proc_oom_score_adj_operations),
 #ifdef CONFIG_ANDROID
 	REG("oom_killed", S_IRUGO, proc_oom_killed_operations),
