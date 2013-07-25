@@ -9,8 +9,8 @@
 #include <linux/security.h>
 #include <linux/sched.h>
 #include <linux/namei.h>
-#include <linux/module.h>
 #include <linux/mm.h>
+#include <linux/module.h>
 #include "internal.h"
 
 static const struct dentry_operations proc_sys_dentry_operations;
@@ -200,9 +200,9 @@ void register_sysctl_root(struct ctl_table_root *root)
 
 static int test_perm(int mode, int op)
 {
-	if (!current_euid())
+	if (uid_eq(current_euid(), GLOBAL_ROOT_UID))
 		mode >>= 6;
-	else if (in_egroup_p(0))
+	else if (in_egroup_p(GLOBAL_ROOT_GID))
 		mode >>= 3;
 	if ((op & ~mode & (MAY_READ|MAY_WRITE|MAY_EXEC)) == 0)
 		return 0;
@@ -404,7 +404,7 @@ static int proc_sys_open(struct inode *inode, struct file *filp)
 
 static unsigned int proc_sys_poll(struct file *filp, poll_table *wait)
 {
-	struct inode *inode = filp->f_path.dentry->d_inode;
+	struct inode *inode = file_inode(filp);
 	struct ctl_table *table = PROC_I(inode)->sysctl_entry;
 	unsigned long event = (unsigned long)filp->private_data;
 	unsigned int ret = DEFAULT_POLLMASK;

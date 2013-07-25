@@ -586,6 +586,21 @@ static inline void path_to_nameidata(const struct path *path,
 	nd->path.dentry = path->dentry;
 }
 
+/*
+ * Helper to directly jump to a known parsed path from ->follow_link,
+ * caller must have taken a reference to path beforehand.
+ */
+void nd_jump_link(struct nameidata *nd, struct path *path)
+{
+	path_put(&nd->path);
+
+	nd->path = *path;
+	nd->inode = nd->path.dentry->d_inode;
+	nd->flags |= LOOKUP_JUMPED;
+
+	BUG_ON(nd->inode->i_op->follow_link);
+}
+
 static inline void put_link(struct nameidata *nd, struct path *link, void *cookie)
 {
 	struct inode *inode = link->dentry->d_inode;
@@ -624,29 +639,20 @@ follow_link(struct path *link, struct nameidata *nd, void **p)
 	*p = dentry->d_inode->i_op->follow_link(dentry, nd);
 	error = PTR_ERR(*p);
 	if (IS_ERR(*p))
-		goto out_put_link;
+		goto out_put_nd_path;
 
 	error = 0;
 	s = nd_get_link(nd);
 	if (s) {
 		error = __vfs_follow_link(nd, s);
-	} else if (nd->last_type == LAST_BIND) {
-		nd->flags |= LOOKUP_JUMPED;
-		nd->inode = nd->path.dentry->d_inode;
-		if (nd->inode->i_op->follow_link) {
-			/* stepped on a _really_ weird one */
-			path_put(&nd->path);
-			error = -ELOOP;
-		}
+		if (unlikely(error))
+			put_link(nd, link, *p);
 	}
-	if (unlikely(error))
-		put_link(nd, link, *p);
 
 	return error;
 
 out_put_nd_path:
 	path_put(&nd->path);
-out_put_link:
 	path_put(link);
 	return error;
 }

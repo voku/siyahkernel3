@@ -410,6 +410,22 @@ static const struct file_operations proc_lstats_operations = {
 
 #endif
 
+#ifdef CONFIG_PROC_PID_CPUSET
+
+static int cpuset_open(struct inode *inode, struct file *file)
+{
+	struct pid *pid = PROC_I(inode)->pid;
+	return single_open(file, proc_cpuset_show, pid);
+}
+
+static const struct file_operations proc_cpuset_operations = {
+	.open		= cpuset_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+#endif
+
 static int proc_oom_score(struct task_struct *task, char *buffer)
 {
 	unsigned long totalpages = totalram_pages + total_swap_pages;
@@ -577,6 +593,8 @@ static int proc_pid_permission(struct inode *inode, int mask)
 	bool has_perms;
 
 	task = get_proc_task(inode);
+	if (!task)
+		return -ESRCH;
 	has_perms = has_pid_permissions(pid, task, 1);
 	put_task_struct(task);
 
@@ -764,16 +782,11 @@ static ssize_t mem_read(struct file *file, char __user *buf,
 	return mem_rw(file, buf, count, ppos, 0);
 }
 
-#define mem_write NULL
-
-#ifndef mem_write
-/* This is a security hazard */
 static ssize_t mem_write(struct file *file, const char __user *buf,
 			 size_t count, loff_t *ppos)
 {
 	return mem_rw(file, (char __user*)buf, count, ppos, 1);
 }
-#endif
 
 loff_t mem_lseek(struct file *file, loff_t offset, int orig)
 {
@@ -1145,7 +1158,7 @@ static ssize_t proc_loginuid_read(struct file * file, char __user * buf,
 	if (!task)
 		return -ESRCH;
 	length = scnprintf(tmpbuf, TMPBUFLEN, "%u",
-				audit_get_loginuid(task));
+			audit_get_loginuid(task));
 	put_task_struct(task);
 	return simple_read_from_buffer(buf, count, ppos, tmpbuf, length);
 }
@@ -1157,9 +1170,6 @@ static ssize_t proc_loginuid_write(struct file * file, const char __user * buf,
 	char *page, *tmp;
 	ssize_t length;
 	uid_t loginuid;
-
-	if (!capable(CAP_AUDIT_CONTROL))
-		return -EPERM;
 
 	rcu_read_lock();
 	if (current != pid_task(proc_pid(inode), PIDTYPE_PID)) {
@@ -1411,11 +1421,10 @@ static ssize_t comm_write(struct file *file, const char __user *buf,
 	struct inode *inode = file_inode(file);
 	struct task_struct *p;
 	char buffer[TASK_COMM_LEN];
+	const size_t maxlen = sizeof(buffer) - 1;
 
 	memset(buffer, 0, sizeof(buffer));
-	if (count > sizeof(buffer) - 1)
-		count = sizeof(buffer) - 1;
-	if (copy_from_user(buffer, buf, count))
+	if (copy_from_user(buffer, buf, count > maxlen ? maxlen : count))
 		return -EFAULT;
 
 	p = get_proc_task(inode);
@@ -1490,16 +1499,19 @@ static int proc_exe_link(struct dentry *dentry, struct path *exe_path)
 static void *proc_pid_follow_link(struct dentry *dentry, struct nameidata *nd)
 {
 	struct inode *inode = dentry->d_inode;
+	struct path path;
 	int error = -EACCES;
-
-	/* We don't need a base pointer in the /proc filesystem */
-	path_put(&nd->path);
 
 	/* Are we allowed to snoop on the tasks file descriptors? */
 	if (!proc_fd_access_allowed(inode))
 		goto out;
 
-	error = PROC_I(inode)->op.proc_get_link(dentry, &nd->path);
+	error = PROC_I(inode)->op.proc_get_link(dentry, &path);
+	if (error)
+		goto out;
+
+	nd_jump_link(nd, &path);
+	return NULL;
 out:
 	return ERR_PTR(error);
 }
@@ -1773,7 +1785,7 @@ static int map_files_d_revalidate(struct dentry *dentry, unsigned int flags)
 		return -ECHILD;
 
 	if (!capable(CAP_SYS_ADMIN)) {
-		status = -EACCES;
+		status = -EPERM;
 		goto out_notask;
 	}
 
@@ -1909,7 +1921,7 @@ static struct dentry *proc_map_files_lookup(struct inode *dir,
 	struct dentry *result;
 	struct mm_struct *mm;
 
-	result = ERR_PTR(-EACCES);
+	result = ERR_PTR(-EPERM);
 	if (!capable(CAP_SYS_ADMIN))
 		goto out;
 
@@ -1935,7 +1947,9 @@ static struct dentry *proc_map_files_lookup(struct inode *dir,
 	if (!vma)
 		goto out_no_vma;
 
-	result = proc_map_files_instantiate(dir, dentry, task, vma->vm_file);
+	if (vma->vm_file)
+		result = proc_map_files_instantiate(dir, dentry, task,
+				(void *)(unsigned long)vma->vm_file->f_mode);
 
 out_no_vma:
 	up_read(&mm->mmap_sem);
@@ -1963,7 +1977,7 @@ proc_map_files_readdir(struct file *filp, void *dirent, filldir_t filldir)
 	ino_t ino;
 	int ret;
 
-	ret = -EACCES;
+	ret = -EPERM;
 	if (!capable(CAP_SYS_ADMIN))
 		goto out;
 
@@ -2036,8 +2050,7 @@ proc_map_files_readdir(struct file *filp, void *dirent, filldir_t filldir)
 				if (++pos <= filp->f_pos)
 					continue;
 
-				get_file(vma->vm_file);
-				info.file = vma->vm_file;
+				info.mode = vma->vm_file->f_mode;
 				info.len = snprintf(info.name,
 						sizeof(info.name), "%lx-%lx",
 						vma->vm_start, vma->vm_end);
@@ -2052,7 +2065,8 @@ proc_map_files_readdir(struct file *filp, void *dirent, filldir_t filldir)
 			ret = proc_fill_cache(filp, dirent, filldir,
 					      p->name, p->len,
 					      proc_map_files_instantiate,
-					      task, p->file);
+					      task,
+					      (void *)(unsigned long)p->mode);
 			if (ret)
 				break;
 			filp->f_pos++;
@@ -2943,14 +2957,10 @@ out:
 
 struct dentry *proc_pid_lookup(struct inode *dir, struct dentry * dentry, unsigned int flags)
 {
-	struct dentry *result;
+	struct dentry *result = NULL;
 	struct task_struct *task;
 	unsigned tgid;
 	struct pid_namespace *ns;
-
-	result = proc_base_lookup(dir, dentry);
-	if (!IS_ERR(result) || PTR_ERR(result) != -ENOENT)
-		goto out;
 
 	tgid = name_to_int(dentry);
 	if (tgid == ~0U)
