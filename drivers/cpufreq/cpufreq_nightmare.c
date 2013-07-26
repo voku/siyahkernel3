@@ -747,19 +747,15 @@ static int check_down(bool earlysuspend)
 
 static inline unsigned int nightmare_frequency_adjust(int next_freq, unsigned int cur_freq, unsigned int min_freq, unsigned int max_freq, int scaling_freq_step)
 {
-	unsigned int adjust_freq = 0;
+	unsigned int adjust_freq = (next_freq / 100000) * 100000;
 
-	if (next_freq >= max_freq) {
+	if (adjust_freq >= max_freq) {
 		return max_freq;
-	} else if (next_freq <= min_freq) {
+	} else if (adjust_freq <= min_freq) {
 		return min_freq;
-	}
-	adjust_freq = (next_freq / 100000) * 100000;
-	/* Avoid to manage freq with up_sf_step or down_sf_step */
-	if (adjust_freq == cur_freq) {
+	} else if (adjust_freq == cur_freq) {
 		return cur_freq;
-	}
-	if ((next_freq % 100000) > (scaling_freq_step * 1000)) {
+	} else if ((next_freq % 100000) > (scaling_freq_step * 1000)) {
 		adjust_freq += 100000;
 	}
 	return adjust_freq;
@@ -814,7 +810,6 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 			continue;
 		}
 		cur_load = busy_time ? (100 * busy_time) / (busy_time + idle_time) : 1;/*if busy_time is 0 cpu_load is equal to 1*/
-		hotplug_history->usage[num_hist].freq[j] = cpu_policy->cur;
 		hotplug_history->usage[num_hist].load[j] = cur_load;
 		// GET MAX FREQ
 		max_freq = !earlysuspend ? cpu_policy->max : min(cpu_policy->max_suspend,cpu_policy->max);
@@ -841,6 +836,7 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 				__cpufreq_driver_target(cpu_policy, next_freq, CPUFREQ_RELATION_L);
 			}
 		}
+		hotplug_history->usage[num_hist].freq[j] = next_freq > 0 ? next_freq : cpu_policy->cur;
 	}
 
 	/* set num_hist used */
