@@ -68,8 +68,6 @@ struct cpufreq_darkness_cpuinfo {
 	struct delayed_work work;
 	int cpu;
 };
-static int cpu_sampling_rate = 0;
-
 /*
  * mutex that serializes governor limit change with
  * do_darkness_timer invocation. We do not want do_darkness_timer to run
@@ -577,13 +575,13 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 			continue;
 		}
 		cur_load = busy_time ? (100 * busy_time) / (busy_time + idle_time) : 1;/*if busy_time is 0 cpu_load is equal to 1*/
-		hotplug_history->usage[num_hist].freq[j] = cpu_policy->cur;
-		hotplug_history->usage[num_hist].load[j] = cur_load;
 		/* CPUs Online Scale Frequency*/
 		next_freq = darkness_frequency_adjust((cur_load * (max_freq / 100)), cpu_policy->min, cpu_policy->cur, max_freq, force_freq_steps);
+		/* SET CPUs Online history*/
+		hotplug_history->usage[num_hist].freq[j] = next_freq;
+		hotplug_history->usage[num_hist].load[j] = cur_load;
 		/*printk(KERN_ERR "FREQ CALC.: CPU[%u], load[%d], target freq[%u], cur freq[%u], min freq[%u], max_freq[%u]\n",j, cur_load, next_freq, cpu_policy->cur, cpu_policy->min, max_freq); */
 		if (next_freq != cpu_policy->cur) {
-			cpu_sampling_rate = (next_freq - cpu_policy->min) / 100;
 			__cpufreq_driver_target(cpu_policy, next_freq, CPUFREQ_RELATION_L);
 		}
 	}
@@ -614,10 +612,10 @@ static void do_darkness_timer(struct work_struct *work)
 	/* We want all CPUs to do sampling nearly on
 	 * same jiffy
 	 */
-	delay = usecs_to_jiffies(atomic_read(&darkness_tuners_ins.sampling_rate) - cpu_sampling_rate);
-	/*if (num_online_cpus() > 1) {
+	delay = usecs_to_jiffies(atomic_read(&darkness_tuners_ins.sampling_rate));
+	if (num_online_cpus() > 1) {
 		delay -= jiffies % delay;
-	}*/
+	}
 
 	mod_delayed_work_on(darkness_cpuinfo->cpu, dvfs_workqueue, &darkness_cpuinfo->work, delay);
 	mutex_unlock(&timer_mutex);
