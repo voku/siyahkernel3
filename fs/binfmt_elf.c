@@ -37,7 +37,7 @@
 #include <asm/param.h>
 #include <asm/page.h>
 
-static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs);
+static int load_elf_binary(struct linux_binprm *bprm);
 static int load_elf_library(struct file *);
 static unsigned long elf_map(struct file *, unsigned long, struct elf_phdr *,
 				int, int, unsigned long);
@@ -570,7 +570,7 @@ static unsigned long randomize_stack_top(unsigned long stack_top)
 #endif
 }
 
-static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
+static int load_elf_binary(struct linux_binprm *bprm)
 {
 	struct file *interpreter = NULL; /* to shut gcc up */
  	unsigned long load_addr = 0, load_bias = 0;
@@ -587,6 +587,7 @@ static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
 	unsigned long reloc_func_desc __maybe_unused = 0;
 	int executable_stack = EXSTACK_DEFAULT;
 	unsigned long def_flags = 0;
+	struct pt_regs *regs = current_pt_regs();
 	struct {
 		struct elfhdr elf_ex;
 		struct elfhdr interp_elf_ex;
@@ -810,7 +811,8 @@ static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
 			 * follow the loader, and is not movable.  */
 #if defined(CONFIG_X86) || defined(CONFIG_ARM)
 			/* Memory randomization might have been switched off
-			 * in runtime via sysctl.
+			 * in runtime via sysctl or explicit setting of
+			 * personality flags.
 			 * If that is the case, retain the original non-zero
 			 * load_bias value in order to establish proper
 			 * non-randomized mappings.

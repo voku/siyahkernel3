@@ -1074,7 +1074,7 @@ EXPORT_SYMBOL(flush_old_exec);
 
 void would_dump(struct linux_binprm *bprm, struct file *file)
 {
-	if (inode_permission(file->f_path.dentry->d_inode, MAY_READ) < 0)
+	if (inode_permission(file_inode(file), MAY_READ) < 0)
 		bprm->interp_flags |= BINPRM_FLAGS_ENFORCE_NONDUMP;
 }
 EXPORT_SYMBOL(would_dump);
@@ -1353,7 +1353,7 @@ EXPORT_SYMBOL(remove_arg_zero);
 /*
  * cycle the list of binary formats handler, until one recognizes the image
  */
-int search_binary_handler(struct linux_binprm *bprm,struct pt_regs *regs)
+int search_binary_handler(struct linux_binprm *bprm)
 {
 	unsigned int depth = bprm->recursion_depth;
 	int try,retval;
@@ -1375,14 +1375,14 @@ int search_binary_handler(struct linux_binprm *bprm,struct pt_regs *regs)
 	for (try=0; try<2; try++) {
 		read_lock(&binfmt_lock);
 		list_for_each_entry(fmt, &formats, lh) {
-			int (*fn)(struct linux_binprm *, struct pt_regs *) = fmt->load_binary;
+			int (*fn)(struct linux_binprm *) = fmt->load_binary;
 			if (!fn)
 				continue;
 			if (!try_module_get(fmt->module))
 				continue;
 			read_unlock(&binfmt_lock);
 			bprm->recursion_depth = depth + 1;
-			retval = fn(bprm, regs);
+			retval = fn(bprm);
 			bprm->recursion_depth = depth;
 			if (retval >= 0) {
 				if (depth == 0)
@@ -1442,7 +1442,6 @@ static int do_execve_common(const char *filename,
 	bool clear_in_exec;
 	int retval;
 	const struct cred *cred = current_cred();
-	struct pt_regs *regs = current_pt_regs();
 
 	/*
 	 * We move the actual failure in case of RLIMIT_NPROC excess from
@@ -1519,7 +1518,7 @@ static int do_execve_common(const char *filename,
 	if (retval < 0)
 		goto out;
 
-	retval = search_binary_handler(bprm,regs);
+	retval = search_binary_handler(bprm);
 	if (retval < 0)
 		goto out;
 
