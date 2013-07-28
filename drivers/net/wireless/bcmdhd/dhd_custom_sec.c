@@ -66,7 +66,7 @@ struct cntry_locales_custom {
 
 /* Locale table for sec */
 const struct cntry_locales_custom translate_custom_table[] = {
-#if defined(BCM4334_CHIP) || defined(BCM43241_CHIP) || defined(BCM4335_CHIP)
+#if defined(BCM4334_CHIP) || defined(BCM43241_CHIP) || defined(BCM4335_CHIP) || defined(BCM4330_CHIP)
 	{"",   "XZ", 11},	/* Universal if Country code is unknown or empty */
 	{"IR", "XZ", 11},	/* Universal if Country code is IRAN, (ISLAMIC REPUBLIC OF) */
 	{"SD", "XZ", 11},	/* Universal if Country code is SUDAN */
@@ -86,6 +86,7 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"BG", "BG", 1},
 	{"BN", "BN", 1},
 	{"CA", "CA", 2},
+	{"CN", "CN", 0},
 	{"CH", "CH", 1},
 	{"CY", "CY", 1},
 	{"CZ", "CZ", 1},
@@ -109,6 +110,7 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"LT", "LT", 1},
 	{"LU", "LU", 1},
 	{"LV", "LV", 1},
+	{"MA", "MA", 1},
 	{"MT", "MT", 1},
 	{"MX", "MX", 1},
 	{"NL", "NL", 1},
@@ -120,6 +122,8 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"SE", "SE", 1},
 	{"SI", "SI", 1},
 	{"SK", "SK", 1},
+	{"TR", "TR", 7},
+	{"UA", "UA", 2},
 	{"TW", "TW", 2},
 #endif /* defined(BCM4330_CHIP) || defined(BCM4334_CHIP) || defined(BCM43241_CHIP) */
 #if defined(BCM4334_CHIP) || defined(BCM43241_CHIP)
@@ -136,7 +140,6 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"TR", "TR", 7},
 #endif /* defined(BCM4334_CHIP) || defined(BCM43241_CHIP) */
 #ifdef BCM4330_CHIP
-	{"",   "XZ", 1},	/* Universal if Country code is unknown or empty */
 	{"RU", "RU", 13},
 	{"US", "US", 5},
 	{"UA", "UY", 0},
