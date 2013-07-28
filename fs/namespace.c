@@ -13,6 +13,7 @@
 #include <linux/capability.h>
 #include <linux/mnt_namespace.h>
 #include <linux/user_namespace.h>
+#include <linux/proc_fs.h>
 #include <linux/namei.h>
 #include <linux/security.h>
 #include <linux/idr.h>
@@ -21,6 +22,7 @@
 #include <linux/fs_struct.h>	/* get_fs_root et.al. */
 #include <linux/fsnotify.h>	/* fsnotify_vfsmount_delete */
 #include <linux/uaccess.h>
+#include <linux/magic.h>
 #include "pnode.h"
 #include "internal.h"
 
@@ -889,6 +891,7 @@ put_again:
 		acct_auto_close_mnt(&mnt->mnt);
 		goto put_again;
 	}
+
 	list_del(&mnt->mnt_instance);
 	br_write_unlock(&vfsmount_lock);
 	mntfree(mnt);
@@ -2839,4 +2842,3 @@ const struct proc_ns_operations mntns_operations = {
 	.install	= mntns_install,
 	.inum		= mntns_inum,
 };
-#endif
