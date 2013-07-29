@@ -679,10 +679,10 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 			}
 			atomic_set(&darkness_tuners_ins.earlysuspend,0);
 		}
-		mutex_unlock(&darkness_mutex);
-
 		mutex_init(&timer_mutex);
 		INIT_DEFERRABLE_WORK(&this_darkness_cpuinfo->work, do_darkness_timer);
+		mutex_unlock(&darkness_mutex);
+
 		mod_delayed_work_on(this_darkness_cpuinfo->cpu, dvfs_workqueue, &this_darkness_cpuinfo->work, 0);
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -694,10 +694,9 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 #ifdef CONFIG_HAS_EARLYSUSPEND
 		unregister_early_suspend(&darkness_early_suspend);
 #endif
+		mutex_lock(&darkness_mutex);
 		cancel_delayed_work(&this_darkness_cpuinfo->work);
 		mutex_destroy(&timer_mutex);
-
-		mutex_lock(&darkness_mutex);
 		darkness_enable--;
 		for_each_possible_cpu(j) {
 			per_cpu(cpufreq_cpu_data, j) = NULL;
@@ -712,6 +711,7 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 		break;
 
 	case CPUFREQ_GOV_LIMITS:
+		get_online_cpus();
 		mutex_lock(&timer_mutex);
 		/* NOTHING TO DO JUST WATT */
 		cpu_policy = per_cpu(cpufreq_cpu_data, cpu);
@@ -726,6 +726,7 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 			__cpufreq_driver_target(cpu_policy,
 				policy->min, CPUFREQ_RELATION_L);
 		mutex_unlock(&timer_mutex);
+		put_online_cpus();
 
 		break;
 	}
