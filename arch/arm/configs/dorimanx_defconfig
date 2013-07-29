@@ -3085,6 +3085,7 @@ CONFIG_HAVE_ARCH_KGDB=y
 # CONFIG_OC_ETM is not set
 CONFIG_DEBUG_S3C_UART=1
 # CONFIG_CACHE_PERF is not set
+# CONFIG_PID_IN_CONTEXTIDR is not set
 
 #
 # Security options
