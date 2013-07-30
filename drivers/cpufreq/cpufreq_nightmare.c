@@ -682,12 +682,11 @@ static int check_up(bool earlysuspend)
 {
 	int up_rate = atomic_read(&nightmare_tuners_ins.cpu_up_rate);
 	int up_load = atomic_read(&nightmare_tuners_ins.up_load);
-	struct nightmare_cpu_usage *usage;
 	int online = num_online_cpus();
-	unsigned int up_freq = hotplug_freq[online - 1][HOTPLUG_UP_INDEX];
-	unsigned int cur_freq;
-	int cur_load;
 	int num_hist = hotplug_history->num_hist;
+	unsigned int up_freq = hotplug_freq[online - 1][HOTPLUG_UP_INDEX];
+	unsigned int cur_freq = hotplug_history->usage[num_hist - 1].freq[0];
+	int cur_load = hotplug_history->usage[num_hist - 1].load[0];
 	int i;
 
 	if (online == num_possible_cpus() || earlysuspend)
@@ -695,10 +694,6 @@ static int check_up(bool earlysuspend)
 
 	if (num_hist == 0 || num_hist % up_rate)
 		return 0;
-
-	usage = &hotplug_history->usage[num_hist - 1];
-	cur_freq = usage->freq[0];
-	cur_load = usage->load[0];
 
 	if (cur_freq >= up_freq
 		&& cur_load >= up_load) {
@@ -714,13 +709,12 @@ static int check_down(bool earlysuspend)
 {
 	int down_rate = atomic_read(&nightmare_tuners_ins.cpu_down_rate);
 	int down_load = atomic_read(&nightmare_tuners_ins.down_load);
-	struct nightmare_cpu_usage *usage;
 	int online = num_online_cpus();
-	unsigned int down_freq = hotplug_freq[online - 1][HOTPLUG_DOWN_INDEX];
-	unsigned int cur_freq;
-	int cur_load;
-	int i;
 	int num_hist = hotplug_history->num_hist;
+	unsigned int down_freq = hotplug_freq[online - 1][HOTPLUG_DOWN_INDEX];
+	unsigned int cur_freq = hotplug_history->usage[num_hist - 1].freq[1];
+	int cur_load = hotplug_history->usage[num_hist - 1].load[1];
+	int i;
 
 	if (online == 1)
 		return 0;
@@ -731,11 +725,7 @@ static int check_down(bool earlysuspend)
 	if (num_hist == 0 || num_hist % down_rate)
 		return 0;
 
-	usage = &hotplug_history->usage[num_hist - 1];
-	cur_freq = usage->freq[1];
-	cur_load = usage->load[1];
-
-	if (cur_freq <= down_freq 
+	if (cur_freq <= down_freq
 		|| cur_load < down_load) {
 		/* printk(KERN_ERR "[HOTPLUG OUT] %s %u<=%u\n",
 			__func__, cur_freq, down_freq); */
