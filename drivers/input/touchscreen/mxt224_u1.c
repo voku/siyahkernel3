@@ -1849,7 +1849,6 @@ static void median_err_setting(void)
 				write_mem(copy_data, obj_address + 13, 1,
 					  &value);
 #endif
-#if 0
 				ret |=
 				    get_object_info(copy_data,
 						    SPT_CTECONFIG_T46,
@@ -1857,12 +1856,10 @@ static void median_err_setting(void)
 				value = 48;  /* 32; */
 				write_mem(copy_data, obj_address + 3, 1,
 					  &value);
-#endif
 				ret |=
 				    get_object_info(copy_data,
 						    PROCG_NOISESUPPRESSION_T48,
 						    &size_one, &obj_address);
-#if 0
 				value = 20; /*29;*/
 				write_mem(copy_data, obj_address + 3, 1,
 					  &value);
@@ -1872,7 +1869,6 @@ static void median_err_setting(void)
 				value = 2;
 				write_mem(copy_data, obj_address + 9, 1,
 					  &value);
-#endif
 				value = 64; /*100;*/
 				write_mem(copy_data, obj_address + 17, 1,
 					  &value);
@@ -1966,7 +1962,6 @@ static void median_err_setting(void)
 				value = 65;	/* movfilter */
 				write_mem(copy_data, obj_address + 39, 1,
 					  &value);
-#if 0
 				ret |=
 				    get_object_info(copy_data,
 						    SPT_CTECONFIG_T46,
@@ -1974,7 +1969,6 @@ static void median_err_setting(void)
 				value = 53;	/* actvsyncsperx */
 				write_mem(copy_data, obj_address + 3, 1,
 					  &value);
-#endif
 			}
 		}
 	}
@@ -2066,6 +2060,7 @@ static irqreturn_t mxt224_irq_thread(int irq, void *ptr)
 				}
 			}
 		}
+#if 0
 #ifdef CLEAR_MEDIAN_FILTER_ERROR
 		if ((msg[0] == 18) && (data->family_id == 0x81)) {
 			if ((msg[4] & 0x5) == 0x5) {
@@ -2094,6 +2089,7 @@ static irqreturn_t mxt224_irq_thread(int irq, void *ptr)
 				}
 			}
 		}
+#endif
 #endif
 		if (msg[0] > 1 && msg[0] < 12) {
 
