@@ -855,8 +855,8 @@ do_alignment(unsigned long addr, unsigned int fsr, struct pt_regs *regs)
 			offset.un = 0;
 			handler = do_alignment_t32_to_handler(&instr, regs, &offset);
 		} else {
-			handler = do_alignment_ldmstm;
 			offset.un = 0;
+			handler = do_alignment_ldmstm;
 		}
 		break;
 
