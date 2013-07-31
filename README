@@ -11,7 +11,7 @@ $ sudo apt-get install ia32-libs
 ***********************
 
 To compile you need:
-$ sudo apt-get install ccache imagemagick libxml2-utils
+$ sudo apt-get install ccache imagemagick libxml2-utils optipng
 
 To clone this repo
 $ sudo apt-get install git
@@ -23,6 +23,14 @@ $ git clone https://github.com/dorimanx/initramfs3.git
 To start the build
 $ cd ~/samsung-i9100/Dorimanx-SG2-I9100-Kernel
 $ sudo ./build_kernel.sh
+
+To put on hold "parallel" package (since Ubuntu will try to upgrade it)
+sudo apt-get hold parallel
+
+**IMPORTANT!**
+Since I'm proving to you a specific version of Parallel you will
+have to NOT update it since you'll break the build and have a
+non working Kernel (it will stuck at boot).
 
 ==================================================================
 My info guide.
