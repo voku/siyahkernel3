@@ -971,14 +971,12 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 			mutex_unlock(&timer_mutex);
 			break;
 		}
-		get_online_cpus();
 		if (policy->max < cpu_policy->cur)
 			__cpufreq_driver_target(cpu_policy,
 				policy->max, CPUFREQ_RELATION_H);
 		else if (policy->min > cpu_policy->cur)
 			__cpufreq_driver_target(cpu_policy,
 				policy->min, CPUFREQ_RELATION_L);
-		put_online_cpus();
 		mutex_unlock(&timer_mutex);
 
 		break;
