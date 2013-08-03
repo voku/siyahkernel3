@@ -16,7 +16,7 @@
 #ifndef CONFIG_MMU
 
 #include <asm-generic/4level-fixup.h>
-#include "pgtable-nommu.h"
+#include <asm/pgtable-nommu.h>
 
 #else
 
@@ -65,6 +65,15 @@ extern void __pgd_error(const char *file, int line, pgd_t);
  * non-high vector CPUs.
  */
 #define FIRST_USER_ADDRESS	PAGE_SIZE
+
+/*
+ * Use TASK_SIZE as the ceiling argument for free_pgtables() and
+ * free_pgd_range() to avoid freeing the modules pmd when LPAE is enabled (pmd
+ * page shared between user and kernel).
+ */
+#ifdef CONFIG_ARM_LPAE
+#define USER_PGTABLES_CEILING	TASK_SIZE
+#endif
 
 /*
  * The pgprot_* and protection_map entries will be fixed up in runtime
@@ -173,10 +182,10 @@ extern pgd_t swapper_pg_dir[PTRS_PER_PGD];
 
 static inline pte_t *pmd_page_vaddr(pmd_t pmd)
 {
-	return __va(pmd_val(pmd) & PAGE_MASK);
+	return __va(pmd_val(pmd) & PHYS_MASK & (s32)PAGE_MASK);
 }
 
-#define pmd_page(pmd)		pfn_to_page(__phys_to_pfn(pmd_val(pmd)))
+#define pmd_page(pmd)		pfn_to_page(__phys_to_pfn(pmd_val(pmd) & PHYS_MASK))
 
 #ifndef CONFIG_HIGHPTE
 #define __pte_map(pmd)		pmd_page_vaddr(*(pmd))
@@ -193,7 +202,7 @@ static inline pte_t *pmd_page_vaddr(pmd_t pmd)
 #define pte_offset_map(pmd,addr)	(__pte_map(pmd) + pte_index(addr))
 #define pte_unmap(pte)			__pte_unmap(pte)
 
-#define pte_pfn(pte)		(pte_val(pte) >> PAGE_SHIFT)
+#define pte_pfn(pte)		((pte_val(pte) & PHYS_MASK) >> PAGE_SHIFT)
 #define pfn_pte(pfn,prot)	__pte(__pfn_to_phys(pfn) | pgprot_val(prot))
 
 #define pte_page(pte)		pfn_to_page(pte_pfn(pte))
