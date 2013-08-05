@@ -1055,6 +1055,7 @@ grow_buffers(struct block_device *bdev, sector_t block, int size)
 	return grow_dev_page(bdev, block, index, size, sizebits);
 }
 
+/* SEE > https://github.com/dorimanx/Dorimanx-SG2-I9100-Kernel/commit/010e8146410cf48997963d768eca7623641104a2 */
 static struct buffer_head *
 __getblk_slow(struct block_device *bdev, sector_t block, int size)
 {
