@@ -128,6 +128,7 @@ __bdi_start_writeback(struct backing_dev_info *bdi, long nr_pages,
  * bdi_start_writeback - start writeback
  * @bdi: the backing device to write from
  * @nr_pages: the number of pages to write
+ * @reason: reason why some writeback work was initiated
  *
  * Description:
  *   This does WB_SYNC_NONE opportunistic writeback. The IO is only
@@ -743,6 +744,10 @@ static bool over_bground_thresh(struct backing_dev_info *bdi)
 
 	global_dirty_limits(&background_thresh, &dirty_thresh);
 
+	if (global_page_state(NR_FILE_DIRTY) +
+	    global_page_state(NR_UNSTABLE_NFS) > background_thresh)
+		return true;
+
 	if (bdi_stat(bdi, BDI_RECLAIMABLE) >
 				bdi_dirty_limit(bdi, background_thresh))
 		return true;
@@ -1258,6 +1263,7 @@ static void wait_sb_inodes(struct super_block *sb)
  * writeback_inodes_sb_nr -	writeback dirty inodes from given super_block
  * @sb: the superblock
  * @nr: the number of pages to write
+ * @reason: reason why some writeback work initiated
  *
  * Start writeback on some inodes on this super_block. No guarantees are made
  * on how many (if any) will be written, and this function does not wait
@@ -1288,6 +1294,7 @@ EXPORT_SYMBOL(writeback_inodes_sb_nr);
 /**
  * writeback_inodes_sb	-	writeback dirty inodes from given super_block
  * @sb: the superblock
+ * @reason: reason why some writeback work was initiated
  *
  * Start writeback on some inodes on this super_block. No guarantees are made
  * on how many (if any) will be written, and this function does not wait
