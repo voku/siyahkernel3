@@ -12,10 +12,12 @@
  *	version 2 of the License, as published by the Free Software Foundation.
  */
 #include <linux/list.h>
+#include <linux/module.h>
 #include <linux/proc_fs.h>
 #include <linux/skbuff.h>
 #include <linux/spinlock.h>
 #include <asm/atomic.h>
+#include <net/netlink.h>
 
 #include <linux/netfilter/x_tables.h>
 #include <linux/netfilter/xt_quota2.h>
@@ -353,8 +355,7 @@ static int __init quota_mt2_init(void)
 	pr_debug("xt_quota2: init()");
 
 #ifdef CONFIG_NETFILTER_XT_MATCH_QUOTA2_LOG
-	nflognl = netlink_kernel_create(&init_net,
-					NETLINK_NFLOG, &cfg);
+	nflognl = netlink_kernel_create(&init_net, NETLINK_NFLOG, NULL);
 	if (!nflognl)
 		return -ENOMEM;
 #endif
