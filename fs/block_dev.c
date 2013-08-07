@@ -331,20 +331,25 @@ static loff_t block_llseek(struct file *file, loff_t offset, int whence)
 	mutex_lock(&bd_inode->i_mutex);
 	size = i_size_read(bd_inode);
 
+	retval = -EINVAL;
 	switch (whence) {
-		case 2:
+		case SEEK_END:
 			offset += size;
 			break;
-		case 1:
+		case SEEK_CUR:
 			offset += file->f_pos;
+		case SEEK_SET:
+			break;
+		default:
+			goto out;
 	}
-	retval = -EINVAL;
 	if (offset >= 0 && offset <= size) {
 		if (offset != file->f_pos) {
 			file->f_pos = offset;
 		}
 		retval = offset;
 	}
+out:
 	mutex_unlock(&bd_inode->i_mutex);
 	return retval;
 }
@@ -354,6 +359,10 @@ int blkdev_fsync(struct file *filp, loff_t start, loff_t end, int datasync)
 	struct inode *bd_inode = filp->f_mapping->host;
 	struct block_device *bdev = I_BDEV(bd_inode);
 	int error;
+
+	error = filemap_write_and_wait_range(filp->f_mapping, start, end);
+	if (error)
+		return error;
 
 	/*
 	 * There is no need to serialise calls to blkdev_issue_flush with
@@ -932,7 +941,7 @@ static void flush_disk(struct block_device *bdev, bool kill_dirty)
 
 	if (!bdev->bd_disk)
 		return;
-	if (disk_part_scan_enabled(bdev->bd_disk))	
+	if (disk_part_scan_enabled(bdev->bd_disk))
 		bdev->bd_invalidated = 1;
 }
 
@@ -1037,7 +1046,7 @@ void bd_set_size(struct block_device *bdev, loff_t size)
 }
 EXPORT_SYMBOL(bd_set_size);
 
-static int __blkdev_put(struct block_device *bdev, fmode_t mode, int for_part);
+static void __blkdev_put(struct block_device *bdev, fmode_t mode, int for_part);
 
 /*
  * bd_mutex locking:
@@ -1392,9 +1401,8 @@ static int blkdev_open(struct inode * inode, struct file * filp)
 	return blkdev_get(bdev, filp->f_mode, filp);
 }
 
-static int __blkdev_put(struct block_device *bdev, fmode_t mode, int for_part)
+static void __blkdev_put(struct block_device *bdev, fmode_t mode, int for_part)
 {
-	int ret = 0;
 	struct gendisk *disk = bdev->bd_disk;
 	struct block_device *victim = NULL;
 
@@ -1433,10 +1441,9 @@ static int __blkdev_put(struct block_device *bdev, fmode_t mode, int for_part)
 	bdput(bdev);
 	if (victim)
 		__blkdev_put(victim, mode, 1);
-	return ret;
 }
 
-int blkdev_put(struct block_device *bdev, fmode_t mode)
+void blkdev_put(struct block_device *bdev, fmode_t mode)
 {
 	mutex_lock(&bdev->bd_mutex);
 
@@ -1480,15 +1487,15 @@ int blkdev_put(struct block_device *bdev, fmode_t mode)
 
 	mutex_unlock(&bdev->bd_mutex);
 
-	return __blkdev_put(bdev, mode, 0);
+	__blkdev_put(bdev, mode, 0);
 }
 EXPORT_SYMBOL(blkdev_put);
 
 static int blkdev_close(struct inode * inode, struct file * filp)
 {
 	struct block_device *bdev = I_BDEV(filp->f_mapping->host);
-
-	return blkdev_put(bdev, filp->f_mode);
+	blkdev_put(bdev, filp->f_mode);
+	return 0;
 }
 
 static long block_ioctl(struct file *file, unsigned cmd, unsigned long arg)
