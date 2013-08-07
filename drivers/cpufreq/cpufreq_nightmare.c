@@ -771,13 +771,8 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 	unsigned int max_freq = atomic_read(&nightmare_tuners_ins.max_freq_limit);
 	int up_load = atomic_read(&nightmare_tuners_ins.up_load);
 	int down_load = atomic_read(&nightmare_tuners_ins.down_load);
-#ifndef CONFIG_CPU_EXYNOS4210
 	unsigned int next_freq[NR_CPUS];
 	int cur_load[NR_CPUS];
-#else
-	unsigned int next_freq[NR_CPUS] = {0, INT_MAX};
-	int cur_load[NR_CPUS] = {0, 100};
-#endif
 	int num_core=0;
 	unsigned int j;
 
@@ -812,6 +807,7 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 			continue;
 		}
 		cur_load[j] = busy_time ? (100 * busy_time) / (busy_time + idle_time) : 1;/*if busy_time is 0 cpu_load is equal to 1*/
+		next_freq[j] = cpu_policy->cur;
 		/* Checking Frequency Limit */
 		if (max_freq > cpu_policy->max || max_freq < cpu_policy->min)
 			max_freq = cpu_policy->max;
@@ -824,7 +820,7 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 			freq_up_brake = atomic_read(&nightmare_tuners_ins.freq_up_brake_at_min_freq);
 		} else if (cpu_policy->cur > freq_for_responsiveness_max) {
 			freq_step_dec = atomic_read(&nightmare_tuners_ins.freq_step_dec_at_max_freq);
-		}
+		}		
 		/* Check for frequency increase or for frequency decrease */
 		if (cur_load[j] >= inc_cpu_load && cpu_policy->cur < max_freq) {
 			next_freq[j] = nightmare_frequency_adjust((cpu_policy->cur + ((cur_load[j] + freq_step - freq_up_brake == 0 ? 1 : cur_load[j] + freq_step - freq_up_brake) * 2000)), cpu_policy->cur, min_freq, max_freq, up_sf_step);
@@ -832,7 +828,7 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 			if (next_freq[j] != cpu_policy->cur) {
 				__cpufreq_driver_target(cpu_policy, next_freq[j], CPUFREQ_RELATION_L);
 			}
-		} else if (cur_load[j] < dec_cpu_load && cpu_policy->cur > cpu_policy->min) {
+		} else if (cur_load[j] < dec_cpu_load && cpu_policy->cur > min_freq) {
 			next_freq[j] = nightmare_frequency_adjust((cpu_policy->cur - ((100 - cur_load[j] + freq_step_dec == 0 ? 1 : 100 - cur_load[j] + freq_step_dec) * 2000)), cpu_policy->cur, min_freq, max_freq, down_sf_step);
 			/* printk(KERN_ERR "DOWN FREQ CALC.: CPU[%u], load[%d]<dec_cpu_load[%d], target freq[%u], cur freq[%u], min freq[%u], max_freq[%u]\n",j, cur_load[j], dec_cpu_load, next_freq[j], cpu_policy->cur, cpu_policy->min, max_freq); */
 			if (next_freq[j] < cpu_policy->cur) {
@@ -969,7 +965,7 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 		mutex_unlock(&nightmare_mutex);
 
 		mutex_init(&timer_mutex);
-		INIT_DEFERRABLE_WORK(&this_nightmare_cpuinfo->work, do_nightmare_timer);
+		INIT_DELAYED_WORK(&this_nightmare_cpuinfo->work, do_nightmare_timer);
 		mod_delayed_work_on(this_nightmare_cpuinfo->cpu, dvfs_workqueue, &this_nightmare_cpuinfo->work, 0);
 
 		break;

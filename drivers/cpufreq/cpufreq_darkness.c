@@ -531,13 +531,8 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 	unsigned int max_freq = atomic_read(&darkness_tuners_ins.max_freq_limit);
 	int up_load = atomic_read(&darkness_tuners_ins.up_load);
 	int down_load = atomic_read(&darkness_tuners_ins.down_load);
-#ifndef CONFIG_CPU_EXYNOS4210
 	unsigned int next_freq[NR_CPUS];
 	int cur_load[NR_CPUS];
-#else
-	unsigned int next_freq[NR_CPUS] = {0, INT_MAX};
-	int cur_load[NR_CPUS] = {0, 100};
-#endif
 	int num_core=0;
 	unsigned int j;
 
@@ -708,7 +703,7 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 		mutex_unlock(&darkness_mutex);
 
 		mutex_init(&timer_mutex);
-		INIT_DEFERRABLE_WORK(&this_darkness_cpuinfo->work, do_darkness_timer);
+		INIT_DELAYED_WORK(&this_darkness_cpuinfo->work, do_darkness_timer);
 		mod_delayed_work_on(this_darkness_cpuinfo->cpu, dvfs_workqueue, &this_darkness_cpuinfo->work, 0);
 
 		break;
