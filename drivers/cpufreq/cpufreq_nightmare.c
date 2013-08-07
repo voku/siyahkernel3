@@ -965,7 +965,7 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 		mutex_unlock(&nightmare_mutex);
 
 		mutex_init(&timer_mutex);
-		INIT_DELAYED_WORK(&this_nightmare_cpuinfo->work, do_nightmare_timer);
+		INIT_DEFERRABLE_WORK(&this_nightmare_cpuinfo->work, do_nightmare_timer);
 		mod_delayed_work_on(this_nightmare_cpuinfo->cpu, dvfs_workqueue, &this_nightmare_cpuinfo->work, 0);
 
 		break;

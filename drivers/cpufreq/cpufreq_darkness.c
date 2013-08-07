@@ -703,7 +703,7 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 		mutex_unlock(&darkness_mutex);
 
 		mutex_init(&timer_mutex);
-		INIT_DELAYED_WORK(&this_darkness_cpuinfo->work, do_darkness_timer);
+		INIT_DEFERRABLE_WORK(&this_darkness_cpuinfo->work, do_darkness_timer);
 		mod_delayed_work_on(this_darkness_cpuinfo->cpu, dvfs_workqueue, &this_darkness_cpuinfo->work, 0);
 
 		break;
