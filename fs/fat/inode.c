@@ -533,14 +533,18 @@ static void fat_set_state(struct super_block *sb,
 	b = (struct fat_boot_sector *) bh->b_data;
 
 	if (sbi->fat_bits == 32) {
+#if 0 /* Android uses dual mount, so FAT always dirty, DM */
 		if (set)
 			b->fat32.state |= FAT_STATE_DIRTY;
 		else
+#endif
 			b->fat32.state &= ~FAT_STATE_DIRTY;
 	} else /* fat 16 and 12 */ {
+#if 0 /* Android uses dual mount, so FAT always dirty, DM */
 		if (set)
 			b->fat16.state |= FAT_STATE_DIRTY;
 		else
+#endif
 			b->fat16.state &= ~FAT_STATE_DIRTY;
 	}
 
