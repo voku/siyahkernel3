@@ -895,7 +895,7 @@ static ssize_t oom_adj_read(struct file *file, char __user *buf, size_t count,
 {
 	struct task_struct *task = get_proc_task(file_inode(file));
 	char buffer[PROC_NUMBUF];
-	int oom_adj = OOM_ADJUST_MIN;
+	short oom_adj = OOM_ADJUST_MIN;
 	size_t len;
 	unsigned long flags;
 
@@ -910,7 +910,7 @@ static ssize_t oom_adj_read(struct file *file, char __user *buf, size_t count,
 		unlock_task_sighand(task, &flags);
 	}
 	put_task_struct(task);
-	len = snprintf(buffer, sizeof(buffer), "%d\n", oom_adj);
+	len = snprintf(buffer, sizeof(buffer), "%hd\n", oom_adj);
 	return simple_read_from_buffer(buf, count, ppos, buffer, len);
 }
 
