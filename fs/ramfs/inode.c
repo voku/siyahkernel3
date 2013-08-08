@@ -53,7 +53,7 @@ static struct backing_dev_info ramfs_backing_dev_info = {
 };
 
 struct inode *ramfs_get_inode(struct super_block *sb,
-				const struct inode *dir, int mode, dev_t dev)
+				const struct inode *dir, umode_t mode, dev_t dev)
 {
 	struct inode * inode = new_inode(sb);
 
@@ -269,6 +269,7 @@ static struct file_system_type ramfs_fs_type = {
 	.name		= "ramfs",
 	.mount		= ramfs_mount,
 	.kill_sb	= ramfs_kill_sb,
+	.fs_flags	= FS_USERNS_MOUNT,
 };
 static struct file_system_type rootfs_fs_type = {
 	.name		= "rootfs",
