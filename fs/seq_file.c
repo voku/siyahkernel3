@@ -337,7 +337,7 @@ EXPORT_SYMBOL(seq_lseek);
 /**
  *	seq_release -	free the structures associated with sequential file.
  *	@file: file in question
- *	@inode: file_inode(file);
+ *	@inode: its inode
  *
  *	Frees the structures associated with sequential file; can be used
  *	as ->f_op->release() if you don't have private data to destroy.
