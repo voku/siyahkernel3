@@ -731,7 +731,7 @@ int seq_put_decimal_ll(struct seq_file *m, char delimiter,
 {
 	if (num < 0) {
 		if (m->count + 3 >= m->size) {
-			m->count = m->size;
+			seq_set_overflow(m);
 			return -1;
 		}
 		if (delimiter)
