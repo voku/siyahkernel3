@@ -40,7 +40,7 @@ static struct tslack_cgroup *cgroup_to_tslack(struct cgroup *cgroup)
 {
 	struct cgroup_subsys_state *css;
 
-	css = cgroup_subsys_state(cgroup, timer_slack_subsys.subsys_id);
+	css = cgroup_css(cgroup, timer_slack_subsys.subsys_id);
 	return container_of(css, struct tslack_cgroup, css);
 }
 
