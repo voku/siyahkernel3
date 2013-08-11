@@ -522,18 +522,17 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 	for_each_online_cpu(j) {
 		struct cpufreq_darkness_cpuinfo *j_darkness_cpuinfo = &per_cpu(od_darkness_cpuinfo, j);
 		struct cpufreq_policy *cpu_policy = per_cpu(cpufreq_cpu_data, j);
-		u64 *cpustat = kcpustat_cpu(j).cpustat;
 		u64 cur_busy_time, cur_idle_time;
 		unsigned int busy_time, idle_time;
 		unsigned int tmp_freq;
 		unsigned long flags;
 
 		local_irq_save(flags);
-		cur_busy_time = cputime_to_usecs(cpustat[CPUTIME_USER] + cpustat[CPUTIME_SYSTEM]
-						+ cpustat[CPUTIME_IRQ] + cpustat[CPUTIME_SOFTIRQ]
-						+ cpustat[CPUTIME_STEAL] + cpustat[CPUTIME_NICE]);
+		cur_busy_time = cputime_to_usecs(kcpustat_cpu(j).cpustat[CPUTIME_USER] + kcpustat_cpu(j).cpustat[CPUTIME_SYSTEM]
+						+ kcpustat_cpu(j).cpustat[CPUTIME_IRQ] + kcpustat_cpu(j).cpustat[CPUTIME_SOFTIRQ]
+						+ kcpustat_cpu(j).cpustat[CPUTIME_STEAL] + kcpustat_cpu(j).cpustat[CPUTIME_NICE]);
 
-		cur_idle_time = cputime_to_usecs(cpustat[CPUTIME_IDLE] + cpustat[CPUTIME_IOWAIT]);
+		cur_idle_time = cputime_to_usecs(kcpustat_cpu(j).cpustat[CPUTIME_IDLE] + kcpustat_cpu(j).cpustat[CPUTIME_IOWAIT]);
 		local_irq_restore(flags);
 
 		busy_time = (unsigned int)
@@ -677,15 +676,14 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 		darkness_enable++;
 		for_each_possible_cpu(j) {
 			struct cpufreq_darkness_cpuinfo *j_darkness_cpuinfo = &per_cpu(od_darkness_cpuinfo, j);
-			u64 *cpustat = kcpustat_cpu(j).cpustat;
 			unsigned long flags;
 			per_cpu(cpufreq_cpu_data, j) = policy;
 			local_irq_save(flags);
-			j_darkness_cpuinfo->prev_cpu_busy = cputime_to_usecs(cpustat[CPUTIME_USER] + cpustat[CPUTIME_SYSTEM]
-						+ cpustat[CPUTIME_IRQ] + cpustat[CPUTIME_SOFTIRQ]
-						+ cpustat[CPUTIME_STEAL] + cpustat[CPUTIME_NICE]);
+			j_darkness_cpuinfo->prev_cpu_busy = cputime_to_usecs(kcpustat_cpu(j).cpustat[CPUTIME_USER] + kcpustat_cpu(j).cpustat[CPUTIME_SYSTEM]
+						+ kcpustat_cpu(j).cpustat[CPUTIME_IRQ] + kcpustat_cpu(j).cpustat[CPUTIME_SOFTIRQ]
+						+ kcpustat_cpu(j).cpustat[CPUTIME_STEAL] + kcpustat_cpu(j).cpustat[CPUTIME_NICE]);
 
-			j_darkness_cpuinfo->prev_cpu_idle = cputime_to_usecs(cpustat[CPUTIME_IDLE] + cpustat[CPUTIME_IOWAIT]);
+			j_darkness_cpuinfo->prev_cpu_idle = cputime_to_usecs(kcpustat_cpu(j).cpustat[CPUTIME_IDLE] + kcpustat_cpu(j).cpustat[CPUTIME_IOWAIT]);
 			local_irq_restore(flags);
 		}
 		this_darkness_cpuinfo->cpu = cpu;

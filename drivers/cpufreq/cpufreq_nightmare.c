@@ -767,7 +767,6 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 	for_each_online_cpu(j) {
 		struct cpufreq_nightmare_cpuinfo *j_nightmare_cpuinfo = &per_cpu(od_nightmare_cpuinfo, j);
 		struct cpufreq_policy *cpu_policy = per_cpu(cpufreq_cpu_data, j);
-		u64 *cpustat = kcpustat_cpu(j).cpustat;
 		int inc_cpu_load = atomic_read(&nightmare_tuners_ins.inc_cpu_load);
 		int freq_step = atomic_read(&nightmare_tuners_ins.freq_step);
 		int freq_up_brake = atomic_read(&nightmare_tuners_ins.freq_up_brake);
@@ -778,11 +777,11 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 		unsigned long flags;
 
 		local_irq_save(flags);
-		cur_busy_time = cputime_to_usecs(cpustat[CPUTIME_USER] + cpustat[CPUTIME_SYSTEM]
-						+ cpustat[CPUTIME_IRQ] + cpustat[CPUTIME_SOFTIRQ]
-						+ cpustat[CPUTIME_STEAL] + cpustat[CPUTIME_NICE]);
+		cur_busy_time = cputime_to_usecs(kcpustat_cpu(j).cpustat[CPUTIME_USER] + kcpustat_cpu(j).cpustat[CPUTIME_SYSTEM]
+						+ kcpustat_cpu(j).cpustat[CPUTIME_IRQ] + kcpustat_cpu(j).cpustat[CPUTIME_SOFTIRQ]
+						+ kcpustat_cpu(j).cpustat[CPUTIME_STEAL] + kcpustat_cpu(j).cpustat[CPUTIME_NICE]);
 
-		cur_idle_time = cputime_to_usecs(cpustat[CPUTIME_IDLE] + cpustat[CPUTIME_IOWAIT]);
+		cur_idle_time = cputime_to_usecs(kcpustat_cpu(j).cpustat[CPUTIME_IDLE] + kcpustat_cpu(j).cpustat[CPUTIME_IOWAIT]);
 		local_irq_restore(flags);
 
 		busy_time = (unsigned int)
@@ -930,15 +929,14 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 		nightmare_enable++;
 		for_each_possible_cpu(j) {
 			struct cpufreq_nightmare_cpuinfo *j_nightmare_cpuinfo = &per_cpu(od_nightmare_cpuinfo, j);
-			u64 *cpustat = kcpustat_cpu(j).cpustat;
 			unsigned long flags;
 			per_cpu(cpufreq_cpu_data, j) = policy;
 			local_irq_save(flags);
-			j_nightmare_cpuinfo->prev_cpu_busy = cputime_to_usecs(cpustat[CPUTIME_USER] + cpustat[CPUTIME_SYSTEM]
-						+ cpustat[CPUTIME_IRQ] + cpustat[CPUTIME_SOFTIRQ]
-						+ cpustat[CPUTIME_STEAL] + cpustat[CPUTIME_NICE]);
+			j_nightmare_cpuinfo->prev_cpu_busy = cputime_to_usecs(kcpustat_cpu(j).cpustat[CPUTIME_USER] + kcpustat_cpu(j).cpustat[CPUTIME_SYSTEM]
+						+ kcpustat_cpu(j).cpustat[CPUTIME_IRQ] + kcpustat_cpu(j).cpustat[CPUTIME_SOFTIRQ]
+						+ kcpustat_cpu(j).cpustat[CPUTIME_STEAL] + kcpustat_cpu(j).cpustat[CPUTIME_NICE]);
 
-			j_nightmare_cpuinfo->prev_cpu_idle = cputime_to_usecs(cpustat[CPUTIME_IDLE] + cpustat[CPUTIME_IOWAIT]);
+			j_nightmare_cpuinfo->prev_cpu_idle = cputime_to_usecs(kcpustat_cpu(j).cpustat[CPUTIME_IDLE] + kcpustat_cpu(j).cpustat[CPUTIME_IOWAIT]);
 			local_irq_restore(flags);
 		}
 		this_nightmare_cpuinfo->cpu = cpu;
