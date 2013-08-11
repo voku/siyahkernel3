@@ -201,6 +201,10 @@ while [ $(cat ${TMPFILE}) == 0 ]; do
 	echo "wait for image ...";
 done;
 
+# compress modules to reduce initramfs size
+tar -C $INITRAMFS_TMP/lib -cvf - . | xz -9 -c > $INITRAMFS_TMP/modules.tar.xz;
+rm -rf $INITRAMFS_TMP/lib/*;
+
 md5sum PAYLOAD/res/misc/payload/STweaks.apk | awk '{print $1}' > $INITRAMFS_TMP/res/stweaks_md5;
 chmod 644 $INITRAMFS_TMP/res/stweaks_md5;
 
