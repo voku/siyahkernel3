@@ -245,9 +245,9 @@ perf_cgroup_match(struct perf_event *event)
 	return !event->cgrp || event->cgrp == cpuctx->cgrp;
 }
 
-static inline void perf_get_cgroup(struct perf_event *event)
+static inline bool perf_tryget_cgroup(struct perf_event *event)
 {
-	css_get(&event->cgrp->css);
+	return css_tryget(&event->cgrp->css);
 }
 
 static inline void perf_put_cgroup(struct perf_event *event)
@@ -476,7 +476,11 @@ static inline int perf_cgroup_connect(int fd, struct perf_event *event,
 	event->cgrp = cgrp;
 
 	/* must be done before we fput() the file */
-	perf_get_cgroup(event);
+	if (!perf_tryget_cgroup(event)) {
+		event->cgrp = NULL;
+		ret = -ENOENT;
+		goto out;
+	}
 
 	/*
 	 * all events in a group must monitor
@@ -904,6 +908,15 @@ list_add_event(struct perf_event *event, struct perf_event_context *ctx)
 	ctx->nr_events++;
 	if (event->attr.inherit_stat)
 		ctx->nr_stat++;
+}
+
+/*
+ * Initialize event state based on the perf_event_attr::disabled.
+ */
+static inline void perf_event__state_init(struct perf_event *event)
+{
+	event->state = event->attr.disabled ? PERF_EVENT_STATE_OFF :
+					      PERF_EVENT_STATE_INACTIVE;
 }
 
 /*
