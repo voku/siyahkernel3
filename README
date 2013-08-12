@@ -11,6 +11,7 @@ $ sudo apt-get install ia32-libs
 ***********************
 
 To compile you need:
+$ sudo apt-get install lib32ncurses5-dev
 $ sudo apt-get install ccache imagemagick libxml2-utils optipng zip tar bash
 
 Set you ssh shell to bash
