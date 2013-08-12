@@ -2,7 +2,7 @@ VERSION = 3
 PATCHLEVEL = 10
 SUBLEVEL = 0
 EXTRAVERSION = -R89
-NAME = "Unicycling Gorilla"
+NAME = Unicycling Gorilla
 
 # *DOCUMENTATION*
 # To see a list of typical targets execute "make help"
@@ -598,6 +598,16 @@ KBUILD_CFLAGS	+= -O3
 endif
 
 include $(srctree)/arch/$(SRCARCH)/Makefile
+
+ifdef CONFIG_READABLE_ASM
+# Disable optimizations that make assembler listings hard to read.
+# reorder blocks reorders the control in the function
+# ipa clone creates specialized cloned functions
+# partial inlining inlines only parts of functions
+KBUILD_CFLAGS += $(call cc-option,-fno-reorder-blocks,) \
+                 $(call cc-option,-fno-ipa-cp-clone,) \
+                 $(call cc-option,-fno-partial-inlining)
+endif
 
 ifdef CONFIG_CC_CHECK_WARNING_STRICTLY
 KBUILD_CFLAGS	+= -fdiagnostics-show-option -Werror \
