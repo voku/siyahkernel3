@@ -18,6 +18,10 @@
 # Have fun and update me if something nice can be added to my source.         #
 ###############################################################################
 
+if [ ! -e /usr/local/bin/ccache ]; then
+	cp -a tools/ccache/* /usr/local/bin/;
+fi;
+
 # location
 if [ "${1}" != "" ]; then
 	export KERNELDIR=`readlink -f ${1}`;
