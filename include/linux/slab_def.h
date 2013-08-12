@@ -12,6 +12,8 @@
 
 #include <linux/init.h>
 #include <linux/compiler.h>
+#include <linux/workqueue.h>
+#include <linux/kobject.h>
 
 /*
  * struct kmem_cache
