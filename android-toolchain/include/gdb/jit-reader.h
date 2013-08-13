@@ -1,6 +1,6 @@
 /* JIT declarations for GDB, the GNU Debugger.
 
-   Copyright (C) 2011-2012 Free Software Foundation, Inc.
+   Copyright (C) 2011-2013 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -56,7 +56,7 @@ extern "C" {
 
 /* Represents an address on the target system.  */
 
-typedef unsigned long long GDB_CORE_ADDR;
+typedef unsigned long GDB_CORE_ADDR;
 
 /* Return status codes.  */
 
