@@ -142,9 +142,12 @@ cp -ax $INITRAMFS_SOURCE $INITRAMFS_TMP;
 read -t 3 -p "create new kernel Image LOGO with version & date, 3sec timeout (y/n)?";
 echo "0" > $TMPFILE;
 if [ "$REPLY" == "y" ]; then
-		boot_image=$INITRAMFS_TMP/res/images/icon_clockwork.png;
-		convert -ordered-dither threshold,32,64,32 -pointsize 17 -fill white -draw "text 70,770 \"$GETVER [`date "+%H:%M | %d.%m.%Y"| sed -e ' s/\"/\\\"/g' `]\"" $boot_image $boot_image;
-fi;    
+	(
+		./logo_build.sh;
+	)&
+else
+	echo "1" > $TMPFILE;
+fi;
 
 # make modules
 mkdir -p $INITRAMFS_TMP/lib/modules;
@@ -188,6 +191,12 @@ chmod 755 $INITRAMFS_TMP/lib/modules/*;
 
 md5sum $INITRAMFS_TMP/res/misc/payload/STweaks.apk | awk '{print $1}' > $INITRAMFS_TMP/res/stweaks_md5;
 chmod 644 $INITRAMFS_TMP/res/stweaks_md5;
+
+# wait for the boot-image
+while [ $(cat ${TMPFILE}) == 0 ]; do
+	sleep 2;
+	echo "wait for image ...";
+done;
 
 # make kernel!!!
 time make -j $NAMBEROFCPUS zImage CONFIG_INITRAMFS_SOURCE="$INITRAMFS_TMP";
