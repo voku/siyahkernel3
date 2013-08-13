@@ -575,7 +575,8 @@ struct fimc_control *fimc_register_controller(struct platform_device *pdev)
 	ctrl->power_status = FIMC_POWER_OFF;
 
 	/* CMA */
-#ifdef CONFIG_ION_EXYNOS
+/* allowing this to be true, brake video recording */
+#ifdef CONFIG_SAMSUNG_SHIT
 	if  (id != 2) {
 #endif
 		sprintf(ctrl->cma_name, "%s%d", FIMC_CMA_NAME, ctrl->id);
@@ -593,7 +594,7 @@ struct fimc_control *fimc_register_controller(struct platform_device *pdev)
 		ctrl->mem.base = (dma_addr_t)cma_alloc
 			(ctrl->dev, ctrl->cma_name, (size_t)ctrl->mem.size, 0);
 	}
-#ifdef CONFIG_ION_EXYNOS
+#ifdef CONFIG_CONFIG_SAMSUNG_SHIT
 	}
 #endif
 	printk(KERN_INFO "ctrl->mem.size = 0x%x\n", ctrl->mem.size);
