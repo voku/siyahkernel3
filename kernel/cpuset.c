@@ -68,10 +68,6 @@
  */
 int number_of_cpusets __read_mostly;
 
-/* Forward declare cgroup structures */
-struct cgroup_subsys cpuset_subsys;
-struct cpuset;
-
 /* See "Frequency meter" comments, below. */
 
 struct fmeter {
@@ -2040,12 +2036,6 @@ static void cpuset_css_offline(struct cgroup_subsys_state *css)
 
 	mutex_unlock(&cpuset_mutex);
 }
-
-/*
- * If the cpuset being removed has its flag 'sched_load_balance'
- * enabled, then simulate turning sched_load_balance off, which
- * will call rebuild_sched_domains_locked().
- */
 
 static void cpuset_css_free(struct cgroup_subsys_state *css)
 {
