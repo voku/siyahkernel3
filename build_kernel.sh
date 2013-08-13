@@ -139,15 +139,15 @@ done;
 cp -ax $INITRAMFS_SOURCE $INITRAMFS_TMP;
 
 # create new image with version & date
-read -t 3 -p "create new kernel Image LOGO with version & date, 3sec timeout (y/n)?";
+#read -t 3 -p "create new kernel Image LOGO with version & date, 3sec timeout (y/n)?";
 echo "0" > $TMPFILE;
-if [ "$REPLY" == "y" ]; then
+#if [ "$REPLY" == "y" ]; then
 	(
-		./logo_build.sh;
+		./mod_logo_build.sh;
 	)&
-else
-	echo "1" > $TMPFILE;
-fi;
+#else
+#	echo "1" > $TMPFILE;
+#fi;
 
 # make modules
 mkdir -p $INITRAMFS_TMP/lib/modules;
