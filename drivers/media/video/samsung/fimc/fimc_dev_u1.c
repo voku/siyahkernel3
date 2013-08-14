@@ -594,7 +594,7 @@ struct fimc_control *fimc_register_controller(struct platform_device *pdev)
 		ctrl->mem.base = (dma_addr_t)cma_alloc
 			(ctrl->dev, ctrl->cma_name, (size_t)ctrl->mem.size, 0);
 	}
-#ifdef CONFIG_CONFIG_SAMSUNG_SHIT
+#ifdef CONFIG_SAMSUNG_SHIT
 	}
 #endif
 	printk(KERN_INFO "ctrl->mem.size = 0x%x\n", ctrl->mem.size);
