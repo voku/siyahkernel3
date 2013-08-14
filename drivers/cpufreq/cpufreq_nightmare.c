@@ -67,8 +67,11 @@ struct cpufreq_governor cpufreq_gov_nightmare = {
 };
 
 struct cpufreq_nightmare_cpuinfo {
-	u64 prev_cpu_busy;
-	u64 prev_cpu_idle;
+	unsigned long prev_cpu_user;
+	unsigned long prev_cpu_system;
+	unsigned long prev_cpu_others;
+	unsigned long prev_cpu_idle;
+	unsigned long prev_cpu_iowait;
 	struct delayed_work work;
 	int cpu;
 };
@@ -77,13 +80,14 @@ struct cpufreq_nightmare_cpuinfo {
  * do_nightmare_timer invocation. We do not want do_nightmare_timer to run
  * when user is changing the governor or limits.
  */
-static struct mutex timer_mutex;
 static struct workqueue_struct *dvfs_workqueue;
 
 static DEFINE_PER_CPU(struct cpufreq_nightmare_cpuinfo, od_nightmare_cpuinfo);
 static DEFINE_PER_CPU(struct cpufreq_policy *, cpufreq_cpu_data);
 
 static unsigned int nightmare_enable;	/* number of CPUs using this policy */
+static struct mutex timer_mutex;
+
 /*
  * nightmare_mutex protects nightmare_enable in governor start/stop.
  */
@@ -764,33 +768,41 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 	int num_core = num_online_cpus();
 	unsigned int j;
 
-	for_each_online_cpu(j) {
+	for_each_cpu(j, cpu_online_mask) {
 		struct cpufreq_nightmare_cpuinfo *j_nightmare_cpuinfo = &per_cpu(od_nightmare_cpuinfo, j);
 		struct cpufreq_policy *cpu_policy = per_cpu(cpufreq_cpu_data, j);
 		int inc_cpu_load = atomic_read(&nightmare_tuners_ins.inc_cpu_load);
 		int freq_step = atomic_read(&nightmare_tuners_ins.freq_step);
 		int freq_up_brake = atomic_read(&nightmare_tuners_ins.freq_up_brake);
 		int freq_step_dec = atomic_read(&nightmare_tuners_ins.freq_step_dec);
-		u64 cur_busy_time, cur_idle_time;
+		unsigned long cur_user_time, cur_system_time, cur_others_time, cur_idle_time, cur_iowait_time;
 		unsigned int busy_time, idle_time;
 		unsigned int tmp_freq;
 		unsigned long flags;
 
 		local_irq_save(flags);
-		cur_busy_time = cputime_to_usecs(kcpustat_cpu(j).cpustat[CPUTIME_USER] + kcpustat_cpu(j).cpustat[CPUTIME_SYSTEM]
-						+ kcpustat_cpu(j).cpustat[CPUTIME_IRQ] + kcpustat_cpu(j).cpustat[CPUTIME_SOFTIRQ]
-						+ kcpustat_cpu(j).cpustat[CPUTIME_STEAL] + kcpustat_cpu(j).cpustat[CPUTIME_NICE]);
+		cur_user_time = (__force unsigned long)(kcpustat_cpu(j).cpustat[CPUTIME_USER]);
+		cur_system_time = (__force unsigned long)(kcpustat_cpu(j).cpustat[CPUTIME_SYSTEM]);
+		cur_others_time = (__force unsigned long)(kcpustat_cpu(j).cpustat[CPUTIME_IRQ] + kcpustat_cpu(j).cpustat[CPUTIME_SOFTIRQ]
+																		+ kcpustat_cpu(j).cpustat[CPUTIME_STEAL] + kcpustat_cpu(j).cpustat[CPUTIME_NICE]);
 
-		cur_idle_time = cputime_to_usecs(kcpustat_cpu(j).cpustat[CPUTIME_IDLE] + kcpustat_cpu(j).cpustat[CPUTIME_IOWAIT]);
+		cur_idle_time = (__force unsigned long)(kcpustat_cpu(j).cpustat[CPUTIME_IDLE]);
+		cur_iowait_time = (__force unsigned long)(kcpustat_cpu(j).cpustat[CPUTIME_IOWAIT]);
 		local_irq_restore(flags);
 
 		busy_time = (unsigned int)
-				(cur_busy_time - j_nightmare_cpuinfo->prev_cpu_busy);
-		j_nightmare_cpuinfo->prev_cpu_busy = cur_busy_time;
+				((cur_user_time - j_nightmare_cpuinfo->prev_cpu_user) +
+				 (cur_system_time - j_nightmare_cpuinfo->prev_cpu_system) +
+				 (cur_others_time - j_nightmare_cpuinfo->prev_cpu_others));
+		j_nightmare_cpuinfo->prev_cpu_user = cur_user_time;
+		j_nightmare_cpuinfo->prev_cpu_system = cur_system_time;
+		j_nightmare_cpuinfo->prev_cpu_others = cur_others_time;
 
 		idle_time = (unsigned int)
-				(cur_idle_time - j_nightmare_cpuinfo->prev_cpu_idle);
+				((cur_idle_time - j_nightmare_cpuinfo->prev_cpu_idle) + 
+				 (cur_iowait_time - j_nightmare_cpuinfo->prev_cpu_iowait));
 		j_nightmare_cpuinfo->prev_cpu_idle = cur_idle_time;
+		j_nightmare_cpuinfo->prev_cpu_iowait = cur_iowait_time;
 
 		/*printk(KERN_ERR "TIMER CPU[%u], wall[%u], idle[%u]\n",j, busy_time + idle_time, idle_time);*/
 		if (!cpu_policy || busy_time + idle_time == 0) { /*if busy_time and idle_time are 0, evaluate cpu load next time*/
@@ -925,21 +937,24 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 
 		mutex_lock(&nightmare_mutex);
 		num_rate = 0;
-
-		nightmare_enable++;
-		for_each_possible_cpu(j) {
+		nightmare_enable=1;
+		for_each_cpu(j, cpu_possible_mask) {
 			struct cpufreq_nightmare_cpuinfo *j_nightmare_cpuinfo = &per_cpu(od_nightmare_cpuinfo, j);
 			unsigned long flags;
 			per_cpu(cpufreq_cpu_data, j) = policy;
 			local_irq_save(flags);
-			j_nightmare_cpuinfo->prev_cpu_busy = cputime_to_usecs(kcpustat_cpu(j).cpustat[CPUTIME_USER] + kcpustat_cpu(j).cpustat[CPUTIME_SYSTEM]
-						+ kcpustat_cpu(j).cpustat[CPUTIME_IRQ] + kcpustat_cpu(j).cpustat[CPUTIME_SOFTIRQ]
-						+ kcpustat_cpu(j).cpustat[CPUTIME_STEAL] + kcpustat_cpu(j).cpustat[CPUTIME_NICE]);
+			j_nightmare_cpuinfo->prev_cpu_user = (__force unsigned long)(kcpustat_cpu(j).cpustat[CPUTIME_USER]);
+			j_nightmare_cpuinfo->prev_cpu_system = (__force unsigned long)(kcpustat_cpu(j).cpustat[CPUTIME_SYSTEM]);
+			j_nightmare_cpuinfo->prev_cpu_others = (__force unsigned long)(kcpustat_cpu(j).cpustat[CPUTIME_IRQ] + kcpustat_cpu(j).cpustat[CPUTIME_SOFTIRQ]
+																		+ kcpustat_cpu(j).cpustat[CPUTIME_STEAL] + kcpustat_cpu(j).cpustat[CPUTIME_NICE]);
 
-			j_nightmare_cpuinfo->prev_cpu_idle = cputime_to_usecs(kcpustat_cpu(j).cpustat[CPUTIME_IDLE] + kcpustat_cpu(j).cpustat[CPUTIME_IOWAIT]);
+			j_nightmare_cpuinfo->prev_cpu_idle = (__force unsigned long)(kcpustat_cpu(j).cpustat[CPUTIME_IDLE]);
+			j_nightmare_cpuinfo->prev_cpu_iowait = (__force unsigned long)(kcpustat_cpu(j).cpustat[CPUTIME_IOWAIT]);
 			local_irq_restore(flags);
 		}
 		this_nightmare_cpuinfo->cpu = cpu;
+		mutex_init(&timer_mutex);
+		INIT_DEFERRABLE_WORK(&this_nightmare_cpuinfo->work, do_nightmare_timer);
 		/*
 		 * Start the timerschedule work, when this governor
 		 * is used for first time
@@ -955,20 +970,17 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 			atomic_set(&nightmare_tuners_ins.max_freq_limit,policy->max);
 		}
 		mutex_unlock(&nightmare_mutex);
-
-		mutex_init(&timer_mutex);
-		INIT_DEFERRABLE_WORK(&this_nightmare_cpuinfo->work, do_nightmare_timer);
 		mod_delayed_work_on(this_nightmare_cpuinfo->cpu, dvfs_workqueue, &this_nightmare_cpuinfo->work, 0);
 
 		break;
 
 	case CPUFREQ_GOV_STOP:
-		cancel_delayed_work(&this_nightmare_cpuinfo->work);
+		cancel_delayed_work_sync(&this_nightmare_cpuinfo->work);
 		mutex_destroy(&timer_mutex);
 
 		mutex_lock(&nightmare_mutex);
-		nightmare_enable--;
-		for_each_possible_cpu(j) {
+		nightmare_enable=0;
+		for_each_cpu(j, cpu_possible_mask) {
 			per_cpu(cpufreq_cpu_data, j) = NULL;
 		}
 
