@@ -343,23 +343,24 @@ CHECK		= sparse
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
 
-LOW_ARM_FLAGS	= -pipe -march=armv7-a -mcpu=cortex-a9 -mtune=cortex-a9 -marm \
-		  -mfpu=neon -mfloat-abi=softfp -fno-pic -munaligned-access
+LOW_ARM_FLAGS	= -pipe -march=armv7-a -mcpu=cortex-a9 \
+		  -mtune=cortex-a9 -marm -mfpu=neon \
+		  -mfloat-abi=softfp -fno-pic -munaligned-access
+
+MODULES		= -fmodulo-sched -fmodulo-sched-allow-regmoves -fno-pic
 
 #ARM_FLAGS      = -fsingle-precision-constant -ftree-vectorize
 #LOOPS		= -funswitch-loops -fpredictive-commoning
 #LOOPS_4_6	= -floop-strip-mine -floop-block -floop-interchange
 
-#MODULES	= -fmodulo-sched -fmodulo-sched-allow-regmoves
-
-CFLAGS_MODULE   = -fno-pic
+CFLAGS_MODULE   =
 AFLAGS_MODULE   =
 LDFLAGS_MODULE  =
 CFLAGS_KERNEL	=
 AFLAGS_KERNEL	=
 CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage
 
-KERNEL_MODS	= $(LOW_ARM_FLAGS) #$(MODULES)
+KERNEL_MODS	= $(LOW_ARM_FLAGS) $(MODULES)
 
 # Use USERINCLUDE when you must reference the UAPI directories only.
 USERINCLUDE    := \

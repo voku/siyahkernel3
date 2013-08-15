@@ -6,6 +6,7 @@ exfat.c
 exfat_cache.c
 exfat_cache.h
 exfat_config.h
+exfat_core.c
 exfat_core.mod.c
 exfat_data.c
 exfat_data.h

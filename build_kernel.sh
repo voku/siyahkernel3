@@ -178,11 +178,9 @@ for i in `find $KERNELDIR -name '*.ko'`; do
 	cp -av $i $INITRAMFS_TMP/lib/modules/;
 done;
 # do not --strip-debug from wifi module
-mv $INITRAMFS_TMP/lib/modules/dhd.ko $INITRAMFS_TMP/lib/modules/dhd.tmp;
 for i in `find $INITRAMFS_TMP/lib/modules/ -name '*.ko'`; do
 	${CROSS_COMPILE}strip --strip-debug $i;
 done;
-mv $INITRAMFS_TMP/lib/modules/dhd.tmp $INITRAMFS_TMP/lib/modules/dhd.ko;
 chmod 755 $INITRAMFS_TMP/lib/modules/*;
 
 # compress modules to reduce initramfs size
