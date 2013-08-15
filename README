@@ -43,7 +43,11 @@ $ /usr/bin/sshd
 
 ssh is online now :)
 
+Install normal text editor!
 
+$ pacman -S vim
+$ export EDITOR=/usr/bin/vim
+$ alias vi=/usr/bin/vim
 
 To start the build
 
