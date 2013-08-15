@@ -8,17 +8,54 @@ use 64BIT installation of build will fail!
 To compile you need:
 $ pacman -S bc
 
+$ chsh -s /bin/bash YOUR-USER(best if will be root)
+
+set permissions on temp!
+sudo chmod -R 777 /tmp
+
+Clean TMP
+rm -rf /tmp/*
+
 To clone this repo
-$ sudo apt-get install git
 $ mkdir ~/samsung-i9100
 $ cd ~/samsung-i9100
 $ git clone https://github.com/dorimanx/Dorimanx-SG2-I9100-Kernel.git
 $ git clone https://github.com/dorimanx/initramfs3.git
 
+allow access for login as root to ssh
+$ vi /etc/ssh/sshd_config
+
+look for
+#PermitRootLogin yes
+##uncomment!##
+PermitRootLogin yes
+
+save file.
+
+To enable SSH access to machine:
+
+open terminal
+$ su
+(enter user pass)
+
+$ ssh-keygen -A
+$ /usr/bin/sshd
+
+ssh is online now :)
+
+
+
 To start the build
+
+********************************************
+!!!!Login to SSH/Terminal as ROOT user!!!!!!
+********************************************
+
+now if you are ROOT, then build, if you are not ROOT, go away.
+
 $ cd ~/samsung-i9100/Dorimanx-SG2-I9100-Kernel
-$ sudo ./load_config.sh
-$ sudo ./build_kernel.sh
+$ load_config.sh
+$ build_kernel.sh
 
 Enjoy!
 
