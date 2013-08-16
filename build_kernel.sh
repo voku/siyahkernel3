@@ -90,12 +90,12 @@ else
 fi;
 
 # dorimanx detection ;)
-if [ $HOST == "dorimanx-virtual-machine" ]; then
-	NAMBEROFCPUS=12;
+if [ $HOST == "dorimanx-virtual-machine" ] || [ $HOST == "dorimanx" ]; then
+	NAMBEROFCPUS=16;
 	echo "Dori power detected!";
 else
 	NAMBEROFCPUS=$(expr `grep processor /proc/cpuinfo | wc -l` + 1);
-	echo "slow system detected, setting $NAMBEROFCPUS build treads"
+	echo "not dorimanx system detected, setting $NAMBEROFCPUS build treads"
 fi;
 
 # copy config
