@@ -1,120 +1,160 @@
                        This is Dorimanx Kernel 9.X/8.x
 
-NEW! You can build this kernel easily on BBQLinux (http://www.bbqlinux.org/), an Arch based distro for Android Devs.
-Install it and simply do these commands:
+# You can build this kernel easily on BBQLinux (http://www.bbqlinux.org/), an Arch based distro for Android Devs.
+# Install it and simply do these commands:
 
-use 64BIT installation of build will fail!
+# use 64BIT installation of build will fail!
 
-To compile you need:
-$ pacman -S bc
+# To compile you need:
+pacman -S bc
 
-$ chsh -s /bin/bash YOUR-USER(best if will be root)
+# set your shell to bash
+chsh -s /bin/bash YOUR-USER(best if will be root)
 
-set permissions on temp!
+# set permissions on temp!
 sudo chmod -R 777 /tmp
 
-Clean TMP
-rm -rf /tmp/*
+# Clean TMP
+sudo rm -rf /tmp/*
 
-To clone this repo
-$ mkdir ~/samsung-i9100
-$ cd ~/samsung-i9100
-$ git clone https://github.com/dorimanx/Dorimanx-SG2-I9100-Kernel.git
-$ git clone https://github.com/dorimanx/initramfs3.git
+# To clone this repo
+mkdir ~/samsung-i9100
+cd ~/samsung-i9100
+git clone https://github.com/dorimanx/Dorimanx-SG2-I9100-Kernel.git
+git clone https://github.com/dorimanx/initramfs3.git
 
-allow access for login as root to ssh
-$ vi /etc/ssh/sshd_config
+# allow access for login as root to ssh
+vi /etc/ssh/sshd_config
 
-look for
+# look for
+
 #PermitRootLogin yes
-##uncomment!##
+# uncomment
 PermitRootLogin yes
 
-save file.
+# save file. (shift :wq)
 
-To enable SSH access to machine:
+# To enable SSH access to machine:
+# open terminal
+su (enter user pass)
 
-open terminal
-$ su
-(enter user pass)
+ssh-keygen -A
+/usr/bin/sshd
 
-$ ssh-keygen -A
-$ /usr/bin/sshd
+# ssh is online now :)
 
-ssh is online now :)
+# Install normal text editor!
+pacman -S vim
+export EDITOR=/usr/bin/vim
+cp /usr/bin/vim /usr/bin/vi
+echo "syntax on" > $HOME/.vimrc
+echo "colo elflord" >> $HOME/.vimrc
 
-Install normal text editor!
+# setup git to help you to work :)
+cd ~/samsung-i9100/Dorimanx-SG2-I9100-Kernel
+# tell git who are you!
+git config --global user.name John Doe
+git config --global user.email johndoe@example.com
+# set helpers
+git config --global push.default simple
+git config --global alias.last 'log -1 HEAD'
+git config --global alias.unstage 'reset HEAD --'
+git config --global alias.hard 'reset --hard'
+git config --global alias.co checkout
+git config --global alias.br branch
+git config --global alias.ci commit
+git config --global alias.st status
 
-$ pacman -S vim
-$ export EDITOR=/usr/bin/vim
-$ alias vi=/usr/bin/vim
+# check all config
+git config -l
+# set auto complite commands for git when using bash shell
+cp /usr/share/git/completion/git-completion.bash ~/.git-completion.bash
+vi ~/.bashrc
+# add at the bottom if file
+source ~/.git-completion.bash
+# save! shift :wq
+# to make it work exit and loggin to ssh/terminal again.
 
-To start the build
+# To start the build
+#********************************************
+#!!!!Login to SSH/Terminal as ROOT user!!!!!!
+#********************************************
+# now if you are ROOT, then build, if you are not ROOT, go away.
 
-********************************************
-!!!!Login to SSH/Terminal as ROOT user!!!!!!
-********************************************
+cd ~/samsung-i9100/Dorimanx-SG2-I9100-Kernel
+sh load_config.sh
+sh build_kernel.sh
 
-now if you are ROOT, then build, if you are not ROOT, go away.
-
-$ cd ~/samsung-i9100/Dorimanx-SG2-I9100-Kernel
-$ load_config.sh
-$ build_kernel.sh
-
-Enjoy!
+# Enjoy!
 
 ==================================================================
 
-This kernel is compiled on Ubuntu Server/Desktop 12.04 64BIT ONLY!!!.
+# This kernel is compiled on Ubuntu Server/Desktop 12.04 64BIT ONLY!!!.
+# Kernel not support 32BIT!
 
-Kernel not support 32BIT!
+# It is important to keep this one, otherwise the kernel will be compiled
+# but it won't boot as the script will fire errors.
 
-It is important to keep this one, otherwise the kernel will be compiled
-but it won't boot as the script will fire errors.
+# It is important to install this otherwise the linaro GCC will fire errors
+sudo apt-get install ia32-libs lib32ncurses5-dev ccache imagemagick libxml2-utils optipng zip tar bash vim
 
-It is important to install this otherwise the linaro GCC will fire errors
-$ sudo apt-get install ia32-libs
+# Set you ssh shell to bash
+chsh -s /bin/bash YOUR-USER(best if will be root)
 
-To compile you need:
-$ sudo apt-get install lib32ncurses5-dev
-$ sudo apt-get install ccache imagemagick libxml2-utils optipng zip tar bash
-
-Set you ssh shell to bash
-$ which bash
-If Output:
-/bin/bash
-
-then set
-$ chsh -s /bin/bash YOUR-USER(best if will be root)
-if other location then set it.
-check if you have switched to bash
-$ grep ^root /etc/passwd
-Output:
-root:x:0:0:root:/root:/bin/bash
-
-set permissions on temp!
+# set permissions on temp!
 sudo chmod -R 777 /tmp
 
-Clean TMP
-rm -rf /tmp/*
+# Clean TMP
+sudo rm -rf /tmp/*
 
-To clone this repo
-$ sudo apt-get install git
-$ mkdir ~/samsung-i9100
-$ cd ~/samsung-i9100
-$ git clone https://github.com/dorimanx/Dorimanx-SG2-I9100-Kernel.git
-$ git clone https://github.com/dorimanx/initramfs3.git
+# Install normal text editor!
+export EDITOR=/usr/bin/vim
+update-alternatives --config editor
+# choose  /usr/bin/vim.basic
+echo "syntax on" > $HOME/.vimrc
+echo "colo elflord" >> $HOME/.vimrc
 
-To start the build
+# To clone this repo
+sudo apt-get install git
+mkdir ~/samsung-i9100
+cd ~/samsung-i9100
+git clone https://github.com/dorimanx/Dorimanx-SG2-I9100-Kernel.git
+git clone https://github.com/dorimanx/initramfs3.git
 
-***********************************
-!!!!Login to SSH as ROOT user!!!!!!
-***********************************
+# setup git to help you to work :)
+cd ~/samsung-i9100/Dorimanx-SG2-I9100-Kernel
+# tell git who are you!
+git config --global user.name John Doe
+git config --global user.email johndoe@example.com
+# set helpers
+git config --global push.default simple
+git config --global alias.last 'log -1 HEAD'
+git config --global alias.unstage 'reset HEAD --'
+git config --global alias.hard 'reset --hard'
+git config --global alias.co checkout
+git config --global alias.br branch
+git config --global alias.ci commit
+git config --global alias.st status
 
-now if you are ROOT, then build, if you are not ROOT, go away.
-$ cd ~/samsung-i9100/Dorimanx-SG2-I9100-Kernel
-$ sh load_config.sh
-$ sh build_kernel.sh
+# check all config
+git config -l
+# set auto complite commands for git when using bash shell
+cp /usr/share/git/completion/git-completion.bash ~/.git-completion.bash
+vi ~/.bashrc
+# add at the bottom if file
+source ~/.git-completion.bash
+# save! shift :wq
+# to make it work exit and loggin to ssh/terminal again.
+
+# To start the build
+#***********************************
+#!!!!Login to SSH as ROOT user!!!!!!
+#***********************************
+
+# now if you are ROOT, then build, if you are not ROOT, go away.
+cd ~/samsung-i9100/Dorimanx-SG2-I9100-Kernel
+sh load_config.sh
+sh build_kernel.sh
 
 ==================================================================
 My info guide.
