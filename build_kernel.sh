@@ -177,9 +177,8 @@ mkdir -p $INITRAMFS_TMP/lib/modules;
 for i in `find $KERNELDIR -name '*.ko'`; do
 	cp -av $i $INITRAMFS_TMP/lib/modules/;
 done;
-# do not --strip-debug from wifi module
 for i in `find $INITRAMFS_TMP/lib/modules/ -name '*.ko'`; do
-	${CROSS_COMPILE}strip --strip-debug $i;
+	${CROSS_COMPILE}strip --strip-unneeded $i;
 done;
 chmod 755 $INITRAMFS_TMP/lib/modules/*;
 

@@ -1847,9 +1847,9 @@ static int __init tcrypt_mod_init(void)
 		if (!tvmem[i])
 			goto err_free_tv;
 	}
-
+#ifdef CONFIG_CRYPTO_FIPS
 	testmgr_crypto_proc_init();
-
+#endif
 	if (alg)
 		err = do_alg_test(alg, type, mask);
 	else

@@ -147,7 +147,7 @@ bool in_fips_err()
 }
 EXPORT_SYMBOL_GPL(in_fips_err);
 
-void set_in_fips_err()
+void set_in_fips_err(void)
 {
 	IN_FIPS_ERROR = FIPS_ERR;
 }
