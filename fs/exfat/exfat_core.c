@@ -4512,19 +4512,32 @@ UINT32 calc_checksum_4byte(void *data, INT32 len, UINT32 chksum, INT32 type)
    < 0 : return error */
 INT32 resolve_path(struct inode *inode, UINT8 *path, CHAIN_T *p_dir, UNI_NAME_T *p_uniname)
 {
+	INT32 num_names;
 	INT32 lossy = FALSE;
+	UINT8 *name_ptr[MAX_PATH_DEPTH+1];
 	struct super_block *sb = inode->i_sb;
 	FS_INFO_T *p_fs = &(EXFAT_SB(sb)->fs_info);
 	FILE_ID_T *fid = &(EXFAT_I(inode)->fid);
 
-	if (STRLEN(path) >= (MAX_NAME_LENGTH * MAX_CHARSET_SIZE))
-		return(FFS_INVALIDPATH);
+	/* extract each names int the path */
+	num_names = resolve_name(path, name_ptr);
+	if (num_names != 1) {
+		if (num_names < 0)
+			return ((-1) * num_names);
+		else
+			return FFS_INVALIDPATH;
+	}
 
-	STRCPY(name_buf, path);
+	/* the last name of the path */
+	nls_cstring_to_uniname(sb, p_uniname, name_ptr[num_names-1], &lossy);
+	if (lossy == NLS_LOSSY_TOOLONG)
+		return FFS_NAMETOOLONG;
+	else if (lossy)
+		return FFS_INVALIDPATH;
 
-	nls_cstring_to_uniname(sb, p_uniname, name_buf, &lossy);
-	if (lossy)
-		return(FFS_INVALIDPATH);
+	/* check if this path name violates the name length limit */
+	if (p_uniname->name_len >= MAX_NAME_LENGTH)
+		return FFS_NAMETOOLONG;
 
 	fid->size = i_size_read(inode);
 
@@ -4532,8 +4545,62 @@ INT32 resolve_path(struct inode *inode, UINT8 *path, CHAIN_T *p_dir, UNI_NAME_T 
 	p_dir->size = (INT32)(fid->size >> p_fs->cluster_size_bits);
 	p_dir->flags = fid->flags;
 
-	return(FFS_SUCCESS);
-}
+	return FFS_SUCCESS;
+} /* end of resolve_path */
+
+INT32 resolve_name(UINT8 *name, UINT8 **arg)
+{
+	INT32 i = 0, narg = 0;
+	UINT8 *src, *dst;
+
+	src = name;
+	dst = name_buf;
+
+	while ((*src == ' ') || (*src == '\t')) {
+		if ((++i) >= (MAX_PATH_LENGTH*MAX_CHARSET_SIZE))
+			return -FFS_NAMETOOLONG;
+		src++;
+	}
+
+	if (*src == '\0')
+		return(-FFS_INVALIDPATH);    /* resolve fail */
+
+	if ((*src == '/') || (*src == '\\')) {
+		arg[narg++] = dst;
+		if ((++i) >= (MAX_PATH_LENGTH*MAX_CHARSET_SIZE))
+			return(-FFS_NAMETOOLONG);
+		*dst++ = '.';
+		src++;
+		*dst++ = '\0';
+	}
+
+	while (1) {
+		while ((*src == ' ') || (*src == '\t') ||
+			   (*src == '/') || (*src == '\\')) {
+			if ((++i) >= (MAX_PATH_LENGTH*MAX_CHARSET_SIZE))
+				return(-FFS_NAMETOOLONG);
+			src++;
+		}
+
+		if (*src == '\0')
+			break;
+		if (narg > MAX_PATH_DEPTH)
+			return(-FFS_INVALIDPATH);
+
+		arg[narg++] = dst;
+		while ((*src != '/') && (*src != '\\') && (*src != '\0')) {
+			if ((++i) >= (MAX_PATH_LENGTH*MAX_CHARSET_SIZE))
+				return(-FFS_NAMETOOLONG);
+			*dst++ = *src++;
+		}
+
+		while (*(dst-1) == ' ')
+			dst--;
+		*dst++ = '\0';
+	}
+
+	return(narg);
+} /* end of resolve_name */
 
 /*
  *  File Operation Functions
