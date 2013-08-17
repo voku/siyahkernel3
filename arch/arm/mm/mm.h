@@ -3,6 +3,8 @@
 /* the upper-most page table pointer */
 extern pmd_t *top_pmd;
 
+#define TOP_PTE(x)	pte_offset_kernel(top_pmd, x)
+
 /*
  * 0xffff8000 to 0xffffffff is reserved for any ARM architecture
  * specific hacks for copying pages efficiently, while 0xffff4000
@@ -18,15 +20,13 @@ extern pmd_t *top_pmd;
 
 static inline void set_top_pte(unsigned long va, pte_t pte)
 {
-	pte_t *ptep = pte_offset_kernel(top_pmd, va);
-	set_pte_ext(ptep, pte, 0);
+	set_pte_ext(TOP_PTE(va), pte, 0);
 	local_flush_tlb_kernel_page(va);
 }
 
 static inline pte_t get_top_pte(unsigned long va)
 {
-	pte_t *ptep = pte_offset_kernel(top_pmd, va);
-	return *ptep;
+	return *TOP_PTE(va);
 }
 
 static inline pmd_t *pmd_off_k(unsigned long virt)
@@ -36,8 +36,8 @@ static inline pmd_t *pmd_off_k(unsigned long virt)
 
 struct mem_type {
 	pteval_t prot_pte;
-	pmdval_t prot_l1;
-	pmdval_t prot_sect;
+	unsigned int prot_l1;
+	unsigned int prot_sect;
 	unsigned int domain;
 };
 
@@ -50,7 +50,7 @@ extern void __flush_dcache_page(struct address_space *mapping, struct page *page
 #ifdef CONFIG_ZONE_DMA
 extern phys_addr_t arm_dma_limit;
 #else
-#define arm_dma_limit ((phys_addr_t)~0)
+#define arm_dma_limit ((u32)~0)
 #endif
 
 #ifdef CONFIG_DMA_CMA

@@ -106,7 +106,7 @@ void *ion_carveout_heap_map_kernel(struct ion_heap *heap,
 void ion_carveout_heap_unmap_kernel(struct ion_heap *heap,
 				    struct ion_buffer *buffer)
 {
-	__arm_iounmap(buffer->vaddr);
+	__arch_iounmap(buffer->vaddr);	
 	buffer->vaddr = NULL;
 	return;
 }
@@ -116,7 +116,7 @@ int ion_carveout_heap_map_user(struct ion_heap *heap, struct ion_buffer *buffer,
 {
 	return remap_pfn_range(vma, vma->vm_start,
 			       __phys_to_pfn(buffer->priv_phys) + vma->vm_pgoff,
-			       vma->vm_end - vma->vm_start,
+			       buffer->size,
 			       pgprot_noncached(vma->vm_page_prot));
 }
 

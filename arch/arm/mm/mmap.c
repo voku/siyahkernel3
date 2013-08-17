@@ -9,7 +9,8 @@
 #include <linux/io.h>
 #include <linux/personality.h>
 #include <linux/random.h>
-#include <asm/cachetype.h>
+#include <asm/cputype.h>
+#include <asm/system.h>
 
 #define COLOUR_ALIGN(addr,pgoff)		\
 	((((addr)+SHMLBA-1)&~(SHMLBA-1)) +	\
@@ -31,15 +32,25 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 	struct mm_struct *mm = current->mm;
 	struct vm_area_struct *vma;
 	unsigned long start_addr;
-	int do_align = 0;
-	int aliasing = cache_is_vipt_aliasing();
+#if defined(CONFIG_CPU_V6) || defined(CONFIG_CPU_V6K)
+	unsigned int cache_type;
+	int do_align = 0, aliasing = 0;
 
 	/*
 	 * We only need to do colour alignment if either the I or D
-	 * caches alias.
+	 * caches alias.  This is indicated by bits 9 and 21 of the
+	 * cache type register.
 	 */
-	if (aliasing)
-		do_align = filp || (flags & MAP_SHARED);
+	cache_type = read_cpuid_cachetype();
+	if (cache_type != read_cpuid_id()) {
+		aliasing = (cache_type | cache_type >> 12) & (1 << 11);
+		if (aliasing)
+			do_align = filp || flags & MAP_SHARED;
+	}
+#else
+#define do_align 0
+#define aliasing 0
+#endif
 
 	/*
 	 * We enforce the MAP_FIXED case.
@@ -116,7 +127,7 @@ full_search:
  * You really shouldn't be using read() or write() on /dev/mem.  This
  * might go away in the future.
  */
-int valid_phys_addr_range(phys_addr_t addr, size_t size)
+int valid_phys_addr_range(unsigned long addr, size_t size)
 {
 	if (addr < PHYS_OFFSET)
 		return 0;

@@ -31,7 +31,6 @@
 #include <linux/memblock.h>
 #include <linux/bug.h>
 #include <linux/compiler.h>
-#include <linux/sort.h>
 
 #include <asm/unified.h>
 #include <asm/cp15.h>
@@ -65,6 +64,7 @@
 #include "compat.h"
 #endif
 #include "atags.h"
+#include "tcm.h"
 
 #ifndef MEM_SIZE
 #define MEM_SIZE	(16*1024*1024)
@@ -275,10 +275,6 @@ static int cpu_has_aliasing_icache(unsigned int arch)
 	int aliasing_icache;
 	unsigned int id_reg, num_sets, line_size;
 
-	/* PIPT caches never alias. */
-	if (icache_is_pipt())
-		return 0;
-
 	/* arch specifies the register format */
 	switch (arch) {
 	case CPU_ARCH_ARMv7:
@@ -313,14 +309,8 @@ static void __init cacheid_init(void)
 			/* ARMv7 register format */
 			arch = CPU_ARCH_ARMv7;
 			cacheid = CACHEID_VIPT_NONALIASING;
-			switch (cachetype & (3 << 14)) {
-			case (1 << 14):
+			if ((cachetype & (3 << 14)) == 1 << 14)
 				cacheid |= CACHEID_ASID_TAGGED;
-				break;
-			case (3 << 14):
-				cacheid |= CACHEID_PIPT;
-				break;
-			}
 		} else {
 			arch = CPU_ARCH_ARMv6;
 			if (cachetype & (1 << 23))
@@ -337,11 +327,10 @@ static void __init cacheid_init(void)
 	printk("CPU: %s data cache, %s instruction cache\n",
 		cache_is_vivt() ? "VIVT" :
 		cache_is_vipt_aliasing() ? "VIPT aliasing" :
-		cache_is_vipt_nonaliasing() ? "PIPT / VIPT nonaliasing" : "unknown",
+		cache_is_vipt_nonaliasing() ? "VIPT nonaliasing" : "unknown",
 		cache_is_vivt() ? "VIVT" :
 		icache_is_vivt_asid_tagged() ? "VIVT ASID tagged" :
 		icache_is_vipt_aliasing() ? "VIPT aliasing" :
-		icache_is_pipt() ? "PIPT" :
 		cache_is_vipt_nonaliasing() ? "VIPT nonaliasing" : "unknown");
 }
 
@@ -943,12 +932,6 @@ static struct machine_desc * __init setup_machine_tags(unsigned int nr)
 	return mdesc;
 }
 
-static int __init meminfo_cmp(const void *_a, const void *_b)
-{
-	const struct membank *a = _a, *b = _b;
-	long cmp = bank_pfn_start(a) - bank_pfn_start(b);
-	return cmp < 0 ? -1 : cmp > 0 ? 1 : 0;
-}
 
 void __init hyp_mode_check(void)
 {
@@ -996,7 +979,6 @@ void __init setup_arch(char **cmdline_p)
 
 	parse_early_param();
 
-	sort(&meminfo.bank, meminfo.nr_banks, sizeof(meminfo.bank[0]), meminfo_cmp, NULL);
 	sanity_check_meminfo();
 	arm_memblock_init(&meminfo, mdesc);
 
@@ -1020,6 +1002,7 @@ void __init setup_arch(char **cmdline_p)
 	reserve_crashkernel();
 
 	cpu_init();
+	tcm_init();
 
 #ifdef CONFIG_ZONE_DMA
 	if (mdesc->dma_zone_size) {
