@@ -80,8 +80,6 @@ struct cpufreq_nightmare_cpuinfo {
  * do_nightmare_timer invocation. We do not want do_nightmare_timer to run
  * when user is changing the governor or limits.
  */
-static struct workqueue_struct *dvfs_workqueue;
-
 static DEFINE_PER_CPU(struct cpufreq_nightmare_cpuinfo, od_nightmare_cpuinfo);
 static DEFINE_PER_CPU(struct cpufreq_policy *, cpufreq_cpu_data);
 
@@ -917,7 +915,7 @@ static void do_nightmare_timer(struct work_struct *work)
 		delay -= jiffies % delay;
 	}	
 
-	mod_delayed_work_on(nightmare_cpuinfo->cpu, dvfs_workqueue, &nightmare_cpuinfo->work, delay);
+	mod_delayed_work_on(nightmare_cpuinfo->cpu, system_wq, &nightmare_cpuinfo->work, delay);
 	mutex_unlock(&timer_mutex);
 }
 
@@ -928,7 +926,7 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 	struct cpufreq_nightmare_cpuinfo *this_nightmare_cpuinfo = &per_cpu(od_nightmare_cpuinfo, cpu);
 	struct cpufreq_policy *cpu_policy = per_cpu(cpufreq_cpu_data, cpu);
 	unsigned int j;
-	int rc;
+	int rc, delay;
 
 	switch (event) {
 	case CPUFREQ_GOV_START:
@@ -969,8 +967,12 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 			atomic_set(&nightmare_tuners_ins.min_freq_limit,policy->min);
 			atomic_set(&nightmare_tuners_ins.max_freq_limit,policy->max);
 		}
+		delay=usecs_to_jiffies(atomic_read(&nightmare_tuners_ins.sampling_rate));
+		if (num_online_cpus() > 1) {
+			delay -= jiffies % delay;
+		}
 		mutex_unlock(&nightmare_mutex);
-		mod_delayed_work_on(this_nightmare_cpuinfo->cpu, dvfs_workqueue, &this_nightmare_cpuinfo->work, 0);
+		mod_delayed_work_on(this_nightmare_cpuinfo->cpu, system_wq, &this_nightmare_cpuinfo->work, delay);
 
 		break;
 
@@ -1015,21 +1017,12 @@ static int __init cpufreq_gov_nightmare_init(void)
 {
 	int ret;
 
-	dvfs_workqueue = create_singlethread_workqueue("knightmare");
-	if (!dvfs_workqueue) {
-		pr_err("%s cannot create workqueue\n", __func__);
-		ret = -ENOMEM;
-		goto err_free;
-	}
-
 	ret = cpufreq_register_governor(&cpufreq_gov_nightmare);
 	if (ret)
-		goto err_reg;
+		goto err_free;
 
 	return ret;
 
-err_reg:
-	destroy_workqueue(dvfs_workqueue);
 err_free:
 	kfree(&nightmare_tuners_ins);
 	kfree(&hotplug_freq);
@@ -1039,7 +1032,6 @@ err_free:
 static void __exit cpufreq_gov_nightmare_exit(void)
 {
 	cpufreq_unregister_governor(&cpufreq_gov_nightmare);
-	destroy_workqueue(dvfs_workqueue);
 	kfree(&nightmare_tuners_ins);
 	kfree(&hotplug_freq);
 }

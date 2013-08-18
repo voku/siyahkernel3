@@ -80,8 +80,6 @@ struct cpufreq_darkness_cpuinfo {
  * do_darkness_timer invocation. We do not want do_darkness_timer to run
  * when user is changing the governor or limits.
  */
-static struct workqueue_struct *dvfs_workqueue;
-
 static DEFINE_PER_CPU(struct cpufreq_darkness_cpuinfo, od_darkness_cpuinfo);
 static DEFINE_PER_CPU(struct cpufreq_policy *, cpufreq_cpu_data);
 
@@ -663,7 +661,7 @@ static void do_darkness_timer(struct work_struct *work)
 		delay -= jiffies % delay;
 	}
 
-	mod_delayed_work_on(darkness_cpuinfo->cpu, dvfs_workqueue, &darkness_cpuinfo->work, delay);
+	mod_delayed_work_on(darkness_cpuinfo->cpu, system_wq, &darkness_cpuinfo->work, delay);
 	mutex_unlock(&timer_mutex);
 }
 
@@ -674,7 +672,7 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 	struct cpufreq_darkness_cpuinfo *this_darkness_cpuinfo = &per_cpu(od_darkness_cpuinfo, cpu);
 	struct cpufreq_policy *cpu_policy = per_cpu(cpufreq_cpu_data, cpu);
 	unsigned int j;
-	int rc;
+	int rc, delay;
 
 	switch (event) {
 	case CPUFREQ_GOV_START:
@@ -715,8 +713,12 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 			atomic_set(&darkness_tuners_ins.min_freq_limit,policy->min);
 			atomic_set(&darkness_tuners_ins.max_freq_limit,policy->max);
 		}
-		mutex_unlock(&darkness_mutex);	
-		mod_delayed_work_on(this_darkness_cpuinfo->cpu, dvfs_workqueue, &this_darkness_cpuinfo->work, 0);
+		delay=usecs_to_jiffies(atomic_read(&darkness_tuners_ins.sampling_rate));
+		if (num_online_cpus() > 1) {
+			delay -= jiffies % delay;
+		}
+		mutex_unlock(&darkness_mutex);
+		mod_delayed_work_on(this_darkness_cpuinfo->cpu, system_wq, &this_darkness_cpuinfo->work, delay);
 
 		break;
 
@@ -759,21 +761,12 @@ static int __init cpufreq_gov_darkness_init(void)
 {
 	int ret;
 
-	dvfs_workqueue = create_singlethread_workqueue("kdarkness");
-	if (!dvfs_workqueue) {
-		pr_err("%s cannot create workqueue\n", __func__);
-		ret = -ENOMEM;
-		goto err_free;
-	}
-
 	ret = cpufreq_register_governor(&cpufreq_gov_darkness);
 	if (ret)
-		goto err_reg;
+		goto err_free;
 
 	return ret;
 
-err_reg:
-	destroy_workqueue(dvfs_workqueue);
 err_free:
 	kfree(&darkness_tuners_ins);
 	kfree(&hotplug_freq);
@@ -783,7 +776,6 @@ err_free:
 static void __exit cpufreq_gov_darkness_exit(void)
 {
 	cpufreq_unregister_governor(&cpufreq_gov_darkness);
-	destroy_workqueue(dvfs_workqueue);
 	kfree(&darkness_tuners_ins);
 	kfree(&hotplug_freq);
 }
