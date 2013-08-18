@@ -213,6 +213,7 @@ __do_page_cache_readahead(struct address_space *mapping, struct file *filp,
 			break;
 		page->index = page_offset;
 
+		/* needed for ROW gov, do not remove */
 		page->flags |= (1L << PG_readahead);
 
 		list_add(&page->lru, &page_pool);

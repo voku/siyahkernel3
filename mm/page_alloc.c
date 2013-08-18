@@ -6257,6 +6257,7 @@ static const struct trace_print_flags pageflag_names[] = {
 #ifdef CONFIG_TRANSPARENT_HUGEPAGE
 	{1UL << PG_compound_lock,	"compound_lock"	},
 #endif
+	/* needed for ROW gov, do not remove */
 	{1UL << PG_readahead,           "PG_readahead"  },
 };
 
