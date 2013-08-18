@@ -3,13 +3,13 @@
 # You can build this kernel easily on BBQLinux (http://www.bbqlinux.org/), an Arch based distro for Android Devs.
 # Install it and simply do these commands:
 
-# use 64BIT installation of build will fail!
+# Use 64BIT installation or build will fail!!!
 
 # To compile you need:
-pacman -S bc
+sudo pacman -S bc
 
 # set your shell to bash
-chsh -s /bin/bash YOUR-USER(best if will be root)
+chsh -s /bin/bash YOUR-USER(best if it will be root)
 
 # set permissions on temp!
 sudo chmod -R 777 /tmp
@@ -27,26 +27,24 @@ git clone https://github.com/dorimanx/initramfs3.git
 vi /etc/ssh/sshd_config
 
 # look for
-
 #PermitRootLogin yes
+
 # uncomment
 PermitRootLogin yes
-
 # save file. (shift :wq)
 
 # To enable SSH access to machine:
 # open terminal
-su (enter user pass)
+sudo systemctl start sshd
 
-ssh-keygen -A
-/usr/bin/sshd
-
+# to start it, and to make it start always at boot
+sudo systemctl enable sshd.service
 # ssh is online now :)
 
 # Install normal text editor!
-pacman -S vim
+sudo pacman -S vim
 export EDITOR=/usr/bin/vim
-cp /usr/bin/vim /usr/bin/vi
+sudo cp /usr/bin/vim /usr/bin/vi
 echo "syntax on" > $HOME/.vimrc
 echo "colo elflord" >> $HOME/.vimrc
 
