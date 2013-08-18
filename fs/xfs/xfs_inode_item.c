@@ -179,7 +179,7 @@ xfs_inode_item_format(
 	nvecs	     = 1;
 
 	vecp->i_addr = &ip->i_d;
-	vecp->i_len  = sizeof(struct xfs_icdinode);
+	vecp->i_len  = xfs_icdinode_size(ip->i_d.di_version);
 	vecp->i_type = XLOG_REG_TYPE_ICORE;
 	vecp++;
 	nvecs++;
@@ -269,17 +269,6 @@ xfs_inode_item_format(
 		} else {
 			ASSERT(!(iip->ili_fields &
 				 XFS_ILOG_DBROOT));
-#ifdef XFS_TRANS_DEBUG
-			if (iip->ili_root_size > 0) {
-				ASSERT(iip->ili_root_size ==
-				       ip->i_df.if_broot_bytes);
-				ASSERT(memcmp(iip->ili_orig_root,
-					    ip->i_df.if_broot,
-					    iip->ili_root_size) == 0);
-			} else {
-				ASSERT(ip->i_df.if_broot_bytes == 0);
-			}
-#endif
 			iip->ili_fields &= ~XFS_ILOG_DBROOT;
 		}
 		break;
@@ -678,11 +667,6 @@ void
 xfs_inode_item_destroy(
 	xfs_inode_t	*ip)
 {
-#ifdef XFS_TRANS_DEBUG
-	if (ip->i_itemp->ili_root_size != 0) {
-		kmem_free(ip->i_itemp->ili_orig_root);
-	}
-#endif
 	kmem_zone_free(xfs_ili_zone, ip->i_itemp);
 }
 

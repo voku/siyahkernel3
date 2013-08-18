@@ -85,7 +85,7 @@ int oprofilefs_ulong_from_user(unsigned long *val, char const __user *buf, size_
 
 	raw_spin_lock_irqsave(&oprofilefs_lock, flags);
 	*val = simple_strtoul(tmpbuf, NULL, 0);
-	raw_spin_unlock_irqrestore(&oprofilefs_lock, flags);	
+	raw_spin_unlock_irqrestore(&oprofilefs_lock, flags);
 	return count;
 }
 
@@ -139,17 +139,22 @@ static int __oprofilefs_create_file(struct super_block *sb,
 	struct dentry *dentry;
 	struct inode *inode;
 
+	mutex_lock(&root->d_inode->i_mutex);
 	dentry = d_alloc_name(root, name);
-	if (!dentry)
+	if (!dentry) {
+		mutex_unlock(&root->d_inode->i_mutex);
 		return -ENOMEM;
+	}
 	inode = oprofilefs_get_inode(sb, S_IFREG | perm);
 	if (!inode) {
 		dput(dentry);
+		mutex_unlock(&root->d_inode->i_mutex);
 		return -ENOMEM;
 	}
 	inode->i_fop = fops;
+	inode->i_private = priv;
 	d_add(dentry, inode);
-	dentry->d_inode->i_private = priv;
+	mutex_unlock(&root->d_inode->i_mutex);
 	return 0;
 }
 
@@ -212,17 +217,22 @@ struct dentry *oprofilefs_mkdir(struct super_block *sb,
 	struct dentry *dentry;
 	struct inode *inode;
 
+	mutex_lock(&root->d_inode->i_mutex);
 	dentry = d_alloc_name(root, name);
-	if (!dentry)
+	if (!dentry) {
+		mutex_unlock(&root->d_inode->i_mutex);
 		return NULL;
+	}
 	inode = oprofilefs_get_inode(sb, S_IFDIR | 0755);
 	if (!inode) {
 		dput(dentry);
+		mutex_unlock(&root->d_inode->i_mutex);
 		return NULL;
 	}
 	inode->i_op = &simple_dir_inode_operations;
 	inode->i_fop = &simple_dir_operations;
 	d_add(dentry, inode);
+	mutex_unlock(&root->d_inode->i_mutex);
 	return dentry;
 }
 
@@ -230,7 +240,6 @@ struct dentry *oprofilefs_mkdir(struct super_block *sb,
 static int oprofilefs_fill_super(struct super_block *sb, void *data, int silent)
 {
 	struct inode *root_inode;
-	struct dentry *root_dentry;
 
 	sb->s_blocksize = PAGE_CACHE_SIZE;
 	sb->s_blocksize_bits = PAGE_CACHE_SHIFT;
@@ -243,13 +252,11 @@ static int oprofilefs_fill_super(struct super_block *sb, void *data, int silent)
 		return -ENOMEM;
 	root_inode->i_op = &simple_dir_inode_operations;
 	root_inode->i_fop = &simple_dir_operations;
-	root_dentry = d_make_root(root_inode);
-	if (!root_dentry)
+	sb->s_root = d_make_root(root_inode);
+	if (!sb->s_root)
 		return -ENOMEM;
 
-	sb->s_root = root_dentry;
-
-	oprofile_create_files(sb, root_dentry);
+	oprofile_create_files(sb, sb->s_root);
 
 	// FIXME: verify kill_litter_super removes our dentries
 	return 0;

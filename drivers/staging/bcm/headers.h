@@ -23,7 +23,6 @@
 #include <linux/wait.h>
 #include <linux/proc_fs.h>
 #include <linux/interrupt.h>
-#include <linux/version.h>
 #include <linux/stddef.h>
 #include <linux/stat.h>
 #include <linux/fcntl.h>
@@ -74,5 +73,7 @@
 #define DRV_COPYRIGHT	"Copyright 2010. Beceem Communications Inc"
 #define DRV_VERSION	VER_FILEVERSION_STR
 #define PFX		DRV_NAME " "
+
+extern struct class *bcm_class;
 
 #endif

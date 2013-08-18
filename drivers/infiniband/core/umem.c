@@ -35,6 +35,7 @@
 #include <linux/mm.h>
 #include <linux/dma-mapping.h>
 #include <linux/sched.h>
+#include <linux/export.h>
 #include <linux/hugetlb.h>
 #include <linux/dma-attrs.h>
 #include <linux/slab.h>
@@ -268,7 +269,7 @@ void ib_umem_release(struct ib_umem *umem)
 	} else
 		down_write(&mm->mmap_sem);
 
-	current->mm->locked_vm -= diff;
+	current->mm->pinned_vm -= diff;
 	up_write(&mm->mmap_sem);
 	mmput(mm);
 	kfree(umem);

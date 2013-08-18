@@ -15,7 +15,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
- * Author: Artem Bityutskiy (........ .....)
+ * Author: Artem Bityutskiy (Битюцкий Артём)
  */
 
 /*
@@ -189,20 +189,12 @@ static loff_t vol_cdev_llseek(struct file *file, loff_t offset, int origin)
 	return new_offset;
 }
 
-<<<<<<< HEAD
 static int vol_cdev_fsync(struct file *file, loff_t start, loff_t end,
 			  int datasync)
 {
 	struct ubi_volume_desc *desc = file->private_data;
 	struct ubi_device *ubi = desc->vol->ubi;
 	struct inode *inode = file_inode(file);
-=======
-static int vol_cdev_fsync(struct file *file, loff_t start, loff_t end, int datasync)
-{
-	struct ubi_volume_desc *desc = file->private_data;
-	struct ubi_device *ubi = desc->vol->ubi;
-	struct inode *inode = file->f_path.dentry->d_inode;
->>>>>>> 02c24a8... fs: push i_mutex and filemap_write_and_wait down into ->fsync() handlers
 	int err;
 	mutex_lock(&inode->i_mutex);
 	err = ubi_sync(ubi->ubi_num);

@@ -352,7 +352,7 @@ static int ubifs_readdir(struct file *file, void *dirent, filldir_t filldir)
 	struct qstr nm;
 	union ubifs_key key;
 	struct ubifs_dent_node *dent;
-	struct inode *dir = file->f_path.dentry->d_inode;
+	struct inode *dir = file_inode(file);
 	struct ubifs_info *c = dir->i_sb->s_fs_info;
 
 	dbg_gen("dir ino %lu, f_pos %#llx", dir->i_ino, file->f_pos);
@@ -453,11 +453,11 @@ out:
 }
 
 /* If a directory is seeked, we have to free saved readdir() state */
-static loff_t ubifs_dir_llseek(struct file *file, loff_t offset, int origin)
+static loff_t ubifs_dir_llseek(struct file *file, loff_t offset, int whence)
 {
 	kfree(file->private_data);
 	file->private_data = NULL;
-	return generic_file_llseek(file, offset, origin);
+	return generic_file_llseek(file, offset, whence);
 }
 
 /* Free saved readdir() state when the directory is closed */
@@ -969,7 +969,7 @@ static int ubifs_rename(struct inode *old_dir, struct dentry *old_dentry,
 	struct ubifs_budget_req ino_req = { .dirtied_ino = 1,
 			.dirtied_ino_d = ALIGN(old_inode_ui->data_len, 8) };
 	struct timespec time;
-	unsigned int saved_nlink;
+	unsigned int uninitialized_var(saved_nlink);
 
 	/*
 	 * Budget request settings: deletion direntry, new direntry, removing
@@ -980,8 +980,8 @@ static int ubifs_rename(struct inode *old_dir, struct dentry *old_dentry,
 	 * separately.
 	 */
 
-	dbg_gen("dent '%.*s' ino %lu in dir ino %lu to dent '%.*s' in "
-		"dir ino %lu", old_dentry->d_name.len, old_dentry->d_name.name,
+	dbg_gen("dent '%.*s' ino %lu in dir ino %lu to dent '%.*s' in dir ino %lu",
+		old_dentry->d_name.len, old_dentry->d_name.name,
 		old_inode->i_ino, old_dir->i_ino, new_dentry->d_name.len,
 		new_dentry->d_name.name, new_dir->i_ino);
 	ubifs_assert(mutex_is_locked(&old_dir->i_mutex));

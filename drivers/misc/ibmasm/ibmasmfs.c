@@ -17,7 +17,7 @@
  *
  * Copyright (C) IBM Corporation, 2004
  *
- * Author: Max Asböck <amax@us.ibm.com>
+ * Author: Max AsbÃ¶ck <amax@us.ibm.com>
  *
  */
 
@@ -87,7 +87,7 @@
 static LIST_HEAD(service_processors);
 
 static struct inode *ibmasmfs_make_inode(struct super_block *sb, int mode);
-static void ibmasmfs_create_files (struct super_block *sb, struct dentry *root);
+static void ibmasmfs_create_files (struct super_block *sb);
 static int ibmasmfs_fill_super (struct super_block *sb, void *data, int silent);
 
 
@@ -115,7 +115,6 @@ MODULE_ALIAS_FS("ibmasmfs");
 static int ibmasmfs_fill_super (struct super_block *sb, void *data, int silent)
 {
 	struct inode *root;
-	struct dentry *root_dentry;
 
 	sb->s_blocksize = PAGE_CACHE_SIZE;
 	sb->s_blocksize_bits = PAGE_CACHE_SHIFT;
@@ -130,12 +129,11 @@ static int ibmasmfs_fill_super (struct super_block *sb, void *data, int silent)
 	root->i_op = &simple_dir_inode_operations;
 	root->i_fop = ibmasmfs_dir_ops;
 
-	root_dentry = d_make_root(root);
-	if (!root_dentry)
+	sb->s_root = d_make_root(root);
+	if (!sb->s_root)
 		return -ENOMEM;
-	sb->s_root = root_dentry;
 
-	ibmasmfs_create_files(sb, root_dentry);
+	ibmasmfs_create_files(sb);
 	return 0;
 }
 
@@ -605,7 +603,7 @@ static const struct file_operations remote_settings_fops = {
 };
 
 
-static void ibmasmfs_create_files (struct super_block *sb, struct dentry *root)
+static void ibmasmfs_create_files (struct super_block *sb)
 {
 	struct list_head *entry;
 	struct service_processor *sp;
@@ -614,7 +612,7 @@ static void ibmasmfs_create_files (struct super_block *sb, struct dentry *root)
 		struct dentry *dir;
 		struct dentry *remote_dir;
 		sp = list_entry(entry, struct service_processor, node);
-		dir = ibmasmfs_create_dir(sb, root, sp->dirname);
+		dir = ibmasmfs_create_dir(sb, sb->s_root, sp->dirname);
 		if (!dir)
 			continue;
 

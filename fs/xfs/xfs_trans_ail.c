@@ -55,20 +55,6 @@ xfs_ail_check(
 		ASSERT(XFS_LSN_CMP(prev_lip->li_lsn, lip->li_lsn) >= 0);
 
 
-#ifdef XFS_TRANS_DEBUG
-	/*
-	 * Walk the list checking lsn ordering, and that every entry has the
-	 * XFS_LI_IN_AIL flag set. This is really expensive, so only do it
-	 * when specifically debugging the transaction subsystem.
-	 */
-	prev_lip = list_entry(&ailp->xa_ail, xfs_log_item_t, li_ail);
-	list_for_each_entry(lip, &ailp->xa_ail, li_ail) {
-		if (&prev_lip->li_ail != &ailp->xa_ail)
-			ASSERT(XFS_LSN_CMP(prev_lip->li_lsn, lip->li_lsn) <= 0);
-		ASSERT((lip->li_flags & XFS_LI_IN_AIL) != 0);
-		prev_lip = lip;
-	}
-#endif /* XFS_TRANS_DEBUG */
 }
 #else /* !DEBUG */
 #define	xfs_ail_check(a,l)
@@ -383,6 +369,12 @@ xfsaild_push(
 	}
 
 	spin_lock(&ailp->xa_lock);
+
+	/* barrier matches the xa_target update in xfs_ail_push() */
+	smp_rmb();
+	target = ailp->xa_target;
+	ailp->xa_target_prev = target;
+
 	lip = xfs_trans_ail_cursor_first(ailp, &cur, ailp->xa_last_pushed_lsn);
 	if (!lip) {
 		/*
@@ -397,7 +389,6 @@ xfsaild_push(
 	XFS_STATS_INC(xs_push_ail);
 
 	lsn = lip->li_lsn;
-	target = ailp->xa_target;
 	while ((XFS_LSN_CMP(lip->li_lsn, target) <= 0)) {
 		int	lock_result;
 
@@ -527,8 +518,32 @@ xfsaild(
 			__set_current_state(TASK_KILLABLE);
 		else
 			__set_current_state(TASK_INTERRUPTIBLE);
-		schedule_timeout(tout ?
-				 msecs_to_jiffies(tout) : MAX_SCHEDULE_TIMEOUT);
+
+		spin_lock(&ailp->xa_lock);
+
+		/*
+		 * Idle if the AIL is empty and we are not racing with a target
+		 * update. We check the AIL after we set the task to a sleep
+		 * state to guarantee that we either catch an xa_target update
+		 * or that a wake_up resets the state to TASK_RUNNING.
+		 * Otherwise, we run the risk of sleeping indefinitely.
+		 *
+		 * The barrier matches the xa_target update in xfs_ail_push().
+		 */
+		smp_rmb();
+		if (!xfs_ail_min(ailp) &&
+		    ailp->xa_target == ailp->xa_target_prev) {
+			spin_unlock(&ailp->xa_lock);
+			schedule();
+			tout = 0;
+			continue;
+		}
+		spin_unlock(&ailp->xa_lock);
+
+		if (tout)
+			schedule_timeout(msecs_to_jiffies(tout));
+
+		__set_current_state(TASK_RUNNING);
 
 		try_to_freeze();
 

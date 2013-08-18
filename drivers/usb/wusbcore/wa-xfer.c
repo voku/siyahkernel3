@@ -83,6 +83,8 @@
 #include <linux/spinlock.h>
 #include <linux/slab.h>
 #include <linux/hash.h>
+#include <linux/ratelimit.h>
+#include <linux/export.h>
 
 #include "wa-hc.h"
 #include "wusbhc.h"
@@ -693,9 +695,9 @@ error_dto_alloc:
 	cnt--;
 error_seg_kzalloc:
 	/* use the fact that cnt is left at were it failed */
-	for (; cnt > 0; cnt--) {
-		if (xfer->is_inbound == 0)
-			kfree(xfer->seg[cnt]->dto_urb);
+	for (; cnt >= 0; cnt--) {
+		if (xfer->seg[cnt] && xfer->is_inbound == 0)
+			usb_free_urb(xfer->seg[cnt]->dto_urb);
 		kfree(xfer->seg[cnt]);
 	}
 error_segs_kzalloc:
@@ -1217,16 +1219,14 @@ static int wa_xfer_status_to_errno(u8 status)
 	if (status == 0)
 		return 0;
 	if (status >= ARRAY_SIZE(xlat)) {
-		if (printk_ratelimit())
-			printk(KERN_ERR "%s(): BUG? "
+		printk_ratelimited(KERN_ERR "%s(): BUG? "
 			       "Unknown WA transfer status 0x%02x\n",
 			       __func__, real_status);
 		return -EINVAL;
 	}
 	errno = xlat[status];
 	if (unlikely(errno > 0)) {
-		if (printk_ratelimit())
-			printk(KERN_ERR "%s(): BUG? "
+		printk_ratelimited(KERN_ERR "%s(): BUG? "
 			       "Inconsistent WA status: 0x%02x\n",
 			       __func__, real_status);
 		errno = -errno;

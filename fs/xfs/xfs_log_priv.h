@@ -139,7 +139,6 @@ static inline uint xlog_get_client_id(__be32 i)
 /*
  * Flags for log structure
  */
-#define XLOG_CHKSUM_MISMATCH	0x1	/* used only during recovery */
 #define XLOG_ACTIVE_RECOVERY	0x2	/* in the middle of recovery */
 #define	XLOG_RECOVERY_NEEDED	0x4	/* log was recovered */
 #define XLOG_IO_ERROR		0x8	/* log hit an I/O error, and being
@@ -291,7 +290,7 @@ typedef struct xlog_rec_header {
 	__be32	  h_len;	/* len in bytes; should be 64-bit aligned: 4 */
 	__be64	  h_lsn;	/* lsn of this LR			:  8 */
 	__be64	  h_tail_lsn;	/* lsn of 1st LR w/ buffers not committed: 8 */
-	__be32	  h_chksum;	/* may not be used; non-zero if used	:  4 */
+	__le32	  h_crc;	/* crc of log record                    :  4 */
 	__be32	  h_prev_block; /* block number to previous LR		:  4 */
 	__be32	  h_num_logops;	/* number of log operations in this LR	:  4 */
 	__be32	  h_cycle_data[XLOG_HEADER_CYCLE_SIZE / BBSIZE];
@@ -469,7 +468,6 @@ struct xfs_cil {
  * threshold, yet give us plenty of space for aggregation on large logs.
  */
 #define XLOG_CIL_SPACE_LIMIT(log)	(log->l_logsize >> 3)
-#define XLOG_CIL_HARD_SPACE_LIMIT(log)	(3 * (log->l_logsize >> 4))
 
 /*
  * ticket grant locks, queues and accounting have their own cachlines
@@ -487,7 +485,7 @@ struct xlog_grant_head {
  * overflow 31 bits worth of byte offset, so using a byte number will mean
  * that round off problems won't occur when releasing partial reservations.
  */
-typedef struct xlog {
+struct xlog {
 	/* The following fields don't need locking */
 	struct xfs_mount	*l_mp;	        /* mount point */
 	struct xfs_ail		*l_ailp;	/* AIL log is working with */
@@ -495,6 +493,7 @@ typedef struct xlog {
 	struct xfs_buf		*l_xbuf;        /* extra buffer for log
 						 * wrapping */
 	struct xfs_buftarg	*l_targ;        /* buftarg of log */
+	struct delayed_work	l_work;		/* background flush work */
 	uint			l_flags;
 	uint			l_quotaoffs_flag; /* XFS_DQ_*, for QUOTAOFFs */
 	struct list_head	*l_buf_cancel_table;
@@ -540,7 +539,7 @@ typedef struct xlog {
 	char			*l_iclog_bak[XLOG_MAX_ICLOGS];
 #endif
 
-} xlog_t;
+};
 
 #define XLOG_BUF_CANCEL_BUCKET(log, blkno) \
 	((log)->l_buf_cancel_table + ((__uint64_t)blkno % XLOG_BC_TABLE_SIZE))
@@ -548,9 +547,15 @@ typedef struct xlog {
 #define XLOG_FORCED_SHUTDOWN(log)	((log)->l_flags & XLOG_IO_ERROR)
 
 /* common routines */
-extern int	 xlog_recover(xlog_t *log);
-extern int	 xlog_recover_finish(xlog_t *log);
-extern void	 xlog_pack_data(xlog_t *log, xlog_in_core_t *iclog, int);
+extern int
+xlog_recover(
+	struct xlog		*log);
+extern int
+xlog_recover_finish(
+	struct xlog		*log);
+
+extern __le32	 xlog_cksum(struct xlog *log, struct xlog_rec_header *rhead,
+			    char *dp, int size);
 
 extern kmem_zone_t *xfs_log_ticket_zone;
 struct xlog_ticket *

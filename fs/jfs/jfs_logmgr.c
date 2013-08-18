@@ -1058,7 +1058,8 @@ static int lmLogSync(struct jfs_log * log, int hard_sync)
  */
 void jfs_syncpt(struct jfs_log *log, int hard_sync)
 {	LOG_LOCK(log);
-	lmLogSync(log, hard_sync);
+	if (!test_bit(log_QUIESCE, &log->flag))
+		lmLogSync(log, hard_sync);
 	LOG_UNLOCK(log);
 }
 
@@ -2008,7 +2009,13 @@ static int lbmRead(struct jfs_log * log, int pn, struct lbuf ** bpp)
 
 	bio->bi_end_io = lbmIODone;
 	bio->bi_private = bp;
-	submit_bio(READ_SYNC, bio);
+	/*check if journaling to disk has been disabled*/
+	if (log->no_integrity) {
+		bio->bi_size = 0;
+		lbmIODone(bio, 0);
+	} else {
+		submit_bio(READ_SYNC, bio);
+	}
 
 	wait_event(bp->l_ioevent, (bp->l_flag != lbmREAD));
 

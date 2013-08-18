@@ -101,13 +101,6 @@ static int ocfs2_set_inode_attr(struct inode *inode, unsigned flags,
 	if (!S_ISDIR(inode->i_mode))
 		flags &= ~OCFS2_DIRSYNC_FL;
 
-	handle = ocfs2_start_trans(osb, OCFS2_INODE_UPDATE_CREDITS);
-	if (IS_ERR(handle)) {
-		status = PTR_ERR(handle);
-		mlog_errno(status);
-		goto bail_unlock;
-	}
-
 	oldflags = ocfs2_inode->ip_attr;
 	flags = flags & mask;
 	flags |= oldflags & ~mask;
@@ -120,7 +113,14 @@ static int ocfs2_set_inode_attr(struct inode *inode, unsigned flags,
 	if ((oldflags & OCFS2_IMMUTABLE_FL) || ((flags ^ oldflags) &
 		(OCFS2_APPEND_FL | OCFS2_IMMUTABLE_FL))) {
 		if (!capable(CAP_LINUX_IMMUTABLE))
-			goto bail_commit;
+			goto bail_unlock;
+	}
+
+	handle = ocfs2_start_trans(osb, OCFS2_INODE_UPDATE_CREDITS);
+	if (IS_ERR(handle)) {
+		status = PTR_ERR(handle);
+		mlog_errno(status);
+		goto bail_unlock;
 	}
 
 	ocfs2_inode->ip_attr = flags;
@@ -130,8 +130,8 @@ static int ocfs2_set_inode_attr(struct inode *inode, unsigned flags,
 	if (status < 0)
 		mlog_errno(status);
 
-bail_commit:
 	ocfs2_commit_trans(osb, handle);
+
 bail_unlock:
 	ocfs2_inode_unlock(inode, 1);
 bail:
@@ -706,8 +706,10 @@ int ocfs2_info_handle_freefrag(struct inode *inode,
 
 	o2info_set_request_filled(&oiff->iff_req);
 
-	if (o2info_to_user(*oiff, req))
+	if (o2info_to_user(*oiff, req)) {
+		status = -EFAULT;
 		goto bail;
+	}
 
 	status = 0;
 bail:
@@ -881,7 +883,7 @@ bail:
 
 long ocfs2_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
-	struct inode *inode = filp->f_path.dentry->d_inode;
+	struct inode *inode = file_inode(filp);
 	unsigned int flags;
 	int new_clusters;
 	int status;
@@ -928,7 +930,12 @@ long ocfs2_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		if (get_user(new_clusters, (int __user *)arg))
 			return -EFAULT;
 
-		return ocfs2_group_extend(inode, new_clusters);
+		status = mnt_want_write_file(filp);
+		if (status)
+			return status;
+		status = ocfs2_group_extend(inode, new_clusters);
+		mnt_drop_write_file(filp);
+		return status;
 	case OCFS2_IOC_GROUP_ADD:
 	case OCFS2_IOC_GROUP_ADD64:
 		if (!capable(CAP_SYS_RESOURCE))
@@ -937,7 +944,12 @@ long ocfs2_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		if (copy_from_user(&input, (int __user *) arg, sizeof(input)))
 			return -EFAULT;
 
-		return ocfs2_group_add(inode, &input);
+		status = mnt_want_write_file(filp);
+		if (status)
+			return status;
+		status = ocfs2_group_add(inode, &input);
+		mnt_drop_write_file(filp);
+		return status;
 	case OCFS2_IOC_REFLINK:
 		if (copy_from_user(&args, argp, sizeof(args)))
 			return -EFAULT;
@@ -984,7 +996,7 @@ long ocfs2_compat_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 {
 	bool preserve;
 	struct reflink_arguments args;
-	struct inode *inode = file->f_path.dentry->d_inode;
+	struct inode *inode = file_inode(file);
 	struct ocfs2_info info;
 	void __user *argp = (void __user *)arg;
 

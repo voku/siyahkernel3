@@ -94,9 +94,8 @@ protected.
 ---
 [mandatory]
 
-BKL is also moved from around sb operations.  ->write_super() Is now called 
-without BKL held.  BKL should have been shifted into individual fs sb_op
-functions.  If you don't need it, remove it.  
+BKL is also moved from around sb operations. BKL should have been shifted into
+individual fs sb_op functions.  If you don't need it, remove it.
 
 ---
 [informational]
@@ -282,7 +281,7 @@ ext2_write_failed and callers for an example.
 
 [mandatory]
 
-	->truncate is going away.  The whole truncate sequence needs to be
+	->truncate is gone.  The whole truncate sequence needs to be
 implemented in ->setattr, which is now mandatory for filesystems
 implementing on-disk size changes.  Start with a copy of the old inode_setattr
 and vmtruncate, and the reorder the vmtruncate + foofs_vmtruncate sequence to
@@ -355,12 +354,10 @@ protects *all* the dcache state of a given dentry.
 via rcu-walk path walk (basically, if the file can have had a path name in the
 vfs namespace).
 
-	i_dentry and i_rcu share storage in a union, and the vfs expects
-i_dentry to be reinitialized before it is freed, so an:
-
-  INIT_LIST_HEAD(&inode->i_dentry);
-
-must be done in the RCU callback.
+	Even though i_dentry and i_rcu share storage in a union, we will
+initialize the former in inode_init_always(), so just leave it alone in
+the callback.  It used to be necessary to clean it there, but not anymore
+(starting at 3.2).
 
 --
 [recommended]
@@ -395,9 +392,6 @@ file) you must return -EOPNOTSUPP if FALLOC_FL_PUNCH_HOLE is set in mode.
 Currently you can only have FALLOC_FL_PUNCH_HOLE with FALLOC_FL_KEEP_SIZE set,
 so the i_size should not change when hole punching, even when puching the end of
 a file off.
-
---
-[mandatory]
 
 --
 [mandatory]

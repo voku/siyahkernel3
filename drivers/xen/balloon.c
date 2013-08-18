@@ -39,6 +39,7 @@
 #include <linux/kernel.h>
 #include <linux/sched.h>
 #include <linux/errno.h>
+#include <linux/module.h>
 #include <linux/mm.h>
 #include <linux/bootmem.h>
 #include <linux/pagemap.h>
@@ -54,7 +55,6 @@
 #include <asm/pgalloc.h>
 #include <asm/pgtable.h>
 #include <asm/tlb.h>
-#include <asm/e820.h>
 
 #include <asm/xen/hypervisor.h>
 #include <asm/xen/hypercall.h>
@@ -87,14 +87,14 @@ struct balloon_stats balloon_stats;
 EXPORT_SYMBOL_GPL(balloon_stats);
 
 /* We increase/decrease in batches which fit in a page */
-static unsigned long frame_list[PAGE_SIZE / sizeof(unsigned long)];
+static xen_pfn_t frame_list[PAGE_SIZE / sizeof(unsigned long)];
 
 #ifdef CONFIG_HIGHMEM
 #define inc_totalhigh_pages() (totalhigh_pages++)
 #define dec_totalhigh_pages() (totalhigh_pages--)
 #else
-#define inc_totalhigh_pages() do {} while(0)
-#define dec_totalhigh_pages() do {} while(0)
+#define inc_totalhigh_pages() do {} while (0)
+#define dec_totalhigh_pages() do {} while (0)
 #endif
 
 /* List of ballooned pages, threaded through the mem_map array. */
@@ -154,8 +154,7 @@ static struct page *balloon_retrieve(bool prefer_highmem)
 	if (PageHighMem(page)) {
 		balloon_stats.balloon_high--;
 		inc_totalhigh_pages();
-	}
-	else
+	} else
 		balloon_stats.balloon_low--;
 
 	totalram_pages++;
@@ -360,6 +359,7 @@ static enum bp_state increase_reservation(unsigned long nr_pages)
 
 		set_phys_to_machine(pfn, frame_list[i]);
 
+#ifdef CONFIG_XEN_HAVE_PVMMU
 		/* Link back into the page tables if not highmem. */
 		if (xen_pv_domain() && !PageHighMem(page)) {
 			int ret;
@@ -369,6 +369,7 @@ static enum bp_state increase_reservation(unsigned long nr_pages)
 				0);
 			BUG_ON(ret);
 		}
+#endif
 
 		/* Relinquish the page back to the allocator. */
 		ClearPageReserved(page);
@@ -406,7 +407,8 @@ static enum bp_state decrease_reservation(unsigned long nr_pages, gfp_t gfp)
 		nr_pages = ARRAY_SIZE(frame_list);
 
 	for (i = 0; i < nr_pages; i++) {
-		if ((page = alloc_page(gfp)) == NULL) {
+		page = alloc_page(gfp);
+		if (page == NULL) {
 			nr_pages = i;
 			state = BP_EAGAIN;
 			break;
@@ -417,13 +419,14 @@ static enum bp_state decrease_reservation(unsigned long nr_pages, gfp_t gfp)
 
 		scrub_page(page);
 
+#ifdef CONFIG_XEN_HAVE_PVMMU
 		if (xen_pv_domain() && !PageHighMem(page)) {
 			ret = HYPERVISOR_update_va_mapping(
 				(unsigned long)__va(pfn << PAGE_SHIFT),
 				__pte_ma(0), 0);
 			BUG_ON(ret);
-                }
-
+		}
+#endif
 	}
 
 	/* Ensure that ballooned highmem pages don't have kmaps. */
@@ -501,20 +504,24 @@ EXPORT_SYMBOL_GPL(balloon_set_new_target);
  * alloc_xenballooned_pages - get pages that have been ballooned out
  * @nr_pages: Number of pages to get
  * @pages: pages returned
+ * @highmem: allow highmem pages
  * @return 0 on success, error otherwise
  */
-int alloc_xenballooned_pages(int nr_pages, struct page** pages)
+int alloc_xenballooned_pages(int nr_pages, struct page **pages, bool highmem)
 {
 	int pgno = 0;
-	struct page* page;
+	struct page *page;
 	mutex_lock(&balloon_mutex);
 	while (pgno < nr_pages) {
-		page = balloon_retrieve(true);
-		if (page) {
+		page = balloon_retrieve(highmem);
+		if (page && (highmem || !PageHighMem(page))) {
 			pages[pgno++] = page;
 		} else {
 			enum bp_state st;
-			st = decrease_reservation(nr_pages - pgno, GFP_HIGHUSER);
+			if (page)
+				balloon_append(page);
+			st = decrease_reservation(nr_pages - pgno,
+					highmem ? GFP_HIGHUSER : GFP_USER);
 			if (st != BP_DONE)
 				goto out_undo;
 		}
@@ -536,7 +543,7 @@ EXPORT_SYMBOL(alloc_xenballooned_pages);
  * @nr_pages: Number of pages
  * @pages: pages to return
  */
-void free_xenballooned_pages(int nr_pages, struct page** pages)
+void free_xenballooned_pages(int nr_pages, struct page **pages)
 {
 	int i;
 
@@ -555,17 +562,40 @@ void free_xenballooned_pages(int nr_pages, struct page** pages)
 }
 EXPORT_SYMBOL(free_xenballooned_pages);
 
-static int __init balloon_init(void)
+static void __init balloon_add_region(unsigned long start_pfn,
+				      unsigned long pages)
 {
 	unsigned long pfn, extra_pfn_end;
 	struct page *page;
+
+	/*
+	 * If the amount of usable memory has been limited (e.g., with
+	 * the 'mem' command line parameter), don't add pages beyond
+	 * this limit.
+	 */
+	extra_pfn_end = min(max_pfn, start_pfn + pages);
+
+	for (pfn = start_pfn; pfn < extra_pfn_end; pfn++) {
+		page = pfn_to_page(pfn);
+		/* totalram_pages and totalhigh_pages do not
+		   include the boot-time balloon extension, so
+		   don't subtract from it. */
+		__balloon_append(page);
+	}
+}
+
+static int __init balloon_init(void)
+{
+	int i;
 
 	if (!xen_domain())
 		return -ENODEV;
 
 	pr_info("xen/balloon: Initialising balloon driver.\n");
 
-	balloon_stats.current_pages = xen_pv_domain() ? min(xen_start_info->nr_pages, max_pfn) : max_pfn;
+	balloon_stats.current_pages = xen_pv_domain()
+		? min(xen_start_info->nr_pages - xen_released_pages, max_pfn)
+		: max_pfn;
 	balloon_stats.target_pages  = balloon_stats.current_pages;
 	balloon_stats.balloon_low   = 0;
 	balloon_stats.balloon_high  = 0;
@@ -584,24 +614,13 @@ static int __init balloon_init(void)
 #endif
 
 	/*
-	 * Initialise the balloon with excess memory space.  We need
-	 * to make sure we don't add memory which doesn't exist or
-	 * logically exist.  The E820 map can be trimmed to be smaller
-	 * than the amount of physical memory due to the mem= command
-	 * line parameter.  And if this is a 32-bit non-HIGHMEM kernel
-	 * on a system with memory which requires highmem to access,
-	 * don't try to use it.
+	 * Initialize the balloon with pages from the extra memory
+	 * regions (see arch/x86/xen/setup.c).
 	 */
-	extra_pfn_end = min(min(max_pfn, e820_end_of_ram_pfn()),
-			    (unsigned long)PFN_DOWN(xen_extra_mem_start + xen_extra_mem_size));
-	for (pfn = PFN_UP(xen_extra_mem_start);
-	     pfn < extra_pfn_end;
-	     pfn++) {
-		page = pfn_to_page(pfn);
-		/* totalram_pages and totalhigh_pages do not include the boot-time
-		   balloon extension, so don't subtract from it. */
-		__balloon_append(page);
-	}
+	for (i = 0; i < XEN_EXTRA_MEM_MAX_REGIONS; i++)
+		if (xen_extra_mem[i].size)
+			balloon_add_region(PFN_UP(xen_extra_mem[i].start),
+					   PFN_DOWN(xen_extra_mem[i].size));
 
 	return 0;
 }

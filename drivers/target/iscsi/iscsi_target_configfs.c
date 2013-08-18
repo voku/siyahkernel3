@@ -20,15 +20,14 @@
  ****************************************************************************/
 
 #include <linux/configfs.h>
+#include <linux/export.h>
+#include <linux/inet.h>
 #include <target/target_core_base.h>
-#include <target/target_core_transport.h>
-#include <target/target_core_fabric_ops.h>
+#include <target/target_core_fabric.h>
 #include <target/target_core_fabric_configfs.h>
-#include <target/target_core_fabric_lib.h>
-#include <target/target_core_device.h>
-#include <target/target_core_tpg.h>
 #include <target/target_core_configfs.h>
 #include <target/configfs_macros.h>
+#include <target/iscsi/iscsi_transport.h>
 
 #include "iscsi_target_core.h"
 #include "iscsi_target_parameters.h"
@@ -48,29 +47,6 @@ struct lio_target_configfs_attribute {
 	ssize_t (*show)(void *, char *);
 	ssize_t (*store)(void *, const char *, size_t);
 };
-
-struct iscsi_portal_group *lio_get_tpg_from_tpg_item(
-	struct config_item *item,
-	struct iscsi_tiqn **tiqn_out)
-{
-	struct se_portal_group *se_tpg = container_of(to_config_group(item),
-					struct se_portal_group, tpg_group);
-	struct iscsi_portal_group *tpg =
-			(struct iscsi_portal_group *)se_tpg->se_tpg_fabric_ptr;
-	int ret;
-
-	if (!tpg) {
-		pr_err("Unable to locate struct iscsi_portal_group "
-			"pointer\n");
-		return NULL;
-	}
-	ret = iscsit_get_tpg(tpg);
-	if (ret < 0)
-		return NULL;
-
-	*tiqn_out = tpg->tpg_tiqn;
-	return tpg;
-}
 
 /* Start items for lio_target_portal_cit */
 
@@ -149,8 +125,87 @@ out:
 
 TF_NP_BASE_ATTR(lio_target, sctp, S_IRUGO | S_IWUSR);
 
+static ssize_t lio_target_np_show_iser(
+	struct se_tpg_np *se_tpg_np,
+	char *page)
+{
+	struct iscsi_tpg_np *tpg_np = container_of(se_tpg_np,
+				struct iscsi_tpg_np, se_tpg_np);
+	struct iscsi_tpg_np *tpg_np_iser;
+	ssize_t rb;
+
+	tpg_np_iser = iscsit_tpg_locate_child_np(tpg_np, ISCSI_INFINIBAND);
+	if (tpg_np_iser)
+		rb = sprintf(page, "1\n");
+	else
+		rb = sprintf(page, "0\n");
+
+	return rb;
+}
+
+static ssize_t lio_target_np_store_iser(
+	struct se_tpg_np *se_tpg_np,
+	const char *page,
+	size_t count)
+{
+	struct iscsi_np *np;
+	struct iscsi_portal_group *tpg;
+	struct iscsi_tpg_np *tpg_np = container_of(se_tpg_np,
+				struct iscsi_tpg_np, se_tpg_np);
+	struct iscsi_tpg_np *tpg_np_iser = NULL;
+	char *endptr;
+	u32 op;
+	int rc;
+
+	op = simple_strtoul(page, &endptr, 0);
+	if ((op != 1) && (op != 0)) {
+		pr_err("Illegal value for tpg_enable: %u\n", op);
+		return -EINVAL;
+	}
+	np = tpg_np->tpg_np;
+	if (!np) {
+		pr_err("Unable to locate struct iscsi_np from"
+				" struct iscsi_tpg_np\n");
+		return -EINVAL;
+	}
+
+	tpg = tpg_np->tpg;
+	if (iscsit_get_tpg(tpg) < 0)
+		return -EINVAL;
+
+	if (op) {
+		int rc = request_module("ib_isert");
+		if (rc != 0)
+			pr_warn("Unable to request_module for ib_isert\n");
+
+		tpg_np_iser = iscsit_tpg_add_network_portal(tpg, &np->np_sockaddr,
+				np->np_ip, tpg_np, ISCSI_INFINIBAND);
+		if (!tpg_np_iser || IS_ERR(tpg_np_iser))
+			goto out;
+	} else {
+		tpg_np_iser = iscsit_tpg_locate_child_np(tpg_np, ISCSI_INFINIBAND);
+		if (!tpg_np_iser)
+			goto out;
+
+		rc = iscsit_tpg_del_network_portal(tpg, tpg_np_iser);
+		if (rc < 0)
+			goto out;
+	}
+
+	printk("lio_target_np_store_iser() done, op: %d\n", op);
+
+	iscsit_put_tpg(tpg);
+	return count;
+out:
+	iscsit_put_tpg(tpg);
+	return -EINVAL;
+}
+
+TF_NP_BASE_ATTR(lio_target, iser, S_IRUGO | S_IWUSR);
+
 static struct configfs_attribute *lio_target_portal_attrs[] = {
 	&lio_target_np_sctp.attr,
+	&lio_target_np_iser.attr,
 	NULL,
 };
 
@@ -160,7 +215,7 @@ static struct configfs_attribute *lio_target_portal_attrs[] = {
 
 #define MAX_PORTAL_LEN		256
 
-struct se_tpg_np *lio_target_call_addnptotpg(
+static struct se_tpg_np *lio_target_call_addnptotpg(
 	struct se_portal_group *se_tpg,
 	struct config_group *group,
 	const char *name)
@@ -260,7 +315,7 @@ struct se_tpg_np *lio_target_call_addnptotpg(
 	 * iSER/SCTP (TODO, software emulation with osc-iwarp)
 	 * iSER/IB (TODO, hardware available)
 	 *
-	 * can be enabled with atributes under
+	 * can be enabled with attributes under
 	 * sys/kernel/config/iscsi/$IQN/$TPG/np/$IP:$PORT/
 	 *
 	 */
@@ -779,9 +834,33 @@ static ssize_t lio_target_nacl_store_cmdsn_depth(
 
 TF_NACL_BASE_ATTR(lio_target, cmdsn_depth, S_IRUGO | S_IWUSR);
 
+static ssize_t lio_target_nacl_show_tag(
+	struct se_node_acl *se_nacl,
+	char *page)
+{
+	return snprintf(page, PAGE_SIZE, "%s", se_nacl->acl_tag);
+}
+
+static ssize_t lio_target_nacl_store_tag(
+	struct se_node_acl *se_nacl,
+	const char *page,
+	size_t count)
+{
+	int ret;
+
+	ret = core_tpg_set_initiator_node_tag(se_nacl->se_tpg, se_nacl, page);
+
+	if (ret < 0)
+		return ret;
+	return count;
+}
+
+TF_NACL_BASE_ATTR(lio_target, tag, S_IRUGO | S_IWUSR);
+
 static struct configfs_attribute *lio_target_initiator_attrs[] = {
 	&lio_target_nacl_info.attr,
 	&lio_target_nacl_cmdsn_depth.attr,
+	&lio_target_nacl_tag.attr,
 	NULL,
 };
 
@@ -815,9 +894,6 @@ static struct se_node_acl *lio_target_make_nodeacl(
 	if (!se_nacl_new)
 		return ERR_PTR(-ENOMEM);
 
-	acl = container_of(se_nacl_new, struct iscsi_node_acl,
-				se_node_acl);
-
 	cmdsn_depth = ISCSI_TPG_ATTRIB(tpg)->default_cmdsn_depth;
 	/*
 	 * se_nacl_new may be released by core_tpg_add_initiator_node_acl()
@@ -828,9 +904,10 @@ static struct se_node_acl *lio_target_make_nodeacl(
 	if (IS_ERR(se_nacl))
 		return se_nacl;
 
-	stats_cg = &acl->se_node_acl.acl_fabric_stat_group;
+	acl = container_of(se_nacl, struct iscsi_node_acl, se_node_acl);
+	stats_cg = &se_nacl->acl_fabric_stat_group;
 
-	stats_cg->default_groups = kzalloc(sizeof(struct config_group) * 2,
+	stats_cg->default_groups = kmalloc(sizeof(struct config_group *) * 2,
 				GFP_KERNEL);
 	if (!stats_cg->default_groups) {
 		pr_err("Unable to allocate memory for"
@@ -1061,6 +1138,9 @@ TPG_PARAM_ATTR(ImmediateData, S_IRUGO | S_IWUSR);
 DEF_TPG_PARAM(MaxRecvDataSegmentLength);
 TPG_PARAM_ATTR(MaxRecvDataSegmentLength, S_IRUGO | S_IWUSR);
 
+DEF_TPG_PARAM(MaxXmitDataSegmentLength);
+TPG_PARAM_ATTR(MaxXmitDataSegmentLength, S_IRUGO | S_IWUSR);
+
 DEF_TPG_PARAM(MaxBurstLength);
 TPG_PARAM_ATTR(MaxBurstLength, S_IRUGO | S_IWUSR);
 
@@ -1106,6 +1186,7 @@ static struct configfs_attribute *lio_target_tpg_param_attrs[] = {
 	&iscsi_tpg_param_InitialR2T.attr,
 	&iscsi_tpg_param_ImmediateData.attr,
 	&iscsi_tpg_param_MaxRecvDataSegmentLength.attr,
+	&iscsi_tpg_param_MaxXmitDataSegmentLength.attr,
 	&iscsi_tpg_param_MaxBurstLength.attr,
 	&iscsi_tpg_param_FirstBurstLength.attr,
 	&iscsi_tpg_param_DefaultTime2Wait.attr,
@@ -1193,7 +1274,7 @@ static struct configfs_attribute *lio_target_tpg_attrs[] = {
 
 /* Start items for lio_target_tiqn_cit */
 
-struct se_portal_group *lio_target_tiqn_addtpg(
+static struct se_portal_group *lio_target_tiqn_addtpg(
 	struct se_wwn *wwn,
 	struct config_group *group,
 	const char *name)
@@ -1224,7 +1305,7 @@ struct se_portal_group *lio_target_tiqn_addtpg(
 
 	ret = core_tpg_register(
 			&lio_target_fabric_configfs->tf_ops,
-			wwn, &tpg->tpg_se_tpg, (void *)tpg,
+			wwn, &tpg->tpg_se_tpg, tpg,
 			TRANSPORT_TPG_TYPE_NORMAL);
 	if (ret < 0)
 		return NULL;
@@ -1243,7 +1324,7 @@ out:
 	return NULL;
 }
 
-void lio_target_tiqn_deltpg(struct se_portal_group *se_tpg)
+static void lio_target_tiqn_deltpg(struct se_portal_group *se_tpg)
 {
 	struct iscsi_portal_group *tpg;
 	struct iscsi_tiqn *tiqn;
@@ -1275,7 +1356,7 @@ static struct configfs_attribute *lio_target_wwn_attrs[] = {
 	NULL,
 };
 
-struct se_wwn *lio_target_call_coreaddtiqn(
+static struct se_wwn *lio_target_call_coreaddtiqn(
 	struct target_fabric_configfs *tf,
 	struct config_group *group,
 	const char *name)
@@ -1291,7 +1372,7 @@ struct se_wwn *lio_target_call_coreaddtiqn(
 	 */
 	stats_cg = &tiqn->tiqn_wwn.fabric_stat_group;
 
-	stats_cg->default_groups = kzalloc(sizeof(struct config_group) * 6,
+	stats_cg->default_groups = kmalloc(sizeof(struct config_group *) * 6,
 				GFP_KERNEL);
 	if (!stats_cg->default_groups) {
 		pr_err("Unable to allocate memory for"
@@ -1323,7 +1404,7 @@ struct se_wwn *lio_target_call_coreaddtiqn(
 	return &tiqn->tiqn_wwn;
 }
 
-void lio_target_call_coredeltiqn(
+static void lio_target_call_coredeltiqn(
 	struct se_wwn *wwn)
 {
 	struct iscsi_tiqn *tiqn = container_of(wwn, struct iscsi_tiqn, tiqn_wwn);
@@ -1498,7 +1579,8 @@ static u32 iscsi_get_task_tag(struct se_cmd *se_cmd)
 {
 	struct iscsi_cmd *cmd = container_of(se_cmd, struct iscsi_cmd, se_cmd);
 
-	return cmd->init_task_tag;
+	/* only used for printks or comparism with ->ref_task_tag */
+	return (__force u32)cmd->init_task_tag;
 }
 
 static int iscsi_get_cmd_state(struct se_cmd *se_cmd)
@@ -1506,28 +1588,6 @@ static int iscsi_get_cmd_state(struct se_cmd *se_cmd)
 	struct iscsi_cmd *cmd = container_of(se_cmd, struct iscsi_cmd, se_cmd);
 
 	return cmd->i_state;
-}
-
-static int iscsi_is_state_remove(struct se_cmd *se_cmd)
-{
-	struct iscsi_cmd *cmd = container_of(se_cmd, struct iscsi_cmd, se_cmd);
-
-	return (cmd->i_state == ISTATE_REMOVE);
-}
-
-static int lio_sess_logged_in(struct se_session *se_sess)
-{
-	struct iscsi_session *sess = se_sess->fabric_sess_ptr;
-	int ret;
-	/*
-	 * Called with spin_lock_bh(&tpg_lock); and
-	 * spin_lock(&se_tpg->session_lock); held.
-	 */
-	spin_lock(&sess->conn_lock);
-	ret = (sess->session_state != TARG_SESS_STATE_LOGGED_IN);
-	spin_unlock(&sess->conn_lock);
-
-	return ret;
 }
 
 static u32 lio_sess_get_index(struct se_session *se_sess)
@@ -1556,16 +1616,18 @@ static int lio_queue_data_in(struct se_cmd *se_cmd)
 	struct iscsi_cmd *cmd = container_of(se_cmd, struct iscsi_cmd, se_cmd);
 
 	cmd->i_state = ISTATE_SEND_DATAIN;
-	iscsit_add_cmd_to_response_queue(cmd, cmd->conn, cmd->i_state);
+	cmd->conn->conn_transport->iscsit_queue_data_in(cmd->conn, cmd);
+
 	return 0;
 }
 
 static int lio_write_pending(struct se_cmd *se_cmd)
 {
 	struct iscsi_cmd *cmd = container_of(se_cmd, struct iscsi_cmd, se_cmd);
+	struct iscsi_conn *conn = cmd->conn;
 
 	if (!cmd->immediate_data && !cmd->unsolicited_data)
-		return iscsit_build_r2ts_for_cmd(cmd, cmd->conn, 1);
+		return conn->conn_transport->iscsit_get_dataout(conn, cmd, false);
 
 	return 0;
 }
@@ -1587,31 +1649,9 @@ static int lio_queue_status(struct se_cmd *se_cmd)
 	struct iscsi_cmd *cmd = container_of(se_cmd, struct iscsi_cmd, se_cmd);
 
 	cmd->i_state = ISTATE_SEND_STATUS;
-	iscsit_add_cmd_to_response_queue(cmd, cmd->conn, cmd->i_state);
+	cmd->conn->conn_transport->iscsit_queue_status(cmd->conn, cmd);
+
 	return 0;
-}
-
-static u16 lio_set_fabric_sense_len(struct se_cmd *se_cmd, u32 sense_length)
-{
-	unsigned char *buffer = se_cmd->sense_buffer;
-	/*
-	 * From RFC-3720 10.4.7.  Data Segment - Sense and Response Data Segment
-	 * 16-bit SenseLength.
-	 */
-	buffer[0] = ((sense_length >> 8) & 0xff);
-	buffer[1] = (sense_length & 0xff);
-	/*
-	 * Return two byte offset into allocated sense_buffer.
-	 */
-	return 2;
-}
-
-static u16 lio_get_fabric_sense_len(void)
-{
-	/*
-	 * Return two byte offset into allocated sense_buffer.
-	 */
-	return 2;
 }
 
 static int lio_queue_tm_rsp(struct se_cmd *se_cmd)
@@ -1703,8 +1743,8 @@ static int lio_tpg_shutdown_session(struct se_session *se_sess)
 	atomic_set(&sess->session_reinstatement, 1);
 	spin_unlock(&sess->conn_lock);
 
-	iscsit_inc_session_usage_count(sess);
 	iscsit_stop_time2retain_timer(sess);
+	iscsit_stop_session(sess, 1, 1);
 
 	return 1;
 }
@@ -1720,26 +1760,7 @@ static void lio_tpg_close_session(struct se_session *se_sess)
 	 * If the iSCSI Session for the iSCSI Initiator Node exists,
 	 * forcefully shutdown the iSCSI NEXUS.
 	 */
-	iscsit_stop_session(sess, 1, 1);
-	iscsit_dec_session_usage_count(sess);
 	iscsit_close_session(sess);
-}
-
-static void lio_tpg_stop_session(
-	struct se_session *se_sess,
-	int sess_sleep,
-	int conn_sleep)
-{
-	struct iscsi_session *sess = se_sess->fabric_sess_ptr;
-
-	iscsit_stop_session(sess, sess_sleep, conn_sleep);
-}
-
-static void lio_tpg_fall_back_to_erl0(struct se_session *se_sess)
-{
-	struct iscsi_session *sess = se_sess->fabric_sess_ptr;
-
-	iscsit_fall_back_to_erl0(sess);
 }
 
 static u32 lio_tpg_get_inst_index(struct se_portal_group *se_tpg)
@@ -1758,11 +1779,17 @@ static void lio_set_default_node_attributes(struct se_node_acl *se_acl)
 	iscsit_set_default_node_attribues(acl);
 }
 
+static int lio_check_stop_free(struct se_cmd *se_cmd)
+{
+	return target_put_sess_cmd(se_cmd->se_sess, se_cmd);
+}
+
 static void lio_release_cmd(struct se_cmd *se_cmd)
 {
 	struct iscsi_cmd *cmd = container_of(se_cmd, struct iscsi_cmd, se_cmd);
 
-	iscsit_release_cmd(cmd);
+	pr_debug("Entering lio_release_cmd for se_cmd: %p\n", se_cmd);
+	cmd->release_cmd(cmd);
 }
 
 /* End functions for target_core_fabric_ops */
@@ -1802,12 +1829,10 @@ int iscsi_target_register_configfs(void)
 	fabric->tf_ops.tpg_alloc_fabric_acl = &lio_tpg_alloc_fabric_acl;
 	fabric->tf_ops.tpg_release_fabric_acl = &lio_tpg_release_fabric_acl;
 	fabric->tf_ops.tpg_get_inst_index = &lio_tpg_get_inst_index;
+	fabric->tf_ops.check_stop_free = &lio_check_stop_free,
 	fabric->tf_ops.release_cmd = &lio_release_cmd;
 	fabric->tf_ops.shutdown_session = &lio_tpg_shutdown_session;
 	fabric->tf_ops.close_session = &lio_tpg_close_session;
-	fabric->tf_ops.stop_session = &lio_tpg_stop_session;
-	fabric->tf_ops.fall_back_to_erl0 = &lio_tpg_fall_back_to_erl0;
-	fabric->tf_ops.sess_logged_in = &lio_sess_logged_in;
 	fabric->tf_ops.sess_get_index = &lio_sess_get_index;
 	fabric->tf_ops.sess_get_initiator_sid = &lio_sess_get_initiator_sid;
 	fabric->tf_ops.write_pending = &lio_write_pending;
@@ -1819,9 +1844,6 @@ int iscsi_target_register_configfs(void)
 	fabric->tf_ops.queue_data_in = &lio_queue_data_in;
 	fabric->tf_ops.queue_status = &lio_queue_status;
 	fabric->tf_ops.queue_tm_rsp = &lio_queue_tm_rsp;
-	fabric->tf_ops.set_fabric_sense_len = &lio_set_fabric_sense_len;
-	fabric->tf_ops.get_fabric_sense_len = &lio_get_fabric_sense_len;
-	fabric->tf_ops.is_state_remove = &iscsi_is_state_remove;
 	/*
 	 * Setup function pointers for generic logic in target_core_fabric_configfs.c
 	 */

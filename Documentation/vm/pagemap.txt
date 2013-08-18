@@ -15,8 +15,7 @@ There are three components to pagemap:
     * Bits 0-54  page frame number (PFN) if present
     * Bits 0-4   swap type if swapped
     * Bits 5-54  swap offset if swapped
-    * Bit  55    pte is soft-dirty (see Documentation/vm/soft-dirty.txt)
-    * Bits 56-60 zero
+    * Bits 55-60 page shift (page size = 1<<page shift)
     * Bit  61    page is file-page or shared-anon
     * Bit  62    page swapped
     * Bit  63    page present
@@ -61,6 +60,7 @@ There are three components to pagemap:
     19. HWPOISON
     20. NOPAGE
     21. KSM
+    22. THP
 
 Short descriptions to the page flags:
 
@@ -68,8 +68,8 @@ Short descriptions to the page flags:
     page is being locked for exclusive access, eg. by undergoing read/write IO
 
  7. SLAB
-    page is managed by the SLAB/SLOB/SLUB kernel memory allocator
-    When compound page is used, SLUB will only set this flag on the head
+    page is managed by the SLAB/SLOB/SLUB/SLQB kernel memory allocator
+    When compound page is used, SLUB/SLQB will only set this flag on the head
     page; SLOB will not flag it at all.
 
 10. BUDDY
@@ -97,6 +97,9 @@ Short descriptions to the page flags:
 
 21. KSM
     identical memory pages dynamically shared between one or more processes
+
+22. THP
+    contiguous pages which construct transparent hugepages
 
     [IO related page flags]
  1. ERROR     IO error occurred

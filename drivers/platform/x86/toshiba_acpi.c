@@ -361,7 +361,7 @@ static enum led_brightness toshiba_illumination_get(struct led_classdev *cdev)
 	acpi_status status;
 	enum led_brightness result;
 
-	/* First request : initialize communication. */
+	/* First request : initialize communication. */
 	in[0] = 0xf100;
 	status = hci_raw(dev, in, out);
 	if (ACPI_FAILURE(status)) {

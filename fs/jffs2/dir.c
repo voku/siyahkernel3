@@ -117,12 +117,12 @@ static struct dentry *jffs2_lookup(struct inode *dir_i, struct dentry *target,
 static int jffs2_readdir(struct file *filp, void *dirent, filldir_t filldir)
 {
 	struct jffs2_inode_info *f;
-	struct inode *inode = filp->f_path.dentry->d_inode;
+	struct inode *inode = file_inode(filp);
 	struct jffs2_full_dirent *fd;
 	unsigned long offset, curofs;
 
 	jffs2_dbg(1, "jffs2_readdir() for dir_i #%lu\n",
-		  filp->f_path.dentry->d_inode->i_ino);
+		  file_inode(filp)->i_ino);
 
 	f = JFFS2_INODE_INFO(inode);
 
@@ -226,8 +226,8 @@ static int jffs2_create(struct inode *dir_i, struct dentry *dentry,
 		  __func__, inode->i_ino, inode->i_mode, inode->i_nlink,
 		  f->inocache->pino_nlink, inode->i_mapping->nrpages);
 
-	d_instantiate(dentry, inode);
 	unlock_new_inode(inode);
+	d_instantiate(dentry, inode);
 	return 0;
 
  fail:
@@ -446,8 +446,8 @@ static int jffs2_symlink (struct inode *dir_i, struct dentry *dentry, const char
 	mutex_unlock(&dir_f->sem);
 	jffs2_complete_reservation(c);
 
-	d_instantiate(dentry, inode);
 	unlock_new_inode(inode);
+	d_instantiate(dentry, inode);
 	return 0;
 
  fail:
@@ -591,8 +591,8 @@ static int jffs2_mkdir (struct inode *dir_i, struct dentry *dentry, umode_t mode
 	mutex_unlock(&dir_f->sem);
 	jffs2_complete_reservation(c);
 
-	d_instantiate(dentry, inode);
 	unlock_new_inode(inode);
+	d_instantiate(dentry, inode);
 	return 0;
 
  fail:
@@ -766,8 +766,8 @@ static int jffs2_mknod (struct inode *dir_i, struct dentry *dentry, umode_t mode
 	mutex_unlock(&dir_f->sem);
 	jffs2_complete_reservation(c);
 
-	d_instantiate(dentry, inode);
 	unlock_new_inode(inode);
+	d_instantiate(dentry, inode);
 	return 0;
 
  fail:

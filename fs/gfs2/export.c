@@ -37,10 +37,10 @@ static int gfs2_encode_fh(struct inode *inode, __u32 *p, int *len,
 
 	if (parent && (*len < GFS2_LARGE_FH_SIZE)) {
 		*len = GFS2_LARGE_FH_SIZE;
-		return 255;
+		return FILEID_INVALID;
 	} else if (*len < GFS2_SMALL_FH_SIZE) {
 		*len = GFS2_SMALL_FH_SIZE;
-		return 255;
+		return FILEID_INVALID;
 	}
 
 	fh[0] = cpu_to_be32(ip->i_no_formal_ino >> 32);
@@ -161,6 +161,8 @@ static struct dentry *gfs2_fh_to_dentry(struct super_block *sb, struct fid *fid,
 	case GFS2_SMALL_FH_SIZE:
 	case GFS2_LARGE_FH_SIZE:
 	case GFS2_OLD_FH_SIZE:
+		if (fh_len < GFS2_SMALL_FH_SIZE)
+			return NULL;
 		this.no_formal_ino = ((u64)be32_to_cpu(fh[0])) << 32;
 		this.no_formal_ino |= be32_to_cpu(fh[1]);
 		this.no_addr = ((u64)be32_to_cpu(fh[2])) << 32;
@@ -180,6 +182,8 @@ static struct dentry *gfs2_fh_to_parent(struct super_block *sb, struct fid *fid,
 	switch (fh_type) {
 	case GFS2_LARGE_FH_SIZE:
 	case GFS2_OLD_FH_SIZE:
+		if (fh_len < GFS2_LARGE_FH_SIZE)
+			return NULL;
 		parent.no_formal_ino = ((u64)be32_to_cpu(fh[4])) << 32;
 		parent.no_formal_ino |= be32_to_cpu(fh[5]);
 		parent.no_addr = ((u64)be32_to_cpu(fh[6])) << 32;

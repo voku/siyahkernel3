@@ -82,7 +82,6 @@ rename:		yes (all)	(see below)
 readlink:	no
 follow_link:	no
 put_link:	no
-truncate:	yes		(see below)
 setattr:	yes
 permission:	no (may not block if called in rcu-walk mode)
 get_acl:	no
@@ -98,11 +97,6 @@ atomic_open:	yes
 	Additionally, ->rmdir(), ->unlink() and ->rename() have ->i_mutex on
 victim.
 	cross-directory ->rename() has (per-superblock) ->s_vfs_rename_sem.
-	->truncate() is never called directly - it's a callback, not a
-method. It's called by vmtruncate() - deprecated library function used by
-->setattr(). Locking information above applies to that call (i.e. is
-inherited from ->setattr() - vmtruncate() is used when ATTR_SIZE had been
-passed).
 
 See Documentation/filesystems/directory-locking for more detailed discussion
 of the locking scheme for directory operations.
@@ -116,7 +110,6 @@ prototypes:
 	int (*drop_inode) (struct inode *);
 	void (*evict_inode) (struct inode *);
 	void (*put_super) (struct super_block *);
-	void (*write_super) (struct super_block *);
 	int (*sync_fs)(struct super_block *sb, int wait);
 	int (*freeze_fs) (struct super_block *);
 	int (*unfreeze_fs) (struct super_block *);
@@ -138,10 +131,9 @@ write_inode:
 drop_inode:				!!!inode->i_lock!!!
 evict_inode:
 put_super:		write
-write_super:		read
 sync_fs:		read
-freeze_fs:		read
-unfreeze_fs:		read
+freeze_fs:		write
+unfreeze_fs:		write
 statfs:			maybe(read)	(see below)
 remount_fs:		write
 umount_begin:		no

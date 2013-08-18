@@ -51,8 +51,7 @@ int ceph_init_dentry(struct dentry *dentry)
 		goto out_unlock;
 	}
 
-	if (dentry->d_parent == NULL ||   /* nfs fh_to_dentry */
-	    ceph_snap(dentry->d_parent->d_inode) == CEPH_NOSNAP)
+	if (ceph_snap(dentry->d_parent->d_inode) == CEPH_NOSNAP)
 		d_set_d_op(dentry, &ceph_dentry_ops);
 	else if (ceph_snap(dentry->d_parent->d_inode) == CEPH_SNAPDIR)
 		d_set_d_op(dentry, &ceph_snapdir_dentry_ops);
@@ -79,7 +78,7 @@ struct inode *ceph_get_dentry_parent_inode(struct dentry *dentry)
 		return NULL;
 
 	spin_lock(&dentry->d_lock);
-	if (dentry->d_parent) {
+	if (!IS_ROOT(dentry)) {
 		inode = dentry->d_parent->d_inode;
 		ihold(inode);
 	}
@@ -108,7 +107,7 @@ static unsigned fpos_off(loff_t p)
  * falling back to a "normal" sync readdir if any dentries in the dir
  * are dropped.
  *
- * D_COMPLETE tells indicates we have all dentries in the dir.  It is
+ * Complete dir indicates that we have all dentries in the dir.  It is
  * defined IFF we hold CEPH_CAP_FILE_SHARED (which will be revoked by
  * the MDS if/when the directory is modified).
  */
@@ -199,8 +198,8 @@ more:
 	filp->f_pos++;
 
 	/* make sure a dentry wasn't dropped while we didn't have parent lock */
-	if (!ceph_dir_test_complete(dir)) {
-		dout(" lost D_COMPLETE on %p; falling back to mds\n", dir);
+	if (!ceph_dir_is_complete(dir)) {
+		dout(" lost dir complete on %p; falling back to mds\n", dir);
 		err = -EAGAIN;
 		goto out;
 	}
@@ -239,7 +238,7 @@ static int note_last_dentry(struct ceph_file_info *fi, const char *name,
 static int ceph_readdir(struct file *filp, void *dirent, filldir_t filldir)
 {
 	struct ceph_file_info *fi = filp->private_data;
-	struct inode *inode = filp->f_dentry->d_inode;
+	struct inode *inode = file_inode(filp);
 	struct ceph_inode_info *ci = ceph_inode(inode);
 	struct ceph_fs_client *fsc = ceph_inode_to_client(inode);
 	struct ceph_mds_client *mdsc = fsc->mdsc;
@@ -259,7 +258,7 @@ static int ceph_readdir(struct file *filp, void *dirent, filldir_t filldir)
 	if (filp->f_pos == 0) {
 		/* note dir version at start of readdir so we can tell
 		 * if any dentries get dropped */
-		fi->dir_release_count = ci->i_release_count;
+		fi->dir_release_count = atomic_read(&ci->i_release_count);
 
 		dout("readdir off 0 -> '.'\n");
 		if (filldir(dirent, ".", 1, ceph_make_fpos(0, 0),
@@ -285,7 +284,7 @@ static int ceph_readdir(struct file *filp, void *dirent, filldir_t filldir)
 	if ((filp->f_pos == 2 || fi->dentry) &&
 	    !ceph_test_mount_opt(fsc, NOASYNCREADDIR) &&
 	    ceph_snap(inode) != CEPH_SNAPDIR &&
-	    ceph_dir_test_complete(inode) &&
+	    __ceph_dir_is_complete(ci) &&
 	    __ceph_caps_issued_mask(ci, CEPH_CAP_FILE_SHARED, 1)) {
 		spin_unlock(&ci->i_ceph_lock);
 		err = __dcache_readdir(filp, dirent, filldir);
@@ -351,7 +350,8 @@ more:
 
 		if (!req->r_did_prepopulate) {
 			dout("readdir !did_prepopulate");
-			fi->dir_release_count--;    /* preclude D_COMPLETE */
+			/* preclude from marking dir complete */
+			fi->dir_release_count--;
 		}
 
 		/* note next offset and last dentry name */
@@ -429,8 +429,9 @@ more:
 	 * the complete dir contents in our cache.
 	 */
 	spin_lock(&ci->i_ceph_lock);
-	if (ci->i_release_count == fi->dir_release_count) {
-		ceph_dir_set_complete(inode);
+	if (atomic_read(&ci->i_release_count) == fi->dir_release_count) {
+		dout(" marking %p complete\n", inode);
+		__ceph_dir_set_complete(ci, fi->dir_release_count);
 		ci->i_max_offset = filp->f_pos;
 	}
 	spin_unlock(&ci->i_ceph_lock);
@@ -455,7 +456,7 @@ static void reset_readdir(struct ceph_file_info *fi)
 	fi->flags &= ~CEPH_F_ATEND;
 }
 
-static loff_t ceph_dir_llseek(struct file *file, loff_t offset, int origin)
+static loff_t ceph_dir_llseek(struct file *file, loff_t offset, int whence)
 {
 	struct ceph_file_info *fi = file->private_data;
 	struct inode *inode = file->f_mapping->host;
@@ -464,7 +465,7 @@ static loff_t ceph_dir_llseek(struct file *file, loff_t offset, int origin)
 
 	mutex_lock(&inode->i_mutex);
 	retval = -EINVAL;
-	switch (origin) {
+	switch (whence) {
 	case SEEK_END:
 		offset += inode->i_size + 2;   /* FIXME */
 		break;
@@ -605,7 +606,7 @@ static struct dentry *ceph_lookup(struct inode *dir, struct dentry *dentry,
 			    fsc->mount_options->snapdir_name,
 			    dentry->d_name.len) &&
 		    !is_root_ceph_dentry(dir, dentry) &&
-		    ceph_dir_test_complete(dir) &&
+		    __ceph_dir_is_complete(ci) &&
 		    (__ceph_caps_issued_mask(ci, CEPH_CAP_FILE_SHARED, 1))) {
 			spin_unlock(&ci->i_ceph_lock);
 			dout(" dir %p complete, -ENOENT\n", dir);
@@ -632,44 +633,6 @@ static struct dentry *ceph_lookup(struct inode *dir, struct dentry *dentry,
 	ceph_mdsc_put_request(req);  /* will dput(dentry) */
 	dout("lookup result=%p\n", dentry);
 	return dentry;
-}
-
-int ceph_atomic_open(struct inode *dir, struct dentry *dentry,
-		     struct file *file, unsigned flags, umode_t mode,
-		     int *opened)
-{
-	int err;
-	struct dentry *res = NULL;
-
-	if (!(flags & O_CREAT)) {
-		if (dentry->d_name.len > NAME_MAX)
-			return -ENAMETOOLONG;
-
-		err = ceph_init_dentry(dentry);
-		if (err < 0)
-			return err;
-
-		return ceph_lookup_open(dir, dentry, file, flags, mode, opened);
-	}
-
-	if (d_unhashed(dentry)) {
-		res = ceph_lookup(dir, dentry, 0);
-		if (IS_ERR(res))
-			return PTR_ERR(res);
-
-		if (res)
-			dentry = res;
-	}
-
-	/* We don't deal with positive dentries here */
-	if (dentry->d_inode)
-		return finish_no_open(file, res);
-
-	*opened |= FILE_CREATED;
-	err = ceph_lookup_open(dir, dentry, file, flags, mode, opened);
-	dput(res);
-
-	return err;
 }
 
 /*
@@ -1104,44 +1067,6 @@ static int ceph_snapdir_d_revalidate(struct dentry *dentry,
 }
 
 /*
- * Set/clear/test dir complete flag on the dir's dentry.
- */
-void ceph_dir_set_complete(struct inode *inode)
-{
-	struct dentry *dentry = d_find_any_alias(inode);
-	
-	if (dentry && ceph_dentry(dentry) &&
-	    ceph_test_mount_opt(ceph_sb_to_client(dentry->d_sb), DCACHE)) {
-		dout(" marking %p (%p) complete\n", inode, dentry);
-		set_bit(CEPH_D_COMPLETE, &ceph_dentry(dentry)->flags);
-	}
-	dput(dentry);
-}
-
-void ceph_dir_clear_complete(struct inode *inode)
-{
-	struct dentry *dentry = d_find_any_alias(inode);
-
-	if (dentry && ceph_dentry(dentry)) {
-		dout(" marking %p (%p) complete\n", inode, dentry);
-		set_bit(CEPH_D_COMPLETE, &ceph_dentry(dentry)->flags);
-	}
-	dput(dentry);
-}
-
-bool ceph_dir_test_complete(struct inode *inode)
-{
-	struct dentry *dentry = d_find_any_alias(inode);
-
-	if (dentry && ceph_dentry(dentry)) {
-		dout(" marking %p (%p) NOT complete\n", inode, dentry);
-		clear_bit(CEPH_D_COMPLETE, &ceph_dentry(dentry)->flags);
-	}
-	dput(dentry);
-	return false;
-}
-
-/*
  * When the VFS prunes a dentry from the cache, we need to clear the
  * complete flag on the parent directory.
  *
@@ -1149,15 +1074,13 @@ bool ceph_dir_test_complete(struct inode *inode)
  */
 static void ceph_d_prune(struct dentry *dentry)
 {
-	struct ceph_dentry_info *di;
-
 	dout("ceph_d_prune %p\n", dentry);
 
 	/* do we have a valid parent? */
-	if (!dentry->d_parent || IS_ROOT(dentry))
+	if (IS_ROOT(dentry))
 		return;
 
-	/* if we are not hashed, we don't affect D_COMPLETE */
+	/* if we are not hashed, we don't affect dir's completeness */
 	if (d_unhashed(dentry))
 		return;
 
@@ -1165,8 +1088,7 @@ static void ceph_d_prune(struct dentry *dentry)
 	 * we hold d_lock, so d_parent is stable, and d_fsdata is never
 	 * cleared until d_release
 	 */
-	di = ceph_dentry(dentry->d_parent);
-	clear_bit(CEPH_D_COMPLETE, &di->flags);
+	ceph_dir_clear_complete(dentry->d_parent->d_inode);
 }
 
 /*
@@ -1177,7 +1099,7 @@ static ssize_t ceph_read_dir(struct file *file, char __user *buf, size_t size,
 			     loff_t *ppos)
 {
 	struct ceph_file_info *cf = file->private_data;
-	struct inode *inode = file->f_dentry->d_inode;
+	struct inode *inode = file_inode(file);
 	struct ceph_inode_info *ci = ceph_inode(inode);
 	int left;
 	const int bufsize = 1024;
@@ -1227,7 +1149,7 @@ static ssize_t ceph_read_dir(struct file *file, char __user *buf, size_t size,
 static int ceph_dir_fsync(struct file *file, loff_t start, loff_t end,
 			  int datasync)
 {
-	struct inode *inode = file->f_path.dentry->d_inode;
+	struct inode *inode = file_inode(file);
 	struct ceph_inode_info *ci = ceph_inode(inode);
 	struct list_head *head = &ci->i_unsafe_dirops;
 	struct ceph_mds_request *req;

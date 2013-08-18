@@ -9,6 +9,7 @@
 #include <linux/stop_machine.h>
 #include <linux/freezer.h>
 #include <linux/syscore_ops.h>
+#include <linux/export.h>
 
 #include <xen/xen.h>
 #include <xen/xenbus.h>
@@ -131,6 +132,7 @@ static void do_suspend(void)
 	err = dpm_suspend_end(PMSG_FREEZE);
 	if (err) {
 		printk(KERN_ERR "dpm_suspend_end failed: %d\n", err);
+		si.cancelled = 0;
 		goto out_resume;
 	}
 

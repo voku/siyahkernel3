@@ -28,6 +28,7 @@
 #include <linux/device.h>
 #include <linux/dca.h>
 #include <linux/slab.h>
+#include <linux/module.h>
 
 #define DCA_VERSION "1.12.1"
 
@@ -420,7 +421,7 @@ void unregister_dca_provider(struct dca_provider *dca, struct device *dev)
 	raw_spin_lock_irqsave(&dca_lock, flags);
 
 	if (list_empty(&dca_domains)) {
-		spin_unlock_irqrestore(&dca_lock, flags);
+		raw_spin_unlock_irqrestore(&dca_lock, flags);
 		return;
 	}
 

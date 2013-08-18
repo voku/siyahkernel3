@@ -18,7 +18,7 @@
 #include <linux/pid_namespace.h>
 #include <linux/namei.h>
 #include <asm/uaccess.h>
-#include "os.h"
+#include <os.h>
 
 static struct inode *get_inode(struct super_block *, struct dentry *);
 
@@ -180,7 +180,7 @@ static ssize_t read_proc(struct file *file, char __user *buf, ssize_t count,
 	ssize_t (*read)(struct file *, char __user *, size_t, loff_t *);
 	ssize_t n;
 
-	read = file->f_path.dentry->d_inode->i_fop->read;
+	read = file_inode(file)->i_fop->read;
 
 	if (!is_user)
 		set_fs(KERNEL_DS);
@@ -288,7 +288,7 @@ static ssize_t hppfs_write(struct file *file, const char __user *buf,
 	struct file *proc_file = data->proc_file;
 	ssize_t (*write)(struct file *, const char __user *, size_t, loff_t *);
 
-	write = proc_file->f_path.dentry->d_inode->i_fop->write;
+	write = file_inode(proc_file)->i_fop->write;
 	return (*write)(proc_file, buf, len, ppos);
 }
 
@@ -436,7 +436,6 @@ static int hppfs_open(struct inode *inode, struct file *file)
 	path.mnt = inode->i_sb->s_fs_info;
 	path.dentry = HPPFS_I(inode)->proc_dentry;
 
-	/* XXX This isn't closed anywhere */
 	data->proc_file = dentry_open(&path, file_mode(file->f_mode), cred);
 	err = PTR_ERR(data->proc_file);
 	if (IS_ERR(data->proc_file))
@@ -513,7 +512,7 @@ static loff_t hppfs_llseek(struct file *file, loff_t off, int where)
 	loff_t (*llseek)(struct file *, loff_t, int);
 	loff_t ret;
 
-	llseek = proc_file->f_path.dentry->d_inode->i_fop->llseek;
+	llseek = file_inode(proc_file)->i_fop->llseek;
 	if (llseek != NULL) {
 		ret = (*llseek)(proc_file, off, where);
 		if (ret < 0)
@@ -523,12 +522,23 @@ static loff_t hppfs_llseek(struct file *file, loff_t off, int where)
 	return default_llseek(file, off, where);
 }
 
+static int hppfs_release(struct inode *inode, struct file *file)
+{
+	struct hppfs_private *data = file->private_data;
+	struct file *proc_file = data->proc_file;
+	if (proc_file)
+		fput(proc_file);
+	kfree(data);
+	return 0;
+}
+
 static const struct file_operations hppfs_file_fops = {
 	.owner		= NULL,
 	.llseek		= hppfs_llseek,
 	.read		= hppfs_read,
 	.write		= hppfs_write,
 	.open		= hppfs_open,
+	.release	= hppfs_release,
 };
 
 struct hppfs_dirent {
@@ -561,7 +571,7 @@ static int hppfs_readdir(struct file *file, void *ent, filldir_t filldir)
 				      });
 	int err;
 
-	readdir = proc_file->f_path.dentry->d_inode->i_fop->readdir;
+	readdir = file_inode(proc_file)->i_fop->readdir;
 
 	proc_file->f_pos = file->f_pos;
 	err = (*readdir)(proc_file, &dirent, hppfs_filldir);
@@ -570,18 +580,12 @@ static int hppfs_readdir(struct file *file, void *ent, filldir_t filldir)
 	return err;
 }
 
-static int hppfs_fsync(struct file *file, loff_t start, loff_t end,
-		       int datasync)
-{
-	return filemap_write_and_wait_range(file->f_mapping, start, end);
-}
-
 static const struct file_operations hppfs_dir_fops = {
 	.owner		= NULL,
 	.readdir	= hppfs_readdir,
 	.open		= hppfs_dir_open,
-	.fsync		= hppfs_fsync,
 	.llseek		= default_llseek,
+	.release	= hppfs_release,
 };
 
 static int hppfs_statfs(struct dentry *dentry, struct kstatfs *sf)
@@ -674,7 +678,7 @@ static struct inode *get_inode(struct super_block *sb, struct dentry *dentry)
 
 	if (!inode) {
 		dput(dentry);
-		return ERR_PTR(-ENOMEM);
+		return NULL;
 	}
 
 	if (S_ISDIR(dentry->d_inode->i_mode)) {
@@ -710,7 +714,7 @@ static int hppfs_fill_super(struct super_block *sb, void *d, int silent)
 	struct vfsmount *proc_mnt;
 	int err = -ENOENT;
 
-	proc_mnt = mntget(current->nsproxy->pid_ns->proc_mnt);
+	proc_mnt = mntget(task_active_pid_ns(current)->proc_mnt);
 	if (IS_ERR(proc_mnt))
 		goto out;
 
@@ -722,10 +726,7 @@ static int hppfs_fill_super(struct super_block *sb, void *d, int silent)
 
 	err = -ENOMEM;
 	root_inode = get_inode(sb, dget(proc_mnt->mnt_root));
-	if (!root_inode)
-		goto out_mntput;
-
-	sb->s_root = d_alloc_root(root_inode);
+	sb->s_root = d_make_root(root_inode);
 	if (!sb->s_root)
 		goto out_mntput;
 

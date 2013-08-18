@@ -4,13 +4,18 @@ This interface provides a kernel and user mode interface for registering
 performance expectations by drivers, subsystems and user space applications on
 one of the parameters.
 
-Currently we have {cpu_dma_latency, network_latency, network_throughput} as the
-initial set of pm_qos parameters.
+Two different PM QoS frameworks are available:
+1. PM QoS classes for cpu_dma_latency, network_latency, network_throughput.
+2. the per-device PM QoS framework provides the API to manage the per-device latency
+constraints.
 
 Each parameters have defined units:
  * latency: usec
  * timeout: usec
  * throughput: kbs (kilo bit / sec)
+
+
+1. PM QoS framework
 
 The infrastructure exposes multiple misc device nodes one per implemented
 parameter.  The set of parameters implement is defined by pm_qos_power_init()
@@ -23,14 +28,18 @@ an aggregated target value.  The aggregated target value is updated with
 changes to the request list or elements of the list.  Typically the
 aggregated target value is simply the max or min of the request values held
 in the parameter list elements.
+Note: the aggregated target value is implemented as an atomic variable so that
+reading the aggregated value does not require any locking mechanism.
+
 
 From kernel mode the use of this interface is simple:
 
-handle = pm_qos_add_request(param_class, target_value):
-Will insert an element into the list for that identified PM_QOS class with the
+void pm_qos_add_request(handle, param_class, target_value):
+Will insert an element into the list for that identified PM QoS class with the
 target value.  Upon change to this list the new target is recomputed and any
 registered notifiers are called only if the target value is now different.
-Clients of pm_qos need to save the returned handle.
+Clients of pm_qos need to save the returned handle for future use in other
+pm_qos API functions.
 
 void pm_qos_update_request(handle, new_target_value):
 Will update the list element pointed to by the handle with the new target value
@@ -41,6 +50,20 @@ void pm_qos_remove_request(handle):
 Will remove the element.  After removal it will update the aggregate target and
 call the notification tree if the target was changed as a result of removing
 the request.
+
+int pm_qos_request(param_class):
+Returns the aggregated value for a given PM QoS class.
+
+int pm_qos_request_active(handle):
+Returns if the request is still active, i.e. it has not been removed from a
+PM QoS class constraints list.
+
+int pm_qos_add_notifier(param_class, notifier):
+Adds a notification callback function to the PM QoS class. The callback is
+called when the aggregated value for the PM QoS class is changed.
+
+int pm_qos_remove_notifier(int param_class, notifier):
+Removes the notification callback function for the PM QoS class.
 
 
 From user mode:

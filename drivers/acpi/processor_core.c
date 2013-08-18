@@ -7,6 +7,7 @@
  *	Venkatesh Pallipadi <venkatesh.pallipadi@intel.com>
  *	- Added _PDC for platforms with Intel CPUs
  */
+#include <linux/export.h>
 #include <linux/dmi.h>
 #include <linux/slab.h>
 
@@ -157,8 +158,7 @@ static int map_mat_entry(acpi_handle handle, int type, u32 acpi_id)
 	}
 
 exit:
-	if (buffer.pointer)
-		kfree(buffer.pointer);
+	kfree(buffer.pointer);
 	return apic_id;
 }
 

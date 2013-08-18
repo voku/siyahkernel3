@@ -41,20 +41,26 @@ STATIC struct xfs_buf *
 xfs_trans_buf_item_match(
 	struct xfs_trans	*tp,
 	struct xfs_buftarg	*target,
-	xfs_daddr_t		blkno,
-	int			len)
+	struct xfs_buf_map	*map,
+	int			nmaps)
 {
 	struct xfs_log_item_desc *lidp;
 	struct xfs_buf_log_item	*blip;
+	int			len = 0;
+	int			i;
 
-	len = BBTOB(len);
+	for (i = 0; i < nmaps; i++)
+		len += map[i].bm_len;
+
 	list_for_each_entry(lidp, &tp->t_items, lid_trans) {
 		blip = (struct xfs_buf_log_item *)lidp->lid_item;
 		if (blip->bli_item.li_type == XFS_LI_BUF &&
 		    blip->bli_buf->b_target == target &&
-		    XFS_BUF_ADDR(blip->bli_buf) == blkno &&
-		    BBTOB(blip->bli_buf->b_length) == len)
+		    XFS_BUF_ADDR(blip->bli_buf) == map[0].bm_bn &&
+		    blip->bli_buf->b_length == len) {
+			ASSERT(blip->bli_buf->b_map_count == nmaps);
 			return blip->bli_buf;
+		}
 	}
 
 	return NULL;
@@ -87,7 +93,7 @@ _xfs_trans_bjoin(
 	xfs_buf_item_init(bp, tp->t_mountp);
 	bip = bp->b_fspriv;
 	ASSERT(!(bip->bli_flags & XFS_BLI_STALE));
-	ASSERT(!(bip->bli_format.blf_flags & XFS_BLF_CANCEL));
+	ASSERT(!(bip->__bli_format.blf_flags & XFS_BLF_CANCEL));
 	ASSERT(!(bip->bli_flags & XFS_BLI_LOGGED));
 	if (reset_recur)
 		bip->bli_recur = 0;
@@ -128,21 +134,19 @@ xfs_trans_bjoin(
  * If the transaction pointer is NULL, make this just a normal
  * get_buf() call.
  */
-xfs_buf_t *
-xfs_trans_get_buf(xfs_trans_t	*tp,
-		  xfs_buftarg_t	*target_dev,
-		  xfs_daddr_t	blkno,
-		  int		len,
-		  uint		flags)
+struct xfs_buf *
+xfs_trans_get_buf_map(
+	struct xfs_trans	*tp,
+	struct xfs_buftarg	*target,
+	struct xfs_buf_map	*map,
+	int			nmaps,
+	xfs_buf_flags_t		flags)
 {
 	xfs_buf_t		*bp;
 	xfs_buf_log_item_t	*bip;
 
-	/*
-	 * Default to a normal get_buf() call if the tp is NULL.
-	 */
-	if (tp == NULL)
-		return xfs_buf_get(target_dev, blkno, len, flags);
+	if (!tp)
+		return xfs_buf_get_map(target, map, nmaps, flags);
 
 	/*
 	 * If we find the buffer in the cache with this transaction
@@ -150,7 +154,7 @@ xfs_trans_get_buf(xfs_trans_t	*tp,
 	 * have it locked.  In this case we just increment the lock
 	 * recursion count and return the buffer to the caller.
 	 */
-	bp = xfs_trans_buf_item_match(tp, target_dev, blkno, len);
+	bp = xfs_trans_buf_item_match(tp, target, map, nmaps);
 	if (bp != NULL) {
 		ASSERT(xfs_buf_islocked(bp));
 		if (XFS_FORCED_SHUTDOWN(tp->t_mountp)) {
@@ -167,7 +171,7 @@ xfs_trans_get_buf(xfs_trans_t	*tp,
 		return (bp);
 	}
 
-	bp = xfs_buf_get(target_dev, blkno, len, flags);
+	bp = xfs_buf_get_map(target, map, nmaps, flags);
 	if (bp == NULL) {
 		return NULL;
 	}
@@ -246,26 +250,23 @@ int	xfs_error_mod = 33;
  * read_buf() call.
  */
 int
-xfs_trans_read_buf(
-	xfs_mount_t	*mp,
-	xfs_trans_t	*tp,
-	xfs_buftarg_t	*target,
-	xfs_daddr_t	blkno,
-	int		len,
-	uint		flags,
-	xfs_buf_t	**bpp)
+xfs_trans_read_buf_map(
+	struct xfs_mount	*mp,
+	struct xfs_trans	*tp,
+	struct xfs_buftarg	*target,
+	struct xfs_buf_map	*map,
+	int			nmaps,
+	xfs_buf_flags_t		flags,
+	struct xfs_buf		**bpp,
+	const struct xfs_buf_ops *ops)
 {
 	xfs_buf_t		*bp;
 	xfs_buf_log_item_t	*bip;
 	int			error;
 
 	*bpp = NULL;
-
-	/*
-	 * Default to a normal get_buf() call if the tp is NULL.
-	 */
-	if (tp == NULL) {
-		bp = xfs_buf_read(target, blkno, len, flags);
+	if (!tp) {
+		bp = xfs_buf_read_map(target, map, nmaps, flags, ops);
 		if (!bp)
 			return (flags & XBF_TRYLOCK) ?
 					EAGAIN : XFS_ERROR(ENOMEM);
@@ -303,7 +304,7 @@ xfs_trans_read_buf(
 	 * If the buffer is not yet read in, then we read it in, increment
 	 * the lock recursion count, and return it to the caller.
 	 */
-	bp = xfs_trans_buf_item_match(tp, target, blkno, len);
+	bp = xfs_trans_buf_item_match(tp, target, map, nmaps);
 	if (bp != NULL) {
 		ASSERT(xfs_buf_islocked(bp));
 		ASSERT(bp->b_transp == tp);
@@ -312,7 +313,9 @@ xfs_trans_read_buf(
 		if (!(XFS_BUF_ISDONE(bp))) {
 			trace_xfs_trans_read_buf_io(bp, _RET_IP_);
 			ASSERT(!XFS_BUF_ISASYNC(bp));
+			ASSERT(bp->b_iodone == NULL);
 			XFS_BUF_READ(bp);
+			bp->b_ops = ops;
 			xfsbdstrat(tp->t_mountp, bp);
 			error = xfs_buf_iowait(bp);
 			if (error) {
@@ -349,7 +352,7 @@ xfs_trans_read_buf(
 		return 0;
 	}
 
-	bp = xfs_buf_read(target, blkno, len, flags);
+	bp = xfs_buf_read_map(target, map, nmaps, flags, ops);
 	if (bp == NULL) {
 		*bpp = NULL;
 		return (flags & XBF_TRYLOCK) ?
@@ -429,7 +432,7 @@ xfs_trans_brelse(xfs_trans_t	*tp,
 	bip = bp->b_fspriv;
 	ASSERT(bip->bli_item.li_type == XFS_LI_BUF);
 	ASSERT(!(bip->bli_flags & XFS_BLI_STALE));
-	ASSERT(!(bip->bli_format.blf_flags & XFS_BLF_CANCEL));
+	ASSERT(!(bip->__bli_format.blf_flags & XFS_BLF_CANCEL));
 	ASSERT(atomic_read(&bip->bli_refcount) > 0);
 
 	trace_xfs_trans_brelse(bip);
@@ -516,7 +519,7 @@ xfs_trans_bhold(xfs_trans_t	*tp,
 	ASSERT(bp->b_transp == tp);
 	ASSERT(bip != NULL);
 	ASSERT(!(bip->bli_flags & XFS_BLI_STALE));
-	ASSERT(!(bip->bli_format.blf_flags & XFS_BLF_CANCEL));
+	ASSERT(!(bip->__bli_format.blf_flags & XFS_BLF_CANCEL));
 	ASSERT(atomic_read(&bip->bli_refcount) > 0);
 
 	bip->bli_flags |= XFS_BLI_HOLD;
@@ -536,7 +539,7 @@ xfs_trans_bhold_release(xfs_trans_t	*tp,
 	ASSERT(bp->b_transp == tp);
 	ASSERT(bip != NULL);
 	ASSERT(!(bip->bli_flags & XFS_BLI_STALE));
-	ASSERT(!(bip->bli_format.blf_flags & XFS_BLF_CANCEL));
+	ASSERT(!(bip->__bli_format.blf_flags & XFS_BLF_CANCEL));
 	ASSERT(atomic_read(&bip->bli_refcount) > 0);
 	ASSERT(bip->bli_flags & XFS_BLI_HOLD);
 
@@ -595,7 +598,7 @@ xfs_trans_log_buf(xfs_trans_t	*tp,
 		bip->bli_flags &= ~XFS_BLI_STALE;
 		ASSERT(XFS_BUF_ISSTALE(bp));
 		XFS_BUF_UNSTALE(bp);
-		bip->bli_format.blf_flags &= ~XFS_BLF_CANCEL;
+		bip->__bli_format.blf_flags &= ~XFS_BLF_CANCEL;
 	}
 
 	tp->t_flags |= XFS_TRANS_DIRTY;
@@ -640,6 +643,7 @@ xfs_trans_binval(
 	xfs_buf_t	*bp)
 {
 	xfs_buf_log_item_t	*bip = bp->b_fspriv;
+	int			i;
 
 	ASSERT(bp->b_transp == tp);
 	ASSERT(bip != NULL);
@@ -654,8 +658,9 @@ xfs_trans_binval(
 		 */
 		ASSERT(XFS_BUF_ISSTALE(bp));
 		ASSERT(!(bip->bli_flags & (XFS_BLI_LOGGED | XFS_BLI_DIRTY)));
-		ASSERT(!(bip->bli_format.blf_flags & XFS_BLF_INODE_BUF));
-		ASSERT(bip->bli_format.blf_flags & XFS_BLF_CANCEL);
+		ASSERT(!(bip->__bli_format.blf_flags & XFS_BLF_INODE_BUF));
+		ASSERT(!(bip->__bli_format.blf_flags & XFS_BLFT_MASK));
+		ASSERT(bip->__bli_format.blf_flags & XFS_BLF_CANCEL);
 		ASSERT(bip->bli_item.li_desc->lid_flags & XFS_LID_DIRTY);
 		ASSERT(tp->t_flags & XFS_TRANS_DIRTY);
 		return;
@@ -665,10 +670,13 @@ xfs_trans_binval(
 
 	bip->bli_flags |= XFS_BLI_STALE;
 	bip->bli_flags &= ~(XFS_BLI_INODE_BUF | XFS_BLI_LOGGED | XFS_BLI_DIRTY);
-	bip->bli_format.blf_flags &= ~XFS_BLF_INODE_BUF;
-	bip->bli_format.blf_flags |= XFS_BLF_CANCEL;
-	memset((char *)(bip->bli_format.blf_data_map), 0,
-	      (bip->bli_format.blf_map_size * sizeof(uint)));
+	bip->__bli_format.blf_flags &= ~XFS_BLF_INODE_BUF;
+	bip->__bli_format.blf_flags |= XFS_BLF_CANCEL;
+	bip->__bli_format.blf_flags &= ~XFS_BLFT_MASK;
+	for (i = 0; i < bip->bli_format_count; i++) {
+		memset(bip->bli_formats[i].blf_data_map, 0,
+		       (bip->bli_formats[i].blf_map_size * sizeof(uint)));
+	}
 	bip->bli_item.li_desc->lid_flags |= XFS_LID_DIRTY;
 	tp->t_flags |= XFS_TRANS_DIRTY;
 }
@@ -696,12 +704,13 @@ xfs_trans_inode_buf(
 	ASSERT(atomic_read(&bip->bli_refcount) > 0);
 
 	bip->bli_flags |= XFS_BLI_INODE_BUF;
+	xfs_trans_buf_set_type(tp, bp, XFS_BLFT_DINO_BUF);
 }
 
 /*
  * This call is used to indicate that the buffer is going to
  * be staled and was an inode buffer. This means it gets
- * special processing during unpin - where any inodes 
+ * special processing during unpin - where any inodes
  * associated with the buffer should be removed from ail.
  * There is also special processing during recovery,
  * any replay of the inodes in the buffer needs to be
@@ -720,6 +729,7 @@ xfs_trans_stale_inode_buf(
 
 	bip->bli_flags |= XFS_BLI_STALE_INODE;
 	bip->bli_item.li_cb = xfs_buf_iodone;
+	xfs_trans_buf_set_type(tp, bp, XFS_BLFT_DINO_BUF);
 }
 
 /*
@@ -743,8 +753,43 @@ xfs_trans_inode_alloc_buf(
 	ASSERT(atomic_read(&bip->bli_refcount) > 0);
 
 	bip->bli_flags |= XFS_BLI_INODE_ALLOC_BUF;
+	xfs_trans_buf_set_type(tp, bp, XFS_BLFT_DINO_BUF);
 }
 
+/*
+ * Set the type of the buffer for log recovery so that it can correctly identify
+ * and hence attach the correct buffer ops to the buffer after replay.
+ */
+void
+xfs_trans_buf_set_type(
+	struct xfs_trans	*tp,
+	struct xfs_buf		*bp,
+	enum xfs_blft		type)
+{
+	struct xfs_buf_log_item	*bip = bp->b_fspriv;
+
+	if (!tp)
+		return;
+
+	ASSERT(bp->b_transp == tp);
+	ASSERT(bip != NULL);
+	ASSERT(atomic_read(&bip->bli_refcount) > 0);
+
+	xfs_blft_to_flags(&bip->__bli_format, type);
+}
+
+void
+xfs_trans_buf_copy_type(
+	struct xfs_buf		*dst_bp,
+	struct xfs_buf		*src_bp)
+{
+	struct xfs_buf_log_item	*sbip = src_bp->b_fspriv;
+	struct xfs_buf_log_item	*dbip = dst_bp->b_fspriv;
+	enum xfs_blft		type;
+
+	type = xfs_blft_from_flags(&sbip->__bli_format);
+	xfs_blft_to_flags(&dbip->__bli_format, type);
+}
 
 /*
  * Similar to xfs_trans_inode_buf(), this marks the buffer as a cluster of
@@ -763,14 +808,28 @@ xfs_trans_dquot_buf(
 	xfs_buf_t	*bp,
 	uint		type)
 {
-	xfs_buf_log_item_t	*bip = bp->b_fspriv;
+	struct xfs_buf_log_item	*bip = bp->b_fspriv;
 
-	ASSERT(bp->b_transp == tp);
-	ASSERT(bip != NULL);
 	ASSERT(type == XFS_BLF_UDQUOT_BUF ||
 	       type == XFS_BLF_PDQUOT_BUF ||
 	       type == XFS_BLF_GDQUOT_BUF);
-	ASSERT(atomic_read(&bip->bli_refcount) > 0);
 
-	bip->bli_format.blf_flags |= type;
+	bip->__bli_format.blf_flags |= type;
+
+	switch (type) {
+	case XFS_BLF_UDQUOT_BUF:
+		type = XFS_BLFT_UDQUOT_BUF;
+		break;
+	case XFS_BLF_PDQUOT_BUF:
+		type = XFS_BLFT_PDQUOT_BUF;
+		break;
+	case XFS_BLF_GDQUOT_BUF:
+		type = XFS_BLFT_GDQUOT_BUF;
+		break;
+	default:
+		type = XFS_BLFT_UNKNOWN_BUF;
+		break;
+	}
+
+	xfs_trans_buf_set_type(tp, bp, type);
 }

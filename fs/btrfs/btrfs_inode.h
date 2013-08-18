@@ -38,6 +38,10 @@
 #define BTRFS_INODE_DELALLOC_META_RESERVED	4
 #define BTRFS_INODE_HAS_ORPHAN_ITEM		5
 #define BTRFS_INODE_HAS_ASYNC_EXTENT		6
+#define BTRFS_INODE_NEEDS_FULL_SYNC		7
+#define BTRFS_INODE_COPY_EVERYTHING		8
+#define BTRFS_INODE_IN_DELALLOC_LIST		9
+#define BTRFS_INODE_READDIO_NEED_LOCK		10
 
 /* in memory btrfs inode */
 struct btrfs_inode {
@@ -87,10 +91,10 @@ struct btrfs_inode {
 	/* node for the red-black tree that links inodes in subvolume root */
 	struct rb_node rb_node;
 
-	/* the space_info for where this inode's data allocations are done */
-	struct btrfs_space_info *space_info;
-
 	unsigned long runtime_flags;
+
+	/* Keep track of who's O_SYNC/fsyncing currently */
+	atomic_t sync_writers;
 
 	/* full 64 bit generation number, struct vfs_inode doesn't have a big
 	 * enough field for this.
@@ -146,6 +150,9 @@ struct btrfs_inode {
 	/* flags field from the on disk inode */
 	u32 flags;
 
+	/* a local copy of root's last_log_commit */
+	unsigned long last_log_commit;
+
 	/*
 	 * Counters to keep track of the number of extent item's we may use due
 	 * to delalloc and such.  outstanding_extents is the number of extent
@@ -191,26 +198,42 @@ static inline void btrfs_i_size_write(struct inode *inode, u64 size)
 	BTRFS_I(inode)->disk_i_size = size;
 }
 
-static inline bool btrfs_is_free_space_inode(struct btrfs_root *root,
-				       struct inode *inode)
+static inline bool btrfs_is_free_space_inode(struct inode *inode)
 {
-	if (root == root->fs_info->tree_root ||
-	    BTRFS_I(inode)->location.objectid == BTRFS_FREE_INO_OBJECTID)
+	struct btrfs_root *root = BTRFS_I(inode)->root;
+
+	if (root == root->fs_info->tree_root &&
+	    btrfs_ino(inode) != BTRFS_BTREE_INODE_OBJECTID)
+		return true;
+	if (BTRFS_I(inode)->location.objectid == BTRFS_FREE_INO_OBJECTID)
 		return true;
 	return false;
 }
 
 static inline int btrfs_inode_in_log(struct inode *inode, u64 generation)
 {
-	struct btrfs_root *root = BTRFS_I(inode)->root;
-	int ret = 0;
-
-	mutex_lock(&root->log_mutex);
 	if (BTRFS_I(inode)->logged_trans == generation &&
-	    BTRFS_I(inode)->last_sub_trans <= root->last_log_commit)
-		ret = 1;
-	mutex_unlock(&root->log_mutex);
-	return ret;
+	    BTRFS_I(inode)->last_sub_trans <= BTRFS_I(inode)->last_log_commit)
+		return 1;
+	return 0;
+}
+
+/*
+ * Disable DIO read nolock optimization, so new dio readers will be forced
+ * to grab i_mutex. It is used to avoid the endless truncate due to
+ * nonlocked dio read.
+ */
+static inline void btrfs_inode_block_unlocked_dio(struct inode *inode)
+{
+	set_bit(BTRFS_INODE_READDIO_NEED_LOCK, &BTRFS_I(inode)->runtime_flags);
+	smp_mb();
+}
+
+static inline void btrfs_inode_resume_unlocked_dio(struct inode *inode)
+{
+	smp_mb__before_clear_bit();
+	clear_bit(BTRFS_INODE_READDIO_NEED_LOCK,
+		  &BTRFS_I(inode)->runtime_flags);
 }
 
 #endif

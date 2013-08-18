@@ -74,6 +74,8 @@ proc_bus_pci_read(struct file *file, char __user *buf, size_t nbytes, loff_t *pp
 	if (!access_ok(VERIFY_WRITE, buf, cnt))
 		return -EINVAL;
 
+	pci_config_pm_runtime_get(dev);
+
 	if ((pos & 1) && cnt) {
 		unsigned char val;
 		pci_user_read_config_byte(dev, pos, &val);
@@ -119,6 +121,8 @@ proc_bus_pci_read(struct file *file, char __user *buf, size_t nbytes, loff_t *pp
 		cnt--;
 	}
 
+	pci_config_pm_runtime_put(dev);
+
 	*ppos = pos;
 	return nbytes;
 }
@@ -142,6 +146,8 @@ proc_bus_pci_write(struct file *file, const char __user *buf, size_t nbytes, lof
 
 	if (!access_ok(VERIFY_READ, buf, cnt))
 		return -EINVAL;
+
+	pci_config_pm_runtime_get(dev);
 
 	if ((pos & 1) && cnt) {
 		unsigned char val;
@@ -187,6 +193,8 @@ proc_bus_pci_write(struct file *file, const char __user *buf, size_t nbytes, lof
 		pos++;
 		cnt--;
 	}
+
+	pci_config_pm_runtime_put(dev);
 
 	*ppos = pos;
 	i_size_write(ino, dev->cfg_size);
@@ -423,25 +431,6 @@ int pci_proc_detach_device(struct pci_dev *dev)
 	dev->procent = NULL;
 	return 0;
 }
-
-#if 0
-int pci_proc_attach_bus(struct pci_bus* bus)
-{
-	struct proc_dir_entry *de = bus->procdir;
-
-	if (!proc_initialized)
-		return -EACCES;
-
-	if (!de) {
-		char name[16];
-		sprintf(name, "%02x", bus->number);
-		de = bus->procdir = proc_mkdir(name, proc_bus_pci_dir);
-		if (!de)
-			return -ENOMEM;
-	}
-	return 0;
-}
-#endif  /*  0  */
 
 int pci_proc_detach_bus(struct pci_bus* bus)
 {

@@ -30,7 +30,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
-#include <ctype.h>
 #include <dwarf-regs.h>
 
 #include <linux/bitops.h>
@@ -208,7 +207,7 @@ static int debuginfo__init_online_kernel_dwarf(struct debuginfo *self,
 #else
 /* With older elfutils, this just support kernel module... */
 static int debuginfo__init_online_kernel_dwarf(struct debuginfo *self,
-					       Dwarf_Addr addr __used)
+					       Dwarf_Addr addr __maybe_unused)
 {
 	const char *path = kernel_get_module_path("kernel");
 
@@ -414,12 +413,12 @@ static int convert_variable_type(Dwarf_Die *vr_die,
 				   dwarf_diename(vr_die), dwarf_diename(&type));
 			return -EINVAL;
 		}
+		if (die_get_real_type(&type, &type) == NULL) {
+			pr_warning("Failed to get a type"
+				   " information.\n");
+			return -ENOENT;
+		}
 		if (ret == DW_TAG_pointer_type) {
-			if (die_get_real_type(&type, &type) == NULL) {
-				pr_warning("Failed to get a type"
-					   " information.\n");
-				return -ENOENT;
-			}
 			while (*ref_ptr)
 				ref_ptr = &(*ref_ptr)->next;
 			/* Add new reference with offset +0 */
@@ -526,8 +525,10 @@ static int convert_variable_fields(Dwarf_Die *vr_die, const char *varname,
 			return -ENOENT;
 		}
 		/* Verify it is a data structure  */
-		if (dwarf_tag(&type) != DW_TAG_structure_type) {
-			pr_warning("%s is not a data structure.\n", varname);
+		tag = dwarf_tag(&type);
+		if (tag != DW_TAG_structure_type && tag != DW_TAG_union_type) {
+			pr_warning("%s is not a data structure nor an union.\n",
+				   varname);
 			return -EINVAL;
 		}
 
@@ -540,8 +541,9 @@ static int convert_variable_fields(Dwarf_Die *vr_die, const char *varname,
 			*ref_ptr = ref;
 	} else {
 		/* Verify it is a data structure  */
-		if (tag != DW_TAG_structure_type) {
-			pr_warning("%s is not a data structure.\n", varname);
+		if (tag != DW_TAG_structure_type && tag != DW_TAG_union_type) {
+			pr_warning("%s is not a data structure nor an union.\n",
+				   varname);
 			return -EINVAL;
 		}
 		if (field->name[0] == '[') {
@@ -568,10 +570,15 @@ static int convert_variable_fields(Dwarf_Die *vr_die, const char *varname,
 	}
 
 	/* Get the offset of the field */
-	ret = die_get_data_member_location(die_mem, &offs);
-	if (ret < 0) {
-		pr_warning("Failed to get the offset of %s.\n", field->name);
-		return ret;
+	if (tag == DW_TAG_union_type) {
+		offs = 0;
+	} else {
+		ret = die_get_data_member_location(die_mem, &offs);
+		if (ret < 0) {
+			pr_warning("Failed to get the offset of %s.\n",
+				   field->name);
+			return ret;
+		}
 	}
 	ref->offset += (long)offs;
 
@@ -672,7 +679,7 @@ static int find_variable(Dwarf_Die *sc_die, struct probe_finder *pf)
 static int convert_to_trace_point(Dwarf_Die *sp_die, Dwarf_Addr paddr,
 				  bool retprobe, struct probe_trace_point *tp)
 {
-	Dwarf_Addr eaddr;
+	Dwarf_Addr eaddr, highaddr;
 	const char *name;
 
 	/* Copy the name of probe point */
@@ -682,6 +689,16 @@ static int convert_to_trace_point(Dwarf_Die *sp_die, Dwarf_Addr paddr,
 			pr_warning("Failed to get entry address of %s\n",
 				   dwarf_diename(sp_die));
 			return -ENOENT;
+		}
+		if (dwarf_highpc(sp_die, &highaddr) != 0) {
+			pr_warning("Failed to get end address of %s\n",
+				   dwarf_diename(sp_die));
+			return -ENOENT;
+		}
+		if (paddr > highaddr) {
+			pr_warning("Offset specified is greater than size of %s\n",
+				   dwarf_diename(sp_die));
+			return -EINVAL;
 		}
 		tp->symbol = strdup(name);
 		if (tp->symbol == NULL)
@@ -963,10 +980,12 @@ static int probe_point_search_cb(Dwarf_Die *sp_die, void *data)
 	struct dwarf_callback_param *param = data;
 	struct probe_finder *pf = param->data;
 	struct perf_probe_point *pp = &pf->pev->point;
+	Dwarf_Attribute attr;
 
 	/* Check tag and diename */
 	if (dwarf_tag(sp_die) != DW_TAG_subprogram ||
-	    !die_compare_name(sp_die, pp->function))
+	    !die_compare_name(sp_die, pp->function) ||
+	    dwarf_attr(sp_die, DW_AT_declaration, &attr))
 		return DWARF_CB_OK;
 
 	/* Check declared file */
@@ -1408,7 +1427,7 @@ static int line_range_add_line(const char *src, unsigned int lineno,
 }
 
 static int line_range_walk_cb(const char *fname, int lineno,
-			      Dwarf_Addr addr __used,
+			      Dwarf_Addr addr __maybe_unused,
 			      void *data)
 {
 	struct line_finder *lf = data;
