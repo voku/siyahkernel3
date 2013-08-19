@@ -1782,7 +1782,7 @@ static int Check_Err_Condition(void)
 
 static void median_err_setting(void)
 {
-	u16 obj_address;
+	u16 obj_address = 0;
 	u16 size_one;
 	u8 value, state;
 	bool ta_status_check;
@@ -2066,7 +2066,6 @@ static irqreturn_t mxt224_irq_thread(int irq, void *ptr)
 				}
 			}
 		}
-#if 0
 #ifdef CLEAR_MEDIAN_FILTER_ERROR
 		if ((msg[0] == 18) && (data->family_id == 0x81)) {
 			if ((msg[4] & 0x5) == 0x5) {
@@ -2095,7 +2094,6 @@ static irqreturn_t mxt224_irq_thread(int irq, void *ptr)
 				}
 			}
 		}
-#endif
 #endif
 		if (msg[0] > 1 && msg[0] < 12) {
 

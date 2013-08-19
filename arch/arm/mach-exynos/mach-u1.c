@@ -5104,7 +5104,7 @@ static struct sec_therm_platform_data sec_therm_pdata = {
 	.adc_channel	= 6,
 	.adc_arr_size	= ARRAY_SIZE(adc_ch6_table),
 	.adc_table	= adc_ch6_table,
-	.polling_interval = 30 * 1000, /* msecs */
+	.polling_interval = 60 * 1000, /* msecs */
 	.get_siop_level = get_exynos4210_siop_level,
 };
 
@@ -7463,7 +7463,7 @@ static struct platform_device *smdkc210_devices[] __initdata = {
 /* below temperature base on the celcius degree */
 struct s5p_platform_tmu u1_tmu_data __initdata = {
 	.ts = {
-		.stop_1st_throttle  = 62,
+		.stop_1st_throttle  = 63,
 		.start_1st_throttle = 67,
 		.stop_2nd_throttle  = 80,
 		.start_2nd_throttle = 103,
@@ -7473,7 +7473,7 @@ struct s5p_platform_tmu u1_tmu_data __initdata = {
 		.start_mem_throttle = 85,
 	},
 	.cpufreq = {
-		.limit_1st_throttle  = 900000, /* 900MHz in KHz order */
+		.limit_1st_throttle  = 800000, /* 800MHz in KHz order */
 		.limit_2nd_throttle  = 200000, /* 200MHz in KHz order */
 	},
 };
