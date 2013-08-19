@@ -62,16 +62,6 @@ extern "C" {
 #define UNI_PAR_DIR_NAME        "\0.\0."
 #endif
 
-#define NLS_LOSSY_TOOSHORT							1
-#define	NLS_LOSSY_TOOLONG								2
-#define NLS_LOSSY_CHAR_TO_UNI_ERROR		3
-#define NLS_LOSSY_ERROR									4 // generic error code
-
-#define SET_LOSSY(lossy, value)			\
-	do {														\
-		if (lossy == 0)	lossy = value;			\
-	} while(0)											\
- 
 	/*----------------------------------------------------------------------*/
 	/*  Type Definitions                                                    */
 	/*----------------------------------------------------------------------*/
