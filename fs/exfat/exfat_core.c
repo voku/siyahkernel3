@@ -202,7 +202,7 @@ INT32 ffsMountVol(struct super_block *sb, INT32 drv)
 	FS_INFO_T *p_fs = &(EXFAT_SB(sb)->fs_info);
 	BD_INFO_T *p_bd = &(EXFAT_SB(sb)->bd_info);
 
-	PRINTK("[EXFAT] ===== ffsMountVol =====\n");
+	PRINTK("[EXFAT] trying to mount...\n");
 
 	p_fs->drv = drv;
 	p_fs->dev_ejected = FALSE;
@@ -308,8 +308,7 @@ INT32 ffsMountVol(struct super_block *sb, INT32 drv)
 		return FFS_MEDIAERR;
 	}
 
-	printk("[EXFAT] mounted successfully\n");
-
+	PRINTK("[EXFAT] mounted successfully\n");
 	return FFS_SUCCESS;
 } /* end of ffsMountVol */
 
@@ -318,7 +317,7 @@ INT32 ffsUmountVol(struct super_block *sb)
 {
 	FS_INFO_T *p_fs = &(EXFAT_SB(sb)->fs_info);
 
-	printk("[EXFAT] trying to unmount...\n");
+	PRINTK("[EXFAT] trying to unmount...\n");
 
 	fs_sync(sb, 0);
 	fs_set_vol_flags(sb, VOL_CLEAN);
@@ -335,13 +334,12 @@ INT32 ffsUmountVol(struct super_block *sb)
 	bdev_close(sb);
 
 	if (p_fs->dev_ejected) {
-		printk( "[EXFAT] unmounted with media errors. "
+		PRINTK( "[EXFAT] unmounted with media errors. "
 			"device's already ejected.\n");
 		return FFS_MEDIAERR;
 	}
 
-	printk("[EXFAT] unmounted successfully\n");
-
+	PRINTK("[EXFAT] unmounted successfully\n");
 	return FFS_SUCCESS;
 } /* end of ffsUmountVol */
 
@@ -3537,7 +3535,7 @@ INT32 write_partial_entries_in_entry_set (struct super_block *sb, ENTRY_SET_CACH
 	dir.size = 0xffffffff;		/* XXX */
 
 	byte_offset = (es->sector - START_SECTOR(dir.dir)) << p_bd->sector_size_bits;
-	byte_offset += ((INT32)ep - (INT32)&(es->__buf)) + es->offset;
+	byte_offset += ((INT32 *)ep - (INT32 *)&(es->__buf)) + es->offset;
 
 	ret =_walk_fat_chain(sb, &dir, byte_offset, &clu);
 	if (ret != FFS_SUCCESS)

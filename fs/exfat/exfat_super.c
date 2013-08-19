@@ -1411,21 +1411,21 @@ static ssize_t exfat_direct_IO(int rw, struct kiocb *iocb,
 		exfat_write_failed(mapping, offset+iov_length(iov, nr_segs));
 #endif
 	return ret;
-
 }
 
 static sector_t _exfat_bmap(struct address_space *mapping, sector_t block)
 {
 	sector_t blocknr;
 
+	/* exfat_get_cluster() assumes the requested blocknr isn't truncated. */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,00)
 	down_read(&EXFAT_I(mapping->host)->truncate_lock);
 	blocknr = generic_block_bmap(mapping, block, exfat_get_block);
 	up_read(&EXFAT_I(mapping->host)->truncate_lock);
 #else
-	down_read(&mapping->host->i_alloc_sem);
+	down_read(&EXFAT_I(mapping->host)->i_alloc_sem);
 	blocknr = generic_block_bmap(mapping, block, exfat_get_block);
-	up_read(&mapping->host->i_alloc_sem);
+	up_read(&EXFAT_I(mapping->host)->i_alloc_sem);
 #endif
 
 	return blocknr;
@@ -1532,7 +1532,7 @@ static int exfat_fill_inode(struct inode *inode, FILE_ID_T *fid)
 #else
 		inode->i_nlink = info.NumSubdirs;
 #endif
-	} else if (info.Attr & ATTR_SYMLINK) {
+	} else if (info.Attr & ATTR_SYMLINK) { /* symbolic link */
 		inode->i_generation |= 1;
 		inode->i_mode = exfat_make_mode(sbi, info.Attr, S_IRWXUGO);
 		inode->i_op = &exfat_symlink_inode_operations;

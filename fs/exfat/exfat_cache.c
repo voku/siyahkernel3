@@ -216,8 +216,7 @@ static INT32 __FAT_read(struct super_block *sb, UINT32 loc, UINT32 *content)
 		off = (loc << 1) & p_bd->sector_size_mask;
 
 		fat_sector = FAT_getblk(sb, sec);
-		if
-		(!fat_sector)
+		if (!fat_sector)
 			return -1;
 
 		fat_entry = &(fat_sector[off]);

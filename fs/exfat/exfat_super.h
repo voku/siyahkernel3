@@ -109,6 +109,7 @@ struct exfat_inode_info {
 	struct rw_semaphore truncate_lock;
 #endif
 	struct inode vfs_inode;
+	struct rw_semaphore i_alloc_sem; /* protect bmap against truncate */
 };
 
 #define EXFAT_SB(sb)		((struct exfat_sb_info *)((sb)->s_fs_info))
