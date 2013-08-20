@@ -22,3 +22,5 @@ header-y += usb/
 header-y += wimax/
 
 genhdr-y += version.h
+
+header-y += fb.h
