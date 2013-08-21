@@ -343,7 +343,7 @@ choice
 # Kind of a stub config for the pure tick based cputime accounting
 config TICK_CPU_ACCOUNTING
 	bool "Simple tick based cputime accounting"
-	depends on !S390 && !NO_HZ_FULL
+	depends on !S390 && !NO_HZ_FULL && !SMP
 	help
 	  This is the basic tick based cputime accounting that maintains
 	  statistics about user, system and idle time spent on per jiffies
