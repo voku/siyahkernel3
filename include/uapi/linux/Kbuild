@@ -28,4 +28,5 @@ ifneq ($(wildcard $(srctree)/arch/$(SRCARCH)/include/uapi/asm/a.out.h \
 header-y += a.out.h
 endif
 
+header-y += acct.h
 header-y += fb.h
