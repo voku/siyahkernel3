@@ -31,4 +31,5 @@ endif
 header-y += acct.h
 header-y += adb.h
 header-y += adfs_fs.h
+header-y += agpgart.h
 header-y += fb.h
