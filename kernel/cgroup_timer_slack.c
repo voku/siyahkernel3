@@ -96,12 +96,29 @@ static struct cftype files[] = {
 	},
 };
 
+static int tslack_allow_attach(struct cgroup *cgrp, struct cgroup_taskset *tset)
+{
+	const struct cred *cred = current_cred(), *tcred;
+	struct task_struct *task;
+
+	cgroup_taskset_for_each(task, cgrp, tset) {
+		tcred = __task_cred(task);
+
+		if ((current != task) && !capable(CAP_SYS_NICE) &&
+		    cred->euid != tcred->uid && cred->euid != tcred->suid)
+			return -EACCES;
+	}
+
+	return 0;
+}
+
 struct cgroup_subsys timer_slack_subsys = {
 	.name		= "timer_slack",
 	.subsys_id	= timer_slack_subsys_id,
 	.css_alloc	= tslack_css_alloc,
 	.css_free	= tslack_css_free,
 	.base_cftypes	= files,
+	.allow_attach	= tslack_allow_attach,
 };
 
 unsigned long task_get_effective_timer_slack(struct task_struct *tsk)
