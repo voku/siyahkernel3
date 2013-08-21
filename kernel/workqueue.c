@@ -2039,9 +2039,12 @@ static bool maybe_destroy_workers(struct worker_pool *pool)
  * spin_lock_irq(pool->lock) which may be released and regrabbed
  * multiple times.  Does GFP_KERNEL allocations.
  *
- * Return:
- * spin_lock_irq(pool->lock) which may be released and regrabbed
- * multiple times.  Does GFP_KERNEL allocations.
+ * RETURNS:
+ * %false if the pool don't need management and the caller can safely start
+ * processing works, %true indicates that the function released pool->lock
+ * and reacquired it to perform some management function and that the
+ * conditions that the caller verified while holding the lock before
+ * calling the function might no longer be true.
  */
 static bool manage_workers(struct worker *worker)
 {
