@@ -29,4 +29,5 @@ header-y += a.out.h
 endif
 
 header-y += acct.h
+header-y += adb.h
 header-y += fb.h
