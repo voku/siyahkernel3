@@ -79,7 +79,7 @@ SUBSYS(net_prio)
 
 /* */
 
-#if IS_SUBSYS_ENABLED(CONFIG_CGROUP_TIMER_SLACK)
+#ifdef CONFIG_CGROUP_TIMER_SLACK
 SUBSYS(timer_slack)
 #endif
 
