@@ -461,7 +461,7 @@ static int device_add_attrs(struct bus_type *bus, struct device *dev)
 	if (!bus->dev_attrs)
 		return 0;
 
-	for (i = 0; attr_name(bus->dev_attrs[i]); i++) {
+	for (i = 0; bus->dev_attrs[i].attr.name; i++) {
 		error = device_create_file(dev, &bus->dev_attrs[i]);
 		if (error) {
 			while (--i >= 0)
@@ -477,7 +477,7 @@ static void device_remove_attrs(struct bus_type *bus, struct device *dev)
 	int i;
 
 	if (bus->dev_attrs) {
-		for (i = 0; attr_name(bus->dev_attrs[i]); i++)
+		for (i = 0; bus->dev_attrs[i].attr.name; i++)
 			device_remove_file(dev, &bus->dev_attrs[i]);
 	}
 }
@@ -597,7 +597,7 @@ static int driver_add_attrs(struct bus_type *bus, struct device_driver *drv)
 	int i;
 
 	if (bus->drv_attrs) {
-		for (i = 0; attr_name(bus->drv_attrs[i]); i++) {
+		for (i = 0; bus->drv_attrs[i].attr.name; i++) {
 			error = driver_create_file(drv, &bus->drv_attrs[i]);
 			if (error)
 				goto err;
@@ -617,7 +617,7 @@ static void driver_remove_attrs(struct bus_type *bus,
 	int i;
 
 	if (bus->drv_attrs) {
-		for (i = 0; attr_name(bus->drv_attrs[i]); i++)
+		for (i = 0; bus->drv_attrs[i].attr.name; i++)
 			driver_remove_file(drv, &bus->drv_attrs[i]);
 	}
 }
@@ -858,7 +858,7 @@ static int bus_add_attrs(struct bus_type *bus)
 	int i;
 
 	if (bus->bus_attrs) {
-		for (i = 0; attr_name(bus->bus_attrs[i]); i++) {
+		for (i = 0; bus->bus_attrs[i].attr.name; i++) {
 			error = bus_create_file(bus, &bus->bus_attrs[i]);
 			if (error)
 				goto err;
@@ -877,7 +877,7 @@ static void bus_remove_attrs(struct bus_type *bus)
 	int i;
 
 	if (bus->bus_attrs) {
-		for (i = 0; attr_name(bus->bus_attrs[i]); i++)
+		for (i = 0; bus->bus_attrs[i].attr.name; i++)
 			bus_remove_file(bus, &bus->bus_attrs[i]);
 	}
 }
