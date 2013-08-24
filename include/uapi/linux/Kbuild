@@ -48,6 +48,7 @@ header-y += atmapi.h
 header-y += atmarp.h
 header-y += atmbr2684.h
 header-y += atmclip.h
+header-y += atmdev.h
 header-y += atmioc.h
 header-y += atmlec.h
 header-y += atmmpc.h
