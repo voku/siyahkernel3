@@ -37,6 +37,7 @@ header-y += aio_abi.h
 header-y += apm_bios.h
 header-y += arcfb.h
 header-y += atalk.h
+header-y += atm.h
 header-y += atm_eni.h
 header-y += atm_he.h
 header-y += atm_idt77105.h
