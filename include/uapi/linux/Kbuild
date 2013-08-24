@@ -42,6 +42,7 @@ header-y += atm_eni.h
 header-y += atm_he.h
 header-y += atm_idt77105.h
 header-y += atm_nicstar.h
+header-y += atm_tcp.h
 header-y += atm_zatm.h
 header-y += atmapi.h
 header-y += atmarp.h
