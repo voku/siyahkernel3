@@ -1,5 +1,6 @@
 GLIBC_2.4 {
   global:
+    __mbrlen; __mbrtowc; __wcsto*_internal;
     __sigaction;
     _Exit;
     _IO_2_1_stdin_; _IO_2_1_stdout_; _IO_2_1_stderr_;
@@ -63,12 +64,12 @@ GLIBC_2.4 {
     __assert;
     __assert_fail; __assert_perror_fail;
     __backtrace; __backtrace_symbols; __backtrace_symbols_fd;
-    __bsd_getpgrp; __setpgid; __getpgid;
+    __bsd_getpgrp; __getpgid; __setpgid;
     __bzero; __strtok_r;
     __chk_fail;
     __clone;
     __cmsg_nxthdr;
-    __confstr_chk; __getgroups_chk; __ttyname_r_chk; __getlogin_r_chk;
+    __confstr_chk; __getgroups_chk; __ttyname_r_chk;
     __connect; __send;
     __ctype32_tolower; __ctype32_toupper;
     __ctype_b; __ctype32_b; __ctype_tolower; __ctype_toupper;
@@ -76,6 +77,7 @@ GLIBC_2.4 {
     __ctype_get_mb_cur_max;
     __cxa_atexit; __cxa_finalize;
     __cyg_profile_func_enter; __cyg_profile_func_exit;
+    __daylight; __timezone; __tzname;
     __dcgettext;
     __dgettext;
     __dup2; __pipe;
@@ -83,7 +85,7 @@ GLIBC_2.4 {
     __environ; _environ;
     __errno_location;
     __fbufsize; __freading; __fwriting; __freadable; __fwritable; __flbf;
-    __ffs;
+    __ffs; __mempcpy; __stpncpy; __stpcpy; __strcasecmp; __strdup;
     __fgets_chk; __fgets_unlocked_chk;
     __fpu_control;
     __fpurge; __fpending; __fsetlocking; _flushlbf;
@@ -91,6 +93,7 @@ GLIBC_2.4 {
     __fxstatat; __fxstatat64;
     __getdelim;
     __gethostname_chk; __getdomainname_chk; __wcrtomb_chk; __mbsnrtowcs_chk;
+    __getlogin_r_chk;
     __gets_chk;
     __gmtime_r; __gettimeofday;
     __gnu_Unwind_Find_exidx;
@@ -131,10 +134,11 @@ GLIBC_2.4 {
     __pread64; __pwrite64;
     __printf_chk; __fprintf_chk; __vprintf_chk; __vfprintf_chk;
     __printf_fp; __vfscanf;
+    __ptsname_r_chk;
     __rawmemchr; __strcasestr;
     __read_chk; __pread_chk; __pread64_chk;
     __readlink_chk; __getcwd_chk; __getwd_chk;
-    __realpath_chk; __ptsname_r_chk; __wctomb_chk;
+    __realpath_chk; __wctomb_chk;
     __recv_chk; __recvfrom_chk;
     __register_atfork;
     __register_frame; __register_frame_table; __deregister_frame;
@@ -154,10 +158,10 @@ GLIBC_2.4 {
     __sigsuspend;
     __sprintf_chk; __vsprintf_chk; __snprintf_chk; __vsnprintf_chk;
     __stack_chk_fail;
-    __stpncpy; __stpcpy; __strdup; __mempcpy; __strcasecmp; __strerror_r;
     __stpncpy_chk;
     __strcat_chk; __strcpy_chk; __strncat_chk; __strncpy_chk;
     __strcpy_small; __strspn_c1; __strspn_c2; __strspn_c3; __strpbrk_c2;
+    __strerror_r;
     __strftime_l; __wcsftime_l;
     __strndup;
     __strpbrk_c3; __strsep_1c; __strsep_2c; __strsep_3c; __strsep_g;
@@ -168,7 +172,6 @@ GLIBC_2.4 {
     __swprintf_chk; __vswprintf_chk; __wprintf_chk; __fwprintf_chk;
     __sysconf;
     __syslog_chk; __vsyslog_chk;
-    __timezone; __daylight; __tzname;
     __towctrans;
     __towctrans_l; __towlower_l; __towupper_l; __wcscasecmp_l; __wcscoll_l;
     __uflow; __underflow; __overflow;
@@ -181,7 +184,6 @@ GLIBC_2.4 {
     __wcsncasecmp_l; __wcstod_l; __wcstof_l; __wcstol_l; __wcstold_l;
     __wcsncpy_chk; __wcscat_chk; __wcsncat_chk; __wmemset_chk; __wcpncpy_chk;
     __wcsnrtombs_chk; __mbsrtowcs_chk; __wcsrtombs_chk; __mbstowcs_chk;
-    __wcsto*_internal; __mbrlen; __mbrtowc;
     __wcstoll_l; __wcstoul_l; __wcstoull_l; __wcsxfrm_l; __wctype_l;
     __wcstombs_chk;
     __wctrans_l;
@@ -381,7 +383,7 @@ GLIBC_2.4 {
     getpt; getutxent; getutxid; getutxline; grantpt;
     getpw; getpwent; getpwent_r; getpwnam; getpwnam_r; getpwuid; getpwuid_r;
     getpwent_r; getpwuid_r; getpwnam_r;
-    getresuid; getresgid; setresuid; setresgid;
+    getresgid; getresuid; setresgid; setresuid;
     getrlimit64;
     getrlimit; setrlimit; getrlimit64;
     getrpcbyname_r; getrpcbynumber; getrpcbynumber_r; getrpcent; getrpcent_r;
@@ -407,7 +409,7 @@ GLIBC_2.4 {
     herror; hstrerror;
     host2netname;
     htonl; htons;
-    iconv_open; iconv; iconv_close;
+    iconv; iconv_open; iconv_close;
     if_freenameindex; if_indextoname; if_nameindex; if_nametoindex;
     imaxabs; imaxdiv;
     in6addr_any; in6addr_loopback;
@@ -616,7 +618,7 @@ GLIBC_2.4 {
     sched_getaffinity; sched_setaffinity;
     sched_getaffinity; sched_setaffinity;
     sched_getscheduler; sched_rr_get_interval; sched_setparam;
-    sched_setscheduler; sched_yield; setegid; seteuid; setgid; setlogin;
+    sched_setscheduler; sched_yield; setegid; seteuid; setgid;
     seed48; seed48_r; setcontext; setenv; setstate; setstate_r; srand; srand48;
     semctl; semget; semop; shmat; shmctl; shmdt; shmget;
     semctl; shmctl; msgctl;
@@ -631,6 +633,7 @@ GLIBC_2.4 {
     setitimer; settimeofday; stime; strftime; strptime;
     setjmp;
     setlocale;
+    setlogin;
     setlogmask; setmntent; setregid; setreuid; setttyent; setusershell; sstk;
     setpgid; setpgrp; setsid; setuid; sleep; sysconf;
     setpriority; setrlimit;
@@ -780,10 +783,10 @@ GLIBC_2.6 {
 GLIBC_2.7 {
   global:
     __fread_chk; __fread_unlocked_chk;
+    __isoc99_fwscanf; __isoc99_swscanf; __isoc99_vfwscanf; __isoc99_vswscanf;
     __isoc99_scanf; __isoc99_vscanf; __isoc99_fscanf; __isoc99_vfscanf;
     __isoc99_sscanf; __isoc99_vsscanf;
-    __isoc99_swscanf; __isoc99_vswscanf;
-    __isoc99_wscanf; __isoc99_vwscanf; __isoc99_fwscanf; __isoc99_vfwscanf;
+    __isoc99_vwscanf; __isoc99_wscanf;
     __open_2; __open64_2; __openat_2; __openat64_2;
     __sched_cpualloc; __sched_cpufree;
     eventfd; eventfd_read; eventfd_write; signalfd;
@@ -857,7 +860,7 @@ GLIBC_2.16 {
     __getauxval; getauxval;
     __poll_chk; __ppoll_chk;
     aligned_alloc;
-    mbrtoc16; c16rtomb; mbrtoc32; c32rtomb;
+    c16rtomb; c32rtomb; mbrtoc16; mbrtoc32;
     timespec_get;
 } GLIBC_2.15;
 GLIBC_2.17 {
@@ -867,9 +870,14 @@ GLIBC_2.17 {
     recvmmsg; sendmmsg;
     secure_getenv;
 } GLIBC_2.16;
+GLIBC_2.18 {
+  global:
+    __cxa_thread_atexit_impl;
+} GLIBC_2.17;
 GLIBC_PRIVATE {
   global:
     __abort_msg;
+    __call_tls_dtors;
     __clock_getres; __clock_gettime; __clock_settime; __clock_getcpuclockid;
     __clock_nanosleep;
     __collate_element_hash; __collate_element_strings;
@@ -880,7 +888,7 @@ GLIBC_PRIVATE {
     __default_sa_restorer_v2; __default_rt_sa_restorer_v2;
     __fortify_fail;
     __gai_sigqueue;
-    __gconv_get_alias_db; __gconv_get_modules_db; __gconv_get_cache;
+    __gconv_get_alias_db; __gconv_get_cache; __gconv_get_modules_db;
     __internal_endnetgrent; __internal_getnetgrent_r;
     __internal_setnetgrent;
     __libc_alloca_cutoff;
@@ -888,7 +896,7 @@ GLIBC_PRIVATE {
     __libc_clntudp_bufcreate; __libc_rpc_getport;
     __libc_current_sigrtmin_private; __libc_current_sigrtmax_private;
     __libc_dl_error_tsd;
-    __libc_dlopen_mode; __libc_dlsym; __libc_dlclose;
+    __libc_dlclose; __libc_dlopen_mode; __libc_dlsym;
     __libc_fatal;
     __libc_fork; __libc_pwrite;
     __libc_ifunc_impl_list;
@@ -900,6 +908,7 @@ GLIBC_PRIVATE {
     __libc_system;
     __libc_thread_freeres;
     __madvise;
+    __mktemp;
     __nss_disable_nscd; __nss_lookup_function; _nss_files_parse_sgent;
     __nss_passwd_lookup2; __nss_group_lookup2; __nss_hosts_lookup2;
     __nss_services_lookup2; __nss_next2; __nss_lookup;
@@ -914,4 +923,4 @@ GLIBC_PRIVATE {
     _nss_files_parse_grent; _nss_files_parse_pwent; _nss_files_parse_spent;
     errno;
     h_errno; __resp;
-} GLIBC_2.17;
+} GLIBC_2.18;

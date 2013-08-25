@@ -143,3 +143,7 @@ GLIBC_2.15 {
     __y1_finite; __y1f_finite; __y1l_finite;
     __yn_finite; __ynf_finite; __ynl_finite;
 } GLIBC_2.4;
+GLIBC_2.18 {
+  global:
+    __issignaling; __issignalingf; __issignalingl;
+} GLIBC_2.15;

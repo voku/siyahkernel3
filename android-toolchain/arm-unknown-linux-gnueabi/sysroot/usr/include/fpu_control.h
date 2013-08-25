@@ -1,5 +1,5 @@
 /* FPU control word definitions.  ARM VFP version.
-   Copyright (C) 2004, 2005, 2009 Free Software Foundation, Inc.
+   Copyright (C) 2004-2013 Free Software Foundation, Inc.
    This file is part of the GNU C Library.
 
    The GNU C Library is free software; you can redistribute it and/or
@@ -19,13 +19,13 @@
 #ifndef _FPU_CONTROL_H
 #define _FPU_CONTROL_H
 
-#if !defined(_LIBC) && defined(__SOFTFP__)
+#if !(defined(_LIBC) && !defined(_LIBC_TEST)) && defined(__SOFTFP__)
 
 #define _FPU_RESERVED 0xffffffff
 #define _FPU_DEFAULT  0x00000000
 typedef unsigned int fpu_control_t;
-#define _FPU_GETCW(cw) 0
-#define _FPU_SETCW(cw) do { } while (0)
+#define _FPU_GETCW(cw) (cw) = 0
+#define _FPU_SETCW(cw) (void) (cw)
 extern fpu_control_t __fpu_control;
 
 #else
@@ -39,7 +39,7 @@ extern fpu_control_t __fpu_control;
 
 /* Some bits in the FPSCR are not yet defined.  They must be preserved when
    modifying the contents.  */
-#define _FPU_RESERVED	0x0e08e0e0
+#define _FPU_RESERVED	0x00086060
 #define _FPU_DEFAULT    0x00000000
 /* Default + exceptions enabled. */
 #define _FPU_IEEE	(_FPU_DEFAULT | 0x00001f00)

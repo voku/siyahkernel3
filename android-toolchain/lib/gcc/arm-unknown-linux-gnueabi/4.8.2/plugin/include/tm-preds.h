@@ -1,5 +1,5 @@
 /* Generated automatically by the program 'build/genpreds'
-   from the machine description file '/android-kernel/ICS/crosstool-ng/.build/src/gcc-linaro-4.8-2013.07-1/gcc/config/arm/arm.md'.  */
+   from the machine description file '/android-kernel/ICS/crosstool-ng/.build/src/gcc-linaro-4.8-2013.08/gcc/config/arm/arm.md'.  */
 
 #ifndef GCC_TM_PREDS_H
 #define GCC_TM_PREDS_H
@@ -67,6 +67,7 @@ extern int expandable_comparison_operator (rtx, enum machine_mode);
 extern int arm_comparison_operator (rtx, enum machine_mode);
 extern int lt_ge_comparison_operator (rtx, enum machine_mode);
 extern int arm_vsel_comparison_operator (rtx, enum machine_mode);
+extern int arm_cond_move_operator (rtx, enum machine_mode);
 extern int noov_comparison_operator (rtx, enum machine_mode);
 extern int minmax_operator (rtx, enum machine_mode);
 extern int cc_register (rtx, enum machine_mode);
@@ -105,6 +106,7 @@ extern int neon_struct_operand (rtx, enum machine_mode);
 extern int neon_struct_or_register_operand (rtx, enum machine_mode);
 extern int add_operator (rtx, enum machine_mode);
 extern int mem_noofs_operand (rtx, enum machine_mode);
+extern int call_insn_operand (rtx, enum machine_mode);
 #endif /* HAVE_MACHINE_MODES */
 
 #define CONSTRAINT_NUM_DEFINED_P 1
@@ -125,6 +127,7 @@ enum constraint_num
   CONSTRAINT_q,
   CONSTRAINT_b,
   CONSTRAINT_c,
+  CONSTRAINT_Cs,
   CONSTRAINT_I,
   CONSTRAINT_J,
   CONSTRAINT_K,
@@ -159,6 +162,7 @@ enum constraint_num
   CONSTRAINT_Dv,
   CONSTRAINT_Dy,
   CONSTRAINT_Dt,
+  CONSTRAINT_Ts,
   CONSTRAINT_Ua,
   CONSTRAINT_Ut,
   CONSTRAINT_Uv,
@@ -170,6 +174,7 @@ enum constraint_num
   CONSTRAINT_Q,
   CONSTRAINT_Uu,
   CONSTRAINT_Uw,
+  CONSTRAINT_US,
   CONSTRAINT__LIMIT
 };
 
@@ -181,8 +186,10 @@ insn_constraint_len (char fc, const char *str ATTRIBUTE_UNUSED)
 {
   switch (fc)
     {
+    case 'C': return 2;
     case 'D': return 2;
     case 'P': return 2;
+    case 'T': return 2;
     case 'U': return 2;
     default: break;
     }

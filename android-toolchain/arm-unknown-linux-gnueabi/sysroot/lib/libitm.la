@@ -38,4 +38,4 @@ dlopen=''
 dlpreopen=''
 
 # Directory that this library needs to be installed in:
-libdir='/home/dorimanx/x-tools/arm-unknown-linux-gnueabi/arm-unknown-linux-gnueabi/lib'
+libdir='/android-kernel/ICS/crosstool-ng/builds/arm-unknown-linux-gnueabi/arm-unknown-linux-gnueabi/lib'

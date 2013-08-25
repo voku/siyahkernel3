@@ -53,7 +53,7 @@ if [ x$1 != x ] ; then
   prefix=$1
   shift
 else
-  prefix=/home/dorimanx/x-tools/arm-unknown-linux-gnueabi
+  prefix=/android-kernel/ICS/crosstool-ng/builds/arm-unknown-linux-gnueabi
 fi
 
 # Allow for alternate isysroot in which to find headers
