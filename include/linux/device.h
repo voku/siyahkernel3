@@ -675,9 +675,10 @@ struct acpi_dev_node {
  * @release:	Callback to free the device after all references have
  * 		gone away. This should be set by the allocator of the
  * 		device (i.e. the bus driver that discovered the device).
+ * @iommu_group: IOMMU group the device belongs to.
+ *
  * @offline_disabled: If set, the device is permanently online.
  * @offline:	Set after successful invocation of bus type's .offline().
- * @iommu_group: IOMMU group the device belongs to.
  *
  * At the lowest level, every device in a Linux system is represented by an
  * instance of struct device. The device structure contains the information
@@ -729,8 +730,8 @@ struct device {
 	struct dma_coherent_mem	*dma_mem; /* internal for coherent mem
 					     override */
 #ifdef CONFIG_DMA_CMA
-	struct cma	*cma_area;	/* contiguous memory area for dma
-						allocation */
+	struct cma *cma_area;		/* contiguous memory area for dma
+					   allocations */
 #endif
 	/* arch specific additions */
 	struct dev_archdata	archdata;
