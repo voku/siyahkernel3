@@ -23,8 +23,8 @@
  */
 
 #include <linux/device.h>
-#include <linux/module.h>
 #include <linux/slab.h>
+#include <linux/export.h>
 #include <linux/usb.h>
 #include <linux/usb/quirks.h>
 #include <linux/usb/hcd.h>
@@ -65,10 +65,7 @@ ssize_t usb_store_new_id(struct usb_dynids *dynids,
 	list_add_tail(&dynid->node, &dynids->list);
 	spin_unlock(&dynids->lock);
 
-	if (get_driver(driver)) {
-		retval = driver_attach(driver);
-		put_driver(driver);
-	}
+	retval = driver_attach(driver);
 
 	if (retval)
 		return retval;
