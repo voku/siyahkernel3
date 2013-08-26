@@ -40,9 +40,9 @@ EXPORT_SYMBOL_GPL(platform_bus);
  * be setup before the platform_notifier is called.  So if a user needs to
  * manipulate any relevant information in the pdev_archdata they can do:
  *
- * 	platform_devic_alloc()
- * 	... manipulate ...
- * 	platform_device_add()
+ *	platform_device_alloc()
+ *	... manipulate ...
+ *	platform_device_add()
  *
  * And if they don't care they can just call platform_device_register() and
  * everything will just work out.
@@ -193,6 +193,7 @@ struct platform_device *platform_device_alloc(const char *name, int id)
 		pa->pdev.id = id;
 		device_initialize(&pa->pdev.dev);
 		pa->pdev.dev.release = platform_device_release;
+		arch_setup_pdev_archdata(&pa->pdev);
 	}
 
 	return pa ? &pa->pdev : NULL;
@@ -354,6 +355,7 @@ EXPORT_SYMBOL_GPL(platform_device_del);
 int platform_device_register(struct platform_device *pdev)
 {
 	device_initialize(&pdev->dev);
+	arch_setup_pdev_archdata(pdev);
 	return platform_device_add(pdev);
 }
 EXPORT_SYMBOL_GPL(platform_device_register);
