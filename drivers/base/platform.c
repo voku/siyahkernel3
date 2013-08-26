@@ -21,6 +21,7 @@
 #include <linux/slab.h>
 #include <linux/pm_runtime.h>
 #include <linux/idr.h>
+#include <linux/acpi.h>
 
 #include "base.h"
 #include "power/power.h"
@@ -431,6 +432,7 @@ struct platform_device *platform_device_register_full(
 		goto err_alloc;
 
 	pdev->dev.parent = pdevinfo->parent;
+	ACPI_HANDLE_SET(&pdev->dev, pdevinfo->acpi_node.handle);
 
 	if (pdevinfo->dma_mask) {
 		/*
@@ -461,6 +463,7 @@ struct platform_device *platform_device_register_full(
 	ret = platform_device_add(pdev);
 	if (ret) {
 err:
+		ACPI_HANDLE_SET(&pdev->dev, NULL);
 		kfree(pdev->dev.dma_mask);
 
 err_alloc:
@@ -724,6 +727,10 @@ static int platform_match(struct device *dev, struct device_driver *drv)
 
 	/* Attempt an OF style match first */
 	if (of_driver_match_device(dev, drv))
+		return 1;
+
+	/* Then try ACPI style match */
+	if (acpi_driver_match_device(dev, drv))
 		return 1;
 
 	/* Then try to match against the id table */
