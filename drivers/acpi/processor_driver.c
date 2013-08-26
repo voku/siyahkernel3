@@ -43,15 +43,9 @@
 
 #define PREFIX "ACPI: "
 
-#define ACPI_PROCESSOR_FILE_INFO	"info"
-#define ACPI_PROCESSOR_FILE_THROTTLING	"throttling"
-#define ACPI_PROCESSOR_FILE_LIMIT	"limit"
 #define ACPI_PROCESSOR_NOTIFY_PERFORMANCE 0x80
 #define ACPI_PROCESSOR_NOTIFY_POWER	0x81
 #define ACPI_PROCESSOR_NOTIFY_THROTTLING	0x82
-
-#define ACPI_PROCESSOR_LIMIT_USER	0
-#define ACPI_PROCESSOR_LIMIT_THERMAL	1
 
 #define _COMPONENT		ACPI_PROCESSOR_COMPONENT
 ACPI_MODULE_NAME("processor_driver");
@@ -77,9 +71,6 @@ static struct device_driver acpi_processor_driver = {
 	.probe = acpi_processor_start,
 	.remove = acpi_processor_stop,
 };
-
-DEFINE_PER_CPU(struct acpi_processor *, processors);
-EXPORT_PER_CPU_SYMBOL(processors);
 
 static void acpi_processor_notify(acpi_handle handle, u32 event, void *data)
 {
@@ -127,9 +118,9 @@ static void acpi_processor_notify(acpi_handle handle, u32 event, void *data)
 	return;
 }
 
-static __cpuinit int __acpi_processor_start(struct acpi_device *device);
+static int __acpi_processor_start(struct acpi_device *device);
 
-static int __cpuinit acpi_cpu_soft_notify(struct notifier_block *nfb,
+static int acpi_cpu_soft_notify(struct notifier_block *nfb,
 					  unsigned long action, void *hcpu)
 {
 	unsigned int cpu = (unsigned long)hcpu;
@@ -171,7 +162,7 @@ static struct notifier_block __refdata acpi_cpu_notifier =
 	    .notifier_call = acpi_cpu_soft_notify,
 };
 
-static __cpuinit int __acpi_processor_start(struct acpi_device *device)
+static int __acpi_processor_start(struct acpi_device *device)
 {
 	struct acpi_processor *pr = acpi_driver_data(device);
 	acpi_status status;
@@ -235,7 +226,7 @@ static __cpuinit int __acpi_processor_start(struct acpi_device *device)
 	return result;
 }
 
-static int __cpuinit acpi_processor_start(struct device *dev)
+static int acpi_processor_start(struct device *dev)
 {
 	struct acpi_device *device;
 
@@ -268,8 +259,6 @@ static int acpi_processor_stop(struct device *dev)
 		thermal_cooling_device_unregister(pr->cdev);
 		pr->cdev = NULL;
 	}
-
-	per_cpu(processors, pr->id) = NULL;
 	return 0;
 }
 

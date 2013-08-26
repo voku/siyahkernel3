@@ -29,6 +29,9 @@
 
 ACPI_MODULE_NAME("processor");
 
+DEFINE_PER_CPU(struct acpi_processor *, processors);
+EXPORT_PER_CPU_SYMBOL(processors);
+
 /* --------------------------------------------------------------------------
                                 Errata Handling
    -------------------------------------------------------------------------- */
@@ -337,7 +340,7 @@ static int acpi_processor_get_info(struct acpi_device *device)
  */
 static DEFINE_PER_CPU(void *, processor_device_array);
 
-static int __cpuinit acpi_processor_add(struct acpi_device *device,
+static int acpi_processor_add(struct acpi_device *device,
 					const struct acpi_device_id *id)
 {
 	struct acpi_processor *pr;
@@ -387,10 +390,15 @@ static int __cpuinit acpi_processor_add(struct acpi_device *device,
 	 * checks.
 	 */
 	per_cpu(processor_device_array, pr->id) = device;
+	per_cpu(processors, pr->id) = pr;
 
 	dev = get_cpu_device(pr->id);
-	ACPI_HANDLE_SET(dev, pr->handle);
-	result = acpi_bind_one(dev, NULL);
+	if (!dev) {
+		result = -ENODEV;
+		goto err;
+	}
+
+	result = acpi_bind_one(dev, pr->handle);
 	if (result)
 		goto err;
 
@@ -407,6 +415,7 @@ static int __cpuinit acpi_processor_add(struct acpi_device *device,
  err:
 	free_cpumask_var(pr->throttling.shared_cpu_map);
 	device->driver_data = NULL;
+	per_cpu(processors, pr->id) = NULL;
  err_free_pr:
 	kfree(pr);
 	return result;
@@ -441,13 +450,15 @@ static void acpi_processor_remove(struct acpi_device *device)
 
 	/* Clean up. */
 	per_cpu(processor_device_array, pr->id) = NULL;
-	try_offline_node(cpu_to_node(pr->id));
+	per_cpu(processors, pr->id) = NULL;
 
 	/* Remove the CPU. */
 	get_online_cpus();
 	arch_unregister_cpu(pr->id);
 	acpi_unmap_lsapic(pr->id);
 	put_online_cpus();
+
+	try_offline_node(cpu_to_node(pr->id));
 
  out:
 	free_cpumask_var(pr->throttling.shared_cpu_map);

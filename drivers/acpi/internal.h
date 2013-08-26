@@ -41,11 +41,23 @@ void acpi_container_init(void);
 #else
 static inline void acpi_container_init(void) {}
 #endif
+#ifdef CONFIG_ACPI_DOCK
+void acpi_dock_init(void);
+#else
+static inline void acpi_dock_init(void) {}
+#endif
 #ifdef CONFIG_ACPI_HOTPLUG_MEMORY
 void acpi_memory_hotplug_init(void);
 #else
 static inline void acpi_memory_hotplug_init(void) {}
 #endif
+#ifdef CONFIG_X86
+void acpi_cmos_rtc_init(void);
+#else
+static inline void acpi_cmos_rtc_init(void) {}
+#endif
+
+extern bool acpi_force_hot_remove;
 
 void acpi_sysfs_add_hotplug_profile(struct acpi_hotplug_profile *hotplug,
 				    const char *name);
@@ -151,5 +163,14 @@ struct platform_device;
 
 int acpi_create_platform_device(struct acpi_device *adev,
 				const struct acpi_device_id *id);
+
+/*--------------------------------------------------------------------------
+					Video
+  -------------------------------------------------------------------------- */
+#if defined(CONFIG_ACPI_VIDEO) || defined(CONFIG_ACPI_VIDEO_MODULE)
+bool acpi_video_backlight_quirks(void);
+#else
+static inline bool acpi_video_backlight_quirks(void) { return false; }
+#endif
 
 #endif /* _ACPI_INTERNAL_H_ */
