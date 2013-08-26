@@ -607,6 +607,7 @@ int device_create_file(struct device *dev,
 {
 	int error = 0;
 
+#if 0 /* I will debug later DM */
 	if (dev) {
 		WARN(((attr->attr.mode & S_IWUGO) && !attr->store),
 			"Attribute %s: write permission without 'store'\n",
@@ -616,7 +617,10 @@ int device_create_file(struct device *dev,
 			attr->attr.name);
 		error = sysfs_create_file(&dev->kobj, &attr->attr);
 	}
-
+#else
+	if (dev)
+		error = sysfs_create_file(&dev->kobj, &attr->attr);
+#endif
 	return error;
 }
 
