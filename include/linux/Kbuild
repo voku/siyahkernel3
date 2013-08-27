@@ -66,7 +66,6 @@ header-y += if_ether.h
 header-y += if_link.h
 header-y += if_pppol2tp.h
 header-y += if_pppox.h
-header-y += if_strip.h
 header-y += if_tr.h
 header-y += if_tunnel.h
 header-y += if_vlan.h
