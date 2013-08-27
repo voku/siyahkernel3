@@ -55,6 +55,7 @@ header-y += atmmpc.h
 header-y += atmppp.h
 header-y += atmsap.h
 header-y += atmsvc.h
+header-y += audit.h
 header-y += auto_fs4.h
 header-y += ax25.h
 header-y += b1lli.h
