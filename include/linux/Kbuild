@@ -55,7 +55,6 @@ header-y += fanotify.h
 header-y += filter.h
 header-y += fs.h
 header-y += gameport.h
-header-y += generic_serial.h
 header-y += genetlink.h
 header-y += hid.h
 header-y += hidraw.h
