@@ -61,7 +61,6 @@ header-y += hidraw.h
 header-y += i2c-dev.h
 header-y += i2c.h
 header-y += if_arp.h
-header-y += if_ec.h
 header-y += if_eql.h
 header-y += if_ether.h
 header-y += if_link.h
