@@ -33,7 +33,6 @@ ifneq ($(wildcard $(srctree)/arch/$(SRCARCH)/include/asm/kvm_para.h \
 header-y += kvm_para.h
 endif
 
-header-y += capability.h
 header-y += cdrom.h
 header-y += cn_proc.h
 header-y += connector.h
