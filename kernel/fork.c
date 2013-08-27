@@ -348,6 +348,8 @@ static struct task_struct *dup_task_struct(struct task_struct *orig)
 	tsk->btrace_seq = 0;
 #endif
 	tsk->splice_pipe = NULL;
+/*	tsk->task_frag.page = NULL; # NOT IMPLEMENTED YET */
+/* see https://github.com/torvalds/linux/commit/5640f7685831e088fe6c2e1f863a6805962f8e81 */
 
 	account_kernel_stack(ti, 1);
 
