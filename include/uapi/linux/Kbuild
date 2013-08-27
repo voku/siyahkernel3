@@ -176,6 +176,12 @@ ifneq ($(wildcard $(srctree)/arch/$(SRCARCH)/include/uapi/asm/kvm.h \
 header-y += kvm.h
 endif
 
+
+ifneq ($(wildcard $(srctree)/arch/$(SRCARCH)/include/uapi/asm/kvm_para.h \
+      $(srctree)/arch/$(SRCARCH)/include/asm/kvm_para.h),)
+header-y += kvm_para.h
+endif
+
 header-y += limits.h
 header-y += lp.h
 header-y += magic.h
