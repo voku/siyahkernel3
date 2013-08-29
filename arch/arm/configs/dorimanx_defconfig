@@ -1028,7 +1028,6 @@ CONFIG_IP6_NF_RAW=y
 # CONFIG_ATALK is not set
 # CONFIG_X25 is not set
 # CONFIG_LAPB is not set
-# CONFIG_ECONET is not set
 # CONFIG_WAN_ROUTER is not set
 CONFIG_PHONET=y
 # CONFIG_IEEE802154 is not set
