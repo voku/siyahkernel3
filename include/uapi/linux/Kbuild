@@ -108,6 +108,7 @@ header-y += errno.h
 header-y += errqueue.h
 header-y += eventpoll.h
 header-y += fadvise.h
+header-y += falloc.h
 header-y += fb.h
 header-y += fcntl.h
 header-y += fd.h
