@@ -1,6 +1,6 @@
 /*
         Scary governor based off of conservatives source with some of smartasses features
-        
+
         For devs - If you're going to port this driver to other devices, make sure to edit
 	the default sleep frequencies & prev frequencies or else you might be going outside
 	your devices hardware limits.
@@ -379,7 +379,7 @@ static void smartass_suspend(int cpu, int suspend)
     if (!this_smartass->enable || sleep_max_freq == 0) // disable behavior for sleep_max_freq==0
         return;
 
-    if (suspend) 
+    if (suspend)
     {
         //If the current min speed is greater than the max sleep, we reset the min to 120mhz, for battery savings
             if (policy->min >= sleep_max_freq)
@@ -392,7 +392,7 @@ static void smartass_suspend(int cpu, int suspend)
                 sleep_prev_max = policy->max;
                 policy->max = sleep_max_freq;
             }
-        if (policy->cur > sleep_max_freq) 
+        if (policy->cur > sleep_max_freq)
         {
             new_freq = sleep_max_freq;
             if (new_freq > policy->max)
@@ -401,7 +401,7 @@ static void smartass_suspend(int cpu, int suspend)
                 new_freq = policy->min;
             __cpufreq_driver_target(policy, new_freq, CPUFREQ_RELATION_H);
        }
-       
+
     }
     else //Resetting the min speed
     {
@@ -410,10 +410,10 @@ static void smartass_suspend(int cpu, int suspend)
         if (policy->max < sleep_prev_max)
             policy->max = sleep_prev_max;
     }
-    
+
 }
 
-static void smartass_early_suspend(struct early_suspend *handler) 
+static void smartass_early_suspend(struct early_suspend *handler)
 {
     int i;
     dbs_tuners_ins.suspended = 1;
@@ -421,7 +421,7 @@ static void smartass_early_suspend(struct early_suspend *handler)
     smartass_suspend(i, 1);
 }
 
-static void smartass_late_resume(struct early_suspend *handler) 
+static void smartass_late_resume(struct early_suspend *handler)
 {
     int i;
     dbs_tuners_ins.suspended = 0;
@@ -429,7 +429,7 @@ static void smartass_late_resume(struct early_suspend *handler)
     smartass_suspend(i, 0);
 }
 
-static struct early_suspend smartass_power_suspend = 
+static struct early_suspend smartass_power_suspend =
 {
     .suspend = smartass_early_suspend,
     .resume = smartass_late_resume,
@@ -543,20 +543,20 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 		this_dbs_info->down_skip = 0;
 
 		/* if we are already at full speed then break out early */
-   		if (this_dbs_info->requested_freq == policy->max)
-   			return;
-   		freq_target = (dbs_tuners_ins.freq_step * policy->max) / 100;
-   		/* max freq cannot be less than 100. but who knows.... */
-   		if (unlikely(freq_target == 0))
-   			freq_target = 5;
-    
-   		this_dbs_info->requested_freq += freq_target;
-   		if (this_dbs_info->requested_freq > policy->max)
-   			this_dbs_info->requested_freq = policy->max;
+		if (this_dbs_info->requested_freq == policy->max)
+			return;
+		freq_target = (dbs_tuners_ins.freq_step * policy->max) / 100;
+		/* max freq cannot be less than 100. but who knows.... */
+		if (unlikely(freq_target == 0))
+			freq_target = 5;
+
+		this_dbs_info->requested_freq += freq_target;
+		if (this_dbs_info->requested_freq > policy->max)
+			this_dbs_info->requested_freq = policy->max;
 
         __cpufreq_driver_target(policy, this_dbs_info->requested_freq, CPUFREQ_RELATION_H);
 
-   		return;
+		return;
     }
 
 	/*
@@ -629,7 +629,7 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 	int rc;
 	unsigned int min_freq = ~0;
 	unsigned int max_freq = 0;
-	unsigned int i;	
+	unsigned int i;
 	struct cpufreq_frequency_table *freq_table;
 
 	this_dbs_info = &per_cpu(cs_cpu_dbs_info, cpu);
@@ -703,7 +703,7 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 			if (freq == CPUFREQ_ENTRY_INVALID) {
 				continue;
 			}
-			if (freq < min_freq)	
+			if (freq < min_freq)
 				min_freq = freq;
 			if (freq > max_freq)
 				max_freq = freq;

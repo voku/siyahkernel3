@@ -12,7 +12,7 @@
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
- * 
+ *
  * Created by Alucard_24@xda
  */
 
@@ -293,7 +293,7 @@ static ssize_t store_sampling_rate(struct kobject *a, struct attribute *b,
 		return -EINVAL;
 
 	input = max(input,10000);
-	
+
 	if (input == atomic_read(&nightmare_tuners_ins.sampling_rate))
 		return count;
 
@@ -313,7 +313,7 @@ static ssize_t store_hotplug_enable(struct kobject *a, struct attribute *b,
 	if (ret != 1)
 		return -EINVAL;
 
-	input = input > 0; 
+	input = input > 0;
 
 	if (atomic_read(&nightmare_tuners_ins.hotplug_enable) == input)
 		return count;
@@ -676,7 +676,7 @@ static ssize_t store_maxcoreslimitsleep(struct kobject *a, struct attribute *b,
 	if (ret != 1)
 		return -EINVAL;
 
-	input = max(input > NR_CPUS ? NR_CPUS : input, 1); 
+	input = max(input > NR_CPUS ? NR_CPUS : input, 1);
 
 	if (atomic_read(&nightmare_tuners_ins.maxcoreslimitsleep) == input)
 		return count;
@@ -696,7 +696,7 @@ static ssize_t store_min_freq_limit(struct kobject *a, struct attribute *b,
 	ret = sscanf(buf, "%d", &input);
 	if (ret != 1)
 		return -EINVAL;
-	
+
 	input = max(min(input,atomic_read(&nightmare_tuners_ins.max_freq_limit)),0);
 
 	if (input == atomic_read(&nightmare_tuners_ins.min_freq_limit))
@@ -815,7 +815,7 @@ static void __ref hp_offline_work_fn(struct work_struct *work)
 
 	for_each_online_cpu(cpu) {
 		if (cpu == (online - 1) && cpu) {
-			cpu_down(cpu);			
+			cpu_down(cpu);
 			//pr_info("auto_hotplug: CPU%d down.\n", cpu);
 			break;
 		}
@@ -827,7 +827,7 @@ static void __ref hp_online_work_fn(struct work_struct *work)
 	int cpu;
 	for_each_cpu_not(cpu, cpu_online_mask) {
 		if (cpu) {
-			cpu_up(cpu);			
+			cpu_up(cpu);
 			//pr_info("auto_hotplug: CPU%d up.\n", cpu);
 			break;
 		}
@@ -894,7 +894,7 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 		j_nightmare_cpuinfo->prev_cpu_others = cur_others_time;
 
 		idle_time = (unsigned int)
-				((cur_idle_time - j_nightmare_cpuinfo->prev_cpu_idle) + 
+				((cur_idle_time - j_nightmare_cpuinfo->prev_cpu_idle) +
 				 (cur_iowait_time - j_nightmare_cpuinfo->prev_cpu_iowait));
 		j_nightmare_cpuinfo->prev_cpu_idle = cur_idle_time;
 		j_nightmare_cpuinfo->prev_cpu_iowait = cur_iowait_time;
@@ -911,7 +911,7 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 		if (max_freq > cpu_policy.max || max_freq < cpu_policy.min)
 			max_freq = cpu_policy.max;
 		if (min_freq < cpu_policy.min || min_freq > cpu_policy.max)
-			min_freq = cpu_policy.min;		
+			min_freq = cpu_policy.min;
 		/* CPUs Online Scale Frequency*/
 		if (cpu_policy.cur < freq_for_responsiveness) {
 			inc_cpu_load = atomic_read(&nightmare_tuners_ins.inc_cpu_load_at_min_freq);
@@ -919,7 +919,7 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 			freq_up_brake = atomic_read(&nightmare_tuners_ins.freq_up_brake_at_min_freq);
 		} else if (cpu_policy.cur > freq_for_responsiveness_max) {
 			freq_step_dec = atomic_read(&nightmare_tuners_ins.freq_step_dec_at_max_freq);
-		}		
+		}
 		/* Check for frequency increase or for frequency decrease */
 #ifndef CONFIG_CPU_EXYNOS4210
 		if (cur_load[j] >= inc_cpu_load && cpu_policy.cur < max_freq) {
@@ -937,7 +937,7 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 		next_freq[j] = (tmp_freq / 100000) * 100000;
 		if ((next_freq[j] > cpu_policy.cur
 			&& (tmp_freq % 100000 > up_sf_step * 1000))
-			|| (next_freq[j] < cpu_policy.cur 
+			|| (next_freq[j] < cpu_policy.cur
 			&& (tmp_freq % 100000 > down_sf_step * 1000))) {
 				next_freq[j] += 100000;
 		}
@@ -961,7 +961,7 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 					__func__, cur_freq, up_freq); */
 				queue_work_on(0, system_wq, &hotplug_online_work);
 			}
-		} 
+		}
 		if (num_rate % down_rate == 0 && num_core > (lmaxcoreslimit == NR_CPUS ? 1 : lmaxcoreslimit)) {
 			if (cur_load[num_core - 1] < atomic_read(&hotplug_load[num_core - 1][HOTPLUG_DOWN_INDEX])
 				|| next_freq[num_core - 1] <= atomic_read(&hotplug_freq[num_core - 1][HOTPLUG_DOWN_INDEX])) {
@@ -990,7 +990,7 @@ static void do_nightmare_timer(struct work_struct *work)
 	delay = usecs_to_jiffies(atomic_read(&nightmare_tuners_ins.sampling_rate));
 	if (num_online_cpus() > 1) {
 		delay -= jiffies % delay;
-	}	
+	}
 
 	mod_delayed_work_on(0, system_wq, &nightmare_cpuinfo->work, delay);
 	mutex_unlock(&timer_mutex);
@@ -1106,14 +1106,14 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 					   &nightmare_attr_group);
 		}
 		mutex_unlock(&nightmare_mutex);
-		
+
 		break;
 
 	case CPUFREQ_GOV_LIMITS:
 		if(!cpu_policy.cur) {
 			break;
 		}
-		mutex_lock(&timer_mutex);				
+		mutex_lock(&timer_mutex);
 		/* NOTHING TO DO JUST WATT */
 		if (policy->max < cpu_policy.cur)
 			__cpufreq_driver_target(&cpu_policy,

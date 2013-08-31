@@ -12,7 +12,7 @@
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
- * 
+ *
  * Created by Alucard_24@xda
  */
 
@@ -277,7 +277,7 @@ static ssize_t store_sampling_rate(struct kobject *a, struct attribute *b,
 		return -EINVAL;
 
 	input = max(input,10000);
-	
+
 	if (input == atomic_read(&darkness_tuners_ins.sampling_rate))
 		return count;
 
@@ -297,7 +297,7 @@ static ssize_t store_hotplug_enable(struct kobject *a, struct attribute *b,
 	if (ret != 1)
 		return -EINVAL;
 
-	input = input > 0; 
+	input = input > 0;
 
 	if (atomic_read(&darkness_tuners_ins.hotplug_enable) == input)
 		return count;
@@ -406,7 +406,7 @@ static ssize_t store_force_freqs_step(struct kobject *a, struct attribute *b,
 	ret = sscanf(buf, "%d", &input);
 	if (ret != 1)
 		return -EINVAL;
-	
+
 	input = max(min(input,3),0);
 
 	if (input == atomic_read(&darkness_tuners_ins.force_freqs_step))
@@ -428,7 +428,7 @@ static ssize_t store_maxcoreslimit(struct kobject *a, struct attribute *b,
 	if (ret != 1)
 		return -EINVAL;
 
-	input = max(input > NR_CPUS ? NR_CPUS : input, 1); 
+	input = max(input > NR_CPUS ? NR_CPUS : input, 1);
 
 	if (atomic_read(&darkness_tuners_ins.maxcoreslimit) == input)
 		return count;
@@ -449,7 +449,7 @@ static ssize_t store_maxcoreslimitsleep(struct kobject *a, struct attribute *b,
 	if (ret != 1)
 		return -EINVAL;
 
-	input = max(input > NR_CPUS ? NR_CPUS : input, 1); 
+	input = max(input > NR_CPUS ? NR_CPUS : input, 1);
 
 	if (atomic_read(&darkness_tuners_ins.maxcoreslimitsleep) == input)
 		return count;
@@ -469,7 +469,7 @@ static ssize_t store_min_freq_limit(struct kobject *a, struct attribute *b,
 	ret = sscanf(buf, "%d", &input);
 	if (ret != 1)
 		return -EINVAL;
-	
+
 	input = max(min(input,atomic_read(&darkness_tuners_ins.max_freq_limit)),0);
 
 	if (input == atomic_read(&darkness_tuners_ins.min_freq_limit))
@@ -568,7 +568,7 @@ static void __ref hp_offline_work_fn(struct work_struct *work)
 
 	for_each_online_cpu(cpu) {
 		if (cpu == (online - 1) && cpu) {
-			cpu_down(cpu);			
+			cpu_down(cpu);
 			//pr_info("auto_hotplug: CPU%d down.\n", cpu);
 			break;
 		}
@@ -580,7 +580,7 @@ static void __ref hp_online_work_fn(struct work_struct *work)
 	int cpu;
 	for_each_cpu_not(cpu, cpu_online_mask) {
 		if (cpu) {
-			cpu_up(cpu);			
+			cpu_up(cpu);
 			//pr_info("auto_hotplug: CPU%d up.\n", cpu);
 			break;
 		}
@@ -625,7 +625,7 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 		unsigned int tmp_freq;
 #endif
 		unsigned long flags;
-		
+
 		spin_lock_irqsave(&j_darkness_cpuinfo->lock, flags);
 		cur_user_time = (__force unsigned long)(kcpustat_cpu(j).cpustat[CPUTIME_USER]);
 		cur_system_time = (__force unsigned long)(kcpustat_cpu(j).cpustat[CPUTIME_SYSTEM]);
@@ -645,7 +645,7 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 		j_darkness_cpuinfo->prev_cpu_others = cur_others_time;
 
 		idle_time = (unsigned int)
-				((cur_idle_time - j_darkness_cpuinfo->prev_cpu_idle) + 
+				((cur_idle_time - j_darkness_cpuinfo->prev_cpu_idle) +
 				 (cur_iowait_time - j_darkness_cpuinfo->prev_cpu_iowait));
 		j_darkness_cpuinfo->prev_cpu_idle = cur_idle_time;
 		j_darkness_cpuinfo->prev_cpu_iowait = cur_iowait_time;
@@ -671,7 +671,7 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 			next_freq[j] = (tmp_freq / 100000) * 100000;
 			if ((next_freq[j] > cpu_policy.cur
 				&& (tmp_freq % 100000 > up_sf_step * 1000))
-				|| (next_freq[j] < cpu_policy.cur 
+				|| (next_freq[j] < cpu_policy.cur
 				&& (tmp_freq % 100000 > down_sf_step * 1000))) {
 					next_freq[j] += 100000;
 			}
@@ -682,8 +682,8 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 					break;
 				}
 			}
-		}	
-#endif			
+		}
+#endif
 		/*printk(KERN_ERR "FREQ CALC.: CPU[%u], load[%d], target freq[%u], cur freq[%u], min freq[%u], max_freq[%u]\n",j, cur_load[j], next_freq[j], cpu_policy.cur, cpu_policy.min, max_freq); */
 		if (next_freq[j] != cpu_policy.cur) {
 			__cpufreq_driver_target(&cpu_policy, next_freq[j], CPUFREQ_RELATION_L);
@@ -703,7 +703,7 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 					__func__, cur_freq, up_freq); */
 				queue_work_on(0, system_wq, &hotplug_online_work);
 			}
-		} 
+		}
 		if (num_rate % down_rate == 0 && num_core > (lmaxcoreslimit == NR_CPUS ? 1 : lmaxcoreslimit)) {
 			if (cur_load[num_core - 1] < atomic_read(&hotplug_load[num_core - 1][HOTPLUG_DOWN_INDEX])
 				|| next_freq[num_core - 1] <= atomic_read(&hotplug_freq[num_core - 1][HOTPLUG_DOWN_INDEX])) {
@@ -778,7 +778,7 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 		darkness_enable=1;
 		for_each_cpu(j, cpu_possible_mask) {
 			struct cpufreq_darkness_cpuinfo *j_darkness_cpuinfo = &per_cpu(od_darkness_cpuinfo, j);
-			unsigned long flags;			
+			unsigned long flags;
 			spin_lock_irqsave(&j_darkness_cpuinfo->lock, flags);
 			j_darkness_cpuinfo->prev_cpu_user = (__force unsigned long)(kcpustat_cpu(j).cpustat[CPUTIME_USER]);
 			j_darkness_cpuinfo->prev_cpu_system = (__force unsigned long)(kcpustat_cpu(j).cpustat[CPUTIME_SYSTEM]);
@@ -844,16 +844,16 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 
 		if (!darkness_enable) {
 			sysfs_remove_group(cpufreq_global_kobject,
-					   &darkness_attr_group);			
+					   &darkness_attr_group);
 		}
 		mutex_unlock(&darkness_mutex);
-		
+
 		break;
 
 	case CPUFREQ_GOV_LIMITS:
 		if(!cpu_policy.cur) {
 			break;
-		}	
+		}
 		mutex_lock(&timer_mutex);
 		if (policy->max < cpu_policy.cur)
 			__cpufreq_driver_target(&cpu_policy,

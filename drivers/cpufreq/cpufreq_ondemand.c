@@ -1033,7 +1033,7 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 		mutex_unlock(&dbs_mutex);
 
 		mutex_init(&this_dbs_info->timer_mutex);
-		
+
 		dbs_timer_init(this_dbs_info);
 
 		break;

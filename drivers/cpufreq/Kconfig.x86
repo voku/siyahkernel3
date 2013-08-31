@@ -252,4 +252,3 @@ config X86_SPEEDSTEP_RELAXED_CAP_CHECK
 	  capable, don't always indicate that they are speedstep capable. This
 	  option lets the probing code bypass some of those checks if the
 	  parameter "relaxed_check=1" is passed to the module.
-
