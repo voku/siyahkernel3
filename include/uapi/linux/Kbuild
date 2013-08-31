@@ -89,6 +89,7 @@ header-y += cyclades.h
 header-y += cycx_cfm.h
 header-y += dcbnl.h
 header-y += dccp.h
+header-y += dlm.h
 header-y += dlm_device.h
 header-y += dlm_netlink.h
 header-y += dlm_plock.h
