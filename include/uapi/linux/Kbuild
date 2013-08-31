@@ -84,6 +84,7 @@ header-y += coff.h
 header-y += connector.h
 header-y += const.h
 header-y += cramfs_fs.h
+header-y += cuda.h
 header-y += cyclades.h
 header-y += cycx_cfm.h
 header-y += dcbnl.h
