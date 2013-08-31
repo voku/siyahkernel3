@@ -490,8 +490,12 @@ static ssize_t store_max_freq_limit(struct kobject *a, struct attribute *b,
 	ret = sscanf(buf, "%d", &input);
 	if (ret != 1)
 		return -EINVAL;
-	
+
+#ifndef CONFIG_CPU_EXYNOS4210
 	input = max(min(input,1890000),atomic_read(&darkness_tuners_ins.min_freq_limit));
+#else
+	input = max(min(input,1600000),atomic_read(&darkness_tuners_ins.min_freq_limit));
+#endif
 
 	if (input == atomic_read(&darkness_tuners_ins.max_freq_limit))
 		return count;
