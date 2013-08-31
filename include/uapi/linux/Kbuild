@@ -106,6 +106,7 @@ header-y += elf-fdpic.h
 header-y += elf.h
 header-y += errno.h
 header-y += errqueue.h
+header-y += eventpoll.h
 header-y += fadvise.h
 header-y += fb.h
 header-y += fcntl.h
