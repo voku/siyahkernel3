@@ -32,7 +32,6 @@ ifneq ($(wildcard $(srctree)/arch/$(SRCARCH)/include/asm/kvm_para.h \
 		  $(INSTALL_HDR_PATH)/include/asm-*/kvm_para.h),)
 endif
 
-header-y += ethtool.h
 header-y += filter.h
 header-y += fs.h
 header-y += gameport.h
