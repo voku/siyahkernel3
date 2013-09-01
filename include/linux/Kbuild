@@ -32,7 +32,6 @@ ifneq ($(wildcard $(srctree)/arch/$(SRCARCH)/include/asm/kvm_para.h \
 		  $(INSTALL_HDR_PATH)/include/asm-*/kvm_para.h),)
 endif
 
-header-y += hid.h
 header-y += hidraw.h
 header-y += i2c-dev.h
 header-y += i2c.h
