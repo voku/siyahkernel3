@@ -121,6 +121,7 @@ header-y += filter.h
 header-y += firewire-cdev.h
 header-y += firewire-constants.h
 header-y += flat.h
+header-y += fs.h
 header-y += fuse.h
 header-y += futex.h
 header-y += gen_stats.h
