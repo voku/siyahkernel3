@@ -134,6 +134,7 @@ header-y += hdlcdrv.h
 header-y += hdreg.h
 header-y += hid.h
 header-y += hiddev.h
+header-y += hidraw.h
 header-y += hpet.h
 header-y += hysdn_if.h
 header-y += i2o-dev.h
