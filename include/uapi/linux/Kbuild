@@ -124,6 +124,7 @@ header-y += flat.h
 header-y += fs.h
 header-y += fuse.h
 header-y += futex.h
+header-y += gameport.h
 header-y += gen_stats.h
 header-y += gfs2_ondisk.h
 header-y += gigaset_dev.h
