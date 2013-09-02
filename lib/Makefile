@@ -19,6 +19,7 @@ lib-$(CONFIG_MMU) += ioremap.o
 lib-$(CONFIG_SMP) += cpumask.o
 
 lib-y	+= kobject.o klist.o
+obj-y	+= lockref.o
 
 CFLAGS_bitmap.o += -Os
 obj-y += bcd.o div64.o sort.o parser.o halfmd4.o debug_locks.o random32.o \
