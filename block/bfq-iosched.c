@@ -78,7 +78,7 @@ static const int bfq_back_max = 16 * 1024;
 static const int bfq_back_penalty = 2;
 
 /* Idling period duration, in jiffies. */
-static int bfq_slice_idle = 4;
+static int bfq_slice_idle = HZ / 250;
 
 /* Default maximum budget values, in sectors and number of requests. */
 static const int bfq_default_max_budget = 16 * 1024;
@@ -2937,7 +2937,7 @@ static int bfq_init_queue(struct request_queue *q, struct elevator_type *e)
 	struct elevator_queue *eq;
 
 	eq = elevator_alloc(q, e);
-	if (!eq)
+	if (eq == NULL)
 		return -ENOMEM;
 
 	bfqd = kmalloc_node(sizeof(*bfqd), GFP_KERNEL | __GFP_ZERO, q->node);
@@ -2956,6 +2956,7 @@ static int bfq_init_queue(struct request_queue *q, struct elevator_type *e)
 	atomic_inc(&bfqd->oom_bfqq.ref);
 
 	bfqd->queue = q;
+
 	spin_lock_irq(q->queue_lock);
 	q->elevator = eq;
 	spin_unlock_irq(q->queue_lock);
@@ -2963,6 +2964,7 @@ static int bfq_init_queue(struct request_queue *q, struct elevator_type *e)
 	bfqg = bfq_alloc_root_group(bfqd, q->node);
 	if (bfqg == NULL) {
 		kfree(bfqd);
+		kobject_put(&eq->kobj);
 		return -ENOMEM;
 	}
 
