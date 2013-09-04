@@ -173,10 +173,8 @@ err_out:
 
 struct cpufreq_policy *cpufreq_cpu_get(unsigned int cpu)
 {
-#if 0 //we dont disable freq
 	if (cpufreq_disabled())
 		return NULL;
-#endif
 
 	return __cpufreq_cpu_get(cpu, false);
 }
@@ -196,10 +194,8 @@ static void __cpufreq_cpu_put(struct cpufreq_policy *data, bool sysfs)
 
 void cpufreq_cpu_put(struct cpufreq_policy *data)
 {
-#if 0 //we dont disable freq
 	if (cpufreq_disabled())
 		return;
-#endif
 
 	__cpufreq_cpu_put(data, false);
 }
@@ -253,33 +249,17 @@ static inline void adjust_jiffies(unsigned long val, struct cpufreq_freqs *ci)
 #endif
 
 
-/**
- * cpufreq_notify_transition - call notifier chain and adjust_jiffies
- * on frequency transition.
- *
- * This function calls the transition notifiers and the "adjust_jiffies"
- * function. It is called twice on all CPU frequency changes that have
- * external effects.
- */
-void cpufreq_notify_transition(struct cpufreq_freqs *freqs, unsigned int state)
+void __cpufreq_notify_transition(struct cpufreq_policy *policy,
+		struct cpufreq_freqs *freqs, unsigned int state)
 {
-	struct cpufreq_policy *policy;
-	unsigned long flags;
-
 	BUG_ON(irqs_disabled());
 
-#if 0 //we dont disable freq
 	if (cpufreq_disabled())
 		return;
-#endif
 
 	freqs->flags = cpufreq_driver->flags;
 	pr_debug("notification %u of frequency transition to %u kHz\n",
 		state, freqs->new);
-
-	read_lock_irqsave(&cpufreq_driver_lock, flags);
-	policy = per_cpu(cpufreq_cpu_data, freqs->cpu);
-	read_unlock_irqrestore(&cpufreq_driver_lock, flags);
 
 	switch (state) {
 
@@ -316,7 +296,23 @@ void cpufreq_notify_transition(struct cpufreq_freqs *freqs, unsigned int state)
 		break;
 	}
 }
+
+/**
+ * cpufreq_notify_transition - call notifier chain and adjust_jiffies
+ * on frequency transition.
+ *
+ * This function calls the transition notifiers and the "adjust_jiffies"
+ * function. It is called twice on all CPU frequency changes that have
+ * external effects.
+ */
+void cpufreq_notify_transition(struct cpufreq_policy *policy,
+		struct cpufreq_freqs *freqs, unsigned int state)
+{
+	for_each_cpu(freqs->cpu, policy->cpus)
+		__cpufreq_notify_transition(policy, freqs, state);
+}
 EXPORT_SYMBOL_GPL(cpufreq_notify_transition);
+
 /**
  * cpufreq_notify_utilization - notify CPU userspace about CPU utilization
  * change
@@ -1212,7 +1208,10 @@ static void handle_update(struct work_struct *work)
 static void cpufreq_out_of_sync(unsigned int cpu, unsigned int old_freq,
 				unsigned int new_freq)
 {
+	struct cpufreq_policy *policy;
 	struct cpufreq_freqs freqs;
+	unsigned long flags;
+
 
 	pr_debug("Warning: CPU frequency out of sync: cpufreq and timing "
 	       "core thinks of %u, is %u kHz.\n", old_freq, new_freq);
@@ -1220,8 +1219,13 @@ static void cpufreq_out_of_sync(unsigned int cpu, unsigned int old_freq,
 	freqs.cpu = cpu;
 	freqs.old = old_freq;
 	freqs.new = new_freq;
-	cpufreq_notify_transition(&freqs, CPUFREQ_PRECHANGE);
-	cpufreq_notify_transition(&freqs, CPUFREQ_POSTCHANGE);
+
+	read_lock_irqsave(&cpufreq_driver_lock, flags);
+	policy = per_cpu(cpufreq_cpu_data, cpu);
+	read_unlock_irqrestore(&cpufreq_driver_lock, flags);
+
+	cpufreq_notify_transition(policy, &freqs, CPUFREQ_PRECHANGE);
+	cpufreq_notify_transition(policy, &freqs, CPUFREQ_POSTCHANGE);
 }
 
 
@@ -1444,10 +1448,8 @@ int cpufreq_register_notifier(struct notifier_block *nb, unsigned int list)
 {
 	int ret;
 
-#if 0 //we dont disable freq
 	if (cpufreq_disabled())
 		return -EINVAL;
-#endif
 
 	WARN_ON(!init_cpufreq_transition_notifier_list_called);
 
@@ -1483,10 +1485,8 @@ int cpufreq_unregister_notifier(struct notifier_block *nb, unsigned int list)
 {
 	int ret;
 
-#if 0 //we dont disable freq
 	if (cpufreq_disabled())
 		return -EINVAL;
-#endif
 
 	switch (list) {
 	case CPUFREQ_TRANSITION_NOTIFIER:
@@ -1568,10 +1568,8 @@ int __cpufreq_driver_getavg(struct cpufreq_policy *policy, unsigned int cpu)
 {
 	int ret = 0;
 
-#if 0 //we dont disable freq
 	if (cpufreq_disabled())
 		return ret;
-#endif
 
 	if (!(cpu_online(cpu) && cpufreq_driver->getavg))
 		return 0;
@@ -2027,6 +2025,7 @@ int cpufreq_unregister_driver(struct cpufreq_driver *driver)
 }
 EXPORT_SYMBOL_GPL(cpufreq_unregister_driver);
 
+#if 0 /* disabled by DM. */
 static void powersave_early_suspend(struct early_suspend *handler)
 {
 	int cpu;
@@ -2082,6 +2081,7 @@ static struct early_suspend _powersave_early_suspend = {
 	.resume = powersave_late_resume,
 	.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN,
 };
+#endif
 
 static int __init cpufreq_core_init(void)
 {
@@ -2098,7 +2098,7 @@ static int __init cpufreq_core_init(void)
 	cpufreq_global_kobject = kobject_create_and_add("cpufreq", &cpu_subsys.dev_root->kobj);
 	BUG_ON(!cpufreq_global_kobject);
 	register_syscore_ops(&cpufreq_syscore_ops);
-	register_early_suspend(&_powersave_early_suspend);
+/*	register_early_suspend(&_powersave_early_suspend); */
 
 	return 0;
 }
