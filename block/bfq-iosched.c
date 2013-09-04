@@ -613,11 +613,8 @@ static struct request *bfq_find_rq_fmerge(struct bfq_data *bfqd,
 		return NULL;
 
 	bfqq = bic_to_bfqq(bic, bfq_bio_sync(bio));
-	if (bfqq != NULL) {
-		sector_t sector = bio->bi_sector + bio_sectors(bio);
-
-		return elv_rb_find(&bfqq->sort_list, sector);
-	}
+	if (bfqq != NULL)
+		return elv_rb_find(&bfqq->sort_list, bio_end_sector(bio));
 
 	return NULL;
 }
