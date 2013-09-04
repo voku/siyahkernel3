@@ -2156,7 +2156,7 @@ static int cgroup_allow_attach(struct cgroup *cgrp, struct cgroup_taskset *tset)
 	struct cgroup_subsys *ss;
 	int ret;
 
-	for_each_subsys(cgrp->root, ss) {
+	for_each_root_subsys(cgrp->root, ss) {
 		if (ss->allow_attach) {
 			ret = ss->allow_attach(cgrp, tset);
 			if (ret)
