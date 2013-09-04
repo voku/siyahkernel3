@@ -1,8 +1,6 @@
 #ifndef __OF_IRQ_H
 #define __OF_IRQ_H
 
-#if defined(CONFIG_OF)
-struct of_irq;
 #include <linux/types.h>
 #include <linux/errno.h>
 #include <linux/irq.h>
@@ -10,14 +8,6 @@ struct of_irq;
 #include <linux/ioport.h>
 #include <linux/of.h>
 
-/*
- * irq_of_parse_and_map() is used by all OF enabled platforms; but SPARC
- * implements it differently.  However, the prototype is the same for all,
- * so declare it here regardless of the CONFIG_OF_IRQ setting.
- */
-extern unsigned int irq_of_parse_and_map(struct device_node *node, int index);
-
-#if defined(CONFIG_OF_IRQ)
 /**
  * of_irq - container for device_node/irq_specifier pair for an irq controller
  * @controller: pointer to interrupt controller device tree node
@@ -33,6 +23,8 @@ struct of_irq {
 	u32 size; /* Specifier size */
 	u32 specifier[OF_MAX_IRQ_SPEC]; /* Specifier copy */
 };
+
+typedef int (*of_irq_init_cb_t)(struct device_node *, struct device_node *);
 
 /*
  * Workarounds only applied to 32bit powermac machines
@@ -56,8 +48,8 @@ static inline int of_irq_map_oldworld(struct device_node *device, int index,
 #endif /* CONFIG_PPC32 && CONFIG_PPC_PMAC */
 
 
-extern int of_irq_map_raw(struct device_node *parent, const u32 *intspec,
-			  u32 ointsize, const u32 *addr,
+extern int of_irq_map_raw(struct device_node *parent, const __be32 *intspec,
+			  u32 ointsize, const __be32 *addr,
 			  struct of_irq *out_irq);
 extern int of_irq_map_one(struct device_node *device, int index,
 			  struct of_irq *out_irq);
@@ -69,9 +61,17 @@ extern int of_irq_to_resource(struct device_node *dev, int index,
 extern int of_irq_count(struct device_node *dev);
 extern int of_irq_to_resource_table(struct device_node *dev,
 		struct resource *res, int nr_irqs);
-extern struct device_node *of_irq_find_parent(struct device_node *child);
 
-#endif /* CONFIG_OF_IRQ */
+extern void of_irq_init(const struct of_device_id *matches);
+
+#if defined(CONFIG_OF)
+/*
+ * irq_of_parse_and_map() is used by all OF enabled platforms; but SPARC
+ * implements it differently.  However, the prototype is the same for all,
+ * so declare it here regardless of the CONFIG_OF_IRQ setting.
+ */
+extern unsigned int irq_of_parse_and_map(struct device_node *node, int index);
+extern struct device_node *of_irq_find_parent(struct device_node *child);
 
 #else /* !CONFIG_OF */
 static inline unsigned int irq_of_parse_and_map(struct device_node *dev,
