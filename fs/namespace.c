@@ -830,6 +830,10 @@ static struct mount *clone_mnt(struct mount *old, struct dentry *root,
 	if ((flag & CL_UNPRIVILEGED) && (mnt->mnt.mnt_flags & MNT_READONLY))
 		mnt->mnt.mnt_flags |= MNT_LOCK_READONLY;
 
+	/* Don't allow unprivileged users to reveal what is under a mount */
+	if ((flag & CL_UNPRIVILEGED) && list_empty(&old->mnt_expire))
+		mnt->mnt.mnt_flags |= MNT_LOCKED;
+
 	atomic_inc(&sb->s_active);
 	mnt->mnt.mnt_sb = sb;
 	mnt->mnt.mnt_root = dget(root);
@@ -1326,6 +1330,8 @@ SYSCALL_DEFINE2(umount, char __user *, name, int, flags)
 		goto dput_and_out;
 	if (!check_mnt(mnt))
 		goto dput_and_out;
+	if (mnt->mnt.mnt_flags & MNT_LOCKED)
+		goto dput_and_out;
 
 	retval = do_umount(mnt, flags);
 dput_and_out:
@@ -1348,14 +1354,11 @@ SYSCALL_DEFINE1(oldumount, char __user *, name)
 
 #endif
 
-static bool mnt_ns_loop(struct path *path)
+static bool is_mnt_ns_file(struct dentry *dentry)
 {
-	/* Could bind mounting the mount namespace inode cause a
-	 * mount namespace loop?
-	 */
-	struct inode *inode = path->dentry->d_inode;
+	/* Is this a proxy for a mount namespace? */
+	struct inode *inode = dentry->d_inode;
 	struct proc_ns *ei;
-	struct mnt_namespace *mnt_ns;
 
 	if (!proc_ns_inode(inode))
 		return false;
@@ -1364,7 +1367,19 @@ static bool mnt_ns_loop(struct path *path)
 	if (ei->ns_ops != &mntns_operations)
 		return false;
 
-	mnt_ns = ei->ns;
+	return true;
+}
+
+static bool mnt_ns_loop(struct dentry *dentry)
+{
+	/* Could bind mounting the mount namespace inode cause a
+	 * mount namespace loop?
+	 */
+	struct mnt_namespace *mnt_ns;
+	if (!is_mnt_ns_file(dentry))
+		return false;
+
+	mnt_ns = get_proc_ns(dentry->d_inode)->ns;
 	return current->nsproxy->mnt_ns->seq >= mnt_ns->seq;
 }
 
@@ -1373,13 +1388,17 @@ struct mount *copy_tree(struct mount *mnt, struct dentry *dentry,
 {
 	struct mount *res, *p, *q, *r, *parent;
 
-	if (!(flag & CL_COPY_ALL) && IS_MNT_UNBINDABLE(mnt))
+	if (!(flag & CL_COPY_UNBINDABLE) && IS_MNT_UNBINDABLE(mnt))
+		return ERR_PTR(-EINVAL);
+
+	if (!(flag & CL_COPY_MNT_NS_FILE) && is_mnt_ns_file(dentry))
 		return ERR_PTR(-EINVAL);
 
 	res = q = clone_mnt(mnt, dentry, flag);
 	if (IS_ERR(q))
 		return q;
 
+	q->mnt.mnt_flags &= ~MNT_LOCKED;
 	q->mnt_mountpoint = mnt->mnt_mountpoint;
 
 	p = mnt;
@@ -1389,7 +1408,13 @@ struct mount *copy_tree(struct mount *mnt, struct dentry *dentry,
 			continue;
 
 		for (s = r; s; s = next_mnt(s, r)) {
-			if (!(flag & CL_COPY_ALL) && IS_MNT_UNBINDABLE(s)) {
+			if (!(flag & CL_COPY_UNBINDABLE) &&
+			    IS_MNT_UNBINDABLE(s)) {
+				s = skip_mnt_tree(s);
+				continue;
+			}
+			if (!(flag & CL_COPY_MNT_NS_FILE) &&
+			    is_mnt_ns_file(s->mnt.mnt_root)) {
 				s = skip_mnt_tree(s);
 				continue;
 			}
@@ -1695,6 +1720,19 @@ static int do_change_type(struct path *path, int flag)
 	return err;
 }
 
+static bool has_locked_children(struct mount *mnt, struct dentry *dentry)
+{
+	struct mount *child;
+	list_for_each_entry(child, &mnt->mnt_mounts, mnt_child) {
+		if (!is_subdir(child->mnt_mountpoint, dentry))
+			continue;
+
+		if (child->mnt.mnt_flags & MNT_LOCKED)
+			return true;
+	}
+	return false;
+}
+
 /*
  * do loopback mount.
  */
@@ -1712,7 +1750,7 @@ static int do_loopback(struct path *path, const char *old_name,
 		return err;
 
 	err = -EINVAL;
-	if (mnt_ns_loop(&old_path))
+	if (mnt_ns_loop(old_path.dentry))
 		goto out; 
 
 	mp = lock_mount(path);
@@ -1730,8 +1768,11 @@ static int do_loopback(struct path *path, const char *old_name,
 	if (!check_mnt(parent) || !check_mnt(old))
 		goto out2;
 
+	if (!recurse && has_locked_children(old, old_path.dentry))
+		goto out2;
+
 	if (recurse)
-		mnt = copy_tree(old, old_path.dentry, 0);
+		mnt = copy_tree(old, old_path.dentry, CL_COPY_MNT_NS_FILE);
 	else
 		mnt = clone_mnt(old, old_path.dentry, 0);
 
@@ -1739,6 +1780,8 @@ static int do_loopback(struct path *path, const char *old_name,
 		err = PTR_ERR(mnt);
 		goto out2;
 	}
+
+	mnt->mnt.mnt_flags &= ~MNT_LOCKED;
 
 	err = graft_tree(mnt, parent, mp);
 	if (err) {
@@ -1850,6 +1893,9 @@ static int do_move_mount(struct path *path, const char *old_name)
 
 	err = -EINVAL;
 	if (!check_mnt(p) || !check_mnt(old))
+		goto out1;
+
+	if (old->mnt.mnt_flags & MNT_LOCKED)
 		goto out1;
 
 	err = -EINVAL;
@@ -2388,7 +2434,7 @@ static struct mnt_namespace *dup_mnt_ns(struct mnt_namespace *mnt_ns,
 
 	namespace_lock();
 	/* First pass: copy the tree topology */
-	copy_flags = CL_COPY_ALL | CL_EXPIRE;
+	copy_flags = CL_COPY_UNBINDABLE | CL_EXPIRE;
 	if (user_ns != mnt_ns->user_ns)
 		copy_flags |= CL_SHARED_TO_SLAVE | CL_UNPRIVILEGED;
 	new = copy_tree(old, old->mnt.mnt_root, copy_flags);
@@ -2423,6 +2469,10 @@ static struct mnt_namespace *dup_mnt_ns(struct mnt_namespace *mnt_ns,
 		}
 		p = next_mnt(p, old);
 		q = next_mnt(q, new);
+		if (!q)
+			break;
+		while (p->mnt.mnt_root != q->mnt.mnt_root)
+			p = next_mnt(p, old);
 	}
 	namespace_unlock();
 
@@ -2629,6 +2679,8 @@ SYSCALL_DEFINE2(pivot_root, const char __user *, new_root,
 		goto out4;
 	if (!check_mnt(root_mnt) || !check_mnt(new_mnt))
 		goto out4;
+	if (new_mnt->mnt.mnt_flags & MNT_LOCKED)
+		goto out4;
 	error = -ENOENT;
 	if (d_unlinked(new.dentry))
 		goto out4;
@@ -2652,6 +2704,10 @@ SYSCALL_DEFINE2(pivot_root, const char __user *, new_root,
 	br_write_lock(&vfsmount_lock);
 	detach_mnt(new_mnt, &parent_path);
 	detach_mnt(root_mnt, &root_parent);
+	if (root_mnt->mnt.mnt_flags & MNT_LOCKED) {
+		new_mnt->mnt.mnt_flags |= MNT_LOCKED;
+		root_mnt->mnt.mnt_flags &= ~MNT_LOCKED;
+	}
 	/* mount old root on put_old */
 	attach_mnt(root_mnt, old_mnt, old_mp);
 	/* mount new_root on / */
