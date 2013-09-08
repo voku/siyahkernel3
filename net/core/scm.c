@@ -29,7 +29,6 @@
 #include <linux/nsproxy.h>
 #include <linux/slab.h>
 
-#include <asm/system.h>
 #include <asm/uaccess.h>
 
 #include <net/protocol.h>
@@ -37,6 +36,7 @@
 #include <net/sock.h>
 #include <net/compat.h>
 #include <net/scm.h>
+#include <net/cls_cgroup.h>
 
 
 /*
