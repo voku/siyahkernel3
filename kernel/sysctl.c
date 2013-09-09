@@ -147,7 +147,6 @@ static int ngroups_max = NGROUPS_MAX;
 #include <linux/inotify.h>
 #endif
 #ifdef CONFIG_SPARC
-#include <asm/system.h>
 #endif
 
 #ifdef CONFIG_SPARC64
@@ -156,20 +155,18 @@ extern int sysctl_tsb_ratio;
 
 #ifdef __hppa__
 extern int pwrsw_enabled;
+#endif
+
+#ifdef CONFIG_SYSCTL_ARCH_UNALIGN_ALLOW
 extern int unaligned_enabled;
 #endif
 
-#ifdef CONFIG_S390
-#ifdef CONFIG_MATHEMU
-extern int sysctl_ieee_emulation_warnings;
-#endif
-extern int sysctl_userprocess_debug;
-extern int spin_retry;
+#ifdef CONFIG_IA64
+extern int unaligned_dump_stack;
 #endif
 
-#ifdef CONFIG_IA64
+#ifdef CONFIG_SYSCTL_ARCH_UNALIGN_NO_WARN
 extern int no_unaligned_warning;
-extern int unaligned_dump_stack;
 #endif
 
 #ifdef CONFIG_PROC_SYSCTL
@@ -612,6 +609,8 @@ static struct ctl_table kern_table[] = {
 	 	.mode		= 0644,
 		.proc_handler	= proc_dointvec,
 	},
+#endif
+#ifdef CONFIG_SYSCTL_ARCH_UNALIGN_ALLOW
 	{
 		.procname	= "unaligned-trap",
 		.data		= &unaligned_enabled,
@@ -978,7 +977,7 @@ static struct ctl_table kern_table[] = {
 		.proc_handler	= proc_doulongvec_minmax,
 	},
 #endif
-#ifdef CONFIG_IA64
+#ifdef CONFIG_SYSCTL_ARCH_UNALIGN_NO_WARN
 	{
 		.procname	= "ignore-unaligned-usertrap",
 		.data		= &no_unaligned_warning,
@@ -986,6 +985,8 @@ static struct ctl_table kern_table[] = {
 	 	.mode		= 0644,
 		.proc_handler	= proc_dointvec,
 	},
+#endif
+#ifdef CONFIG_IA64
 	{
 		.procname	= "unaligned-dump-stack",
 		.data		= &unaligned_dump_stack,
@@ -1687,8 +1688,7 @@ static struct ctl_table fs_table[] = {
 };
 
 static struct ctl_table debug_table[] = {
-#if defined(CONFIG_X86) || defined(CONFIG_PPC) || defined(CONFIG_SPARC) || \
-    defined(CONFIG_S390) || defined(CONFIG_TILE)
+#ifdef CONFIG_SYSCTL_EXCEPTION_TRACE
 	{
 		.procname	= "exception-trace",
 		.data		= &show_unhandled_signals,
