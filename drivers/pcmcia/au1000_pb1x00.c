@@ -36,7 +36,6 @@
 
 #include <asm/io.h>
 #include <asm/irq.h>
-#include <asm/system.h>
 
 #include <asm/au1000.h>
 #include <asm/au1000_pcmcia.h>

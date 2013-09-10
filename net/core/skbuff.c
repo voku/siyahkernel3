@@ -68,7 +68,6 @@
 #include <net/xfrm.h>
 
 #include <asm/uaccess.h>
-#include <asm/system.h>
 #include <trace/events/skb.h>
 
 #include "kmap_skb.h"

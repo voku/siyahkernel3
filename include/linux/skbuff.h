@@ -469,7 +469,6 @@ struct sk_buff {
  */
 #include <linux/slab.h>
 
-#include <asm/system.h>
 
 /*
  * skb might have a dst pointer attached, refcounted or not.

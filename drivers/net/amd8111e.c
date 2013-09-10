@@ -87,7 +87,6 @@ Revision History:
 #include <linux/crc32.h>
 #include <linux/dma-mapping.h>
 
-#include <asm/system.h>
 #include <asm/io.h>
 #include <asm/byteorder.h>
 #include <asm/uaccess.h>

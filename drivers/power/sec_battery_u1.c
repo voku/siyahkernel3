@@ -26,6 +26,7 @@
 #include <linux/workqueue.h>
 #include <linux/proc_fs.h>
 #include <linux/android_alarm.h>
+#include <asm/system_info.h>
 #include <plat/adc.h>
 #include <linux/power/sec_battery_u1.h>
 #include "charge_current.h"

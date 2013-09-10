@@ -52,7 +52,6 @@
 #include <linux/sdla.h>
 #include <linux/bitops.h>
 
-#include <asm/system.h>
 #include <asm/io.h>
 #include <asm/dma.h>
 #include <asm/uaccess.h>

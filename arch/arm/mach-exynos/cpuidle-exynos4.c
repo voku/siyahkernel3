@@ -21,6 +21,7 @@
 #include <asm/proc-fns.h>
 #include <asm/tlbflush.h>
 #include <asm/cacheflush.h>
+#include <asm/system_misc.h>
 
 #include <mach/regs-clock.h>
 #include <mach/regs-pmu.h>

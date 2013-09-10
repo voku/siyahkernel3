@@ -57,7 +57,6 @@
 #include <net/sock.h>
 
 #include <asm/memory.h>
-#include <asm/system.h>
 #include <asm/uaccess.h>
 
 #include "mvp.h"

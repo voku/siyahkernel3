@@ -113,7 +113,6 @@
  *		2 of the License, or (at your option) any later version.
  */
 
-#include <asm/system.h>
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/kernel.h>

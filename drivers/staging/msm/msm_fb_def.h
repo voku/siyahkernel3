@@ -39,7 +39,6 @@
 #include <linux/interrupt.h>
 #include <mach/hardware.h>
 #include <linux/io.h>
-#include <asm/system.h>
 #include <asm/mach-types.h>
 #include <linux/platform_device.h>
 

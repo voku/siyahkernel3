@@ -57,7 +57,6 @@
 #include <linux/types.h>
 #include <linux/string.h>
 #include <linux/bitops.h>
-#include <asm/system.h>
 #include <asm/uaccess.h>
 #include <asm/io.h>
 #include <asm/irq.h>

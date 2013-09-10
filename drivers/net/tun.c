@@ -70,7 +70,6 @@
 #include <net/sock.h>
 #include <net/cls_cgroup.h>
 
-#include <asm/system.h>
 #include <asm/uaccess.h>
 
 /* Uncomment to enable debugging */

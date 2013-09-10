@@ -47,7 +47,6 @@
 #include <linux/fs.h>
 #include <linux/fcntl.h>
 #include <linux/stat.h>
-#include <asm/system.h>
 #include <asm/mach-types.h>
 #include <linux/uaccess.h>
 #include <asm/irq.h>

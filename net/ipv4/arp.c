@@ -118,7 +118,6 @@ struct neigh_table *clip_tbl_hook;
 EXPORT_SYMBOL(clip_tbl_hook);
 #endif
 
-#include <asm/system.h>
 #include <linux/uaccess.h>
 
 #include <linux/netfilter_arp.h>

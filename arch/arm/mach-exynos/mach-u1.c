@@ -62,6 +62,7 @@
 
 #include <asm/mach/arch.h>
 #include <asm/mach-types.h>
+#include <asm/system_info.h>
 
 #include <video/platform_lcd.h>
 

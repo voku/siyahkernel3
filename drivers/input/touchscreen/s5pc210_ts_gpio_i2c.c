@@ -34,7 +34,6 @@
 #include <linux/fs.h>
 
 #include <mach/irqs.h>
-#include <asm/system.h>
 
 #include <linux/delay.h>
 #include <mach/regs-gpio.h>

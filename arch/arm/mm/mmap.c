@@ -10,7 +10,6 @@
 #include <linux/personality.h>
 #include <linux/random.h>
 #include <asm/cputype.h>
-#include <asm/system.h>
 
 #define COLOUR_ALIGN(addr,pgoff)		\
 	((((addr)+SHMLBA-1)&~(SHMLBA-1)) +	\

@@ -3,7 +3,6 @@
  */
 
 #include <linux/init.h>
-#include <asm/system.h>
 #include <asm/proc-fns.h>
 
 static void gemini_idle(void)

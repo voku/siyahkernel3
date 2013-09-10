@@ -65,7 +65,6 @@
 #include <linux/tty_flip.h>
 #include <linux/gfp.h>
 
-#include <asm/system.h>
 #include <asm/io.h>
 #include <asm/mvme16xhw.h>
 #include <asm/bootinfo.h>

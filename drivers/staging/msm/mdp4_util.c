@@ -28,7 +28,6 @@
 #include <linux/io.h>
 #include <linux/debugfs.h>
 
-#include <asm/system.h>
 #include <asm/mach-types.h>
 #include <linux/semaphore.h>
 #include <linux/uaccess.h>

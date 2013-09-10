@@ -11,6 +11,7 @@
 #include <linux/uaccess.h>
 #include <linux/irq.h>
 #include <asm/irq.h>
+#include <asm/system_info.h>
 #include <linux/io.h>
 #include <linux/wait.h>
 #include <linux/stat.h>

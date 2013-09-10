@@ -14,7 +14,6 @@
 #include <linux/tty_ldisc.h>
 #include <linux/mutex.h>
 
-#include <asm/system.h>
 
 
 /*

@@ -26,7 +26,6 @@
 #include <mach/hardware.h>
 #include <asm/io.h>
 
-#include <asm/system.h>
 #include <asm/mach-types.h>
 #include <linux/semaphore.h>
 #include <linux/uaccess.h>

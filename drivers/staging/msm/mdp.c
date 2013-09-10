@@ -30,7 +30,6 @@
 #include <linux/delay.h>
 #include <linux/mutex.h>
 
-#include <asm/system.h>
 #include <asm/mach-types.h>
 #include <linux/semaphore.h>
 #include <linux/uaccess.h>

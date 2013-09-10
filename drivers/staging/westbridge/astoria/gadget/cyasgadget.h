@@ -79,7 +79,6 @@
 #include <linux/vmalloc.h>	  /* vmalloc(), vfree */
 #include <linux/msdos_fs.h> /*fat_alloc_cluster*/
 #include <linux/buffer_head.h>
-#include <asm/system.h>		/* cli(), *_flags */
 #include <linux/uaccess.h>	/* copy_*_user */
 
 extern int mpage_cleardirty(struct address_space *mapping, int num_pages);

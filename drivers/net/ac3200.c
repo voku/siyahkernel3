@@ -33,7 +33,6 @@ static const char version[] =
 #include <linux/etherdevice.h>
 #include <linux/init.h>
 
-#include <asm/system.h>
 #include <asm/io.h>
 #include <asm/irq.h>
 

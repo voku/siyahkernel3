@@ -30,7 +30,6 @@
 #include <mach/hardware.h>
 #include <linux/io.h>
 
-#include <asm/system.h>
 #include <asm/mach-types.h>
 
 /* #define TMD20QVGA_LCD_18BPP */

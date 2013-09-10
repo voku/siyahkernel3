@@ -74,7 +74,6 @@
 #include <linux/io.h>
 #include <linux/bitops.h>
 #include <linux/pci.h>
-#include <asm/system.h>
 
 #include <linux/netdevice.h>
 #include <linux/etherdevice.h>

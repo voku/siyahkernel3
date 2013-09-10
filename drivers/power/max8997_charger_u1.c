@@ -22,6 +22,7 @@
 #include <linux/regulator/machine.h>
 #include <linux/mfd/max8997.h>
 #include <linux/mfd/max8997-private.h>
+#include <asm/system_info.h>
 
 /* MAX8997_REG_STATUS4 */
 #define DCINOK_SHIFT		1

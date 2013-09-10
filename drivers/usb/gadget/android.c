@@ -25,6 +25,7 @@
 #include <linux/kernel.h>
 #include <linux/utsname.h>
 #include <linux/platform_device.h>
+#include <asm/system_info.h>
 
 #include <linux/usb/ch9.h>
 #include <linux/usb/composite.h>
