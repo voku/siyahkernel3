@@ -7252,7 +7252,7 @@ cpu_cgroup_allow_attach(struct cgroup_subsys_state *css,
 	const struct cred *cred = current_cred(), *tcred;
 	struct task_struct *task;
 
-	cgroup_taskset_for_each(task, css->cgroup, tset) {
+	cgroup_taskset_for_each(task, css, tset) {
 		tcred = __task_cred(task);
 
 		if ((current != task) && !capable(CAP_SYS_NICE) &&
