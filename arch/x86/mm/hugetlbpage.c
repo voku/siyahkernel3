@@ -222,6 +222,10 @@ follow_huge_pmd(struct mm_struct *mm, unsigned long address,
 	return NULL;
 }
 
+int pmd_huge_support(void)
+{
+	return 0;
+}
 #else
 
 struct page *
@@ -240,6 +244,7 @@ int pud_huge(pud_t pud)
 	return !!(pud_val(pud) & _PAGE_PSE);
 }
 
+<<<<<<< HEAD
 struct page *
 follow_huge_pmd(struct mm_struct *mm, unsigned long address,
 		pmd_t *pmd, int write)
@@ -264,6 +269,12 @@ follow_huge_pud(struct mm_struct *mm, unsigned long address,
 	return page;
 }
 
+=======
+int pmd_huge_support(void)
+{
+	return 1;
+}
+>>>>>>> 83467ef... mm: migrate: check movability of hugepage in unmap_and_move_huge_page()
 #endif
 
 /* x86_64 also uses this file */
