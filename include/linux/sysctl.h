@@ -1082,6 +1082,8 @@ struct ctl_table_header *register_sysctl_paths(const struct ctl_path *path,
 
 void unregister_sysctl_table(struct ctl_table_header * table);
 
+extern int sysctl_init(void);
+
 #endif /* __KERNEL__ */
 
 #endif /* _LINUX_SYSCTL_H */
