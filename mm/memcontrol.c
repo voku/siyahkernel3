@@ -1880,6 +1880,7 @@ int mem_cgroup_select_victim_node(struct mem_cgroup *memcg)
 #endif
 
 /*
+<<<<<<< HEAD
  * A group is eligible for the soft limit reclaim under the given root
  * hierarchy if
  *	a) it is over its soft limit
@@ -1915,6 +1916,29 @@ mem_cgroup_soft_reclaim_eligible(struct mem_cgroup *memcg,
 	if (!atomic_read(&memcg->children_in_excess))
 		return SKIP_TREE;
 	return SKIP;
+=======
+ * A group is eligible for the soft limit reclaim if it is
+ * 	a) is over its soft limit
+ * 	b) any parent up the hierarchy is over its soft limit
+ */
+bool mem_cgroup_soft_reclaim_eligible(struct mem_cgroup *memcg)
+{
+	struct mem_cgroup *parent = memcg;
+
+	if (res_counter_soft_limit_excess(&memcg->res))
+		return true;
+
+	/*
+	 * If any parent up the hierarchy is over its soft limit then we
+	 * have to obey and reclaim from this group as well.
+	 */
+	while((parent = parent_mem_cgroup(parent))) {
+		if (res_counter_soft_limit_excess(&parent->res))
+			return true;
+	}
+
+	return false;
+>>>>>>> 3b38722e... memcg, vmscan: integrate soft reclaim tighter with zone shrinking code
 }
 
 static DEFINE_SPINLOCK(memcg_oom_lock);
