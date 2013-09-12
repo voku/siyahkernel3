@@ -311,11 +311,6 @@ static inline unsigned d_count(const struct dentry *dentry)
 	return dentry->d_lockref.count;
 }
 
-static inline unsigned d_count(const struct dentry *dentry)
-{
-	return dentry->d_count;
-}
-
 /* validate "insecure" dentry pointer */
 extern int d_validate(struct dentry *, struct dentry *);
 
