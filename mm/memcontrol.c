@@ -1927,13 +1927,14 @@ mem_cgroup_soft_reclaim_eligible(struct mem_cgroup *memcg,
 >>>>>>> a5b7c87... vmscan, memcg: do softlimit reclaim also for targeted reclaim
  * 	b) any parent up the hierarchy is over its soft limit
  */
-bool mem_cgroup_soft_reclaim_eligible(struct mem_cgroup *memcg,
+enum mem_cgroup_filter_t
+mem_cgroup_soft_reclaim_eligible(struct mem_cgroup *memcg,
 		struct mem_cgroup *root)
 {
 	struct mem_cgroup *parent = memcg;
 
 	if (res_counter_soft_limit_excess(&memcg->res))
-		return true;
+		return VISIT;
 
 	/*
 	 * If any parent up to the root in the hierarchy is over its soft limit
@@ -1941,13 +1942,17 @@ bool mem_cgroup_soft_reclaim_eligible(struct mem_cgroup *memcg,
 	 */
 	while((parent = parent_mem_cgroup(parent))) {
 		if (res_counter_soft_limit_excess(&parent->res))
-			return true;
+			return VISIT;
 		if (parent == root)
 			break;
 	}
 
+<<<<<<< HEAD
 	return false;
 >>>>>>> 3b38722e... memcg, vmscan: integrate soft reclaim tighter with zone shrinking code
+=======
+	return SKIP;
+>>>>>>> de57780... memcg: enhance memcg iterator to support predicates
 }
 
 static DEFINE_SPINLOCK(memcg_oom_lock);
