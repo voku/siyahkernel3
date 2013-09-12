@@ -176,7 +176,7 @@ static const struct seq_operations arm_vmregion_ops = {
 
 static int arm_vmregion_open(struct inode *inode, struct file *file)
 {
-	struct arm_vmregion_head *h = PDE(inode)->data;
+	struct arm_vmregion_head *h = PDE_DATA(inode);
 	int ret = seq_open(file, &arm_vmregion_ops);
 	if (!ret) {
 		struct seq_file *m = file->private_data;
