@@ -81,7 +81,7 @@ static DEFINE_MUTEX(darkness_mutex);
 
 static atomic_t min_freq_limit[NR_CPUS];
 static atomic_t max_freq_limit[NR_CPUS];
-#ifdef CONFIG_CPU_EXYNOS4210
+#ifndef CONFIG_CPU_EXYNOS4210
 static atomic_t min_freq_limit_sleep[NR_CPUS];
 static atomic_t max_freq_limit_sleep[NR_CPUS];
 #endif

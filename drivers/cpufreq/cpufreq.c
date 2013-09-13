@@ -393,7 +393,6 @@ out:
 	return err;
 }
 
-
 /**
  * cpufreq_per_cpu_attr_read() / show_##file_name() -
  * print out cpufreq information
@@ -528,6 +527,45 @@ static ssize_t store_scaling_governor(struct cpufreq_policy *policy,
 }
 
 /**
+ * show_scaling_governor_all_cpus - show the current policy for the specified CPU
+ */
+static ssize_t show_scaling_governor_all_cpus(struct cpufreq_policy *policy, char *buf)
+{
+	if (policy->policy == CPUFREQ_POLICY_POWERSAVE)
+		return sprintf(buf, "powersave\n");
+	else if (policy->policy == CPUFREQ_POLICY_PERFORMANCE)
+		return sprintf(buf, "performance\n");
+	else if (policy->governor)
+		return scnprintf(buf, CPUFREQ_NAME_PLEN, "%s\n",
+				policy->governor->name);
+	return -EINVAL;
+}
+
+/**
+ * store_scaling_governor_all_cpus - store policy governor for the all CPUs
+ */
+static ssize_t store_scaling_governor_all_cpus(struct cpufreq_policy *policy, const char *buf, size_t count)
+{
+	unsigned int cpu;
+	ssize_t ret;
+
+	for_each_possible_cpu(cpu) {
+		struct cpufreq_policy *cpu_policy;
+
+		if (!cpu_online(cpu)) {
+			cpu_up(cpu);
+		}
+
+		cpu_policy = per_cpu(cpufreq_cpu_data, cpu);
+
+		if (cpu_policy) {
+			ret = store_scaling_governor(cpu_policy, buf, count);
+		}
+	}
+	return count;
+}
+
+/**
  * show_scaling_driver - show the cpufreq driver currently loaded
  */
 static ssize_t show_scaling_driver(struct cpufreq_policy *policy, char *buf)
@@ -650,6 +688,7 @@ cpufreq_freq_attr_rw(scaling_min_suspend_freq);
 cpufreq_freq_attr_rw(scaling_max_freq);
 cpufreq_freq_attr_rw(scaling_max_suspend_freq);
 cpufreq_freq_attr_rw(scaling_governor);
+cpufreq_freq_attr_rw(scaling_governor_all_cpus);
 cpufreq_freq_attr_rw(scaling_setspeed);
 
 static struct attribute *default_attrs[] = {
@@ -664,6 +703,7 @@ static struct attribute *default_attrs[] = {
 	&cpu_utilization.attr,
 	&related_cpus.attr,
 	&scaling_governor.attr,
+	&scaling_governor_all_cpus.attr,
 	&scaling_driver.attr,
 	&scaling_available_governors.attr,
 	&scaling_setspeed.attr,
