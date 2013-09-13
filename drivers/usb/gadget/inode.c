@@ -530,7 +530,7 @@ struct kiocb_priv {
 	unsigned		actual;
 };
 
-static int ep_aio_cancel(struct kiocb *iocb, struct io_event *e)
+static int ep_aio_cancel(struct kiocb *iocb)
 {
 	struct kiocb_priv	*priv = iocb->private;
 	struct ep_data		*epdata;
@@ -546,7 +546,6 @@ static int ep_aio_cancel(struct kiocb *iocb, struct io_event *e)
 	// spin_unlock(&epdata->dev->lock);
 	local_irq_enable();
 
-	aio_put_req(iocb);
 	return value;
 }
 
@@ -698,12 +697,12 @@ ep_aio_read(struct kiocb *iocb, const struct iovec *iov,
 	if (unlikely(usb_endpoint_dir_in(&epdata->desc)))
 		return -EINVAL;
 
-	buf = kmalloc(iocb->ki_left, GFP_KERNEL);
+	buf = kmalloc(iocb->ki_nbytes, GFP_KERNEL);
 	if (unlikely(!buf))
 		return -ENOMEM;
 
 	iocb->ki_retry = ep_aio_read_retry;
-	return ep_aio_rwtail(iocb, buf, iocb->ki_left, epdata, iov, nr_segs);
+	return ep_aio_rwtail(iocb, buf, iocb->ki_nbytes, epdata, iov, nr_segs);
 }
 
 static ssize_t
@@ -718,7 +717,7 @@ ep_aio_write(struct kiocb *iocb, const struct iovec *iov,
 	if (unlikely(!usb_endpoint_dir_in(&epdata->desc)))
 		return -EINVAL;
 
-	buf = kmalloc(iocb->ki_left, GFP_KERNEL);
+	buf = kmalloc(iocb->ki_nbytes, GFP_KERNEL);
 	if (unlikely(!buf))
 		return -ENOMEM;
 
