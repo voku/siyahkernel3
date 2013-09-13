@@ -427,7 +427,7 @@ static void __cpuinit hotplug_work_fn(struct work_struct *work)
 		/*Check for CPU hotplug*/
 		if (atomic_read(&hotplugging_rate) % up_rate == 0) {
 			for_each_cpu_not(cpu, cpu_online_mask) {
-				if (cpu > 0 && cpu < maxcoreslimit - 1) {
+				if (cpu > 0 && cpu <= maxcoreslimit - 1) {
 					if (cur_load[cpu - 1] >= atomic_read(&hotplug_load[cpu - 1][UP_INDEX])
 						&& cur_freq[cpu - 1] >= atomic_read(&hotplug_freq[cpu - 1][UP_INDEX])) {
 						cpu_up(cpu);
