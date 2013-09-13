@@ -103,7 +103,6 @@ header-y += sound.h
 header-y += soundcard.h
 header-y += stddef.h
 header-y += string.h
-header-y += sysctl.h
 header-y += tcp.h
 header-y += time.h
 header-y += timex.h

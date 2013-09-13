@@ -275,6 +275,7 @@ header-y += stat.h
 header-y += suspend_ioctls.h
 header-y += swab.h
 header-y += synclink.h
+header-y += sysctl.h
 header-y += sysinfo.h
 header-y += taskstats.h
 header-y += telephony.h
