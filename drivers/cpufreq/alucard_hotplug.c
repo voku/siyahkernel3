@@ -33,7 +33,6 @@ struct hotplug_cpuinfo {
 	unsigned long prev_cpu_others;
 	unsigned long prev_cpu_idle;
 	unsigned long prev_cpu_iowait;
-	spinlock_t lock;
 };
 
 static DEFINE_PER_CPU(struct hotplug_cpuinfo, od_hotplug_cpuinfo);
@@ -50,10 +49,10 @@ static struct hotplug_tuners {
 	atomic_t maxcoreslimitsleep;
 #endif
 } hotplug_tuners_ins = {
-	.hotplug_sampling_rate = ATOMIC_INIT(60000),
+	.hotplug_sampling_rate = ATOMIC_INIT(50000),
 	.hotplug_enable = ATOMIC_INIT(0),
-	.cpu_up_rate = ATOMIC_INIT(5),
-	.cpu_down_rate = ATOMIC_INIT(10),
+	.cpu_up_rate = ATOMIC_INIT(10),
+	.cpu_down_rate = ATOMIC_INIT(5),
 	.maxcoreslimit = ATOMIC_INIT(NR_CPUS),
 #ifndef CONFIG_CPU_EXYNOS4210
 	.maxcoreslimitsleep = ATOMIC_INIT(1),
@@ -63,7 +62,7 @@ static struct hotplug_tuners {
 #define MAX_HOTPLUG_RATE		(40)
 #define DOWN_INDEX		(0)
 #define UP_INDEX		(1)
-/*#define DEF_SAMPLING_MS			(200)*/
+#define DEF_SAMPLING_RATE		(50000)
 
 static atomic_t hotplugging_rate = ATOMIC_INIT(0);
 
@@ -376,16 +375,14 @@ static void __cpuinit hotplug_work_fn(struct work_struct *work)
 	int cur_load[NR_CPUS] = {-1, -1, -1, -1};
 #endif
 	unsigned int j;
-	unsigned int cpu;
-	unsigned long flags;
+	unsigned int cpu = 0;
+	int hp_rate = 0;
 
 	for_each_online_cpu(j) {
 		struct hotplug_cpuinfo *j_hotplug_cpuinfo = &per_cpu(od_hotplug_cpuinfo, j);
-		struct cpufreq_policy cpu_policy;
 		unsigned long cur_user_time, cur_system_time, cur_others_time, cur_idle_time, cur_iowait_time;
 		unsigned int busy_time, idle_time;
 
-		spin_lock_irqsave(&j_hotplug_cpuinfo->lock, flags);
 		cur_user_time = (__force unsigned long)(kcpustat_cpu(j).cpustat[CPUTIME_USER]);
 		cur_system_time = (__force unsigned long)(kcpustat_cpu(j).cpustat[CPUTIME_SYSTEM]);
 		cur_others_time = (__force unsigned long)(kcpustat_cpu(j).cpustat[CPUTIME_IRQ] + kcpustat_cpu(j).cpustat[CPUTIME_SOFTIRQ]
@@ -393,7 +390,6 @@ static void __cpuinit hotplug_work_fn(struct work_struct *work)
 
 		cur_idle_time = (__force unsigned long)(kcpustat_cpu(j).cpustat[CPUTIME_IDLE]);
 		cur_iowait_time = (__force unsigned long)(kcpustat_cpu(j).cpustat[CPUTIME_IOWAIT]);
-		spin_unlock_irqrestore(&j_hotplug_cpuinfo->lock, flags);
 
 		busy_time = (unsigned int)
 				((cur_user_time - j_hotplug_cpuinfo->prev_cpu_user) +
@@ -409,59 +405,58 @@ static void __cpuinit hotplug_work_fn(struct work_struct *work)
 		j_hotplug_cpuinfo->prev_cpu_idle = cur_idle_time;
 		j_hotplug_cpuinfo->prev_cpu_iowait = cur_iowait_time;
 
-		cpufreq_get_policy(&cpu_policy, j);
 		/*printk(KERN_ERR "TIMER CPU[%u], wall[%u], idle[%u]\n",j, busy_time + idle_time, idle_time);*/
-		if (!cpu_policy.cur || busy_time + idle_time == 0) { /*if busy_time and idle_time are 0, evaluate cpu load next time*/
+		if (busy_time + idle_time == 0) { /*if busy_time and idle_time are 0, evaluate cpu load next time*/
 			hotplug_enable = false;
 			continue;
 		}
 
 		cur_load[j] = busy_time ? (100 * busy_time) / (busy_time + idle_time) : 1;/*if busy_time is 0 cpu_load is equal to 1*/
-		cur_freq[j] = cpu_policy.cur;
+		cur_freq[j] = cpufreq_get(j);
 	}
 
 	/* set hotplugging_rate used */
 	atomic_inc(&hotplugging_rate);
 
 	if (hotplug_enable) {
+		hp_rate = atomic_read(&hotplugging_rate);
 		/*Check for CPU hotplug*/
-		if (atomic_read(&hotplugging_rate) % up_rate == 0) {
+		if (hp_rate % up_rate == 0) {
 			for_each_cpu_not(cpu, cpu_online_mask) {
-				if (cpu > 0 && cpu <= maxcoreslimit - 1) {
-					if (cur_load[cpu - 1] >= atomic_read(&hotplug_load[cpu - 1][UP_INDEX])
-						&& cur_freq[cpu - 1] >= atomic_read(&hotplug_freq[cpu - 1][UP_INDEX])) {
+				if (cpu == 0 || cpu > maxcoreslimit - 1) {
+					continue;
+				}
+				if (cur_load[cpu - 1] >= atomic_read(&hotplug_load[cpu - 1][UP_INDEX])
+					&& cur_freq[cpu - 1] >= atomic_read(&hotplug_freq[cpu - 1][UP_INDEX])) {
 						cpu_up(cpu);
 						break;
-					}
 				}
 			}
 		}
-		if (atomic_read(&hotplugging_rate) % down_rate == 0) {
+		if (hp_rate % down_rate == 0) {
 			maxcoreslimit = (maxcoreslimit == NR_CPUS ? 0 : maxcoreslimit - 1);
 			for_each_online_cpu(cpu) {
-				if (cpu > maxcoreslimit) {
-					if (cur_load[cpu] > -1
-						&& (cur_load[cpu] < atomic_read(&hotplug_load[cpu][DOWN_INDEX])
-							|| cur_freq[cpu] <= atomic_read(&hotplug_freq[cpu][DOWN_INDEX]))) {
-								cpu_down(cpu);
-								break;
-					}
+				if (cpu <= maxcoreslimit || cur_load[cpu] < 0) {
+					continue;
+				}
+				if (cur_load[cpu] < atomic_read(&hotplug_load[cpu][DOWN_INDEX])
+					|| cur_freq[cpu] <= atomic_read(&hotplug_freq[cpu][DOWN_INDEX])) {
+						cpu_down(cpu);
+						break;
 				}
 			}
 		}
 	}
 
-	if (atomic_read(&hotplugging_rate) == max(up_rate, down_rate)) {
+	if (hp_rate >= max(up_rate, down_rate)) {
 		atomic_set(&hotplugging_rate, 0);
 	}
 
 	delay = usecs_to_jiffies(atomic_read(&hotplug_tuners_ins.hotplug_sampling_rate));
-	if (num_online_cpus() > 1)
-		delay -= jiffies % delay;
+	/*if (num_online_cpus() > 1)
+		delay -= jiffies % delay;*/
 
 	schedule_delayed_work_on(0, &alucard_hotplug_work, delay);
-	/*schedule_delayed_work_on(0, &alucard_hotplug_work,
-	msecs_to_jiffies(DEF_SAMPLING_MS));*/
 }
 
 int __init alucard_hotplug_init(void)
@@ -475,9 +470,6 @@ int __init alucard_hotplug_init(void)
 
 	for_each_possible_cpu(j) {
 		struct hotplug_cpuinfo *j_hotplug_cpuinfo = &per_cpu(od_hotplug_cpuinfo, j);
-		unsigned long flags;
-		spin_lock_init(&j_hotplug_cpuinfo->lock);
-		spin_lock_irqsave(&j_hotplug_cpuinfo->lock, flags);
 		j_hotplug_cpuinfo->prev_cpu_user = (__force unsigned long)(kcpustat_cpu(j).cpustat[CPUTIME_USER]);
 		j_hotplug_cpuinfo->prev_cpu_system = (__force unsigned long)(kcpustat_cpu(j).cpustat[CPUTIME_SYSTEM]);
 		j_hotplug_cpuinfo->prev_cpu_others = (__force unsigned long)(kcpustat_cpu(j).cpustat[CPUTIME_IRQ] + kcpustat_cpu(j).cpustat[CPUTIME_SOFTIRQ]
@@ -485,7 +477,6 @@ int __init alucard_hotplug_init(void)
 
 		j_hotplug_cpuinfo->prev_cpu_idle = (__force unsigned long)(kcpustat_cpu(j).cpustat[CPUTIME_IDLE]);
 		j_hotplug_cpuinfo->prev_cpu_iowait = (__force unsigned long)(kcpustat_cpu(j).cpustat[CPUTIME_IOWAIT]);
-		spin_unlock_irqrestore(&j_hotplug_cpuinfo->lock, flags);
 	}
 
 	if (alucard_hotplug_enable == 1) {

@@ -56,7 +56,6 @@ struct cpufreq_darkness_cpuinfo {
 	struct cpufreq_frequency_table *freq_table;
 	struct delayed_work work;
 	struct cpufreq_policy *cur_policy;
-	spinlock_t lock;
 	int cpu;
 	unsigned int enable:1;
 	/*
@@ -421,13 +420,11 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 	unsigned long cur_user_time, cur_system_time, cur_others_time, cur_idle_time, cur_iowait_time;
 	unsigned int busy_time, idle_time;
 	unsigned int index = 0;
-	unsigned long flags;
 	unsigned int next_freq = 0;
 	int cur_load = -1;
 
 	cpu_policy = this_darkness_cpuinfo->cur_policy;
-	
-	spin_lock_irqsave(&this_darkness_cpuinfo->lock, flags);
+
 	cur_user_time = (__force unsigned long)(kcpustat_cpu(cpu).cpustat[CPUTIME_USER]);
 	cur_system_time = (__force unsigned long)(kcpustat_cpu(cpu).cpustat[CPUTIME_SYSTEM]);
 	cur_others_time = (__force unsigned long)(kcpustat_cpu(cpu).cpustat[CPUTIME_IRQ] + kcpustat_cpu(cpu).cpustat[CPUTIME_SOFTIRQ]
@@ -435,7 +432,6 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 
 	cur_idle_time = (__force unsigned long)(kcpustat_cpu(cpu).cpustat[CPUTIME_IDLE]);
 	cur_iowait_time = (__force unsigned long)(kcpustat_cpu(cpu).cpustat[CPUTIME_IOWAIT]);
-	spin_unlock_irqrestore(&this_darkness_cpuinfo->lock, flags);
 
 	busy_time = (unsigned int)
 			((cur_user_time - this_darkness_cpuinfo->prev_cpu_user) +
@@ -523,7 +519,6 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 	unsigned int cpu = policy->cpu;
 	struct cpufreq_darkness_cpuinfo *this_darkness_cpuinfo;
 	int rc, delay;
-	unsigned long flags;
 
 	this_darkness_cpuinfo = &per_cpu(od_darkness_cpuinfo, cpu);
 
@@ -534,11 +529,8 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 
 		mutex_lock(&darkness_mutex);
 
-		spin_lock_init(&this_darkness_cpuinfo->lock);
-
 		this_darkness_cpuinfo->cur_policy = policy;
 
-		spin_lock_irqsave(&this_darkness_cpuinfo->lock, flags);
 		this_darkness_cpuinfo->prev_cpu_user = (__force unsigned long)(kcpustat_cpu(cpu).cpustat[CPUTIME_USER]);
 		this_darkness_cpuinfo->prev_cpu_system = (__force unsigned long)(kcpustat_cpu(cpu).cpustat[CPUTIME_SYSTEM]);
 		this_darkness_cpuinfo->prev_cpu_others = (__force unsigned long)(kcpustat_cpu(cpu).cpustat[CPUTIME_IRQ] + kcpustat_cpu(cpu).cpustat[CPUTIME_SOFTIRQ]
@@ -546,7 +538,6 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 
 		this_darkness_cpuinfo->prev_cpu_idle = (__force unsigned long)(kcpustat_cpu(cpu).cpustat[CPUTIME_IDLE]);
 		this_darkness_cpuinfo->prev_cpu_iowait = (__force unsigned long)(kcpustat_cpu(cpu).cpustat[CPUTIME_IOWAIT]);
-		spin_unlock_irqrestore(&this_darkness_cpuinfo->lock, flags);
 
 		this_darkness_cpuinfo->freq_table = cpufreq_frequency_get_table(cpu);
 		this_darkness_cpuinfo->cpu = cpu;
