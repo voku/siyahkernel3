@@ -1866,8 +1866,6 @@ int mem_cgroup_select_victim_node(struct mem_cgroup *memcg)
 #endif
 
 /*
-<<<<<<< HEAD
-<<<<<<< HEAD
  * A group is eligible for the soft limit reclaim under the given root
  * hierarchy if
  *	a) it is over its soft limit
@@ -1903,42 +1901,6 @@ mem_cgroup_soft_reclaim_eligible(struct mem_cgroup *memcg,
 	if (!atomic_read(&memcg->children_in_excess))
 		return SKIP_TREE;
 	return SKIP;
-=======
- * A group is eligible for the soft limit reclaim if it is
- * 	a) is over its soft limit
-=======
- * A group is eligible for the soft limit reclaim under the given root
- * hierarchy if
- * 	a) it is over its soft limit
->>>>>>> a5b7c87... vmscan, memcg: do softlimit reclaim also for targeted reclaim
- * 	b) any parent up the hierarchy is over its soft limit
- */
-enum mem_cgroup_filter_t
-mem_cgroup_soft_reclaim_eligible(struct mem_cgroup *memcg,
-		struct mem_cgroup *root)
-{
-	struct mem_cgroup *parent = memcg;
-
-	if (res_counter_soft_limit_excess(&memcg->res))
-		return VISIT;
-
-	/*
-	 * If any parent up to the root in the hierarchy is over its soft limit
-	 * then we have to obey and reclaim from this group as well.
-	 */
-	while((parent = parent_mem_cgroup(parent))) {
-		if (res_counter_soft_limit_excess(&parent->res))
-			return VISIT;
-		if (parent == root)
-			break;
-	}
-
-<<<<<<< HEAD
-	return false;
->>>>>>> 3b38722e... memcg, vmscan: integrate soft reclaim tighter with zone shrinking code
-=======
-	return SKIP;
->>>>>>> de57780... memcg: enhance memcg iterator to support predicates
 }
 
 static DEFINE_SPINLOCK(memcg_oom_lock);
@@ -2264,6 +2226,7 @@ void mem_cgroup_update_page_stat(struct page *page,
 	if (mem_cgroup_disabled())
 		return;
 
+	VM_BUG_ON(!rcu_read_lock_held());
 	memcg = pc->mem_cgroup;
 	if (unlikely(!memcg || !PageCgroupUsed(pc)))
 		return;
@@ -4998,7 +4961,7 @@ static int memcg_update_kmem_limit(struct cgroup_subsys_state *css, u64 val)
 	 */
 	mutex_lock(&memcg_create_mutex);
 	mutex_lock(&set_limit_mutex);
-	if (!memcg->kmem_account_flags && val != RESOURCE_MAX) {
+	if (!memcg->kmem_account_flags && val != RES_COUNTER_MAX) {
 		if (cgroup_task_count(css->cgroup) || memcg_has_children(memcg)) {
 			ret = -EBUSY;
 			goto out;
@@ -5008,7 +4971,7 @@ static int memcg_update_kmem_limit(struct cgroup_subsys_state *css, u64 val)
 
 		ret = memcg_update_cache_sizes(memcg);
 		if (ret) {
-			res_counter_set_limit(&memcg->kmem, RESOURCE_MAX);
+			res_counter_set_limit(&memcg->kmem, RES_COUNTER_MAX);
 			goto out;
 		}
 		static_key_slow_inc(&memcg_kmem_enabled_key);
