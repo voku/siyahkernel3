@@ -178,8 +178,7 @@ extern pgprot_t protection_map[16];
 #define FAULT_FLAG_RETRY_NOWAIT	0x10	/* Don't drop mmap_sem and wait when retrying */
 #define FAULT_FLAG_KILLABLE	0x20	/* The fault task is in SIGKILL killable region */
 #define FAULT_FLAG_TRIED	0x40	/* second try */
-#define FAULT_FLAG_NO_CMA	0x80    /* don't use CMA pages */
-#define FAULT_FLAG_USER		0x160	/* The fault originated in userspace */
+#define FAULT_FLAG_USER		0x80	/* The fault originated in userspace */
 
 /*
  * This interface is used by x86 PAT code to identify a pfn mapping that is
@@ -490,11 +489,7 @@ void put_page(struct page *page);
 void put_pages_list(struct list_head *pages);
 
 void split_page(struct page *page, unsigned int order);
-#ifndef CONFIG_DMA_CMA
 int split_free_page(struct page *page);
-#else
-int split_free_page(struct page *page, bool for_cma);
-#endif
 
 /*
  * Compound pages have a destructor function.  Provide a
@@ -1055,16 +1050,6 @@ long get_user_pages(struct task_struct *tsk, struct mm_struct *mm,
 		    unsigned long start, unsigned long nr_pages,
 		    int write, int force, struct page **pages,
 		    struct vm_area_struct **vmas);
-
-#ifdef CONFIG_DMA_CMA
-int get_user_pages_nocma(struct task_struct *tsk, struct mm_struct *mm,
-			unsigned long start, int nr_pages, int write, int force,
-			struct page **pages, struct vm_area_struct **vmas);
-#else
-#define get_user_pages_nocma(tsk, mm, start, nr_pages, wr, force, pgs, vmas) \
-	get_user_pages(tsk, mm, start, nr_pages, wr, force, pgs, vmas)
-#endif
-
 int get_user_pages_fast(unsigned long start, int nr_pages, int write,
 			struct page **pages);
 struct kvec;
@@ -1122,9 +1107,6 @@ extern unsigned long move_page_tables(struct vm_area_struct *vma,
 		unsigned long old_addr, struct vm_area_struct *new_vma,
 		unsigned long new_addr, unsigned long len,
 		bool need_rmap_locks);
-extern unsigned long do_mremap(unsigned long addr,
-			       unsigned long old_len, unsigned long new_len,
-			       unsigned long flags, unsigned long new_addr);
 extern unsigned long change_protection(struct vm_area_struct *vma, unsigned long start,
 			      unsigned long end, pgprot_t newprot,
 			      int dirty_accountable, int prot_numa);
@@ -1740,6 +1722,7 @@ int vm_insert_mixed(struct vm_area_struct *vma, unsigned long addr,
 			unsigned long pfn);
 int vm_iomap_memory(struct vm_area_struct *vma, phys_addr_t start, unsigned long len);
 
+
 struct page *follow_page_mask(struct vm_area_struct *vma,
 			      unsigned long address, unsigned int foll_flags,
 			      unsigned int *page_mask);
@@ -1801,9 +1784,6 @@ int in_gate_area_no_mm(unsigned long addr);
 #define in_gate_area(mm, addr) ({(void)mm; in_gate_area_no_mm(addr);})
 #endif	/* __HAVE_ARCH_GATE_AREA */
 
-#ifdef CONFIG_DMA_CMA
-void perform_drop_caches(unsigned int mode);
-#endif
 #ifdef CONFIG_SYSCTL
 extern int sysctl_drop_caches;
 int drop_caches_sysctl_handler(struct ctl_table *, int,
