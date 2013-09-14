@@ -60,7 +60,7 @@ static int lowmem_minfree[6] = {
 	4 * 1024,	/* 16MB */
 	12 * 1024,	/* 49MB */
 	16 * 1024,	/* 64MB */
-	32 * 1024,	/* 128MB */
+	20 * 1024,	/* 128MB */
 };
 static int lowmem_minfree_screen_off[6] = {
 	3 * 512,	/* 6MB */
@@ -68,7 +68,7 @@ static int lowmem_minfree_screen_off[6] = {
 	4 * 1024,	/* 16MB */
 	12 * 1024,	/* 49MB */
 	16 * 1024,	/* 64MB */
-	32 * 1024,	/* 128MB */
+	20 * 1024,	/* 128MB */
 };
 static int lowmem_minfree_screen_on[6] = {
 	3 * 512,	/* 6MB */
@@ -76,7 +76,7 @@ static int lowmem_minfree_screen_on[6] = {
 	4 * 1024,	/* 16MB */
 	12 * 1024,	/* 49MB */
 	16 * 1024,	/* 64MB */
-	32 * 1024,	/* 128MB */
+	20 * 1024,	/* 128MB */
 };
 static int lowmem_minfree_size = 6;
 
