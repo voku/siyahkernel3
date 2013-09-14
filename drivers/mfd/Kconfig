@@ -26,7 +26,7 @@ config MFD_CORE
 
 config MFD_88PM860X
 	bool "Support Marvell 88PM8606/88PM8607"
-	depends on I2C=y && GENERIC_HARDIRQS
+	depends on I2C=y
 	select MFD_CORE
 	help
 	  This supports for Marvell 88PM8606/88PM8607 Power Management IC.
@@ -54,7 +54,7 @@ config MFD_SM501_GPIO
 
 config MFD_ASIC3
 	bool "Support for Compaq ASIC3"
-	depends on GENERIC_HARDIRQS && GPIOLIB && ARM
+	depends on GPIOLIB && ARM
 	select MFD_CORE
 	 ---help---
 	  This driver supports the ASIC3 multifunction chip found on many
@@ -85,7 +85,7 @@ config MFD_TI_SSP
 
 config HTC_EGPIO
 	bool "HTC EGPIO support"
-	depends on GENERIC_HARDIRQS && GPIOLIB && ARM
+	depends on GPIOLIB && ARM
 	help
 	    This driver supports the CPLD egpio chip present on
 	    several HTC phones.  It provides basic support for input
@@ -159,7 +159,7 @@ config TPS6507X
 
 config MFD_TPS6586X
 	bool "TPS6586x Power Management chips"
-	depends on I2C=y && GPIOLIB && GENERIC_HARDIRQS
+	depends on I2C=y && GPIOLIB
 	select MFD_CORE
 	help
 	  If you say yes here you get support for the TPS6586X series of
@@ -183,7 +183,7 @@ config MENELAUS
 
 config TWL4030_CORE
 	bool "Texas Instruments TWL4030/TWL5030/TWL6030/TPS659x0 Support"
-	depends on I2C=y && GENERIC_HARDIRQS
+	depends on I2C=y
 	help
 	  Say yes here if you have TWL4030 / TWL6030 family chip on your board.
 	  This core driver provides register access and IRQ handling
@@ -235,7 +235,7 @@ config TWL6030_PWM
 
 config MFD_STMPE
 	bool "Support STMicroelectronics STMPE"
-	depends on I2C=y && GENERIC_HARDIRQS
+	depends on I2C=y
 	select MFD_CORE
 	help
 	  Support for the STMPE family of I/O Expanders from
@@ -258,7 +258,7 @@ config MFD_STMPE
 
 config MFD_TC3589X
 	bool "Support Toshiba TC35892 and variants"
-	depends on I2C=y && GENERIC_HARDIRQS
+	depends on I2C=y
 	select MFD_CORE
 	help
 	  Support for the Toshiba TC35892 and variants I/O Expander.
@@ -318,7 +318,7 @@ config PMIC_ADP5520
 
 config MFD_MAX8925
 	bool "Maxim Semiconductor MAX8925 PMIC Support"
-	depends on I2C=y && GENERIC_HARDIRQS
+	depends on I2C=y
 	select MFD_CORE
 	help
 	  Say yes here to support for Maxim Semiconductor MAX8925. This is
@@ -328,7 +328,7 @@ config MFD_MAX8925
 
 config MFD_MAX8997
 	bool "Maxim Semiconductor MAX8997/8966 PMIC Support"
-	depends on I2C=y && GENERIC_HARDIRQS
+	depends on I2C=y
 	select MFD_CORE
 	help
 	  Say yes here to support for Maxim Semiconductor MAX8998/8966.
@@ -340,7 +340,7 @@ config MFD_MAX8997
 
 config MFD_MAX8998
 	bool "Maxim Semiconductor MAX8998/National LP3974 PMIC Support"
-	depends on I2C=y && GENERIC_HARDIRQS
+	depends on I2C=y
 	select MFD_CORE
 	help
 	  Say yes here to support for Maxim Semiconductor MAX8998 and
@@ -361,7 +361,7 @@ config MFD_MAX8698
 
 config MFD_MAX77686
 	bool "Maxim Semiconductor MAX77686 PMIC Support"
-	depends on I2C=y && GENERIC_HARDIRQS
+	depends on I2C=y
 	select MFD_CORE
 	help
 	  Say yes here to support for Maxim Semiconductor MAX77686.
@@ -372,7 +372,7 @@ config MFD_MAX77686
 
 config MFD_MAX77693
 	bool "Maxim Semiconductor MAX77693 PMIC Support"
-	depends on I2C=y && GENERIC_HARDIRQS
+	depends on I2C=y
 	select MFD_CORE
 	help
 	  Say yes here to support for Maxim Semiconductor MAX77963.
@@ -383,7 +383,7 @@ config MFD_MAX77693
 
 config MFD_S5M_CORE
 	bool "SAMSUNG S5M Series Support"
-	depends on I2C=y && GENERIC_HARDIRQS
+	depends on I2C=y
 	select MFD_CORE
 	help
 	 Support for the Samsung Electronics S5M MFD series.
@@ -403,13 +403,12 @@ config MFD_WM8400
 
 config MFD_WM831X
 	bool
-	depends on GENERIC_HARDIRQS
 
 config MFD_WM831X_I2C
 	bool "Support Wolfson Microelectronics WM831x/2x PMICs with I2C"
 	select MFD_CORE
 	select MFD_WM831X
-	depends on I2C=y && GENERIC_HARDIRQS
+	depends on I2C=y
 	help
 	  Support for the Wolfson Microelecronics WM831x and WM832x PMICs
 	  when controlled using I2C.  This driver provides common support
@@ -420,7 +419,7 @@ config MFD_WM831X_SPI
 	bool "Support Wolfson Microelectronics WM831x/2x PMICs with SPI"
 	select MFD_CORE
 	select MFD_WM831X
-	depends on SPI_MASTER && GENERIC_HARDIRQS
+	depends on SPI_MASTER
 	help
 	  Support for the Wolfson Microelecronics WM831x and WM832x PMICs
 	  when controlled using SPI.  This driver provides common support
@@ -429,7 +428,6 @@ config MFD_WM831X_SPI
 
 config MFD_WM8350
 	bool
-	depends on GENERIC_HARDIRQS
 
 config MFD_WM8350_CONFIG_MODE_0
 	bool
@@ -482,7 +480,7 @@ config MFD_WM8352_CONFIG_MODE_3
 config MFD_WM8350_I2C
 	bool "Support Wolfson Microelectronics WM8350 with I2C"
 	select MFD_WM8350
-	depends on I2C=y && GENERIC_HARDIRQS
+	depends on I2C=y
 	help
 	  The WM8350 is an integrated audio and power management
 	  subsystem with watchdog and RTC functionality for embedded
@@ -493,7 +491,7 @@ config MFD_WM8350_I2C
 config MFD_WM8994
 	bool "Support Wolfson Microelectronics WM8994"
 	select MFD_CORE
-	depends on I2C=y && GENERIC_HARDIRQS
+	depends on I2C=y
 	help
 	  The WM8994 is a highly integrated hi-fi CODEC designed for
 	  smartphone applicatiosn.  As well as audio functionality it
@@ -576,14 +574,14 @@ config AB3100_OTP
 
 config EZX_PCAP
 	bool "PCAP Support"
-	depends on GENERIC_HARDIRQS && SPI_MASTER
+	depends on SPI_MASTER
 	help
 	  This enables the PCAP ASIC present on EZX Phones. This is
 	  needed for MMC, TouchScreen, Sound, USB, etc..
 
 config AB8500_CORE
 	bool "ST-Ericsson AB8500 Mixed Signal Power Management chip"
-	depends on GENERIC_HARDIRQS && ABX500_CORE
+	depends on ABX500_CORE
 	select MFD_CORE
 	help
 	  Select this option to enable access to AB8500 power management
@@ -620,7 +618,7 @@ config AB8500_GPADC
 config AB3550_CORE
         bool "ST-Ericsson AB3550 Mixed Signal Circuit core functions"
 	select MFD_CORE
-	depends on I2C=y && GENERIC_HARDIRQS && ABX500_CORE
+	depends on I2C=y && ABX500_CORE
 	help
 	  Select this to enable the AB3550 Mixed Signal IC core
 	  functionality. This connects to a AB3550 on the I2C bus
