@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm 3.10.0-R95 Kernel Configuration
+# Linux/arm 3.10.0-R96 Kernel Configuration
 #
 CONFIG_ARM=y
 CONFIG_GENERIC_GPIO=y
@@ -208,7 +208,7 @@ CONFIG_LBDAF=y
 # CONFIG_BLK_DEV_BSG is not set
 # CONFIG_BLK_DEV_BSGLIB is not set
 # CONFIG_BLK_DEV_INTEGRITY is not set
-CONFIG_CMDLINE_PARSER=y
+# CONFIG_CMDLINE_PARSER is not set
 
 #
 # Partition Types
@@ -232,7 +232,7 @@ CONFIG_MSDOS_PARTITION=y
 # CONFIG_KARMA_PARTITION is not set
 CONFIG_EFI_PARTITION=y
 # CONFIG_SYSV68_PARTITION is not set
-CONFIG_CMDLINE_PARTITION=y
+# CONFIG_CMDLINE_PARTITION is not set
 
 #
 # IO Schedulers
