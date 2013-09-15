@@ -1458,7 +1458,7 @@ static void __vunmap(const void *addr, int deallocate_pages)
 	kfree(area);
 	return;
 }
-
+ 
 /**
  *	vfree  -  release memory allocated by vmalloc()
  *	@addr:		memory base address

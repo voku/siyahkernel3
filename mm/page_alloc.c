@@ -158,13 +158,6 @@ bool pm_suspended_storage(void)
 		return false;
 	return true;
 }
-
-#else
-
-bool pm_suspended_storage(void)
-{
-	return false;
-}
 #endif /* CONFIG_PM_SLEEP */
 
 #ifdef CONFIG_HUGETLB_PAGE_SIZE_VARIABLE
@@ -213,7 +206,7 @@ static char * const zone_names[MAX_NR_ZONES] = {
 	 "Movable",
 };
 
-int min_free_kbytes = 8192;
+int min_free_kbytes = 1024;
 int min_free_order_shift = 4;
 int user_min_free_kbytes;
 
