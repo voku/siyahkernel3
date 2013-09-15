@@ -272,6 +272,7 @@ header-y += som.h
 header-y += sonet.h
 header-y += sonypi.h
 header-y += stat.h
+header-y += stddef.h
 header-y += suspend_ioctls.h
 header-y += swab.h
 header-y += synclink.h
