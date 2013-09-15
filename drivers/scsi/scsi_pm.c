@@ -6,8 +6,8 @@
  */
 
 #include <linux/pm_runtime.h>
+#include <linux/export.h>
 #include <linux/async.h>
-#include <linux/module.h>
 
 #include <scsi/scsi.h>
 #include <scsi/scsi_device.h>
@@ -238,14 +238,11 @@ static int scsi_runtime_idle(struct device *dev)
 
 		if (sdev->request_queue->dev) {
 			pm_runtime_mark_last_busy(dev);
-			err = pm_runtime_autosuspend(dev);
-		} else {
-			err = pm_runtime_suspend(dev);
+			pm_runtime_autosuspend(dev);
+			return -EBUSY;
 		}
-	} else {
-		err = pm_runtime_suspend(dev);
 	}
-	return err;
+	return 0;
 }
 
 int scsi_autopm_get_device(struct scsi_device *sdev)
