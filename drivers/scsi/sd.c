@@ -1492,7 +1492,7 @@ static int sd_compat_ioctl(struct block_device *bdev, fmode_t mode,
 
 	ret = scsi_verify_blk_ioctl(bdev, cmd);
 	if (ret < 0)
-		return -ENOIOCTLCMD;
+		return ret;
 
 	/*
 	 * If we are in the middle of error recovery, don't let anyone
