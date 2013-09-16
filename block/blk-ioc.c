@@ -5,7 +5,6 @@
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/bio.h>
-#include <linux/bitmap.h>
 #include <linux/blkdev.h>
 #include <linux/bootmem.h>	/* for max_pfn/max_low_pfn */
 #include <linux/slab.h>
