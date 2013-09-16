@@ -1,8 +1,8 @@
 VERSION = 3
-PATCHLEVEL = 10
+PATCHLEVEL = 12
 SUBLEVEL = 0
-EXTRAVERSION = -R96
-NAME = Unicycling Gorilla
+EXTRAVERSION = -rc1
+NAME = One Giant Leap for Frogkind
 
 # *DOCUMENTATION*
 # To see a list of typical targets execute "make help"
