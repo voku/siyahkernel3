@@ -71,7 +71,11 @@ static void identity_mapping_add(pgd_t *pgd, const char *text_start,
 	addr = virt_to_phys(text_start);
 	end = virt_to_phys(text_end);
 
+#ifdef CONFIG_ARM_LPAE
 	prot |= PMD_TYPE_SECT | PMD_SECT_AP_WRITE | PMD_SECT_AF;
+#else
+	prot |= PMD_TYPE_SECT | PMD_SECT_AP_WRITE;
+#endif
 
 	if (cpu_architecture() <= CPU_ARCH_ARMv5TEJ && !cpu_is_xscale())
 		prot |= PMD_BIT4;
