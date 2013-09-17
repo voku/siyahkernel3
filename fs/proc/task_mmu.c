@@ -997,8 +997,6 @@ static int pagemap_pte_range(pmd_t *pmd, unsigned long addr, unsigned long end,
 	int err = 0;
 	pagemap_entry_t pme = make_pme(PM_NOT_PRESENT(pm->v2));
 
-	split_huge_page_pmd(vma, addr, pmd);
-
 	/* find the first VMA at or above 'addr' */
 	vma = find_vma(walk->mm, addr);
 	if (vma && pmd_trans_huge_lock(pmd, vma) == 1) {
