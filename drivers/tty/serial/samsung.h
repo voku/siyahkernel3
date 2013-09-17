@@ -71,7 +71,7 @@ struct s3c24xx_uart_port {
 extern int s3c24xx_serial_probe(struct platform_device *dev,
 				struct s3c24xx_uart_info *uart);
 
-extern int __devexit s3c24xx_serial_remove(struct platform_device *dev);
+extern int s3c24xx_serial_remove(struct platform_device *dev);
 
 extern int s3c24xx_serial_initconsole(struct platform_driver *drv,
 				      struct s3c24xx_uart_info **uart);

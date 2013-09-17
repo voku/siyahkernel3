@@ -325,7 +325,7 @@ static irqreturn_t mshci_s3c_gpio_card_detect_isr(int irq, void *dev_id)
 }
 
 
-static int __devinit mshci_s3c_probe(struct platform_device *pdev)
+static int mshci_s3c_probe(struct platform_device *pdev)
 {
 	struct s3c_mshci_platdata *pdata = pdev->dev.platform_data;
 	struct device *dev = &pdev->dev;
@@ -562,7 +562,7 @@ static int __devinit mshci_s3c_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static int __devexit mshci_s3c_remove(struct platform_device *pdev)
+static int mshci_s3c_remove(struct platform_device *pdev)
 {
 	return 0;
 }
@@ -613,7 +613,7 @@ static void mshci_s3c_shutdown(struct platform_device *dev, pm_message_t pm)
 
 static struct platform_driver mshci_s3c_driver = {
 	.probe		= mshci_s3c_probe,
-	.remove		= __devexit_p(mshci_s3c_remove),
+	.remove		= mshci_s3c_remove,
 	.suspend	= mshci_s3c_suspend,
 	.resume	        = mshci_s3c_resume,
 	.driver		= {

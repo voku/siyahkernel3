@@ -330,7 +330,7 @@ static void s3c_rtc_enable(struct platform_device *pdev, int en)
 	}
 }
 
-static int __devexit s3c_rtc_remove(struct platform_device *dev)
+static int s3c_rtc_remove(struct platform_device *dev)
 {
 	struct rtc_device *rtc = platform_get_drvdata(dev);
 
@@ -352,7 +352,7 @@ static int __devexit s3c_rtc_remove(struct platform_device *dev)
 	return 0;
 }
 
-static int __devinit s3c_rtc_probe(struct platform_device *pdev)
+static int s3c_rtc_probe(struct platform_device *pdev)
 {
 	struct rtc_device *rtc;
 	struct rtc_time rtc_tm;
@@ -532,7 +532,7 @@ MODULE_DEVICE_TABLE(platform, s3c_rtc_driver_ids);
 
 static struct platform_driver s3c_rtc_driver = {
 	.probe		= s3c_rtc_probe,
-	.remove		= __devexit_p(s3c_rtc_remove),
+	.remove		= s3c_rtc_remove,
 	.suspend	= s3c_rtc_suspend,
 	.resume		= s3c_rtc_resume,
 	.id_table	= s3c_rtc_driver_ids,

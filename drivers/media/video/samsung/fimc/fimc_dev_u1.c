@@ -1679,7 +1679,7 @@ static DEVICE_ATTR(range_mode, 0644, \
 			fimc_show_range_mode,
 			fimc_store_range_mode);
 
-static int __devinit fimc_probe(struct platform_device *pdev)
+static int fimc_probe(struct platform_device *pdev)
 {
 	struct s3c_platform_fimc *pdata;
 	struct fimc_control *ctrl;

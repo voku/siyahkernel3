@@ -1414,7 +1414,7 @@ err_alloc:
 	return ret;
 }
 
-static int __devexit ld9040_remove(struct spi_device *spi)
+static int ld9040_remove(struct spi_device *spi)
 {
 	struct lcd_info *lcd = dev_get_drvdata(&spi->dev);
 
@@ -1433,7 +1433,7 @@ static struct spi_driver ld9040_driver = {
 		.owner	= THIS_MODULE,
 	},
 	.probe		= ld9040_probe,
-	.remove		= __devexit_p(ld9040_remove),
+	.remove		= ld9040_remove,
 };
 
 static int __init ld9040_init(void)

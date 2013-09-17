@@ -3174,7 +3174,7 @@ static int sec_bat_read_proc(char *buf, char **start,
 }
 #endif
 
-static __devinit int sec_bat_probe(struct platform_device *pdev)
+static int sec_bat_probe(struct platform_device *pdev)
 {
 	struct sec_bat_platform_data *pdata = dev_get_platdata(&pdev->dev);
 	struct sec_bat_info *info;
@@ -3407,7 +3407,7 @@ static __devinit int sec_bat_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static int __devexit sec_bat_remove(struct platform_device *pdev)
+static int sec_bat_remove(struct platform_device *pdev)
 {
 	struct sec_bat_info *info = platform_get_drvdata(pdev);
 
@@ -3549,7 +3549,7 @@ static struct platform_driver sec_bat_driver = {
 		   .shutdown = sec_bat_shutdown,
 		   },
 	.probe = sec_bat_probe,
-	.remove = __devexit_p(sec_bat_remove),
+	.remove = sec_bat_remove,
 };
 
 static int __init sec_bat_init(void)

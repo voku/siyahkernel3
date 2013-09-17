@@ -1432,7 +1432,7 @@ static int proc_read_inst_number(char *buf, char **start,
 }
 
 /* FIXME: check every exception case (goto) */
-static int __devinit mfc_probe(struct platform_device *pdev)
+static int mfc_probe(struct platform_device *pdev)
 {
 	struct resource *res;
 	int ret;
@@ -1671,7 +1671,7 @@ err_proc:
 }
 
 /* FIXME: check mfc_remove funtionalilty */
-static int __devexit mfc_remove(struct platform_device *pdev)
+static int mfc_remove(struct platform_device *pdev)
 {
 	struct mfc_dev *dev = platform_get_drvdata(pdev);
 
@@ -1830,7 +1830,7 @@ static const struct dev_pm_ops mfc_pm_ops = {
 
 static struct platform_driver mfc_driver = {
 	.probe		= mfc_probe,
-	.remove		= __devexit_p(mfc_remove),
+	.remove		= mfc_remove,
 	.driver		= {
 		.owner	= THIS_MODULE,
 		.name	= MFC_DEV_NAME,

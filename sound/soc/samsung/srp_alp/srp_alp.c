@@ -1169,7 +1169,7 @@ static int srp_resume(struct platform_device *pdev)
 #define srp_resume  NULL
 #endif
 
-static __devinit int srp_probe(struct platform_device *pdev)
+static int srp_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 
@@ -1253,7 +1253,7 @@ err1:
 	return ret;
 }
 
-static __devexit int srp_remove(struct platform_device *pdev)
+static int srp_remove(struct platform_device *pdev)
 {
 	free_irq(IRQ_AUDIO_SS, pdev);
 	srp_remove_fw_buff(&pdev->dev);

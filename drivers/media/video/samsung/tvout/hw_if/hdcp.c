@@ -241,7 +241,7 @@ static ssize_t sysfs_hdcp_ddc_i2c_num_show(struct class *class,
 
 static CLASS_ATTR(ddc_i2c_num, 0664 , sysfs_hdcp_ddc_i2c_num_show, NULL);
 
-static int __devinit s5p_ddc_probe(struct i2c_client *client,
+static int s5p_ddc_probe(struct i2c_client *client,
 			const struct i2c_device_id *dev_id)
 {
 	int ret = 0;
@@ -304,7 +304,7 @@ static struct i2c_driver ddc_driver = {
 	},
 	.id_table	= ddc_idtable,
 	.probe		= s5p_ddc_probe,
-	.remove		= __devexit_p(s5p_ddc_remove),
+	.remove		= s5p_ddc_remove,
 	.suspend	= s5p_ddc_suspend,
 	.resume		= s5p_ddc_resume,
 };

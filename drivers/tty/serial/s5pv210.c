@@ -135,7 +135,7 @@ static int s5p_serial_probe(struct platform_device *pdev)
 
 static struct platform_driver s5p_serial_driver = {
 	.probe		= s5p_serial_probe,
-	.remove		= __devexit_p(s3c24xx_serial_remove),
+	.remove		= s3c24xx_serial_remove,
 	.driver		= {
 		.name	= "s5pv210-uart",
 		.owner	= THIS_MODULE,

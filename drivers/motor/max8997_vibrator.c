@@ -290,7 +290,7 @@ static int create_vibrator_sysfs(void)
 	return 0;
 }
 
-static int __devinit vibrator_probe(struct platform_device *pdev)
+static int vibrator_probe(struct platform_device *pdev)
 {
 	struct max8997_dev *max8997 = dev_get_drvdata(pdev->dev.parent);
 	struct max8997_platform_data *max8997_pdata
@@ -370,7 +370,7 @@ err_free_mem:
 	return error;
 }
 
-static int __devexit vibrator_remove(struct platform_device *pdev)
+static int vibrator_remove(struct platform_device *pdev)
 {
 	struct vibrator_drvdata *data = platform_get_drvdata(pdev);
 	timed_output_dev_unregister(&data->dev);
@@ -398,7 +398,7 @@ static int vibrator_resume(struct platform_device *pdev)
 
 static struct platform_driver vibrator_driver = {
 	.probe	= vibrator_probe,
-	.remove	= __devexit_p(vibrator_remove),
+	.remove	= vibrator_remove,
 	.suspend = vibrator_suspend,
 	.resume	= vibrator_resume,
 	.driver	= {

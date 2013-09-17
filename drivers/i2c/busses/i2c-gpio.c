@@ -78,7 +78,7 @@ static int i2c_gpio_getscl(void *data)
 	return gpio_get_value(pdata->scl_pin);
 }
 
-static int __devinit i2c_gpio_probe(struct platform_device *pdev)
+static int i2c_gpio_probe(struct platform_device *pdev)
 {
 	struct i2c_gpio_platform_data *pdata;
 	struct i2c_algo_bit_data *bit_data;
@@ -175,7 +175,7 @@ err_alloc_adap:
 	return ret;
 }
 
-static int __devexit i2c_gpio_remove(struct platform_device *pdev)
+static int i2c_gpio_remove(struct platform_device *pdev)
 {
 	struct i2c_gpio_platform_data *pdata;
 	struct i2c_adapter *adap;
@@ -198,7 +198,7 @@ static struct platform_driver i2c_gpio_driver = {
 		.owner	= THIS_MODULE,
 	},
 	.probe		= i2c_gpio_probe,
-	.remove		= __devexit_p(i2c_gpio_remove),
+	.remove		= i2c_gpio_remove,
 };
 
 static int __init i2c_gpio_init(void)

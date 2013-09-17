@@ -191,12 +191,12 @@ static struct snd_soc_platform_driver dummy_platform = {
 	.ops = &dummy_dma_ops,
 };
 
-static __devinit int snd_soc_dummy_probe(struct platform_device *pdev)
+static int snd_soc_dummy_probe(struct platform_device *pdev)
 {
 	return snd_soc_register_platform(&pdev->dev, &dummy_platform);
 }
 
-static __devexit int snd_soc_dummy_remove(struct platform_device *pdev)
+static int snd_soc_dummy_remove(struct platform_device *pdev)
 {
 	snd_soc_unregister_platform(&pdev->dev);
 
@@ -209,7 +209,7 @@ static struct platform_driver soc_dummy_driver = {
 		.owner = THIS_MODULE,
 	},
 	.probe = snd_soc_dummy_probe,
-	.remove = __devexit_p(snd_soc_dummy_remove),
+	.remove = snd_soc_dummy_remove,
 };
 
 static struct platform_device *soc_dummy_dev;

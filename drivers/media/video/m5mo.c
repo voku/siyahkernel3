@@ -2911,7 +2911,7 @@ static DEVICE_ATTR(rear_camfw, S_IRUGO, m5mo_camera_fw_show, NULL);
  * Fetching platform data is being done with s_config subdev call.
  * In probe routine, we just register subdev device
  */
-static int __devinit m5mo_probe(struct i2c_client *client,
+static int m5mo_probe(struct i2c_client *client,
 			 const struct i2c_device_id *id)
 {
 	struct m5mo_state *state;
@@ -2972,7 +2972,7 @@ static int __devinit m5mo_probe(struct i2c_client *client,
 	return 0;
 }
 
-static int __devexit m5mo_remove(struct i2c_client *client)
+static int m5mo_remove(struct i2c_client *client)
 {
 	struct v4l2_subdev *sd = i2c_get_clientdata(client);
 	struct m5mo_state *state = to_state(sd);
@@ -3007,7 +3007,7 @@ static struct i2c_driver m5mo_i2c_driver = {
 		.name	= M5MO_DRIVER_NAME,
 	},
 	.probe		= m5mo_probe,
-	.remove		= __devexit_p(m5mo_remove),
+	.remove		= m5mo_remove,
 	.id_table	= m5mo_id,
 };
 

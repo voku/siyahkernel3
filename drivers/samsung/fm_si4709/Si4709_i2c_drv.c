@@ -131,7 +131,7 @@ static struct i2c_driver Si4709_i2c_driver = {
 		   },
 	.id_table = si4709_id,
 	.probe = si4709_i2c_probe,
-	.remove = __devexit_p(si4709_i2c_remove),
+	.remove = si4709_i2c_remove,
 	.suspend = Si4709_suspend,
 	.resume = Si4709_resume,
 };

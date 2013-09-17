@@ -487,12 +487,12 @@ struct snd_soc_platform_driver samsung_asoc_platform = {
 };
 
 #ifndef CONFIG_SND_SOC_SAMSUNG_USE_DMA_WRAPPER
-static int __devinit samsung_asoc_platform_probe(struct platform_device *pdev)
+static int samsung_asoc_platform_probe(struct platform_device *pdev)
 {
 	return snd_soc_register_platform(&pdev->dev, &samsung_asoc_platform);
 }
 
-static int __devexit samsung_asoc_platform_remove(struct platform_device *pdev)
+static int samsung_asoc_platform_remove(struct platform_device *pdev)
 {
 	snd_soc_unregister_platform(&pdev->dev);
 	return 0;
@@ -505,7 +505,7 @@ static struct platform_driver asoc_dma_driver = {
 	},
 
 	.probe = samsung_asoc_platform_probe,
-	.remove = __devexit_p(samsung_asoc_platform_remove),
+	.remove = samsung_asoc_platform_remove,
 };
 
 static int __init samsung_asoc_init(void)

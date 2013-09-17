@@ -3942,7 +3942,7 @@ static void sii9234_late_resume(struct early_suspend *early_sus)
 }
 #endif
 
-static int __devinit sii9234_mhl_tx_i2c_probe(struct i2c_client *client,
+static int sii9234_mhl_tx_i2c_probe(struct i2c_client *client,
 					      const struct i2c_device_id *id)
 {
 	struct i2c_adapter *adapter = to_i2c_adapter(client->dev.parent);
@@ -4193,7 +4193,7 @@ err_exit0:
 	return ret;
 }
 
-static int __devinit sii9234_tpi_i2c_probe(struct i2c_client *client,
+static int sii9234_tpi_i2c_probe(struct i2c_client *client,
 					   const struct i2c_device_id *id)
 {
 	struct sii9234_platform_data *pdata = client->dev.platform_data;
@@ -4203,7 +4203,7 @@ static int __devinit sii9234_tpi_i2c_probe(struct i2c_client *client,
 	return 0;
 }
 
-static int __devinit sii9234_hdmi_rx_i2c_probe(struct i2c_client *client,
+static int sii9234_hdmi_rx_i2c_probe(struct i2c_client *client,
 					       const struct i2c_device_id *id)
 {
 	struct sii9234_platform_data *pdata = client->dev.platform_data;
@@ -4214,7 +4214,7 @@ static int __devinit sii9234_hdmi_rx_i2c_probe(struct i2c_client *client,
 	return 0;
 }
 
-static int __devinit sii9234_cbus_i2c_probe(struct i2c_client *client,
+static int sii9234_cbus_i2c_probe(struct i2c_client *client,
 					    const struct i2c_device_id *id)
 {
 	struct sii9234_platform_data *pdata = client->dev.platform_data;
@@ -4225,22 +4225,22 @@ static int __devinit sii9234_cbus_i2c_probe(struct i2c_client *client,
 	return 0;
 }
 
-static int __devexit sii9234_mhl_tx_remove(struct i2c_client *client)
+static int sii9234_mhl_tx_remove(struct i2c_client *client)
 {
 	return 0;
 }
 
-static int __devexit sii9234_tpi_remove(struct i2c_client *client)
+static int sii9234_tpi_remove(struct i2c_client *client)
 {
 	return 0;
 }
 
-static int __devexit sii9234_hdmi_rx_remove(struct i2c_client *client)
+static int sii9234_hdmi_rx_remove(struct i2c_client *client)
 {
 	return 0;
 }
 
-static int __devexit sii9234_cbus_remove(struct i2c_client *client)
+static int sii9234_cbus_remove(struct i2c_client *client)
 {
 	return 0;
 }
@@ -4280,7 +4280,7 @@ static struct i2c_driver sii9234_mhl_tx_i2c_driver = {
 		   },
 	.id_table = sii9234_mhl_tx_id,
 	.probe = sii9234_mhl_tx_i2c_probe,
-	.remove = __devexit_p(sii9234_mhl_tx_remove),
+	.remove = sii9234_mhl_tx_remove,
 	.command = NULL,
 };
 
@@ -4291,7 +4291,7 @@ static struct i2c_driver sii9234_tpi_i2c_driver = {
 		   },
 	.id_table = sii9234_tpi_id,
 	.probe = sii9234_tpi_i2c_probe,
-	.remove = __devexit_p(sii9234_tpi_remove),
+	.remove = sii9234_tpi_remove,
 };
 
 static struct i2c_driver sii9234_hdmi_rx_i2c_driver = {
@@ -4301,7 +4301,7 @@ static struct i2c_driver sii9234_hdmi_rx_i2c_driver = {
 		   },
 	.id_table = sii9234_hdmi_rx_id,
 	.probe = sii9234_hdmi_rx_i2c_probe,
-	.remove = __devexit_p(sii9234_hdmi_rx_remove),
+	.remove = sii9234_hdmi_rx_remove,
 };
 
 static struct i2c_driver sii9234_cbus_i2c_driver = {
@@ -4311,7 +4311,7 @@ static struct i2c_driver sii9234_cbus_i2c_driver = {
 		   },
 	.id_table = sii9234_cbus_id,
 	.probe = sii9234_cbus_i2c_probe,
-	.remove = __devexit_p(sii9234_cbus_remove),
+	.remove = sii9234_cbus_remove,
 };
 
 static int __init sii9234_init(void)

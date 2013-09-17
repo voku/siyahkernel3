@@ -488,7 +488,7 @@ static ssize_t sd_detection_cmd_show(struct device *dev,
 
 static DEVICE_ATTR(status, 0444, sd_detection_cmd_show, NULL);
 
-static int __devinit sdhci_s3c_probe(struct platform_device *pdev)
+static int sdhci_s3c_probe(struct platform_device *pdev)
 {
 	struct s3c_sdhci_platdata *pdata = pdev->dev.platform_data;
 	struct device *dev = &pdev->dev;
@@ -743,7 +743,7 @@ static int __devinit sdhci_s3c_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static int __devexit sdhci_s3c_remove(struct platform_device *pdev)
+static int sdhci_s3c_remove(struct platform_device *pdev)
 {
 	struct s3c_sdhci_platdata *pdata = pdev->dev.platform_data;
 	struct sdhci_host *host =  platform_get_drvdata(pdev);
@@ -816,7 +816,7 @@ static const struct dev_pm_ops sdhci_s3c_pmops = {
 
 static struct platform_driver sdhci_s3c_driver = {
 	.probe		= sdhci_s3c_probe,
-	.remove		= __devexit_p(sdhci_s3c_remove),
+	.remove		= sdhci_s3c_remove,
 	.shutdown	= sdhci_s3c_shutdown,
 	.driver		= {
 		.owner	= THIS_MODULE,
