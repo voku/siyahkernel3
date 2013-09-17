@@ -34,8 +34,6 @@
 
 struct rb_node {
 	unsigned long  __rb_parent_color;
-#define  RB_RED		0
-#define  RB_BLACK	1
 	struct rb_node *rb_right;
 	struct rb_node *rb_left;
 } __attribute__((aligned(sizeof(long))));
@@ -49,16 +47,6 @@ struct rb_root {
 #define rb_parent(r)   ((struct rb_node *)((r)->__rb_parent_color & ~3))
 
 #define RB_ROOT	(struct rb_root) { NULL, }
-
-static inline void rb_root_init(struct rb_root *root, struct rb_node *node)
-{
-	root->rb_node = node;
-	if (node) {
-		node->__rb_parent_color = RB_BLACK; /* black, no parent */
-		node->rb_left  = NULL;
-		node->rb_right = NULL;
-	}
-}
 
 #define	rb_entry(ptr, type, member) container_of(ptr, type, member)
 

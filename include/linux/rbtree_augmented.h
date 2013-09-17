@@ -96,6 +96,16 @@ rbstatic const struct rb_augment_callbacks rbname = {			\
 #define rb_is_red(rb)      __rb_is_red((rb)->__rb_parent_color)
 #define rb_is_black(rb)    __rb_is_black((rb)->__rb_parent_color)
 
+static inline void rb_root_init(struct rb_root *root, struct rb_node *node)
+{
+	root->rb_node = node;
+	if (node) {
+		node->__rb_parent_color = RB_BLACK; /* black, no parent */
+		node->rb_left  = NULL;
+		node->rb_right = NULL;
+	}
+}
+
 static inline void rb_set_parent(struct rb_node *rb, struct rb_node *p)
 {
 	rb->__rb_parent_color = rb_color(rb) | (unsigned long)p;
