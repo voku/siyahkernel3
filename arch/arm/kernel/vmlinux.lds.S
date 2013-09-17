@@ -300,12 +300,6 @@ SECTIONS
 
 	STABS_DEBUG
 	.comment 0 : { *(.comment) }
-
-#ifndef CONFIG_SMP_ON_UP
-	/DISCARD/ : {
-		*(.alt.smp.init)
-	}
-#endif
 }
 
 /*
