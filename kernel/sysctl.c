@@ -1724,8 +1724,6 @@ int __init sysctl_init(void)
 	return 0;
 }
 
-core_initcall(sysctl_init);
-
 #endif /* CONFIG_SYSCTL */
 
 /*
