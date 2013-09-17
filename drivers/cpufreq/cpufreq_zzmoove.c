@@ -2234,7 +2234,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 }
 
 // ZZ: function for hotplug down work
-static void __cpuinit hotplug_offline_work_fn(struct work_struct *work)
+static void hotplug_offline_work_fn(struct work_struct *work)
 {
 	int i = 0;
 
@@ -2280,7 +2280,7 @@ static void __cpuinit hotplug_offline_work_fn(struct work_struct *work)
 }
 
 // ZZ: function for hotplug up work
-static void __cpuinit hotplug_online_work_fn(struct work_struct *work)
+static void hotplug_online_work_fn(struct work_struct *work)
 {
 	int i = 0;
 
