@@ -22,6 +22,7 @@
 
 #include <linux/blkdev.h>
 #include <linux/mempool.h>
+#include <linux/export.h>
 #include <linux/bio.h>
 #include <linux/workqueue.h>
 #include <linux/slab.h>
@@ -96,9 +97,7 @@ void bio_integrity_free(struct bio *bio)
 	struct bio_integrity_payload *bip = bio->bi_integrity;
 	struct bio_set *bs = bio->bi_pool;
 
-	/* A cloned bio doesn't own the integrity metadata */
-	if (!bio_flagged(bio, BIO_CLONED) && !bio_flagged(bio, BIO_FS_INTEGRITY)
-	    && bip->bip_buf != NULL)
+	if (bip->bip_owns_buf)
 		kfree(bip->bip_buf);
 
 	if (bs) {
@@ -385,6 +384,7 @@ int bio_integrity_prep(struct bio *bio)
 		return -EIO;
 	}
 
+	bip->bip_owns_buf = 1;
 	bip->bip_buf = buf;
 	bip->bip_size = len;
 	bip->bip_sector = bio->bi_sector;
@@ -663,8 +663,8 @@ void bio_integrity_split(struct bio *bio, struct bio_pair *bp, int sectors)
 	bp->iv1 = bip->bip_vec[bip->bip_idx];
 	bp->iv2 = bip->bip_vec[bip->bip_idx];
 
-	bp->bip1.bip_vec[0] = bp->iv1;
-	bp->bip2.bip_vec[0] = bp->iv2;
+	bp->bip1.bip_vec = &bp->iv1;
+	bp->bip2.bip_vec = &bp->iv2;
 
 	bp->iv1.bv_len = sectors * bi->tuple_size;
 	bp->iv2.bv_offset += sectors * bi->tuple_size;
@@ -716,13 +716,14 @@ int bioset_integrity_create(struct bio_set *bs, int pool_size)
 		return 0;
 
 	bs->bio_integrity_pool = mempool_create_slab_pool(pool_size, bip_slab);
-
-	bs->bvec_integrity_pool = biovec_create_pool(bs, pool_size);
-	if (!bs->bvec_integrity_pool)
-		return -1;
-
 	if (!bs->bio_integrity_pool)
 		return -1;
+
+	bs->bvec_integrity_pool = biovec_create_pool(bs, pool_size);
+	if (!bs->bvec_integrity_pool) {
+		mempool_destroy(bs->bio_integrity_pool);
+		return -1;
+	}
 
 	return 0;
 }

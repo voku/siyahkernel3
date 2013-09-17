@@ -146,6 +146,7 @@ extern int rw_verify_area(int, struct file *, const loff_t *, size_t);
  */
 extern long do_splice_direct(struct file *in, loff_t *ppos, struct file *out,
 		loff_t *opos, size_t len, unsigned int flags);
+
 /*
  * pipe.c
  */
