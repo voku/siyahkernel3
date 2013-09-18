@@ -149,6 +149,8 @@ SECTIONS
 			*(.fixup)
 #endif
 			*(.gnu.warning)
+			*(.rodata)
+			*(.rodata.*)
 			*(.glue_7)
 			*(.glue_7t)
 		. = ALIGN(4);
