@@ -49,34 +49,6 @@ jiffies = jiffies_64 + 4;
 
 SECTIONS
 {
-	/*
-	 * XXX: The linker does not define how output sections are
-	 * assigned to input sections when there are multiple statements
-	 * matching the same input section name.  There is no documented
-	 * order of matching.
-	 *
-	 * unwind exit sections must be discarded before the rest of the
-	 * unwind sections get included.
-	 */
-	/DISCARD/ : {
-		*(.ARM.exidx.exit.text)
-		*(.ARM.extab.exit.text)
-		ARM_CPU_DISCARD(*(.ARM.exidx.cpuexit.text))
-		ARM_CPU_DISCARD(*(.ARM.extab.cpuexit.text))
-		ARM_EXIT_DISCARD(EXIT_TEXT)
-		ARM_EXIT_DISCARD(EXIT_DATA)
-		EXIT_CALL
-#ifndef CONFIG_MMU
-		*(.fixup)
-		*(__ex_table)
-#endif
-#ifndef CONFIG_SMP_ON_UP
-		*(.alt.smp.init)
-#endif
-		*(.discard)
-		*(.discard.*)
-	}
-
 #ifdef CONFIG_XIP_KERNEL
 	. = XIP_VIRT_ADDR(CONFIG_XIP_PHYS_ADDR);
 #else
@@ -140,6 +112,38 @@ SECTIONS
 	. = ALIGN(PAGE_SIZE);
 	__init_end = .;
 #endif
+
+	/*
+	 * XXX: The linker does not define how output sections are
+	 * assigned to input sections when there are multiple statements
+	 * matching the same input section name.  There is no documented
+	 * order of matching.
+	 *
+	 * unwind exit sections must be discarded before the rest of the
+	 * unwind sections get included.
+	 */
+	/DISCARD/ : {
+		*(.ARM.exidx.exit.text)
+		*(.ARM.extab.exit.text)
+		ARM_CPU_DISCARD(*(.ARM.exidx.cpuexit.text))
+		ARM_CPU_DISCARD(*(.ARM.extab.cpuexit.text))
+		ARM_EXIT_DISCARD(EXIT_TEXT)
+		ARM_EXIT_DISCARD(EXIT_DATA)
+		EXIT_CALL
+#ifndef CONFIG_HOTPLUG
+		*(.ARM.exidx.devexit.text)
+		*(.ARM.extab.devexit.text)
+#endif
+#ifndef CONFIG_MMU
+		*(.fixup)
+		*(__ex_table)
+#endif
+#ifndef CONFIG_SMP_ON_UP
+		*(.alt.smp.init)
+#endif
+		*(.discard)
+		*(.discard.*)
+	}
 
 	.text : {			/* Real text segment		*/
 		_text = .;		/* Text and read-only data	*/
