@@ -18,10 +18,10 @@ obj-$(CONFIG_CPU_FREQ_GOV_ZZMOOVE)	+= cpufreq_zzmoove.o cpufreq_governor.o
 obj-$(CONFIG_CPU_FREQ_GOV_NIGHTMARE)	+= cpufreq_nightmare.o
 obj-$(CONFIG_CPU_FREQ_GOV_DARKNESS)	+= cpufreq_darkness.o
 obj-$(CONFIG_CPU_FREQ_GOV_LULZACTIVEW)   += cpufreq_lulzactivew.o
-obj-$(CONFIG_ALUCARD_HOTPLUG) += alucard_hotplug.o
 
 # CPUfreq cross-arch helpers
 obj-$(CONFIG_CPU_FREQ_TABLE)		+= freq_table.o
+obj-$(CONFIG_ALUCARD_HOTPLUG)		+= alucard_hotplug.o
 
 obj-$(CONFIG_CPU_FREQ_DVFS_MONITOR)	+= dvfs_monitor.o
 

@@ -12,7 +12,7 @@
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
- * 
+ *
  * Created by Alucard_24@xda
  */
 
@@ -231,7 +231,6 @@ store_freqlimit_param(max_freq_limit_sleep, 2);
 store_freqlimit_param(max_freq_limit_sleep, 3);
 #endif
 #endif
-
 define_one_global_rw(min_freq_limit_0);
 define_one_global_rw(min_freq_limit_1);
 #if NR_CPUS >= 4
@@ -273,7 +272,7 @@ static ssize_t store_sampling_rate(struct kobject *a, struct attribute *b,
 		return -EINVAL;
 
 	input = max(input,10000);
-	
+
 	if (input == atomic_read(&darkness_tuners_ins.sampling_rate))
 		return count;
 
@@ -442,13 +441,13 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 	this_darkness_cpuinfo->prev_cpu_others = cur_others_time;
 
 	idle_time = (unsigned int)
-			((cur_idle_time - this_darkness_cpuinfo->prev_cpu_idle) + 
+			((cur_idle_time - this_darkness_cpuinfo->prev_cpu_idle) +
 			 (cur_iowait_time - this_darkness_cpuinfo->prev_cpu_iowait));
 	this_darkness_cpuinfo->prev_cpu_idle = cur_idle_time;
 	this_darkness_cpuinfo->prev_cpu_iowait = cur_iowait_time;
 
 	/*printk(KERN_ERR "TIMER CPU[%u], wall[%u], idle[%u]\n",cpu, busy_time + idle_time, idle_time);*/
-	if (cpu_policy->cur > 0 && busy_time + idle_time > 0) { /*if busy_time and idle_time are 0, evaluate cpu load next time*/
+	if (busy_time + idle_time > 0) { /*if busy_time and idle_time are 0, evaluate cpu load next time*/
 		cur_load = busy_time ? (100 * busy_time) / (busy_time + idle_time) : 1;/*if busy_time is 0 cpu_load is equal to 1*/
 		/* Checking Frequency Limit */
 		if (max_freq > cpu_policy->max || max_freq < cpu_policy->min)
@@ -480,7 +479,7 @@ static void darkness_check_cpu(struct cpufreq_darkness_cpuinfo *this_darkness_cp
 			CPUFREQ_RELATION_H, &index);
 		next_freq = this_darkness_cpuinfo->freq_table[index].frequency;
 #endif
-		/*printk(KERN_ERR "FREQ CALC.: CPU[%u], load[%d], target freq[%u], cur freq[%u], min freq[%u], max_freq[%u]\n",cpu, cur_load, next_freq, cpu_policy->cur, cpu_policy->min, max_freq); */
+		/*printk(KERN_ERR "FREQ CALC.: CPU[%u], load[%d], target freq[%u], cur freq[%u], min freq[%u], max_freq[%u]\n",cpu, cur_load, next_freq, cpu_policy->cur, cpu_policy->min, max_freq);*/
 		if (next_freq != cpu_policy->cur) {
 			__cpufreq_driver_target(cpu_policy, next_freq, CPUFREQ_RELATION_L);
 		}
@@ -543,6 +542,7 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 		this_darkness_cpuinfo->cpu = cpu;
 
 		mutex_init(&this_darkness_cpuinfo->timer_mutex);
+
 		darkness_enable++;
 		/*
 		 * Start the timerschedule work, when this governor
@@ -597,10 +597,10 @@ static int cpufreq_governor_darkness(struct cpufreq_policy *policy,
 
 		if (!darkness_enable) {
 			sysfs_remove_group(cpufreq_global_kobject,
-					   &darkness_attr_group);			
+					   &darkness_attr_group);
 		}
 		mutex_unlock(&darkness_mutex);
-		
+
 		break;
 
 	case CPUFREQ_GOV_LIMITS:

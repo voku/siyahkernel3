@@ -12,7 +12,7 @@
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
- * 
+ *
  * Created by Alucard_24@xda
  */
 
@@ -241,7 +241,6 @@ store_freqlimit_param(max_freq_limit_sleep, 2);
 store_freqlimit_param(max_freq_limit_sleep, 3);
 #endif
 #endif
-
 define_one_global_rw(min_freq_limit_0);
 define_one_global_rw(min_freq_limit_1);
 #if NR_CPUS >= 4
@@ -283,7 +282,7 @@ static ssize_t store_sampling_rate(struct kobject *a, struct attribute *b,
 		return -EINVAL;
 
 	input = max(input,10000);
-	
+
 	if (input == atomic_read(&nightmare_tuners_ins.sampling_rate))
 		return count;
 
@@ -668,7 +667,7 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 	unsigned int tmp_freq = 0;
 	unsigned int next_freq = 0;
 	int cur_load = -1;
-	
+
 	cpu_policy = this_nightmare_cpuinfo->cur_policy;
 
 	cur_user_time = (__force unsigned long)(kcpustat_cpu(cpu).cpustat[CPUTIME_USER]);
@@ -688,20 +687,20 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 	this_nightmare_cpuinfo->prev_cpu_others = cur_others_time;
 
 	idle_time = (unsigned int)
-			((cur_idle_time - this_nightmare_cpuinfo->prev_cpu_idle) + 
+			((cur_idle_time - this_nightmare_cpuinfo->prev_cpu_idle) +
 			 (cur_iowait_time - this_nightmare_cpuinfo->prev_cpu_iowait));
 	this_nightmare_cpuinfo->prev_cpu_idle = cur_idle_time;
 	this_nightmare_cpuinfo->prev_cpu_iowait = cur_iowait_time;
 
 	/*printk(KERN_ERR "TIMER CPU[%u], wall[%u], idle[%u]\n",cpu, busy_time + idle_time, idle_time);*/
-	if (cpu_policy->cur > 0 && busy_time + idle_time > 0) { /*if busy_time and idle_time are 0, evaluate cpu load next time*/
+	if (busy_time + idle_time > 0) { /*if busy_time and idle_time are 0, evaluate cpu load next time*/
 		cur_load = busy_time ? (100 * busy_time) / (busy_time + idle_time) : 1;/*if busy_time is 0 cpu_load is equal to 1*/
 		tmp_freq = cpu_policy->cur;
 		/* Checking Frequency Limit */
 		if (max_freq > cpu_policy->max || max_freq < cpu_policy->min)
 			max_freq = cpu_policy->max;
 		if (min_freq < cpu_policy->min || min_freq > cpu_policy->max)
-			min_freq = cpu_policy->min;		
+			min_freq = cpu_policy->min;
 		/* CPUs Online Scale Frequency*/
 		if (cpu_policy->cur < freq_for_responsiveness) {
 			inc_cpu_load = atomic_read(&nightmare_tuners_ins.inc_cpu_load_at_min_freq);
@@ -709,7 +708,7 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 			freq_up_brake = atomic_read(&nightmare_tuners_ins.freq_up_brake_at_min_freq);
 		} else if (cpu_policy->cur > freq_for_responsiveness_max) {
 			freq_step_dec = atomic_read(&nightmare_tuners_ins.freq_step_dec_at_max_freq);
-		}		
+		}
 		/* Check for frequency increase or for frequency decrease */
 #ifdef CONFIG_CPU_EXYNOS4210
 		if (cur_load >= inc_cpu_load && cpu_policy->cur < max_freq) {
@@ -732,9 +731,9 @@ static void nightmare_check_cpu(struct cpufreq_nightmare_cpuinfo *this_nightmare
 		}
 		cpufreq_frequency_table_target(cpu_policy, this_nightmare_cpuinfo->freq_table, tmp_freq,
 			CPUFREQ_RELATION_H, &index);
-	 	next_freq = this_nightmare_cpuinfo->freq_table[index].frequency;
+		next_freq = this_nightmare_cpuinfo->freq_table[index].frequency;
 #endif
-		/*printk(KERN_ERR "FREQ CALC.: CPU[%u], load[%d], target freq[%u], cur freq[%u], min freq[%u], max_freq[%u]\n",cpu, cur_load, next_freq, cpu_policy->cur, cpu_policy->min, max_freq); */
+		/*printk(KERN_ERR "FREQ CALC.: CPU[%u], load[%d], target freq[%u], cur freq[%u], min freq[%u], max_freq[%u]\n",cpu, cur_load, next_freq, cpu_policy->cur, cpu_policy->min, max_freq);*/
 		if (next_freq != cpu_policy->cur) {
 			__cpufreq_driver_target(cpu_policy, next_freq, CPUFREQ_RELATION_L);
 		}
@@ -757,7 +756,7 @@ static void do_nightmare_timer(struct work_struct *work)
 	delay = usecs_to_jiffies(atomic_read(&nightmare_tuners_ins.sampling_rate));
 	if (num_online_cpus() > 1) {
 		delay -= jiffies % delay;
-	}	
+	}
 
 #ifdef CONFIG_CPU_EXYNOS4210
 	mod_delayed_work_on(cpu, system_wq, &nightmare_cpuinfo->work, delay);
@@ -797,6 +796,7 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 		this_nightmare_cpuinfo->cpu = cpu;
 
 		mutex_init(&this_nightmare_cpuinfo->timer_mutex);
+
 		nightmare_enable++;
 		/*
 		 * Start the timerschedule work, when this governor
@@ -851,10 +851,10 @@ static int cpufreq_governor_nightmare(struct cpufreq_policy *policy,
 
 		if (!nightmare_enable) {
 			sysfs_remove_group(cpufreq_global_kobject,
-					   &nightmare_attr_group);			
+					   &nightmare_attr_group);
 		}
 		mutex_unlock(&nightmare_mutex);
-		
+
 		break;
 
 	case CPUFREQ_GOV_LIMITS:

@@ -1054,14 +1054,14 @@ static ssize_t store_down_threshold_hotplug##name						\
 		if (ret != 1 || input < 11 || input > 100						\
 		|| input >= dbs_tuners_ins.up_threshold_hotplug##name)					\
 			return -EINVAL;									\
-	    	dbs_tuners_ins.down_threshold_hotplug##name = input;				\
-	    	hotplug_thresholds[1][core] = input;						\
+		dbs_tuners_ins.down_threshold_hotplug##name = input;				\
+		hotplug_thresholds[1][core] = input;						\
 	} else {										\
-    	if (ret != 1 || input < 11 || input > 100)						\
+	if (ret != 1 || input < 11 || input > 100)						\
 			return -EINVAL;									\
-    	dbs_tuners_ins.down_threshold_hotplug##name = input;				\
-    	hotplug_thresholds[1][core] = input;						\
-    	hotplug_thresholds_tuneable[core] = 0;						\
+	dbs_tuners_ins.down_threshold_hotplug##name = input;				\
+	hotplug_thresholds[1][core] = input;						\
+	hotplug_thresholds_tuneable[core] = 0;						\
 	}											\
 	return count;										\
 }

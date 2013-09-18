@@ -13,7 +13,6 @@
  * GNU General Public License for more details.
  *
  */
-#include <linux/workqueue.h>
 #include <linux/cpu.h>
 #include <linux/cpufreq.h>
 #include <linux/jiffies.h>
@@ -22,8 +21,14 @@
 #include <linux/sched.h>
 #include <linux/mutex.h>
 #include <linux/module.h>
+#ifndef CONFIG_CPU_EXYNOS4210
+#ifdef CONFIG_HAS_EARLYSUSPEND
+#include <linux/earlysuspend.h>
+#endif
+#endif
 
 static DEFINE_MUTEX(alucard_hotplug_mutex);
+static struct mutex timer_mutex;
 
 static struct delayed_work alucard_hotplug_work;
 
@@ -36,8 +41,6 @@ struct hotplug_cpuinfo {
 };
 
 static DEFINE_PER_CPU(struct hotplug_cpuinfo, od_hotplug_cpuinfo);
-
-static unsigned int alucard_hotplug_enable;
 
 static struct hotplug_tuners {
 	atomic_t hotplug_sampling_rate;
@@ -52,7 +55,7 @@ static struct hotplug_tuners {
 	.hotplug_sampling_rate = ATOMIC_INIT(50000),
 	.hotplug_enable = ATOMIC_INIT(0),
 	.cpu_up_rate = ATOMIC_INIT(10),
-	.cpu_down_rate = ATOMIC_INIT(5),
+	.cpu_down_rate = ATOMIC_INIT(10),
 	.maxcoreslimit = ATOMIC_INIT(NR_CPUS),
 #ifndef CONFIG_CPU_EXYNOS4210
 	.maxcoreslimitsleep = ATOMIC_INIT(1),
@@ -62,9 +65,11 @@ static struct hotplug_tuners {
 #define MAX_HOTPLUG_RATE		(40)
 #define DOWN_INDEX		(0)
 #define UP_INDEX		(1)
-#define DEF_SAMPLING_RATE		(50000)
 
 static atomic_t hotplugging_rate = ATOMIC_INIT(0);
+#ifndef CONFIG_CPU_EXYNOS4210
+static bool earlysuspend = false;
+#endif
 
 #ifdef CONFIG_CPU_EXYNOS4210
 static atomic_t hotplug_freq[2][2] = {
@@ -183,9 +188,35 @@ define_one_global_rw(hotplug_load_3_1);
 define_one_global_rw(hotplug_load_4_0);
 #endif
 
-#ifndef CONFIG_CPU_EXYNOS4210
-extern bool apget_if_suspended(void);
-#endif
+static void __ref cpus_hotplugging(bool state) {
+	unsigned int cpu=0;
+	int delay = usecs_to_jiffies(atomic_read(&hotplug_tuners_ins.hotplug_sampling_rate));
+
+	mutex_lock(&timer_mutex);
+
+	if (state) {
+		for_each_possible_cpu(cpu) {
+			struct hotplug_cpuinfo *cpu_hotplug_cpuinfo = &per_cpu(od_hotplug_cpuinfo, cpu);
+			cpu_hotplug_cpuinfo->prev_cpu_user = (__force unsigned long)(kcpustat_cpu(cpu).cpustat[CPUTIME_USER]);
+			cpu_hotplug_cpuinfo->prev_cpu_system = (__force unsigned long)(kcpustat_cpu(cpu).cpustat[CPUTIME_SYSTEM]);
+			cpu_hotplug_cpuinfo->prev_cpu_others = (__force unsigned long)(kcpustat_cpu(cpu).cpustat[CPUTIME_IRQ] + kcpustat_cpu(cpu).cpustat[CPUTIME_SOFTIRQ]
+																			+ kcpustat_cpu(cpu).cpustat[CPUTIME_STEAL] + kcpustat_cpu(cpu).cpustat[CPUTIME_NICE]);
+
+			cpu_hotplug_cpuinfo->prev_cpu_idle = (__force unsigned long)(kcpustat_cpu(cpu).cpustat[CPUTIME_IDLE]);
+			cpu_hotplug_cpuinfo->prev_cpu_iowait = (__force unsigned long)(kcpustat_cpu(cpu).cpustat[CPUTIME_IOWAIT]);
+		}
+		atomic_set(&hotplugging_rate, 0);
+		schedule_delayed_work_on(0, &alucard_hotplug_work, delay);
+	} else {
+		for_each_online_cpu(cpu) {
+			if (cpu == 0)
+				continue;
+			cpu_down(cpu);
+		}
+	}
+
+	mutex_unlock(&timer_mutex);
+}
 
 /* hotplug_sampling_rate */
 static ssize_t store_hotplug_sampling_rate(struct kobject *a, struct attribute *b,
@@ -199,7 +230,7 @@ static ssize_t store_hotplug_sampling_rate(struct kobject *a, struct attribute *
 		return -EINVAL;
 
 	input = max(input,10000);
-	
+
 	if (input == atomic_read(&hotplug_tuners_ins.hotplug_sampling_rate))
 		return count;
 
@@ -219,10 +250,15 @@ static ssize_t store_hotplug_enable(struct kobject *a, struct attribute *b,
 	if (ret != 1)
 		return -EINVAL;
 
-	input = input > 0; 
+	input = input > 0;
 
 	if (atomic_read(&hotplug_tuners_ins.hotplug_enable) == input)
 		return count;
+
+	if (input > 0)
+		cpus_hotplugging(true);
+	else
+		cpus_hotplugging(false);
 
 	atomic_set(&hotplug_tuners_ins.hotplug_enable, input);
 
@@ -280,7 +316,7 @@ static ssize_t store_maxcoreslimit(struct kobject *a, struct attribute *b,
 	if (ret != 1)
 		return -EINVAL;
 
-	input = max(input > NR_CPUS ? NR_CPUS : input, 1); 
+	input = max(input > NR_CPUS ? NR_CPUS : input, 1);
 
 	if (atomic_read(&hotplug_tuners_ins.maxcoreslimit) == input)
 		return count;
@@ -301,7 +337,7 @@ static ssize_t store_maxcoreslimitsleep(struct kobject *a, struct attribute *b,
 	if (ret != 1)
 		return -EINVAL;
 
-	input = max(input > NR_CPUS ? NR_CPUS : input, 1); 
+	input = max(input > NR_CPUS ? NR_CPUS : input, 1);
 
 	if (atomic_read(&hotplug_tuners_ins.maxcoreslimitsleep) == input)
 		return count;
@@ -320,7 +356,7 @@ define_one_global_rw(maxcoreslimit);
 define_one_global_rw(maxcoreslimitsleep);
 #endif
 
-static struct attribute *hotplug_attributes[] = {
+static struct attribute *alucard_hotplug_attributes[] = {
 	&hotplug_sampling_rate.attr,
 	&hotplug_enable.attr,
 	&hotplug_freq_1_1.attr,
@@ -348,17 +384,14 @@ static struct attribute *hotplug_attributes[] = {
 	NULL
 };
 
-static struct attribute_group hotplug_attr_group = {
-	.attrs = hotplug_attributes,
+static struct attribute_group alucard_hotplug_attr_group = {
+	.attrs = alucard_hotplug_attributes,
 	.name = "alucard_hotplug",
 };
 
 static void __cpuinit hotplug_work_fn(struct work_struct *work)
 {
 	int delay;
-#ifndef CONFIG_CPU_EXYNOS4210
-	bool earlysuspend = apget_if_suspended();
-#endif
 	int up_rate = atomic_read(&hotplug_tuners_ins.cpu_up_rate);
 	int down_rate = atomic_read(&hotplug_tuners_ins.cpu_down_rate);
 #ifdef CONFIG_CPU_EXYNOS4210
@@ -374,117 +407,156 @@ static void __cpuinit hotplug_work_fn(struct work_struct *work)
 	unsigned int cur_freq[NR_CPUS] = {0, 0, 0, 0};
 	int cur_load[NR_CPUS] = {-1, -1, -1, -1};
 #endif
-	unsigned int j;
 	unsigned int cpu = 0;
-	int hp_rate = 0;
+	/*bool hotplugged = false;*/
 
-	for_each_online_cpu(j) {
-		struct hotplug_cpuinfo *j_hotplug_cpuinfo = &per_cpu(od_hotplug_cpuinfo, j);
-		unsigned long cur_user_time, cur_system_time, cur_others_time, cur_idle_time, cur_iowait_time;
-		unsigned int busy_time, idle_time;
-
-		cur_user_time = (__force unsigned long)(kcpustat_cpu(j).cpustat[CPUTIME_USER]);
-		cur_system_time = (__force unsigned long)(kcpustat_cpu(j).cpustat[CPUTIME_SYSTEM]);
-		cur_others_time = (__force unsigned long)(kcpustat_cpu(j).cpustat[CPUTIME_IRQ] + kcpustat_cpu(j).cpustat[CPUTIME_SOFTIRQ]
-																		+ kcpustat_cpu(j).cpustat[CPUTIME_STEAL] + kcpustat_cpu(j).cpustat[CPUTIME_NICE]);
-
-		cur_idle_time = (__force unsigned long)(kcpustat_cpu(j).cpustat[CPUTIME_IDLE]);
-		cur_iowait_time = (__force unsigned long)(kcpustat_cpu(j).cpustat[CPUTIME_IOWAIT]);
-
-		busy_time = (unsigned int)
-				((cur_user_time - j_hotplug_cpuinfo->prev_cpu_user) +
-				 (cur_system_time - j_hotplug_cpuinfo->prev_cpu_system) +
-				 (cur_others_time - j_hotplug_cpuinfo->prev_cpu_others));
-		j_hotplug_cpuinfo->prev_cpu_user = cur_user_time;
-		j_hotplug_cpuinfo->prev_cpu_system = cur_system_time;
-		j_hotplug_cpuinfo->prev_cpu_others = cur_others_time;
-
-		idle_time = (unsigned int)
-				((cur_idle_time - j_hotplug_cpuinfo->prev_cpu_idle) + 
-				 (cur_iowait_time - j_hotplug_cpuinfo->prev_cpu_iowait));
-		j_hotplug_cpuinfo->prev_cpu_idle = cur_idle_time;
-		j_hotplug_cpuinfo->prev_cpu_iowait = cur_iowait_time;
-
-		/*printk(KERN_ERR "TIMER CPU[%u], wall[%u], idle[%u]\n",j, busy_time + idle_time, idle_time);*/
-		if (busy_time + idle_time == 0) { /*if busy_time and idle_time are 0, evaluate cpu load next time*/
-			hotplug_enable = false;
-			continue;
-		}
-
-		cur_load[j] = busy_time ? (100 * busy_time) / (busy_time + idle_time) : 1;/*if busy_time is 0 cpu_load is equal to 1*/
-		cur_freq[j] = cpufreq_get(j);
-	}
-
-	/* set hotplugging_rate used */
-	atomic_inc(&hotplugging_rate);
+	mutex_lock(&timer_mutex);
 
 	if (hotplug_enable) {
-		hp_rate = atomic_read(&hotplugging_rate);
+		for_each_online_cpu(cpu) {
+			struct hotplug_cpuinfo *cpu_hotplug_cpuinfo = &per_cpu(od_hotplug_cpuinfo, cpu);
+			struct cpufreq_policy cpu_policy;
+			unsigned long cur_user_time, cur_system_time, cur_others_time, cur_idle_time, cur_iowait_time;
+			unsigned int busy_time, idle_time;
+			unsigned int ret = -EINVAL;
+
+			cur_user_time = (__force unsigned long)(kcpustat_cpu(cpu).cpustat[CPUTIME_USER]);
+			cur_system_time = (__force unsigned long)(kcpustat_cpu(cpu).cpustat[CPUTIME_SYSTEM]);
+			cur_others_time = (__force unsigned long)(kcpustat_cpu(cpu).cpustat[CPUTIME_IRQ] + kcpustat_cpu(cpu).cpustat[CPUTIME_SOFTIRQ]
+																			+ kcpustat_cpu(cpu).cpustat[CPUTIME_STEAL] + kcpustat_cpu(cpu).cpustat[CPUTIME_NICE]);
+
+			cur_idle_time = (__force unsigned long)(kcpustat_cpu(cpu).cpustat[CPUTIME_IDLE]);
+			cur_iowait_time = (__force unsigned long)(kcpustat_cpu(cpu).cpustat[CPUTIME_IOWAIT]);
+
+			busy_time = (unsigned int)
+					((cur_user_time - cpu_hotplug_cpuinfo->prev_cpu_user) +
+					 (cur_system_time - cpu_hotplug_cpuinfo->prev_cpu_system) +
+					 (cur_others_time - cpu_hotplug_cpuinfo->prev_cpu_others));
+			cpu_hotplug_cpuinfo->prev_cpu_user = cur_user_time;
+			cpu_hotplug_cpuinfo->prev_cpu_system = cur_system_time;
+			cpu_hotplug_cpuinfo->prev_cpu_others = cur_others_time;
+
+			idle_time = (unsigned int)
+					((cur_idle_time - cpu_hotplug_cpuinfo->prev_cpu_idle) +
+					 (cur_iowait_time - cpu_hotplug_cpuinfo->prev_cpu_iowait));
+			cpu_hotplug_cpuinfo->prev_cpu_idle = cur_idle_time;
+			cpu_hotplug_cpuinfo->prev_cpu_iowait = cur_iowait_time;
+
+			ret = cpufreq_get_policy(&cpu_policy, cpu);
+			/*printk(KERN_ERR "TIMER CPU[%u], wall[%u], idle[%u]\n",j, busy_time + idle_time, idle_time);*/
+			if (ret || busy_time + idle_time == 0) { /*if busy_time and idle_time are 0, evaluate cpu load next time*/
+				continue;
+			}
+
+			cur_load[cpu] = busy_time ? (100 * busy_time) / (busy_time + idle_time) : 1;/*if busy_time is 0 cpu_load is equal to 1*/
+			cur_freq[cpu] = cpu_policy.cur;
+		}
+
+		/* set hotplugging_rate used */
+		atomic_inc(&hotplugging_rate);
+
 		/*Check for CPU hotplug*/
-		if (hp_rate % up_rate == 0) {
+		if (atomic_read(&hotplugging_rate) % up_rate == 0) {
 			for_each_cpu_not(cpu, cpu_online_mask) {
+				/*if (cpu == 0 || cpu > maxcoreslimit - 1 || hotplugged == true) {*/
 				if (cpu == 0 || cpu > maxcoreslimit - 1) {
 					continue;
 				}
 				if (cur_load[cpu - 1] >= atomic_read(&hotplug_load[cpu - 1][UP_INDEX])
 					&& cur_freq[cpu - 1] >= atomic_read(&hotplug_freq[cpu - 1][UP_INDEX])) {
 						cpu_up(cpu);
+						/*atomic_set(&hotplugging_rate, 0);
+						hotplugged = true;*/
 						break;
 				}
 			}
+			/*if (hotplugged == true)
+				goto schedule_cpu;*/
 		}
-		if (hp_rate % down_rate == 0) {
+
+		if (atomic_read(&hotplugging_rate) % down_rate == 0) {
 			maxcoreslimit = (maxcoreslimit == NR_CPUS ? 0 : maxcoreslimit - 1);
 			for_each_online_cpu(cpu) {
-				if (cpu <= maxcoreslimit || cur_load[cpu] < 0) {
+				/*if (cur_load[cpu] < 0 || cpu <= maxcoreslimit || hotplugged == true) {*/
+				if (cur_load[cpu] < 0 || cpu <= maxcoreslimit) {
 					continue;
 				}
 				if (cur_load[cpu] < atomic_read(&hotplug_load[cpu][DOWN_INDEX])
 					|| cur_freq[cpu] <= atomic_read(&hotplug_freq[cpu][DOWN_INDEX])) {
 						cpu_down(cpu);
+						/*atomic_set(&hotplugging_rate, 0);
+						hotplugged = true;*/
 						break;
 				}
 			}
+			/*if (hotplugged == true)
+				goto schedule_cpu;*/
+		}
+
+		if (atomic_read(&hotplugging_rate) >= max(up_rate, down_rate)) {
+			atomic_set(&hotplugging_rate, 0);
 		}
 	}
 
-	if (hp_rate >= max(up_rate, down_rate)) {
-		atomic_set(&hotplugging_rate, 0);
-	}
-
+/*schedule_cpu:*/
 	delay = usecs_to_jiffies(atomic_read(&hotplug_tuners_ins.hotplug_sampling_rate));
-	/*if (num_online_cpus() > 1)
-		delay -= jiffies % delay;*/
-
+	if (num_online_cpus() > 1)
+		delay -= jiffies % delay;
 	schedule_delayed_work_on(0, &alucard_hotplug_work, delay);
+	mutex_unlock(&timer_mutex);
 }
+
+#ifndef CONFIG_CPU_EXYNOS4210
+#ifdef CONFIG_HAS_EARLYSUSPEND
+static void alucard_hotplug_early_suspend(struct early_suspend *handler)
+{
+	mutex_lock(&alucard_hotplug_mutex);
+	earlysuspend = true;
+	mutex_unlock(&alucard_hotplug_mutex);
+}
+
+static void __cpuinit alucard_hotplug_late_resume(struct early_suspend *handler)
+{
+	mutex_lock(&alucard_hotplug_mutex);
+	earlysuspend = false;
+	mutex_unlock(&alucard_hotplug_mutex);
+}
+
+static struct early_suspend alucard_hotplug_early_suspend_struct_driver = {
+	.level = EARLY_SUSPEND_LEVEL_DISABLE_FB + 10,
+	.suspend = alucard_hotplug_early_suspend,
+	.resume = alucard_hotplug_late_resume,
+};
+#endif	/* CONFIG_HAS_EARLYSUSPEND */
+#endif
 
 int __init alucard_hotplug_init(void)
 {
 	/* We want all CPUs to do sampling nearly on same jiffy */
 	int delay;
-	unsigned int j;
-	int rc;
+	unsigned int cpu;
+	int ret;
 
-	alucard_hotplug_enable++;
-
-	for_each_possible_cpu(j) {
-		struct hotplug_cpuinfo *j_hotplug_cpuinfo = &per_cpu(od_hotplug_cpuinfo, j);
-		j_hotplug_cpuinfo->prev_cpu_user = (__force unsigned long)(kcpustat_cpu(j).cpustat[CPUTIME_USER]);
-		j_hotplug_cpuinfo->prev_cpu_system = (__force unsigned long)(kcpustat_cpu(j).cpustat[CPUTIME_SYSTEM]);
-		j_hotplug_cpuinfo->prev_cpu_others = (__force unsigned long)(kcpustat_cpu(j).cpustat[CPUTIME_IRQ] + kcpustat_cpu(j).cpustat[CPUTIME_SOFTIRQ]
-																		+ kcpustat_cpu(j).cpustat[CPUTIME_STEAL] + kcpustat_cpu(j).cpustat[CPUTIME_NICE]);
-
-		j_hotplug_cpuinfo->prev_cpu_idle = (__force unsigned long)(kcpustat_cpu(j).cpustat[CPUTIME_IDLE]);
-		j_hotplug_cpuinfo->prev_cpu_iowait = (__force unsigned long)(kcpustat_cpu(j).cpustat[CPUTIME_IOWAIT]);
+	ret = sysfs_create_group(cpufreq_global_kobject, &alucard_hotplug_attr_group);
+	if (ret) {
+		printk(KERN_ERR "failed at(%d)\n", __LINE__);
+		return ret;
 	}
 
-	if (alucard_hotplug_enable == 1) {
-		rc = sysfs_create_group(cpufreq_global_kobject,
-							&hotplug_attr_group);
-		if (rc)
-			return rc;
+	mutex_lock(&alucard_hotplug_mutex);
+	atomic_set(&hotplugging_rate, 0);
+	for_each_possible_cpu(cpu) {
+		struct hotplug_cpuinfo *cpu_hotplug_cpuinfo = &per_cpu(od_hotplug_cpuinfo, cpu);
+		cpu_hotplug_cpuinfo->prev_cpu_user = (__force unsigned long)(kcpustat_cpu(cpu).cpustat[CPUTIME_USER]);
+		cpu_hotplug_cpuinfo->prev_cpu_system = (__force unsigned long)(kcpustat_cpu(cpu).cpustat[CPUTIME_SYSTEM]);
+		cpu_hotplug_cpuinfo->prev_cpu_others = (__force unsigned long)(kcpustat_cpu(cpu).cpustat[CPUTIME_IRQ] + kcpustat_cpu(cpu).cpustat[CPUTIME_SOFTIRQ]
+																		+ kcpustat_cpu(cpu).cpustat[CPUTIME_STEAL] + kcpustat_cpu(cpu).cpustat[CPUTIME_NICE]);
+
+		cpu_hotplug_cpuinfo->prev_cpu_idle = (__force unsigned long)(kcpustat_cpu(cpu).cpustat[CPUTIME_IDLE]);
+		cpu_hotplug_cpuinfo->prev_cpu_iowait = (__force unsigned long)(kcpustat_cpu(cpu).cpustat[CPUTIME_IOWAIT]);
 	}
+	mutex_init(&timer_mutex);
+	mutex_unlock(&alucard_hotplug_mutex);
 
 	delay = usecs_to_jiffies(atomic_read(&hotplug_tuners_ins.hotplug_sampling_rate));
 	if (num_online_cpus() > 1)
@@ -493,12 +565,29 @@ int __init alucard_hotplug_init(void)
 	INIT_DELAYED_WORK(&alucard_hotplug_work, hotplug_work_fn);
 	schedule_delayed_work_on(0, &alucard_hotplug_work, delay);
 
-	return 0;
+#ifndef CONFIG_CPU_EXYNOS4210
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	register_early_suspend(&alucard_hotplug_early_suspend_struct_driver);
+#endif
+#endif
+
+	return ret;
 }
 
+static void __exit alucard_hotplug_exit(void)
+{
+	cancel_delayed_work_sync(&alucard_hotplug_work);
+	mutex_destroy(&timer_mutex);
+
+#ifndef CONFIG_CPU_EXYNOS4210
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	unregister_early_suspend(&alucard_hotplug_early_suspend_struct_driver);
+#endif
+#endif
+}
 MODULE_AUTHOR("Alucard_24@XDA");
 MODULE_DESCRIPTION("'alucard_hotplug' - A cpu hotplug driver for "
 	"capable processors");
 MODULE_LICENSE("GPL");
-
-late_initcall(alucard_hotplug_init);
+module_init(alucard_hotplug_init);
+module_exit(alucard_hotplug_exit);
