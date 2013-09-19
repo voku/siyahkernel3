@@ -104,6 +104,11 @@ static void fdatawait_one_bdev(struct block_device *bdev, void *arg)
  * just write metadata (such as inodes or bitmaps) to block device page cache
  * and do not sync it on their own in ->sync_fs().
  */
+
+/* Custom patch start here see
+ * https://github.com/dorimanx/Dorimanx-SG2-I9100-Kernel/commit/
+ * f7f90fe109ae4b44f4705a5be6961a2ce2301f0a 
+ */
 static void do_sync(void)
 {
 	int nowait = 0, wait = 1;
@@ -172,6 +177,7 @@ SYSCALL_DEFINE0(sync)
 	mutex_unlock(&sync_mutex);
 	return 0;
 }
+/* custom patch ends here */
 
 static void do_sync_work(struct work_struct *work)
 {
