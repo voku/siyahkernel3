@@ -359,9 +359,9 @@ struct inode_operations {
 	ssize_t (*listxattr) (struct dentry *, char *, size_t);
 	int (*removexattr) (struct dentry *, const char *);
 	void (*update_time)(struct inode *, struct timespec *, int);
-	int (*atomic_open)(struct inode *, struct dentry *,
-				struct file *, unsigned open_flag,
-				umode_t create_mode, int *opened);
+	int (*atomic_open)(struct inode *, struct dentry *, struct file *,
+			unsigned open_flag, umode_t create_mode, int *opened);
+	int (*tmpfile) (struct inode *, struct dentry *, umode_t);
 };
 
 Again, all methods are called without any locks being held, unless
@@ -468,9 +468,14 @@ otherwise noted.
   	method the filesystem can look up, possibly create and open the file in
   	one atomic operation.  If it cannot perform this (e.g. the file type
   	turned out to be wrong) it may signal this by returning 1 instead of
-  	usual 0 or -ve .  This method is only called if the last
-  	component is negative or needs lookup.  Cached positive dentries are
-  	still handled by f_op->open().
+	usual 0 or -ve .  This method is only called if the last component is
+	negative or needs lookup.  Cached positive dentries are still handled by
+	f_op->open().  If the file was created, the FILE_CREATED flag should be
+	set in "opened".  In case of O_EXCL the method must only succeed if the
+	file didn't exist and hence FILE_CREATED shall always be set on success.
+
+  tmpfile: called in the end of O_TMPFILE open().  Optional, equivalent to
+	atomically creating, opening and unlinking a file in given directory.
 
 The Address Space Object
 ========================
@@ -554,7 +559,6 @@ your filesystem. The following members are defined:
 struct address_space_operations {
 	int (*writepage)(struct page *page, struct writeback_control *wbc);
 	int (*readpage)(struct file *, struct page *);
-	int (*sync_page)(struct page *);
 	int (*writepages)(struct address_space *, struct writeback_control *);
 	int (*set_page_dirty)(struct page *page);
 	int (*readpages)(struct file *filp, struct address_space *mapping,
@@ -576,6 +580,9 @@ struct address_space_operations {
 	/* migrate the contents of a page to the specified target */
 	int (*migratepage) (struct page *, struct page *);
 	int (*launder_page) (struct page *);
+	int (*is_partially_uptodate) (struct page *, read_descriptor_t *,
+					unsigned long);
+	void (*is_dirty_writeback) (struct page *, bool *, bool *);
 	int (*error_remove_page) (struct mapping *mapping, struct page *page);
 	int (*swap_activate)(struct file *);
 	int (*swap_deactivate)(struct file *);
@@ -606,13 +613,6 @@ struct address_space_operations {
        some reason, it can do so, and then return AOP_TRUNCATED_PAGE.
        In this case, the page will be relocated, relocked and if
        that all succeeds, ->readpage will be called again.
-
-  sync_page: called by the VM to notify the backing store to perform all
-  	queued I/O operations for a page. I/O operations for other pages
-	associated with this address_space object may also be performed.
-
-	This function is optional and is called only for pages with
-  	PG_Writeback set while waiting for the writeback to complete.
 
   writepages: called by the VM to write out pages associated with the
   	address_space object.  If wbc->sync_mode is WBC_SYNC_ALL, then
@@ -742,6 +742,20 @@ struct address_space_operations {
   	prevent redirtying the page, it is kept locked during the whole
 	operation.
 
+  is_partially_uptodate: Called by the VM when reading a file through the
+	pagecache when the underlying blocksize != pagesize. If the required
+	block is up to date then the read can complete without needing the IO
+	to bring the whole page up to date.
+
+  is_dirty_writeback: Called by the VM when attempting to reclaim a page.
+	The VM uses dirty and writeback information to determine if it needs
+	to stall to allow flushers a chance to complete some IO. Ordinarily
+	it can use PageDirty and PageWriteback but some filesystems have
+	more complex state (unstable pages in NFS prevent reclaim) or
+	do not set those flags due to locking problems (jbd). This callback
+	allows a filesystem to indicate to the VM if a page should be
+	treated as dirty or writeback for the purposes of stalling.
+
   error_remove_page: normally set to generic_error_remove_page if truncation
 	is ok for this address space. Used for memory failure handling.
 	Setting this implies you deal with pages going away under you,
@@ -777,7 +791,7 @@ struct file_operations {
 	ssize_t (*write) (struct file *, const char __user *, size_t, loff_t *);
 	ssize_t (*aio_read) (struct kiocb *, const struct iovec *, unsigned long, loff_t);
 	ssize_t (*aio_write) (struct kiocb *, const struct iovec *, unsigned long, loff_t);
-	int (*readdir) (struct file *, void *, filldir_t);
+	int (*iterate) (struct file *, struct dir_context *);
 	unsigned int (*poll) (struct file *, struct poll_table_struct *);
 	long (*unlocked_ioctl) (struct file *, unsigned int, unsigned long);
 	long (*compat_ioctl) (struct file *, unsigned int, unsigned long);
@@ -815,7 +829,7 @@ otherwise noted.
 
   aio_write: called by io_submit(2) and other asynchronous I/O operations
 
-  readdir: called when the VFS needs to read the directory contents
+  iterate: called when the VFS needs to read the directory contents
 
   poll: called by the VFS when a process wants to check if there is
 	activity on this file and (optionally) go to sleep until there
