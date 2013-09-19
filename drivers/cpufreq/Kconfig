@@ -90,15 +90,9 @@ config CPU_FREQ_DEFAULT_GOV_USERSPACE
 	  program shall be able to set the CPU dynamically without having
 	  to enable the userspace governor manually.
 
-config CPU_FREQ_DEFAULT_GOV_SCARY
-	bool "scary"
-	select CPU_FREQ_GOV_SCARY
-	---help---
-	  Use the CPUFreq governor 'scary' as default.
-
 config CPU_FREQ_DEFAULT_GOV_SLEEPY
 	bool "sleepy"
-	select CPU_FREQ_GOV_SCARY
+	select CPU_FREQ_GOV_SLEEPY
 	---help---
 	  Use the CPUFreq governor 'sleepy' as default.
 
@@ -260,14 +254,6 @@ config CPU_FREQ_GOV_ZZMOOVE
     'zzmoove' - based on cpufreq_conservative, using predefined
 	  frequency lookup tables and optimized scaling triggers instead of
 	  % frequency steps to get smooth up/downscaling dependant on CPU load.
-
-	  If in doubt, say N.
-
-config CPU_FREQ_GOV_SCARY
-	tristate "'scary' cpufreq governor"
-	depends on CPU_FREQ
-	---help---
-	  scary - a governor for cabbages
 
 	  If in doubt, say N.
 

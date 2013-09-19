@@ -406,9 +406,6 @@ extern struct cpufreq_governor cpufreq_gov_lulzactivew;
 #elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_HYPER)
 extern struct cpufreq_governor cpufreq_gov_HYPER;
 #define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_HYPER)
-#elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_SCARY)
-extern struct cpufreq_governor cpufreq_gov_scary;
-#define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_scary)
 #elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_SLEEPY)
 extern struct cpufreq_governor cpufreq_gov_sleepy;
 #define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_sleepy)
