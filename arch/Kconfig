@@ -30,6 +30,10 @@ config OPROFILE_EVENT_MULTIPLEX
 config HAVE_OPROFILE
 	bool
 
+config OPROFILE_NMI_TIMER
+	def_bool y
+	depends on PERF_EVENTS && HAVE_PERF_EVENTS_NMI
+
 config KPROBES
 	bool "Kprobes"
 	depends on MODULES
@@ -72,6 +76,15 @@ config OPTPROBES
 	depends on KPROBES && HAVE_OPTPROBES
 	depends on !PREEMPT
 
+config KPROBES_ON_FTRACE
+	def_bool y
+	depends on KPROBES && HAVE_KPROBES_ON_FTRACE
+	depends on DYNAMIC_FTRACE_WITH_REGS
+	help
+	 If function tracer is enabled and the arch supports full
+	 passing of pt_regs to function tracing, then kprobes can
+	 optimize on top of function tracing.
+
 config UPROBES
 	bool "Transparent user-space probes (EXPERIMENTAL)"
 	depends on UPROBE_EVENT && PERF_EVENTS
@@ -90,9 +103,24 @@ config UPROBES
 
 	  If in doubt, say "N".
 
+config HAVE_64BIT_ALIGNED_ACCESS
+	def_bool 64BIT && !HAVE_EFFICIENT_UNALIGNED_ACCESS
+	help
+	  Some architectures require 64 bit accesses to be 64 bit
+	  aligned, which also requires structs containing 64 bit values
+	  to be 64 bit aligned too. This includes some 32 bit
+	  architectures which can do 64 bit accesses, as well as 64 bit
+	  architectures without unaligned access.
+
+	  This symbol should be selected by an architecture if 64 bit
+	  accesses are required to be 64 bit aligned in this way even
+	  though it is not a 64 bit architecture.
+
+	  See Documentation/unaligned-memory-access.txt for more
+	  information on the topic of unaligned memory accesses.
+
 config HAVE_EFFICIENT_UNALIGNED_ACCESS
 	bool
-	def_bool n
 	help
 	  Some architectures are unable to perform unaligned accesses
 	  without the use of get_unaligned/put_unaligned. Others are
@@ -109,6 +137,25 @@ config HAVE_EFFICIENT_UNALIGNED_ACCESS
 
 	  See Documentation/unaligned-memory-access.txt for more
 	  information on the topic of unaligned memory accesses.
+
+config ARCH_USE_BUILTIN_BSWAP
+       bool
+       help
+	 Modern versions of GCC (since 4.4) have builtin functions
+	 for handling byte-swapping. Using these, instead of the old
+	 inline assembler that the architecture code provides in the
+	 __arch_bswapXX() macros, allows the compiler to see what's
+	 happening and offers more opportunity for optimisation. In
+	 particular, the compiler will be able to combine the byteswap
+	 with a nearby load or store and use load-and-swap or
+	 store-and-swap instructions if the architecture has them. It
+	 should almost *never* result in code which is worse than the
+	 hand-coded assembler in <asm/swab.h>.  But just in case it
+	 does, the use of the builtins is optional.
+
+	 Any architecture with load-and-swap or store-and-swap
+	 instructions should set this. And it shouldn't hurt to set it
+	 on architectures that don't have such instructions.
 
 config KRETPROBES
 	def_bool y
@@ -131,6 +178,9 @@ config HAVE_KRETPROBES
 	bool
 
 config HAVE_OPTPROBES
+	bool
+
+config HAVE_KPROBES_ON_FTRACE
 	bool
 
 config HAVE_NMI_WATCHDOG
@@ -161,13 +211,10 @@ config USE_GENERIC_SMP_HELPERS
 	bool
 
 config GENERIC_SMP_IDLE_THREAD
-	bool
+       bool
 
 config GENERIC_IDLE_POLL_SETUP
-	bool
-
-config GENERIC_IDLE_LOOP
-	bool
+       bool
 
 # Select if arch init_task initializer is different to init/init_task.c
 config ARCH_INIT_TASK
@@ -180,9 +227,6 @@ config ARCH_TASK_STRUCT_ALLOCATOR
 # Select if arch has its private alloc_thread_info() function
 config ARCH_THREAD_INFO_ALLOCATOR
 	bool
-
-config HAVE_GENERIC_INIT_TASK
-       bool
 
 config HAVE_REGS_AND_STACK_ACCESS_API
 	bool
@@ -226,6 +270,19 @@ config HAVE_PERF_EVENTS_NMI
 	  subsystem.  Also has support for calculating CPU cycle events
 	  to determine how many clock cycles in a given period.
 
+config HAVE_PERF_REGS
+	bool
+	help
+	  Support selective register dumps for perf events. This includes
+	  bit-mapping of each registers and a unique architecture id.
+
+config HAVE_PERF_USER_STACK_DUMP
+	bool
+	help
+	  Support user stack dumps for perf event samples. This needs
+	  access to the user stack pointer which is not unified across
+	  architectures.
+
 config HAVE_ARCH_JUMP_LABEL
 	bool
 
@@ -252,13 +309,6 @@ config HAVE_CMPXCHG_LOCAL
 config HAVE_CMPXCHG_DOUBLE
 	bool
 
-config HAVE_MOD_ARCH_SPECIFIC
-	bool
-	help
-	  The arch uses struct mod_arch_specific to store data.  Many arches
-	  just need a simple module loader without arch specific data - those
-	  should not enable this.
-
 config ARCH_WANT_IPC_PARSE_VERSION
 	bool
 
@@ -272,15 +322,15 @@ config ARCH_WANT_OLD_COMPAT_IPC
 config HAVE_ARCH_SECCOMP_FILTER
 	bool
 	help
-	  This symbol should be selected by an architecure if it provides:
-	  asm/syscall.h:
+	  An arch should select this symbol if it provides all of these things:
 	  - syscall_get_arch()
 	  - syscall_get_arguments()
 	  - syscall_rollback()
 	  - syscall_set_return_value()
-	  SIGSYS siginfo_t support must be implemented.
-	  __secure_computing()/secure_computing()'s return value must be
-	  checked, with -1 resulting in the syscall being skipped.
+	  - SIGSYS siginfo_t support
+	  - secure_computing is called from a ptrace_event()-safe context
+	  - secure_computing return value is checked and a return value of -1
+	    results in the system call being skipped immediately.
 
 config SECCOMP_FILTER
 	def_bool y
@@ -303,11 +353,27 @@ config HAVE_CONTEXT_TRACKING
 	  rcu_irq_enter/rcu_irq_exit() but preemption or signal handling on
 	  irq exit still need to be protected.
 
+config HAVE_VIRT_CPU_ACCOUNTING
+	bool
+
+config HAVE_IRQ_TIME_ACCOUNTING
+	bool
+	help
+	  Archs need to ensure they use a high enough resolution clock to
+	  support irq time accounting and then call enable_sched_clock_irqtime().
+
 config HAVE_ARCH_TRANSPARENT_HUGEPAGE
 	bool
 
 config HAVE_ARCH_SOFT_DIRTY
 	bool
+
+config HAVE_MOD_ARCH_SPECIFIC
+	bool
+	help
+	  The arch uses struct mod_arch_specific to store data.  Many arches
+	  just need a simple module loader without arch specific data - those
+	  should not enable this.
 
 config MODULES_USE_ELF_RELA
 	bool

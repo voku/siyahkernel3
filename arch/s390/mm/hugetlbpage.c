@@ -8,8 +8,6 @@
 #include <linux/mm.h>
 #include <linux/hugetlb.h>
 
-<<<<<<< HEAD
-=======
 static inline pmd_t __pte_to_pmd(pte_t pte)
 {
 	int none, young, prot;
@@ -90,22 +88,47 @@ static inline pte_t __pmd_to_pte(pmd_t pmd)
 		pte_val(pte) = _PAGE_INVALID;
 	return pte;
 }
->>>>>>> 0944fe3... s390/mm: implement software referenced bits
 
 void set_huge_pte_at(struct mm_struct *mm, unsigned long addr,
-				   pte_t *pteptr, pte_t pteval)
+		     pte_t *ptep, pte_t pte)
 {
-	pmd_t *pmdp = (pmd_t *) pteptr;
-	unsigned long mask;
+	pmd_t pmd;
 
+	pmd = __pte_to_pmd(pte);
 	if (!MACHINE_HAS_HPAGE) {
-		pteptr = (pte_t *) pte_page(pteval)[1].index;
-		mask = pte_val(pteval) &
-				(_SEGMENT_ENTRY_INV | _SEGMENT_ENTRY_RO);
-		pte_val(pteval) = (_SEGMENT_ENTRY + __pa(pteptr)) | mask;
-	}
+		pmd_val(pmd) &= ~_SEGMENT_ENTRY_ORIGIN;
+		pmd_val(pmd) |= pte_page(pte)[1].index;
+	} else
+		pmd_val(pmd) |= _SEGMENT_ENTRY_LARGE | _SEGMENT_ENTRY_CO;
+	*(pmd_t *) ptep = pmd;
+}
 
-	pmd_val(*pmdp) = pte_val(pteval);
+pte_t huge_ptep_get(pte_t *ptep)
+{
+	unsigned long origin;
+	pmd_t pmd;
+
+	pmd = *(pmd_t *) ptep;
+	if (!MACHINE_HAS_HPAGE && pmd_present(pmd)) {
+		origin = pmd_val(pmd) & _SEGMENT_ENTRY_ORIGIN;
+		pmd_val(pmd) &= ~_SEGMENT_ENTRY_ORIGIN;
+		pmd_val(pmd) |= *(unsigned long *) origin;
+	}
+	return __pmd_to_pte(pmd);
+}
+
+pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
+			      unsigned long addr, pte_t *ptep)
+{
+	pmd_t *pmdp = (pmd_t *) ptep;
+	pte_t pte = huge_ptep_get(ptep);
+
+	if (MACHINE_HAS_IDTE)
+		__pmd_idte(addr, pmdp);
+	else
+		__pmd_csp(pmdp);
+	pmd_val(*pmdp) = _SEGMENT_ENTRY_EMPTY;
+	return pte;
 }
 
 int arch_prepare_hugepage(struct page *page)
@@ -141,7 +164,7 @@ void arch_release_hugepage(struct page *page)
 	ptep = (pte_t *) page[1].index;
 	if (!ptep)
 		return;
-	clear_table((unsigned long *) ptep, _PAGE_TYPE_EMPTY,
+	clear_table((unsigned long *) ptep, _PAGE_INVALID,
 		    PTRS_PER_PTE * sizeof(pte_t));
 	page_table_free(&init_mm, (unsigned long *) ptep);
 	page[1].index = 0;

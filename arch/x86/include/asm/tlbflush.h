@@ -62,12 +62,8 @@ static inline void __flush_tlb_all(void)
 
 static inline void __flush_tlb_one(unsigned long addr)
 {
-<<<<<<< HEAD
-		__flush_tlb_single(addr);
-=======
 	count_vm_event(NR_TLB_LOCAL_FLUSH_ONE);
 	__flush_tlb_single(addr);
->>>>>>> 6df4686... mm: vmstats: track TLB flush stats on UP too
 }
 
 #define TLB_FLUSH_ALL	-1UL
