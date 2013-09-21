@@ -293,3 +293,4 @@ void __downgrade_write(struct rw_semaphore *sem)
 
 	raw_spin_unlock_irqrestore(&sem->wait_lock, flags);
 }
+

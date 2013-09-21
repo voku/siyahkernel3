@@ -7,6 +7,7 @@
 
 #include <linux/export.h>
 #include <linux/average.h>
+#include <linux/kernel.h>
 #include <linux/bug.h>
 #include <linux/log2.h>
 

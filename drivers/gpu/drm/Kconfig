@@ -29,7 +29,6 @@ config DRM_USB
 config DRM_KMS_HELPER
 	tristate
 	depends on DRM
-	select FB
 	select FRAMEBUFFER_CONSOLE if !EXPERT
 	select FRAMEBUFFER_CONSOLE_DETECT_PRIMARY if FRAMEBUFFER_CONSOLE
 	help
