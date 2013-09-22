@@ -224,7 +224,11 @@ static inline void sysctl_head_put(struct ctl_table_header *head) { }
 /*
  * proc_tty.c
  */
+#ifdef CONFIG_TTY
 extern void proc_tty_init(void);
+#else
+static inline void proc_tty_init(void) {}
+#endif
 
 /*
  * root.c

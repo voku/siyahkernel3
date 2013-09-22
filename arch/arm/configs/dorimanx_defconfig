@@ -1326,6 +1326,7 @@ CONFIG_PN544=y
 #
 # Texas Instruments shared transport line discipline
 #
+# CONFIG_TI_ST is not set
 # CONFIG_SENSORS_LIS3_SPI is not set
 # CONFIG_SENSORS_LIS3_I2C is not set
 CONFIG_SEC_MODEM=y
@@ -1640,6 +1641,7 @@ CONFIG_SERIO_LIBPS2=y
 #
 # Character devices
 #
+CONFIG_TTY=y
 CONFIG_VT=y
 CONFIG_CONSOLE_TRANSLATIONS=y
 # CONFIG_VT_CONSOLE is not set
