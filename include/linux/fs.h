@@ -134,10 +134,6 @@ typedef void (dio_iodone_t)(struct kiocb *iocb, loff_t offset,
  */
 #define CHECK_IOVEC_ONLY -1
 
-#define SEL_IN		1
-#define SEL_OUT		2
-#define SEL_EX		4
-
 /*
  * The below are the various read and write types that we support. Some of
  * them include behavioral modifiers that send information down to the
@@ -293,7 +289,6 @@ enum positive_aop_returns {
 struct page;
 struct address_space;
 struct writeback_control;
-enum migrate_mode;
 
 struct iov_iter {
 	const struct iovec *iov;
@@ -1528,11 +1523,6 @@ struct block_device_operations;
 #define HAVE_COMPAT_IOCTL 1
 #define HAVE_UNLOCKED_IOCTL 1
 
-/*
- * NOTE:
- * all file operations except setlease can be called without
- * the big kernel lock held in all filesystems.
- */
 struct file_operations {
 	struct module *owner;
 	loff_t (*llseek) (struct file *, loff_t, int);
@@ -1563,8 +1553,6 @@ struct file_operations {
 			  loff_t len);
 	int (*show_fdinfo)(struct seq_file *m, struct file *f);
 };
-
-#define IPERM_FLAG_RCU	0x0001
 
 struct inode_operations {
 	struct dentry * (*lookup) (struct inode *,struct dentry *, unsigned int);
@@ -2750,6 +2738,12 @@ static inline bool dir_emit_dots(struct file *file, struct dir_context *ctx)
 		ctx->pos = 2;
 	}
 	return true;
+}
+static inline bool dir_relax(struct inode *inode)
+{
+	mutex_unlock(&inode->i_mutex);
+	mutex_lock(&inode->i_mutex);
+	return !IS_DEADDIR(inode);
 }
 
 #endif /* _LINUX_FS_H */
