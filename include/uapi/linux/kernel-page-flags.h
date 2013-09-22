@@ -1,5 +1,5 @@
-#ifndef LINUX_KERNEL_PAGE_FLAGS_H
-#define LINUX_KERNEL_PAGE_FLAGS_H
+#ifndef _UAPILINUX_KERNEL_PAGE_FLAGS_H
+#define _UAPILINUX_KERNEL_PAGE_FLAGS_H
 
 /*
  * Stable page flag bits exported to user space
@@ -32,16 +32,5 @@
 #define KPF_KSM			21
 #define KPF_THP			22
 
-/* kernel hacking assistances
- * WARNING: subject to change, never rely on them!
- */
-#define KPF_RESERVED		32
-#define KPF_MLOCKED		33
-#define KPF_MAPPEDTODISK	34
-#define KPF_PRIVATE		35
-#define KPF_PRIVATE_2		36
-#define KPF_OWNER_PRIVATE	37
-#define KPF_ARCH		38
-#define KPF_UNCACHED		39
 
-#endif /* LINUX_KERNEL_PAGE_FLAGS_H */
+#endif /* _UAPILINUX_KERNEL_PAGE_FLAGS_H */
