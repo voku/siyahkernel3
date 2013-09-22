@@ -18,38 +18,6 @@
 struct ctl_table_header;
 struct mempolicy;
 
-/*
- * This is not completely implemented yet. The idea is to
- * create an in-memory tree (like the actual /proc filesystem
- * tree) of these proc_dir_entries, so that we can dynamically
- * add new files to /proc.
- *
- * The "next" pointer creates a linked list of one /proc directory,
- * while parent/subdir create the directory structure (every
- * /proc file has a parent, but "subdir" is NULL for all
- * non-directory entries).
- */
-struct proc_dir_entry {
-	unsigned int low_ino;
-	umode_t mode;
-	nlink_t nlink;
-	kuid_t uid;
-	kgid_t gid;
-	loff_t size;
-	const struct inode_operations *proc_iops;
-	const struct file_operations *proc_fops;
-	struct proc_dir_entry *next, *parent, *subdir;
-	void *data;
-	atomic_t count;		/* use count */
-	atomic_t in_use;	/* number of callers into module in progress; */
-			/* negative -> it's going away RSN */
-	struct completion *pde_unload_completion;
-	struct list_head pde_openers;	/* who did ->open, but not ->release */
-	spinlock_t pde_unload_lock; /* proc_fops checks and pde_users bumps */
-	u8 namelen;
-	char name[];
-};
-
 union proc_op {
 	int (*proc_get_link)(struct dentry *, struct path *);
 	int (*proc_read)(struct task_struct *task, char *page);
@@ -170,7 +138,7 @@ extern struct dentry *proc_pid_lookup(struct inode *, struct dentry *, unsigned 
 extern loff_t mem_lseek(struct file *, loff_t, int);
 
 /* Lookups */
-typedef struct dentry *instantiate_t(struct inode *, struct dentry *,
+typedef int instantiate_t(struct inode *, struct dentry *,
 				     struct task_struct *, const void *);
 extern int proc_fill_cache(struct file *, void *, filldir_t, const char *, int,
 			   instantiate_t, struct task_struct *, const void *);
@@ -208,15 +176,9 @@ extern const struct inode_operations proc_pid_link_inode_operations;
 extern void proc_init_inodecache(void);
 extern struct inode *proc_get_inode(struct super_block *, struct proc_dir_entry *);
 extern int proc_fill_super(struct super_block *);
+ssize_t __proc_file_read(struct file *, char __user *, size_t, loff_t *);
+extern const struct file_operations proc_file_operations;
 extern void proc_entry_rundown(struct proc_dir_entry *);
-
-/*
- * mmu.c
- */
-struct vmalloc_info {
-	unsigned long	used;
-	unsigned long	largest_chunk;
-};
 
 /*
  * proc_devtree.c
