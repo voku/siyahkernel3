@@ -1000,7 +1000,7 @@ static struct sysfs_dirent *sysfs_dir_next_pos(const void *ns,
 static int sysfs_readdir(struct file *file, struct dir_context *ctx)
 {
 	struct dentry *dentry = file->f_path.dentry;
-	struct sysfs_dirent * parent_sd = dentry->d_fsdata;
+	struct sysfs_dirent *parent_sd = dentry->d_fsdata;
 	struct sysfs_dirent *pos = file->private_data;
 	enum kobj_ns_type type;
 	const void *ns;
