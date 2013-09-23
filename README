@@ -299,7 +299,7 @@ More will be added later.
 
 =================================================================
 
-Kernel is updated to 3.1.Y and beyond.(hybrid)(we have 85% from 3.9.Y kernel!)
+Kernel is updated to 3.12.Y and beyond.(hybrid)(we have 90% from 3.12.Y kernel!)
 This is JB Tuned Kernel only! not supporting any 2.x.x/4.0.x roms!
 Dual CPU support
 Default CPU governor: HYPER
