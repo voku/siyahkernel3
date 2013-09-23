@@ -328,7 +328,7 @@ static int vr_init_queue(struct request_queue *q, struct elevator_type *e)
 	if (!eq)
 		return -ENOMEM;
 
-	vd = kmalloc_node(sizeof(*vd), GFP_KERNEL | __GFP_ZERO, q->node);
+	vd = kzalloc_node(sizeof(*vd), GFP_KERNEL, q->node);
 	if (!vd) {
 		kobject_put(&eq->kobj);
 		return -ENOMEM;

@@ -2937,7 +2937,7 @@ static int bfq_init_queue(struct request_queue *q, struct elevator_type *e)
 	if (eq == NULL)
 		return -ENOMEM;
 
-	bfqd = kmalloc_node(sizeof(*bfqd), GFP_KERNEL | __GFP_ZERO, q->node);
+	bfqd = kzalloc_node(sizeof(*bfqd), GFP_KERNEL, q->node);
 	if (bfqd == NULL) {
 		kobject_put(&eq->kobj);
 		return -ENOMEM;

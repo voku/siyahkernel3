@@ -799,8 +799,7 @@ static int row_init_queue(struct request_queue *q, struct elevator_type *e)
 	if (!eq)
 		return -ENOMEM;
 
-	rdata = kmalloc_node(sizeof(*rdata),
-			     GFP_KERNEL | __GFP_ZERO, q->node);
+	rdata = kzalloc_node(sizeof(*rdata), GFP_KERNEL, q->node);
 	if (!rdata) {
 		kobject_put(&eq->kobj);
 		return -ENOMEM;
