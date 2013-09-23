@@ -349,7 +349,8 @@ static struct task_struct *dup_task_struct(struct task_struct *orig)
 #endif
 	tsk->splice_pipe = NULL;
 /*	tsk->task_frag.page = NULL; # NOT IMPLEMENTED YET */
-/* see https://github.com/torvalds/linux/commit/5640f7685831e088fe6c2e1f863a6805962f8e81 */
+/* see https://github.com/torvalds/linux/commit/
+ * 5640f7685831e088fe6c2e1f863a6805962f8e81 */
 
 	account_kernel_stack(ti, 1);
 
@@ -412,6 +413,7 @@ static int dup_mmap(struct mm_struct *mm, struct mm_struct *oldmm)
 				goto fail_nomem;
 			charge = len;
 		}
+		/* UKSM mod */
 		tmp = kmem_cache_zalloc(vm_area_cachep, GFP_KERNEL);
 		if (!tmp)
 			goto fail_nomem;
@@ -467,6 +469,7 @@ static int dup_mmap(struct mm_struct *mm, struct mm_struct *oldmm)
 		__vma_link_rb(mm, tmp, rb_link, rb_parent);
 		rb_link = &tmp->vm_rb.rb_right;
 		rb_parent = &tmp->vm_rb;
+		/* UKSM MOD */
 		uksm_vma_add_new(tmp);
 		mm->map_count++;
 		retval = copy_page_range(mm, oldmm, mpnt);
@@ -706,7 +709,9 @@ struct mm_struct *mm_access(struct task_struct *task, unsigned int mode)
 		return ERR_PTR(err);
 
 	mm = get_task_mm(task);
-	/* !capable(CAP_SYS_RESOURCE) needed for android show memory usage by app */
+	/* !capable(CAP_SYS_RESOURCE) 
+	 * needed for android show memory usage by app
+	 */
 	if (mm && mm != current->mm &&
 			!ptrace_may_access(task, mode) &&
 			!capable(CAP_SYS_RESOURCE)) {
@@ -1078,6 +1083,7 @@ static int copy_signal(unsigned long clone_flags, struct task_struct *tsk)
 	init_rwsem(&sig->group_rwsem);
 #endif
 
+	/* needed for lowmemkill */
 	sig->oom_adj = current->signal->oom_adj;
 	sig->oom_score_adj = current->signal->oom_score_adj;
 	sig->oom_score_adj_min = current->signal->oom_score_adj_min;
@@ -1716,6 +1722,9 @@ SYSCALL_DEFINE5(clone, unsigned long, clone_flags, unsigned long, newsp,
 		 int, tls_val)
 #endif
 {
+/* see https://github.com/dorimanx/Dorimanx-SG2-I9100-Kernel/commit/
+ * 6893432732cb60417f05ff3fb2e3943c00e4b9cf
+ */
 	long ret = do_fork(clone_flags, newsp, 0, parent_tidptr, child_tidptr);
 	asmlinkage_protect(5, ret, clone_flags, newsp,
 			parent_tidptr, child_tidptr, tls_val);
