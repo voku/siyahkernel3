@@ -3,8 +3,6 @@
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/of.h>
-#include <linux/of_address.h>
-#include <linux/slab.h>
 
 static LIST_HEAD(irq_domain_list);
 static DEFINE_MUTEX(irq_domain_mutex);
@@ -20,20 +18,16 @@ static DEFINE_MUTEX(irq_domain_mutex);
 void irq_domain_add(struct irq_domain *domain)
 {
 	struct irq_data *d;
-	int hwirq, irq;
+	int hwirq;
 
 	/*
 	 * This assumes that the irq_domain owner has already allocated
 	 * the irq_descs.  This block will be removed when support for dynamic
 	 * allocation of irq_descs is added to irq_domain.
 	 */
-	irq_domain_for_each_irq(domain, hwirq, irq) {
-		d = irq_get_irq_data(irq);
-		if (!d) {
-			WARN(1, "error: assigning domain to non existant irq_desc");
-			return;
-		}
-		if (d->domain) {
+	for (hwirq = 0; hwirq < domain->nr_irq; hwirq++) {
+		d = irq_get_irq_data(irq_domain_to_irq(domain, hwirq));
+		if (d || d->domain) {
 			/* things are broken; just report, don't clean up */
 			WARN(1, "error: irq_desc already assigned to a domain");
 			return;
@@ -54,15 +48,15 @@ void irq_domain_add(struct irq_domain *domain)
 void irq_domain_del(struct irq_domain *domain)
 {
 	struct irq_data *d;
-	int hwirq, irq;
+	int hwirq;
 
 	mutex_lock(&irq_domain_mutex);
 	list_del(&domain->list);
 	mutex_unlock(&irq_domain_mutex);
 
 	/* Clear the irq_domain assignments */
-	irq_domain_for_each_irq(domain, hwirq, irq) {
-		d = irq_get_irq_data(irq);
+	for (hwirq = 0; hwirq < domain->nr_irq; hwirq++) {
+		d = irq_get_irq_data(irq_domain_to_irq(domain, hwirq));
 		d->domain = NULL;
 	}
 }
@@ -125,93 +119,4 @@ void irq_dispose_mapping(unsigned int irq)
 	 */
 }
 EXPORT_SYMBOL_GPL(irq_dispose_mapping);
-
-/**
- * irq_domain_xlate_onecell() - Generic xlate for direct one cell bindings
- *
- * Device Tree IRQ specifier translation function which works with one cell
- * bindings where the cell value maps directly to the hwirq number.
- */
-int irq_domain_xlate_onecell(struct irq_domain *d, struct device_node *ctrlr,
-			     const u32 *intspec, unsigned int intsize,
-			     unsigned long *out_hwirq, unsigned int *out_type)
-{
-	if (WARN_ON(intsize < 1))
-		return -EINVAL;
-
-	*out_hwirq = intspec[0];
-	*out_type = IRQ_TYPE_NONE;
-	return 0;
-}
-EXPORT_SYMBOL_GPL(irq_domain_xlate_onecell);
-
-/**
- * irq_domain_xlate_twocell() - Generic xlate for direct two cell bindings
- *
- * Device Tree IRQ specifier translation function which works with two cell
- * bindings where the cell values map directly to the hwirq number
- * and linux irq flags.
- */
-int irq_domain_xlate_twocell(struct irq_domain *d, struct device_node *ctrlr,
-			const u32 *intspec, unsigned int intsize,
-			irq_hw_number_t *out_hwirq, unsigned int *out_type)
-{
-	if (WARN_ON(intsize < 2))
-		return -EINVAL;
-	*out_hwirq = intspec[0];
-	*out_type = intspec[1] & IRQ_TYPE_SENSE_MASK;
-	return 0;
-}
-EXPORT_SYMBOL_GPL(irq_domain_xlate_twocell);
-
-/**
- * irq_domain_xlate_onetwocell() - Generic xlate for one or two cell bindings
- *
- * Device Tree IRQ specifier translation function which works with either one
- * or two cell bindings where the cell values map directly to the hwirq number
- * and linux irq flags.
- *
- * Note: don't use this function unless your interrupt controller explicitly
- * supports both one and two cell bindings.  For the majority of controllers
- * the _onecell() or _twocell() variants above should be used.
- */
-int irq_domain_xlate_onetwocell(struct irq_domain *d,
-				struct device_node *ctrlr,
-				const u32 *intspec, unsigned int intsize,
-				unsigned long *out_hwirq, unsigned int *out_type)
-{
-	if (WARN_ON(intsize < 1))
-		return -EINVAL;
-	*out_hwirq = intspec[0];
-	*out_type = (intsize > 1) ? intspec[1] : IRQ_TYPE_NONE;
-	return 0;
-}
-EXPORT_SYMBOL_GPL(irq_domain_xlate_onetwocell);
-
-struct irq_domain_ops irq_domain_simple_ops = {
-	.map = irq_domain_simple_map,
-	.xlate = irq_domain_xlate_onetwocell,
-};
-EXPORT_SYMBOL_GPL(irq_domain_simple_ops);
-
-void irq_domain_generate_simple(const struct of_device_id *match,
-				u64 phys_base, unsigned int irq_start)
-{
-	struct device_node *node;
-	pr_info("looking for phys_base=%llx, irq_start=%i\n",
-		(unsigned long long) phys_base, (int) irq_start);
-	node = of_find_matching_node_by_address(NULL, match, phys_base);
-	if (node)
-		irq_domain_add_simple(node, irq_start);
-	else
-		pr_info("no node found\n");
-}
-EXPORT_SYMBOL_GPL(irq_domain_generate_simple);
 #endif /* CONFIG_OF_IRQ */
-
-struct irq_domain_ops irq_domain_simple_ops = {
-#ifdef CONFIG_OF_IRQ
-	.dt_translate = irq_domain_simple_dt_translate,
-#endif /* CONFIG_OF_IRQ */
-};
-EXPORT_SYMBOL_GPL(irq_domain_simple_ops);
