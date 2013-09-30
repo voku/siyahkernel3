@@ -43,12 +43,13 @@
 #include <linux/sysctl.h>
 #include <linux/oom.h>
 #include <linux/prefetch.h>
+#include <linux/sched/rt.h>
 
 #include <asm/tlbflush.h>
 #include <asm/div64.h>
 
 #include <linux/swapops.h>
-#include <linux/sched/rt.h>
+#include <linux/balloon_compaction.h>
 
 #include "internal.h"
 
@@ -1114,7 +1115,8 @@ unsigned long reclaim_clean_pages_from_list(struct zone *zone,
 	LIST_HEAD(clean_pages);
 
 	list_for_each_entry_safe(page, next, page_list, lru) {
-		if (page_is_file_cache(page) && !PageDirty(page)) {
+		if (page_is_file_cache(page) && !PageDirty(page) &&
+		    !isolated_balloon_page(page)) {
 			ClearPageActive(page);
 			list_move(&page->lru, &clean_pages);
 		}
