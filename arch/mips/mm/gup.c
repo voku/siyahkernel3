@@ -12,7 +12,6 @@
 #include <linux/swap.h>
 #include <linux/hugetlb.h>
 
-#include <asm/cpu-features.h>
 #include <asm/pgtable.h>
 
 static inline pte_t gup_get_pte(pte_t *ptep)
@@ -274,7 +273,7 @@ int get_user_pages_fast(unsigned long start, int nr_pages, int write,
 	len = (unsigned long) nr_pages << PAGE_SHIFT;
 
 	end = start + len;
-	if (end < start || cpu_has_dc_aliases)
+	if (end < start)
 		goto slow_irqon;
 
 	/* XXX: batch / limit 'nr' */

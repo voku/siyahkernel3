@@ -12,7 +12,6 @@
 #include <linux/smp.h>
 
 #include <asm/cpu-info.h>
-#include <asm/cpu-type.h>
 #include <asm/time.h>
 
 #include <asm/octeon/octeon.h>

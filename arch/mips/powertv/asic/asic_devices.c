@@ -147,10 +147,20 @@ static __init noinline void platform_set_family(void)
 	if (check_forcefamily(forced_family) == 0)
 		bootldr_family = BOOTLDRFAMILY(forced_family[0],
 			forced_family[1]);
-	else
+	else {
+
+#ifdef CONFIG_BOOTLOADER_DRIVER
+		bootldr_family = (unsigned short) kbldr_GetSWFamily();
+#else
+#if defined(CONFIG_BOOTLOADER_FAMILY)
 		bootldr_family = (unsigned short) BOOTLDRFAMILY(
 			CONFIG_BOOTLOADER_FAMILY[0],
 			CONFIG_BOOTLOADER_FAMILY[1]);
+#else
+#error "Unknown Bootloader Family"
+#endif
+#endif
+	}
 
 	pr_info("Bootloader Family = 0x%04X\n", bootldr_family);
 

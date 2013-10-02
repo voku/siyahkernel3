@@ -1505,7 +1505,6 @@ int __kprobes emulate_step(struct pt_regs *regs, unsigned int instr)
 		 */
 		if ((ra == 1) && !(regs->msr & MSR_PR) \
 			&& (val3 >= (regs->gpr[1] - STACK_INT_FRAME_SIZE))) {
-#ifdef CONFIG_PPC32
 			/*
 			 * Check if we will touch kernel sack overflow
 			 */
@@ -1514,7 +1513,7 @@ int __kprobes emulate_step(struct pt_regs *regs, unsigned int instr)
 				err = -EINVAL;
 				break;
 			}
-#endif /* CONFIG_PPC32 */
+
 			/*
 			 * Check if we already set since that means we'll
 			 * lose the previous value.

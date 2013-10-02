@@ -127,7 +127,8 @@ void shatter_huge_page(unsigned long addr)
 	}
 
 	/* Shatter the huge page into the preallocated L2 page table. */
-	pmd_populate_kernel(&init_mm, pmd, get_prealloc_pte(pmd_pfn(*pmd)));
+	pmd_populate_kernel(&init_mm, pmd,
+			    get_prealloc_pte(pte_pfn(*(pte_t *)pmd)));
 
 #ifdef __PAGETABLE_PMD_FOLDED
 	/* Walk every pgd on the system and update the pmd there. */

@@ -6,7 +6,6 @@
 #include <linux/sched.h>
 #include <linux/mm.h>
 
-#include <asm/cpu-type.h>
 #include <asm/mipsregs.h>
 #include <asm/bcache.h>
 #include <asm/cacheops.h>
@@ -72,7 +71,7 @@ static inline int mips_sc_is_activated(struct cpuinfo_mips *c)
 	unsigned int tmp;
 
 	/* Check the bypass bit (L2B) */
-	switch (current_cpu_type()) {
+	switch (c->cputype) {
 	case CPU_34K:
 	case CPU_74K:
 	case CPU_1004K:

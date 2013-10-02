@@ -60,7 +60,8 @@ void do_page_fault(struct pt_regs *regs, unsigned long address)
 	siginfo_t info;
 	int fault, ret;
 	int write = regs->ecr_cause & ECR_C_PROTV_STORE;  /* ST/EX */
-	unsigned int flags = FAULT_FLAG_ALLOW_RETRY | FAULT_FLAG_KILLABLE;
+	unsigned int flags = FAULT_FLAG_ALLOW_RETRY | FAULT_FLAG_KILLABLE |
+				(write ? FAULT_FLAG_WRITE : 0);
 
 	/*
 	 * We fault-in kernel-space virtual memory on-demand. The
@@ -88,8 +89,6 @@ void do_page_fault(struct pt_regs *regs, unsigned long address)
 	if (in_atomic() || !mm)
 		goto no_context;
 
-	if (user_mode(regs))
-		flags |= FAULT_FLAG_USER;
 retry:
 	down_read(&mm->mmap_sem);
 	vma = find_vma(mm, address);
@@ -118,12 +117,12 @@ good_area:
 	if (write) {
 		if (!(vma->vm_flags & VM_WRITE))
 			goto bad_area;
-		flags |= FAULT_FLAG_WRITE;
 	} else {
 		if (!(vma->vm_flags & (VM_READ | VM_EXEC)))
 			goto bad_area;
 	}
 
+survive:
 	/*
 	 * If for any reason at all we couldn't handle the fault,
 	 * make sure we exit gracefully rather than endlessly redo
@@ -202,6 +201,10 @@ no_context:
 	die("Oops", regs, address);
 
 out_of_memory:
+	if (is_global_init(tsk)) {
+		yield();
+		goto survive;
+	}
 	up_read(&mm->mmap_sem);
 
 	if (user_mode(regs)) {

@@ -157,7 +157,6 @@ static int gpio_proc_open(struct inode *inode, struct file *file)
 	return single_open(file, gpio_proc_show, PDE_DATA(inode));
 }
 
-<<<<<<< HEAD
 static const struct file_operations gpio_proc_fops = {
 	.open		= gpio_proc_open,
 	.read		= seq_read,
@@ -168,11 +167,6 @@ static const struct file_operations gpio_proc_fops = {
 static __init int register_proc(void)
 {
 	return proc_create("gpio", S_IRUGO, NULL, &gpio_proc_fops) != NULL;
-=======
-	proc_gpio = create_proc_read_entry("gpio", S_IRUGO, NULL,
-					gpio_proc_read, NULL);
-	return proc_gpio != NULL;
->>>>>>> e784788... get rid of a bunch of open-coded create_proc_read_entry()
 }
 
 __initcall(register_proc);

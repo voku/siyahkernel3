@@ -29,7 +29,9 @@
 #include <asm/timex.h>
 #include <asm/platform.h>
 
+#ifdef CONFIG_XTENSA_CALIBRATE_CCOUNT
 unsigned long ccount_freq;		/* ccount Hz */
+#endif
 
 static cycle_t ccount_read(struct clocksource *cs)
 {
@@ -127,10 +129,8 @@ void __init time_init(void)
 	platform_calibrate_ccount();
 	printk("%d.%02d MHz\n", (int)ccount_freq/1000000,
 			(int)(ccount_freq/10000)%100);
-#else
-	ccount_freq = CONFIG_XTENSA_CPU_CLOCK*1000000UL;
 #endif
-	clocksource_register_hz(&ccount_clocksource, ccount_freq);
+	clocksource_register_hz(&ccount_clocksource, CCOUNT_PER_JIFFY * HZ);
 
 	ccount_timer.evt.cpumask = cpumask_of(0);
 	ccount_timer.evt.irq = irq_create_mapping(NULL, LINUX_TIMER_INT);
@@ -164,7 +164,7 @@ irqreturn_t timer_interrupt (int irq, void *dev_id)
 #ifndef CONFIG_GENERIC_CALIBRATE_DELAY
 void calibrate_delay(void)
 {
-	loops_per_jiffy = ccount_freq / HZ;
+	loops_per_jiffy = CCOUNT_PER_JIFFY;
 	printk("Calibrating delay loop (skipped)... "
 	       "%lu.%02lu BogoMIPS preset\n",
 	       loops_per_jiffy/(1000000/HZ),

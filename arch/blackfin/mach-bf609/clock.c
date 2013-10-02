@@ -220,12 +220,6 @@ unsigned long sys_clk_get_rate(struct clk *clk)
 	}
 }
 
-unsigned long dummy_get_rate(struct clk *clk)
-{
-	clk->parent->rate = clk_get_rate(clk->parent);
-	return clk->parent->rate;
-}
-
 unsigned long sys_clk_round_rate(struct clk *clk, unsigned long rate)
 {
 	unsigned long max_rate;
@@ -287,10 +281,6 @@ static struct clk_ops sys_clk_ops = {
 	.get_rate = sys_clk_get_rate,
 	.set_rate = sys_clk_set_rate,
 	.round_rate = sys_clk_round_rate,
-};
-
-static struct clk_ops dummy_clk_ops = {
-	.get_rate = dummy_get_rate,
 };
 
 static struct clk sys_clkin = {
@@ -374,12 +364,6 @@ static struct clk oclk = {
 	.parent     = &pll_clk,
 };
 
-static struct clk ethclk = {
-	.name       = "stmmaceth",
-	.parent     = &sclk0,
-	.ops	    = &dummy_clk_ops,
-};
-
 static struct clk_lookup bf609_clks[] = {
 	CLK(sys_clkin, NULL, "SYS_CLKIN"),
 	CLK(pll_clk, NULL, "PLLCLK"),
@@ -391,7 +375,6 @@ static struct clk_lookup bf609_clks[] = {
 	CLK(sclk1, NULL, "SCLK1"),
 	CLK(dclk, NULL, "DCLK"),
 	CLK(oclk, NULL, "OCLK"),
-	CLK(ethclk, NULL, "stmmaceth"),
 };
 
 int __init clk_init(void)

@@ -18,7 +18,6 @@
 #include <linux/sched.h>
 #include <asm/cpu.h>
 #include <asm/cpu-info.h>
-#include <asm/cpu-type.h>
 #include <asm/idle.h>
 #include <asm/mipsregs.h>
 
@@ -137,7 +136,7 @@ void __init check_wait(void)
 		return;
 	}
 
-	switch (current_cpu_type()) {
+	switch (c->cputype) {
 	case CPU_R3081:
 	case CPU_R3081E:
 		cpu_wait = r3081_wait;
@@ -167,7 +166,6 @@ void __init check_wait(void)
 	case CPU_CAVIUM_OCTEON:
 	case CPU_CAVIUM_OCTEON_PLUS:
 	case CPU_CAVIUM_OCTEON2:
-	case CPU_CAVIUM_OCTEON3:
 	case CPU_JZRISC:
 	case CPU_LOONGSON1:
 	case CPU_XLR:
