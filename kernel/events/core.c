@@ -792,6 +792,8 @@ void perf_cpu_hrtimer_cancel(int cpu)
 
 	list_for_each_entry_rcu(pmu, &pmus, entry) {
 		cpuctx = this_cpu_ptr(pmu->pmu_cpu_context);
+		if (cpuctx->unique_pmu != pmu)
+			continue; /* ensure we process each cpuctx once */
 
 		if (pmu->task_ctx_nr == perf_sw_context)
 			continue;
