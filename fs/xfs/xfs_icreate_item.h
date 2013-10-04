@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2002,2005 Silicon Graphics, Inc.
+ * Copyright (c) 2008-2010, Dave Chinner
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -15,13 +15,20 @@
  * along with this program; if not, write the Free Software Foundation,
  * Inc.,  51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
-#ifndef __XFS_UTILS_H__
-#define __XFS_UTILS_H__
+#ifndef XFS_ICREATE_ITEM_H
+#define XFS_ICREATE_ITEM_H	1
 
-extern int xfs_dir_ialloc(xfs_trans_t **, xfs_inode_t *, umode_t, xfs_nlink_t,
-				xfs_dev_t, prid_t, int, xfs_inode_t **, int *);
-extern int xfs_droplink(xfs_trans_t *, xfs_inode_t *);
-extern int xfs_bumplink(xfs_trans_t *, xfs_inode_t *);
-extern void xfs_bump_ino_vers2(xfs_trans_t *, xfs_inode_t *);
+/* in memory log item structure */
+struct xfs_icreate_item {
+	struct xfs_log_item	ic_item;
+	struct xfs_icreate_log	ic_format;
+};
 
-#endif	/* __XFS_UTILS_H__ */
+extern kmem_zone_t *xfs_icreate_zone;	/* inode create item zone */
+
+void xfs_icreate_log(struct xfs_trans *tp, xfs_agnumber_t agno,
+			xfs_agblock_t agbno, unsigned int count,
+			unsigned int inode_size, xfs_agblock_t length,
+			unsigned int generation);
+
+#endif	/* XFS_ICREATE_ITEM_H */
