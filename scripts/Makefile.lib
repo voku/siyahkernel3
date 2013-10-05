@@ -93,9 +93,9 @@ obj-dirs	:= $(addprefix $(obj)/,$(obj-dirs))
 # already
 # $(modname_flags) #defines KBUILD_MODNAME as the name of the module it will 
 # end up in (or would, if it gets compiled in)
-# Note: It's possible that one object gets potentially linked into more
-#       than one module. In that case KBUILD_MODNAME will be set to foo_bar,
-#       where foo and bar are the name of the modules.
+# Note: Files that end up in two or more modules are compiled without the
+#       KBUILD_MODNAME definition. The reason is that any made-up name would
+#       differ in different configs.
 name-fix = $(subst $(comma),_,$(subst -,_,$1))
 basename_flags = -D"KBUILD_BASENAME=KBUILD_STR($(call name-fix,$(basetarget)))"
 modname_flags  = $(if $(filter 1,$(words $(modname))),\
@@ -235,7 +235,7 @@ cmd_gzip = (cat $(filter-out FORCE,$^) | gzip -n -f -9 > $@) || \
 # ---------------------------------------------------------------------------
 
 # Generate an assembly file to wrap the output of the device tree compiler
-quiet_cmd_dt_S_dtb= DTB    $@
+quiet_cmd_dt_S_dtb= DTB     $@
 cmd_dt_S_dtb=						\
 (							\
 	echo '\#include <asm-generic/vmlinux.lds.h>'; 	\
@@ -254,6 +254,9 @@ $(obj)/%.dtb.S: $(obj)/%.dtb
 
 quiet_cmd_dtc = DTC     $@
 cmd_dtc = $(objtree)/scripts/dtc/dtc -O dtb -o $@ -b 0 $(DTC_FLAGS) -d $(depfile) $<
+
+$(obj)/%.dtb: $(src)/%.dts FORCE
+	$(call if_changed_dep,dtc)
 
 # Bzip2
 # ---------------------------------------------------------------------------
@@ -295,7 +298,7 @@ cmd_lzo = (cat $(filter-out FORCE,$^) | \
 
 quiet_cmd_lz4 = LZ4     $@
 cmd_lz4 = (cat $(filter-out FORCE,$^) | \
-	lz4 -c1 stdin stdout && $(call size_append, $(filter-out FORCE,$^))) > $@ || \
+	lz4c -l -c1 stdin stdout && $(call size_append, $(filter-out FORCE,$^))) > $@ || \
 	(rm -f $@ ; false)
 
 # U-Boot mkimage
