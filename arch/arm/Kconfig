@@ -280,8 +280,18 @@ config MMU
 #
 choice
 	prompt "ARM system type"
-	default ARCH_EXYNOS
+	default ARCH_VERSATILE if !MMU
+	default ARCH_MULTIPLATFORM if MMU
 
+config ARCH_MULTIPLATFORM
+	bool "Allow multiple platforms to be selected"
+	depends on MMU
+	select ARM_PATCH_PHYS_VIRT
+	select AUTO_ZRELADDR
+	select COMMON_CLK
+	select MULTI_IRQ_HANDLER
+	select SPARSE_IRQ
+	select USE_OF
 
 config ARCH_INTEGRATOR
 	bool "ARM Ltd. Integrator family"
@@ -849,6 +859,50 @@ config ARCH_OMAP1
 	  Support for older TI OMAP1 (omap7xx, omap15xx or omap16xx)
 
 endchoice
+
+menu "Multiple platform selection"
+	depends on ARCH_MULTIPLATFORM
+
+comment "CPU Core family selection"
+
+config ARCH_MULTI_V4T
+	bool "ARMv4T based platforms (ARM720T, ARM920T, ...)"
+	depends on !ARCH_MULTI_V6_V7
+	select ARCH_MULTI_V4_V5
+	select CPU_ARM920T if !(CPU_ARM7TDMI || CPU_ARM720T || \
+		CPU_ARM740T || CPU_ARM9TDMI || CPU_ARM922T || \
+		CPU_ARM925T || CPU_ARM940T)
+
+config ARCH_MULTI_V5
+	bool "ARMv5 based platforms (ARM926T, XSCALE, PJ1, ...)"
+	depends on !ARCH_MULTI_V6_V7
+	select ARCH_MULTI_V4_V5
+	select CPU_ARM926T if (!CPU_ARM946E || CPU_ARM1020 || \
+		CPU_ARM1020E || CPU_ARM1022 || CPU_ARM1026 || \
+		CPU_XSCALE || CPU_XSC3 || CPU_MOHAWK || CPU_FEROCEON)
+
+config ARCH_MULTI_V4_V5
+	bool
+
+config ARCH_MULTI_V6
+	bool "ARMv6 based platforms (ARM11)"
+	select ARCH_MULTI_V6_V7
+	select CPU_V6
+
+config ARCH_MULTI_V7
+	bool "ARMv7 based platforms (Cortex-A, PJ4, Scorpion, Krait)"
+	default y
+	select ARCH_MULTI_V6_V7
+	select CPU_V7
+
+config ARCH_MULTI_V6_V7
+	bool
+
+config ARCH_MULTI_CPU_AUTO
+	def_bool !(ARCH_MULTI_V4 || ARCH_MULTI_V4T || ARCH_MULTI_V6_V7)
+	select ARCH_MULTI_V5
+
+endmenu
 
 #
 # This is sorted alphabetically by mach-* pathname.  However, plat-*
@@ -2198,7 +2252,7 @@ config NEON
 config KERNEL_MODE_NEON
 	bool "Support for NEON in kernel mode"
 	default n
-	depends on NEON
+	depends on NEON && AEABI
 	help
 	  Say Y to include support for NEON in kernel mode.
 
