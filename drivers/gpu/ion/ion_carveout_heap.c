@@ -106,7 +106,7 @@ void *ion_carveout_heap_map_kernel(struct ion_heap *heap,
 void ion_carveout_heap_unmap_kernel(struct ion_heap *heap,
 				    struct ion_buffer *buffer)
 {
-	__arch_iounmap(buffer->vaddr);	
+	iounmap(buffer->vaddr);	
 	buffer->vaddr = NULL;
 	return;
 }
