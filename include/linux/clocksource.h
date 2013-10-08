@@ -23,6 +23,10 @@ typedef u64 cycle_t;
 struct clocksource;
 struct module;
 
+#ifdef CONFIG_ARCH_CLOCKSOURCE_DATA
+#include <asm/clocksource.h>
+#endif
+
 /**
  * struct cyclecounter - hardware abstraction for a free running counter
  *	Provides completely state-free accessors to the underlying hardware.
@@ -155,7 +159,7 @@ extern u64 timecounter_cyc2time(struct timecounter *tc,
  * @max_idle_ns:	max idle time permitted by the clocksource (nsecs)
  * @maxadj:		maximum adjustment value to mult (~11%)
  * @flags:		flags describing special properties
- * @vread:		vsyscall based read
+ * @archdata:		arch-specific data
  * @suspend:		suspend function for the clocksource, if necessary
  * @resume:		resume function for the clocksource, if necessary
  * @cycle_last:		most recent cycle counter value seen by ::read()
@@ -173,17 +177,13 @@ struct clocksource {
 	u32 shift;
 	u64 max_idle_ns;
 	u32 maxadj;
-
-#ifdef CONFIG_IA64
-	void *fsys_mmio;        /* used by fsyscall asm code */
-#define CLKSRC_FSYS_MMIO_SET(mmio, addr)      ((mmio) = (addr))
-#else
-#define CLKSRC_FSYS_MMIO_SET(mmio, addr)      do { } while (0)
+#ifdef CONFIG_ARCH_CLOCKSOURCE_DATA
+	struct arch_clocksource_data archdata;
 #endif
+
 	const char *name;
 	struct list_head list;
 	int rating;
-	cycle_t (*vread)(void);
 	int (*enable)(struct clocksource *cs);
 	void (*disable)(struct clocksource *cs);
 	unsigned long flags;
@@ -343,13 +343,23 @@ extern int clocksource_mmio_init(void __iomem *, const char *,
 
 extern int clocksource_i8253_init(void);
 
+struct device_node;
+typedef void(*clocksource_of_init_fn)(struct device_node *);
 #ifdef CONFIG_CLKSRC_OF
 extern void clocksource_of_init(void);
 
 #define CLOCKSOURCE_OF_DECLARE(name, compat, fn)			\
 	static const struct of_device_id __clksrc_of_table_##name	\
 		__used __section(__clksrc_of_table)			\
-		 = { .compatible = compat, .data = fn };
+		 = { .compatible = compat,				\
+		     .data = (fn == (clocksource_of_init_fn)NULL) ? fn : fn }
+#else
+static inline void clocksource_of_init(void) {}
+#define CLOCKSOURCE_OF_DECLARE(name, compat, fn)			\
+	static const struct of_device_id __clksrc_of_table_##name	\
+		__attribute__((unused))					\
+		 = { .compatible = compat,				\
+		     .data = (fn == (clocksource_of_init_fn)NULL) ? fn : fn }
 #endif
 
 #endif /* _LINUX_CLOCKSOURCE_H */
