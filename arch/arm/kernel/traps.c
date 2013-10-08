@@ -26,6 +26,10 @@
 #include <linux/init.h>
 #include <linux/sched.h>
 
+/* Dorimanx Note, this file has to stay as is, or apps crash!
+ * Need more VMA updates to update to max.
+ */
+
 #include <linux/atomic.h>
 #include <asm/cacheflush.h>
 #include <asm/exception.h>
