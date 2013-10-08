@@ -56,7 +56,6 @@ config ARM
 	select RTC_LIB
 	select SYS_SUPPORTS_APM_EMULATION
 	select HAVE_SPARSE_IRQ
-	select GENERIC_SIGALTSTACK
 	help
 	  The ARM series is a line of low-power-consumption RISC chip designs
 	  licensed by ARM Ltd and targeted at embedded applications and
