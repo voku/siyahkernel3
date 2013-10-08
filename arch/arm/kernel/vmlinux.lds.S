@@ -49,59 +49,6 @@ jiffies = jiffies_64 + 4;
 
 SECTIONS
 {
-#ifdef CONFIG_XIP_KERNEL
-	. = XIP_VIRT_ADDR(CONFIG_XIP_PHYS_ADDR);
-#else
-	. = PAGE_OFFSET + TEXT_OFFSET;
-#endif
-
-	.init : {			/* Init code and data		*/
-		_stext = .;
-		_sinittext = .;
-			HEAD_TEXT
-			INIT_TEXT
-			ARM_EXIT_KEEP(EXIT_TEXT)
-		_einittext = .;
-		ARM_CPU_DISCARD(PROC_INFO)
-		__arch_info_begin = .;
-			*(.arch.info.init)
-		__arch_info_end = .;
-		__tagtable_begin = .;
-			*(.taglist.init)
-		__tagtable_end = .;
-#ifdef CONFIG_SMP_ON_UP
-		__smpalt_begin = .;
-			*(.alt.smp.init)
-		__smpalt_end = .;
-#endif
-
-		__pv_table_begin = .;
-			*(.pv_table)
-		__pv_table_end = .;
-
-		INIT_SETUP(16)
-
-		INIT_CALLS
-		CON_INITCALL
-		SECURITY_INITCALL
-		INIT_RAM_FS
-
-#ifndef CONFIG_XIP_KERNEL
-		__init_begin = _stext;
-		INIT_DATA
-		ARM_EXIT_KEEP(EXIT_DATA)
-#endif
-	}
-
-#ifdef CONFIG_SMP
-	PERCPU_SECTION(L1_CACHE_BYTES)
-#endif
-
-#ifndef CONFIG_XIP_KERNEL
-	. = ALIGN(PAGE_SIZE);
-	__init_end = .;
-#endif
-
 	/*
 	 * XXX: The linker does not define how output sections are
 	 * assigned to input sections when there are multiple statements
@@ -119,10 +66,6 @@ SECTIONS
 		ARM_EXIT_DISCARD(EXIT_TEXT)
 		ARM_EXIT_DISCARD(EXIT_DATA)
 		EXIT_CALL
-#ifndef CONFIG_HOTPLUG
-		*(.ARM.exidx.devexit.text)
-		*(.ARM.extab.devexit.text)
-#endif
 #ifndef CONFIG_MMU
 		*(.fixup)
 		*(__ex_table)
@@ -134,8 +77,17 @@ SECTIONS
 		*(.discard.*)
 	}
 
+#ifdef CONFIG_XIP_KERNEL
+	. = XIP_VIRT_ADDR(CONFIG_XIP_PHYS_ADDR);
+#else
+	. = PAGE_OFFSET + TEXT_OFFSET;
+#endif
+	.head.text : {
+		_text = .;
+		HEAD_TEXT
+	}
 	.text : {			/* Real text segment		*/
-		_text = .;		/* Text and read-only data	*/
+		_stext = .;		/* Text and read-only data	*/
 			__exception_text_start = .;
 			*(.exception.text)
 			__exception_text_end = .;
@@ -149,8 +101,6 @@ SECTIONS
 			*(.fixup)
 #endif
 			*(.gnu.warning)
-			*(.rodata)
-			*(.rodata.*)
 			*(.glue_7)
 			*(.glue_7t)
 		. = ALIGN(4);
@@ -159,6 +109,15 @@ SECTIONS
 	}
 
 	RO_DATA(PAGE_SIZE)
+
+	. = ALIGN(4);
+	__ex_table : AT(ADDR(__ex_table) - LOAD_OFFSET) {
+		__start___ex_table = .;
+#ifdef CONFIG_MMU
+		*(__ex_table)
+#endif
+		__stop___ex_table = .;
+	}
 
 #ifdef CONFIG_ARM_UNWIND
 	/*
@@ -177,12 +136,86 @@ SECTIONS
 	}
 #endif
 
+	NOTES
+
 	_etext = .;			/* End of text and rodata section */
+
+#ifndef CONFIG_XIP_KERNEL
+	. = ALIGN(PAGE_SIZE);
+	__init_begin = .;
+#endif
+	/*
+	 * The vectors and stubs are relocatable code, and the
+	 * only thing that matters is their relative offsets
+	 */
+	__vectors_start = .;
+	.vectors 0 : AT(__vectors_start) {
+		*(.vectors)
+	}
+	. = __vectors_start + SIZEOF(.vectors);
+	__vectors_end = .;
+
+	__stubs_start = .;
+	.stubs 0x1000 : AT(__stubs_start) {
+		*(.stubs)
+	}
+	. = __stubs_start + SIZEOF(.stubs);
+	__stubs_end = .;
+
+	INIT_TEXT_SECTION(8)
+	.exit.text : {
+		ARM_EXIT_KEEP(EXIT_TEXT)
+	}
+	.init.proc.info : {
+		ARM_CPU_DISCARD(PROC_INFO)
+	}
+	.init.arch.info : {
+		__arch_info_begin = .;
+		*(.arch.info.init)
+		__arch_info_end = .;
+	}
+	.init.tagtable : {
+		__tagtable_begin = .;
+		*(.taglist.init)
+		__tagtable_end = .;
+	}
+#ifdef CONFIG_SMP_ON_UP
+	.init.smpalt : {
+		__smpalt_begin = .;
+		*(.alt.smp.init)
+		__smpalt_end = .;
+	}
+#endif
+	.init.pv_table : {
+		__pv_table_begin = .;
+		*(.pv_table)
+		__pv_table_end = .;
+	}
+	.init.data : {
+#ifndef CONFIG_XIP_KERNEL
+		INIT_DATA
+#endif
+		INIT_SETUP(16)
+		INIT_CALLS
+		CON_INITCALL
+		SECURITY_INITCALL
+		INIT_RAM_FS
+	}
+#ifndef CONFIG_XIP_KERNEL
+	.exit.data : {
+		ARM_EXIT_KEEP(EXIT_DATA)
+	}
+#endif
+
+#ifdef CONFIG_SMP
+	PERCPU_SECTION(L1_CACHE_BYTES)
+#endif
 
 #ifdef CONFIG_XIP_KERNEL
 	__data_loc = ALIGN(4);		/* location in binary */
 	. = PAGE_OFFSET + TEXT_OFFSET;
 #else
+	__init_end = .;
 	. = ALIGN(THREAD_SIZE);
 	__data_loc = .;
 #endif
@@ -209,16 +242,6 @@ SECTIONS
 		NOSAVE_DATA
 		CACHELINE_ALIGNED_DATA(L1_CACHE_BYTES)
 		READ_MOSTLY_DATA(L1_CACHE_BYTES)
-
-		/*
-		 * The exception fixup table (might need resorting at runtime)
-		 */
-		. = ALIGN(4);
-		__start___ex_table = .;
-#ifdef CONFIG_MMU
-		*(__ex_table)
-#endif
-		__stop___ex_table = .;
 
 		/*
 		 * and the usual data section
@@ -287,19 +310,11 @@ SECTIONS
 	}
 #endif
 
-	NOTES
-
 	BSS_SECTION(0, 0, 0)
 	_end = .;
 
 	STABS_DEBUG
 	.comment 0 : { *(.comment) }
-
-#ifndef CONFIG_SMP_ON_UP
-	/DISCARD/ : {
-		*(.alt.smp.init)
-	}
-#endif
 }
 
 /*
