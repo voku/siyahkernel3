@@ -18,6 +18,7 @@
 #include <linux/bootmem.h>
 #include <linux/seq_file.h>
 #include <linux/screen_info.h>
+#include <linux/of_platform.h>
 #include <linux/init.h>
 #include <linux/kexec.h>
 #include <linux/of_fdt.h>
@@ -53,9 +54,6 @@
 #include <asm/system_misc.h>
 #include <asm/traps.h>
 #include <asm/unwind.h>
-#ifdef CONFIG_MIDAS_COMMON
-#include <plat/cpu.h>
-#endif
 #include <asm/memblock.h>
 #include <asm/virt.h>
 
@@ -756,9 +754,19 @@ struct screen_info screen_info = {
 
 static int __init customize_machine(void)
 {
-	/* customizes platform devices, or adds new ones */
+	/*
+	 * customizes platform devices, or adds new ones
+	 * On DT based machines, we fall back to populating the
+	 * machine from the device tree, if no callback is provided,
+	 * otherwise we would always need an init_machine callback.
+	 */
 	if (machine_desc->init_machine)
 		machine_desc->init_machine();
+#ifdef CONFIG_OF
+	else
+		of_platform_populate(NULL, of_default_bus_match_table,
+					NULL, NULL);
+#endif
 	return 0;
 }
 arch_initcall(customize_machine);
@@ -1024,10 +1032,6 @@ static int c_show(struct seq_file *m, void *v)
 		seq_printf(m, "CPU revision\t: %d\n\n", cpuid & 15);
 	}
 
-#ifdef CONFIG_MIDAS_COMMON
-	if (soc_is_exynos4412())
-		seq_printf(m, "Chip revision\t: %04x\n", samsung_rev());
-#endif
 	seq_printf(m, "Hardware\t: %s\n", machine_name);
 	seq_printf(m, "Revision\t: %04x\n", system_rev);
 	seq_printf(m, "Serial\t\t: %08x%08x\n",
