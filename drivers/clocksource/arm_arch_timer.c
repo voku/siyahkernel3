@@ -45,14 +45,14 @@ static bool arch_timer_use_virtual = true;
 
 static __always_inline
 void arch_timer_reg_write(int access, enum arch_timer_reg reg, u32 val,
-		struct clock_event_device *clk)
+			  struct clock_event_device *clk)
 {
 	arch_timer_reg_write_cp15(access, reg, val);
 }
 
 static __always_inline
 u32 arch_timer_reg_read(int access, enum arch_timer_reg reg,
-		struct clock_event_device *clk)
+			struct clock_event_device *clk)
 {
 	return arch_timer_reg_read_cp15(access, reg);
 }
@@ -61,6 +61,7 @@ static __always_inline irqreturn_t timer_handler(const int access,
 					struct clock_event_device *evt)
 {
 	unsigned long ctrl;
+
 	ctrl = arch_timer_reg_read(access, ARCH_TIMER_REG_CTRL, evt);
 	if (ctrl & ARCH_TIMER_CTRL_IT_STAT) {
 		ctrl |= ARCH_TIMER_CTRL_IT_MASK;
@@ -115,7 +116,7 @@ static void arch_timer_set_mode_phys(enum clock_event_mode mode,
 }
 
 static __always_inline void set_next_event(const int access, unsigned long evt,
-				  struct clock_event_device *clk)
+					   struct clock_event_device *clk)
 {
 	unsigned long ctrl;
 	ctrl = arch_timer_reg_read(access, ARCH_TIMER_REG_CTRL, clk);
