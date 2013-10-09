@@ -200,7 +200,7 @@ static int gic_set_affinity(struct irq_data *d, const struct cpumask *mask_val,
 		return -EINVAL;
 
 	mask = 0xff << shift;
-	bit = 1 << (cpu + shift);
+	bit = 1 << (cpu_logical_map(cpu) + shift);
 
 	raw_spin_lock(&irq_controller_lock);
 	d->node = cpu;
@@ -306,11 +306,12 @@ static void __init gic_dist_init(struct gic_chip_data *gic,
 	unsigned int irq_start)
 {
 	unsigned int gic_irqs, irq_limit, i;
+	u32 cpumask;
 	void __iomem *base = gic_data_dist_base(gic);
-	u32 cpumask = 1 << smp_processor_id();
 	u32 nrppis = 0, ppi_base = 0;
 	u32 cpu = cpu_logical_map(smp_processor_id());
 
+	cpumask = 1 << cpu;
 	cpumask |= cpumask << 8;
 	cpumask |= cpumask << 16;
 
