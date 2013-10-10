@@ -1350,9 +1350,6 @@ struct net_device {
 	/* max exchange id for FCoE LRO by ddp */
 	unsigned int		fcoe_ddp_xid;
 #endif
-	/* n-tuple filter list attached to this device */
-	struct ethtool_rx_ntuple_list ethtool_ntuple_list;
-
 	/* phy device may attach itself for hardware timestamping */
 	struct phy_device *phydev;
 
@@ -1556,7 +1553,6 @@ struct packet_type {
 	struct list_head	list;
 };
 
-#include <linux/interrupt.h>
 #include <linux/notifier.h>
 
 /* netdevice notifier chain. Please remember to update the rtnetlink

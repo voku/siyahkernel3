@@ -3,6 +3,7 @@
 
 
 #include <linux/in.h>
+#include <linux/interrupt.h>
 #include <linux/ktime.h>
 #include <linux/list.h>
 #include <linux/uio.h>

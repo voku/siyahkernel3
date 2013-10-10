@@ -477,7 +477,7 @@ static int sctp_bindx_add(struct sock *sk, struct sockaddr *addrs, int addrcnt)
 		/* The list may contain either IPv4 or IPv6 address;
 		 * determine the address length for walking thru the list.
 		 */
-		sa_addr = (struct sockaddr *)addr_buf;
+		sa_addr = addr_buf;
 		af = sctp_get_af_specific(sa_addr->sa_family);
 		if (!af) {
 			retval = -EINVAL;
@@ -556,7 +556,7 @@ static int sctp_send_asconf_add_ip(struct sock		*sk,
 		 */
 		addr_buf = addrs;
 		for (i = 0; i < addrcnt; i++) {
-			addr = (union sctp_addr *)addr_buf;
+			addr = addr_buf;
 			af = sctp_get_af_specific(addr->v4.sin_family);
 			if (!af) {
 				retval = -EINVAL;
@@ -593,7 +593,7 @@ static int sctp_send_asconf_add_ip(struct sock		*sk,
 		 */
 		addr_buf = addrs;
 		for (i = 0; i < addrcnt; i++) {
-			addr = (union sctp_addr *)addr_buf;
+			addr = addr_buf;
 			af = sctp_get_af_specific(addr->v4.sin_family);
 			memcpy(&saveaddr, addr, af->sockaddr_len);
 			retval = sctp_add_bind_addr(bp, &saveaddr,
@@ -647,7 +647,7 @@ static int sctp_bindx_rem(struct sock *sk, struct sockaddr *addrs, int addrcnt)
 			goto err_bindx_rem;
 		}
 
-		sa_addr = (union sctp_addr *)addr_buf;
+		sa_addr = addr_buf;
 		af = sctp_get_af_specific(sa_addr->sa.sa_family);
 		if (!af) {
 			retval = -EINVAL;
@@ -744,7 +744,7 @@ static int sctp_send_asconf_del_ip(struct sock		*sk,
 		 */
 		addr_buf = addrs;
 		for (i = 0; i < addrcnt; i++) {
-			laddr = (union sctp_addr *)addr_buf;
+			laddr = addr_buf;
 			af = sctp_get_af_specific(laddr->v4.sin_family);
 			if (!af) {
 				retval = -EINVAL;
@@ -786,7 +786,7 @@ static int sctp_send_asconf_del_ip(struct sock		*sk,
 		 */
 		addr_buf = addrs;
 		for (i = 0; i < addrcnt; i++) {
-			laddr = (union sctp_addr *)addr_buf;
+			laddr = addr_buf;
 			af = sctp_get_af_specific(laddr->v4.sin_family);
 			list_for_each_entry(saddr, &bp->address_list, list) {
 				if (sctp_cmp_addr_exact(&saddr->a, laddr))
@@ -928,7 +928,7 @@ SCTP_STATIC int sctp_setsockopt_bindx(struct sock* sk,
 			return -EINVAL;
 		}
 
-		sa_addr = (struct sockaddr *)addr_buf;
+		sa_addr = addr_buf;
 		af = sctp_get_af_specific(sa_addr->sa_family);
 
 		/* If the address family is not supported or if this address
@@ -1019,7 +1019,7 @@ static int __sctp_connect(struct sock* sk,
 			goto out_free;
 		}
 
-		sa_addr = (union sctp_addr *)addr_buf;
+		sa_addr = addr_buf;
 		af = sctp_get_af_specific(sa_addr->sa.sa_family);
 
 		/* If the address family is not supported or if this address

@@ -139,6 +139,9 @@ static inline int verify_replay(struct xfrm_usersa_info *p,
 			return -EINVAL;
 	}
 
+	if ((p->flags & XFRM_STATE_ESN) && !rt)
+		return -EINVAL;
+
 	if (!rt)
 		return 0;
 

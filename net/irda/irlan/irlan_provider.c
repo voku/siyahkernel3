@@ -72,7 +72,7 @@ static int irlan_provider_data_indication(void *instance, void *sap,
 
 	IRDA_DEBUG(4, "%s()\n", __func__ );
 
-	self = (struct irlan_cb *) instance;
+	self = instance;
 
 	IRDA_ASSERT(self != NULL, return -1;);
 	IRDA_ASSERT(self->magic == IRLAN_MAGIC, return -1;);
@@ -130,8 +130,8 @@ static void irlan_provider_connect_indication(void *instance, void *sap,
 
 	IRDA_DEBUG(0, "%s()\n", __func__ );
 
-	self = (struct irlan_cb *) instance;
-	tsap = (struct tsap_cb *) sap;
+	self = instance;
+	tsap = sap;
 
 	IRDA_ASSERT(self != NULL, return;);
 	IRDA_ASSERT(self->magic == IRLAN_MAGIC, return;);
@@ -181,8 +181,8 @@ static void irlan_provider_disconnect_indication(void *instance, void *sap,
 
 	IRDA_DEBUG(4, "%s(), reason=%d\n", __func__ , reason);
 
-	self = (struct irlan_cb *) instance;
-	tsap = (struct tsap_cb *) sap;
+	self = instance;
+	tsap = sap;
 
 	IRDA_ASSERT(self != NULL, return;);
 	IRDA_ASSERT(self->magic == IRLAN_MAGIC, return;);
