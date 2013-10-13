@@ -19,6 +19,7 @@
 #include <linux/slab.h>
 #include <linux/usb.h>
 #include <linux/usb/audio.h>
+#include <linux/module.h>
 #include <sound/core.h>
 #include <sound/hwdep.h>
 #include <sound/pcm.h>
@@ -36,7 +37,7 @@ MODULE_LICENSE("GPL");
 static int index[SNDRV_CARDS] = SNDRV_DEFAULT_IDX;	/* Index 0-max */
 static char *id[SNDRV_CARDS] = SNDRV_DEFAULT_STR;	/* Id for this card */
 							/* Enable this card */
-static int enable[SNDRV_CARDS] = SNDRV_DEFAULT_ENABLE_PNP;
+static bool enable[SNDRV_CARDS] = SNDRV_DEFAULT_ENABLE_PNP;
 
 module_param_array(index, int, NULL, 0444);
 MODULE_PARM_DESC(index, "Index value for "NAME_ALLCAPS".");

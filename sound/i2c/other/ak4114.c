@@ -22,6 +22,7 @@
 
 #include <linux/slab.h>
 #include <linux/delay.h>
+#include <linux/module.h>
 #include <sound/core.h>
 #include <sound/control.h>
 #include <sound/pcm.h>
@@ -400,7 +401,7 @@ static struct snd_kcontrol_new snd_ak4114_iec958_controls[] = {
 },
 {
 	.iface =	SNDRV_CTL_ELEM_IFACE_PCM,
-	.name =		"IEC958 Preample Capture Default",
+	.name =		"IEC958 Preamble Capture Default",
 	.access =	SNDRV_CTL_ELEM_ACCESS_READ | SNDRV_CTL_ELEM_ACCESS_VOLATILE,
 	.info =		snd_ak4114_spdif_pinfo,
 	.get =		snd_ak4114_spdif_pget,

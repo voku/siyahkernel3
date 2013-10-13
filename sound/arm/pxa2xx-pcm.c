@@ -10,8 +10,12 @@
  * published by the Free Software Foundation.
  */
 
+#include <linux/module.h>
+#include <linux/dmaengine.h>
+
 #include <sound/core.h>
 #include <sound/pxa2xx-lib.h>
+#include <sound/dmaengine_pcm.h>
 
 #include "pxa2xx-pcm.h"
 
@@ -39,7 +43,7 @@ static int pxa2xx_pcm_open(struct snd_pcm_substream *substream)
 
 	rtd->params = (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ?
 		      client->playback_params : client->capture_params;
-	ret = pxa_request_dma(rtd->params->name, DMA_PRIO_LOW,
+	ret = pxa_request_dma("dma", DMA_PRIO_LOW,
 			      pxa2xx_pcm_dma_irq, substream);
 	if (ret < 0)
 		goto err2;
