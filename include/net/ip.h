@@ -233,6 +233,11 @@ int ip_decrease_ttl(struct iphdr *iph)
 	return --iph->ttl;
 }
 
+static inline bool ip_is_fragment(const struct iphdr *iph)
+{
+	return (iph->frag_off & htons(IP_MF | IP_OFFSET)) != 0;
+}
+
 static inline
 int ip_dont_fragment(struct sock *sk, struct dst_entry *dst)
 {
@@ -382,7 +387,8 @@ enum ip_defrag_users {
 	__IP_DEFRAG_CONNTRACK_BRIDGE_IN = IP_DEFRAG_CONNTRACK_BRIDGE_IN + USHRT_MAX,
 	IP_DEFRAG_VS_IN,
 	IP_DEFRAG_VS_OUT,
-	IP_DEFRAG_VS_FWD
+	IP_DEFRAG_VS_FWD,
+	IP_DEFRAG_AF_PACKET,
 };
 
 int ip_defrag(struct sk_buff *skb, u32 user);

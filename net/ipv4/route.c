@@ -416,13 +416,7 @@ static int rt_cache_seq_show(struct seq_file *seq, void *v)
 			   "HHUptod\tSpecDst");
 	else {
 		struct rtable *r = v;
-		struct neighbour *n;
-		int len, HHUptod;
-
-		rcu_read_lock();
-		n = dst_get_neighbour(&r->dst);
-		HHUptod = (n && (n->nud_state & NUD_CONNECTED)) ? 1 : 0;
-		rcu_read_unlock();
+		int len;
 
 		seq_printf(seq, "%s\t%08X\t%08X\t%8X\t%d\t%u\t%d\t"
 			      "%08X\t%d\t%u\t%u\t%02X\t%d\t%1d\t%08X%n",
@@ -436,8 +430,10 @@ static int rt_cache_seq_show(struct seq_file *seq, void *v)
 			(int)((dst_metric(&r->dst, RTAX_RTT) >> 3) +
 			      dst_metric(&r->dst, RTAX_RTTVAR)),
 			r->rt_key_tos,
-			r->dst.hh ? atomic_read(&r->dst.hh->hh_refcnt) : -1,
-			HHUptod,
+			-1,
+			(r->dst.neighbour ?
+			 (r->dst.neighbour->hh.hh_output ==
+			  dev_queue_xmit) : 0),
 			r->rt_spec_dst, &len);
 
 		seq_printf(seq, "%*s\n", 127 - len, "");
@@ -1373,30 +1369,24 @@ static int check_peer_redir(struct dst_entry *dst, struct inet_peer *peer)
 {
 	struct rtable *rt = (struct rtable *) dst;
 	__be32 orig_gw = rt->rt_gateway;
-	struct neighbour *n, *old_n;
-	struct hh_cache *old_hh;
 
 	dst_confirm(&rt->dst);
 
+	neigh_release(rt->dst.neighbour);
+	rt->dst.neighbour = NULL;
+
 	rt->rt_gateway = peer->redirect_learned.a4;
-	n = __arp_bind_neighbour(&rt->dst, rt->rt_gateway);
-	if (IS_ERR(n))
-		return PTR_ERR(n);
-	old_hh = xchg(&rt->dst.hh, NULL);
-	if (old_hh)
-		hh_cache_put(old_hh);
-	old_n = xchg(&rt->dst._neighbour, n);
-	if (old_n)
-		neigh_release(old_n);
-	if (!n || !(n->nud_state & NUD_VALID)) {
-		if (n)
-			neigh_event_send(n, NULL);
+	if (arp_bind_neighbour(&rt->dst) ||
+	    !(rt->dst.neighbour->nud_state & NUD_VALID)) {
+		if (rt->dst.neighbour)
+			neigh_event_send(rt->dst.neighbour, NULL);
 		rt->rt_gateway = orig_gw;
 		return -EAGAIN;
 	} else {
 		rt->rt_flags |= RTCF_REDIRECTED;
-		call_netevent_notifiers(NETEVENT_NEIGH_UPDATE, n);
-	}
+		call_netevent_notifiers(NETEVENT_NEIGH_UPDATE,
+					rt->dst.neighbour);
+}
 	return 0;
 }
 
@@ -1604,20 +1594,20 @@ static int ip_error(struct sk_buff *skb)
 	int code;
 
 	switch (rt->dst.error) {
-		case EINVAL:
-		default:
-			goto out;
-		case EHOSTUNREACH:
-			code = ICMP_HOST_UNREACH;
-			break;
-		case ENETUNREACH:
-			code = ICMP_NET_UNREACH;
-			IP_INC_STATS_BH(dev_net(rt->dst.dev),
-					IPSTATS_MIB_INNOROUTES);
-			break;
-		case EACCES:
-			code = ICMP_PKT_FILTERED;
-			break;
+	case EINVAL:
+	default:
+		goto out;
+	case EHOSTUNREACH:
+		code = ICMP_HOST_UNREACH;
+		break;
+	case ENETUNREACH:
+		code = ICMP_NET_UNREACH;
+		IP_INC_STATS_BH(dev_net(rt->dst.dev),
+				IPSTATS_MIB_INNOROUTES);
+		break;
+	case EACCES:
+		code = ICMP_PKT_FILTERED;
+		break;
 	}
 
 	if (!rt->peer)

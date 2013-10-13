@@ -96,7 +96,6 @@
 #include <linux/init.h>
 #include <linux/net.h>
 #include <linux/rcupdate.h>
-#include <linux/jhash.h>
 #include <linux/slab.h>
 #ifdef CONFIG_SYSCTL
 #include <linux/sysctl.h>
@@ -227,7 +226,7 @@ static u32 arp_hash(const void *pkey,
 		    const struct net_device *dev,
 		    __u32 hash_rnd)
 {
-	return jhash_2words(*(u32 *)pkey, dev->ifindex, hash_rnd);
+	return arp_hashfn(*(u32 *)pkey, dev, hash_rnd);
 }
 
 static int arp_constructor(struct neighbour *neigh)
@@ -530,7 +529,7 @@ struct neighbour *__arp_bind_neighbour(struct dst_entry *dst, __be32 nexthop)
 int arp_bind_neighbour(struct dst_entry *dst)
 {
 	struct net_device *dev = dst->dev;
-	struct neighbour *n = dst_get_neighbour(dst);
+	struct neighbour *n = dst->neighbour;
 
 	if (dev == NULL)
 		return -EINVAL;
@@ -538,7 +537,7 @@ int arp_bind_neighbour(struct dst_entry *dst)
 		n = __arp_bind_neighbour(dst, ((struct rtable *)dst)->rt_gateway);
 		if (IS_ERR(n))
 			return PTR_ERR(n);
-		dst_set_neighbour(dst, n);
+		dst->neighbour = n;
 	}
 	return 0;
 }
@@ -894,8 +893,7 @@ static int arp_process(struct sk_buff *skb)
 			if (addr_type == RTN_UNICAST  &&
 			    (arp_fwd_proxy(in_dev, dev, rt) ||
 			     arp_fwd_pvlan(in_dev, dev, rt, sip, tip) ||
-			     (rt->dst.dev != dev &&
-			      pneigh_lookup(&arp_tbl, net, &tip, dev, 0)))) {
+			     pneigh_lookup(&arp_tbl, net, &tip, dev, 0))) {
 				n = neigh_event_ns(&arp_tbl, sha, &sip, dev);
 				if (n)
 					neigh_release(n);

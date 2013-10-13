@@ -205,23 +205,14 @@ static inline int ip_finish_output2(struct sk_buff *skb)
 		skb = skb2;
 	}
 
-	rcu_read_lock();
-	if (dst->hh) {
-		int res = neigh_hh_output(dst->hh, skb);
-
-		rcu_read_unlock();
-		return res;
-	} else {
-		neigh = dst_get_neighbour(dst);
-		if (neigh) {
-			res = neigh->output(skb);
-
-			rcu_read_unlock();
-			return res;
-		}
-		rcu_read_unlock();
+	neigh = dst->neighbour;
+	if (neigh) {
+		struct hh_cache *hh = &neigh->hh;
+		if (hh->hh_len)
+			return neigh_hh_output(hh, skb);
+		else
+			return dst->neighbour->output(skb);
 	}
-
 	if (net_ratelimit())
 		printk(KERN_DEBUG "ip_finish_output2: No header cache and no neighbour!\n");
 	kfree_skb(skb);
@@ -503,7 +494,7 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
 
 		if (first_len - hlen > mtu ||
 		    ((first_len - hlen) & 7) ||
-		    (iph->frag_off & htons(IP_MF|IP_OFFSET)) ||
+		    ip_is_fragment(iph) ||
 		    skb_cloned(skb))
 			goto slow_path;
 
