@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm 3.12.0-rc4 Kernel Configuration
+# Linux/arm 3.12.0-rc5 Kernel Configuration
 #
 CONFIG_ARM=y
 CONFIG_GENERIC_GPIO=y
@@ -1214,6 +1214,7 @@ CONFIG_RFKILL_PM=y
 # CONFIG_NET_9P is not set
 # CONFIG_CAIF is not set
 # CONFIG_CEPH_LIB is not set
+# CONFIG_NFC is not set
 
 #
 # Device Drivers
