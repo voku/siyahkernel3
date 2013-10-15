@@ -66,18 +66,15 @@ EXPORT_SYMBOL(groups_free);
 static int groups_to_user(gid_t __user *grouplist,
 			  const struct group_info *group_info)
 {
+	struct user_namespace *user_ns = current_user_ns();
 	int i;
 	unsigned int count = group_info->ngroups;
 
-	for (i = 0; i < group_info->nblocks; i++) {
-		unsigned int cp_count = min(NGROUPS_PER_BLOCK, count);
-		unsigned int len = cp_count * sizeof(*grouplist);
-
-		if (copy_to_user(grouplist, group_info->blocks[i], len))
+	for (i = 0; i < count; i++) {
+		gid_t gid;
+		gid = from_kgid_munged(user_ns, GROUP_AT(group_info, i));
+		if (put_user(gid, grouplist+i))
 			return -EFAULT;
-
-		grouplist += NGROUPS_PER_BLOCK;
-		count -= cp_count;
 	}
 	return 0;
 }
@@ -86,18 +83,21 @@ static int groups_to_user(gid_t __user *grouplist,
 static int groups_from_user(struct group_info *group_info,
     gid_t __user *grouplist)
 {
+	struct user_namespace *user_ns = current_user_ns();
 	int i;
 	unsigned int count = group_info->ngroups;
 
-	for (i = 0; i < group_info->nblocks; i++) {
-		unsigned int cp_count = min(NGROUPS_PER_BLOCK, count);
-		unsigned int len = cp_count * sizeof(*grouplist);
-
-		if (copy_from_user(group_info->blocks[i], grouplist, len))
+	for (i = 0; i < count; i++) {
+		gid_t gid;
+		kgid_t kgid;
+		if (get_user(gid, grouplist+i))
 			return -EFAULT;
 
-		grouplist += NGROUPS_PER_BLOCK;
-		count -= cp_count;
+		kgid = make_kgid(user_ns, gid);
+		if (!gid_valid(kgid))
+			return -EINVAL;
+
+		GROUP_AT(group_info, i) = kgid;
 	}
 	return 0;
 }
@@ -256,24 +256,24 @@ SYSCALL_DEFINE2(setgroups, int, gidsetsize, gid_t __user *, grouplist)
 /*
  * Check whether we're fsgid/egid or in the supplemental group..
  */
-int in_group_p(gid_t grp)
+int in_group_p(kgid_t grp)
 {
 	const struct cred *cred = current_cred();
 	int retval = 1;
 
-	if (grp != cred->fsgid)
+	if (!gid_eq(grp, cred->fsgid))
 		retval = groups_search(cred->group_info, grp);
 	return retval;
 }
 
 EXPORT_SYMBOL(in_group_p);
 
-int in_egroup_p(gid_t grp)
+int in_egroup_p(kgid_t grp)
 {
 	const struct cred *cred = current_cred();
 	int retval = 1;
 
-	if (grp != cred->egid)
+	if (!gid_eq(grp, cred->egid))
 		retval = groups_search(cred->group_info, grp);
 	return retval;
 }
