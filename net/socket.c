@@ -373,7 +373,7 @@ struct file *sock_alloc_file(struct socket *sock, int flags, const char *dname)
 		/* drop dentry, keep inode */
 		ihold(path.dentry->d_inode);
 		path_put(&path);
-		return ERR_PTR(-ENFILE);
+		return file;
 	}
 
 	sock->file = file;
@@ -390,7 +390,7 @@ static int sock_map_fd(struct socket *sock, int flags)
 	if (unlikely(fd < 0))
 		return fd;
 
-	newfile = sock_alloc_file(sock, flags);
+	newfile = sock_alloc_file(sock, flags, NULL);
 	if (likely(!IS_ERR(newfile))) {
 		fd_install(fd, newfile);
 		return fd;
@@ -1445,7 +1445,7 @@ SYSCALL_DEFINE4(socketpair, int, family, int, type, int, protocol,
 		goto out_release_both;
 	}
 
-	newfile1 = sock_alloc_file(sock1, flags);
+	newfile1 = sock_alloc_file(sock1, flags, NULL);
 	if (unlikely(IS_ERR(newfile1))) {
 		err = PTR_ERR(newfile1);
 		put_unused_fd(fd1);
@@ -1453,7 +1453,7 @@ SYSCALL_DEFINE4(socketpair, int, family, int, type, int, protocol,
 		goto out_release_both;
 	}
 
-	newfile2 = sock_alloc_file(sock2, flags);
+	newfile2 = sock_alloc_file(sock2, flags, NULL);
 	if (IS_ERR(newfile2)) {
 		err = PTR_ERR(newfile2);
 		fput(newfile1);
@@ -1596,7 +1596,7 @@ SYSCALL_DEFINE4(accept4, int, fd, struct sockaddr __user *, upeer_sockaddr,
 		sock_release(newsock);
 		goto out_put;
 	}
-	newfile = sock_alloc_file(newsock, flags);
+	newfile = sock_alloc_file(newsock, flags, sock->sk->sk_prot_creator->name);
 	if (unlikely(IS_ERR(newfile))) {
 		err = PTR_ERR(newfile);
 		put_unused_fd(newfd);
