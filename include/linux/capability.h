@@ -34,6 +34,7 @@ struct cpu_vfs_cap_data {
 #define _USER_CAP_HEADER_SIZE  (sizeof(struct __user_cap_header_struct))
 #define _KERNEL_CAP_T_SIZE     (sizeof(kernel_cap_t))
 
+
 struct file;
 struct inode;
 struct dentry;
@@ -42,7 +43,6 @@ struct user_namespace;
 struct user_namespace *current_user_ns(void);
 
 extern const kernel_cap_t __cap_empty_set;
-extern const kernel_cap_t __cap_full_set;
 extern const kernel_cap_t __cap_init_eff_set;
 
 /*
