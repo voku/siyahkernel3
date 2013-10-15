@@ -122,7 +122,8 @@ static inline bool sk_busy_loop(struct sock *sk, int nonblock)
 		if (rc > 0)
 			/* local bh are disabled so it is ok to use _BH */
 			NET_ADD_STATS_BH(sock_net(sk),
-					 LINUX_MIB_LOWLATENCYRXPACKETS, rc);
+					 LINUX_MIB_BUSYPOLLRXPACKETS, rc);
+		cpu_relax();
 
 	} while (!nonblock && skb_queue_empty(&sk->sk_receive_queue) &&
 		 !need_resched() && !busy_loop_timeout(end_time));
@@ -162,11 +163,6 @@ static inline bool sk_can_busy_loop(struct sock *sk)
 	return false;
 }
 
-static inline bool sk_busy_poll(struct sock *sk, int nonblock)
-{
-	return false;
-}
-
 static inline void skb_mark_napi_id(struct sk_buff *skb,
 				    struct napi_struct *napi)
 {
@@ -179,6 +175,11 @@ static inline void sk_mark_napi_id(struct sock *sk, struct sk_buff *skb)
 static inline bool busy_loop_timeout(unsigned long end_time)
 {
 	return true;
+}
+
+static inline bool sk_busy_loop(struct sock *sk, int nonblock)
+{
+	return false;
 }
 
 #endif /* CONFIG_NET_LL_RX_POLL */
