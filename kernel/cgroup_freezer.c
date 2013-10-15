@@ -216,11 +216,6 @@ static void freezer_attach(struct cgroup_subsys_state *new_css,
 	}
 }
 
-static int freezer_can_attach_task(struct cgroup *cgroup, struct task_struct *tsk)
-{
-	return cgroup_freezing(tsk) ? -EBUSY : 0;
-}
-
 static void freezer_fork(struct task_struct *task)
 {
 	struct freezer *freezer;
