@@ -5534,10 +5534,10 @@ sd_init_##type(struct sched_domain_topology_level *tl, int cpu) 	\
 
 SD_INIT_FUNC(CPU)
 #ifdef CONFIG_SCHED_SMT
-/* SD_INIT_FUNC(SIBLING) */
+ SD_INIT_FUNC(SIBLING)
 #endif
 #ifdef CONFIG_SCHED_MC
-/* SD_INIT_FUNC(MC) */
+ SD_INIT_FUNC(MC)
 #endif
 #ifdef CONFIG_SCHED_BOOK
  SD_INIT_FUNC(BOOK)
@@ -5642,10 +5642,10 @@ static const struct cpumask *cpu_smt_mask(int cpu)
  */
 static struct sched_domain_topology_level default_topology[] = {
 #ifdef CONFIG_SCHED_SMT
-/*	{ sd_init_SIBLING, cpu_smt_mask, }, */
+	{ sd_init_SIBLING, cpu_smt_mask, },
 #endif
 #ifdef CONFIG_SCHED_MC
-/*	{ sd_init_MC, cpu_coregroup_mask, }, */
+	{ sd_init_MC, cpu_coregroup_mask, },
 #endif
 #ifdef CONFIG_SCHED_BOOK
 	{ sd_init_BOOK, cpu_book_mask, },

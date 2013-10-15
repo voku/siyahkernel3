@@ -120,18 +120,6 @@ extern void proc_sched_show_task(struct task_struct *p, struct seq_file *m);
 extern void proc_sched_set_task(struct task_struct *p);
 extern void
 print_cfs_rq(struct seq_file *m, int cpu, struct cfs_rq *cfs_rq);
-#else
-static inline void
-proc_sched_show_task(struct task_struct *p, struct seq_file *m)
-{
-}
-static inline void proc_sched_set_task(struct task_struct *p)
-{
-}
-static inline void
-print_cfs_rq(struct seq_file *m, int cpu, struct cfs_rq *cfs_rq)
-{
-}
 #endif
 
 /*
@@ -811,6 +799,8 @@ struct sched_domain_attr {
 
 extern int sched_domain_level_max;
 
+struct sched_group;
+
 struct sched_domain {
 	/* These fields must be setup */
 	struct sched_domain *parent;	/* top domain must be null terminated */
@@ -901,15 +891,6 @@ extern void partition_sched_domains(int ndoms_new, cpumask_var_t doms_new[],
 cpumask_var_t *alloc_sched_domains(unsigned int ndoms);
 void free_sched_domains(cpumask_var_t doms[], unsigned int ndoms);
 
-/* Test a flag in parent sched domain */
-static inline int test_sd_parent(struct sched_domain *sd, int flag)
-{
-	if (sd->parent && (sd->parent->flags & flag))
-		return 1;
-
-	return 0;
-}
-
 bool cpus_share_cache(int this_cpu, int that_cpu);
 
 #else /* CONFIG_SMP */
@@ -943,9 +924,6 @@ struct audit_context;		/* See audit.c */
 struct mempolicy;
 struct pipe_inode_info;
 struct uts_namespace;
-
-struct rq;
-struct sched_domain;
 
 struct load_weight {
 	unsigned long weight, inv_weight;
@@ -1217,8 +1195,6 @@ struct task_struct {
 					 * credentials (COW) */
 	const struct cred __rcu *cred;	/* effective (overridable) subjective task
 					 * credentials (COW) */
-	struct cred *replacement_session_keyring; /* for KEYCTL_SESSION_TO_PARENT */
-
 	char comm[TASK_COMM_LEN]; /* executable name excluding path
 				     - access with [gs]et_task_comm (which lock
 				       it with task_lock())
@@ -2007,7 +1983,6 @@ static inline struct user_struct *get_uid(struct user_struct *u)
 	return u;
 }
 extern void free_uid(struct user_struct *);
-extern void release_uids(struct user_namespace *ns);
 
 #include <asm/current.h>
 
@@ -2659,8 +2634,7 @@ extern unsigned long task_get_effective_timer_slack(struct task_struct *tsk);
 static inline unsigned long task_get_effective_timer_slack(
     struct task_struct *tsk)
 {
-  return tsk->timer_slack_ns;
+	return tsk->timer_slack_ns;
 }
 #endif
-
 #endif
