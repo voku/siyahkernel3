@@ -393,7 +393,6 @@ int enter_state(suspend_state_t state)
 		freeze_begin();
 
 	printk(KERN_INFO "PM: Syncing filesystems ... ");
-	/* sys_sync(); */
 	suspend_sys_sync_queue();
 	printk("done.\n");
 
@@ -443,21 +442,18 @@ static void pm_suspend_marker(char *annotation)
  */
 int pm_suspend(suspend_state_t state)
 {
-	int error;
-
-    if (state <= PM_SUSPEND_ON || state >= PM_SUSPEND_MAX) {
-		pm_suspend_marker("exit");
-        return -EINVAL;
+	int ret;
+	if (state > PM_SUSPEND_ON && state <= PM_SUSPEND_MAX) {
+		pm_suspend_marker("entry");
+		ret = enter_state(state);
+		if (ret) {
+			suspend_stats.fail++;
+			dpm_save_failed_errno(ret);
+		} else
+			suspend_stats.success++;
+		return ret;
 	}
-
-	pm_suspend_marker("entry");
-	error = enter_state(state);
-	if (error) {
-		suspend_stats.fail++;
-		dpm_save_failed_errno(error);
-	} else {
-		suspend_stats.success++;
-	}
-	return error;
+	pm_suspend_marker("exit");
+	return -EINVAL;
 }
 EXPORT_SYMBOL(pm_suspend);

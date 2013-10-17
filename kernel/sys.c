@@ -427,6 +427,7 @@ static int set_user(struct cred *new)
 
 	free_uid(new->user);
 	new->user = new_user;
+	sched_autogroup_create_attach(current);
 	return 0;
 }
 
@@ -1074,7 +1075,6 @@ out:
 	write_unlock_irq(&tasklist_lock);
 	if (err > 0) {
 		proc_sid_connector(group_leader);
-		sched_autogroup_create_attach(group_leader);
 	}
 	return err;
 }
@@ -1934,6 +1934,9 @@ SYSCALL_DEFINE5(prctl, int, option, unsigned long, arg2, unsigned long, arg3,
 		break;
 	case PR_GET_TIMERSLACK:
 		error = current->timer_slack_ns;
+		break;
+	case PR_GET_EFFECTIVE_TIMERSLACK:
+		error = task_get_effective_timer_slack(current);
 		break;
 	case PR_SET_TIMERSLACK:
 		if (arg2 <= 0)
