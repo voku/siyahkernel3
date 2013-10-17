@@ -6,13 +6,14 @@
  * This file may be distributed under the terms of the GNU General Public
  * License version 2.
  *
- * Copyright (c) 2010:  Borislav Petkov <borislav.petkov@amd.com>
+ * Copyright (c) 2010:  Borislav Petkov <bp@alien8.de>
  *			Advanced Micro Devices Inc.
  */
 
 #include <linux/kobject.h>
 #include <linux/device.h>
 #include <linux/edac.h>
+#include <linux/module.h>
 #include <asm/mce.h>
 
 #include "mce_amd.h"
@@ -167,6 +168,6 @@ module_init(edac_init_mce_inject);
 module_exit(edac_exit_mce_inject);
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Borislav Petkov <borislav.petkov@amd.com>");
+MODULE_AUTHOR("Borislav Petkov <bp@alien8.de>");
 MODULE_AUTHOR("AMD Inc.");
 MODULE_DESCRIPTION("MCE injection facility for testing MCE decoding");

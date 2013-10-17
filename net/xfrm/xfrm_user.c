@@ -28,7 +28,7 @@
 #include <net/netlink.h>
 #include <net/ah.h>
 #include <asm/uaccess.h>
-#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+#if IS_ENABLED(CONFIG_IPV6)
 #include <linux/in6.h>
 #endif
 
@@ -139,6 +139,9 @@ static inline int verify_replay(struct xfrm_usersa_info *p,
 			return -EINVAL;
 	}
 
+	if ((p->flags & XFRM_STATE_ESN) && !rt)
+		return -EINVAL;
+
 	if (!rt)
 		return 0;
 
@@ -162,7 +165,7 @@ static int verify_newsa_info(struct xfrm_usersa_info *p,
 		break;
 
 	case AF_INET6:
-#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+#if IS_ENABLED(CONFIG_IPV6)
 		break;
 #else
 		err = -EAFNOSUPPORT;
@@ -213,7 +216,7 @@ static int verify_newsa_info(struct xfrm_usersa_info *p,
 			goto out;
 		break;
 
-#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+#if IS_ENABLED(CONFIG_IPV6)
 	case IPPROTO_DSTOPTS:
 	case IPPROTO_ROUTING:
 		if (attrs[XFRMA_ALG_COMP]	||
@@ -595,7 +598,7 @@ static int xfrm_add_sa(struct sk_buff *skb, struct nlmsghdr *nlh,
 	struct xfrm_state *x;
 	int err;
 	struct km_event c;
-	uid_t loginuid = audit_get_loginuid(current);
+	kuid_t loginuid = audit_get_loginuid(current);
 	u32 sessionid = audit_get_sessionid(current);
 	u32 sid;
 
@@ -674,7 +677,7 @@ static int xfrm_del_sa(struct sk_buff *skb, struct nlmsghdr *nlh,
 	int err = -ESRCH;
 	struct km_event c;
 	struct xfrm_usersa_id *p = nlmsg_data(nlh);
-	uid_t loginuid = audit_get_loginuid(current);
+	kuid_t loginuid = audit_get_loginuid(current);
 	u32 sessionid = audit_get_sessionid(current);
 	u32 sid;
 
@@ -1183,7 +1186,7 @@ static int verify_newpolicy_info(struct xfrm_userpolicy_info *p)
 		break;
 
 	case AF_INET6:
-#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+#if IS_ENABLED(CONFIG_IPV6)
 		break;
 #else
 		return  -EAFNOSUPPORT;
@@ -1254,7 +1257,7 @@ static int validate_tmpl(int nr, struct xfrm_user_tmpl *ut, u16 family)
 		switch (ut[i].family) {
 		case AF_INET:
 			break;
-#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+#if IS_ENABLED(CONFIG_IPV6)
 		case AF_INET6:
 			break;
 #endif
@@ -1373,7 +1376,7 @@ static int xfrm_add_policy(struct sk_buff *skb, struct nlmsghdr *nlh,
 	struct km_event c;
 	int err;
 	int excl;
-	uid_t loginuid = audit_get_loginuid(current);
+	kuid_t loginuid = audit_get_loginuid(current);
 	u32 sessionid = audit_get_sessionid(current);
 	u32 sid;
 
@@ -1634,7 +1637,7 @@ static int xfrm_get_policy(struct sk_buff *skb, struct nlmsghdr *nlh,
 					    NETLINK_CB(skb).pid);
 		}
 	} else {
-		uid_t loginuid = audit_get_loginuid(current);
+		kuid_t loginuid = audit_get_loginuid(current);
 		u32 sessionid = audit_get_sessionid(current);
 		u32 sid;
 
@@ -1917,7 +1920,7 @@ static int xfrm_add_pol_expire(struct sk_buff *skb, struct nlmsghdr *nlh,
 
 	err = 0;
 	if (up->hard) {
-		uid_t loginuid = audit_get_loginuid(current);
+		kuid_t loginuid = audit_get_loginuid(current);
 		u32 sessionid = audit_get_sessionid(current);
 		u32 sid;
 
@@ -1960,7 +1963,7 @@ static int xfrm_add_sa_expire(struct sk_buff *skb, struct nlmsghdr *nlh,
 	km_state_expired(x, ue->hard, current->pid);
 
 	if (ue->hard) {
-		uid_t loginuid = audit_get_loginuid(current);
+		kuid_t loginuid = audit_get_loginuid(current);
 		u32 sessionid = audit_get_sessionid(current);
 		u32 sid;
 
@@ -2326,8 +2329,13 @@ static int xfrm_user_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
 		if (link->dump == NULL)
 			return -EINVAL;
 
-		return netlink_dump_start(net->xfrm.nlsk, skb, nlh,
-					  link->dump, link->done, 0);
+		{
+			struct netlink_dump_control c = {
+				.dump = link->dump,
+				.done = link->done,
+			};
+			return netlink_dump_start(net->xfrm.nlsk, skb, nlh, &c);
+		}
 	}
 
 	err = nlmsg_parse(nlh, xfrm_msg_min[type], attrs, XFRMA_MAX,
@@ -2631,7 +2639,7 @@ static struct xfrm_policy *xfrm_compile_policy(struct sock *sk, int opt,
 			return NULL;
 		}
 		break;
-#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+#if IS_ENABLED(CONFIG_IPV6)
 	case AF_INET6:
 		if (opt != IPV6_XFRM_POLICY) {
 			*dir = -EOPNOTSUPP;
@@ -2948,9 +2956,12 @@ static struct xfrm_mgr netlink_mgr = {
 static int __net_init xfrm_user_net_init(struct net *net)
 {
 	struct sock *nlsk;
+	struct netlink_kernel_cfg cfg = {
+		.groups	= XFRMNLGRP_MAX,
+		.input	= xfrm_netlink_rcv,
+	};
 
-	nlsk = netlink_kernel_create(net, NETLINK_XFRM, XFRMNLGRP_MAX,
-				     xfrm_netlink_rcv, NULL, THIS_MODULE);
+	nlsk = netlink_kernel_create(net, NETLINK_XFRM, &cfg);
 	if (nlsk == NULL)
 		return -ENOMEM;
 	net->xfrm.nlsk_stash = nlsk; /* Don't set to NULL */
@@ -2962,7 +2973,7 @@ static void __net_exit xfrm_user_net_exit(struct list_head *net_exit_list)
 {
 	struct net *net;
 	list_for_each_entry(net, net_exit_list, exit_list)
-		rcu_assign_pointer(net->xfrm.nlsk, NULL);
+		RCU_INIT_POINTER(net->xfrm.nlsk, NULL);
 	synchronize_net();
 	list_for_each_entry(net, net_exit_list, exit_list)
 		netlink_kernel_release(net->xfrm.nlsk_stash);

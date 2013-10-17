@@ -6,9 +6,60 @@
 
 #include <linux/blktrace_api.h>
 #include <linux/blkdev.h>
+#include <linux/buffer_head.h>
 #include <linux/tracepoint.h>
 
 #define RWBS_LEN	8
+
+DECLARE_EVENT_CLASS(block_buffer,
+
+	TP_PROTO(struct buffer_head *bh),
+
+	TP_ARGS(bh),
+
+	TP_STRUCT__entry (
+		__field(  dev_t,	dev			)
+		__field(  sector_t,	sector			)
+		__field(  size_t,	size			)
+	),
+
+	TP_fast_assign(
+		__entry->dev		= bh->b_bdev->bd_dev;
+		__entry->sector		= bh->b_blocknr;
+		__entry->size		= bh->b_size;
+	),
+
+	TP_printk("%d,%d sector=%llu size=%zu",
+		MAJOR(__entry->dev), MINOR(__entry->dev),
+		(unsigned long long)__entry->sector, __entry->size
+	)
+);
+
+/**
+ * block_touch_buffer - mark a buffer accessed
+ * @bh: buffer_head being touched
+ *
+ * Called from touch_buffer().
+ */
+DEFINE_EVENT(block_buffer, block_touch_buffer,
+
+	TP_PROTO(struct buffer_head *bh),
+
+	TP_ARGS(bh)
+);
+
+/**
+ * block_dirty_buffer - mark a buffer dirty
+ * @bh: buffer_head being dirtied
+ *
+ * Called from mark_buffer_dirty().
+ */
+DEFINE_EVENT(block_buffer, block_dirty_buffer,
+
+	TP_PROTO(struct buffer_head *bh),
+
+	TP_ARGS(bh)
+);
 
 DECLARE_EVENT_CLASS(block_rq_with_error,
 
@@ -544,6 +595,7 @@ TRACE_EVENT(block_rq_remap,
 		__field( unsigned int,	nr_sector	)
 		__field( dev_t,		old_dev		)
 		__field( sector_t,	old_sector	)
+		__field( unsigned int,	nr_bios		)
 		__array( char,		rwbs,	RWBS_LEN)
 	),
 
@@ -553,15 +605,16 @@ TRACE_EVENT(block_rq_remap,
 		__entry->nr_sector	= blk_rq_sectors(rq);
 		__entry->old_dev	= dev;
 		__entry->old_sector	= from;
+		__entry->nr_bios	= blk_rq_count_bios(rq);
 		blk_fill_rwbs(__entry->rwbs, rq->cmd_flags, blk_rq_bytes(rq));
 	),
 
-	TP_printk("%d,%d %s %llu + %u <- (%d,%d) %llu",
+	TP_printk("%d,%d %s %llu + %u <- (%d,%d) %llu %u",
 		  MAJOR(__entry->dev), MINOR(__entry->dev), __entry->rwbs,
 		  (unsigned long long)__entry->sector,
 		  __entry->nr_sector,
 		  MAJOR(__entry->old_dev), MINOR(__entry->old_dev),
-		  (unsigned long long)__entry->old_sector)
+		  (unsigned long long)__entry->old_sector, __entry->nr_bios)
 );
 
 #endif /* _TRACE_BLOCK_H */

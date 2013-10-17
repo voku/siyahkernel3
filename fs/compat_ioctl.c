@@ -66,7 +66,6 @@
 #include <linux/gigaset_dev.h>
 
 #ifdef CONFIG_BLOCK
-#include <linux/loop.h>
 #include <linux/cdrom.h>
 #include <linux/fd.h>
 #include <scsi/scsi.h>
@@ -608,7 +607,6 @@ struct serial_struct32 {
 static int serial_struct_ioctl(unsigned fd, unsigned cmd,
 			struct serial_struct32 __user *ss32)
 {
-        typedef struct serial_struct SS;
         typedef struct serial_struct32 SS32;
         int err;
         struct serial_struct ss;
@@ -955,8 +953,6 @@ COMPATIBLE_IOCTL(MTIOCTOP)
 /* Socket level stuff */
 COMPATIBLE_IOCTL(FIOQSIZE)
 #ifdef CONFIG_BLOCK
-/* loop */
-IGNORE_IOCTL(LOOP_CLR_FD)
 /* md calls this on random blockdevs */
 IGNORE_IOCTL(RAID_VERSION)
 /* qemu/qemu-img might call these two on plain files for probing */
@@ -1433,7 +1429,7 @@ IGNORE_IOCTL(FBIOGCURSOR32)
  * Convert common ioctl arguments based on their command number
  *
  * Please do not add any code in here. Instead, implement
- * a compat_ioctl operation in the place that handle? the
+ * a compat_ioctl operation in the place that handleѕ the
  * ioctl for the native case.
  */
 static long do_ioctl_trans(int fd, unsigned int cmd,

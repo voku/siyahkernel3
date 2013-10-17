@@ -191,12 +191,18 @@ void ceph_count_locks(struct inode *inode, int *fcntl_count, int *flock_count)
 }
 
 /**
+<<<<<<< HEAD
  * Encode the flock and fcntl locks for the given inode into the pagelist.
  * Format is: #fcntl locks, sequential fcntl locks, #flock locks,
  * sequential flock locks.
  * Must be called with lock_flocks() already held.
  * If we encounter more of a specific lock type than expected,
  * we return the value 1.
+=======
+ * Encode the flock and fcntl locks for the given inode into the ceph_filelock
+ * array. Must be called with inode->i_lock already held.
+ * If we encounter more of a specific lock type than expected, return -ENOSPC.
+>>>>>>> 1c8c601... locks: protect most of the file_lock handling with i_lock
  */
 int ceph_encode_locks(struct inode *inode, struct ceph_pagelist *pagelist,
 		      int num_fcntl_locks, int num_flock_locks)

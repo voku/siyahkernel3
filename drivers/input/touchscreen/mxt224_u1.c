@@ -345,13 +345,13 @@ static int write_mem(struct mxt224_data *data, u16 reg, u8 len, const u8 * buf)
 	return ret == sizeof(tmp) ? 0 : -EIO;
 }
 
-static int __devinit mxt224_reset(struct mxt224_data *data)
+static int mxt224_reset(struct mxt224_data *data)
 {
 	u8 buf = 1u;
 	return write_mem(data, data->cmd_proc + CMD_RESET_OFFSET, 1, &buf);
 }
 
-static int __devinit mxt224_backup(struct mxt224_data *data)
+static int mxt224_backup(struct mxt224_data *data)
 {
 	u8 buf = 0x55u;
 	return write_mem(data, data->cmd_proc + CMD_BACKUP_OFFSET, 1, &buf);
@@ -387,7 +387,7 @@ static int write_config(struct mxt224_data *data, u8 type, const u8 * cfg)
 	return write_mem(data, address, size, cfg);
 }
 
-static u32 __devinit crc24(u32 crc, u8 byte1, u8 byte2)
+static u32 crc24(u32 crc, u8 byte1, u8 byte2)
 {
 	static const u32 crcpoly = 0x80001B;
 	u32 res;
@@ -402,7 +402,7 @@ static u32 __devinit crc24(u32 crc, u8 byte1, u8 byte2)
 	return res;
 }
 
-static int __devinit calculate_infoblock_crc(struct mxt224_data *data,
+static int calculate_infoblock_crc(struct mxt224_data *data,
 					     u32 *crc_pointer)
 {
 	u32 crc = 0;
@@ -1209,7 +1209,7 @@ static void equalize_coordinate(bool detect, u8 id, u16 *px, u16 *py)
 #endif
 #endif				/* DRIVER_FILTER */
 
-static int __devinit mxt224_init_touch_driver(struct mxt224_data *data)
+static int  mxt224_init_touch_driver(struct mxt224_data *data)
 {
 	struct object_t *object_table;
 	u32 read_crc = 0;
@@ -1782,7 +1782,7 @@ static int Check_Err_Condition(void)
 
 static void median_err_setting(void)
 {
-	u16 obj_address;
+	u16 obj_address = 0;
 	u16 size_one;
 	u8 value, state;
 	bool ta_status_check;
@@ -1849,6 +1849,7 @@ static void median_err_setting(void)
 				write_mem(copy_data, obj_address + 13, 1,
 					  &value);
 #endif
+#if 0
 				ret |=
 				    get_object_info(copy_data,
 						    SPT_CTECONFIG_T46,
@@ -1856,10 +1857,12 @@ static void median_err_setting(void)
 				value = 48;  /* 32; */
 				write_mem(copy_data, obj_address + 3, 1,
 					  &value);
+#endif
 				ret |=
 				    get_object_info(copy_data,
 						    PROCG_NOISESUPPRESSION_T48,
 						    &size_one, &obj_address);
+#if 0
 				value = 20; /*29;*/
 				write_mem(copy_data, obj_address + 3, 1,
 					  &value);
@@ -1869,6 +1872,7 @@ static void median_err_setting(void)
 				value = 2;
 				write_mem(copy_data, obj_address + 9, 1,
 					  &value);
+#endif
 				value = 64; /*100;*/
 				write_mem(copy_data, obj_address + 17, 1,
 					  &value);
@@ -1962,6 +1966,7 @@ static void median_err_setting(void)
 				value = 65;	/* movfilter */
 				write_mem(copy_data, obj_address + 39, 1,
 					  &value);
+#if 0
 				ret |=
 				    get_object_info(copy_data,
 						    SPT_CTECONFIG_T46,
@@ -1969,6 +1974,7 @@ static void median_err_setting(void)
 				value = 53;	/* actvsyncsperx */
 				write_mem(copy_data, obj_address + 3, 1,
 					  &value);
+#endif
 			}
 		}
 	}
@@ -2060,7 +2066,6 @@ static irqreturn_t mxt224_irq_thread(int irq, void *ptr)
 				}
 			}
 		}
-#if 0
 #ifdef CLEAR_MEDIAN_FILTER_ERROR
 		if ((msg[0] == 18) && (data->family_id == 0x81)) {
 			if ((msg[4] & 0x5) == 0x5) {
@@ -2089,7 +2094,6 @@ static irqreturn_t mxt224_irq_thread(int irq, void *ptr)
 				}
 			}
 		}
-#endif
 #endif
 		if (msg[0] > 1 && msg[0] < 12) {
 
@@ -4104,7 +4108,7 @@ static struct miscdevice gestures_device = {
 static bool gestures_device_registered = false;
 #endif
 
-static int __devinit mxt224_probe(struct i2c_client *client,
+static int mxt224_probe(struct i2c_client *client,
 				  const struct i2c_device_id *id)
 {
 	struct mxt224_platform_data *pdata = client->dev.platform_data;
@@ -4602,7 +4606,7 @@ static int __devinit mxt224_probe(struct i2c_client *client,
 	return ret;
 }
 
-static int __devexit mxt224_remove(struct i2c_client *client)
+static int mxt224_remove(struct i2c_client *client)
 {
 	struct mxt224_data *data = i2c_get_clientdata(client);
 
@@ -4635,7 +4639,7 @@ static const struct dev_pm_ops mxt224_pm_ops = {
 static struct i2c_driver mxt224_i2c_driver = {
 	.id_table = mxt224_idtable,
 	.probe = mxt224_probe,
-	.remove = __devexit_p(mxt224_remove),
+	.remove = mxt224_remove,
 	.driver = {
 		   .owner = THIS_MODULE,
 		   .name = MXT224_DEV_NAME,

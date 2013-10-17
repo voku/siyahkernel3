@@ -40,12 +40,12 @@
 #ifndef _SOCK_H
 #define _SOCK_H
 
+#include <linux/hardirq.h>
 #include <linux/kernel.h>
 #include <linux/list.h>
 #include <linux/list_nulls.h>
 #include <linux/timer.h>
 #include <linux/cache.h>
-#include <linux/module.h>
 #include <linux/lockdep.h>
 #include <linux/netdevice.h>
 #include <linux/skbuff.h>	/* struct sk_buff */
@@ -206,6 +206,8 @@ struct sock_common {
   *	@sk_omem_alloc: "o" is "option" or "other"
   *	@sk_wmem_queued: persistent queue size
   *	@sk_forward_alloc: space allocated forward
+  *	@sk_napi_id: id of the last napi context to receive data for sk
+  *	@sk_ll_usec: usecs to busypoll when there is no data
   *	@sk_allocation: allocation mode
   *	@sk_sndbuf: size of send buffer in bytes
   *	@sk_flags: %SO_LINGER (l_onoff), %SO_BROADCAST, %SO_KEEPALIVE,
@@ -299,6 +301,10 @@ struct sock {
 #ifdef CONFIG_RPS
 	__u32			sk_rxhash;
 #endif
+#ifdef CONFIG_NET_LL_RX_POLL
+	unsigned int		sk_napi_id;
+	unsigned int		sk_ll_usec;
+#endif
 	atomic_t		sk_drops;
 	int			sk_rcvbuf;
 
@@ -365,10 +371,20 @@ struct sock {
 	void			(*sk_data_ready)(struct sock *sk, int bytes);
 	void			(*sk_write_space)(struct sock *sk);
 	void			(*sk_error_report)(struct sock *sk);
-  	int			(*sk_backlog_rcv)(struct sock *sk,
-						  struct sk_buff *skb);  
+	int			(*sk_backlog_rcv)(struct sock *sk,
+						  struct sk_buff *skb);
 	void                    (*sk_destruct)(struct sock *sk);
 };
+/*
+ * SK_CAN_REUSE and SK_NO_REUSE on a socket mean that the socket is OK
+ * or not whether his port will be reused by someone else. SK_FORCE_REUSE
+ * on a socket means that the socket will reuse everybody else's port
+ * without looking at the other's sk_reuse value.
+ */
+
+#define SK_NO_REUSE	0
+#define SK_CAN_REUSE	1
+#define SK_FORCE_REUSE	2
 
 /*
  * Hashed lists helper routines
@@ -558,6 +574,15 @@ static __inline__ void sk_add_bind_node(struct sock *sk,
 #define sk_for_each_bound(__sk, list) \
 	hlist_for_each_entry(__sk, list, sk_bind_node)
 
+static inline struct user_namespace *sk_user_ns(struct sock *sk)
+{
+	/* Careful only use this in a context where these parameters
+	 * can not change and must all be valid, such as recvmsg from
+	 * userspace.
+	 */
+	return sk->sk_socket->file->f_cred->user_ns;
+}
+
 /* Sock flags */
 enum sock_flags {
 	SOCK_DEAD,
@@ -584,6 +609,8 @@ enum sock_flags {
 	SOCK_TIMESTAMPING_SYS_HARDWARE, /* %SOF_TIMESTAMPING_SYS_HARDWARE */
 	SOCK_FASYNC, /* fasync() active */
 	SOCK_RXQ_OVFL,
+	SOCK_ZEROCOPY, /* buffers from userspace */
+	SOCK_WIFI_STATUS, /* push wifi status to userspace */
 };
 
 static inline void sock_copy_flags(struct sock *nsk, struct sock *osk)
@@ -605,6 +632,22 @@ static inline int sock_flag(struct sock *sk, enum sock_flags flag)
 {
 	return test_bit(flag, &sk->sk_flags);
 }
+
+#ifdef CONFIG_NET
+extern struct static_key memalloc_socks;
+static inline int sk_memalloc_socks(void)
+{
+	return static_key_false(&memalloc_socks);
+}
+#else
+
+static inline int sk_memalloc_socks(void)
+{
+	return 0;
+}
+
+#endif
+
 
 static inline void sk_acceptq_removed(struct sock *sk)
 {
@@ -740,6 +783,7 @@ struct request_sock_ops;
 struct timewait_sock_ops;
 struct inet_hashinfo;
 struct raw_hashinfo;
+struct module;
 
 /*
  * caches using SLAB_DESTROY_BY_RCU should let .next pointer from nulls nodes
@@ -1758,6 +1802,8 @@ static inline int sock_intr_errno(long timeo)
 
 extern void __sock_recv_timestamp(struct msghdr *msg, struct sock *sk,
 	struct sk_buff *skb);
+extern void __sock_recv_wifi_status(struct msghdr *msg, struct sock *sk,
+	struct sk_buff *skb);
 
 static __inline__ void
 sock_recv_timestamp(struct msghdr *msg, struct sock *sk, struct sk_buff *skb)
@@ -1785,6 +1831,9 @@ sock_recv_timestamp(struct msghdr *msg, struct sock *sk, struct sk_buff *skb)
 		__sock_recv_timestamp(msg, sk, skb);
 	else
 		sk->sk_stamp = kt;
+
+	if (sock_flag(sk, SOCK_WIFI_STATUS) && skb->wifi_acked_valid)
+		__sock_recv_wifi_status(msg, sk, skb);
 }
 
 extern void __sock_recv_ts_and_drops(struct msghdr *msg, struct sock *sk,
@@ -1811,10 +1860,9 @@ static inline void sock_recv_ts_and_drops(struct msghdr *msg, struct sock *sk,
  * @sk:		socket sending this packet
  * @tx_flags:	filled with instructions for time stamping
  *
- * Currently only depends on SOCK_TIMESTAMPING* flags. Returns error code if
- * parameters are invalid.
+ * Currently only depends on SOCK_TIMESTAMPING* flags.
  */
-extern int sock_tx_timestamp(struct sock *sk, __u8 *tx_flags);
+extern void sock_tx_timestamp(struct sock *sk, __u8 *tx_flags);
 
 /**
  * sk_eat_skb - Release a skb if it is no longer needed
@@ -1894,8 +1942,6 @@ extern int net_msg_warn;
 
 extern __u32 sysctl_wmem_max;
 extern __u32 sysctl_rmem_max;
-
-extern void sk_init(void);
 
 extern int sysctl_optmem_max;
 

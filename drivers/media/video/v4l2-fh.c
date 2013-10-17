@@ -23,6 +23,7 @@
  */
 
 #include <linux/bitops.h>
+#include <linux/module.h>
 #include <linux/slab.h>
 #include <media/v4l2-dev.h>
 #include <media/v4l2-fh.h>

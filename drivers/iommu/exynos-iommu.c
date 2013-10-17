@@ -24,11 +24,10 @@
 #include <linux/errno.h>
 #include <linux/list.h>
 #include <linux/memblock.h>
+#include <linux/export.h>
 
 #include <asm/cacheflush.h>
 #include <asm/pgtable.h>
-
-#include <plat/sysmmu.h>
 
 #include <mach/sysmmu.h>
 
@@ -111,6 +110,29 @@ static unsigned long *page_entry(unsigned long *sent, unsigned long iova)
 {
 	return (unsigned long *)__va(lv2table_base(sent)) + lv2ent_offset(iova);
 }
+
+enum exynos_sysmmu_inttype {
+	SYSMMU_PAGEFAULT,
+	SYSMMU_AR_MULTIHIT,
+	SYSMMU_AW_MULTIHIT,
+	SYSMMU_BUSERROR,
+	SYSMMU_AR_SECURITY,
+	SYSMMU_AR_ACCESS,
+	SYSMMU_AW_SECURITY,
+	SYSMMU_AW_PROTECTION, /* 7 */
+	SYSMMU_FAULT_UNKNOWN,
+	SYSMMU_FAULTS_NUM
+};
+
+/*
+ * @itype: type of fault.
+ * @pgtable_base: the physical address of page table base. This is 0 if @itype
+ *                is SYSMMU_BUSERROR.
+ * @fault_addr: the device (virtual) address that the System MMU tried to
+ *             translated. This is 0 if @itype is SYSMMU_BUSERROR.
+ */
+typedef int (*sysmmu_fault_handler_t)(enum exynos_sysmmu_inttype itype,
+			unsigned long pgtable_base, unsigned long fault_addr);
 
 static unsigned short fault_reg_offset[SYSMMU_FAULTS_NUM] = {
 	REG_PAGE_FAULT_ADDR,
@@ -295,7 +317,7 @@ static int default_fault_handler(enum exynos_sysmmu_inttype itype,
 	if ((itype >= SYSMMU_FAULTS_NUM) || (itype < SYSMMU_PAGEFAULT))
 		itype = SYSMMU_FAULT_UNKNOWN;
 
-	pr_err("%s occured at 0x%lx(Page table base: 0x%lx)\n",
+	pr_err("%s occurred at 0x%lx(Page table base: 0x%lx)\n",
 			sysmmu_fault_name[itype], fault_addr, pgtable_base);
 
 	ent = section_entry(__va(pgtable_base), fault_addr);
@@ -489,7 +511,7 @@ int exynos_sysmmu_enable(struct device *dev, unsigned long pgtable)
 	return ret;
 }
 
-bool exynos_sysmmu_disable(struct device *dev)
+static bool exynos_sysmmu_disable(struct device *dev)
 {
 	struct sysmmu_drvdata *data = dev_get_drvdata(dev->archdata.iommu);
 	bool disabled;
@@ -710,6 +732,10 @@ static int exynos_iommu_domain_init(struct iommu_domain *domain)
 	spin_lock_init(&priv->pgtablelock);
 	INIT_LIST_HEAD(&priv->clients);
 
+	domain->geometry.aperture_start = 0;
+	domain->geometry.aperture_end   = ~0UL;
+	domain->geometry.force_aperture = true;
+
 	domain->priv = priv;
 	return 0;
 
@@ -814,8 +840,7 @@ static void exynos_iommu_detach_device(struct iommu_domain *domain,
 	if (__exynos_sysmmu_disable(data)) {
 		dev_dbg(dev, "%s: Detached IOMMU with pgtable %#lx\n",
 					__func__, __pa(priv->pgtable));
-		list_del(&data->node);
-		INIT_LIST_HEAD(&data->node);
+		list_del_init(&data->node);
 
 	} else {
 		dev_dbg(dev, "%s: Detaching IOMMU with pgtable %#lx delayed",
@@ -1002,7 +1027,7 @@ done:
 }
 
 static phys_addr_t exynos_iommu_iova_to_phys(struct iommu_domain *domain,
-					  unsigned long iova)
+					  dma_addr_t iova)
 {
 	struct exynos_iommu_domain *priv = domain->priv;
 	unsigned long *entry;

@@ -40,11 +40,11 @@
 #include <acpi/processor.h>
 
 #define PCC_VERSION	"1.10.00"
-#define POLL_LOOPS 	300
+#define POLL_LOOPS	300
 
-#define CMD_COMPLETE 	0x1
-#define CMD_GET_FREQ 	0x0
-#define CMD_SET_FREQ 	0x1
+#define CMD_COMPLETE	0x1
+#define CMD_GET_FREQ	0x0
+#define CMD_SET_FREQ	0x1
 
 #define BUF_SZ		4
 

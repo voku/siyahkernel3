@@ -21,6 +21,7 @@
 #include <linux/err.h>
 #include <linux/mutex.h>
 #include <linux/platform_device.h>
+#include <linux/module.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/fixed.h>
 #include <linux/gpio.h>
@@ -102,7 +103,7 @@ static struct regulator_ops fixed_voltage_ops = {
 	.list_voltage = fixed_voltage_list_voltage,
 };
 
-static int __devinit reg_fixed_voltage_probe(struct platform_device *pdev)
+static int reg_fixed_voltage_probe(struct platform_device *pdev)
 {
 	struct fixed_voltage_config *config = pdev->dev.platform_data;
 	struct fixed_voltage_data *drvdata;
@@ -203,7 +204,7 @@ err:
 	return ret;
 }
 
-static int __devexit reg_fixed_voltage_remove(struct platform_device *pdev)
+static int reg_fixed_voltage_remove(struct platform_device *pdev)
 {
 	struct fixed_voltage_data *drvdata = platform_get_drvdata(pdev);
 
@@ -218,7 +219,7 @@ static int __devexit reg_fixed_voltage_remove(struct platform_device *pdev)
 
 static struct platform_driver regulator_fixed_voltage_driver = {
 	.probe		= reg_fixed_voltage_probe,
-	.remove		= __devexit_p(reg_fixed_voltage_remove),
+	.remove		= reg_fixed_voltage_remove,
 	.driver		= {
 		.name		= "reg-fixed-voltage",
 		.owner		= THIS_MODULE,

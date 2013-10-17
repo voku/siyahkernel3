@@ -16,11 +16,15 @@
  * Inc.,  51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 #include "xfs.h"
+#include "xfs_log_format.h"
+#include "xfs_trans_resv.h"
 #include "xfs_acl.h"
 #include "xfs_attr.h"
 #include "xfs_bmap_btree.h"
 #include "xfs_inode.h"
-#include "xfs_vnodeops.h"
+#include "xfs_ag.h"
+#include "xfs_sb.h"
+#include "xfs_mount.h"
 #include "xfs_trace.h"
 #include <linux/slab.h>
 #include <linux/xattr.h>
@@ -34,7 +38,9 @@
  */
 
 STATIC struct posix_acl *
-xfs_acl_from_disk(struct xfs_acl *aclp)
+xfs_acl_from_disk(
+	struct xfs_acl	*aclp,
+	int		max_entries)
 {
 	struct posix_acl_entry *acl_e;
 	struct posix_acl *acl;
@@ -42,7 +48,7 @@ xfs_acl_from_disk(struct xfs_acl *aclp)
 	unsigned int count, i;
 
 	count = be32_to_cpu(aclp->acl_cnt);
-	if (count > XFS_ACL_MAX_ENTRIES)
+	if (count > max_entries)
 		return ERR_PTR(-EFSCORRUPTED);
 
 	acl = posix_acl_alloc(count, GFP_KERNEL);
@@ -64,14 +70,15 @@ xfs_acl_from_disk(struct xfs_acl *aclp)
 
 		switch (acl_e->e_tag) {
 		case ACL_USER:
+			acl_e->e_uid = xfs_uid_to_kuid(be32_to_cpu(ace->ae_id));
+			break;
 		case ACL_GROUP:
-			acl_e->e_id = be32_to_cpu(ace->ae_id);
+			acl_e->e_gid = xfs_gid_to_kgid(be32_to_cpu(ace->ae_id));
 			break;
 		case ACL_USER_OBJ:
 		case ACL_GROUP_OBJ:
 		case ACL_MASK:
 		case ACL_OTHER:
-			acl_e->e_id = ACL_UNDEFINED_ID;
 			break;
 		default:
 			goto fail;
@@ -97,7 +104,18 @@ xfs_acl_to_disk(struct xfs_acl *aclp, const struct posix_acl *acl)
 		acl_e = &acl->a_entries[i];
 
 		ace->ae_tag = cpu_to_be32(acl_e->e_tag);
-		ace->ae_id = cpu_to_be32(acl_e->e_id);
+		switch (acl_e->e_tag) {
+		case ACL_USER:
+			ace->ae_id = cpu_to_be32(xfs_kuid_to_uid(acl_e->e_uid));
+			break;
+		case ACL_GROUP:
+			ace->ae_id = cpu_to_be32(xfs_kgid_to_gid(acl_e->e_gid));
+			break;
+		default:
+			ace->ae_id = cpu_to_be32(ACL_UNDEFINED_ID);
+			break;
+		}
+
 		ace->ae_perm = cpu_to_be16(acl_e->e_perm);
 	}
 }
@@ -108,13 +126,15 @@ xfs_get_acl(struct inode *inode, int type)
 	struct xfs_inode *ip = XFS_I(inode);
 	struct posix_acl *acl;
 	struct xfs_acl *xfs_acl;
-	int len = sizeof(struct xfs_acl);
 	unsigned char *ea_name;
 	int error;
+	int len;
 
 	acl = get_cached_acl(inode, type);
 	if (acl != ACL_NOT_CACHED)
 		return acl;
+
+	trace_xfs_get_acl(ip);
 
 	switch (type) {
 	case ACL_TYPE_ACCESS:
@@ -131,8 +151,8 @@ xfs_get_acl(struct inode *inode, int type)
 	 * If we have a cached ACLs value just return it, not need to
 	 * go out to the disk.
 	 */
-
-	xfs_acl = kzalloc(sizeof(struct xfs_acl), GFP_KERNEL);
+	len = XFS_ACL_MAX_SIZE(ip->i_mount);
+	xfs_acl = kmem_zalloc_large(len, KM_SLEEP);
 	if (!xfs_acl)
 		return ERR_PTR(-ENOMEM);
 
@@ -151,14 +171,14 @@ xfs_get_acl(struct inode *inode, int type)
 		goto out;
 	}
 
-	acl = xfs_acl_from_disk(xfs_acl);
+	acl = xfs_acl_from_disk(xfs_acl, XFS_ACL_MAX_ENTRIES(ip->i_mount));
 	if (IS_ERR(acl))
 		goto out;
 
- out_update_cache:
+out_update_cache:
 	set_cached_acl(inode, type, acl);
- out:
-	kfree(xfs_acl);
+out:
+	kmem_free(xfs_acl);
 	return acl;
 }
 
@@ -187,21 +207,22 @@ xfs_set_acl(struct inode *inode, int type, struct posix_acl *acl)
 
 	if (acl) {
 		struct xfs_acl *xfs_acl;
-		int len;
+		int len = XFS_ACL_MAX_SIZE(ip->i_mount);
 
-		xfs_acl = kzalloc(sizeof(struct xfs_acl), GFP_KERNEL);
+		xfs_acl = kmem_zalloc_large(len, KM_SLEEP);
 		if (!xfs_acl)
 			return -ENOMEM;
 
 		xfs_acl_to_disk(xfs_acl, acl);
-		len = sizeof(struct xfs_acl) -
-			(sizeof(struct xfs_acl_entry) *
-			 (XFS_ACL_MAX_ENTRIES - acl->a_count));
+
+		/* subtract away the unused acl entries */
+		len -= sizeof(struct xfs_acl_entry) *
+			 (XFS_ACL_MAX_ENTRIES(ip->i_mount) - acl->a_count);
 
 		error = -xfs_attr_set(ip, ea_name, (unsigned char *)xfs_acl,
 				len, ATTR_ROOT);
 
-		kfree(xfs_acl);
+		kmem_free(xfs_acl);
 	} else {
 		/*
 		 * A NULL ACL argument means we want to remove the ACL.
@@ -220,42 +241,8 @@ xfs_set_acl(struct inode *inode, int type, struct posix_acl *acl)
 	return error;
 }
 
-int
-xfs_check_acl(struct inode *inode, int mask, unsigned int flags)
-{
-	struct xfs_inode *ip;
-	struct posix_acl *acl;
-	int error = -EAGAIN;
-
-	ip = XFS_I(inode);
-	trace_xfs_check_acl(ip);
-
-	/*
-	 * If there is no attribute fork no ACL exists on this inode and
-	 * we can skip the whole exercise.
-	 */
-	if (!XFS_IFORK_Q(ip))
-		return -EAGAIN;
-
-	if (flags & IPERM_FLAG_RCU) {
-		if (!negative_cached_acl(inode, ACL_TYPE_ACCESS))
-			return -ECHILD;
-		return -EAGAIN;
-	}
-
-	acl = xfs_get_acl(inode, ACL_TYPE_ACCESS);
-	if (IS_ERR(acl))
-		return PTR_ERR(acl);
-	if (acl) {
-		error = posix_acl_permission(inode, acl, mask);
-		posix_acl_release(acl);
-	}
-
-	return error;
-}
-
 static int
-xfs_set_mode(struct inode *inode, mode_t mode)
+xfs_set_mode(struct inode *inode, umode_t mode)
 {
 	int error = 0;
 
@@ -266,7 +253,7 @@ xfs_set_mode(struct inode *inode, mode_t mode)
 		iattr.ia_mode = mode;
 		iattr.ia_ctime = current_fs_time(inode->i_sb);
 
-		error = -xfs_setattr(XFS_I(inode), &iattr, XFS_ATTR_NOACL);
+		error = -xfs_setattr_nonsize(XFS_I(inode), &iattr, XFS_ATTR_NOACL);
 	}
 
 	return error;
@@ -275,7 +262,7 @@ xfs_set_mode(struct inode *inode, mode_t mode)
 static int
 xfs_acl_exists(struct inode *inode, unsigned char *name)
 {
-	int len = sizeof(struct xfs_acl);
+	int len = XFS_ACL_MAX_SIZE(XFS_M(inode->i_sb));
 
 	return (xfs_attr_get(XFS_I(inode), name, NULL, &len,
 			    ATTR_ROOT|ATTR_KERNOVAL) == 0);
@@ -299,29 +286,23 @@ posix_acl_default_exists(struct inode *inode)
  * No need for i_mutex because the inode is not yet exposed to the VFS.
  */
 int
-xfs_inherit_acl(struct inode *inode, struct posix_acl *default_acl)
+xfs_inherit_acl(struct inode *inode, struct posix_acl *acl)
 {
-	struct posix_acl *clone;
-	mode_t mode;
+	umode_t mode = inode->i_mode;
 	int error = 0, inherit = 0;
 
 	if (S_ISDIR(inode->i_mode)) {
-		error = xfs_set_acl(inode, ACL_TYPE_DEFAULT, default_acl);
+		error = xfs_set_acl(inode, ACL_TYPE_DEFAULT, acl);
 		if (error)
-			return error;
+			goto out;
 	}
 
-	clone = posix_acl_clone(default_acl, GFP_KERNEL);
-	if (!clone)
-		return -ENOMEM;
-
-	mode = inode->i_mode;
-	error = posix_acl_create_masq(clone, &mode);
+	error = posix_acl_create(&acl, GFP_KERNEL, &mode);
 	if (error < 0)
-		goto out_release_clone;
+		return error;
 
 	/*
-	 * If posix_acl_create_masq returns a positive value we need to
+	 * If posix_acl_create returns a positive value we need to
 	 * inherit a permission that can't be represented using the Unix
 	 * mode bits and we actually need to set an ACL.
 	 */
@@ -330,13 +311,13 @@ xfs_inherit_acl(struct inode *inode, struct posix_acl *default_acl)
 
 	error = xfs_set_mode(inode, mode);
 	if (error)
-		goto out_release_clone;
+		goto out;
 
 	if (inherit)
-		error = xfs_set_acl(inode, ACL_TYPE_ACCESS, clone);
+		error = xfs_set_acl(inode, ACL_TYPE_ACCESS, acl);
 
- out_release_clone:
-	posix_acl_release(clone);
+out:
+	posix_acl_release(acl);
 	return error;
 }
 
@@ -375,7 +356,7 @@ xfs_xattr_acl_get(struct dentry *dentry, const char *name,
 	if (acl == NULL)
 		return -ENODATA;
 
-	error = posix_acl_to_xattr(acl, value, size);
+	error = posix_acl_to_xattr(&init_user_ns, acl, value, size);
 	posix_acl_release(acl);
 
 	return error;
@@ -393,13 +374,13 @@ xfs_xattr_acl_set(struct dentry *dentry, const char *name,
 		return -EINVAL;
 	if (type == ACL_TYPE_DEFAULT && !S_ISDIR(inode->i_mode))
 		return value ? -EACCES : 0;
-	if ((current_fsuid() != inode->i_uid) && !capable(CAP_FOWNER))
+	if (!inode_owner_or_capable(inode))
 		return -EPERM;
 
 	if (!value)
 		goto set_acl;
 
-	acl = posix_acl_from_xattr(value, size);
+	acl = posix_acl_from_xattr(&init_user_ns, value, size);
 	if (!acl) {
 		/*
 		 * acl_set_file(3) may request that we set default ACLs with
@@ -417,11 +398,11 @@ xfs_xattr_acl_set(struct dentry *dentry, const char *name,
 		goto out_release;
 
 	error = -EINVAL;
-	if (acl->a_count > XFS_ACL_MAX_ENTRIES)
+	if (acl->a_count > XFS_ACL_MAX_ENTRIES(XFS_M(inode->i_sb)))
 		goto out_release;
 
 	if (type == ACL_TYPE_ACCESS) {
-		mode_t mode = inode->i_mode;
+		umode_t mode = inode->i_mode;
 		error = posix_acl_equiv_mode(acl, &mode);
 
 		if (error <= 0) {

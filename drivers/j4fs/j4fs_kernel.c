@@ -1268,7 +1268,7 @@ int j4fs_fill_super(struct super_block *sb, void *data, int silent)
 	root = iget(sb, J4FS_ROOT_INO);
 #endif
 
-	sb->s_root = d_alloc_root(root);
+	sb->s_root = d_make_root()
 
 	// Set device_info.j4fs_end using STLInfo.nTotalLogScts
 #if defined(J4FS_USE_XSR)

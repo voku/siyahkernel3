@@ -34,7 +34,6 @@
 #include <asm/openprom.h>
 #include <asm/oplib.h>
 #include <asm/pgtable.h>
-#include <asm/system.h>
 
 #include "sunbmac.h"
 

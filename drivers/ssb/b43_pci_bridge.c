@@ -11,6 +11,7 @@
  */
 
 #include <linux/pci.h>
+#include <linux/module.h>
 #include <linux/ssb/ssb.h>
 
 #include "ssb_private.h"
@@ -28,11 +29,15 @@ static const struct pci_device_id b43_pci_bridge_tbl[] = {
 	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, 0x4319) },
 	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, 0x4320) },
 	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, 0x4321) },
+	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, 0x4322) },
+	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, 43222) },
 	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, 0x4324) },
 	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, 0x4325) },
 	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, 0x4328) },
 	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, 0x4329) },
 	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, 0x432b) },
+	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, 0x432c) },
+	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, 0x4350) },
 	{ 0, },
 };
 MODULE_DEVICE_TABLE(pci, b43_pci_bridge_tbl);

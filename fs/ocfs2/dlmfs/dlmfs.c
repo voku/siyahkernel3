@@ -400,16 +400,14 @@ static struct backing_dev_info dlmfs_backing_dev_info = {
 static struct inode *dlmfs_get_root_inode(struct super_block *sb)
 {
 	struct inode *inode = new_inode(sb);
-	int mode = S_IFDIR | 0755;
+	umode_t mode = S_IFDIR | 0755;
 	struct dlmfs_inode_private *ip;
 
 	if (inode) {
 		ip = DLMFS_I(inode);
 
 		inode->i_ino = get_next_ino();
-		inode->i_mode = mode;
-		inode->i_uid = current_fsuid();
-		inode->i_gid = current_fsgid();
+		inode_init_owner(inode, NULL, mode);
 		inode->i_mapping->backing_dev_info = &dlmfs_backing_dev_info;
 		inode->i_atime = inode->i_mtime = inode->i_ctime = CURRENT_TIME;
 		inc_nlink(inode);
@@ -423,7 +421,7 @@ static struct inode *dlmfs_get_root_inode(struct super_block *sb)
 
 static struct inode *dlmfs_get_inode(struct inode *parent,
 				     struct dentry *dentry,
-				     int mode)
+				     umode_t mode)
 {
 	struct super_block *sb = parent->i_sb;
 	struct inode * inode = new_inode(sb);
@@ -433,9 +431,7 @@ static struct inode *dlmfs_get_inode(struct inode *parent,
 		return NULL;
 
 	inode->i_ino = get_next_ino();
-	inode->i_mode = mode;
-	inode->i_uid = current_fsuid();
-	inode->i_gid = current_fsgid();
+	inode_init_owner(inode, parent, mode);
 	inode->i_mapping->backing_dev_info = &dlmfs_backing_dev_info;
 	inode->i_atime = inode->i_mtime = inode->i_ctime = CURRENT_TIME;
 
@@ -472,13 +468,6 @@ static struct inode *dlmfs_get_inode(struct inode *parent,
 		inc_nlink(inode);
 		break;
 	}
-
-	if (parent->i_mode & S_ISGID) {
-		inode->i_gid = parent->i_gid;
-		if (S_ISDIR(mode))
-			inode->i_mode |= S_ISGID;
-	}
-
 	return inode;
 }
 
@@ -537,7 +526,7 @@ bail:
 static int dlmfs_create(struct inode *dir,
 			struct dentry *dentry,
 			umode_t mode,
-			struct nameidata *nd)
+			bool excl)
 {
 	int status = 0;
 	struct inode *inode;
@@ -651,6 +640,7 @@ static struct file_system_type dlmfs_fs_type = {
 	.mount		= dlmfs_mount,
 	.kill_sb	= kill_litter_super,
 };
+MODULE_ALIAS_FS("ocfs2_dlmfs");
 
 static int __init init_dlmfs_fs(void)
 {
@@ -702,6 +692,11 @@ static void __exit exit_dlmfs_fs(void)
 	flush_workqueue(user_dlm_worker);
 	destroy_workqueue(user_dlm_worker);
 
+	/*
+	 * Make sure all delayed rcu free inodes are flushed before we
+	 * destroy cache.
+	 */
+	rcu_barrier();
 	kmem_cache_destroy(dlmfs_inode_cache);
 
 	bdi_destroy(&dlmfs_backing_dev_info);

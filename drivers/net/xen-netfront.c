@@ -457,7 +457,7 @@ static void xennet_make_frags(struct sk_buff *skb, struct net_device *dev,
 
 		tx->gref = np->grant_tx_ref[id] = ref;
 		tx->offset = frag->page_offset;
-		tx->size = frag->size;
+		tx->size = skb_frag_size(frag);
 		tx->flags = 0;
 	}
 
@@ -948,7 +948,7 @@ err:
 		if (rx->status > len) {
 			skb_shinfo(skb)->frags[0].page_offset =
 				rx->offset + len;
-			skb_shinfo(skb)->frags[0].size = rx->status - len;
+			skb_frag_size_set(&skb_shinfo(skb)->frags[0], rx->status - len);
 			skb->data_len = rx->status - len;
 		} else {
 			skb_shinfo(skb)->frags[0].page = NULL;

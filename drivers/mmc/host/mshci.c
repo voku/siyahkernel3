@@ -20,6 +20,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/slab.h>
 #include <linux/scatterlist.h>
+#include <linux/module.h>
 
 #include <linux/leds.h>
 

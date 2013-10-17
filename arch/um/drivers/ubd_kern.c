@@ -19,45 +19,29 @@
 
 #define UBD_SHIFT 4
 
-#include "linux/kernel.h"
-#include "linux/module.h"
-#include "linux/blkdev.h"
-#include "linux/ata.h"
-#include "linux/hdreg.h"
-#include "linux/init.h"
-#include "linux/cdrom.h"
-#include "linux/proc_fs.h"
-#include "linux/seq_file.h"
-#include "linux/ctype.h"
-#include "linux/capability.h"
-#include "linux/mm.h"
-#include "linux/slab.h"
-#include "linux/vmalloc.h"
-#include "linux/mutex.h"
-#include "linux/blkpg.h"
-#include "linux/genhd.h"
-#include "linux/spinlock.h"
-#include "linux/platform_device.h"
-#include "linux/scatterlist.h"
-#include "asm/segment.h"
-#include "asm/uaccess.h"
-#include "asm/irq.h"
-#include "asm/types.h"
-#include "asm/tlbflush.h"
-#include "mem_user.h"
-#include "kern_util.h"
-#include "kern.h"
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/blkdev.h>
+#include <linux/ata.h>
+#include <linux/hdreg.h>
+#include <linux/cdrom.h>
+#include <linux/proc_fs.h>
+#include <linux/seq_file.h>
+#include <linux/ctype.h>
+#include <linux/slab.h>
+#include <linux/vmalloc.h>
+#include <linux/platform_device.h>
+#include <linux/scatterlist.h>
+#include <asm/tlbflush.h>
+#include <kern_util.h>
 #include "mconsole_kern.h"
-#include "init.h"
-#include "irq_user.h"
-#include "irq_kern.h"
-#include "ubd_user.h"
-#include "os.h"
-#include "mem.h"
-#include "mem_kern.h"
+#include <init.h>
+#include <irq_kern.h>
+#include "ubd.h"
+#include <os.h>
 #include "cow.h"
 
-enum ubd_req { UBD_READ, UBD_WRITE };
+enum ubd_req { UBD_READ, UBD_WRITE, UBD_FLUSH };
 
 struct io_thread_req {
 	struct request *req;
@@ -530,7 +514,7 @@ static inline int ubd_file_size(struct ubd *ubd_dev, __u64 *size_out)
 		goto out;
 	}
 
-	fd = os_open_file(ubd_dev->file, global_openflags, 0);
+	fd = os_open_file(ubd_dev->file, of_read(OPENFLAGS()), 0);
 	if (fd < 0)
 		return fd;
 
@@ -882,6 +866,7 @@ static int ubd_add(int n, char **error_out)
 		goto out;
 	}
 	ubd_dev->queue->queuedata = ubd_dev;
+	blk_queue_flush(ubd_dev->queue, REQ_FLUSH);
 
 	blk_queue_max_segments(ubd_dev->queue, MAX_SG);
 	err = ubd_disk_register(UBD_MAJOR, ubd_dev->size, n, &ubd_gendisk[n]);
@@ -1117,7 +1102,7 @@ static int __init ubd_driver_init(void){
 		return 0;
 	}
 	err = um_request_irq(UBD_IRQ, thread_fd, IRQ_READ, ubd_intr,
-			     IRQF_DISABLED, "ubd", ubd_devs);
+			     0, "ubd", ubd_devs);
 	if(err != 0)
 		printk(KERN_ERR "um_request_irq failed - errno = %d\n", -err);
 	return 0;
@@ -1255,11 +1240,40 @@ static void prepare_request(struct request *req, struct io_thread_req *io_req,
 }
 
 /* Called with dev->lock held */
+static void prepare_flush_request(struct request *req,
+				  struct io_thread_req *io_req)
+{
+	struct gendisk *disk = req->rq_disk;
+	struct ubd *ubd_dev = disk->private_data;
+
+	io_req->req = req;
+	io_req->fds[0] = (ubd_dev->cow.file != NULL) ? ubd_dev->cow.fd :
+		ubd_dev->fd;
+	io_req->op = UBD_FLUSH;
+}
+
+static bool submit_request(struct io_thread_req *io_req, struct ubd *dev)
+{
+	int n = os_write_file(thread_fd, &io_req,
+			     sizeof(io_req));
+	if (n != sizeof(io_req)) {
+		if (n != -EAGAIN)
+			printk("write to io thread failed, "
+			       "errno = %d\n", -n);
+		else if (list_empty(&dev->restart))
+			list_add(&dev->restart, &restart);
+
+		kfree(io_req);
+		return false;
+	}
+	return true;
+}
+
+/* Called with dev->lock held */
 static void do_ubd_request(struct request_queue *q)
 {
 	struct io_thread_req *io_req;
 	struct request *req;
-	int n;
 
 	while(1){
 		struct ubd *dev = q->queuedata;
@@ -1275,6 +1289,19 @@ static void do_ubd_request(struct request_queue *q)
 		}
 
 		req = dev->request;
+
+		if (req->cmd_flags & REQ_FLUSH) {
+			io_req = kmalloc(sizeof(struct io_thread_req),
+					 GFP_ATOMIC);
+			if (io_req == NULL) {
+				if (list_empty(&dev->restart))
+					list_add(&dev->restart, &restart);
+				return;
+			}
+			prepare_flush_request(req, io_req);
+			submit_request(io_req, dev);
+		}
+
 		while(dev->start_sg < dev->end_sg){
 			struct scatterlist *sg = &dev->sg[dev->start_sg];
 
@@ -1289,17 +1316,8 @@ static void do_ubd_request(struct request_queue *q)
 					(unsigned long long)dev->rq_pos << 9,
 					sg->offset, sg->length, sg_page(sg));
 
-			n = os_write_file(thread_fd, &io_req,
-					  sizeof(struct io_thread_req *));
-			if(n != sizeof(struct io_thread_req *)){
-				if(n != -EAGAIN)
-					printk("write to io thread failed, "
-					       "errno = %d\n", -n);
-				else if(list_empty(&dev->restart))
-					list_add(&dev->restart, &restart);
-				kfree(io_req);
+			if (submit_request(io_req, dev) == false)
 				return;
-			}
 
 			dev->rq_pos += sg->length >> 9;
 			dev->start_sg++;
@@ -1383,6 +1401,17 @@ static void do_io(struct io_thread_req *req)
 	int err;
 	__u64 off;
 
+	if (req->op == UBD_FLUSH) {
+		/* fds[0] is always either the rw image or our cow file */
+		n = os_sync_file(req->fds[0]);
+		if (n != 0) {
+			printk("do_io - sync failed err = %d "
+			       "fd = %d\n", -n, req->fds[0]);
+			req->error = 1;
+		}
+		return;
+	}
+
 	nsectors = req->length / req->sectorsize;
 	start = 0;
 	do {
@@ -1447,7 +1476,8 @@ int io_thread(void *arg)
 	struct io_thread_req *req;
 	int n;
 
-	ignore_sigwinch_sig();
+	os_fix_helper_signals();
+
 	while(1){
 		n = os_read_file(kernel_fd, &req,
 				 sizeof(struct io_thread_req *));

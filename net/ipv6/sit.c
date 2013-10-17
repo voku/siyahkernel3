@@ -476,7 +476,7 @@ static void ipip6_tunnel_uninit(struct net_device *dev)
 	struct sit_net *sitn = net_generic(net, sit_net_id);
 
 	if (dev == sitn->fb_tunnel_dev) {
-		rcu_assign_pointer(sitn->tunnels_wc[0], NULL);
+		RCU_INIT_POINTER(sitn->tunnels_wc[0], NULL);
 	} else {
 		ipip6_tunnel_unlink(sitn, netdev_priv(dev));
 		ipip6_tunnel_del_prl(netdev_priv(dev), NULL);
@@ -682,7 +682,7 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
 		struct neighbour *neigh = NULL;
 
 		if (skb_dst(skb))
-			neigh = dst_get_neighbour(skb_dst(skb));
+			neigh = skb_dst(skb)->neighbour;
 
 		if (neigh == NULL) {
 			if (net_ratelimit())
@@ -707,7 +707,7 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
 		struct neighbour *neigh = NULL;
 
 		if (skb_dst(skb))
-			neigh = dst_get_neighbour(skb_dst(skb));
+			neigh = skb_dst(skb)->neighbour;
 
 		if (neigh == NULL) {
 			if (net_ratelimit())
@@ -916,7 +916,7 @@ ipip6_tunnel_ioctl (struct net_device *dev, struct ifreq *ifr, int cmd)
 				goto done;
 #ifdef CONFIG_IPV6_SIT_6RD
 		} else {
-			ipv6_addr_copy(&ip6rd.prefix, &t->ip6rd.prefix);
+			ip6rd.prefix = t->ip6rd.prefix;
 			ip6rd.relay_prefix = t->ip6rd.relay_prefix;
 			ip6rd.prefixlen = t->ip6rd.prefixlen;
 			ip6rd.relay_prefixlen = t->ip6rd.relay_prefixlen;
@@ -1084,7 +1084,7 @@ ipip6_tunnel_ioctl (struct net_device *dev, struct ifreq *ifr, int cmd)
 			if (relay_prefix != ip6rd.relay_prefix)
 				goto done;
 
-			ipv6_addr_copy(&t->ip6rd.prefix, &prefix);
+			t->ip6rd.prefix = prefix;
 			t->ip6rd.relay_prefix = relay_prefix;
 			t->ip6rd.prefixlen = ip6rd.prefixlen;
 			t->ip6rd.relay_prefixlen = ip6rd.relay_prefixlen;

@@ -5,7 +5,6 @@
 #include "util.h"
 #include "probe-event.h"
 
-#define MAX_PATH_LEN		 256
 #define MAX_PROBE_BUFFER	1024
 #define MAX_PROBES		 128
 
@@ -24,6 +23,7 @@ static inline int is_c_varname(const char *name)
 /* debug information structure */
 struct debuginfo {
 	Dwarf		*dbg;
+	Dwfl_Module	*mod;
 	Dwfl		*dwfl;
 	Dwarf_Addr	bias;
 };
@@ -78,6 +78,7 @@ struct probe_finder {
 
 struct trace_event_finder {
 	struct probe_finder	pf;
+	Dwfl_Module		*mod;		/* For solving symbols */
 	struct probe_trace_event *tevs;		/* Found trace events */
 	int			ntevs;		/* Number of trace events */
 	int			max_tevs;	/* Max number of trace events */
@@ -85,6 +86,7 @@ struct trace_event_finder {
 
 struct available_var_finder {
 	struct probe_finder	pf;
+	Dwfl_Module		*mod;		/* For solving symbols */
 	struct variable_list	*vls;		/* Found variable lists */
 	int			nvls;		/* Number of variable lists */
 	int			max_vls;	/* Max no. of variable lists */

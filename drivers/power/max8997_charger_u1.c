@@ -22,6 +22,7 @@
 #include <linux/regulator/machine.h>
 #include <linux/mfd/max8997.h>
 #include <linux/mfd/max8997-private.h>
+#include <asm/system_info.h>
 
 /* MAX8997_REG_STATUS4 */
 #define DCINOK_SHIFT		1
@@ -349,7 +350,7 @@ static irqreturn_t max8997_chg_charger_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-static __devinit int max8997_charger_probe(struct platform_device *pdev)
+static int max8997_charger_probe(struct platform_device *pdev)
 {
 	struct max8997_dev *max8997 = dev_get_drvdata(pdev->dev.parent);
 	struct max8997_platform_data *pdata = dev_get_platdata(max8997->dev);
@@ -424,7 +425,7 @@ err_kfree:
 	return ret;
 }
 
-static int __devexit max8997_charger_remove(struct platform_device *pdev)
+static int max8997_charger_remove(struct platform_device *pdev)
 {
 	struct chg_data *chg = platform_get_drvdata(pdev);
 
@@ -457,7 +458,7 @@ static struct platform_driver max8997_charger_driver = {
 		.pm = &max8997_charger_pm_ops,
 	},
 	.probe = max8997_charger_probe,
-	.remove = __devexit_p(max8997_charger_remove),
+	.remove = max8997_charger_remove,
 };
 
 static int __init max8997_charger_init(void)

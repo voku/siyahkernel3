@@ -76,6 +76,7 @@ static ssize_t clkgate_delay_store(struct device *dev,
 	spin_unlock_irqrestore(&host->clk_lock, flags);
 	return count;
 }
+
 /*
  * Enabling clock gating will make the core call out to the host
  * once up and once down when it performs a request or card operation
@@ -207,7 +208,7 @@ void mmc_host_clk_release(struct mmc_host *host)
 	if (mmc_host_may_gate_card(host->card) &&
 	    !host->clk_requests)
 		schedule_delayed_work(&host->clk_gate_work,
-			msecs_to_jiffies(host->clkgate_delay));
+				      msecs_to_jiffies(host->clkgate_delay));
 	spin_unlock_irqrestore(&host->clk_lock, flags);
 }
 
@@ -280,7 +281,6 @@ static inline void mmc_host_clk_sysfs_init(struct mmc_host *host)
 		pr_err("%s: Failed to create clkgate_delay sysfs entry\n",
 				mmc_hostname(host));
 }
-
 #else
 
 static inline void mmc_host_clk_init(struct mmc_host *host)
@@ -294,6 +294,7 @@ static inline void mmc_host_clk_exit(struct mmc_host *host)
 static inline void mmc_host_clk_sysfs_init(struct mmc_host *host)
 {
 }
+
 #endif
 
 /**
@@ -308,19 +309,20 @@ struct mmc_host *mmc_alloc_host(int extra, struct device *dev)
 	int err;
 	struct mmc_host *host;
 
-	if (!idr_pre_get(&mmc_host_idr, GFP_KERNEL))
-		return NULL;
-
 	host = kzalloc(sizeof(struct mmc_host) + extra, GFP_KERNEL);
 	if (!host)
 		return NULL;
 
 	/* scanning will be enabled when we're ready */
 	host->rescan_disable = 1;
+	idr_preload(GFP_KERNEL);
 	spin_lock(&mmc_host_lock);
-	err = idr_get_new(&mmc_host_idr, host, &host->index);
+	err = idr_alloc(&mmc_host_idr, host, 0, 0, GFP_NOWAIT);
+	if (err >= 0)
+		host->index = err;
 	spin_unlock(&mmc_host_lock);
-	if (err)
+	idr_preload_end();
+	if (err < 0)
 		goto free;
 
 	dev_set_name(&host->class_dev, "mmc%d", host->index);
@@ -387,7 +389,6 @@ int mmc_add_host(struct mmc_host *host)
 #ifdef CONFIG_DEBUG_FS
 	mmc_add_host_debugfs(host);
 #endif
-
 	mmc_host_clk_sysfs_init(host);
 
 	mmc_start_host(host);

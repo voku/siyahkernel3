@@ -47,13 +47,11 @@ static int populate_dir(struct kobject *kobj)
 static int create_dir(struct kobject *kobj)
 {
 	int error = 0;
-	if (kobject_name(kobj)) {
-		error = sysfs_create_dir(kobj);
-		if (!error) {
-			error = populate_dir(kobj);
-			if (error)
-				sysfs_remove_dir(kobj);
-		}
+	error = sysfs_create_dir(kobj);
+	if (!error) {
+		error = populate_dir(kobj);
+		if (error)
+			sysfs_remove_dir(kobj);
 	}
 	return error;
 }
@@ -192,14 +190,14 @@ static int kobject_add_internal(struct kobject *kobj)
 
 		/* be noisy on error issues */
 		if (error == -EEXIST)
-			printk(KERN_ERR "%s failed for %s with "
-			       "-EEXIST, don't try to register things with "
-			       "the same name in the same directory.\n",
-			       __func__, kobject_name(kobj));
+			WARN(1, "%s failed for %s with "
+			     "-EEXIST, don't try to register things with "
+			     "the same name in the same directory.\n",
+			     __func__, kobject_name(kobj));
 		else
-			printk(KERN_ERR "%s failed for %s (%d)\n",
-			       __func__, kobject_name(kobj), error);
-		dump_stack();
+			WARN(1, "%s failed for %s (error: %d parent: %s)\n",
+			     __func__, kobject_name(kobj), error,
+			     parent ? kobject_name(parent) : "'none'");
 	} else
 		kobj->state_in_sysfs = 1;
 
@@ -531,6 +529,13 @@ struct kobject *kobject_get(struct kobject *kobj)
 	return kobj;
 }
 
+static struct kobject * __must_check kobject_get_unless_zero(struct kobject *kobj)
+{
+	if (!kref_get_unless_zero(&kobj->kref))
+		kobj = NULL;
+	return kobj;
+}
+
 /*
  * kobject_cleanup - free kobject resources.
  * @kobj: object to cleanup
@@ -540,8 +545,8 @@ static void kobject_cleanup(struct kobject *kobj)
 	struct kobj_type *t = get_ktype(kobj);
 	const char *name = kobj->name;
 
-	pr_debug("kobject: '%s' (%p): %s\n",
-		 kobject_name(kobj), kobj, __func__);
+	pr_debug("kobject: '%s' (%p): %s, parent %p\n",
+		 kobject_name(kobj), kobj, __func__, kobj->parent);
 
 	if (t && !t->release)
 		pr_debug("kobject: '%s' (%p): does not have a release() "
@@ -575,9 +580,25 @@ static void kobject_cleanup(struct kobject *kobj)
 	}
 }
 
+#ifdef CONFIG_DEBUG_KOBJECT_RELEASE
+static void kobject_delayed_cleanup(struct work_struct *work)
+{
+	kobject_cleanup(container_of(to_delayed_work(work),
+				     struct kobject, release));
+}
+#endif
+
 static void kobject_release(struct kref *kref)
 {
-	kobject_cleanup(container_of(kref, struct kobject, kref));
+	struct kobject *kobj = container_of(kref, struct kobject, kref);
+#ifdef CONFIG_DEBUG_KOBJECT_RELEASE
+	pr_info("kobject: '%s' (%p): %s, parent %p (delayed)\n",
+		 kobject_name(kobj), kobj, __func__, kobj->parent);
+	INIT_DELAYED_WORK(&kobj->release, kobject_delayed_cleanup);
+	schedule_delayed_work(&kobj->release, HZ);
+#else
+	kobject_cleanup(kobj);
+#endif
 }
 
 /**
@@ -634,7 +655,7 @@ struct kobject *kobject_create(void)
 /**
  * kobject_create_and_add - create a struct kobject dynamically and register it with sysfs
  *
- * @name: the name for the kset
+ * @name: the name for the kobject
  * @parent: the parent kobject of this kobject, if any.
  *
  * This function creates a kobject structure dynamically and registers it
@@ -753,7 +774,7 @@ struct kobject *kset_find_obj(struct kset *kset, const char *name)
 
 	list_for_each_entry(k, &kset->list, entry) {
 		if (kobject_name(k) && !strcmp(kobject_name(k), name)) {
-			ret = kobject_get(k);
+			ret = kobject_get_unless_zero(k);
 			break;
 		}
 	}
@@ -800,7 +821,7 @@ static struct kset *kset_create(const char *name,
 	kset = kzalloc(sizeof(*kset), GFP_KERNEL);
 	if (!kset)
 		return NULL;
-	retval = kobject_set_name(&kset->kobj, name);
+	retval = kobject_set_name(&kset->kobj, "%s", name);
 	if (retval) {
 		kfree(kset);
 		return NULL;
@@ -910,6 +931,18 @@ const struct kobj_ns_type_operations *kobj_ns_ops(struct kobject *kobj)
 	return kobj_child_ns_ops(kobj->parent);
 }
 
+bool kobj_ns_current_may_mount(enum kobj_ns_type type)
+{
+	bool may_mount = true;
+
+	spin_lock(&kobj_ns_type_lock);
+	if ((type > KOBJ_NS_TYPE_NONE) && (type < KOBJ_NS_TYPES) &&
+	    kobj_ns_ops_tbl[type])
+		may_mount = kobj_ns_ops_tbl[type]->current_may_mount();
+	spin_unlock(&kobj_ns_type_lock);
+
+	return may_mount;
+}
 
 void *kobj_ns_grab_current(enum kobj_ns_type type)
 {

@@ -88,12 +88,12 @@ static int parse_options(struct super_block *sb, char *options, int silent,
 }
 
 /*
- * our custom d_alloc_root work-alike
+ * our custom d_make_rood_make_root
  *
- * we can't use d_alloc_root if we want to use our own interpose function
- * unchanged, so we simply call our own "fake" d_alloc_root
+ * we can't use d_make_root if we want to use our own interpose function
+ * unchanged, so we simply call our own "fake" d_make_root
  */
-static struct dentry *sdcardfs_d_alloc_root(struct super_block *sb)
+static struct dentry *sdcardfs_d_make_root(struct super_block *sb)
 {
 	struct dentry *ret = NULL;
 
@@ -179,8 +179,8 @@ static int sdcardfs_read_super(struct super_block *sb, const char *dev_name,
 
 	sb->s_op = &sdcardfs_sops;
 
-	/* see comment next to the definition of sdcardfs_d_alloc_root */
-	sb->s_root = sdcardfs_d_alloc_root(sb);
+	/* see comment next to the definition of sdcardfs_d_make_root */
+	sb->s_root = sdcardfs_d_make_root(sb);
 	if (!sb->s_root) {
 		err = -ENOMEM;
 		goto out_sput;

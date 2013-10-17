@@ -11,7 +11,7 @@
 #include <linux/slab.h>
 #include <linux/time.h>
 #include <linux/nfs_fs.h>
-#include <linux/sunrpc/clnt.h>
+#include <linux/sunrpc/addr.h>
 #include <linux/sunrpc/svc.h>
 #include <linux/lockd/lockd.h>
 #include <linux/kthread.h>
@@ -56,19 +56,25 @@ struct nlm_host *nlmclnt_init(const struct nlmclnt_initdata *nlm_init)
 	u32 nlm_version = (nlm_init->nfs_version == 2) ? 1 : 4;
 	int status;
 
-	status = lockd_up();
+	status = lockd_up(nlm_init->net);
 	if (status < 0)
 		return ERR_PTR(status);
 
 	host = nlmclnt_lookup_host(nlm_init->address, nlm_init->addrlen,
 				   nlm_init->protocol, nlm_version,
-				   nlm_init->hostname, nlm_init->noresvport);
-	if (host == NULL) {
-		lockd_down();
-		return ERR_PTR(-ENOLCK);
-	}
+				   nlm_init->hostname, nlm_init->noresvport,
+				   nlm_init->net);
+	if (host == NULL)
+		goto out_nohost;
+	if (host->h_rpcclnt == NULL && nlm_bind_host(host) == NULL)
+		goto out_nobind;
 
 	return host;
+out_nobind:
+	nlmclnt_release_host(host);
+out_nohost:
+	lockd_down(nlm_init->net);
+	return ERR_PTR(-ENOLCK);
 }
 EXPORT_SYMBOL_GPL(nlmclnt_init);
 
@@ -79,8 +85,10 @@ EXPORT_SYMBOL_GPL(nlmclnt_init);
  */
 void nlmclnt_done(struct nlm_host *host)
 {
+	struct net *net = host->net;
+
 	nlmclnt_release_host(host);
-	lockd_down();
+	lockd_down(net);
 }
 EXPORT_SYMBOL_GPL(nlmclnt_done);
 
@@ -220,13 +228,23 @@ reclaimer(void *ptr)
 {
 	struct nlm_host	  *host = (struct nlm_host *) ptr;
 	struct nlm_wait	  *block;
+	struct nlm_rqst   *req;
 	struct file_lock *fl, *next;
 	u32 nsmstate;
+	struct net *net = host->net;
+
+	req = kmalloc(sizeof(*req), GFP_KERNEL);
+	if (!req) {
+		printk(KERN_ERR "lockd: reclaimer unable to alloc memory."
+				" Locks for %s won't be reclaimed!\n",
+				host->h_name);
+		return 0;
+	}
 
 	allow_signal(SIGKILL);
 
 	down_write(&host->h_rwsem);
-	lockd_up();	/* note: this cannot fail as lockd is already running */
+	lockd_up(net);	/* note: this cannot fail as lockd is already running */
 
 	dprintk("lockd: reclaiming locks for host %s\n", host->h_name);
 
@@ -252,7 +270,7 @@ restart:
 		 */
 		if (signalled())
 			continue;
-		if (nlmclnt_reclaim(host, fl) != 0)
+		if (nlmclnt_reclaim(host, fl, req) != 0)
 			continue;
 		list_add_tail(&fl->fl_u.nfs_fl.list, &host->h_granted);
 		if (host->h_nsmstate != nsmstate) {
@@ -277,6 +295,7 @@ restart:
 
 	/* Release host handle after use */
 	nlmclnt_release_host(host);
-	lockd_down();
+	lockd_down(net);
+	kfree(req);
 	return 0;
 }

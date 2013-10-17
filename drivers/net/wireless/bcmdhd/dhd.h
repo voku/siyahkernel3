@@ -90,7 +90,7 @@ enum dhd_op_flags {
 	DHD_FLAG_MBSS_MODE				= (1 << (7)) /* MBSS in future */
 };
 
-#define MANUFACTRING_FW	"WLTEST"
+#define MANUFACTRING_FW		"WLTEST"
 
 /* Max sequential TX/RX Control timeouts to set HANG event */
 #ifndef MAX_CNTL_TX_TIMEOUT
@@ -767,7 +767,7 @@ extern uint dhd_force_tx_queueing;
 /* hooks for custom dhd_dpc_prio setting option via Makefile */
 #define DEFAULT_DHP_DPC_PRIO  1
 #ifndef CUSTOM_DPC_PRIO_SETTING
-#define CUSTOM_DPC_PRIO_SETTING	DEFAULT_DHP_DPC_PRIO
+#define CUSTOM_DPC_PRIO_SETTING		DEFAULT_DHP_DPC_PRIO
 #endif
 
 #define DEFAULT_SUSPEND_BCN_LI_DTIM		3
@@ -777,7 +777,7 @@ extern uint dhd_force_tx_queueing;
 
 #ifdef RXFRAME_THREAD
 #ifndef CUSTOM_RXF_PRIO_SETTING
-#define CUSTOM_RXF_PRIO_SETTING	(DEFAULT_DHP_DPC_PRIO + 1)
+#define CUSTOM_RXF_PRIO_SETTING		(DEFAULT_DHP_DPC_PRIO + 1)
 #endif
 #endif /* RXFRAME_THREAD */
 

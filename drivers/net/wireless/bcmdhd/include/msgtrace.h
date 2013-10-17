@@ -49,7 +49,7 @@ typedef BWL_PRE_PACKED_STRUCT struct msgtrace_hdr {
 	uint32  discarded_printf; /* Number of discarded printf because of trace overflow */
 } BWL_POST_PACKED_STRUCT msgtrace_hdr_t;
 
-#define MSGTRACE_HDRLEN	sizeof(msgtrace_hdr_t)
+#define MSGTRACE_HDRLEN		sizeof(msgtrace_hdr_t)
 
 /* The hbus driver generates traces when sending a trace message. This causes endless traces.
  * This flag must be set to TRUE in any hbus traces. The flag is reset in the function msgtrace_put.

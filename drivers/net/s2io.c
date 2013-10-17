@@ -81,7 +81,6 @@
 #include <linux/prefetch.h>
 #include <net/tcp.h>
 
-#include <asm/system.h>
 #include <asm/div64.h>
 #include <asm/irq.h>
 
@@ -4111,7 +4110,7 @@ static netdev_tx_t s2io_xmit(struct sk_buff *skb, struct net_device *dev)
 			struct tcphdr *th;
 			ip = ip_hdr(skb);
 
-			if ((ip->frag_off & htons(IP_OFFSET|IP_MF)) == 0) {
+			if (!ip_is_fragment(ip)) {
 				th = (struct tcphdr *)(((unsigned char *)ip) +
 						       ip->ihl*4);
 

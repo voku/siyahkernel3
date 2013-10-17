@@ -41,12 +41,18 @@ struct callchain_param;
 typedef void (*sort_chain_func_t)(struct rb_root *, struct callchain_root *,
 				 u64, struct callchain_param *);
 
+enum chain_key {
+	CCKEY_FUNCTION,
+	CCKEY_ADDRESS
+};
+
 struct callchain_param {
 	enum chain_mode 	mode;
 	u32			print_limit;
 	double			min_percent;
 	sort_chain_func_t	sort;
 	enum chain_order	order;
+	enum chain_key		key;
 };
 
 struct callchain_list {
@@ -58,7 +64,7 @@ struct callchain_list {
 /*
  * A callchain cursor is a single linked list that
  * let one feed a callchain progressively.
- * It keeps persitent allocated entries to minimize
+ * It keeps persistent allocated entries to minimize
  * allocations.
  */
 struct callchain_cursor_node {
@@ -75,6 +81,8 @@ struct callchain_cursor {
 	u64				pos;
 	struct callchain_cursor_node	*curr;
 };
+
+extern __thread struct callchain_cursor callchain_cursor;
 
 static inline void callchain_init(struct callchain_root *root)
 {
@@ -101,8 +109,6 @@ int callchain_append(struct callchain_root *root,
 int callchain_merge(struct callchain_cursor *cursor,
 		    struct callchain_root *dst, struct callchain_root *src);
 
-bool ip_callchain__valid(struct ip_callchain *chain,
-			 const union perf_event *event);
 /*
  * Initialize a cursor before adding entries inside, but keep
  * the previously allocated entries as a cache.
@@ -138,4 +144,9 @@ static inline void callchain_cursor_advance(struct callchain_cursor *cursor)
 	cursor->curr = cursor->curr->next;
 	cursor->pos++;
 }
+
+struct option;
+
+int record_parse_callchain_opt(const struct option *opt, const char *arg, int unset);
+extern const char record_callchain_help[];
 #endif	/* __PERF_CALLCHAIN_H */

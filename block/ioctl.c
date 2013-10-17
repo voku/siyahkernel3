@@ -155,7 +155,7 @@ static int blkdev_reread_part(struct block_device *bdev)
 	struct gendisk *disk = bdev->bd_disk;
 	int res;
 
-	if (!disk_part_scan_enabled(disk) || bdev != bdev->bd_contains)	
+	if (!disk_part_scan_enabled(disk) || bdev != bdev->bd_contains)
 		return -EINVAL;
 	if (!capable(CAP_SYS_ADMIN))
 		return -EACCES;
@@ -183,6 +183,22 @@ static int blk_ioctl_discard(struct block_device *bdev, uint64_t start,
 	if (secure)
 		flags |= BLKDEV_DISCARD_SECURE;
 	return blkdev_issue_discard(bdev, start, len, GFP_KERNEL, flags);
+}
+
+static int blk_ioctl_zeroout(struct block_device *bdev, uint64_t start,
+			     uint64_t len)
+{
+	if (start & 511)
+		return -EINVAL;
+	if (len & 511)
+		return -EINVAL;
+	start >>= 9;
+	len >>= 9;
+
+	if (start + len > (i_size_read(bdev->bd_inode) >> 9))
+		return -EINVAL;
+
+	return blkdev_issue_zeroout(bdev, start, len, GFP_KERNEL);
 }
 
 static int put_ushort(unsigned long arg, unsigned short val)
@@ -299,6 +315,17 @@ int blkdev_ioctl(struct block_device *bdev, fmode_t mode, unsigned cmd,
 
 		return blk_ioctl_discard(bdev, range[0], range[1],
 					 cmd == BLKSECDISCARD);
+	}
+	case BLKZEROOUT: {
+		uint64_t range[2];
+
+		if (!(mode & FMODE_WRITE))
+			return -EBADF;
+
+		if (copy_from_user(range, (void __user *)arg, sizeof(range)))
+			return -EFAULT;
+
+		return blk_ioctl_zeroout(bdev, range[0], range[1]);
 	}
 
 	case HDIO_GETGEO: {

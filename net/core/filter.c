@@ -33,7 +33,6 @@
 #include <net/sock.h>
 #include <linux/errno.h>
 #include <linux/timer.h>
-#include <asm/system.h>
 #include <asm/uaccess.h>
 #include <asm/unaligned.h>
 #include <linux/filter.h>
@@ -526,7 +525,7 @@ int sk_chk_filter(struct sock_filter *filter, int flen)
 			 * Compare this with conditional jumps below,
 			 * where offsets are limited. --ANK (981016)
 			 */
-			if (ftest->k >= (unsigned)(flen-pc-1))
+			if (ftest->k >= (unsigned int)(flen-pc-1))
 				return -EINVAL;
 			break;
 		case BPF_S_JMP_JEQ_K:
@@ -645,7 +644,7 @@ int sk_detach_filter(struct sock *sk)
 	filter = rcu_dereference_protected(sk->sk_filter,
 					   sock_owned_by_user(sk));
 	if (filter) {
-		rcu_assign_pointer(sk->sk_filter, NULL);
+		RCU_INIT_POINTER(sk->sk_filter, NULL);
 		sk_filter_uncharge(sk, filter);
 		ret = 0;
 	}

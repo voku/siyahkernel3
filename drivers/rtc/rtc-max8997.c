@@ -12,6 +12,7 @@
  *
  */
 
+#include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/rtc.h>
 #include <linux/delay.h>
@@ -629,7 +630,7 @@ static int max8997_rtc_init_reg(struct max8997_rtc_info *info)
 	return ret;
 }
 
-static int __devinit max8997_rtc_probe(struct platform_device *pdev)
+static int max8997_rtc_probe(struct platform_device *pdev)
 {
 	struct max8997_dev *max8997 = dev_get_drvdata(pdev->dev.parent);
 	struct max8997_rtc_info *info;
@@ -699,7 +700,7 @@ out:
 	return ret;
 }
 
-static int __devexit max8997_rtc_remove(struct platform_device *pdev)
+static int max8997_rtc_remove(struct platform_device *pdev)
 {
 	struct max8997_rtc_info *info = platform_get_drvdata(pdev);
 
@@ -745,7 +746,7 @@ static struct platform_driver max8997_rtc_driver = {
 		.owner	= THIS_MODULE,
 	},
 	.probe		= max8997_rtc_probe,
-	.remove		= __devexit_p(max8997_rtc_remove),
+	.remove		= max8997_rtc_remove,
 	.shutdown	= max8997_rtc_shutdown,
 	.id_table	= rtc_id,
 };

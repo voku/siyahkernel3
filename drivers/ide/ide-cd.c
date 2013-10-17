@@ -43,7 +43,6 @@
 /* For SCSI -> ATAPI command conversion */
 #include <scsi/scsi.h>
 
-#include <linux/irq.h>
 #include <linux/io.h>
 #include <asm/byteorder.h>
 #include <linux/uaccess.h>
@@ -1409,7 +1408,7 @@ static int idecd_capacity_proc_show(struct seq_file *m, void *v)
 
 static int idecd_capacity_proc_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, idecd_capacity_proc_show, PDE(inode)->data);
+	return single_open(file, idecd_capacity_proc_show, PDE_DATA(inode));
 }
 
 static const struct file_operations idecd_capacity_proc_fops = {

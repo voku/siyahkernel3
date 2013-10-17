@@ -75,6 +75,7 @@
 #include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/init.h>
+#include <linux/interrupt.h>
 #include <linux/vmalloc.h>
 #include <linux/ioport.h>
 #include <linux/pci.h>
@@ -98,7 +99,6 @@
 #include <net/checksum.h>
 
 #include <linux/atomic.h>
-#include <asm/system.h>
 #include <asm/io.h>
 #include <asm/byteorder.h>
 #include <asm/uaccess.h>

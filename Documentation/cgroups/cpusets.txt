@@ -180,7 +180,7 @@ files describing that cpuset:
  - cpuset.sched_load_balance flag: if set, load balance within CPUs on that cpuset
  - cpuset.sched_relax_domain_level: the searching range when migrating tasks
 
-In addition, the root cpuset only has the following file:
+In addition, only the root cpuset has the following file:
  - cpuset.memory_pressure_enabled flag: compute memory_pressure?
 
 New cpusets are created using the mkdir system call or shell
@@ -373,7 +373,7 @@ can become very uneven.
 1.7 What is sched_load_balance ?
 --------------------------------
 
-The kernel scheduler (kernel/sched.c) automatically load balances
+The kernel scheduler (kernel/sched/core.c) automatically load balances
 tasks.  If one CPU is underutilized, kernel code running on that
 CPU will look for tasks on other more overloaded CPUs and move those
 tasks to itself, within the constraints of such placement mechanisms

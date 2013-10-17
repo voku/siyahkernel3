@@ -16,18 +16,18 @@
  * Inc.,  51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 #include "xfs.h"
+#include "xfs_log.h"
 #include "xfs_bmap_btree.h"
 #include "xfs_inum.h"
 #include "xfs_dinode.h"
 #include "xfs_inode.h"
 #include "xfs_ag.h"
-#include "xfs_log.h"
 #include "xfs_trans.h"
 #include "xfs_sb.h"
 #include "xfs_mount.h"
 #include "xfs_bmap.h"
+#include "xfs_bmap_util.h"
 #include "xfs_alloc.h"
-#include "xfs_utils.h"
 #include "xfs_mru_cache.h"
 #include "xfs_filestream.h"
 #include "xfs_trace.h"
@@ -344,9 +344,9 @@ _xfs_filestream_update_ag(
 	 * Either ip is a regular file and pip is a directory, or ip is a
 	 * directory and pip is NULL.
 	 */
-	ASSERT(ip && (((ip->i_d.di_mode & S_IFREG) && pip &&
-	               (pip->i_d.di_mode & S_IFDIR)) ||
-	              ((ip->i_d.di_mode & S_IFDIR) && !pip)));
+	ASSERT(ip && ((S_ISREG(ip->i_d.di_mode) && pip &&
+	               S_ISDIR(pip->i_d.di_mode)) ||
+	              (S_ISDIR(ip->i_d.di_mode) && !pip)));
 
 	mp = ip->i_mount;
 	cache = mp->m_filestream;
@@ -537,7 +537,7 @@ xfs_filestream_lookup_ag(
 	xfs_agnumber_t	ag;
 	int		ref;
 
-	if (!(ip->i_d.di_mode & (S_IFREG | S_IFDIR))) {
+	if (!S_ISREG(ip->i_d.di_mode) && !S_ISDIR(ip->i_d.di_mode)) {
 		ASSERT(0);
 		return NULLAGNUMBER;
 	}
@@ -579,9 +579,9 @@ xfs_filestream_associate(
 	xfs_agnumber_t	ag, rotorstep, startag;
 	int		err = 0;
 
-	ASSERT(pip->i_d.di_mode & S_IFDIR);
-	ASSERT(ip->i_d.di_mode & S_IFREG);
-	if (!(pip->i_d.di_mode & S_IFDIR) || !(ip->i_d.di_mode & S_IFREG))
+	ASSERT(S_ISDIR(pip->i_d.di_mode));
+	ASSERT(S_ISREG(ip->i_d.di_mode));
+	if (!S_ISDIR(pip->i_d.di_mode) || !S_ISREG(ip->i_d.di_mode))
 		return -EINVAL;
 
 	mp = pip->i_mount;
@@ -668,8 +668,8 @@ exit:
  */
 int
 xfs_filestream_new_ag(
-	xfs_bmalloca_t	*ap,
-	xfs_agnumber_t	*agp)
+	struct xfs_bmalloca	*ap,
+	xfs_agnumber_t		*agp)
 {
 	int		flags, err;
 	xfs_inode_t	*ip, *pip = NULL;
@@ -682,7 +682,7 @@ xfs_filestream_new_ag(
 	ip = ap->ip;
 	mp = ip->i_mount;
 	cache = mp->m_filestream;
-	minlen = ap->alen;
+	minlen = ap->length;
 	*agp = NULLAGNUMBER;
 
 	/*
@@ -761,7 +761,7 @@ xfs_filestream_new_ag(
 	 */
 	ag = (ag == NULLAGNUMBER) ? 0 : (ag + 1) % mp->m_sb.sb_agcount;
 	flags = (ap->userdata ? XFS_PICK_USERDATA : 0) |
-	        (ap->low ? XFS_PICK_LOWSPACE : 0);
+	        (ap->flist->xbf_low ? XFS_PICK_LOWSPACE : 0);
 
 	err = _xfs_filestream_pick_ag(mp, ag, agp, flags, minlen);
 	if (err || *agp == NULLAGNUMBER)

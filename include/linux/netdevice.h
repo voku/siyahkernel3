@@ -35,7 +35,6 @@
 #include <linux/timer.h>
 #include <linux/bug.h>
 #include <linux/delay.h>
-#include <linux/mm.h>
 #include <linux/atomic.h>
 #include <asm/cache.h>
 #include <asm/byteorder.h>
@@ -61,11 +60,6 @@ struct wireless_dev;
 					/* source back-compat hooks */
 #define SET_ETHTOOL_OPS(netdev,ops) \
 	( (netdev)->ethtool_ops = (ops) )
-
-#define HAVE_ALLOC_NETDEV		/* feature macro: alloc_xxxdev
-					   functions are available. */
-#define HAVE_FREE_NETDEV		/* free_netdev() */
-#define HAVE_NETDEV_PRIV		/* netdev_priv() */
 
 /* hardware address assignment types */
 #define NET_ADDR_PERM		0	/* address is permanent (default) */
@@ -219,6 +213,11 @@ enum {
 #include <linux/cache.h>
 #include <linux/skbuff.h>
 
+#ifdef CONFIG_RPS
+#include <linux/static_key.h>
+extern struct static_key rps_needed;
+#endif
+
 struct neighbour;
 struct neigh_parms;
 struct sk_buff;
@@ -259,20 +258,8 @@ struct netdev_hw_addr_list {
 	netdev_hw_addr_list_for_each(ha, &(dev)->mc)
 
 struct hh_cache {
-	struct hh_cache *hh_next;	/* Next entry			     */
-	atomic_t	hh_refcnt;	/* number of users                   */
-/*
- * We want hh_output, hh_len, hh_lock and hh_data be a in a separate
- * cache line on SMP.
- * They are mostly read, but hh_refcnt may be changed quite frequently,
- * incurring cache line ping pongs.
- */
-	__be16		hh_type ____cacheline_aligned_in_smp;
-					/* protocol identifier, f.e ETH_P_IP
-                                         *  NOTE:  For VLANs, this will be the
-                                         *  encapuslated type. --BLG
-                                         */
-	u16		hh_len;		/* length of header */
+	u16		hh_len;
+	u16		__pad;
 	int		(*hh_output)(struct sk_buff *skb);
 	seqlock_t	hh_lock;
 
@@ -284,12 +271,6 @@ struct hh_cache {
 	(((__len)+(HH_DATA_MOD-1))&~(HH_DATA_MOD - 1))
 	unsigned long	hh_data[HH_DATA_ALIGN(LL_MAX_HEADER) / sizeof(long)];
 };
-
-static inline void hh_cache_put(struct hh_cache *hh)
-{
-	if (atomic_dec_and_test(&hh->hh_refcnt))
-		kfree(hh);
-}
 
 /* Reserve HH_DATA_MOD byte aligned hard_header_len, but at least that much.
  * Alternative is:
@@ -312,11 +293,10 @@ static inline void hh_cache_put(struct hh_cache *hh)
 struct header_ops {
 	int	(*create) (struct sk_buff *skb, struct net_device *dev,
 			   unsigned short type, const void *daddr,
-			   const void *saddr, unsigned len);
+			   const void *saddr, unsigned int len);
 	int	(*parse)(const struct sk_buff *skb, unsigned char *haddr);
 	int	(*rebuild)(struct sk_buff *skb);
-#define HAVE_HEADER_CACHE
-	int	(*cache)(const struct neighbour *neigh, struct hh_cache *hh);
+	int	(*cache)(const struct neighbour *neigh, struct hh_cache *hh, __be16 type);
 	void	(*cache_update)(struct hh_cache *hh,
 				const struct net_device *dev,
 				const unsigned char *haddr);
@@ -889,7 +869,6 @@ struct netdev_tc_txq {
  *	Must return >0 or -errno if it changed dev->features itself.
  *
  */
-#define HAVE_NET_DEVICE_OPS
 struct net_device_ops {
 	int			(*ndo_init)(struct net_device *dev);
 	void			(*ndo_uninit)(struct net_device *dev);
@@ -931,6 +910,9 @@ struct net_device_ops {
 	int			(*ndo_netpoll_setup)(struct net_device *dev,
 						     struct netpoll_info *info);
 	void			(*ndo_netpoll_cleanup)(struct net_device *dev);
+#endif
+#ifdef CONFIG_NET_LL_RX_POLL
+	int			(*ndo_ll_poll)(struct napi_struct *dev);
 #endif
 	int			(*ndo_set_vf_mac)(struct net_device *dev,
 						  int queue, u8 *mac);
@@ -1345,9 +1327,6 @@ struct net_device {
 	/* max exchange id for FCoE LRO by ddp */
 	unsigned int		fcoe_ddp_xid;
 #endif
-	/* n-tuple filter list attached to this device */
-	struct ethtool_rx_ntuple_list ethtool_ntuple_list;
-
 	/* phy device may attach itself for hardware timestamping */
 	struct phy_device *phydev;
 
@@ -1551,7 +1530,6 @@ struct packet_type {
 	struct list_head	list;
 };
 
-#include <linux/interrupt.h>
 #include <linux/notifier.h>
 
 /* netdevice notifier chain. Please remember to update the rtnetlink
@@ -1734,7 +1712,7 @@ static inline void *skb_gro_network_header(struct sk_buff *skb)
 static inline int dev_hard_header(struct sk_buff *skb, struct net_device *dev,
 				  unsigned short type,
 				  const void *daddr, const void *saddr,
-				  unsigned len)
+				  unsigned int len)
 {
 	if (!dev->header_ops || !dev->header_ops->create)
 		return 0;
@@ -1785,7 +1763,7 @@ struct softnet_data {
 	unsigned int		input_queue_head;
 	unsigned int		input_queue_tail;
 #endif
-	unsigned		dropped;
+	unsigned int		dropped;
 	struct sk_buff_head	input_pkt_queue;
 	struct napi_struct	backlog;
 };
@@ -1806,8 +1784,6 @@ static inline void input_queue_tail_incr_save(struct softnet_data *sd,
 }
 
 DECLARE_PER_CPU_ALIGNED(struct softnet_data, softnet_data);
-
-#define HAVE_NETIF_QUEUE
 
 extern void __netif_schedule(struct Qdisc *q);
 
@@ -2084,10 +2060,8 @@ extern void dev_kfree_skb_irq(struct sk_buff *skb);
  */
 extern void dev_kfree_skb_any(struct sk_buff *skb);
 
-#define HAVE_NETIF_RX 1
 extern int		netif_rx(struct sk_buff *skb);
 extern int		netif_rx_ni(struct sk_buff *skb);
-#define HAVE_NETIF_RECEIVE_SKB 1
 extern int		netif_receive_skb(struct sk_buff *skb);
 extern gro_result_t	dev_gro_receive(struct napi_struct *napi,
 					struct sk_buff *skb);
@@ -2116,9 +2090,9 @@ extern void netdev_rx_handler_unregister(struct net_device *dev);
 extern int		dev_valid_name(const char *name);
 extern int		dev_ioctl(struct net *net, unsigned int cmd, void __user *);
 extern int		dev_ethtool(struct net *net, struct ifreq *);
-extern unsigned		dev_get_flags(const struct net_device *);
+extern unsigned int	dev_get_flags(const struct net_device *);
 extern int		__dev_change_flags(struct net_device *, unsigned int flags);
-extern int		dev_change_flags(struct net_device *, unsigned);
+extern int		dev_change_flags(struct net_device *, unsigned int);
 extern void		__dev_notify_flags(struct net_device *, unsigned int old_flags);
 extern int		dev_change_name(struct net_device *, const char *);
 extern int		dev_set_alias(struct net_device *, const char *, size_t);
@@ -2267,7 +2241,6 @@ extern void netif_device_attach(struct net_device *dev);
 /*
  * Network interface message level settings
  */
-#define HAVE_NETIF_MSG 1
 
 enum {
 	NETIF_MSG_DRV		= 0x0001,
@@ -2677,15 +2650,15 @@ int netdev_info(const struct net_device *dev, const char *format, ...);
 #define MODULE_ALIAS_NETDEV(device) \
 	MODULE_ALIAS("netdev-" device)
 
-#if defined(DEBUG)
-#define netdev_dbg(__dev, format, args...)			\
-	netdev_printk(KERN_DEBUG, __dev, format, ##args)
-#elif defined(CONFIG_DYNAMIC_DEBUG)
+#if defined(CONFIG_DYNAMIC_DEBUG)
 #define netdev_dbg(__dev, format, args...)			\
 do {								\
 	dynamic_dev_dbg((__dev)->dev.parent, "%s: " format,	\
 			netdev_name(__dev), ##args);		\
 } while (0)
+#elif defined(DEBUG)
+#define netdev_dbg(__dev, format, args...)			\
+	netdev_printk(KERN_DEBUG, __dev, format, ##args)
 #else
 #define netdev_dbg(__dev, format, args...)			\
 ({								\

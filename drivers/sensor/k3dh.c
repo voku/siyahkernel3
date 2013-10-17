@@ -828,7 +828,7 @@ MODULE_DEVICE_TABLE(i2c, k3dh_id);
 static struct i2c_driver k3dh_driver = {
 	.probe = k3dh_probe,
 	.shutdown = k3dh_shutdown,
-	.remove = __devexit_p(k3dh_remove),
+	.remove = k3dh_remove,
 	.id_table = k3dh_id,
 	.driver = {
 		.pm = &k3dh_pm_ops,

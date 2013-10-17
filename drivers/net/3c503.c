@@ -49,11 +49,11 @@ static const char version[] =
 #include <linux/netdevice.h>
 #include <linux/etherdevice.h>
 #include <linux/init.h>
+#include <linux/interrupt.h>
 #include <linux/ethtool.h>
 
 #include <asm/uaccess.h>
 #include <asm/io.h>
-#include <asm/system.h>
 #include <asm/byteorder.h>
 
 #include "8390.h"

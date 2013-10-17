@@ -491,6 +491,37 @@ int genl_unregister_family(struct genl_family *family)
 }
 EXPORT_SYMBOL(genl_unregister_family);
 
+/**
+ * genlmsg_put - Add generic netlink header to netlink message
+ * @skb: socket buffer holding the message
+ * @pid: netlink pid the message is addressed to
+ * @seq: sequence number (usually the one of the sender)
+ * @family: generic netlink family
+ * @flags netlink message flags
+ * @cmd: generic netlink command
+ *
+ * Returns pointer to user specific header
+ */
+void *genlmsg_put(struct sk_buff *skb, u32 pid, u32 seq,
+				struct genl_family *family, int flags, u8 cmd)
+{
+	struct nlmsghdr *nlh;
+	struct genlmsghdr *hdr;
+
+	nlh = nlmsg_put(skb, pid, seq, family->id, GENL_HDRLEN +
+			family->hdrsize, flags);
+	if (nlh == NULL)
+		return NULL;
+
+	hdr = nlmsg_data(nlh);
+	hdr->cmd = cmd;
+	hdr->version = family->version;
+	hdr->reserved = 0;
+
+	return (char *) hdr + GENL_HDRLEN;
+}
+EXPORT_SYMBOL(genlmsg_put);
+
 static int genl_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
 {
 	struct genl_ops *ops;
@@ -525,8 +556,13 @@ static int genl_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
 			return -EOPNOTSUPP;
 
 		genl_unlock();
-		err = netlink_dump_start(net->genl_sock, skb, nlh,
-					 ops->dumpit, ops->done, 0);
+		{
+			struct netlink_dump_control c = {
+				.dump = ops->dumpit,
+				.done = ops->done,
+			};
+			err = netlink_dump_start(net->genl_sock, skb, nlh, &c);
+		}
 		genl_lock();
 		return err;
 	}
@@ -858,10 +894,13 @@ static struct genl_multicast_group notify_grp = {
 
 static int __net_init genl_pernet_init(struct net *net)
 {
+	struct netlink_kernel_cfg cfg = {
+		.input		= genl_rcv,
+		.cb_mutex	= &genl_mutex,
+	};
+
 	/* we'll bump the group number right afterwards */
-	net->genl_sock = netlink_kernel_create(net, NETLINK_GENERIC, 0,
-					       genl_rcv, &genl_mutex,
-					       THIS_MODULE);
+	net->genl_sock = netlink_kernel_create(net, NETLINK_GENERIC, &cfg);
 
 	if (!net->genl_sock && net_eq(net, &init_net))
 		panic("GENL: Cannot initialize generic netlink\n");

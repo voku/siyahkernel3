@@ -91,7 +91,7 @@ static const struct file_operations vlan_fops = {
 
 static int vlandev_seq_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, vlandev_seq_show, PDE(inode)->data);
+	return single_open(file, vlandev_seq_show, PDE_DATA(inode));
 }
 
 static const struct file_operations vlandev_fops = {
@@ -182,14 +182,9 @@ int vlan_proc_add_dev(struct net_device *vlandev)
  */
 int vlan_proc_rem_dev(struct net_device *vlandev)
 {
-	struct vlan_net *vn = net_generic(dev_net(vlandev), vlan_net_id);
-
 	/** NOTE:  This will consume the memory pointed to by dent, it seems. */
-	if (vlan_dev_info(vlandev)->dent) {
-		remove_proc_entry(vlan_dev_info(vlandev)->dent->name,
-				  vn->proc_vlan_dir);
-		vlan_dev_info(vlandev)->dent = NULL;
-	}
+	proc_remove(vlan_dev_priv(vlandev)->dent);
+	vlan_dev_priv(vlandev)->dent = NULL;
 	return 0;
 }
 
@@ -229,7 +224,7 @@ static void *vlan_seq_next(struct seq_file *seq, void *v, loff_t *pos)
 
 	++*pos;
 
-	dev = (struct net_device *)v;
+	dev = v;
 	if (v == SEQ_START_TOKEN)
 		dev = net_device_entry(&net->dev_base_head);
 

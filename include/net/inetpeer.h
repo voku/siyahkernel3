@@ -32,7 +32,6 @@ struct inet_peer {
 	struct inet_peer __rcu	*avl_left, *avl_right;
 	struct inetpeer_addr	daddr;
 	__u32			avl_height;
-	struct list_head	unused;
 	__u32			dtime;		/* the time of last use of not
 						 * referenced entries */
 	atomic_t		refcnt;
@@ -56,6 +55,7 @@ struct inet_peer {
 			struct inetpeer_addr_base	redirect_learned;
 		};
 		struct rcu_head         rcu;
+		struct inet_peer	*gc_next;
 	};
 };
 
@@ -84,7 +84,7 @@ static inline struct inet_peer *inet_getpeer_v6(const struct in6_addr *v6daddr, 
 {
 	struct inetpeer_addr daddr;
 
-	ipv6_addr_copy((struct in6_addr *)daddr.addr.a6, v6daddr);
+	*(struct in6_addr *)daddr.addr.a6 = *v6daddr;
 	daddr.family = AF_INET6;
 	return inet_getpeer(&daddr, create);
 }

@@ -94,9 +94,8 @@ protected.
 ---
 [mandatory]
 
-BKL is also moved from around sb operations.  ->write_super() Is now called 
-without BKL held.  BKL should have been shifted into individual fs sb_op
-functions.  If you don't need it, remove it.  
+BKL is also moved from around sb operations. BKL should have been shifted into
+individual fs sb_op functions.  If you don't need it, remove it.
 
 ---
 [informational]
@@ -282,7 +281,7 @@ ext2_write_failed and callers for an example.
 
 [mandatory]
 
-	->truncate is going away.  The whole truncate sequence needs to be
+	->truncate is gone.  The whole truncate sequence needs to be
 implemented in ->setattr, which is now mandatory for filesystems
 implementing on-disk size changes.  Start with a copy of the old inode_setattr
 and vmtruncate, and the reorder the vmtruncate + foofs_vmtruncate sequence to
@@ -355,12 +354,10 @@ protects *all* the dcache state of a given dentry.
 via rcu-walk path walk (basically, if the file can have had a path name in the
 vfs namespace).
 
-	i_dentry and i_rcu share storage in a union, and the vfs expects
-i_dentry to be reinitialized before it is freed, so an:
-
-  INIT_LIST_HEAD(&inode->i_dentry);
-
-must be done in the RCU callback.
+	Even though i_dentry and i_rcu share storage in a union, we will
+initialize the former in inode_init_always(), so just leave it alone in
+the callback.  It used to be necessary to clean it there, but not anymore
+(starting at 3.2).
 
 --
 [recommended]
@@ -398,9 +395,6 @@ a file off.
 
 --
 [mandatory]
-
---
-[mandatory]
 	->get_sb() is gone.  Switch to use of ->mount().  Typically it's just
 a matter of switching from calling get_sb_... to mount_... and changing the
 function type.  If you were doing it manually, just switch from setting ->mnt_root
@@ -408,10 +402,11 @@ to some pointer to returning that pointer.  On errors return ERR_PTR(...).
 
 --
 [mandatory]
-	->permission(), generic_permission() and ->check_acl() have lost flags
+	->permission() and generic_permission()have lost flags
 argument; instead of passing IPERM_FLAG_RCU we add MAY_NOT_BLOCK into mask.
-	generic_permission() has also lost the check_acl argument; if you want
-non-NULL to be used for that inode, put it into ->i_op->check_acl.
+	generic_permission() has also lost the check_acl argument; ACL checking
+has been taken to VFS and filesystems need to provide a non-NULL ->i_op->get_acl
+to read an ACL from disk.
 
 --
 [mandatory]
@@ -438,5 +433,25 @@ d_make_root() drops the reference to inode if dentry allocation fails.
 
 --
 [mandatory]
-	The witch is dead!  Well, 1/3 of it, anyway.  ->d_revalidate() does *not*
-take struct nameidata anymore; just the flags.
+	The witch is dead!  Well, 2/3 of it, anyway.  ->d_revalidate() and
+->lookup() do *not* take struct nameidata anymore; just the flags.
+--
+[mandatory]
+	->create() doesn't take struct nameidata *; unlike the previous
+two, it gets "is it an O_EXCL or equivalent?" boolean argument.  Note that
+local filesystems can ignore tha argument - they are guaranteed that the
+object doesn't exist.  It's remote/distributed ones that might care...
+--
+[mandatory]
+	FS_REVAL_DOT is gone; if you used to have it, add ->d_weak_revalidate()
+in your dentry operations instead.
+--
+[mandatory]
+	vfs_readdir() is gone; switch to iterate_dir() instead
+--
+[mandatory]
+	->readdir() is gone now; switch to ->iterate()
+[mandatory]
+	vfs_follow_link has been removed.  Filesystems must use nd_set_link
+	from ->follow_link for normal symlinks, or nd_jump_link for magic
+	/proc/<pid> style links.

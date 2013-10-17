@@ -188,19 +188,19 @@ struct file_operations pmem_fops = {
 
 static int get_id(struct file *file)
 {
-	return MINOR(file->f_dentry->d_inode->i_rdev);
+	return MINOR(file_inode(file)->i_rdev);
 }
 
 int is_pmem_file(struct file *file)
 {
 	int id;
 
-	if (unlikely(!file || !file->f_dentry || !file->f_dentry->d_inode))
+	if (unlikely(!file || !file->f_dentry || !file_inode(file)))
 		return 0;
 	id = get_id(file);
 	if (unlikely(id >= PMEM_MAX_DEVICES))
 		return 0;
-	if (unlikely(file->f_dentry->d_inode->i_rdev !=
+	if (unlikely(file_inode(file)->i_rdev !=
 	     MKDEV(MISC_MAJOR, pmem[id].dev.minor)))
 		return 0;
 	return 1;
@@ -1190,12 +1190,6 @@ static long pmem_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 }
 
 #if PMEM_DEBUG
-static ssize_t debug_open(struct inode *inode, struct file *file)
-{
-	file->private_data = inode->i_private;
-	return 0;
-}
-
 static ssize_t debug_read(struct file *file, char __user *buf, size_t count,
 			  loff_t *ppos)
 {
@@ -1237,7 +1231,7 @@ static ssize_t debug_read(struct file *file, char __user *buf, size_t count,
 
 static struct file_operations debug_fops = {
 	.read = debug_read,
-	.open = debug_open,
+	.open = simple_open,
 };
 #endif
 

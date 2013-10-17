@@ -73,7 +73,7 @@ static inline void free_ea_wmap(struct inode *inode)
  *
  */
 static int jfs_create(struct inode *dip, struct dentry *dentry, umode_t mode,
-		struct nameidata *nd)
+		bool excl)
 {
 	int rc = 0;
 	tid_t tid;		/* transaction id */
@@ -176,8 +176,8 @@ static int jfs_create(struct inode *dip, struct dentry *dentry, umode_t mode,
 		unlock_new_inode(ip);
 		iput(ip);
 	} else {
-		d_instantiate(dentry, ip);
 		unlock_new_inode(ip);
+		d_instantiate(dentry, ip);
 	}
 
       out2:
@@ -309,8 +309,8 @@ static int jfs_mkdir(struct inode *dip, struct dentry *dentry, umode_t mode)
 		unlock_new_inode(ip);
 		iput(ip);
 	} else {
-		d_instantiate(dentry, ip);
 		unlock_new_inode(ip);
+		d_instantiate(dentry, ip);
 	}
 
       out2:
@@ -884,7 +884,7 @@ static int jfs_symlink(struct inode *dip, struct dentry *dentry,
 	unchar *i_fastsymlink;
 	s64 xlen = 0;
 	int bmask = 0, xsize;
-	s64 extent = 0, xaddr;
+	s64 xaddr;
 	struct metapage *mp;
 	struct super_block *sb;
 	struct tblock *tblk;
@@ -984,7 +984,6 @@ static int jfs_symlink(struct inode *dip, struct dentry *dentry,
 			txAbort(tid, 0);
 			goto out3;
 		}
-		extent = xaddr;
 		ip->i_size = ssize - 1;
 		while (ssize) {
 			/* This is kind of silly since PATH_MAX == 4K */
@@ -1044,8 +1043,8 @@ static int jfs_symlink(struct inode *dip, struct dentry *dentry,
 		unlock_new_inode(ip);
 		iput(ip);
 	} else {
-		d_instantiate(dentry, ip);
 		unlock_new_inode(ip);
+		d_instantiate(dentry, ip);
 	}
 
       out2:
@@ -1425,8 +1424,8 @@ static int jfs_mknod(struct inode *dir, struct dentry *dentry,
 		unlock_new_inode(ip);
 		iput(ip);
 	} else {
-		d_instantiate(dentry, ip);
 		unlock_new_inode(ip);
+		d_instantiate(dentry, ip);
 	}
 
       out1:
@@ -1437,39 +1436,30 @@ static int jfs_mknod(struct inode *dir, struct dentry *dentry,
 	return rc;
 }
 
-static struct dentry *jfs_lookup(struct inode *dip, struct dentry *dentry, struct nameidata *nd)
+static struct dentry *jfs_lookup(struct inode *dip, struct dentry *dentry, unsigned int flags)
 {
 	struct btstack btstack;
 	ino_t inum;
 	struct inode *ip;
 	struct component_name key;
-	const char *name = dentry->d_name.name;
-	int len = dentry->d_name.len;
 	int rc;
 
-	jfs_info("jfs_lookup: name = %s", name);
+	jfs_info("jfs_lookup: name = %s", dentry->d_name.name);
 
-	if ((name[0] == '.') && (len == 1))
-		inum = dip->i_ino;
-	else if (strcmp(name, "..") == 0)
-		inum = PARENT(dip);
-	else {
-		if ((rc = get_UCSname(&key, dentry)))
-			return ERR_PTR(rc);
-		rc = dtSearch(dip, &key, &inum, &btstack, JFS_LOOKUP);
-		free_UCSname(&key);
-		if (rc == -ENOENT) {
-			d_add(dentry, NULL);
-			return NULL;
-		} else if (rc) {
-			jfs_err("jfs_lookup: dtSearch returned %d", rc);
-			return ERR_PTR(rc);
-		}
+	if ((rc = get_UCSname(&key, dentry)))
+		return ERR_PTR(rc);
+	rc = dtSearch(dip, &key, &inum, &btstack, JFS_LOOKUP);
+	free_UCSname(&key);
+	if (rc == -ENOENT) {
+		ip = NULL;
+	} else if (rc) {
+		jfs_err("jfs_lookup: dtSearch returned %d", rc);
+		ip = ERR_PTR(rc);
+	} else {
+		ip = jfs_iget(dip->i_sb, inum);
+		if (IS_ERR(ip))
+			jfs_err("jfs_lookup: iget failed on inum %d", (uint)inum);
 	}
-
-	ip = jfs_iget(dip->i_sb, inum);
-	if (IS_ERR(ip))
-		jfs_err("jfs_lookup: iget failed on inum %d", (uint) inum);
 
 	return d_splice_alias(ip, dentry);
 }
@@ -1533,7 +1523,7 @@ const struct inode_operations jfs_dir_inode_operations = {
 	.removexattr	= jfs_removexattr,
 	.setattr	= jfs_setattr,
 #ifdef CONFIG_JFS_POSIX_ACL
-	.check_acl	= jfs_check_acl,
+	.get_acl	= jfs_get_acl,
 #endif
 };
 
@@ -1548,8 +1538,7 @@ const struct file_operations jfs_dir_operations = {
 	.llseek		= generic_file_llseek,
 };
 
-static int jfs_ci_hash(const struct dentry *dir, const struct inode *inode,
-		struct qstr *this)
+static int jfs_ci_hash(const struct dentry *dir, struct qstr *this)
 {
 	unsigned long hash;
 	int i;
@@ -1562,9 +1551,7 @@ static int jfs_ci_hash(const struct dentry *dir, const struct inode *inode,
 	return 0;
 }
 
-static int jfs_ci_compare(const struct dentry *parent,
-		const struct inode *pinode,
-		const struct dentry *dentry, const struct inode *inode,
+static int jfs_ci_compare(const struct dentry *parent, const struct dentry *dentry,
 		unsigned int len, const char *str, const struct qstr *name)
 {
 	int i, result = 1;
@@ -1582,8 +1569,6 @@ out:
 
 static int jfs_ci_revalidate(struct dentry *dentry, unsigned int flags)
 {
-	if (nd && nd->flags & LOOKUP_RCU)
-		return -ECHILD;
 	/*
 	 * This is not negative dentry. Always valid.
 	 *

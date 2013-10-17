@@ -152,10 +152,10 @@
 #include <linux/delay.h>
 #include <linux/slab.h>
 #include <linux/init.h>
+#include <linux/interrupt.h>
 #include <linux/pci.h>
 #include <linux/rtnetlink.h>
 
-#include <asm/system.h>
 #include <asm/io.h>
 
 #include <net/irda/wrapper.h>

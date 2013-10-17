@@ -23,7 +23,6 @@
 #include <linux/net.h>
 #include <linux/skbuff.h>
 #include <asm/uaccess.h>
-#include <asm/system.h>
 #include <net/sock.h>
 #include <net/netlink.h>
 #include <linux/init.h>
@@ -104,7 +103,7 @@ int nfnetlink_has_listeners(struct net *net, unsigned int group)
 EXPORT_SYMBOL_GPL(nfnetlink_has_listeners);
 
 int nfnetlink_send(struct sk_buff *skb, struct net *net, u32 pid,
-		   unsigned group, int echo, gfp_t flags)
+		   unsigned int group, int echo, gfp_t flags)
 {
 	return nlmsg_notify(net->nfnl, skb, pid, group, echo, flags);
 }
@@ -204,9 +203,12 @@ static void nfnetlink_rcv(struct sk_buff *skb)
 static int __net_init nfnetlink_net_init(struct net *net)
 {
 	struct sock *nfnl;
+	struct netlink_kernel_cfg cfg = {
+		.groups	= NFNLGRP_MAX,
+		.input	= nfnetlink_rcv,
+	};
 
-	nfnl = netlink_kernel_create(net, NETLINK_NETFILTER, NFNLGRP_MAX,
-				     nfnetlink_rcv, NULL, THIS_MODULE);
+	nfnl = netlink_kernel_create(net, NETLINK_NETFILTER, &cfg);
 	if (!nfnl)
 		return -ENOMEM;
 	net->nfnl_stash = nfnl;
@@ -219,7 +221,7 @@ static void __net_exit nfnetlink_net_exit_batch(struct list_head *net_exit_list)
 	struct net *net;
 
 	list_for_each_entry(net, net_exit_list, exit_list)
-		rcu_assign_pointer(net->nfnl, NULL);
+		RCU_INIT_POINTER(net->nfnl, NULL);
 	synchronize_net();
 	list_for_each_entry(net, net_exit_list, exit_list)
 		netlink_kernel_release(net->nfnl_stash);

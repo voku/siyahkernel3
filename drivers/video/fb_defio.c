@@ -69,7 +69,11 @@ static int fb_deferred_io_fault(struct vm_area_struct *vma,
 int fb_deferred_io_fsync(struct file *file, loff_t start, loff_t end, int datasync)
 {
 	struct fb_info *info = file->private_data;
+<<<<<<< HEAD
 	struct inode *inode = file_inode(file);
+=======
+	struct inode *inode = file->f_path.dentry->d_inode;
+>>>>>>> 02c24a8... fs: push i_mutex and filemap_write_and_wait down into ->fsync() handlers
 	int err = filemap_write_and_wait_range(inode->i_mapping, start, end);
 	if (err)
 		return err;

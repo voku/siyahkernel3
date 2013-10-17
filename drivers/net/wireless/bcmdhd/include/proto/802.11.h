@@ -493,7 +493,7 @@ typedef struct dot11_extcap dot11_extcap_t;
 
 
 #define DOT11_MEASURE_TYPE_BASIC	0
-#define DOT11_MEASURE_TYPE_CCA			1
+#define DOT11_MEASURE_TYPE_CCA		1
 #define DOT11_MEASURE_TYPE_RPI		2
 #define DOT11_MEASURE_TYPE_CHLOAD		3
 #define DOT11_MEASURE_TYPE_NOISE		4
@@ -509,9 +509,9 @@ typedef struct dot11_extcap dot11_extcap_t;
 #define DOT11_MEASURE_MODE_ENABLE	(1<<1)
 #define DOT11_MEASURE_MODE_REQUEST	(1<<2)
 #define DOT11_MEASURE_MODE_REPORT	(1<<3)
-#define DOT11_MEASURE_MODE_DUR		(1<<4)
+#define DOT11_MEASURE_MODE_DUR	(1<<4)
 
-#define DOT11_MEASURE_MODE_LATE	(1<<0)
+#define DOT11_MEASURE_MODE_LATE		(1<<0)
 #define DOT11_MEASURE_MODE_INCAPABLE	(1<<1)
 #define DOT11_MEASURE_MODE_REFUSED	(1<<2)
 
@@ -1068,7 +1068,7 @@ typedef struct ti_ie ti_ie_t;
 #define DOT11_MNG_HOPPING_PARMS_ID		8
 #define DOT11_MNG_HOPPING_TABLE_ID		9
 #define DOT11_MNG_REQUEST_ID			10
-#define DOT11_MNG_QBSS_LOAD_ID				11
+#define DOT11_MNG_QBSS_LOAD_ID			11
 #define DOT11_MNG_EDCA_PARAM_ID			12
 #define DOT11_MNG_CHALLENGE_ID			16
 #define DOT11_MNG_PWR_CONSTRAINT_ID		32
@@ -2527,7 +2527,7 @@ typedef struct mmic_ie mmic_ie_t;
 #define BSSID_BROADCAST         "\xFF\xFF\xFF\xFF\xFF\xFF"
 
 #ifdef BCMWAPI_WAI
-#define WAPI_IE_MIN_LEN	20
+#define WAPI_IE_MIN_LEN		20
 #define WAPI_VERSION		1
 #define WAPI_VERSION_LEN	2
 #define WAPI_OUI		"\x00\x14\x72"

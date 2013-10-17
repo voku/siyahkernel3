@@ -658,11 +658,11 @@ static inline u32 cxgbi_tag_nonrsvd_bits(struct cxgbi_tag_format *tformat,
 static inline void *cxgbi_alloc_big_mem(unsigned int size,
 					gfp_t gfp)
 {
-	void *p = kmalloc(size, gfp);
+	void *p = kzalloc(size, gfp | __GFP_NOWARN);
+
 	if (!p)
-		p = vmalloc(size);
-	if (p)
-		memset(p, 0, size);
+		p = vzalloc(size);
+
 	return p;
 }
 
@@ -709,6 +709,10 @@ int cxgbi_conn_xmit_pdu(struct iscsi_task *);
 
 void cxgbi_cleanup_task(struct iscsi_task *task);
 
+<<<<<<< HEAD
+=======
+umode_t cxgbi_attr_is_visible(int param_type, int param);
+>>>>>>> 587a1f1... switch ->is_visible() to returning umode_t
 void cxgbi_get_conn_stats(struct iscsi_cls_conn *, struct iscsi_stats *);
 int cxgbi_set_conn_param(struct iscsi_cls_conn *,
 			enum iscsi_param, char *, int);

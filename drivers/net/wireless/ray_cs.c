@@ -53,7 +53,6 @@
 #include <net/iw_handler.h>
 
 #include <asm/io.h>
-#include <asm/system.h>
 #include <asm/byteorder.h>
 #include <asm/uaccess.h>
 
@@ -2770,7 +2769,7 @@ static ssize_t int_proc_write(struct file *file, const char __user *buffer,
 		nr = nr * 10 + c;
 		p++;
 	} while (--len);
-	*(int *)PDE(file_inode(file))->data = nr;
+	*(int *)PDE_DATA(file_inode(file)) = nr;
 	return count;
 }
 

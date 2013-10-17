@@ -23,11 +23,19 @@
  * Authors: Dave Airlie
  *          Alex Deucher
  */
-#include "drmP.h"
-#include "drm_crtc_helper.h"
-#include "radeon_drm.h"
+#include <drm/drmP.h>
+#include <drm/drm_crtc_helper.h>
+#include <drm/radeon_drm.h>
 #include "radeon.h"
 #include "atom.h"
+
+extern void
+radeon_legacy_backlight_init(struct radeon_encoder *radeon_encoder,
+			     struct drm_connector *drm_connector);
+extern void
+radeon_atom_backlight_init(struct radeon_encoder *radeon_encoder,
+			   struct drm_connector *drm_connector);
+
 
 static uint32_t radeon_encoder_clones(struct drm_encoder *encoder)
 {
@@ -153,6 +161,7 @@ radeon_get_encoder_enum(struct drm_device *dev, uint32_t supported_device, uint8
 void
 radeon_link_encoder_connector(struct drm_device *dev)
 {
+	struct radeon_device *rdev = dev->dev_private;
 	struct drm_connector *connector;
 	struct radeon_connector *radeon_connector;
 	struct drm_encoder *encoder;
@@ -163,8 +172,16 @@ radeon_link_encoder_connector(struct drm_device *dev)
 		radeon_connector = to_radeon_connector(connector);
 		list_for_each_entry(encoder, &dev->mode_config.encoder_list, head) {
 			radeon_encoder = to_radeon_encoder(encoder);
-			if (radeon_encoder->devices & radeon_connector->devices)
+			if (radeon_encoder->devices & radeon_connector->devices) {
 				drm_mode_connector_attach_encoder(connector, encoder);
+				if (radeon_encoder->devices & (ATOM_DEVICE_LCD_SUPPORT)) {
+					if (rdev->is_atom_bios)
+						radeon_atom_backlight_init(radeon_encoder, connector);
+					else
+						radeon_legacy_backlight_init(radeon_encoder, connector);
+					rdev->mode_info.bl_encoder = radeon_encoder;
+				}
+			}
 		}
 	}
 }
@@ -197,6 +214,22 @@ radeon_get_connector_for_encoder(struct drm_encoder *encoder)
 	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
 		radeon_connector = to_radeon_connector(connector);
 		if (radeon_encoder->active_device & radeon_connector->devices)
+			return connector;
+	}
+	return NULL;
+}
+
+struct drm_connector *
+radeon_get_connector_for_encoder_init(struct drm_encoder *encoder)
+{
+	struct drm_device *dev = encoder->dev;
+	struct radeon_encoder *radeon_encoder = to_radeon_encoder(encoder);
+	struct drm_connector *connector;
+	struct radeon_connector *radeon_connector;
+
+	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
+		radeon_connector = to_radeon_connector(connector);
+		if (radeon_encoder->devices & radeon_connector->devices)
 			return connector;
 	}
 	return NULL;
@@ -286,5 +319,66 @@ void radeon_panel_mode_fixup(struct drm_encoder *encoder,
 	adjusted_mode->crtc_vsync_start = adjusted_mode->crtc_vdisplay + vover;
 	adjusted_mode->crtc_vsync_end = adjusted_mode->crtc_vsync_start + vsync_width;
 
+}
+
+bool radeon_dig_monitor_is_duallink(struct drm_encoder *encoder,
+				    u32 pixel_clock)
+{
+	struct drm_device *dev = encoder->dev;
+	struct radeon_device *rdev = dev->dev_private;
+	struct drm_connector *connector;
+	struct radeon_connector *radeon_connector;
+	struct radeon_connector_atom_dig *dig_connector;
+
+	connector = radeon_get_connector_for_encoder(encoder);
+	/* if we don't have an active device yet, just use one of
+	 * the connectors tied to the encoder.
+	 */
+	if (!connector)
+		connector = radeon_get_connector_for_encoder_init(encoder);
+	radeon_connector = to_radeon_connector(connector);
+
+	switch (connector->connector_type) {
+	case DRM_MODE_CONNECTOR_DVII:
+	case DRM_MODE_CONNECTOR_HDMIB:
+		if (radeon_connector->use_digital) {
+			/* HDMI 1.3 supports up to 340 Mhz over single link */
+			if (ASIC_IS_DCE6(rdev) && drm_detect_hdmi_monitor(radeon_connector->edid)) {
+				if (pixel_clock > 340000)
+					return true;
+				else
+					return false;
+			} else {
+				if (pixel_clock > 165000)
+					return true;
+				else
+					return false;
+			}
+		} else
+			return false;
+	case DRM_MODE_CONNECTOR_DVID:
+	case DRM_MODE_CONNECTOR_HDMIA:
+	case DRM_MODE_CONNECTOR_DisplayPort:
+		dig_connector = radeon_connector->con_priv;
+		if ((dig_connector->dp_sink_type == CONNECTOR_OBJECT_ID_DISPLAYPORT) ||
+		    (dig_connector->dp_sink_type == CONNECTOR_OBJECT_ID_eDP))
+			return false;
+		else {
+			/* HDMI 1.3 supports up to 340 Mhz over single link */
+			if (ASIC_IS_DCE6(rdev) && drm_detect_hdmi_monitor(radeon_connector->edid)) {
+				if (pixel_clock > 340000)
+					return true;
+				else
+					return false;
+			} else {
+				if (pixel_clock > 165000)
+					return true;
+				else
+					return false;
+			}
+		}
+	default:
+		return false;
+	}
 }
 

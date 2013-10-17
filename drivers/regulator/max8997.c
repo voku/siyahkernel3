@@ -1208,7 +1208,7 @@ static void max8997_set_mr_debouce_time(struct max8997_data *max8997,
 		dev_err(max8997->dev, "failed to write CONTROL2(%d)\n", ret);
 }
 
-static __devinit int max8997_pmic_probe(struct platform_device *pdev)
+static int max8997_pmic_probe(struct platform_device *pdev)
 {
 	struct max8997_dev *iodev = dev_get_drvdata(pdev->dev.parent);
 	struct max8997_platform_data *pdata = dev_get_platdata(iodev->dev);
@@ -1385,7 +1385,7 @@ err3:
 	return ret;
 }
 
-static int __devexit max8997_pmic_remove(struct platform_device *pdev)
+static int max8997_pmic_remove(struct platform_device *pdev)
 {
 	struct max8997_data *max8997 = platform_get_drvdata(pdev);
 	struct regulator_dev **rdev = max8997->rdev;
@@ -1407,7 +1407,7 @@ static struct platform_driver max8997_pmic_driver = {
 		.owner = THIS_MODULE,
 	},
 	.probe = max8997_pmic_probe,
-	.remove = __devexit_p(max8997_pmic_remove),
+	.remove = max8997_pmic_remove,
 };
 
 static int __init max8997_pmic_init(void)

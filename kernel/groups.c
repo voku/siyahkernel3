@@ -145,7 +145,7 @@ int groups_search(const struct group_info *group_info, gid_t grp)
 		unsigned int mid = (left+right)/2;
 		if (grp > GROUP_AT(group_info, mid))
 			left = mid + 1;
-		else if (grp < GROUP_AT(group_info, mid))
+		else if (gid_lt(grp, GROUP_AT(group_info, mid)))
 			right = mid;
 		else
 			return 1;
@@ -233,7 +233,7 @@ SYSCALL_DEFINE2(setgroups, int, gidsetsize, gid_t __user *, grouplist)
 	struct group_info *group_info;
 	int retval;
 
-	if (!nsown_capable(CAP_SETGID))
+	if (!ns_capable(current_user_ns(), CAP_SETGID))
 		return -EPERM;
 	if ((unsigned)gidsetsize > NGROUPS_MAX)
 		return -EINVAL;
@@ -256,24 +256,24 @@ SYSCALL_DEFINE2(setgroups, int, gidsetsize, gid_t __user *, grouplist)
 /*
  * Check whether we're fsgid/egid or in the supplemental group..
  */
-int in_group_p(gid_t grp)
+int in_group_p(kgid_t grp)
 {
 	const struct cred *cred = current_cred();
 	int retval = 1;
 
-	if (grp != cred->fsgid)
+	if (!gid_eq(grp, cred->fsgid))
 		retval = groups_search(cred->group_info, grp);
 	return retval;
 }
 
 EXPORT_SYMBOL(in_group_p);
 
-int in_egroup_p(gid_t grp)
+int in_egroup_p(kgid_t grp)
 {
 	const struct cred *cred = current_cred();
 	int retval = 1;
 
-	if (grp != cred->egid)
+	if (!gid_eq(grp, cred->egid))
 		retval = groups_search(cred->group_info, grp);
 	return retval;
 }

@@ -28,7 +28,6 @@
 #include <linux/seq_file.h>
 
 #include <linux/uaccess.h>
-#include <asm/system.h>
 
 #include <linux/kbd_kern.h>
 #include <linux/vt_kern.h>

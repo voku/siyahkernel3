@@ -118,7 +118,6 @@
 #include <linux/prefetch.h>
 
 #include <asm/uaccess.h>
-#include <asm/system.h>
 
 #include <linux/netdevice.h>
 #include <net/protocol.h>
@@ -134,9 +133,13 @@
 
 #include <linux/filter.h>
 
+#include <trace/events/sock.h>
+
 #ifdef CONFIG_INET
 #include <net/tcp.h>
 #endif
+
+#include <net/busy_poll.h>
 
 static DEFINE_MUTEX(proto_list_mutex);
 static LIST_HEAD(proto_list);
@@ -335,6 +338,7 @@ int sock_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
 	if (atomic_read(&sk->sk_rmem_alloc) + skb->truesize >=
 	    (unsigned)sk->sk_rcvbuf) {
 		atomic_inc(&sk->sk_drops);
+		trace_sock_rcvqueue_full(sk, skb);
 		return -ENOMEM;
 	}
 
@@ -427,7 +431,7 @@ struct dst_entry *__sk_dst_check(struct sock *sk, u32 cookie)
 
 	if (dst && dst->obsolete && dst->ops->check(dst, cookie) == NULL) {
 		sk_tx_queue_clear(sk);
-		rcu_assign_pointer(sk->sk_dst_cache, NULL);
+		RCU_INIT_POINTER(sk->sk_dst_cache, NULL);
 		dst_release(dst);
 		return NULL;
 	}
@@ -784,6 +788,24 @@ set_rcvbuf:
 		else
 			sock_reset_flag(sk, SOCK_RXQ_OVFL);
 		break;
+
+	case SO_WIFI_STATUS:
+		sock_valbool_flag(sk, SOCK_WIFI_STATUS, valbool);
+		break;
+
+#ifdef CONFIG_NET_LL_RX_POLL
+	case SO_BUSY_POLL:
+	/* allow unprivileged users to decrease the value */
+	if ((val > sk->sk_ll_usec) && !capable(CAP_NET_ADMIN))
+		ret = -EPERM;
+	else {
+		if (val < 0)
+			ret = -EINVAL;
+		else
+			sk->sk_ll_usec = val;
+	}
+	break;
+#endif
 	default:
 		ret = -ENOPROTOOPT;
 		break;
@@ -1005,6 +1027,15 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
 		v.val = !!sock_flag(sk, SOCK_RXQ_OVFL);
 		break;
 
+	case SO_WIFI_STATUS:
+		v.val = !!sock_flag(sk, SOCK_WIFI_STATUS);
+		break;
+#ifdef CONFIG_NET_LL_RX_POLL
+	case SO_BUSY_POLL:
+		v.val = sk->sk_ll_usec;
+		break;
+#endif
+
 	default:
 		return -ENOPROTOOPT;
 	}
@@ -1133,12 +1164,12 @@ static void sk_prot_free(struct proto *prot, struct sock *sk)
 
 #ifdef CONFIG_CGROUPS
 #if IS_ENABLED(CONFIG_NET_CLS_CGROUP)
-void sock_update_classid(struct sock *sk)
+void sock_update_classid(struct sock *sk, struct task_struct *task)
 {
 	u32 classid;
 
 	rcu_read_lock();  /* doing current task, which cannot vanish. */
-	classid = task_cls_classid(current);
+	classid = task_cls_classid(task);
 	rcu_read_unlock();
 	if (classid && classid != sk->sk_classid)
 		sk->sk_classid = classid;
@@ -1183,6 +1214,9 @@ struct sock *sk_alloc(struct net *net, int family, gfp_t priority,
 		atomic_set(&sk->sk_wmem_alloc, 1);
 
 		sock_update_classid(sk);
+#if IS_ENABLED(CONFIG_NETPRIO_CGROUP)
+		sock_update_netprioidx(sk);
+#endif
 	}
 
 	return sk;
@@ -1200,7 +1234,7 @@ static void __sk_free(struct sock *sk)
 				       atomic_read(&sk->sk_wmem_alloc) == 0);
 	if (filter) {
 		sk_filter_uncharge(sk, filter);
-		rcu_assign_pointer(sk->sk_filter, NULL);
+		RCU_INIT_POINTER(sk->sk_filter, NULL);
 	}
 
 	sock_disable_timestamp(sk, SOCK_TIMESTAMP);
@@ -1363,19 +1397,6 @@ void sk_setup_caps(struct sock *sk, struct dst_entry *dst)
 }
 EXPORT_SYMBOL_GPL(sk_setup_caps);
 
-void __init sk_init(void)
-{
-	if (totalram_pages <= 4096) {
-		sysctl_wmem_max = 32767;
-		sysctl_rmem_max = 32767;
-		sysctl_wmem_default = 32767;
-		sysctl_rmem_default = 32767;
-	} else if (totalram_pages >= 131072) {
-		sysctl_wmem_max = 131071;
-		sysctl_rmem_max = 131071;
-	}
-}
-
 /*
  *	Simple resource managers for sockets.
  */
@@ -1481,7 +1502,7 @@ struct sk_buff *sock_rmalloc(struct sock *sk, unsigned long size, int force,
  */
 void *sock_kmalloc(struct sock *sk, int size, gfp_t priority)
 {
-	if ((unsigned)size <= sysctl_optmem_max &&
+	if ((unsigned int)size <= sysctl_optmem_max &&
 	    atomic_read(&sk->sk_omem_alloc) + size < sysctl_optmem_max) {
 		void *mem;
 		/* First do the add, to avoid the race if kmalloc
@@ -1580,7 +1601,6 @@ struct sk_buff *sock_alloc_send_pskb(struct sock *sk, unsigned long header_len,
 				skb_shinfo(skb)->nr_frags = npages;
 				for (i = 0; i < npages; i++) {
 					struct page *page;
-					skb_frag_t *frag;
 
 					page = alloc_pages(sk->sk_allocation, 0);
 					if (!page) {
@@ -1590,12 +1610,11 @@ struct sk_buff *sock_alloc_send_pskb(struct sock *sk, unsigned long header_len,
 						goto failure;
 					}
 
-					frag = &skb_shinfo(skb)->frags[i];
-					frag->page = page;
-					frag->page_offset = 0;
-					frag->size = (data_len >= PAGE_SIZE ?
-						      PAGE_SIZE :
-						      data_len);
+					__skb_fill_page_desc(skb, i,
+							page, 0,
+							(data_len >= PAGE_SIZE ?
+							 PAGE_SIZE :
+							 data_len));
 					data_len -= PAGE_SIZE;
 				}
 
@@ -1785,6 +1804,8 @@ suppress_allocation:
 		if (sk->sk_wmem_queued + size >= sk->sk_sndbuf)
 			return 1;
 	}
+
+	trace_sock_exceed_buf_limit(sk, prot, allocated);
 
 	/* Alas. Undo changes. */
 	sk->sk_forward_alloc -= amt * SK_MEM_QUANTUM;
@@ -2066,6 +2087,11 @@ void sock_init_data(struct socket *sock, struct sock *sk)
 	sk->sk_sndtimeo		=	MAX_SCHEDULE_TIMEOUT;
 
 	sk->sk_stamp = ktime_set(-1L, 0);
+
+#ifdef CONFIG_NET_LL_RX_POLL
+	sk->sk_napi_id		=	0;
+	sk->sk_ll_usec		=	sysctl_net_busy_read;
+#endif
 
 	/*
 	 * Before updating sk_refcnt, we must commit prior changes to memory

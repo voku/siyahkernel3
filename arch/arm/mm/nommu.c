@@ -19,23 +19,32 @@
 
 void __init arm_mm_memblock_reserve(void)
 {
+#ifndef CONFIG_CPU_V7M
 	/*
 	 * Register the exception vector page.
 	 * some architectures which the DRAM is the exception vector to trap,
 	 * alloc_page breaks with error, although it is not NULL, but "0."
 	 */
 	memblock_reserve(CONFIG_VECTORS_BASE, PAGE_SIZE);
+#else /* ifndef CONFIG_CPU_V7M */
+	/*
+	 * There is no dedicated vector page on V7-M. So nothing needs to be
+	 * reserved here.
+	 */
+#endif
 }
 
 void __init sanity_check_meminfo(void)
 {
+	phys_addr_t end = bank_phys_end(&meminfo.bank[meminfo.nr_banks - 1]);
+	high_memory = __va(end - 1) + 1;
 }
 
 /*
  * paging_init() sets up the page tables, initialises the zone memory
  * maps, and sets up the zero page, bad page and bad page tables.
  */
-void __init paging_init(struct machine_desc *mdesc)
+void __init paging_init(const struct machine_desc *mdesc)
 {
 	bootmem_init();
 }
@@ -77,14 +86,20 @@ void __iomem *__arm_ioremap_pfn_caller(unsigned long pfn, unsigned long offset,
 	return __arm_ioremap_pfn(pfn, offset, size, mtype);
 }
 
-void __iomem *__arm_ioremap(unsigned long phys_addr, size_t size,
+void __iomem *__arm_ioremap(phys_addr_t phys_addr, size_t size,
 			    unsigned int mtype)
 {
 	return (void __iomem *)phys_addr;
 }
 EXPORT_SYMBOL(__arm_ioremap);
 
+<<<<<<< HEAD
 void __iomem *__arm_ioremap_caller(unsigned long phys_addr, size_t size,
+=======
+void __iomem * (*arch_ioremap_caller)(phys_addr_t, size_t, unsigned int, void *);
+
+void __iomem *__arm_ioremap_caller(phys_addr_t phys_addr, size_t size,
+>>>>>>> 9b97173... ARM: 7728/1: mm: Use phys_addr_t properly for ioremap functions
 				   unsigned int mtype, void *caller)
 {
 	return __arm_ioremap(phys_addr, size, mtype);

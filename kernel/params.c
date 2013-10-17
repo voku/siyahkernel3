@@ -15,7 +15,6 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
-#include <linux/moduleparam.h>
 #include <linux/kernel.h>
 #include <linux/string.h>
 #include <linux/errno.h>
@@ -104,7 +103,8 @@ static int parse_one(char *param,
 			    || params[i].level > max_level)
 				return 0;
 			/* No one handled NULL, so do it here. */
-			if (!val && params[i].ops->set != param_set_bool)
+			if (!val &&
+			    !(params[i].ops->flags & KERNEL_PARAM_FL_NOARG))
 				return -EINVAL;
 			pr_debug("handling %s with %p\n", param,
 				params[i].ops->set);
@@ -190,7 +190,7 @@ int parse_args(const char *doing,
 	/* Chew leading spaces */
 	args = skip_spaces(args);
 
-	if (args && *args)
+	if (*args)
 		pr_debug("doing %s, parsing ARGS: '%s'\n", doing, args);
 
 	while (*args) {
@@ -201,25 +201,22 @@ int parse_args(const char *doing,
 		irq_was_disabled = irqs_disabled();
 		ret = parse_one(param, val, doing, params, num,
 				min_level, max_level, unknown);
-		if (irq_was_disabled && !irqs_disabled()) {
-			printk(KERN_WARNING "parse_args(): option '%s' enabled "
-					"irq's!\n", param);
-		}
+		if (irq_was_disabled && !irqs_disabled())
+			pr_warn("%s: option '%s' enabled irq's!\n",
+				doing, param);
+
 		switch (ret) {
 		case -ENOENT:
-			printk(KERN_ERR "%s: Unknown parameter `%s'\n",
-			       doing, param);
+			pr_err("%s: Unknown parameter `%s'\n", doing, param);
 			return ret;
 		case -ENOSPC:
-			printk(KERN_ERR
-			       "%s: `%s' too large for parameter `%s'\n",
+			pr_err("%s: `%s' too large for parameter `%s'\n",
 			       doing, val ?: "", param);
 			return ret;
 		case 0:
 			break;
 		default:
-			printk(KERN_ERR
-			       "%s: `%s' invalid for parameter `%s'\n",
+			pr_err("%s: `%s' invalid for parameter `%s'\n",
 			       doing, val ?: "", param);
 			return ret;
 		}
@@ -244,7 +241,8 @@ int parse_args(const char *doing,
 	}								\
 	int param_get_##name(char *buffer, const struct kernel_param *kp) \
 	{								\
-		return sprintf(buffer, format, *((type *)kp->arg));	\
+		return scnprintf(buffer, PAGE_SIZE, format,		\
+				*((type *)kp->arg));			\
 	}								\
 	struct kernel_param_ops param_ops_##name = {			\
 		.set = param_set_##name,				\
@@ -255,19 +253,18 @@ int parse_args(const char *doing,
 	EXPORT_SYMBOL(param_ops_##name)
 
 
-STANDARD_PARAM_DEF(byte, unsigned char, "%c", unsigned long, strict_strtoul);
-STANDARD_PARAM_DEF(short, short, "%hi", long, strict_strtol);
-STANDARD_PARAM_DEF(ushort, unsigned short, "%hu", unsigned long, strict_strtoul);
-STANDARD_PARAM_DEF(int, int, "%i", long, strict_strtol);
-STANDARD_PARAM_DEF(uint, unsigned int, "%u", unsigned long, strict_strtoul);
-STANDARD_PARAM_DEF(long, long, "%li", long, strict_strtol);
-STANDARD_PARAM_DEF(ulong, unsigned long, "%lu", unsigned long, strict_strtoul);
+STANDARD_PARAM_DEF(byte, unsigned char, "%hhu", unsigned long, kstrtoul);
+STANDARD_PARAM_DEF(short, short, "%hi", long, kstrtol);
+STANDARD_PARAM_DEF(ushort, unsigned short, "%hu", unsigned long, kstrtoul);
+STANDARD_PARAM_DEF(int, int, "%i", long, kstrtol);
+STANDARD_PARAM_DEF(uint, unsigned int, "%u", unsigned long, kstrtoul);
+STANDARD_PARAM_DEF(long, long, "%li", long, kstrtol);
+STANDARD_PARAM_DEF(ulong, unsigned long, "%lu", unsigned long, kstrtoul);
 
 int param_set_charp(const char *val, const struct kernel_param *kp)
 {
 	if (strlen(val) > 1024) {
-		printk(KERN_ERR "%s: string parameter too long\n",
-		       kp->name);
+		pr_err("%s: string parameter too long\n", kp->name);
 		return -ENOSPC;
 	}
 
@@ -289,7 +286,7 @@ EXPORT_SYMBOL(param_set_charp);
 
 int param_get_charp(char *buffer, const struct kernel_param *kp)
 {
-	return sprintf(buffer, "%s", *((char **)kp->arg));
+	return scnprintf(buffer, PAGE_SIZE, "%s", *((char **)kp->arg));
 }
 EXPORT_SYMBOL(param_get_charp);
 
@@ -324,6 +321,7 @@ int param_get_bool(char *buffer, const struct kernel_param *kp)
 EXPORT_SYMBOL(param_get_bool);
 
 struct kernel_param_ops param_ops_bool = {
+	.flags = KERNEL_PARAM_FL_NOARG,
 	.set = param_set_bool,
 	.get = param_get_bool,
 };
@@ -374,6 +372,7 @@ int param_set_bint(const char *val, const struct kernel_param *kp)
 EXPORT_SYMBOL(param_set_bint);
 
 struct kernel_param_ops param_ops_bint = {
+	.flags = KERNEL_PARAM_FL_NOARG,
 	.set = param_set_bint,
 	.get = param_get_int,
 };
@@ -403,8 +402,7 @@ static int param_array(const char *name,
 		int len;
 
 		if (*num == max) {
-			printk(KERN_ERR "%s: can only take %i arguments\n",
-			       name, max);
+			pr_err("%s: can only take %i arguments\n", name, max);
 			return -EINVAL;
 		}
 		len = strcspn(val, ",");
@@ -423,8 +421,7 @@ static int param_array(const char *name,
 	} while (save == ',');
 
 	if (*num < min) {
-		printk(KERN_ERR "%s: needs at least %i arguments\n",
-		       name, min);
+		pr_err("%s: needs at least %i arguments\n", name, min);
 		return -EINVAL;
 	}
 	return 0;
@@ -483,7 +480,7 @@ int param_set_copystring(const char *val, const struct kernel_param *kp)
 	const struct kparam_string *kps = kp->str;
 
 	if (strlen(val)+1 > kps->maxlen) {
-		printk(KERN_ERR "%s: string doesn't fit in %u chars.\n",
+		pr_err("%s: string doesn't fit in %u chars.\n",
 		       kp->name, kps->maxlen-1);
 		return -ENOSPC;
 	}
@@ -619,10 +616,13 @@ static __modinit int add_sysfs_param(struct module_kobject *mk,
 		       sizeof(*mk->mp) + sizeof(mk->mp->attrs[0]) * (num+1),
 		       GFP_KERNEL);
 	if (!new) {
-		kfree(mk->mp);
+		kfree(attrs);
 		err = -ENOMEM;
 		goto fail;
 	}
+	/* Despite looking like the typical realloc() bug, this is safe.
+	 * We *want* the old 'attrs' to be freed either way, and we'll store
+	 * the new one in the success case. */
 	attrs = krealloc(attrs, sizeof(new->grp.attrs[0])*(num+2), GFP_KERNEL);
 	if (!attrs) {
 		err = -ENOMEM;
@@ -753,11 +753,8 @@ static struct module_kobject * __init locate_module_kobject(const char *name)
 #endif
 		if (err) {
 			kobject_put(&mk->kobj);
-			printk(KERN_ERR
-				"Module '%s' failed add to sysfs, error number %d\n",
+			pr_crit("Adding module '%s' to sysfs failed (%d), the system may be unstable.\n",
 				name, err);
-			printk(KERN_ERR
-				"The system will be unstable now.\n");
 			return NULL;
 		}
 
@@ -793,7 +790,7 @@ static void __init kernel_add_sysfs_param(const char *name,
 }
 
 /*
- * param_sysfs_builtin - add contents in /sys/parameters for built-in modules
+ * param_sysfs_builtin - add sysfs parameters for built-in modules
  *
  * Add module_parameters to sysfs for "modules" built into the kernel.
  *
@@ -833,7 +830,7 @@ ssize_t __modver_version_show(struct module_attribute *mattr,
 	struct module_version_attribute *vattr =
 		container_of(mattr, struct module_version_attribute, mattr);
 
-	return sprintf(buf, "%s\n", vattr->version);
+	return scnprintf(buf, PAGE_SIZE, "%s\n", vattr->version);
 }
 
 extern const struct module_version_attribute *__start___modver[];
@@ -918,7 +915,14 @@ static const struct kset_uevent_ops module_uevent_ops = {
 struct kset *module_kset;
 int module_sysfs_initialized;
 
+static void module_kobj_release(struct kobject *kobj)
+{
+	struct module_kobject *mk = to_module_kobject(kobj);
+	complete(mk->kobj_completion);
+}
+
 struct kobj_type module_ktype = {
+	.release   =	module_kobj_release,
 	.sysfs_ops =	&module_sysfs_ops,
 };
 

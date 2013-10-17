@@ -5,7 +5,7 @@
  *            (C)  2003 Venkatesh Pallipadi <venkatesh.pallipadi@intel.com>.
  *                      Jun Nakajima <jun.nakajima@intel.com>
  *
- *                 2012 Minor Edits by Sar Castillo <sar.castillo@gmail.com>       
+ *                 2012 Minor Edits by Sar Castillo <sar.castillo@gmail.com>
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
@@ -75,7 +75,7 @@ static int idle_event_handler(struct notifier_block *n,
                 percpu_write(idle_end, jiffies);
                 break;
         }
-        
+
         return NOTIFY_DONE;
 }
 
@@ -584,7 +584,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 			if (delta > 4 * sampling_delta)
 				continue;
 		}
-                
+
 		/*
 		* Fast start detection.
 		*
@@ -664,7 +664,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 
 		cpufreq_notify_utilization(policy, load_at_max_freq);
 	}
-        
+
 #if CPUMON
 	printk(KERN_ERR "CPUMON L %d %d\n", load_each[0], load_each[1]);
 #endif
@@ -762,7 +762,7 @@ static void do_dbs_timer(struct work_struct *work)
 static inline void dbs_timer_init(struct cpu_dbs_info_s *dbs_info)
 {
 	/* We want all CPUs to do sampling nearly on same jiffy */
-	int delay = usecs_to_jiffies(dbs_tuners_ins.sampling_rate); 
+	int delay = usecs_to_jiffies(dbs_tuners_ins.sampling_rate);
 
 	if (num_online_cpus() > 1)
 		delay -= jiffies % delay;
@@ -926,7 +926,7 @@ static int __init cpufreq_gov_dbs_init(void)
 	if (ret)
 		kfree(&dbs_tuners_ins);
 
-	return ret; 
+	return ret;
 }
 
 static void __exit cpufreq_gov_dbs_exit(void)

@@ -106,14 +106,14 @@ enum {
 #define DEFAULT_DEBUG_MODE (0)
 
 /*
- * CPU freq will be increased if measured load > inc_cpu_load; - 
+ * CPU freq will be increased if measured load > inc_cpu_load; -
 LulzactiveW - as max_up_step is present, the CPU must scale up to the max, so the loading measuring is decreased.*/
- 
+
 #define DEFAULT_INC_CPU_LOAD 30
 static unsigned long inc_cpu_load;
 
 #define DEFAULT_INC_CPU_LOAD_SLEEP 95
-static unsigned long inc_cpu_load_awake; 
+static unsigned long inc_cpu_load_awake;
 
 
 
@@ -1063,8 +1063,8 @@ static void lulzactivew_late_resume(struct early_suspend *handler) {
 	early_suspended = 0;
 	up_sample_time = up_sample_time_awake;
 	down_sample_time = down_sample_time_awake;
-	inc_cpu_load = 	inc_cpu_load_awake;
-	dec_cpu_load = 	dec_cpu_load_awake;
+	inc_cpu_load =	inc_cpu_load_awake;
+	dec_cpu_load =	dec_cpu_load_awake;
 
 	if (debug_mode & LULZACTIVEW_DEBUG_EARLY_SUSPEND) {
 		LOGI("%s\n", __func__);

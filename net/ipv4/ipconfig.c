@@ -141,7 +141,7 @@ __be32 ic_servaddr = NONE;	/* Boot server IP address */
 __be32 root_server_addr = NONE;	/* Address of NFS server */
 u8 root_server_path[256] = { 0, };	/* Path to mount as root */
 
-u32 ic_dev_xid;		/* Device under configuration */
+__be32 ic_dev_xid;		/* Device under configuration */
 
 /* vendor class identifier */
 static char vendor_class_identifier[253] __initdata;
@@ -799,8 +799,6 @@ static void __init ic_bootp_send_if(struct ic_device *d, unsigned long jiffies_d
 	b->op = BOOTP_REQUEST;
 	if (dev->type < 256) /* check for false types */
 		b->htype = dev->type;
-	else if (dev->type == ARPHRD_IEEE802_TR) /* fix for token ring */
-		b->htype = ARPHRD_IEEE802;
 	else if (dev->type == ARPHRD_FDDI)
 		b->htype = ARPHRD_ETHER;
 	else {
@@ -852,9 +850,9 @@ static int __init ic_bootp_string(char *dest, char *src, int len, int max)
  */
 static void __init ic_do_bootp_ext(u8 *ext)
 {
-       u8 servers;
-       int i;
-	u16 mtu;
+	u8 servers;
+	int i;
+	__be16 mtu;
 
 #ifdef IPCONFIG_DEBUG
 	u8 *c;
@@ -866,41 +864,44 @@ static void __init ic_do_bootp_ext(u8 *ext)
 #endif
 
 	switch (*ext++) {
-		case 1:		/* Subnet mask */
-			if (ic_netmask == NONE)
-				memcpy(&ic_netmask, ext+1, 4);
-			break;
-		case 3:		/* Default gateway */
-			if (ic_gateway == NONE)
-				memcpy(&ic_gateway, ext+1, 4);
-			break;
-		case 6:		/* DNS server */
-			servers= *ext/4;
-			if (servers > CONF_NAMESERVERS_MAX)
-				servers = CONF_NAMESERVERS_MAX;
-			for (i = 0; i < servers; i++) {
-				if (ic_nameservers[i] == NONE)
-					memcpy(&ic_nameservers[i], ext+1+4*i, 4);
-			}
-			break;
-		case 12:	/* Host name */
-			ic_bootp_string(utsname()->nodename, ext+1, *ext, __NEW_UTS_LEN);
-			ic_host_name_set = 1;
-			break;
-		case 15:	/* Domain name (DNS) */
-			ic_bootp_string(ic_domain, ext+1, *ext, sizeof(ic_domain));
-			break;
-		case 17:	/* Root path */
-			if (!root_server_path[0])
-				ic_bootp_string(root_server_path, ext+1, *ext, sizeof(root_server_path));
-			break;
-		case 26:	/* Interface MTU */
-			memcpy(&mtu, ext+1, sizeof(mtu));
-			ic_dev_mtu = ntohs(mtu);
-			break;
-		case 40:	/* NIS Domain name (_not_ DNS) */
-			ic_bootp_string(utsname()->domainname, ext+1, *ext, __NEW_UTS_LEN);
-			break;
+	case 1:		/* Subnet mask */
+		if (ic_netmask == NONE)
+			memcpy(&ic_netmask, ext+1, 4);
+		break;
+	case 3:		/* Default gateway */
+		if (ic_gateway == NONE)
+			memcpy(&ic_gateway, ext+1, 4);
+		break;
+	case 6:		/* DNS server */
+		servers= *ext/4;
+		if (servers > CONF_NAMESERVERS_MAX)
+			servers = CONF_NAMESERVERS_MAX;
+		for (i = 0; i < servers; i++) {
+			if (ic_nameservers[i] == NONE)
+				memcpy(&ic_nameservers[i], ext+1+4*i, 4);
+		}
+		break;
+	case 12:	/* Host name */
+		ic_bootp_string(utsname()->nodename, ext+1, *ext,
+				__NEW_UTS_LEN);
+		ic_host_name_set = 1;
+		break;
+	case 15:	/* Domain name (DNS) */
+		ic_bootp_string(ic_domain, ext+1, *ext, sizeof(ic_domain));
+		break;
+	case 17:	/* Root path */
+		if (!root_server_path[0])
+			ic_bootp_string(root_server_path, ext+1, *ext,
+					sizeof(root_server_path));
+		break;
+	case 26:	/* Interface MTU */
+		memcpy(&mtu, ext+1, sizeof(mtu));
+		ic_dev_mtu = ntohs(mtu);
+		break;
+	case 40:	/* NIS Domain name (_not_ DNS) */
+		ic_bootp_string(utsname()->domainname, ext+1, *ext,
+				__NEW_UTS_LEN);
+		break;
 	}
 }
 
@@ -937,7 +938,7 @@ static int __init ic_bootp_recv(struct sk_buff *skb, struct net_device *dev, str
 		goto drop;
 
 	/* Fragments are not supported */
-	if (h->frag_off & htons(IP_OFFSET | IP_MF)) {
+	if (ip_is_fragment(h)) {
 		if (net_ratelimit())
 			printk(KERN_ERR "DHCP/BOOTP: Ignoring fragmented "
 			       "reply.\n");
@@ -1183,7 +1184,7 @@ static int __init ic_dynamic(void)
 	d = ic_first_dev;
 	retries = CONF_SEND_RETRIES;
 	get_random_bytes(&timeout, sizeof(timeout));
-	timeout = CONF_BASE_TIMEOUT + (timeout % (unsigned) CONF_TIMEOUT_RANDOM);
+	timeout = CONF_BASE_TIMEOUT + (timeout % (unsigned int) CONF_TIMEOUT_RANDOM);
 	for (;;) {
 		/* Track the device we are configuring */
 		ic_dev_xid = d->xid;

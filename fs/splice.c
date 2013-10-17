@@ -219,7 +219,7 @@ ssize_t splice_to_pipe(struct pipe_inode_info *pipe,
 			page_nr++;
 			ret += buf->len;
 
-			if (pipe->inode)
+			if (pipe->files)
 				do_wakeup = 1;
 
 			if (!--spd->nr_pages)
@@ -571,7 +571,7 @@ static ssize_t kernel_readv(struct file *file, const struct iovec *vec,
 	return res;
 }
 
-static ssize_t kernel_write(struct file *file, const char *buf, size_t count,
+ssize_t kernel_write(struct file *file, const char *buf, size_t count,
 			    loff_t pos)
 {
 	mm_segment_t old_fs;
@@ -580,11 +580,12 @@ static ssize_t kernel_write(struct file *file, const char *buf, size_t count,
 	old_fs = get_fs();
 	set_fs(get_ds());
 	/* The cast to a user pointer is valid due to the set_fs() */
-	res = vfs_write(file, (const char __user *)buf, count, &pos);
+	res = vfs_write(file, (__force const char __user *)buf, count, &pos);
 	set_fs(old_fs);
 
 	return res;
 }
+EXPORT_SYMBOL(kernel_write);
 
 ssize_t default_file_splice_read(struct file *in, loff_t *ppos,
 				 struct pipe_inode_info *pipe, size_t len,
@@ -828,7 +829,7 @@ int splice_from_pipe_feed(struct pipe_inode_info *pipe, struct splice_desc *sd,
 			ops->release(pipe, buf);
 			pipe->curbuf = (pipe->curbuf + 1) & (pipe->buffers - 1);
 			pipe->nrbufs--;
-			if (pipe->inode)
+			if (pipe->files)
 				sd->need_wakeup = true;
 		}
 
@@ -1000,8 +1001,6 @@ generic_file_splice_write(struct pipe_inode_info *pipe, struct file *out,
 	};
 	ssize_t ret;
 
-	sb_start_write(inode->i_sb);
-
 	pipe_lock(pipe);
 
 	splice_from_pipe_begin(&sd);
@@ -1037,7 +1036,6 @@ generic_file_splice_write(struct pipe_inode_info *pipe, struct file *out,
 			*ppos += ret;
 		balance_dirty_pages_ratelimited(mapping);
 	}
-	sb_end_write(inode->i_sb);
 
 	return ret;
 }
@@ -1052,9 +1050,7 @@ static int write_pipe_buf(struct pipe_inode_info *pipe, struct pipe_buffer *buf,
 	loff_t tmp = sd->pos;
 
 	data = buf->ops->map(pipe, buf, 0);
-	file_start_write(sd->u.file);
 	ret = __kernel_write(sd->u.file, data + buf->offset, sd->len, &tmp);
-	file_end_write(sd->u.file);
 	buf->ops->unmap(pipe, buf, data);
 
 	return ret;
@@ -1102,17 +1098,6 @@ static long do_splice_from(struct pipe_inode_info *pipe, struct file *out,
 {
 	ssize_t (*splice_write)(struct pipe_inode_info *, struct file *,
 				loff_t *, size_t, unsigned int);
-	int ret;
-
-	if (unlikely(!(out->f_mode & FMODE_WRITE)))
-		return -EBADF;
-
-	if (unlikely(out->f_flags & O_APPEND))
-		return -EINVAL;
-
-	ret = rw_verify_area(WRITE, out, ppos, len);
-	if (unlikely(ret < 0))
-		return ret;
 
 	if (out->f_op && out->f_op->splice_write)
 		splice_write = out->f_op->splice_write;
@@ -1185,7 +1170,7 @@ ssize_t splice_direct_to_actor(struct file *in, struct splice_desc *sd,
 	 */
 	pipe = current->splice_pipe;
 	if (unlikely(!pipe)) {
-		pipe = alloc_pipe_info(NULL);
+		pipe = alloc_pipe_info();
 		if (!pipe)
 			return -ENOMEM;
 
@@ -1284,6 +1269,7 @@ static int direct_splice_actor(struct pipe_inode_info *pipe,
  * @in:		file to splice from
  * @ppos:	input file offset
  * @out:	file to splice to
+ * @opos:	output file offset
  * @len:	number of bytes to splice
  * @flags:	splice modifier flags
  *
@@ -1306,6 +1292,16 @@ long do_splice_direct(struct file *in, loff_t *ppos, struct file *out,
 		.opos		= opos,
 	};
 	long ret;
+
+	if (unlikely(!(out->f_mode & FMODE_WRITE)))
+		return -EBADF;
+
+	if (unlikely(out->f_flags & O_APPEND))
+		return -EINVAL;
+
+	ret = rw_verify_area(WRITE, out, opos, len);
+	if (unlikely(ret < 0))
+		return ret;
 
 	ret = splice_direct_to_actor(in, &sd, direct_splice_actor);
 	if (ret > 0)
@@ -1362,7 +1358,19 @@ static long do_splice(struct file *in, loff_t __user *off_in,
 			offset = out->f_pos;
 		}
 
+		if (unlikely(!(out->f_mode & FMODE_WRITE)))
+			return -EBADF;
+
+		if (unlikely(out->f_flags & O_APPEND))
+			return -EINVAL;
+
+		ret = rw_verify_area(WRITE, out, &offset, len);
+		if (unlikely(ret < 0))
+			return ret;
+
+		file_start_write(out);
 		ret = do_splice_from(ipipe, out, &offset, len, flags);
+		file_end_write(out);
 
 		if (!off_out)
 			out->f_pos = offset;
@@ -1406,7 +1414,7 @@ static long do_splice(struct file *in, loff_t __user *off_in,
  */
 static int get_iovec_page_array(const struct iovec __user *iov,
 				unsigned int nr_vecs, struct page **pages,
-				struct partial_page *partial, int aligned,
+				struct partial_page *partial, bool aligned,
 				unsigned int pipe_buffers)
 {
 	int buffers = 0, error = 0;
@@ -1645,7 +1653,7 @@ static long vmsplice_to_pipe(struct file *file, const struct iovec __user *iov,
 		return -ENOMEM;
 
 	spd.nr_pages = get_iovec_page_array(iov, nr_segs, spd.pages,
-					    spd.partial, flags & SPLICE_F_GIFT,
+					    spd.partial, false,
 					    spd.nr_pages_max);
 	if (spd.nr_pages <= 0)
 		ret = spd.nr_pages;

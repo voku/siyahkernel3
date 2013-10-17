@@ -118,7 +118,7 @@ typedef struct dhd_pktgen {
 
 /* Type of test packets to use */
 #define DHD_PKTGEN_ECHO		1 /* Send echo requests */
-#define DHD_PKTGEN_SEND	2 /* Send discard packets */
+#define DHD_PKTGEN_SEND		2 /* Send discard packets */
 #define DHD_PKTGEN_RXBURST	3 /* Request dongle send N packets */
 #define DHD_PKTGEN_RECV		4 /* Continuous rx from continuous tx dongle */
 #endif /* SDTEST */

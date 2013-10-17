@@ -47,7 +47,6 @@
 
 #include <asm/io.h>
 #include <asm/irq.h>
-#include <asm/system.h>
 
 #include <asm/mach-au1x00/au1000.h>
 #include "au1000_generic.h"

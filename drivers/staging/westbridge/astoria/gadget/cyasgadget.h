@@ -54,19 +54,15 @@
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
 #include <linux/sched.h>
+#include <linux/module.h>
+#include <linux/init.h>
 
 #include "../include/linux/westbridge/cyastoria.h"
 #include "../include/linux/westbridge/cyashal.h"
 #include "../include/linux/westbridge/cyasdevice.h"
 #include "cyasgadget_ioctl.h"
 
-#include <linux/module.h>
-#include <linux/init.h>
-
 /*char driver defines, revisit*/
-#include <linux/module.h>
-#include <linux/moduleparam.h>
-#include <linux/init.h>
 #include <linux/fs.h>		/* everything... */
 #include <linux/errno.h>	/* error codes */
 #include <linux/types.h>	/* size_t */
@@ -79,7 +75,6 @@
 #include <linux/vmalloc.h>	  /* vmalloc(), vfree */
 #include <linux/msdos_fs.h> /*fat_alloc_cluster*/
 #include <linux/buffer_head.h>
-#include <asm/system.h>		/* cli(), *_flags */
 #include <linux/uaccess.h>	/* copy_*_user */
 
 extern int mpage_cleardirty(struct address_space *mapping, int num_pages);

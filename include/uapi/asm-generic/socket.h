@@ -64,4 +64,9 @@
 #define SO_DOMAIN		39
 
 #define SO_RXQ_OVFL             40
+
+#define SO_WIFI_STATUS		41
+#define SCM_WIFI_STATUS	SO_WIFI_STATUS
+
+#define SO_BUSY_POLL		46
 #endif /* __ASM_GENERIC_SOCKET_H */

@@ -14,7 +14,6 @@
 #include <linux/list.h>
 #include <linux/spinlock.h>
 
-#include <asm/system.h>
 #include <linux/atomic.h>
 
 struct rw_semaphore;
@@ -126,14 +125,6 @@ extern void downgrade_write(struct rw_semaphore *sem);
  */
 extern void down_read_nested(struct rw_semaphore *sem, int subclass);
 extern void down_write_nested(struct rw_semaphore *sem, int subclass);
-/*
- * Take/release a lock when not the owner will release it.
- *
- * [ This API should be avoided as much as possible - the
- *   proper abstraction for this case is completions. ]
- */
-extern void down_read_non_owner(struct rw_semaphore *sem);
-extern void up_read_non_owner(struct rw_semaphore *sem);
 extern void _down_write_nest_lock(struct rw_semaphore *sem, struct lockdep_map *nest_lock);
 
 # define down_write_nest_lock(sem, nest_lock)			\
@@ -142,9 +133,17 @@ do {								\
 	_down_write_nest_lock(sem, &(nest_lock)->dep_map);	\
 } while (0);
 
+/*
+ * Take/release a lock when not the owner will release it.
+ *
+ * [ This API should be avoided as much as possible - the
+ *   proper abstraction for this case is completions. ]
+ */
+extern void down_read_non_owner(struct rw_semaphore *sem);
+extern void up_read_non_owner(struct rw_semaphore *sem);
 #else
 # define down_read_nested(sem, subclass)		down_read(sem)
-# define down_write_nest_lock(sem, nest_lock)	down_read(sem)
+# define down_write_nest_lock(sem, nest_lock)	down_write(sem)
 # define down_write_nested(sem, subclass)	down_write(sem)
 # define down_read_non_owner(sem)		down_read(sem)
 # define up_read_non_owner(sem)			up_read(sem)

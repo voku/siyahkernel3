@@ -968,9 +968,13 @@ ctnetlink_get_conntrack(struct sock *ctnl, struct sk_buff *skb,
 	u16 zone;
 	int err;
 
-	if (nlh->nlmsg_flags & NLM_F_DUMP)
-		return netlink_dump_start(ctnl, skb, nlh, ctnetlink_dump_table,
-					  ctnetlink_done, 0);
+	if (nlh->nlmsg_flags & NLM_F_DUMP) {
+		struct netlink_dump_control c = {
+			.dump = ctnetlink_dump_table,
+			.done = ctnetlink_done,
+		};
+		return netlink_dump_start(ctnl, skb, nlh, &c);
+	}
 
 	err = ctnetlink_parse_zone(cda[CTA_ZONE], &zone);
 	if (err < 0)
@@ -1087,14 +1091,14 @@ ctnetlink_change_nat(struct nf_conn *ct, const struct nlattr * const cda[])
 
 	if (cda[CTA_NAT_DST]) {
 		ret = ctnetlink_parse_nat_setup(ct,
-						IP_NAT_MANIP_DST,
+						NF_NAT_MANIP_DST,
 						cda[CTA_NAT_DST]);
 		if (ret < 0)
 			return ret;
 	}
 	if (cda[CTA_NAT_SRC]) {
 		ret = ctnetlink_parse_nat_setup(ct,
-						IP_NAT_MANIP_SRC,
+						NF_NAT_MANIP_SRC,
 						cda[CTA_NAT_SRC]);
 		if (ret < 0)
 			return ret;
@@ -1125,7 +1129,7 @@ ctnetlink_change_helper(struct nf_conn *ct, const struct nlattr * const cda[])
 		if (help && help->helper) {
 			/* we had a helper before ... */
 			nf_ct_remove_expectations(ct);
-			rcu_assign_pointer(help->helper, NULL);
+			RCU_INIT_POINTER(help->helper, NULL);
 		}
 
 		return 0;
@@ -1386,7 +1390,7 @@ ctnetlink_create_conntrack(struct net *net, u16 zone,
 			}
 
 			/* not in hash table yet so not strictly necessary */
-			rcu_assign_pointer(help->helper, helper);
+			RCU_INIT_POINTER(help->helper, helper);
 		}
 	} else {
 		/* try an implicit helper assignation */
@@ -1837,9 +1841,11 @@ ctnetlink_get_expect(struct sock *ctnl, struct sk_buff *skb,
 	int err;
 
 	if (nlh->nlmsg_flags & NLM_F_DUMP) {
-		return netlink_dump_start(ctnl, skb, nlh,
-					  ctnetlink_exp_dump_table,
-					  ctnetlink_exp_done, 0);
+		struct netlink_dump_control c = {
+			.dump = ctnetlink_exp_dump_table,
+			.done = ctnetlink_exp_done,
+		};
+		return netlink_dump_start(ctnl, skb, nlh, &c);
 	}
 
 	err = ctnetlink_parse_zone(cda[CTA_EXPECT_ZONE], &zone);

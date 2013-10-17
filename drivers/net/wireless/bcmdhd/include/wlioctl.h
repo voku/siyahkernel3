@@ -364,7 +364,7 @@ typedef struct wl_extdscan_params {
 #define WL_SCANFLAGS_PROHIBITED	0x04	/* allow scanning prohibited channels */
 #define WL_SCANFLAGS_OFFCHAN	0x08	/* allow scanning/reporting off-channel APs */
 
-#define WL_SCAN_PARAMS_SSID_MAX	10
+#define WL_SCAN_PARAMS_SSID_MAX		10
 
 typedef struct wl_scan_params {
 	wlc_ssid_t ssid;		/* default: {0, ""} */
@@ -688,7 +688,7 @@ typedef struct {
 #define  CCA_FLAGS_PREFER_1_6_11	0x10
 #define  CCA_FLAG_IGNORE_INTERFER	0x20 /* do not exlude channel based on interfer level */
 
-#define CCA_ERRNO_BAND			1	/* After filtering for band pref, no choices left */
+#define CCA_ERRNO_BAND		1	/* After filtering for band pref, no choices left */
 #define CCA_ERRNO_DURATION	2	/* After filtering for duration, no choices left */
 #define CCA_ERRNO_PREF_CHAN	3	/* After filtering for chan pref, no choices left */
 #define CCA_ERRNO_INTERFER	4	/* After filtering for interference, no choices left */
@@ -1814,12 +1814,7 @@ typedef struct {
 /* WLC_GET_AUTH, WLC_SET_AUTH values */
 #define WL_AUTH_OPEN_SYSTEM		0	/* d11 open authentication */
 #define WL_AUTH_SHARED_KEY		1	/* d11 shared authentication */
-#ifndef CONFIG_BCM4334
 #define WL_AUTH_OPEN_SHARED		2	/* try open, then shared if open failed w/rc 13 */
-#else
-#define WL_AUTH_OPEN_SHARED		3	/* BCM4334(Phoenix branch) value changed to 3 */
-#endif
-
 #endif /* LINUX_POSTMOGRIFY_REMOVAL */
 
 /* Bit masks for radio disabled status - returned by WL_GET_RADIO */
@@ -1912,7 +1907,7 @@ typedef struct wl_po {
 #define WL_CHAN_FREQ_RANGE_5G_BAND2     3
 #define WL_CHAN_FREQ_RANGE_5G_BAND3     4
 
-#define WL_CHAN_FREQ_RANGE_5G_4BAND		5
+#define WL_CHAN_FREQ_RANGE_5G_4BAND	5
 #endif /* LINUX_POSTMOGRIFY_REMOVAL */
 
 /* phy types (returned by WLC_GET_PHYTPE) */
@@ -1932,7 +1927,7 @@ typedef struct wl_po {
 #define PM_OFF	0
 #define PM_MAX	1
 #define PM_FAST 2
-#define PM_FORCE_OFF 3			/* use this bit to force PM off even bt is active */
+#define PM_FORCE_OFF 3		/* use this bit to force PM off even bt is active */
 
 #ifndef LINUX_POSTMOGRIFY_REMOVAL
 /* MAC list modes */
@@ -4223,8 +4218,8 @@ typedef struct wl_seq_cmd_ioctl {
 #define WL_PKTENG_PER_TX_START			0x01
 #define WL_PKTENG_PER_TX_STOP			0x02
 #define WL_PKTENG_PER_RX_START			0x04
-#define WL_PKTENG_PER_RX_WITH_ACK_START	0x05
-#define WL_PKTENG_PER_TX_WITH_ACK_START	0x06
+#define WL_PKTENG_PER_RX_WITH_ACK_START		0x05
+#define WL_PKTENG_PER_TX_WITH_ACK_START		0x06
 #define WL_PKTENG_PER_RX_STOP			0x08
 #define WL_PKTENG_PER_MASK			0xff
 

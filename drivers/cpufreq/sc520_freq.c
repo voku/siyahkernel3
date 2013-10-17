@@ -189,4 +189,3 @@ MODULE_DESCRIPTION("cpufreq driver for AMD's Elan sc520 CPU");
 
 module_init(sc520_freq_init);
 module_exit(sc520_freq_exit);
-

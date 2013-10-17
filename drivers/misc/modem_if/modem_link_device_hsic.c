@@ -1201,7 +1201,7 @@ static int if_usb_set_pipe(struct usb_link_device *usb_ld,
 	return 0;
 }
 
-static int __devinit if_usb_probe(struct usb_interface *intf,
+static int if_usb_probe(struct usb_interface *intf,
 					const struct usb_device_id *id)
 {
 	int err;
@@ -1389,7 +1389,7 @@ MODULE_DEVICE_TABLE(usb, if_usb_ids);
 
 static struct usb_driver if_usb_driver = {
 	.name =		"cdc_modem",
-	.probe =		if_usb_probe,
+	.probe =	if_usb_probe,
 	.disconnect =	if_usb_disconnect,
 	.id_table =	if_usb_ids,
 	.suspend =	if_usb_suspend,

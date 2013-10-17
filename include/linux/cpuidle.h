@@ -13,13 +13,14 @@
 
 #include <linux/percpu.h>
 #include <linux/list.h>
-#include <linux/module.h>
 #include <linux/kobject.h>
 #include <linux/completion.h>
 
 #define CPUIDLE_STATE_MAX	8
 #define CPUIDLE_NAME_LEN	16
 #define CPUIDLE_DESC_LEN	32
+
+struct module;
 
 struct cpuidle_device;
 
@@ -35,7 +36,7 @@ struct cpuidle_state {
 
 	unsigned int	flags;
 	unsigned int	exit_latency; /* in US */
-	unsigned int	power_usage; /* in mW */
+	int		power_usage; /* in mW */
 	unsigned int	target_residency; /* in US */
 
 	unsigned long long	usage;
@@ -122,6 +123,7 @@ struct cpuidle_driver {
 };
 
 #ifdef CONFIG_CPU_IDLE
+extern void disable_cpuidle(void);
 extern int cpuidle_idle_call(void);
 
 extern int cpuidle_register_driver(struct cpuidle_driver *drv);
@@ -136,6 +138,7 @@ extern int cpuidle_enable_device(struct cpuidle_device *dev);
 extern void cpuidle_disable_device(struct cpuidle_device *dev);
 
 #else
+static inline void disable_cpuidle(void) { }
 static inline int cpuidle_idle_call(void) { return -ENODEV; }
 
 static inline int cpuidle_register_driver(struct cpuidle_driver *drv)

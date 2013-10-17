@@ -460,7 +460,7 @@ static int s3c_adc_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static int __devexit s3c_adc_remove(struct platform_device *pdev)
+static int s3c_adc_remove(struct platform_device *pdev)
 {
 	struct adc_device *adc = platform_get_drvdata(pdev);
 
@@ -548,7 +548,7 @@ static struct platform_driver s3c_adc_driver = {
 		.owner	= THIS_MODULE,
 	},
 	.probe		= s3c_adc_probe,
-	.remove		= __devexit_p(s3c_adc_remove),
+	.remove		= s3c_adc_remove,
 	.suspend	= s3c_adc_suspend,
 	.resume		= s3c_adc_resume,
 };

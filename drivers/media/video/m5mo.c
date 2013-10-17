@@ -15,6 +15,7 @@
 
 #include <linux/i2c.h>
 #include <linux/init.h>
+#include <linux/module.h>
 #include <media/v4l2-device.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
@@ -847,7 +848,7 @@ static int m5mo_check_fw(struct v4l2_subdev *sd)
 {
 	struct m5mo_state *state = to_state(sd);
 	u8 sensor_ver[M5MO_FW_VER_LEN] = "FAILED Fujitsu M5MOLS";
-	u8 phone_ver[M5MO_FW_VER_LEN] = "FAILED Fujitsu M5MOLS";
+	u8 phone_ver[M5MO_FW_VER_LEN] = DEFAULT_PHONE_FW_VER;
 	int af_cal_h = 0, af_cal_l = 0;
 	int rg_cal_h = 0, rg_cal_l = 0;
 	int bg_cal_h = 0, bg_cal_l = 0;
@@ -2910,7 +2911,7 @@ static DEVICE_ATTR(rear_camfw, S_IRUGO, m5mo_camera_fw_show, NULL);
  * Fetching platform data is being done with s_config subdev call.
  * In probe routine, we just register subdev device
  */
-static int __devinit m5mo_probe(struct i2c_client *client,
+static int m5mo_probe(struct i2c_client *client,
 			 const struct i2c_device_id *id)
 {
 	struct m5mo_state *state;
@@ -2971,7 +2972,7 @@ static int __devinit m5mo_probe(struct i2c_client *client,
 	return 0;
 }
 
-static int __devexit m5mo_remove(struct i2c_client *client)
+static int m5mo_remove(struct i2c_client *client)
 {
 	struct v4l2_subdev *sd = i2c_get_clientdata(client);
 	struct m5mo_state *state = to_state(sd);
@@ -3006,7 +3007,7 @@ static struct i2c_driver m5mo_i2c_driver = {
 		.name	= M5MO_DRIVER_NAME,
 	},
 	.probe		= m5mo_probe,
-	.remove		= __devexit_p(m5mo_remove),
+	.remove		= m5mo_remove,
 	.id_table	= m5mo_id,
 };
 

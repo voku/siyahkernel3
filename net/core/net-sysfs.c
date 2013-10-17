@@ -232,7 +232,7 @@ NETDEVICE_SHOW(flags, fmt_hex);
 
 static int change_flags(struct net_device *net, unsigned long new_flags)
 {
-	return dev_change_flags(net, (unsigned) new_flags);
+	return dev_change_flags(net, (unsigned int) new_flags);
 }
 
 static ssize_t store_flags(struct device *dev, struct device_attribute *attr,
@@ -583,7 +583,7 @@ static ssize_t store_rps_map(struct netdev_rx_queue *queue,
 		return err;
 	}
 
-	map = kzalloc(max_t(unsigned,
+	map = kzalloc(max_t(unsigned int,
 	    RPS_MAP_SIZE(cpumask_weight(mask)), L1_CACHE_BYTES),
 	    GFP_KERNEL);
 	if (!map) {
@@ -608,9 +608,12 @@ static ssize_t store_rps_map(struct netdev_rx_queue *queue,
 	rcu_assign_pointer(queue->rps_map, map);
 	spin_unlock(&rps_map_lock);
 
-	if (old_map)
+	if (map)
+		static_key_slow_inc(&rps_needed);
+	if (old_map) {
 		kfree_rcu(old_map, rcu);
-
+		static_key_slow_dec(&rps_needed);
+	}
 	free_cpumask_var(mask);
 	return len;
 }
@@ -919,7 +922,7 @@ static ssize_t store_xps_map(struct netdev_queue *queue,
 		return err;
 	}
 
-	new_dev_maps = kzalloc(max_t(unsigned,
+	new_dev_maps = kzalloc(max_t(unsigned int,
 	    XPS_DEV_MAPS_SIZE, L1_CACHE_BYTES), GFP_KERNEL);
 	if (!new_dev_maps) {
 		free_cpumask_var(mask);
@@ -989,11 +992,11 @@ static ssize_t store_xps_map(struct netdev_queue *queue,
 			nonempty = 1;
 	}
 
-	if (nonempty)
+	if (nonempty) {
 		rcu_assign_pointer(dev->xps_maps, new_dev_maps);
-	else {
+	} else {
 		kfree(new_dev_maps);
-		rcu_assign_pointer(dev->xps_maps, NULL);
+		RCU_INIT_POINTER(dev->xps_maps, NULL);
 	}
 
 	if (dev_maps)
@@ -1180,6 +1183,13 @@ static void remove_queue_kobjects(struct net_device *net)
 #endif
 }
 
+static bool net_current_may_mount(void)
+{
+	struct net *net = current->nsproxy->net_ns;
+
+	return ns_capable(net->user_ns, CAP_SYS_ADMIN);
+}
+
 static void *net_grab_current_ns(void)
 {
 	struct net *ns = current->nsproxy->net_ns;
@@ -1202,6 +1212,7 @@ static const void *net_netlink_ns(struct sock *sk)
 
 struct kobj_ns_type_operations net_ns_type_operations = {
 	.type = KOBJ_NS_TYPE_NET,
+	.current_may_mount = net_current_may_mount,
 	.grab_current_ns = net_grab_current_ns,
 	.netlink_ns = net_netlink_ns,
 	.initial_ns = net_initial_ns,
@@ -1209,7 +1220,6 @@ struct kobj_ns_type_operations net_ns_type_operations = {
 };
 EXPORT_SYMBOL_GPL(net_ns_type_operations);
 
-#ifdef CONFIG_HOTPLUG
 static int netdev_uevent(struct device *d, struct kobj_uevent_env *env)
 {
 	struct net_device *dev = to_net_dev(d);
@@ -1228,7 +1238,6 @@ static int netdev_uevent(struct device *d, struct kobj_uevent_env *env)
 exit:
 	return retval;
 }
-#endif
 
 /*
  *	netdev_release -- destroy and free a dead device.
@@ -1257,9 +1266,7 @@ static struct class net_class = {
 #ifdef CONFIG_SYSFS
 	.dev_attrs = net_class_attributes,
 #endif /* CONFIG_SYSFS */
-#ifdef CONFIG_HOTPLUG
 	.dev_uevent = netdev_uevent,
-#endif
 	.ns_type = &net_ns_type_operations,
 	.namespace = net_namespace,
 };

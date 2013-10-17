@@ -22,7 +22,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: sdioh.h 347633 2012-07-27 11:02:02Z $
+ * $Id: sdioh.h 345499 2012-07-18 06:59:05Z $
  */
 
 #ifndef	_SDIOH_H
@@ -32,7 +32,7 @@
 #define SD_BlockSize			0x004
 #define SD_BlockCount			0x006
 #define SD_Arg0				0x008
-#define SD_Arg1			0x00A
+#define SD_Arg1				0x00A
 #define SD_TransferMode			0x00C
 #define SD_Command			0x00E
 #define SD_Response0			0x010
@@ -49,9 +49,9 @@
 #define SD_HostCntrl			0x028
 #define SD_PwrCntrl			0x029
 #define SD_BlockGapCntrl		0x02A
-#define SD_WakeupCntrl				0x02B
+#define SD_WakeupCntrl			0x02B
 #define SD_ClockCntrl			0x02C
-#define SD_TimeoutCntrl		0x02E
+#define SD_TimeoutCntrl			0x02E
 #define SD_SoftwareReset		0x02F
 #define SD_IntrStatus			0x030
 #define SD_ErrorIntrStatus		0x032
@@ -90,8 +90,8 @@
 #define SD3_PresetVal_SDR104	0x06c
 #define SD3_PresetVal_DDR50		0x06e
 /* SDIO3.0 Revx specific Registers */
-#define SD3_Tuning_Info_Register	0x0EC
-#define SD3_WL_BT_reset_register	0x0F0
+#define SD3_Tuning_Info_Register 0x0EC
+#define SD3_WL_BT_reset_register 0x0F0
 
 
 /* preset value indices */
@@ -114,7 +114,7 @@
 */
 #define CAP_BASECLK_M		BITFIELD_MASK(8)
 #define CAP_BASECLK_S		8
-#define CAP_MAXBLOCK_M			BITFIELD_MASK(2)
+#define CAP_MAXBLOCK_M		BITFIELD_MASK(2)
 #define CAP_MAXBLOCK_S		16
 #define CAP_ADMA2_M		BITFIELD_MASK(1)
 #define CAP_ADMA2_S		19
@@ -222,9 +222,9 @@
 
 /* SD_Command: Offset 0x00E, size = 2 bytes */
 /* resp_type field */
-#define RESP_TYPE_NONE			0
-#define RESP_TYPE_136			1
-#define RESP_TYPE_48			2
+#define RESP_TYPE_NONE		0
+#define RESP_TYPE_136		1
+#define RESP_TYPE_48		2
 #define RESP_TYPE_48_BUSY	3
 /* type field */
 #define CMD_TYPE_NORMAL		0

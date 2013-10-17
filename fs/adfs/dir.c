@@ -197,8 +197,7 @@ const struct file_operations adfs_dir_operations = {
 };
 
 static int
-adfs_hash(const struct dentry *parent, const struct inode *inode,
-		struct qstr *qstr)
+adfs_hash(const struct dentry *parent, struct qstr *qstr)
 {
 	const unsigned int name_len = ADFS_SB(parent->d_sb)->s_namelen;
 	const unsigned char *name;
@@ -234,8 +233,7 @@ adfs_hash(const struct dentry *parent, const struct inode *inode,
  * requirements of the underlying filesystem.
  */
 static int
-adfs_compare(const struct dentry *parent, const struct inode *pinode,
-		const struct dentry *dentry, const struct inode *inode,
+adfs_compare(const struct dentry *parent, const struct dentry *dentry,
 		unsigned int len, const char *str, const struct qstr *name)
 {
 	int i;
@@ -266,7 +264,7 @@ const struct dentry_operations adfs_dentry_operations = {
 };
 
 static struct dentry *
-adfs_lookup(struct inode *dir, struct dentry *dentry, struct nameidata *nd)
+adfs_lookup(struct inode *dir, struct dentry *dentry, unsigned int flags)
 {
 	struct inode *inode = NULL;
 	struct object_info obj;

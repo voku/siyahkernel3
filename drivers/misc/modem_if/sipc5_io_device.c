@@ -24,6 +24,7 @@
 #include <linux/if_ether.h>
 #include <linux/etherdevice.h>
 #include <linux/device.h>
+#include <linux/interrupt.h>
 
 #include <linux/platform_data/modem.h>
 #ifdef CONFIG_LINK_DEVICE_C2C

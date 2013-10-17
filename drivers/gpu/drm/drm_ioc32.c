@@ -29,9 +29,10 @@
  */
 #include <linux/compat.h>
 #include <linux/ratelimit.h>
+#include <linux/export.h>
 
-#include "drmP.h"
-#include "drm_core.h"
+#include <drm/drmP.h>
+#include <drm/drm_core.h>
 
 #define DRM_IOCTL_VERSION32		DRM_IOWR(0x00, drm_version32_t)
 #define DRM_IOCTL_GET_UNIQUE32		DRM_IOWR(0x01, drm_unique32_t)

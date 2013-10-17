@@ -210,7 +210,7 @@ void audss_resume(void)
 		audss_reg_restore();
 }
 
-static __devinit int audss_init(void)
+static int audss_init(void)
 {
 	int ret = 0;
 
@@ -278,7 +278,7 @@ err1:
 	return ret;
 }
 
-static __devexit int audss_deinit(void)
+static int audss_deinit(void)
 {
 	clk_put(audss.i2s_clk);
 	clk_put(audss.bus_clk);

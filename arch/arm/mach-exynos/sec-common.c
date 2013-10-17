@@ -1,4 +1,5 @@
 #include <linux/device.h>
+#include <linux/export.h>
 #include <linux/err.h>
 
 struct class *sec_class;

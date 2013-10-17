@@ -122,13 +122,9 @@
 # define preemptible()	0
 #endif
 
-#if defined(CONFIG_SMP) || defined(CONFIG_GENERIC_HARDIRQS)
 extern void synchronize_irq(unsigned int irq);
-#else
-# define synchronize_irq(irq)	barrier()
-#endif
 
-#if defined(CONFIG_TINY_RCU) || defined(CONFIG_TINY_PREEMPT_RCU)
+#if defined(CONFIG_TINY_RCU)
 
 static inline void rcu_nmi_enter(void)
 {

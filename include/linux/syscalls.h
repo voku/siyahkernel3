@@ -68,11 +68,11 @@ struct sigaltstack;
 #include <linux/types.h>
 #include <linux/aio_abi.h>
 #include <linux/capability.h>
+#include <linux/signal.h>
 #include <linux/list.h>
 #include <linux/bug.h>
 #include <linux/sem.h>
 #include <asm/siginfo.h>
-#include <asm/signal.h>
 #include <linux/unistd.h>
 #include <linux/quota.h>
 #include <linux/key.h>
@@ -213,8 +213,6 @@ extern struct trace_event_functions exit_syscall_print_funcs;
 	__SYSCALL_DEFINEx(x, sname, __VA_ARGS__)
 #endif
 
-#ifdef CONFIG_HAVE_SYSCALL_WRAPPERS
-
 #define SYSCALL_DEFINE(name) static inline long SYSC_##name
 
 #define __PROTECT(...) asmlinkage_protect(__VA_ARGS__)
@@ -230,14 +228,6 @@ extern struct trace_event_functions exit_syscall_print_funcs;
 	}								\
 	SYSCALL_ALIAS(sys##name, SyS##name);				\
 	static inline long SYSC##name(__MAP(x,__SC_DECL,__VA_ARGS__))
-
-#else /* CONFIG_HAVE_SYSCALL_WRAPPERS */
-
-#define SYSCALL_DEFINE(name) asmlinkage long sys_##name
-#define __SYSCALL_DEFINEx(x, name, ...)					\
-	asmlinkage long sys##name(__MAP(x,__SC_DECL,__VA_ARGS__))
-
-#endif /* CONFIG_HAVE_SYSCALL_WRAPPERS */
 
 asmlinkage long sys_time(time_t __user *tloc);
 asmlinkage long sys_stime(time_t __user *tptr);
@@ -287,10 +277,8 @@ asmlinkage long sys_personality(unsigned int personality);
 asmlinkage long sys_sigpending(old_sigset_t __user *set);
 asmlinkage long sys_sigprocmask(int how, old_sigset_t __user *set,
 				old_sigset_t __user *oset);
-#ifdef CONFIG_GENERIC_SIGALTSTACK
 asmlinkage long sys_sigaltstack(const struct sigaltstack __user *uss,
 				struct sigaltstack __user *uoss);
-#endif
 
 asmlinkage long sys_getitimer(int which, struct itimerval __user *value);
 asmlinkage long sys_setitimer(int which,
@@ -683,7 +671,7 @@ asmlinkage long sys_msgctl(int msqid, int cmd, struct msqid_ds __user *buf);
 asmlinkage long sys_semget(key_t key, int nsems, int semflg);
 asmlinkage long sys_semop(int semid, struct sembuf __user *sops,
 				unsigned nsops);
-asmlinkage long sys_semctl(int semid, int semnum, int cmd, union semun arg);
+asmlinkage long sys_semctl(int semid, int semnum, int cmd, unsigned long arg);
 asmlinkage long sys_semtimedop(int semid, struct sembuf __user *sops,
 				unsigned nsops,
 				const struct timespec __user *timeout);
@@ -841,16 +829,20 @@ asmlinkage long sys_fanotify_mark(int fanotify_fd, unsigned int flags,
 				  const char  __user *pathname);
 asmlinkage long sys_syncfs(int fd);
 
-#ifndef CONFIG_GENERIC_KERNEL_EXECVE
-int kernel_execve(const char *filename, const char *const argv[], const char *const envp[]);
+asmlinkage long sys_fork(void);
+asmlinkage long sys_vfork(void);
+#ifdef CONFIG_CLONE_BACKWARDS
+asmlinkage long sys_clone(unsigned long, unsigned long, int __user *, int,
+	       int __user *);
 #else
-#define kernel_execve(filename, argv, envp) \
-	do_execve(filename, \
-		(const char __user *const __user *)argv, \
-		(const char __user *const __user *)envp, \
-		current_pt_regs())
+#ifdef CONFIG_CLONE_BACKWARDS3
+asmlinkage long sys_clone(unsigned long, unsigned long, int, int __user *,
+			  int __user *, int);
+#else
+asmlinkage long sys_clone(unsigned long, unsigned long, int __user *,
+	       int __user *, int);
 #endif
-
+#endif
 
 asmlinkage long sys_perf_event_open(
 		struct perf_event_attr __user *attr_uptr,
@@ -880,7 +872,7 @@ asmlinkage long sys_process_vm_writev(pid_t pid,
 				      unsigned long riovcnt,
 				      unsigned long flags);
 
-asmlinkage long sys_finit_module(int fd, const char __user *uargs, int flags);
 asmlinkage long sys_kcmp(pid_t pid1, pid_t pid2, int type,
 			 unsigned long idx1, unsigned long idx2);
+asmlinkage long sys_finit_module(int fd, const char __user *uargs, int flags);
 #endif

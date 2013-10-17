@@ -74,6 +74,9 @@
 #include <linux/ptrace.h>
 #include <linux/blkdev.h>
 #include <linux/elevator.h>
+#include <linux/sched_clock.h>
+#include <linux/context_tracking.h>
+#include <linux/random.h>
 
 #include <asm/io.h>
 #include <asm/bugs.h>
@@ -390,7 +393,7 @@ static noinline void __init_refok rest_init(void)
 	init_idle_bootup_task(current);
 	schedule_preempt_disabled();
 	/* Call into cpu_idle with preempt disabled */
-	cpu_idle();
+	cpu_startup_entry(CPUHP_ONLINE);
 }
 
 /* Check for early params. */
@@ -549,6 +552,7 @@ asmlinkage void __init start_kernel(void)
 	perf_event_init();
 	rcu_init();
 	tick_nohz_init();
+	context_tracking_init();
 	radix_tree_init();
 	/* init some links before init_ISA_irqs() */
 	early_irq_init();
@@ -559,6 +563,7 @@ asmlinkage void __init start_kernel(void)
 	softirq_init();
 	timekeeping_init();
 	time_init();
+	sched_clock_postinit();
 	profile_init();
 	call_function_init();
 	WARN(!irqs_disabled(), "Interrupts were enabled early\n");
@@ -654,8 +659,6 @@ static void __init do_ctors(void)
 bool initcall_debug;
 core_param(initcall_debug, initcall_debug, bool, 0644);
 
-static char msgbuf[64];
-
 static int __init_or_module do_one_initcall_debug(initcall_t fn)
 {
 	ktime_t calltime, delta, rettime;
@@ -678,6 +681,7 @@ int __init_or_module do_one_initcall(initcall_t fn)
 {
 	int count = preempt_count();
 	int ret;
+	char msgbuf[64];
 
 	if (initcall_debug)
 		ret = do_one_initcall_debug(fn);
@@ -781,6 +785,7 @@ static void __init do_basic_setup(void)
 	do_ctors();
 	usermodehelper_enable();
 	do_initcalls();
+	random_int_secret_init();
 }
 
 static void __init do_pre_smp_initcalls(void)
@@ -806,7 +811,9 @@ static int run_init_process(const char *init_filename)
 {
 	int ret = 0;
 	argv_init[0] = init_filename;
-	return kernel_execve(init_filename, argv_init, envp_init);
+	return do_execve(init_filename,
+		(const char __user *const __user *)argv_init,
+		(const char __user *const __user *)envp_init);
 }
 
 static noinline void __init kernel_init_freeable(void);
@@ -820,6 +827,8 @@ static int __ref kernel_init(void *unused)
 	mark_rodata_ro();
 	system_state = SYSTEM_RUNNING;
 	numa_default_policy();
+
+	flush_delayed_fput();
 
 	if (ramdisk_execute_command) {
 		if (!run_init_process(ramdisk_execute_command))
@@ -842,7 +851,6 @@ static int __ref kernel_init(void *unused)
 	if (!run_init_process("/sbin/init") ||
 	    !run_init_process("/etc/init") ||
 	    !run_init_process("/bin/init") ||
-		!run_init_process("/init") ||
 	    !run_init_process("/bin/sh"))
 		return 0;
 

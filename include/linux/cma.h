@@ -58,7 +58,7 @@ struct cma_alloc_request {
 
 #ifdef __KERNEL__
 
-#include <linux/rbtree.h>
+#include <linux/rbtree_augmented.h>
 #include <linux/list.h>
 #if defined CONFIG_CMA_SYSFS
 #  include <linux/kobject.h>

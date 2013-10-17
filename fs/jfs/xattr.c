@@ -685,7 +685,7 @@ static int can_set_system_xattr(struct inode *inode, const char *name,
 	 * POSIX_ACL_XATTR_ACCESS is tied to i_mode
 	 */
 	if (strcmp(name, POSIX_ACL_XATTR_ACCESS) == 0) {
-		acl = posix_acl_from_xattr(value, value_len);
+		acl = posix_acl_from_xattr(&init_user_ns, value, value_len);
 		if (IS_ERR(acl)) {
 			rc = PTR_ERR(acl);
 			printk(KERN_ERR "posix_acl_from_xattr returned %d\n",
@@ -693,8 +693,7 @@ static int can_set_system_xattr(struct inode *inode, const char *name,
 			return rc;
 		}
 		if (acl) {
-			mode_t mode = inode->i_mode;
-			rc = posix_acl_equiv_mode(acl, &mode);
+			rc = posix_acl_equiv_mode(acl, &inode->i_mode);
 			posix_acl_release(acl);
 			if (rc < 0) {
 				printk(KERN_ERR
@@ -702,7 +701,6 @@ static int can_set_system_xattr(struct inode *inode, const char *name,
 				       rc);
 				return rc;
 			}
-			inode->i_mode = mode;
 			mark_inode_dirty(inode);
 		}
 		/*
@@ -712,7 +710,7 @@ static int can_set_system_xattr(struct inode *inode, const char *name,
 
 		return 0;
 	} else if (strcmp(name, POSIX_ACL_XATTR_DEFAULT) == 0) {
-		acl = posix_acl_from_xattr(value, value_len);
+		acl = posix_acl_from_xattr(&init_user_ns, value, value_len);
 		if (IS_ERR(acl)) {
 			rc = PTR_ERR(acl);
 			printk(KERN_ERR "posix_acl_from_xattr returned %d\n",

@@ -22,7 +22,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: bcmsdpcm.h 362722 2012-10-12 23:55:55Z $
+ * $Id: bcmsdpcm.h 364353 2012-10-23 20:31:46Z $
  */
 
 #ifndef	_bcmsdpcm_h_
@@ -110,7 +110,7 @@
 
 /* Data Offset from SOF (HW Tag, SW Tag, Pad) */
 #define SDPCM_DOFFSET_OFFSET		3		/* Data Offset */
-#define SDPCM_DOFFSET_VALUE(p)			(((uint8 *)p)[SDPCM_DOFFSET_OFFSET] & 0xff)
+#define SDPCM_DOFFSET_VALUE(p)		(((uint8 *)p)[SDPCM_DOFFSET_OFFSET] & 0xff)
 #define SDPCM_DOFFSET_MASK		0xff000000
 #define SDPCM_DOFFSET_SHIFT		24
 

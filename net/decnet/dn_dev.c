@@ -42,7 +42,6 @@
 #include <linux/notifier.h>
 #include <linux/slab.h>
 #include <asm/uaccess.h>
-#include <asm/system.h>
 #include <net/net_namespace.h>
 #include <net/neighbour.h>
 #include <net/dst.h>
@@ -1101,7 +1100,7 @@ static struct dn_dev *dn_dev_create(struct net_device *dev, int *err)
 
 	dn_db->neigh_parms = neigh_parms_alloc(dev, &dn_neigh_table);
 	if (!dn_db->neigh_parms) {
-		rcu_assign_pointer(dev->dn_ptr, NULL);
+		RCU_INIT_POINTER(dev->dn_ptr, NULL);
 		kfree(dn_db);
 		return NULL;
 	}
@@ -1313,7 +1312,7 @@ static void *dn_dev_seq_next(struct seq_file *seq, void *v, loff_t *pos)
 
 	++*pos;
 
-	dev = (struct net_device *)v;
+	dev = v;
 	if (v == SEQ_START_TOKEN)
 		dev = net_device_entry(&init_net.dev_base_head);
 

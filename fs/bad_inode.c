@@ -45,7 +45,7 @@ static ssize_t bad_file_aio_write(struct kiocb *iocb, const struct iovec *iov,
 	return -EIO;
 }
 
-static int bad_file_readdir(struct file *filp, void *dirent, filldir_t filldir)
+static int bad_file_readdir(struct file *file, struct dir_context *ctx)
 {
 	return -EIO;
 }
@@ -87,7 +87,8 @@ static int bad_file_release(struct inode *inode, struct file *filp)
 	return -EIO;
 }
 
-static int bad_file_fsync(struct file *file, int datasync)
+static int bad_file_fsync(struct file *file, loff_t start, loff_t end,
+			  int datasync)
 {
 	return -EIO;
 }
@@ -151,7 +152,7 @@ static const struct file_operations bad_file_ops =
 	.write		= bad_file_write,
 	.aio_read	= bad_file_aio_read,
 	.aio_write	= bad_file_aio_write,
-	.readdir	= bad_file_readdir,
+	.iterate	= bad_file_readdir,
 	.poll		= bad_file_poll,
 	.unlocked_ioctl	= bad_file_unlocked_ioctl,
 	.compat_ioctl	= bad_file_compat_ioctl,
@@ -172,13 +173,13 @@ static const struct file_operations bad_file_ops =
 };
 
 static int bad_inode_create (struct inode *dir, struct dentry *dentry,
-		umode_t mode, struct nameidata *nd)
+		umode_t mode, bool excl)
 {
 	return -EIO;
 }
 
 static struct dentry *bad_inode_lookup(struct inode *dir,
-			struct dentry *dentry, struct nameidata *nd)
+			struct dentry *dentry, unsigned int flags)
 {
 	return ERR_PTR(-EIO);
 }
@@ -229,7 +230,7 @@ static int bad_inode_readlink(struct dentry *dentry, char __user *buffer,
 	return -EIO;
 }
 
-static int bad_inode_permission(struct inode *inode, int mask, unsigned int flags)
+static int bad_inode_permission(struct inode *inode, int mask)
 {
 	return -EIO;
 }

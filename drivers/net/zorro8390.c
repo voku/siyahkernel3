@@ -29,7 +29,6 @@
 #include <linux/zorro.h>
 #include <linux/jiffies.h>
 
-#include <asm/system.h>
 #include <asm/irq.h>
 #include <asm/amigaints.h>
 #include <asm/amigahw.h>

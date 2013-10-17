@@ -30,8 +30,8 @@ static void ncp_do_readdir(struct file *, void *, filldir_t,
 
 static int ncp_readdir(struct file *, void *, filldir_t);
 
-static int ncp_create(struct inode *, struct dentry *, umode_t, struct nameidata *);
-static struct dentry *ncp_lookup(struct inode *, struct dentry *, struct nameidata *);
+static int ncp_create(struct inode *, struct dentry *, umode_t, bool);
+static struct dentry *ncp_lookup(struct inode *, struct dentry *, unsigned int);
 static int ncp_unlink(struct inode *, struct dentry *);
 static int ncp_mkdir(struct inode *, struct dentry *, umode_t);
 static int ncp_rmdir(struct inode *, struct dentry *);
@@ -73,10 +73,8 @@ const struct inode_operations ncp_dir_inode_operations =
  * Dentry operations routines
  */
 static int ncp_lookup_validate(struct dentry *, unsigned int);
-static int ncp_hash_dentry(const struct dentry *, const struct inode *,
-		struct qstr *);
-static int ncp_compare_dentry(const struct dentry *, const struct inode *,
-		const struct dentry *, const struct inode *,
+static int ncp_hash_dentry(const struct dentry *, struct qstr *);
+static int ncp_compare_dentry(const struct dentry *, const struct dentry *,
 		unsigned int, const char *, const struct qstr *);
 static int ncp_delete_dentry(const struct dentry *);
 
@@ -119,11 +117,19 @@ static inline int ncp_case_sensitive(const struct inode *i)
 /*
  * Note: leave the hash unchanged if the directory
  * is case-sensitive.
+ *
+ * Accessing the parent inode can be racy under RCU pathwalking.
+ * Use ACCESS_ONCE() to make sure we use _one_ particular inode,
+ * the callers will handle races.
  */
 static int 
-ncp_hash_dentry(const struct dentry *dentry, const struct inode *inode,
-		struct qstr *this)
+ncp_hash_dentry(const struct dentry *dentry, struct qstr *this)
 {
+	struct inode *inode = ACCESS_ONCE(dentry->d_inode);
+
+	if (!inode)
+		return 0;
+
 	if (!ncp_case_sensitive(inode)) {
 		struct super_block *sb = dentry->d_sb;
 		struct nls_table *t;
@@ -140,12 +146,22 @@ ncp_hash_dentry(const struct dentry *dentry, const struct inode *inode,
 	return 0;
 }
 
+/*
+ * Accessing the parent inode can be racy under RCU pathwalking.
+ * Use ACCESS_ONCE() to make sure we use _one_ particular inode,
+ * the callers will handle races.
+ */
 static int
-ncp_compare_dentry(const struct dentry *parent, const struct inode *pinode,
-		const struct dentry *dentry, const struct inode *inode,
+ncp_compare_dentry(const struct dentry *parent, const struct dentry *dentry,
 		unsigned int len, const char *str, const struct qstr *name)
 {
+	struct inode *pinode;
+
 	if (len != name->len)
+		return 1;
+
+	pinode = ACCESS_ONCE(parent->d_inode);
+	if (!pinode)
 		return 1;
 
 	if (ncp_case_sensitive(pinode))
@@ -668,8 +684,6 @@ end_advance:
 		ctl.valid = 0;
 	if (!ctl.filled && (ctl.fpos == filp->f_pos)) {
 		if (!ino)
-			ino = find_inode_number(dentry, &qname);
-		if (!ino)
 			ino = iunique(dir->i_sb, 2);
 		ctl.filled = filldir(dirent, qname.name, qname.len,
 				     filp->f_pos, ino, DT_UNKNOWN);
@@ -832,7 +846,7 @@ out:
 	return result;
 }
 
-static struct dentry *ncp_lookup(struct inode *dir, struct dentry *dentry, struct nameidata *nd)
+static struct dentry *ncp_lookup(struct inode *dir, struct dentry *dentry, unsigned int flags)
 {
 	struct ncp_server *server = NCP_SERVER(dir);
 	struct inode *inode = NULL;
@@ -915,7 +929,7 @@ out_close:
 	goto out;
 }
 
-int ncp_create_new(struct inode *dir, struct dentry *dentry, int mode,
+int ncp_create_new(struct inode *dir, struct dentry *dentry, umode_t mode,
 		   dev_t rdev, __le32 attributes)
 {
 	struct ncp_server *server = NCP_SERVER(dir);
@@ -924,7 +938,7 @@ int ncp_create_new(struct inode *dir, struct dentry *dentry, int mode,
 	int opmode;
 	__u8 __name[NCP_MAXPATHLEN + 1];
 	
-	PPRINTK("ncp_create_new: creating %s/%s, mode=%x\n",
+	PPRINTK("ncp_create_new: creating %s/%s, mode=%hx\n",
 		dentry->d_parent->d_name.name, dentry->d_name.name, mode);
 
 	ncp_age_dentry(server, dentry);
@@ -976,7 +990,7 @@ out:
 }
 
 static int ncp_create(struct inode *dir, struct dentry *dentry, umode_t mode,
-		struct nameidata *nd)
+		bool excl)
 {
 	return ncp_create_new(dir, dentry, mode, 0, 0);
 }

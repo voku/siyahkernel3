@@ -9,31 +9,23 @@
 #include <errno.h>
 #include <string.h>
 #include <sys/mman.h>
-#include <sys/ptrace.h>
 #include <sys/wait.h>
 #include <asm/unistd.h>
-#include "as-layout.h"
-#include "chan_user.h"
-#include "kern_constants.h"
-#include "kern_util.h"
-#include "mem.h"
-#include "os.h"
-#include "process.h"
-#include "proc_mm.h"
-#include "ptrace_user.h"
-#include "registers.h"
-#include "skas.h"
-#include "skas_ptrace.h"
-#include "user.h"
-#include "sysdep/stub.h"
+#include <as-layout.h>
+#include <init.h>
+#include <kern_util.h>
+#include <mem.h>
+#include <os.h>
+#include <proc_mm.h>
+#include <ptrace_user.h>
+#include <registers.h>
+#include <skas.h>
+#include <skas_ptrace.h>
+#include <sysdep/stub.h>
 
 int is_skas_winch(int pid, int fd, void *data)
 {
-	if (pid != getpgrp())
-		return 0;
-
-	register_winch_irq(-1, fd, -1, data, 0);
-	return 1;
+	return pid == getpgrp();
 }
 
 static int ptrace_dump_regs(int pid)
@@ -62,7 +54,7 @@ static int ptrace_dump_regs(int pid)
 
 void wait_stub_done(int pid)
 {
-	int n, status, err;
+	int n, status, err, bad_stop = 0;
 
 	while (1) {
 		CATCH_EINTR(n = waitpid(pid, &status, WUNTRACED | __WALL));
@@ -82,6 +74,8 @@ void wait_stub_done(int pid)
 
 	if (((1 << WSTOPSIG(status)) & STUB_DONE_MASK) != 0)
 		return;
+	else
+		bad_stop = 1;
 
 bad_wait:
 	err = ptrace_dump_regs(pid);
@@ -91,7 +85,10 @@ bad_wait:
 	printk(UM_KERN_ERR "wait_stub_done : failed to wait for SIGTRAP, "
 	       "pid = %d, n = %d, errno = %d, status = 0x%x\n", pid, n, errno,
 	       status);
-	fatal_sigsegv();
+	if (bad_stop)
+		kill(pid, SIGKILL);
+	else
+		fatal_sigsegv();
 }
 
 extern unsigned long current_stub_stack(void);
@@ -169,7 +166,7 @@ static void handle_trap(int pid, struct uml_pt_regs *regs,
 
 	if (!local_using_sysemu)
 	{
-		err = ptrace(PTRACE_POKEUSR, pid, PT_SYSCALL_NR_OFFSET,
+		err = ptrace(PTRACE_POKEUSER, pid, PT_SYSCALL_NR_OFFSET,
 			     __NR_getpid);
 		if (err < 0) {
 			printk(UM_KERN_ERR "handle_trap - nullifying syscall "
@@ -257,8 +254,8 @@ static int userspace_tramp(void *stack)
 
 		set_sigstack((void *) STUB_DATA, UM_KERN_PAGE_SIZE);
 		sigemptyset(&sa.sa_mask);
-		sa.sa_flags = SA_ONSTACK | SA_NODEFER;
-		sa.sa_handler = (void *) v;
+		sa.sa_flags = SA_ONSTACK | SA_NODEFER | SA_SIGINFO;
+		sa.sa_sigaction = (void *) v;
 		sa.sa_restorer = NULL;
 		if (sigaction(SIGSEGV, &sa, NULL) < 0) {
 			printk(UM_KERN_ERR "userspace_tramp - setting SIGSEGV "
@@ -354,6 +351,10 @@ void userspace(struct uml_pt_regs *regs)
 	int err, status, op, pid = userspace_pid[0];
 	/* To prevent races if using_sysemu changes under us.*/
 	int local_using_sysemu;
+	siginfo_t si;
+
+	/* Handle any immediate reschedules or signals */
+	interrupt_end();
 
 	if (getitimer(ITIMER_VIRTUAL, &timer))
 		printk(UM_KERN_ERR "Failed to get itimer, errno = %d\n", errno);
@@ -412,13 +413,17 @@ void userspace(struct uml_pt_regs *regs)
 
 		if (WIFSTOPPED(status)) {
 			int sig = WSTOPSIG(status);
+
+			ptrace(PTRACE_GETSIGINFO, pid, 0, (struct siginfo *)&si);
+
 			switch (sig) {
 			case SIGSEGV:
 				if (PTRACE_FULL_FAULTINFO ||
 				    !ptrace_faultinfo) {
 					get_skas_faultinfo(pid,
 							   &regs->faultinfo);
-					(*sig_info[SIGSEGV])(SIGSEGV, regs);
+					(*sig_info[SIGSEGV])(SIGSEGV, (struct siginfo *)&si,
+							     regs);
 				}
 				else handle_segv(pid, regs);
 				break;
@@ -426,14 +431,14 @@ void userspace(struct uml_pt_regs *regs)
 			        handle_trap(pid, regs, local_using_sysemu);
 				break;
 			case SIGTRAP:
-				relay_signal(SIGTRAP, regs);
+				relay_signal(SIGTRAP, (struct siginfo *)&si, regs);
 				break;
 			case SIGVTALRM:
 				now = os_nsecs();
 				if (now < nsecs)
 					break;
 				block_signals();
-				(*sig_info[sig])(sig, regs);
+				(*sig_info[sig])(sig, (struct siginfo *)&si, regs);
 				unblock_signals();
 				nsecs = timer.it_value.tv_sec *
 					UM_NSEC_PER_SEC +
@@ -447,7 +452,7 @@ void userspace(struct uml_pt_regs *regs)
 			case SIGFPE:
 			case SIGWINCH:
 				block_signals();
-				(*sig_info[sig])(sig, regs);
+				(*sig_info[sig])(sig, (struct siginfo *)&si, regs);
 				unblock_signals();
 				break;
 			default:
@@ -661,8 +666,7 @@ int start_idle_thread(void *stack, jmp_buf *switch_buf)
 {
 	int n;
 
-	set_handler(SIGWINCH, (__sighandler_t) sig_handler,
-		    SA_ONSTACK | SA_RESTART, SIGUSR1, SIGIO, SIGVTALRM, -1);
+	set_handler(SIGWINCH);
 
 	/*
 	 * Can't use UML_SETJMP or UML_LONGJMP here because they save

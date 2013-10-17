@@ -20,6 +20,7 @@
 
 #include <linux/kernel.h>
 #include <linux/device.h>
+#include <linux/module.h>
 #include <linux/init.h>
 #include <linux/cache.h>
 #include <linux/mutex.h>
@@ -215,7 +216,7 @@ static const struct dev_pm_ops spi_pm = {
 	SET_RUNTIME_PM_OPS(
 		pm_generic_runtime_suspend,
 		pm_generic_runtime_resume,
-		pm_generic_runtime_idle
+		NULL
 	)
 };
 
@@ -670,10 +671,10 @@ void spi_unregister_master(struct spi_master *master)
 }
 EXPORT_SYMBOL_GPL(spi_unregister_master);
 
-static int __spi_master_match(struct device *dev, void *data)
+static int __spi_master_match(struct device *dev, const void *data)
 {
 	struct spi_master *m;
-	u16 *bus_num = data;
+	const u16 *bus_num = data;
 
 	m = container_of(dev, struct spi_master, dev);
 	return m->bus_num == *bus_num;

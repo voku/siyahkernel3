@@ -90,7 +90,7 @@ idr_again:
 	if (unlikely(ret == -EAGAIN))
 		goto idr_again;
 	else if (likely(!ret))
-		trig_info->id = trig_info->id & MAX_ID_MASK;
+		trig_info->id = trig_info->id & MAX_IDR_MASK;
 
 	return ret;
 }

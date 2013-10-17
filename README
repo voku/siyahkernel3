@@ -1,10 +1,166 @@
                        This is Dorimanx Kernel 9.X/8.x
 
-This kernel is compiled on Ubuntu 12.04 x86/64BIT
+# You can build this kernel easily on BBQLinux (http://www.bbqlinux.org/), an Arch based distro for Android Devs.
+# Install it and simply do these commands:
 
-To compile you need to add
-sudo apt-get install ccache
-sudo apt-get install imagemagick
+# Use 64BIT installation or build will fail!!!
+
+# To compile you need:
+sudo pacman -S bc
+
+# set your shell to bash
+chsh -s /bin/bash YOUR-USER(best if it will be root)
+
+# set permissions on temp!
+sudo chmod -R 777 /tmp
+
+# Clean TMP
+sudo rm -rf /tmp/*
+
+# To clone this repo
+mkdir ~/samsung-i9100
+cd ~/samsung-i9100
+git clone https://github.com/dorimanx/Dorimanx-SG2-I9100-Kernel.git
+git clone https://github.com/dorimanx/initramfs3.git
+
+# allow access for login as root to ssh
+vi /etc/ssh/sshd_config
+
+# look for
+#PermitRootLogin yes
+
+# uncomment
+PermitRootLogin yes
+# save file. (shift :wq)
+
+# To enable SSH access to machine:
+# open terminal
+sudo systemctl start sshd
+
+# to start it, and to make it start always at boot
+sudo systemctl enable sshd.service
+# ssh is online now :)
+
+# Install normal text editor!
+sudo pacman -S vim
+export EDITOR=/usr/bin/vim
+sudo cp /usr/bin/vim /usr/bin/vi
+echo "syntax on" > $HOME/.vimrc
+echo "colo elflord" >> $HOME/.vimrc
+
+# setup git to help you to work :)
+cd ~/samsung-i9100/Dorimanx-SG2-I9100-Kernel
+# tell git who are you!
+git config --global user.name John Doe
+git config --global user.email johndoe@example.com
+# set helpers
+git config --global push.default simple
+git config --global alias.last 'log -1 HEAD'
+git config --global alias.unstage 'reset HEAD --'
+git config --global alias.hard 'reset --hard'
+git config --global alias.co checkout
+git config --global alias.br branch
+git config --global alias.ci commit
+git config --global alias.st status
+git config --global color.diff auto
+git config --global color.ui auto
+git config --global color.status auto
+git config --global color.branch auto
+
+# check all config
+git config -l
+# set auto complite commands for git when using bash shell
+cp /usr/share/git/completion/git-completion.bash ~/.git-completion.bash
+vi ~/.bashrc
+# add at the bottom if file
+source ~/.git-completion.bash
+# save! shift :wq
+# to make it work exit and loggin to ssh/terminal again.
+
+# To start the build
+#********************************************
+#!!!!Login to SSH/Terminal as ROOT user!!!!!!
+#********************************************
+# now if you are ROOT, then build, if you are not ROOT, go away.
+
+cd ~/samsung-i9100/Dorimanx-SG2-I9100-Kernel
+sh load_config.sh
+sh build_kernel.sh
+
+# Enjoy!
+
+==================================================================
+
+# This kernel is compiled on Ubuntu Server/Desktop 12.04 64BIT ONLY!!!.
+# Kernel not support 32BIT!
+
+# It is important to keep this one, otherwise the kernel will be compiled
+# but it won't boot as the script will fire errors.
+
+# It is important to install this otherwise the linaro GCC will fire errors
+sudo apt-get install ia32-libs lib32ncurses5-dev ccache imagemagick libxml2-utils optipng zip tar bash vim
+
+# Set you ssh shell to bash
+chsh -s /bin/bash YOUR-USER(best if will be root)
+
+# set permissions on temp!
+sudo chmod -R 777 /tmp
+
+# Clean TMP
+sudo rm -rf /tmp/*
+
+# Install normal text editor!
+export EDITOR=/usr/bin/vim
+update-alternatives --config editor
+# choose  /usr/bin/vim.basic
+echo "syntax on" > $HOME/.vimrc
+echo "colo elflord" >> $HOME/.vimrc
+
+# To clone this repo
+sudo apt-get install git
+mkdir ~/samsung-i9100
+cd ~/samsung-i9100
+git clone https://github.com/dorimanx/Dorimanx-SG2-I9100-Kernel.git
+git clone https://github.com/dorimanx/initramfs3.git
+
+# setup git to help you to work :)
+cd ~/samsung-i9100/Dorimanx-SG2-I9100-Kernel
+# tell git who are you!
+git config --global user.name John Doe
+git config --global user.email johndoe@example.com
+# set helpers
+git config --global push.default simple
+git config --global alias.last 'log -1 HEAD'
+git config --global alias.unstage 'reset HEAD --'
+git config --global alias.hard 'reset --hard'
+git config --global alias.co checkout
+git config --global alias.br branch
+git config --global alias.ci commit
+git config --global alias.st status
+git config --global color.diff auto
+git config --global color.ui auto
+git config --global color.status auto
+git config --global color.branch auto
+
+# check all config
+git config -l
+# set auto complite commands for git when using bash shell
+cp /usr/share/git/completion/git-completion.bash ~/.git-completion.bash
+vi ~/.bashrc
+# add at the bottom if file
+source ~/.git-completion.bash
+# save! shift :wq
+# to make it work exit and loggin to ssh/terminal again.
+
+# To start the build
+#***********************************
+#!!!!Login to SSH as ROOT user!!!!!!
+#***********************************
+
+# now if you are ROOT, then build, if you are not ROOT, go away.
+cd ~/samsung-i9100/Dorimanx-SG2-I9100-Kernel
+sh load_config.sh
+sh build_kernel.sh
 
 ==================================================================
 My info guide.
@@ -143,7 +299,7 @@ More will be added later.
 
 =================================================================
 
-Kernel is updated to 3.1.Y and beyond.(hybrid)(we have 85% from 3.9.Y kernel!)
+Kernel is updated to 3.12.Y and beyond.(hybrid)(we have 90% from 3.12.Y kernel!)
 This is JB Tuned Kernel only! not supporting any 2.x.x/4.0.x roms!
 Dual CPU support
 Default CPU governor: HYPER
@@ -164,7 +320,7 @@ File systems support: Ext3/4, FAT32, NFS, CIFS, NTFS
 Added tweaks to increase I/O Speed.
 Added tweaks to increase CPU speed
 Removed all the debuggers to free kernel from unneeded jobs, and logs.
-More Govs present, conservative, performance, pegasusq, nightmare, scary, zzmoove, ondemand(default sleep gov), sleepy.
+More Govs present, conservative, performance, pegasusq, nightmare, zzmoove, ondemand(default sleep gov), sleepy.
 ZRAM SWAP add more 150/300/600MB compressed RAM, activated by STweaks, set to off by default.
 Tweak camera (better picks quality)
 Kernel Include Siyah Recovery with Dual ROM support!

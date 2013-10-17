@@ -22,13 +22,14 @@ extern struct hlist_head unix_socket_table[UNIX_HASH_SIZE + 1];
 struct unix_address {
 	atomic_t	refcnt;
 	int		len;
-	unsigned	hash;
+	unsigned int	hash;
 	struct sockaddr_un name[0];
 };
 
 struct unix_skb_parms {
 	struct pid		*pid;		/* Skb credentials	*/
-	const struct cred	*cred;
+	kuid_t			uid;
+	kgid_t			gid;
 	struct scm_fp_list	*fp;		/* Passed files		*/
 #ifdef CONFIG_SECURITY_NETWORK
 	u32			secid;		/* Security ID		*/

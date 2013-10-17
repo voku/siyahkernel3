@@ -44,6 +44,7 @@
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 #include <linux/if_vlan.h>
+#include <linux/interrupt.h>
 #include <linux/pci.h>
 #include <linux/slab.h>
 #include <linux/tcp.h>
@@ -628,7 +629,7 @@ static u32 vxge_get_vpath_no(struct vxgedev *vdev, struct sk_buff *skb)
 
 		ip = ip_hdr(skb);
 
-		if ((ip->frag_off & htons(IP_OFFSET|IP_MF)) == 0) {
+		if (!ip_is_fragment(ip)) {
 			th = (struct tcphdr *)(((unsigned char *)ip) +
 					ip->ihl*4);
 

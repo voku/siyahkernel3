@@ -108,7 +108,7 @@ struct neighbour {
 	__u8			dead;
 	seqlock_t		ha_lock;
 	unsigned char		ha[ALIGN(MAX_ADDR_LEN, sizeof(unsigned long))];
-	struct hh_cache		*hh;
+	struct hh_cache		hh;
 	int			(*output)(struct sk_buff *skb);
 	const struct neigh_ops	*ops;
 	struct rcu_head		rcu;
@@ -142,7 +142,7 @@ struct pneigh_entry {
 
 struct neigh_hash_table {
 	struct neighbour __rcu	**hash_buckets;
-	unsigned int		hash_mask;
+	unsigned int		hash_shift;
 	__u32			hash_rnd;
 	struct rcu_head		rcu;
 };
@@ -315,7 +315,7 @@ static inline int neigh_event_send(struct neighbour *neigh, struct sk_buff *skb)
 #ifdef CONFIG_BRIDGE_NETFILTER
 static inline int neigh_hh_bridge(struct hh_cache *hh, struct sk_buff *skb)
 {
-	unsigned seq, hh_alen;
+	unsigned int seq, hh_alen;
 
 	do {
 		seq = read_seqbegin(&hh->hh_lock);
@@ -328,7 +328,7 @@ static inline int neigh_hh_bridge(struct hh_cache *hh, struct sk_buff *skb)
 
 static inline int neigh_hh_output(struct hh_cache *hh, struct sk_buff *skb)
 {
-	unsigned seq;
+	unsigned int seq;
 	int hh_len;
 
 	do {

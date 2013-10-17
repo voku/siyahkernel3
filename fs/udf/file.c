@@ -118,11 +118,20 @@ static int udf_adinicb_write_end(struct file *file,
 	return simple_write_end(file, mapping, pos, len, copied, page, fsdata);
 }
 
+static ssize_t udf_adinicb_direct_IO(int rw, struct kiocb *iocb,
+				     const struct iovec *iov,
+				     loff_t offset, unsigned long nr_segs)
+{
+	/* Fallback to buffered I/O. */
+	return 0;
+}
+
 const struct address_space_operations udf_adinicb_aops = {
 	.readpage	= udf_adinicb_readpage,
 	.writepage	= udf_adinicb_writepage,
 	.write_begin	= udf_adinicb_write_begin,
 	.write_end	= udf_adinicb_write_end,
+	.direct_IO	= udf_adinicb_direct_IO,
 };
 
 static ssize_t udf_file_aio_write(struct kiocb *iocb, const struct iovec *iov,
@@ -132,7 +141,7 @@ static ssize_t udf_file_aio_write(struct kiocb *iocb, const struct iovec *iov,
 	struct file *file = iocb->ki_filp;
 	struct inode *inode = file_inode(file);
 	int err, pos;
-	size_t count = iocb->ki_left;
+	size_t count = iocb->ki_nbytes;
 	struct udf_inode_info *iinfo = UDF_I(inode);
 
 	down_write(&iinfo->i_data_sem);
@@ -173,7 +182,7 @@ long udf_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	long old_block, new_block;
 	int result = -EINVAL;
 
-	if (file_permission(filp, MAY_READ) != 0) {
+	if (inode_permission(inode, MAY_READ) != 0) {
 		udf_debug("no permission to access inode %lu\n", inode->i_ino);
 		result = -EPERM;
 		goto out;

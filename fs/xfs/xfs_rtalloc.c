@@ -17,29 +17,27 @@
  */
 #include "xfs.h"
 #include "xfs_fs.h"
-#include "xfs_types.h"
+#include "xfs_format.h"
 #include "xfs_bit.h"
 #include "xfs_log.h"
-#include "xfs_inum.h"
 #include "xfs_trans.h"
 #include "xfs_sb.h"
 #include "xfs_ag.h"
-#include "xfs_dir2.h"
 #include "xfs_mount.h"
 #include "xfs_bmap_btree.h"
 #include "xfs_dinode.h"
 #include "xfs_inode.h"
 #include "xfs_alloc.h"
 #include "xfs_bmap.h"
+#include "xfs_bmap_util.h"
 #include "xfs_rtalloc.h"
 #include "xfs_fsops.h"
 #include "xfs_error.h"
-#include "xfs_rw.h"
 #include "xfs_inode_item.h"
 #include "xfs_trans_space.h"
-#include "xfs_utils.h"
 #include "xfs_trace.h"
 #include "xfs_buf.h"
+#include "xfs_icache.h"
 
 
 /*
@@ -102,17 +100,16 @@ xfs_growfs_rt_alloc(
 		/*
 		 * Reserve space & log for one extent added to the file.
 		 */
-		if ((error = xfs_trans_reserve(tp, resblks,
-				XFS_GROWRTALLOC_LOG_RES(mp), 0,
-				XFS_TRANS_PERM_LOG_RES,
-				XFS_DEFAULT_PERM_LOG_COUNT)))
+		error = xfs_trans_reserve(tp, &M_RES(mp)->tr_growdata,
+					  resblks, 0);
+		if (error)
 			goto error_cancel;
 		cancelflags = XFS_TRANS_RELEASE_LOG_RES;
 		/*
 		 * Lock the inode.
 		 */
 		xfs_ilock(ip, XFS_ILOCK_EXCL);
-		xfs_trans_ijoin_ref(tp, ip, XFS_ILOCK_EXCL);
+		xfs_trans_ijoin(tp, ip, XFS_ILOCK_EXCL);
 
 		xfs_bmap_init(&flist, &firstblock);
 		/*
@@ -120,9 +117,9 @@ xfs_growfs_rt_alloc(
 		 */
 		nmap = 1;
 		cancelflags |= XFS_TRANS_ABORT;
-		error = xfs_bmapi(tp, ip, oblocks, nblocks - oblocks,
-			XFS_BMAPI_WRITE | XFS_BMAPI_METADATA, &firstblock,
-			resblks, &map, &nmap, &flist);
+		error = xfs_bmapi_write(tp, ip, oblocks, nblocks - oblocks,
+					XFS_BMAPI_METADATA, &firstblock,
+					resblks, &map, &nmap, &flist);
 		if (!error && nmap < 1)
 			error = XFS_ERROR(ENOSPC);
 		if (error)
@@ -148,14 +145,15 @@ xfs_growfs_rt_alloc(
 			/*
 			 * Reserve log for one block zeroing.
 			 */
-			if ((error = xfs_trans_reserve(tp, 0,
-					XFS_GROWRTZERO_LOG_RES(mp), 0, 0, 0)))
+			error = xfs_trans_reserve(tp, &M_RES(mp)->tr_growrtzero,
+						  0, 0);
+			if (error)
 				goto error_cancel;
 			/*
 			 * Lock the bitmap inode.
 			 */
 			xfs_ilock(ip, XFS_ILOCK_EXCL);
-			xfs_trans_ijoin_ref(tp, ip, XFS_ILOCK_EXCL);
+			xfs_trans_ijoin(tp, ip, XFS_ILOCK_EXCL);
 			/*
 			 * Get a buffer for the block.
 			 */
@@ -183,6 +181,7 @@ error_cancel:
 		oblocks = map.br_startoff + map.br_blockcount;
 	}
 	return 0;
+
 error:
 	return error;
 }
@@ -736,8 +735,8 @@ xfs_rtallocate_range(
 {
 	xfs_rtblock_t	end;		/* end of the allocated extent */
 	int		error;		/* error value */
-	xfs_rtblock_t	postblock;	/* first block allocated > end */
-	xfs_rtblock_t	preblock;	/* first block allocated < start */
+	xfs_rtblock_t	postblock = 0;	/* first block allocated > end */
+	xfs_rtblock_t	preblock = 0;	/* first block allocated < start */
 
 	end = start + len - 1;
 	/*
@@ -856,33 +855,23 @@ xfs_rtbuf_get(
 	xfs_buf_t	**bpp)		/* output: buffer for the block */
 {
 	xfs_buf_t	*bp;		/* block buffer, result */
-	xfs_daddr_t	d;		/* disk addr of block */
-	int		error;		/* error value */
-	xfs_fsblock_t	fsb;		/* fs block number for block */
 	xfs_inode_t	*ip;		/* bitmap or summary inode */
+	xfs_bmbt_irec_t	map;
+	int		nmap = 1;
+	int		error;		/* error value */
 
 	ip = issum ? mp->m_rsumip : mp->m_rbmip;
-	/*
-	 * Map from the file offset (block) and inode number to the
-	 * file system block.
-	 */
-	error = xfs_bmapi_single(tp, ip, XFS_DATA_FORK, &fsb, block);
-	if (error) {
+
+	error = xfs_bmapi_read(ip, block, 1, &map, &nmap, XFS_DATA_FORK);
+	if (error)
 		return error;
-	}
-	ASSERT(fsb != NULLFSBLOCK);
-	/*
-	 * Convert to disk address for buffer cache.
-	 */
-	d = XFS_FSB_TO_DADDR(mp, fsb);
-	/*
-	 * Read the buffer.
-	 */
-	error = xfs_trans_read_buf(mp, tp, mp->m_ddev_targp, d,
-				   mp->m_bsize, 0, &bp);
-	if (error) {
+
+	ASSERT(map.br_startblock != NULLFSBLOCK);
+	error = xfs_trans_read_buf(mp, tp, mp->m_ddev_targp,
+				   XFS_FSB_TO_DADDR(mp, map.br_startblock),
+				   mp->m_bsize, 0, &bp, NULL);
+	if (error)
 		return error;
-	}
 	ASSERT(!xfs_buf_geterror(bp));
 	*bpp = bp;
 	return 0;
@@ -1881,11 +1870,16 @@ xfs_growfs_rt(
 	/*
 	 * Read in the last block of the device, make sure it exists.
 	 */
-	bp = xfs_buf_read_uncached(mp, mp->m_rtdev_targp,
+	bp = xfs_buf_read_uncached(mp->m_rtdev_targp,
 				XFS_FSB_TO_BB(mp, nrblocks - 1),
-				XFS_FSB_TO_B(mp, 1), 0);
+				XFS_FSB_TO_BB(mp, 1), 0, NULL);
 	if (!bp)
 		return EIO;
+	if (bp->b_error) {
+		error = bp->b_error;
+		xfs_buf_relse(bp);
+		return error;
+	}
 	xfs_buf_relse(bp);
 
 	/*
@@ -1963,14 +1957,15 @@ xfs_growfs_rt(
 		 * Start a transaction, get the log reservation.
 		 */
 		tp = xfs_trans_alloc(mp, XFS_TRANS_GROWFSRT_FREE);
-		if ((error = xfs_trans_reserve(tp, 0,
-				XFS_GROWRTFREE_LOG_RES(nmp), 0, 0, 0)))
+		error = xfs_trans_reserve(tp, &M_RES(mp)->tr_growrtfree,
+					  0, 0);
+		if (error)
 			goto error_cancel;
 		/*
 		 * Lock out other callers by grabbing the bitmap inode lock.
 		 */
 		xfs_ilock(mp->m_rbmip, XFS_ILOCK_EXCL);
-		xfs_trans_ijoin_ref(tp, mp->m_rbmip, XFS_ILOCK_EXCL);
+		xfs_trans_ijoin(tp, mp->m_rbmip, XFS_ILOCK_EXCL);
 		/*
 		 * Update the bitmap inode's size.
 		 */
@@ -1982,7 +1977,7 @@ xfs_growfs_rt(
 		 * Get the summary inode into the transaction.
 		 */
 		xfs_ilock(mp->m_rsumip, XFS_ILOCK_EXCL);
-		xfs_trans_ijoin_ref(tp, mp->m_rsumip, XFS_ILOCK_EXCL);
+		xfs_trans_ijoin(tp, mp->m_rsumip, XFS_ILOCK_EXCL);
 		/*
 		 * Update the summary inode's size.
 		 */
@@ -2149,13 +2144,11 @@ xfs_rtfree_extent(
 	xfs_buf_t	*sumbp;		/* summary file block buffer */
 
 	mp = tp->t_mountp;
-	/*
-	 * Synchronize by locking the bitmap inode.
-	 */
-	xfs_ilock(mp->m_rbmip, XFS_ILOCK_EXCL);
-	xfs_trans_ijoin_ref(tp, mp->m_rbmip, XFS_ILOCK_EXCL);
 
-#if defined(__KERNEL__) && defined(DEBUG)
+	ASSERT(mp->m_rbmip->i_itemp != NULL);
+	ASSERT(xfs_isilocked(mp->m_rbmip, XFS_ILOCK_EXCL));
+
+#ifdef DEBUG
 	/*
 	 * Check to see that this whole range is currently allocated.
 	 */
@@ -2230,11 +2223,13 @@ xfs_rtmount_init(
 			(unsigned long long) mp->m_sb.sb_rblocks);
 		return XFS_ERROR(EFBIG);
 	}
-	bp = xfs_buf_read_uncached(mp, mp->m_rtdev_targp,
+	bp = xfs_buf_read_uncached(mp->m_rtdev_targp,
 					d - XFS_FSB_TO_BB(mp, 1),
-					XFS_FSB_TO_B(mp, 1), 0);
-	if (!bp) {
+					XFS_FSB_TO_BB(mp, 1), 0, NULL);
+	if (!bp || bp->b_error) {
 		xfs_warn(mp, "realtime device size check failed");
+		if (bp)
+			xfs_buf_relse(bp);
 		return EIO;
 	}
 	xfs_buf_relse(bp);

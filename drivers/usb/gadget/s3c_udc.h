@@ -47,7 +47,6 @@
 #include <asm/byteorder.h>
 #include <asm/dma.h>
 #include <asm/irq.h>
-#include <asm/system.h>
 #include <asm/unaligned.h>
 #include <linux/wakelock.h>
 

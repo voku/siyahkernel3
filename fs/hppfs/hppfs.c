@@ -18,7 +18,7 @@
 #include <linux/pid_namespace.h>
 #include <linux/namei.h>
 #include <asm/uaccess.h>
-#include "os.h"
+#include <os.h>
 
 static struct inode *get_inode(struct super_block *, struct dentry *);
 
@@ -138,7 +138,7 @@ static int file_removed(struct dentry *dentry, const char *file)
 }
 
 static struct dentry *hppfs_lookup(struct inode *ino, struct dentry *dentry,
-				   struct nameidata *nd)
+				   unsigned int flags)
 {
 	struct dentry *proc_dentry, *parent;
 	struct qstr *name = &dentry->d_name;
@@ -420,8 +420,7 @@ static int hppfs_open(struct inode *inode, struct file *file)
 {
 	const struct cred *cred = file->f_cred;
 	struct hppfs_private *data;
-	struct vfsmount *proc_mnt;
-	struct dentry *proc_dentry;
+	struct path path;
 	char *host_file;
 	int err, fd, type, filter;
 
@@ -434,12 +433,10 @@ static int hppfs_open(struct inode *inode, struct file *file)
 	if (host_file == NULL)
 		goto out_free2;
 
-	proc_dentry = HPPFS_I(inode)->proc_dentry;
-	proc_mnt = inode->i_sb->s_fs_info;
+	path.mnt = inode->i_sb->s_fs_info;
+	path.dentry = HPPFS_I(inode)->proc_dentry;
 
-	/* XXX This isn't closed anywhere */
-	data->proc_file = dentry_open(dget(proc_dentry), mntget(proc_mnt),
-				      file_mode(file->f_mode), cred);
+	data->proc_file = dentry_open(&path, file_mode(file->f_mode), cred);
 	err = PTR_ERR(data->proc_file);
 	if (IS_ERR(data->proc_file))
 		goto out_free1;
@@ -484,8 +481,7 @@ static int hppfs_dir_open(struct inode *inode, struct file *file)
 {
 	const struct cred *cred = file->f_cred;
 	struct hppfs_private *data;
-	struct vfsmount *proc_mnt;
-	struct dentry *proc_dentry;
+	struct path path;
 	int err;
 
 	err = -ENOMEM;
@@ -493,10 +489,9 @@ static int hppfs_dir_open(struct inode *inode, struct file *file)
 	if (data == NULL)
 		goto out;
 
-	proc_dentry = HPPFS_I(inode)->proc_dentry;
-	proc_mnt = inode->i_sb->s_fs_info;
-	data->proc_file = dentry_open(dget(proc_dentry), mntget(proc_mnt),
-				      file_mode(file->f_mode), cred);
+	path.mnt = inode->i_sb->s_fs_info;
+	path.dentry = HPPFS_I(inode)->proc_dentry;
+	data->proc_file = dentry_open(&path, file_mode(file->f_mode), cred);
 	err = PTR_ERR(data->proc_file);
 	if (IS_ERR(data->proc_file))
 		goto out_free;
@@ -527,17 +522,28 @@ static loff_t hppfs_llseek(struct file *file, loff_t off, int where)
 	return default_llseek(file, off, where);
 }
 
+static int hppfs_release(struct inode *inode, struct file *file)
+{
+	struct hppfs_private *data = file->private_data;
+	struct file *proc_file = data->proc_file;
+	if (proc_file)
+		fput(proc_file);
+	kfree(data);
+	return 0;
+}
+
 static const struct file_operations hppfs_file_fops = {
 	.owner		= NULL,
 	.llseek		= hppfs_llseek,
 	.read		= hppfs_read,
 	.write		= hppfs_write,
 	.open		= hppfs_open,
+	.release	= hppfs_release,
 };
 
 struct hppfs_dirent {
-	void *vfs_dirent;
-	filldir_t filldir;
+	struct dir_context ctx;
+	struct dir_context *caller;
 	struct dentry *dentry;
 };
 
@@ -549,42 +555,32 @@ static int hppfs_filldir(void *d, const char *name, int size,
 	if (file_removed(dirent->dentry, name))
 		return 0;
 
-	return (*dirent->filldir)(dirent->vfs_dirent, name, size, offset,
-				  inode, type);
+	dirent->caller->pos = dirent->ctx.pos;
+	return !dir_emit(dirent->caller, name, size, inode, type);
 }
 
-static int hppfs_readdir(struct file *file, void *ent, filldir_t filldir)
+static int hppfs_readdir(struct file *file, struct dir_context *ctx)
 {
 	struct hppfs_private *data = file->private_data;
 	struct file *proc_file = data->proc_file;
-	int (*readdir)(struct file *, void *, filldir_t);
-	struct hppfs_dirent dirent = ((struct hppfs_dirent)
-		                      { .vfs_dirent  	= ent,
-					.filldir 	= filldir,
-					.dentry  	= file->f_path.dentry
-				      });
+	struct hppfs_dirent d = {
+		.ctx.actor	= hppfs_filldir,
+		.caller		= ctx,
+		.dentry  	= file->f_path.dentry
+	};
 	int err;
-
-	readdir = file_inode(proc_file)->i_fop->readdir;
-
-	proc_file->f_pos = file->f_pos;
-	err = (*readdir)(proc_file, &dirent, hppfs_filldir);
-	file->f_pos = proc_file->f_pos;
-
+	proc_file->f_pos = ctx->pos;
+	err = iterate_dir(proc_file, &d.ctx);
+	ctx->pos = d.ctx.pos;
 	return err;
-}
-
-static int hppfs_fsync(struct file *file, int datasync)
-{
-	return 0;
 }
 
 static const struct file_operations hppfs_dir_fops = {
 	.owner		= NULL,
-	.readdir	= hppfs_readdir,
+	.iterate	= hppfs_readdir,
 	.open		= hppfs_dir_open,
-	.fsync		= hppfs_fsync,
 	.llseek		= default_llseek,
+	.release	= hppfs_release,
 };
 
 static int hppfs_statfs(struct dentry *dentry, struct kstatfs *sf)
@@ -677,7 +673,7 @@ static struct inode *get_inode(struct super_block *sb, struct dentry *dentry)
 
 	if (!inode) {
 		dput(dentry);
-		return ERR_PTR(-ENOMEM);
+		return NULL;
 	}
 
 	if (S_ISDIR(dentry->d_inode->i_mode)) {
@@ -724,16 +720,8 @@ static int hppfs_fill_super(struct super_block *sb, void *d, int silent)
 	sb->s_fs_info = proc_mnt;
 
 	err = -ENOMEM;
-<<<<<<< HEAD
-	root_inode = get_inode(sb, dget(proc_mnt->mnt_sb->s_root));
-	if (!root_inode)
-		goto out_mntput;
-
-	sb->s_root = d_alloc_root(root_inode);
-=======
 	root_inode = get_inode(sb, dget(proc_mnt->mnt_root));
 	sb->s_root = d_make_root(root_inode);
->>>>>>> 48fde70... switch open-coded instances of d_make_root() to new helper
 	if (!sb->s_root)
 		goto out_mntput;
 
@@ -759,6 +747,7 @@ static struct file_system_type hppfs_type = {
 	.kill_sb	= kill_anon_super,
 	.fs_flags 	= 0,
 };
+MODULE_ALIAS_FS("hppfs");
 
 static int __init init_hppfs(void)
 {

@@ -441,4 +441,3 @@ static void __exit nforce2_exit(void)
 
 module_init(nforce2_init);
 module_exit(nforce2_exit);
-

@@ -5,7 +5,6 @@
 #include <linux/cpumask.h>
 #include <linux/smp.h>
 #include <linux/list.h>
-#include <asm/system.h>
 
 /*
  * stop_cpu[s]() is simplistic per-cpu maximum priority cpu
@@ -27,8 +26,6 @@ struct cpu_stop_work {
 	void			*arg;
 	struct cpu_stop_done	*done;
 };
-
-extern struct mutex stop_cpus_mutex;
 
 int stop_one_cpu(unsigned int cpu, cpu_stop_fn_t fn, void *arg);
 void stop_one_cpu_nowait(unsigned int cpu, cpu_stop_fn_t fn, void *arg,

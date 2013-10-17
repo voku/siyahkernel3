@@ -32,7 +32,7 @@ static const char *const br_port_state_names[] = {
 void br_log_state(const struct net_bridge_port *p)
 {
 	br_info(p->br, "port %u(%s) entering %s state\n",
-		(unsigned) p->port_no, p->dev->name,
+		(unsigned int) p->port_no, p->dev->name,
 		br_port_state_names[p->state]);
 }
 
@@ -191,7 +191,7 @@ static inline void br_record_config_information(struct net_bridge_port *p,
 	p->designated_age = jiffies + bpdu->message_age;
 
 	mod_timer(&p->message_age_timer, jiffies
-		  + (p->br->max_age - bpdu->message_age));
+		  + (bpdu->max_age - bpdu->message_age));
 }
 
 /* called under bridge lock */
@@ -478,7 +478,7 @@ void br_received_tcn_bpdu(struct net_bridge_port *p)
 {
 	if (br_is_designated_port(p)) {
 		br_info(p->br, "port %u(%s) received tcn bpdu\n",
-			(unsigned) p->port_no, p->dev->name);
+			(unsigned int) p->port_no, p->dev->name);
 
 		br_topology_change_detection(p->br);
 		br_topology_change_acknowledge(p);
@@ -517,18 +517,27 @@ int br_set_max_age(struct net_bridge *br, unsigned long val)
 
 }
 
-int br_set_forward_delay(struct net_bridge *br, unsigned long val)
+void __br_set_forward_delay(struct net_bridge *br, unsigned long t)
 {
-	unsigned long t = clock_t_to_jiffies(val);
-
-	if (br->stp_enabled != BR_NO_STP &&
-	    (t < BR_MIN_FORWARD_DELAY || t > BR_MAX_FORWARD_DELAY))
-		return -ERANGE;
-
-	spin_lock_bh(&br->lock);
 	br->bridge_forward_delay = t;
 	if (br_is_root_bridge(br))
 		br->forward_delay = br->bridge_forward_delay;
+}
+
+int br_set_forward_delay(struct net_bridge *br, unsigned long val)
+{
+	unsigned long t = clock_t_to_jiffies(val);
+	int err = -ERANGE;
+
+	spin_lock_bh(&br->lock);
+	if (br->stp_enabled != BR_NO_STP &&
+	    (t < BR_MIN_FORWARD_DELAY || t > BR_MAX_FORWARD_DELAY))
+		goto unlock;
+
+	__br_set_forward_delay(br, t);
+	err = 0;
+
+unlock:
 	spin_unlock_bh(&br->lock);
-	return 0;
+	return err;
 }

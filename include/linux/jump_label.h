@@ -49,7 +49,6 @@
 
 #include <linux/types.h>
 #include <linux/compiler.h>
-#include <linux/workqueue.h>
 
 #if defined(CC_HAVE_ASM_GOTO) && defined(CONFIG_JUMP_LABEL)
 
@@ -60,12 +59,6 @@ struct static_key {
 #ifdef CONFIG_MODULES
 	struct static_key_mod *next;
 #endif
-};
-
-struct static_key_deferred {
-	struct static_key key;
-	unsigned long timeout;
-	struct delayed_work work;
 };
 
 # include <asm/jump_label.h>
@@ -79,6 +72,7 @@ enum jump_label_type {
 
 struct module;
 
+#include <linux/atomic.h>
 #ifdef HAVE_JUMP_LABEL
 
 #define JUMP_LABEL_TRUE_BRANCH 1UL
@@ -126,11 +120,7 @@ extern void arch_jump_label_transform_static(struct jump_entry *entry,
 extern int jump_label_text_reserved(void *start, void *end);
 extern void static_key_slow_inc(struct static_key *key);
 extern void static_key_slow_dec(struct static_key *key);
-extern void static_key_slow_dec_deferred(struct static_key_deferred *key);
-extern bool static_key_enabled(struct static_key *key);
 extern void jump_label_apply_nops(struct module *mod);
-extern void
-jump_label_rate_limit(struct static_key_deferred *key, unsigned long rl);
 
 #define STATIC_KEY_INIT_TRUE ((struct static_key) \
 	{ .enabled = ATOMIC_INIT(1), .entries = (void *)1 })
@@ -139,8 +129,6 @@ jump_label_rate_limit(struct static_key_deferred *key, unsigned long rl);
 
 #else  /* !HAVE_JUMP_LABEL */
 
-#include <linux/atomic.h>
-
 struct static_key {
 	atomic_t enabled;
 };
@@ -148,10 +136,6 @@ struct static_key {
 static __always_inline void jump_label_init(void)
 {
 }
-
-struct static_key_deferred {
-	struct static_key  key;
-};
 
 static __always_inline bool static_key_false(struct static_key *key)
 {
@@ -185,11 +169,6 @@ static inline void static_key_slow_dec(struct static_key *key)
 	atomic_dec(&key->enabled);
 }
 
-static inline void static_key_slow_dec_deferred(struct static_key_deferred *key)
-{
-	static_key_slow_dec(&key->key);
-}
-
 static inline int jump_label_text_reserved(void *start, void *end)
 {
 	return 0;
@@ -198,20 +177,9 @@ static inline int jump_label_text_reserved(void *start, void *end)
 static inline void jump_label_lock(void) {}
 static inline void jump_label_unlock(void) {}
 
-static inline bool static_key_enabled(struct static_key *key)
-{
-	return (atomic_read(&key->enabled) > 0);
-}
-
 static inline int jump_label_apply_nops(struct module *mod)
 {
 	return 0;
-}
-
-static inline void
-jump_label_rate_limit(struct static_key_deferred *key,
-		unsigned long rl)
-{
 }
 
 #define STATIC_KEY_INIT_TRUE ((struct static_key) \
@@ -223,5 +191,10 @@ jump_label_rate_limit(struct static_key_deferred *key,
 
 #define STATIC_KEY_INIT STATIC_KEY_INIT_FALSE
 #define jump_label_enabled static_key_enabled
+
+static inline bool static_key_enabled(struct static_key *key)
+{
+	return (atomic_read(&key->enabled) > 0);
+}
 
 #endif	/* _LINUX_JUMP_LABEL_H */

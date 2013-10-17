@@ -26,38 +26,14 @@
 #include <linux/coredump.h>
 #include <linux/slab.h>
 
-#include <asm/system.h>
 #include <asm/uaccess.h>
 #include <asm/cacheflush.h>
 #include <asm/a.out-core.h>
 
-static int load_aout_binary(struct linux_binprm *, struct pt_regs * regs);
+static int load_aout_binary(struct linux_binprm *);
 static int load_aout_library(struct file*);
-static int aout_core_dump(struct coredump_params *cprm);
 
-static struct linux_binfmt aout_format = {
-	.module		= THIS_MODULE,
-	.load_binary	= load_aout_binary,
-	.load_shlib	= load_aout_library,
-	.core_dump	= aout_core_dump,
-	.min_coredump	= PAGE_SIZE
-};
-
-#define BAD_ADDR(x)	((unsigned long)(x) >= TASK_SIZE)
-
-static int set_brk(unsigned long start, unsigned long end)
-{
-	start = PAGE_ALIGN(start);
-	end = PAGE_ALIGN(end);
-	if (end > start) {
-		unsigned long addr;
-		addr = vm_brk(start, end - start);
-		if (BAD_ADDR(addr))
-			return addr;
-	}
-	return 0;
-}
-
+#ifdef CONFIG_COREDUMP
 /*
  * Routine writes a core dump image in the current directory.
  * Currently only a stub-function.
@@ -67,7 +43,6 @@ static int set_brk(unsigned long start, unsigned long end)
  * field, which also makes sure the core-dumps won't be recursive if the
  * dumping of the process results in another error..
  */
-
 static int aout_core_dump(struct coredump_params *cprm)
 {
 	struct file *file = cprm->file;
@@ -87,10 +62,9 @@ static int aout_core_dump(struct coredump_params *cprm)
 	fs = get_fs();
 	set_fs(KERNEL_DS);
 	has_dumped = 1;
-	current->flags |= PF_DUMPCORE;
        	strncpy(dump.u_comm, current->comm, sizeof(dump.u_comm));
 	dump.u_ar0 = offsetof(struct user, regs);
-	dump.signal = cprm->signr;
+	dump.signal = cprm->siginfo->si_signo;
 	aout_dump_thread(cprm->regs, &dump);
 
 /* If the size of the dump file exceeds the rlimit, then see what would happen
@@ -135,6 +109,32 @@ static int aout_core_dump(struct coredump_params *cprm)
 end_coredump:
 	set_fs(fs);
 	return has_dumped;
+}
+#else
+#define aout_core_dump NULL
+#endif
+
+static struct linux_binfmt aout_format = {
+	.module		= THIS_MODULE,
+	.load_binary	= load_aout_binary,
+	.load_shlib	= load_aout_library,
+	.core_dump	= aout_core_dump,
+	.min_coredump	= PAGE_SIZE
+};
+
+#define BAD_ADDR(x)	((unsigned long)(x) >= TASK_SIZE)
+
+static int set_brk(unsigned long start, unsigned long end)
+{
+	start = PAGE_ALIGN(start);
+	end = PAGE_ALIGN(end);
+	if (end > start) {
+		unsigned long addr;
+		addr = vm_brk(start, end - start);
+		if (BAD_ADDR(addr))
+			return addr;
+	}
+	return 0;
 }
 
 /*
@@ -200,8 +200,9 @@ static unsigned long __user *create_aout_tables(char __user *p, struct linux_bin
  * libraries.  There is no binary dependent code anywhere else.
  */
 
-static int load_aout_binary(struct linux_binprm * bprm, struct pt_regs * regs)
+static int load_aout_binary(struct linux_binprm * bprm)
 {
+	struct pt_regs *regs = current_pt_regs();
 	struct exec ex;
 	unsigned long error;
 	unsigned long fd_offset;
@@ -254,11 +255,15 @@ static int load_aout_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 		(current->mm->start_data = N_DATADDR(ex));
 	current->mm->brk = ex.a_bss +
 		(current->mm->start_brk = N_BSSADDR(ex));
-	current->mm->free_area_cache = current->mm->mmap_base;
-	current->mm->cached_hole_size = 0;
+
+	retval = setup_arg_pages(bprm, STACK_TOP, EXSTACK_DEFAULT);
+	if (retval < 0) {
+		/* Someone check-me: is this error path enough? */
+		send_sig(SIGKILL, current, 0);
+		return retval;
+	}
 
 	install_exec_creds(bprm);
- 	current->flags &= ~PF_FORKNOEXEC;
 
 	if (N_MAGIC(ex) == OMAGIC) {
 		unsigned long text_addr, map_size;
@@ -279,15 +284,12 @@ static int load_aout_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 			return error;
 		}
 
-		error = bprm->file->f_op->read(bprm->file,
-			  (char __user *)text_addr,
-			  ex.a_text+ex.a_data, &pos);
+		error = read_code(bprm->file, text_addr, pos,
+				  ex.a_text+ex.a_data);
 		if ((signed long)error < 0) {
 			send_sig(SIGKILL, current, 0);
 			return error;
 		}
-			 
-		flush_icache_range(text_addr, text_addr+ex.a_text+ex.a_data);
 	} else {
 		if ((ex.a_text & 0xfff || ex.a_data & 0xfff) &&
 		    (N_MAGIC(ex) != NMAGIC) && printk_ratelimit())
@@ -303,14 +305,9 @@ static int load_aout_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 		}
 
 		if (!bprm->file->f_op->mmap||((fd_offset & ~PAGE_MASK) != 0)) {
-			loff_t pos = fd_offset;
 			vm_brk(N_TXTADDR(ex), ex.a_text+ex.a_data);
-			bprm->file->f_op->read(bprm->file,
-					(char __user *)N_TXTADDR(ex),
-					ex.a_text+ex.a_data, &pos);
-			flush_icache_range((unsigned long) N_TXTADDR(ex),
-					   (unsigned long) N_TXTADDR(ex) +
-					   ex.a_text+ex.a_data);
+			read_code(bprm->file, N_TXTADDR(ex), fd_offset,
+				  ex.a_text + ex.a_data);
 			goto beyond_if;
 		}
 
@@ -339,13 +336,6 @@ beyond_if:
 	retval = set_brk(current->mm->start_brk, current->mm->brk);
 	if (retval < 0) {
 		send_sig(SIGKILL, current, 0);
-		return retval;
-	}
-
-	retval = setup_arg_pages(bprm, STACK_TOP, EXSTACK_DEFAULT);
-	if (retval < 0) { 
-		/* Someone check-me: is this error path enough? */ 
-		send_sig(SIGKILL, current, 0); 
 		return retval;
 	}
 
@@ -396,8 +386,6 @@ static int load_aout_library(struct file *file)
 	start_addr =  ex.a_entry & 0xfffff000;
 
 	if ((N_TXTOFF(ex) & ~PAGE_MASK) != 0) {
-		loff_t pos = N_TXTOFF(ex);
-
 		if (printk_ratelimit())
 		{
 			printk(KERN_WARNING 
@@ -406,11 +394,8 @@ static int load_aout_library(struct file *file)
 		}
 		vm_brk(start_addr, ex.a_text + ex.a_data + ex.a_bss);
 		
-		file->f_op->read(file, (char __user *)start_addr,
-			ex.a_text + ex.a_data, &pos);
-		flush_icache_range((unsigned long) start_addr,
-				   (unsigned long) start_addr + ex.a_text + ex.a_data);
-
+		read_code(file, start_addr, N_TXTOFF(ex),
+			  ex.a_text + ex.a_data);
 		retval = 0;
 		goto out;
 	}
@@ -438,7 +423,8 @@ out:
 
 static int __init init_aout_binfmt(void)
 {
-	return register_binfmt(&aout_format);
+	register_binfmt(&aout_format);
+	return 0;
 }
 
 static void __exit exit_aout_binfmt(void)

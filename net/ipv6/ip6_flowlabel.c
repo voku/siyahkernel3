@@ -386,7 +386,7 @@ fl_create(struct net *net, struct sock *sk, struct in6_flowlabel_req *freq,
 		err = -EINVAL;
 		goto done;
 	}
-	ipv6_addr_copy(&fl->dst, &freq->flr_dst);
+	fl->dst = freq->flr_dst;
 	atomic_set(&fl->users, 1);
 	switch (fl->share) {
 	case IPV6_FL_S_EXCL:
@@ -705,9 +705,9 @@ static int ip6fl_seq_show(struct seq_file *seq, void *v)
 		struct ip6_flowlabel *fl = v;
 		seq_printf(seq,
 			   "%05X %-1d %-6d %-6d %-6ld %-8ld %pi6 %-4d\n",
-			   (unsigned)ntohl(fl->label),
+			   (unsigned int)ntohl(fl->label),
 			   fl->share,
-			   (unsigned)fl->owner,
+			   (int)fl->owner,
 			   atomic_read(&fl->users),
 			   fl->linger/HZ,
 			   (long)(fl->expires - jiffies)/HZ,

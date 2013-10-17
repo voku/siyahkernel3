@@ -448,11 +448,9 @@ pcibios_bus_to_resource(struct pci_dev *dev, struct resource *res,
 	res->end   = region->end + offset;
 }
 
-#ifdef CONFIG_HOTPLUG
 EXPORT_SYMBOL(pcibios_fixup_bus);
 EXPORT_SYMBOL(pcibios_resource_to_bus);
 EXPORT_SYMBOL(pcibios_bus_to_resource);
-#endif
 
 /*
  * Swizzle the device pin each time we cross a bridge.

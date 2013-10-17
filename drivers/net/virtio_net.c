@@ -135,14 +135,14 @@ static void set_skb_frag(struct sk_buff *skb, struct page *page,
 	skb_frag_t *f;
 
 	f = &skb_shinfo(skb)->frags[i];
-	f->size = min((unsigned)PAGE_SIZE - offset, *len);
+	skb_frag_size_set(f, min((unsigned)PAGE_SIZE - offset, *len));
 	f->page_offset = offset;
 	f->page = page;
 
-	skb->data_len += f->size;
-	skb->len += f->size;
+	skb->data_len += skb_frag_size(f);
+	skb->len += skb_frag_size(f);
 	skb_shinfo(skb)->nr_frags++;
-	*len -= f->size;
+	*len -= skb_frag_size(f);
 }
 
 static struct sk_buff *page_to_skb(struct virtnet_info *vi,
@@ -274,6 +274,8 @@ static void receive_buf(struct net_device *dev, void *buf, unsigned int len)
 					  hdr->hdr.csum_start,
 					  hdr->hdr.csum_offset))
 			goto frame_err;
+	} else if (hdr->hdr.flags & VIRTIO_NET_HDR_F_DATA_VALID) {
+		skb->ip_summed = CHECKSUM_UNNECESSARY;
 	}
 
 	skb->protocol = eth_type_trans(skb, dev);
@@ -480,7 +482,7 @@ static int virtnet_poll(struct napi_struct *napi, int budget)
 {
 	struct virtnet_info *vi = container_of(napi, struct virtnet_info, napi);
 	void *buf;
-	unsigned int len, received = 0;
+	unsigned int r, len, received = 0;
 
 again:
 	while (received < budget &&
@@ -497,8 +499,9 @@ again:
 
 	/* Out of packets? */
 	if (received < budget) {
+		r = virtqueue_enable_cb_prepare(vi->rvq);
 		napi_complete(napi);
-		if (unlikely(!virtqueue_enable_cb(vi->rvq)) &&
+		if (unlikely(virtqueue_poll(vi->rvq, r)) &&
 		    napi_schedule_prep(napi)) {
 			virtqueue_disable_cb(vi->rvq);
 			__napi_schedule(napi);

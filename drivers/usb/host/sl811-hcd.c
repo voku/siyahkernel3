@@ -51,7 +51,6 @@
 
 #include <asm/io.h>
 #include <asm/irq.h>
-#include <asm/system.h>
 #include <asm/byteorder.h>
 #include <asm/unaligned.h>
 
@@ -1495,7 +1494,7 @@ static int proc_sl811h_show(struct seq_file *s, void *unused)
 
 static int proc_sl811h_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, proc_sl811h_show, PDE(inode)->data);
+	return single_open(file, proc_sl811h_show, PDE_DATA(inode));
 }
 
 static const struct file_operations proc_ops = {

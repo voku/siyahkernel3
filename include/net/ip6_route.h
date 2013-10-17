@@ -102,7 +102,7 @@ extern void fib6_force_start_gc(struct net *net);
 
 extern struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
 					   const struct in6_addr *addr,
-					   int anycast);
+					   bool anycast);
 
 extern int			ip6_dst_hoplimit(struct dst_entry *dst);
 
@@ -144,7 +144,7 @@ struct rt6_rtnl_dump_arg {
 
 extern int rt6_dump_route(struct rt6_info *rt, void *p_arg);
 extern void rt6_ifdown(struct net *net, struct net_device *dev);
-extern void rt6_mtu_change(struct net_device *dev, unsigned mtu);
+extern void rt6_mtu_change(struct net_device *dev, unsigned int mtu);
 extern void rt6_remove_prefsrc(struct inet6_ifaddr *ifp);
 
 

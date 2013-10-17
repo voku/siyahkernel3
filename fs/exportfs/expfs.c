@@ -19,19 +19,19 @@
 #define dprintk(fmt, args...) do{}while(0)
 
 
-static int get_name(struct vfsmount *mnt, struct dentry *dentry, char *name,
-		struct dentry *child);
+static int get_name(const struct path *path, char *name, struct dentry *child);
 
 
 static int exportfs_get_name(struct vfsmount *mnt, struct dentry *dir,
 		char *name, struct dentry *child)
 {
 	const struct export_operations *nop = dir->d_sb->s_export_op;
+	struct path path = {.mnt = mnt, .dentry = dir};
 
 	if (nop->get_name)
 		return nop->get_name(dir, name, child);
 	else
-		return get_name(mnt, dir, name, child);
+		return get_name(&path, name, child);
 }
 
 /*
@@ -50,11 +50,7 @@ find_acceptable_alias(struct dentry *result,
 
 	inode = result->d_inode;
 	spin_lock(&inode->i_lock);
-<<<<<<< HEAD
-	list_for_each_entry(dentry, &inode->i_dentry, d_alias) {
-=======
 	hlist_for_each_entry(dentry, &inode->i_dentry, d_alias) {
->>>>>>> b67bfe0... hlist: drop the node parameter from iterators
 		dget(dentry);
 		spin_unlock(&inode->i_lock);
 		if (toput)
@@ -216,6 +212,7 @@ reconnect_path(struct vfsmount *mnt, struct dentry *target_dir, char *nbuf)
 }
 
 struct getdents_callback {
+	struct dir_context ctx;
 	char *name;		/* name that was found. It already points to a
 				   buffer NAME_MAX+1 is size */
 	unsigned long ino;	/* the inum we are looking for */
@@ -252,14 +249,17 @@ static int filldir_one(void * __buf, const char * name, int len,
  * calls readdir on the parent until it finds an entry with
  * the same inode number as the child, and returns that.
  */
-static int get_name(struct vfsmount *mnt, struct dentry *dentry,
-		char *name, struct dentry *child)
+static int get_name(const struct path *path, char *name, struct dentry *child)
 {
 	const struct cred *cred = current_cred();
-	struct inode *dir = dentry->d_inode;
+	struct inode *dir = path->dentry->d_inode;
 	int error;
 	struct file *file;
-	struct getdents_callback buffer;
+	struct getdents_callback buffer = {
+		.ctx.actor = filldir_one,
+		.name = name,
+		.ino = child->d_inode->i_ino
+	};
 
 	error = -ENOTDIR;
 	if (!dir || !S_ISDIR(dir->i_mode))
@@ -270,23 +270,20 @@ static int get_name(struct vfsmount *mnt, struct dentry *dentry,
 	/*
 	 * Open the directory ...
 	 */
-	file = dentry_open(dget(dentry), mntget(mnt), O_RDONLY, cred);
+	file = dentry_open(path, O_RDONLY, cred);
 	error = PTR_ERR(file);
 	if (IS_ERR(file))
 		goto out;
 
 	error = -EINVAL;
-	if (!file->f_op->readdir)
+	if (!file->f_op->iterate)
 		goto out_close;
 
-	buffer.name = name;
-	buffer.ino = child->d_inode->i_ino;
-	buffer.found = 0;
 	buffer.sequence = 0;
 	while (1) {
 		int old_seq = buffer.sequence;
 
-		error = vfs_readdir(file, filldir_one, &buffer);
+		error = iterate_dir(file, &buffer.ctx);
 		if (buffer.found) {
 			error = 0;
 			break;
@@ -326,10 +323,10 @@ static int export_encode_fh(struct inode *inode, struct fid *fid,
 
 	if (parent && (len < 4)) {
 		*max_len = 4;
-		return 255;
+		return FILEID_INVALID;
 	} else if (len < 2) {
 		*max_len = 2;
-		return 255;
+		return FILEID_INVALID;
 	}
 
 	len = 2;
@@ -345,10 +342,21 @@ static int export_encode_fh(struct inode *inode, struct fid *fid,
 	return type;
 }
 
+int exportfs_encode_inode_fh(struct inode *inode, struct fid *fid,
+			     int *max_len, struct inode *parent)
+{
+	const struct export_operations *nop = inode->i_sb->s_export_op;
+
+	if (nop && nop->encode_fh)
+		return nop->encode_fh(inode, fid->raw, max_len, parent);
+
+	return export_encode_fh(inode, fid, max_len, parent);
+}
+EXPORT_SYMBOL_GPL(exportfs_encode_inode_fh);
+
 int exportfs_encode_fh(struct dentry *dentry, struct fid *fid, int *max_len,
 		int connectable)
 {
-	const struct export_operations *nop = dentry->d_sb->s_export_op;
 	int error;
 	struct dentry *p = NULL;
 	struct inode *inode = dentry->d_inode, *parent = NULL;
@@ -361,10 +369,8 @@ int exportfs_encode_fh(struct dentry *dentry, struct fid *fid, int *max_len,
 		 */
 		parent = p->d_inode;
 	}
-	if (nop->encode_fh)
-		error = nop->encode_fh(inode, fid->raw, max_len, parent);
-	else
-		error = export_encode_fh(inode, fid, max_len, parent);
+
+	error = exportfs_encode_inode_fh(inode, fid, max_len, parent);
 	dput(p);
 
 	return error;

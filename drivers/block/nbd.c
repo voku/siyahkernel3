@@ -34,7 +34,6 @@
 #include <linux/kthread.h>
 
 #include <asm/uaccess.h>
-#include <asm/system.h>
 #include <asm/types.h>
 
 #include <linux/nbd.h>
@@ -658,7 +657,8 @@ static int __nbd_ioctl(struct block_device *bdev, struct nbd_device *lo,
 
 		mutex_unlock(&lo->tx_lock);
 
-		thread = kthread_create(nbd_thread, lo, lo->disk->disk_name);
+		thread = kthread_create(nbd_thread, nbd, "%s",
+					nbd->disk->disk_name);
 		if (IS_ERR(thread)) {
 			mutex_lock(&lo->tx_lock);
 			return PTR_ERR(thread);

@@ -20,37 +20,31 @@
 #include <linux/statfs.h>
 #include <linux/cdrom.h>
 #include <linux/parser.h>
+#include <linux/mpage.h>
+#include <linux/user_namespace.h>
 
 #include "isofs.h"
 #include "zisofs.h"
 
 #define BEQUIET
 
-static int isofs_hashi(const struct dentry *parent, const struct inode *inode,
-		struct qstr *qstr);
-static int isofs_hash(const struct dentry *parent, const struct inode *inode,
-		struct qstr *qstr);
+static int isofs_hashi(const struct dentry *parent, struct qstr *qstr);
+static int isofs_hash(const struct dentry *parent, struct qstr *qstr);
 static int isofs_dentry_cmpi(const struct dentry *parent,
-		const struct inode *pinode,
-		const struct dentry *dentry, const struct inode *inode,
+		const struct dentry *dentry,
 		unsigned int len, const char *str, const struct qstr *name);
 static int isofs_dentry_cmp(const struct dentry *parent,
-		const struct inode *pinode,
-		const struct dentry *dentry, const struct inode *inode,
+		const struct dentry *dentry,
 		unsigned int len, const char *str, const struct qstr *name);
 
 #ifdef CONFIG_JOLIET
-static int isofs_hashi_ms(const struct dentry *parent, const struct inode *inode,
-		struct qstr *qstr);
-static int isofs_hash_ms(const struct dentry *parent, const struct inode *inode,
-		struct qstr *qstr);
+static int isofs_hashi_ms(const struct dentry *parent, struct qstr *qstr);
+static int isofs_hash_ms(const struct dentry *parent, struct qstr *qstr);
 static int isofs_dentry_cmpi_ms(const struct dentry *parent,
-		const struct inode *pinode,
-		const struct dentry *dentry, const struct inode *inode,
+		const struct dentry *dentry,
 		unsigned int len, const char *str, const struct qstr *name);
 static int isofs_dentry_cmp_ms(const struct dentry *parent,
-		const struct inode *pinode,
-		const struct dentry *dentry, const struct inode *inode,
+		const struct dentry *dentry,
 		unsigned int len, const char *str, const struct qstr *name);
 #endif
 
@@ -113,13 +107,18 @@ static int init_inodecache(void)
 
 static void destroy_inodecache(void)
 {
+	/*
+	 * Make sure all delayed rcu free inodes are flushed before we
+	 * destroy cache.
+	 */
+	rcu_barrier();
 	kmem_cache_destroy(isofs_inode_cachep);
 }
 
 static int isofs_remount(struct super_block *sb, int *flags, char *data)
 {
-	/* we probably want a lot more here */
-	*flags |= MS_RDONLY;
+	if (!(*flags & MS_RDONLY))
+		return -EROFS;
 	return 0;
 }
 
@@ -168,10 +167,10 @@ struct iso9660_options{
 	unsigned char map;
 	unsigned char check;
 	unsigned int blocksize;
-	mode_t fmode;
-	mode_t dmode;
-	gid_t gid;
-	uid_t uid;
+	umode_t fmode;
+	umode_t dmode;
+	kgid_t gid;
+	kuid_t uid;
 	char *iocharset;
 	/* LVE */
 	s32 session;
@@ -258,30 +257,26 @@ static int isofs_dentry_cmp_common(
 }
 
 static int
-isofs_hash(const struct dentry *dentry, const struct inode *inode,
-		struct qstr *qstr)
+isofs_hash(const struct dentry *dentry, struct qstr *qstr)
 {
 	return isofs_hash_common(dentry, qstr, 0);
 }
 
 static int
-isofs_hashi(const struct dentry *dentry, const struct inode *inode,
-		struct qstr *qstr)
+isofs_hashi(const struct dentry *dentry, struct qstr *qstr)
 {
 	return isofs_hashi_common(dentry, qstr, 0);
 }
 
 static int
-isofs_dentry_cmp(const struct dentry *parent, const struct inode *pinode,
-		const struct dentry *dentry, const struct inode *inode,
+isofs_dentry_cmp(const struct dentry *parent, const struct dentry *dentry,
 		unsigned int len, const char *str, const struct qstr *name)
 {
 	return isofs_dentry_cmp_common(len, str, name, 0, 0);
 }
 
 static int
-isofs_dentry_cmpi(const struct dentry *parent, const struct inode *pinode,
-		const struct dentry *dentry, const struct inode *inode,
+isofs_dentry_cmpi(const struct dentry *parent, const struct dentry *dentry,
 		unsigned int len, const char *str, const struct qstr *name)
 {
 	return isofs_dentry_cmp_common(len, str, name, 0, 1);
@@ -289,30 +284,26 @@ isofs_dentry_cmpi(const struct dentry *parent, const struct inode *pinode,
 
 #ifdef CONFIG_JOLIET
 static int
-isofs_hash_ms(const struct dentry *dentry, const struct inode *inode,
-		struct qstr *qstr)
+isofs_hash_ms(const struct dentry *dentry, struct qstr *qstr)
 {
 	return isofs_hash_common(dentry, qstr, 1);
 }
 
 static int
-isofs_hashi_ms(const struct dentry *dentry, const struct inode *inode,
-		struct qstr *qstr)
+isofs_hashi_ms(const struct dentry *dentry, struct qstr *qstr)
 {
 	return isofs_hashi_common(dentry, qstr, 1);
 }
 
 static int
-isofs_dentry_cmp_ms(const struct dentry *parent, const struct inode *pinode,
-		const struct dentry *dentry, const struct inode *inode,
+isofs_dentry_cmp_ms(const struct dentry *parent, const struct dentry *dentry,
 		unsigned int len, const char *str, const struct qstr *name)
 {
 	return isofs_dentry_cmp_common(len, str, name, 1, 0);
 }
 
 static int
-isofs_dentry_cmpi_ms(const struct dentry *parent, const struct inode *pinode,
-		const struct dentry *dentry, const struct inode *inode,
+isofs_dentry_cmpi_ms(const struct dentry *parent, const struct dentry *dentry,
 		unsigned int len, const char *str, const struct qstr *name)
 {
 	return isofs_dentry_cmp_common(len, str, name, 1, 1);
@@ -382,8 +373,8 @@ static int parse_options(char *options, struct iso9660_options *popt)
 	popt->fmode = popt->dmode = ISOFS_INVALID_MODE;
 	popt->uid_set = 0;
 	popt->gid_set = 0;
-	popt->gid = 0;
-	popt->uid = 0;
+	popt->gid = GLOBAL_ROOT_GID;
+	popt->uid = GLOBAL_ROOT_UID;
 	popt->iocharset = NULL;
 	popt->utf8 = 0;
 	popt->overriderockperm = 0;
@@ -459,13 +450,17 @@ static int parse_options(char *options, struct iso9660_options *popt)
 		case Opt_uid:
 			if (match_int(&args[0], &option))
 				return 0;
-			popt->uid = option;
+			popt->uid = make_kuid(current_user_ns(), option);
+			if (!uid_valid(popt->uid))
+				return 0;
 			popt->uid_set = 1;
 			break;
 		case Opt_gid:
 			if (match_int(&args[0], &option))
 				return 0;
-			popt->gid = option;
+			popt->gid = make_kgid(current_user_ns(), option);
+			if (!gid_valid(popt->gid))
+				return 0;
 			popt->gid_set = 1;
 			break;
 		case Opt_mode:
@@ -768,15 +763,6 @@ root_found:
 	 */
 	s->s_maxbytes = 0x80000000000LL;
 
-	/*
-	 * The CDROM is read-only, has no nodes (devices) on it, and since
-	 * all of the files appear to be owned by root, we really do not want
-	 * to allow suid.  (suid or devices will not show up unless we have
-	 * Rock Ridge extensions)
-	 */
-
-	s->s_flags |= MS_RDONLY /* | MS_NODEV | MS_NOSUID */;
-
 	/* Set this for reference. Its not currently used except on write
 	   which we don't have .. */
 
@@ -862,7 +848,6 @@ root_found:
 	sbi->s_utf8 = opt.utf8;
 	sbi->s_nocompress = opt.nocompress;
 	sbi->s_overriderockperm = opt.overriderockperm;
-	mutex_init(&sbi->s_mutex);
 	/*
 	 * It would be incredibly stupid to allow people to mark every file
 	 * on the disk as suid, so we merely allow them to set the default
@@ -947,17 +932,11 @@ root_found:
 	s->s_d_op = &isofs_dentry_ops[table];
 
 	/* get the root dentry */
-<<<<<<< HEAD
-	s->s_root = d_alloc_root(inode);
-	if (!(s->s_root))
-		goto out_no_root;
-=======
 	s->s_root = d_make_root(inode);
 	if (!(s->s_root)) {
 		error = -ENOMEM;
 		goto out_no_inode;
 	}
->>>>>>> 48fde70... switch open-coded instances of d_make_root() to new helper
 
 	kfree(opt.iocharset);
 
@@ -1156,7 +1135,13 @@ struct buffer_head *isofs_bread(struct inode *inode, sector_t block)
 
 static int isofs_readpage(struct file *file, struct page *page)
 {
-	return block_read_full_page(page,isofs_get_block);
+	return mpage_readpage(page, isofs_get_block);
+}
+
+static int isofs_readpages(struct file *file, struct address_space *mapping,
+			struct list_head *pages, unsigned nr_pages)
+{
+	return mpage_readpages(mapping, pages, nr_pages, isofs_get_block);
 }
 
 static sector_t _isofs_bmap(struct address_space *mapping, sector_t block)
@@ -1166,6 +1151,7 @@ static sector_t _isofs_bmap(struct address_space *mapping, sector_t block)
 
 static const struct address_space_operations isofs_aops = {
 	.readpage = isofs_readpage,
+	.readpages = isofs_readpages,
 	.bmap = _isofs_bmap
 };
 
@@ -1535,6 +1521,9 @@ struct inode *isofs_iget(struct super_block *sb,
 static struct dentry *isofs_mount(struct file_system_type *fs_type,
 	int flags, const char *dev_name, void *data)
 {
+	/* We don't support read-write mounts */
+	if (!(flags & MS_RDONLY))
+		return ERR_PTR(-EACCES);
 	return mount_bdev(fs_type, flags, dev_name, data, isofs_fill_super);
 }
 
@@ -1545,6 +1534,8 @@ static struct file_system_type iso9660_fs_type = {
 	.kill_sb	= kill_block_super,
 	.fs_flags	= FS_REQUIRES_DEV,
 };
+MODULE_ALIAS_FS("iso9660");
+MODULE_ALIAS("iso9660");
 
 static int __init init_iso9660_fs(void)
 {
@@ -1582,5 +1573,3 @@ static void __exit exit_iso9660_fs(void)
 module_init(init_iso9660_fs)
 module_exit(exit_iso9660_fs)
 MODULE_LICENSE("GPL");
-/* Actual filesystem name is iso9660, as requested in filesystems.c */
-MODULE_ALIAS("iso9660");

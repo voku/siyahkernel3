@@ -89,7 +89,7 @@ static int ipcomp_decompress(struct xfrm_state *x, struct sk_buff *skb)
 		memcpy(page_address(frag->page), scratch, len);
 
 		frag->page_offset = 0;
-		frag->size = len;
+		skb_frag_size_set(frag, len);
 		skb->truesize += len;
 		skb->data_len += len;
 		skb->len += len;

@@ -1350,7 +1350,7 @@ MODULE_DEVICE_TABLE(i2c, k3g_id);
 
 static struct i2c_driver k3g_driver = {
 	.probe = k3g_probe,
-	.remove = __devexit_p(k3g_remove),
+	.remove = k3g_remove,
 	.id_table = k3g_id,
 	.driver = {
 		.pm = &k3g_pm_ops,

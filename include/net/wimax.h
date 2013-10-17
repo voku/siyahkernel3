@@ -424,8 +424,8 @@ struct wimax_dev {
 
 	struct rfkill *rfkill;
 	struct input_dev *rfkill_input;
-	unsigned rf_hw;
-	unsigned rf_sw;
+	unsigned int rf_hw;
+	unsigned int rf_sw;
 	char name[32];
 
 	struct dentry *debugfs_dentry;

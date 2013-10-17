@@ -115,7 +115,7 @@ BWL_PRE_PACKED_STRUCT struct	ether_addr {
 
 
 #define ETHER_SET_LOCALADDR(ea)	(((uint8 *)(ea))[0] = (((uint8 *)(ea))[0] | 2))
-#define ETHER_IS_LOCALADDR(ea)		(((uint8 *)(ea))[0] & 2)
+#define ETHER_IS_LOCALADDR(ea)	(((uint8 *)(ea))[0] & 2)
 #define ETHER_CLR_LOCALADDR(ea)	(((uint8 *)(ea))[0] = (((uint8 *)(ea))[0] & 0xfd))
 #define ETHER_TOGGLE_LOCALADDR(ea)	(((uint8 *)(ea))[0] = (((uint8 *)(ea))[0] ^ 2))
 

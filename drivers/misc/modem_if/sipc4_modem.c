@@ -224,7 +224,7 @@ static int attach_devices(struct io_device *iod, enum modem_link tx_link)
 	return 0;
 }
 
-static int __devinit modem_probe(struct platform_device *pdev)
+static int modem_probe(struct platform_device *pdev)
 {
 	int i;
 	struct modem_data *pdata = pdev->dev.platform_data;

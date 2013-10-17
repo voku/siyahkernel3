@@ -61,7 +61,7 @@ static int ocfs2_fault(struct vm_area_struct *area, struct vm_fault *vmf)
 static int __ocfs2_page_mkwrite(struct file *file, struct buffer_head *di_bh,
 				struct page *page)
 {
-	int ret;
+	int ret = VM_FAULT_NOPAGE;
 	struct inode *inode = file_inode(file);
 	struct address_space *mapping = inode->i_mapping;
 	loff_t pos = page_offset(page);
@@ -71,32 +71,25 @@ static int __ocfs2_page_mkwrite(struct file *file, struct buffer_head *di_bh,
 	void *fsdata;
 	loff_t size = i_size_read(inode);
 
-	/*
-	 * Another node might have truncated while we were waiting on
-	 * cluster locks.
-	 * We don't check size == 0 before the shift. This is borrowed
-	 * from do_generic_file_read.
-	 */
 	last_index = (size - 1) >> PAGE_CACHE_SHIFT;
-	if (unlikely(!size || page->index > last_index)) {
-		ret = -EINVAL;
-		goto out;
-	}
 
 	/*
-	 * The i_size check above doesn't catch the case where nodes
-	 * truncated and then re-extended the file. We'll re-check the
-	 * page mapping after taking the page lock inside of
-	 * ocfs2_write_begin_nolock().
+	 * There are cases that lead to the page no longer bebongs to the
+	 * mapping.
+	 * 1) pagecache truncates locally due to memory pressure.
+	 * 2) pagecache truncates when another is taking EX lock against 
+	 * inode lock. see ocfs2_data_convert_worker.
+	 * 
+	 * The i_size check doesn't catch the case where nodes truncated and
+	 * then re-extended the file. We'll re-check the page mapping after
+	 * taking the page lock inside of ocfs2_write_begin_nolock().
+	 *
+	 * Let VM retry with these cases.
 	 */
-	if (!PageUptodate(page) || page->mapping != inode->i_mapping) {
-		/*
-		 * the page has been umapped in ocfs2_data_downconvert_worker.
-		 * So return 0 here and let VFS retry.
-		 */
-		ret = 0;
+	if ((page->mapping != inode->i_mapping) ||
+	    (!PageUptodate(page)) ||
+	    (page_offset(page) >= size))
 		goto out;
-	}
 
 	/*
 	 * Call ocfs2_write_begin() and ocfs2_write_end() to take
@@ -116,17 +109,21 @@ static int __ocfs2_page_mkwrite(struct file *file, struct buffer_head *di_bh,
 	if (ret) {
 		if (ret != -ENOSPC)
 			mlog_errno(ret);
+		if (ret == -ENOMEM)
+			ret = VM_FAULT_OOM;
+		else
+			ret = VM_FAULT_SIGBUS;
 		goto out;
 	}
 
-	ret = ocfs2_write_end_nolock(mapping, pos, len, len, locked_page,
-				     fsdata);
-	if (ret < 0) {
-		mlog_errno(ret);
+	if (!locked_page) {
+		ret = VM_FAULT_NOPAGE;
 		goto out;
 	}
+	ret = ocfs2_write_end_nolock(mapping, pos, len, len, locked_page,
+				     fsdata);
 	BUG_ON(ret != len);
-	ret = 0;
+	ret = VM_FAULT_LOCKED;
 out:
 	return ret;
 }
@@ -139,6 +136,7 @@ static int ocfs2_page_mkwrite(struct vm_area_struct *vma, struct vm_fault *vmf)
 	sigset_t oldset;
 	int ret;
 
+	sb_start_pagefault(inode->i_sb);
 	ocfs2_block_signals(&oldset);
 
 	/*
@@ -168,8 +166,7 @@ static int ocfs2_page_mkwrite(struct vm_area_struct *vma, struct vm_fault *vmf)
 
 out:
 	ocfs2_unblock_signals(&oldset);
-	if (ret)
-		ret = VM_FAULT_SIGBUS;
+	sb_end_pagefault(inode->i_sb);
 	return ret;
 }
 
@@ -184,7 +181,7 @@ int ocfs2_mmap(struct file *file, struct vm_area_struct *vma)
 	int ret = 0, lock_level = 0;
 
 	ret = ocfs2_inode_lock_atime(file_inode(file),
-				    file->f_vfsmnt, &lock_level);
+				    file->f_path.mnt, &lock_level);
 	if (ret < 0) {
 		mlog_errno(ret);
 		goto out;

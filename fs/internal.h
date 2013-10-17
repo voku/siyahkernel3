@@ -42,6 +42,14 @@ static inline int __sync_blockdev(struct block_device *bdev, int wait)
 extern void __init chrdev_init(void);
 
 /*
+ * namei.c
+ */
+extern int __inode_permission(struct inode *, int);
+extern int user_path_mountpoint_at(int, const char __user *, unsigned int, struct path *);
+extern int vfs_path_lookup(struct dentry *, struct vfsmount *,
+			   const char *, unsigned int, struct path *);
+
+/*
  * namespace.c
  */
 extern int copy_mount_options(const void __user *, unsigned long *);
@@ -64,7 +72,7 @@ extern void __mnt_drop_write_file(struct file *);
 /*
  * fs_struct.c
  */
-extern void chroot_fs_refs(struct path *, struct path *);
+extern void chroot_fs_refs(const struct path *, const struct path *);
 
 /*
  * file_table.c
@@ -86,19 +94,17 @@ extern struct super_block *user_get_super(dev_t);
 /*
  * open.c
  */
-struct nameidata;
-extern struct file *nameidata_to_filp(struct nameidata *);
-extern void release_open_intent(struct nameidata *);
 struct open_flags {
 	int open_flag;
 	umode_t mode;
 	int acc_mode;
 	int intent;
+	int lookup_flags;
 };
-extern struct file *do_filp_open(int dfd, const char *pathname,
-		const struct open_flags *op, int lookup_flags);
+extern struct file *do_filp_open(int dfd, struct filename *pathname,
+		const struct open_flags *op);
 extern struct file *do_file_open_root(struct dentry *, struct vfsmount *,
-		const char *, const struct open_flags *, int lookup_flags);
+		const char *, const struct open_flags *);
 
 extern long do_handle_open(int mountdirfd,
 			   struct file_handle __user *ufh, int open_flag);
@@ -108,13 +114,16 @@ extern int open_check_o_direct(struct file *f);
  * inode.c
  */
 extern spinlock_t inode_sb_list_lock;
+extern long prune_icache_sb(struct super_block *sb, unsigned long nr_to_scan,
+			    int nid);
+extern void inode_add_lru(struct inode *inode);
 
 /*
  * fs-writeback.c
  */
 extern void inode_wb_list_del(struct inode *inode);
 
-extern int get_nr_dirty_inodes(void);
+extern long get_nr_dirty_inodes(void);
 extern void evict_inodes(struct super_block *);
 extern int invalidate_inodes(struct super_block *, bool);
 
@@ -122,11 +131,15 @@ extern int invalidate_inodes(struct super_block *, bool);
  * dcache.c
  */
 extern struct dentry *__d_alloc(struct super_block *, const struct qstr *);
+extern int d_set_mounted(struct dentry *dentry);
+extern long prune_dcache_sb(struct super_block *sb, unsigned long nr_to_scan,
+			    int nid);
 
 /*
  * read_write.c
  */
 extern ssize_t __kernel_write(struct file *, const char *, size_t, loff_t *);
+extern int rw_verify_area(int, struct file *, const loff_t *, size_t);
 
 /*
  * splice.c
@@ -134,3 +147,7 @@ extern ssize_t __kernel_write(struct file *, const char *, size_t, loff_t *);
 extern long do_splice_direct(struct file *in, loff_t *ppos, struct file *out,
 		loff_t *opos, size_t len, unsigned int flags);
 
+/*
+ * pipe.c
+ */
+extern const struct file_operations pipefifo_fops;

@@ -70,9 +70,10 @@ static int ocfs2_dentry_revalidate(struct dentry *dentry, unsigned int flags)
 	 */
 	if (inode == NULL) {
 		unsigned long gen = (unsigned long) dentry->d_fsdata;
-		unsigned long pgen =
-			OCFS2_I(dentry->d_parent->d_inode)->ip_dir_lock_gen;
-
+		unsigned long pgen;
+		spin_lock(&dentry->d_lock);
+		pgen = OCFS2_I(dentry->d_parent->d_inode)->ip_dir_lock_gen;
+		spin_unlock(&dentry->d_lock);
 		trace_ocfs2_dentry_revalidate_negative(dentry->d_name.len,
 						       dentry->d_name.name,
 						       pgen, gen);
@@ -169,20 +170,10 @@ struct dentry *ocfs2_find_local_alias(struct inode *inode,
 				      u64 parent_blkno,
 				      int skip_unhashed)
 {
-<<<<<<< HEAD
-	struct list_head *p;
-	struct dentry *dentry = NULL;
-
-	spin_lock(&inode->i_lock);
-	list_for_each(p, &inode->i_dentry) {
-		dentry = list_entry(p, struct dentry, d_alias);
-
-=======
 	struct dentry *dentry;
 
 	spin_lock(&inode->i_lock);
 	hlist_for_each_entry(dentry, &inode->i_dentry, d_alias) {
->>>>>>> b67bfe0... hlist: drop the node parameter from iterators
 		spin_lock(&dentry->d_lock);
 		if (ocfs2_match_dentry(dentry, parent_blkno, skip_unhashed)) {
 			trace_ocfs2_find_local_alias(dentry->d_name.len,
@@ -190,16 +181,13 @@ struct dentry *ocfs2_find_local_alias(struct inode *inode,
 
 			dget_dlock(dentry);
 			spin_unlock(&dentry->d_lock);
-			break;
+			spin_unlock(&inode->i_lock);
+			return dentry;
 		}
 		spin_unlock(&dentry->d_lock);
-
-		dentry = NULL;
 	}
-
 	spin_unlock(&inode->i_lock);
-
-	return dentry;
+	return NULL;
 }
 
 DEFINE_SPINLOCK(dentry_attach_lock);

@@ -37,6 +37,7 @@
 #include <linux/ptrace.h>
 #include <linux/fs_struct.h>
 #include <linux/file.h>
+#include <linux/mount.h>
 #include <linux/gfp.h>
 #include <linux/syscore_ops.h>
 #include <linux/version.h>
@@ -46,6 +47,7 @@
 #include <linux/syscalls.h>
 #include <linux/kprobes.h>
 #include <linux/user_namespace.h>
+#include <linux/binfmts.h>
 
 #include <linux/sched.h>
 #include <linux/rcupdate.h>
@@ -112,20 +114,6 @@ int fs_overflowgid = DEFAULT_FS_OVERFLOWUID;
 
 EXPORT_SYMBOL(fs_overflowuid);
 EXPORT_SYMBOL(fs_overflowgid);
-
-/*
- * this indicates whether you can reboot with ctrl-alt-del: the default is yes
- */
-
-int C_A_D = 1;
-struct pid *cad_pid;
-EXPORT_SYMBOL(cad_pid);
-
-/*
- * If set, this is used for preparing the system to power off.
- */
-
-void (*pm_power_off_prepare)(void);
 
 /*
  * Returns true if current's euid is same as p's uid or euid,
@@ -306,270 +294,6 @@ out_unlock:
 	return retval;
 }
 
-/**
- *	emergency_restart - reboot the system
- *
- *	Without shutting down any hardware or taking any locks
- *	reboot the system.  This is called when we know we are in
- *	trouble so this is our best effort to reboot.  This is
- *	safe to call in interrupt context.
- */
-void emergency_restart(void)
-{
-	kmsg_dump(KMSG_DUMP_EMERG);
-	machine_emergency_restart();
-}
-EXPORT_SYMBOL_GPL(emergency_restart);
-
-void kernel_restart_prepare(char *cmd)
-{
-	blocking_notifier_call_chain(&reboot_notifier_list, SYS_RESTART, cmd);
-	system_state = SYSTEM_RESTART;
-	usermodehelper_disable();
-	device_shutdown();
-}
-
-/**
- *	register_reboot_notifier - Register function to be called at reboot time
- *	@nb: Info about notifier function to be called
- *
- *	Registers a function with the list of functions
- *	to be called at reboot time.
- *
- *	Currently always returns zero, as blocking_notifier_chain_register()
- *	always returns zero.
- */
-int register_reboot_notifier(struct notifier_block *nb)
-{
-	return blocking_notifier_chain_register(&reboot_notifier_list, nb);
-}
-EXPORT_SYMBOL(register_reboot_notifier);
-
-/**
- *	unregister_reboot_notifier - Unregister previously registered reboot notifier
- *	@nb: Hook to be unregistered
- *
- *	Unregisters a previously registered reboot
- *	notifier function.
- *
- *	Returns zero on success, or %-ENOENT on failure.
- */
-int unregister_reboot_notifier(struct notifier_block *nb)
-{
-	return blocking_notifier_chain_unregister(&reboot_notifier_list, nb);
-}
-EXPORT_SYMBOL(unregister_reboot_notifier);
-
-/* Add backwards compatibility for stable trees. */
-#ifndef PF_NO_SETAFFINITY
-#define PF_NO_SETAFFINITY		PF_THREAD_BOUND
-#endif
-
-static void migrate_to_reboot_cpu(void)
-{
-	/* The boot cpu is always logical cpu 0 */
-	int cpu = 0;
-
-	cpu_hotplug_disable();
-
-	/* Make certain the cpu I'm about to reboot on is online */
-	if (!cpu_online(cpu))
-		cpu = cpumask_first(cpu_online_mask);
-
-	/* Prevent races with other tasks migrating this task */
-	current->flags |= PF_NO_SETAFFINITY;
-
-	/* Make certain I only run on the appropriate processor */
-	set_cpus_allowed_ptr(current, cpumask_of(cpu));
-}
-
-/**
- *	kernel_restart - reboot the system
- *	@cmd: pointer to buffer containing command to execute for restart
- *		or %NULL
- *
- *	Shutdown everything and perform a clean reboot.
- *	This is not safe to call in interrupt context.
- */
-void kernel_restart(char *cmd)
-{
-	kernel_restart_prepare(cmd);
-	if (pm_power_off_prepare)
-		pm_power_off_prepare();
-	migrate_to_reboot_cpu();
-	syscore_shutdown();
-
-	if (!cmd)
-		printk(KERN_EMERG "Restarting system.\n");
-	else{
-		printk(KERN_EMERG "Restarting system with command '%s'.\n", cmd);
-		printk(KERN_EMERG "pid = %d name:%s\n", task_tgid_vnr(current), current->comm);
-	}
-	kmsg_dump(KMSG_DUMP_RESTART);
-	machine_restart(cmd);
-}
-EXPORT_SYMBOL_GPL(kernel_restart);
-
-static void kernel_shutdown_prepare(enum system_states state)
-{
-	blocking_notifier_call_chain(&reboot_notifier_list,
-		(state == SYSTEM_HALT)?SYS_HALT:SYS_POWER_OFF, NULL);
-	system_state = state;
-	usermodehelper_disable();
-	device_shutdown();
-}
-/**
- *	kernel_halt - halt the system
- *
- *	Shutdown everything and perform a clean system halt.
- */
-void kernel_halt(void)
-{
-	kernel_shutdown_prepare(SYSTEM_HALT);
-	migrate_to_reboot_cpu();
-	syscore_shutdown();
-	printk(KERN_EMERG "System halted.\n");
-	kmsg_dump(KMSG_DUMP_HALT);
-	machine_halt();
-}
-
-EXPORT_SYMBOL_GPL(kernel_halt);
-
-/**
- *	kernel_power_off - power_off the system
- *
- *	Shutdown everything and perform a clean system power_off.
- */
-void kernel_power_off(void)
-{
-	kernel_shutdown_prepare(SYSTEM_POWER_OFF);
-	if (pm_power_off_prepare)
-		pm_power_off_prepare();
-	migrate_to_reboot_cpu();
-	syscore_shutdown();
-	printk(KERN_EMERG "Power down.\n");
-	kmsg_dump(KMSG_DUMP_POWEROFF);
-	machine_power_off();
-}
-EXPORT_SYMBOL_GPL(kernel_power_off);
-
-static DEFINE_MUTEX(reboot_mutex);
-
-/*
- * Reboot system call: for obvious reasons only root may call it,
- * and even root needs to set up some magic numbers in the registers
- * so that some mistake won't make this reboot the whole machine.
- * You can also set the meaning of the ctrl-alt-del-key here.
- *
- * reboot doesn't sync: do that yourself before calling this.
- */
-SYSCALL_DEFINE4(reboot, int, magic1, int, magic2, unsigned int, cmd,
-		void __user *, arg)
-{
-	char buffer[256];
-	int ret = 0;
-
-	/* We only trust the superuser with rebooting the system. */
-	if (!capable(CAP_SYS_BOOT))
-		return -EPERM;
-
-	/* For safety, we require "magic" arguments. */
-	if (magic1 != LINUX_REBOOT_MAGIC1 ||
-	    (magic2 != LINUX_REBOOT_MAGIC2 &&
-	                magic2 != LINUX_REBOOT_MAGIC2A &&
-			magic2 != LINUX_REBOOT_MAGIC2B &&
-	                magic2 != LINUX_REBOOT_MAGIC2C))
-		return -EINVAL;
-
-	/*
-	 * If pid namespaces are enabled and the current task is in a child
-	 * pid_namespace, the command is handled by reboot_pid_ns() which will
-	 * call do_exit().
-	 */
-	ret = reboot_pid_ns(task_active_pid_ns(current), cmd);
-	if (ret)
-		return ret;
-
-	/* Instead of trying to make the power_off code look like
-	 * halt when pm_power_off is not set do it the easy way.
-	 */
-	if ((cmd == LINUX_REBOOT_CMD_POWER_OFF) && !pm_power_off)
-		cmd = LINUX_REBOOT_CMD_HALT;
-
-	mutex_lock(&reboot_mutex);
-	switch (cmd) {
-	case LINUX_REBOOT_CMD_RESTART:
-		kernel_restart(NULL);
-		break;
-
-	case LINUX_REBOOT_CMD_CAD_ON:
-		C_A_D = 1;
-		break;
-
-	case LINUX_REBOOT_CMD_CAD_OFF:
-		C_A_D = 0;
-		break;
-
-	case LINUX_REBOOT_CMD_HALT:
-		kernel_halt();
-		do_exit(0);
-		panic("cannot halt");
-
-	case LINUX_REBOOT_CMD_POWER_OFF:
-		kernel_power_off();
-		do_exit(0);
-		break;
-
-	case LINUX_REBOOT_CMD_RESTART2:
-		if (strncpy_from_user(&buffer[0], arg, sizeof(buffer) - 1) < 0) {
-			ret = -EFAULT;
-			break;
-		}
-		buffer[sizeof(buffer) - 1] = '\0';
-
-		kernel_restart(buffer);
-		break;
-
-#ifdef CONFIG_KEXEC
-	case LINUX_REBOOT_CMD_KEXEC:
-		ret = kernel_kexec();
-		break;
-#endif
-
-#ifdef CONFIG_HIBERNATION
-	case LINUX_REBOOT_CMD_SW_SUSPEND:
-		ret = hibernate();
-		break;
-#endif
-
-	default:
-		ret = -EINVAL;
-		break;
-	}
-	mutex_unlock(&reboot_mutex);
-	return ret;
-}
-
-static void deferred_cad(struct work_struct *dummy)
-{
-	kernel_restart(NULL);
-}
-
-/*
- * This function gets called by ctrl-alt-del - ie the keyboard interrupt.
- * As it's called within an interrupt, it may NOT sync: the only choice
- * is whether to reboot at once, or just ignore the ctrl-alt-del.
- */
-void ctrl_alt_del(void)
-{
-	static DECLARE_WORK(cad_work, deferred_cad);
-
-	if (C_A_D)
-		schedule_work(&cad_work);
-	else
-		kill_cad_pid(SIGINT, 1);
-}
-	
 /*
  * Unprivileged users may change the real gid to the effective gid
  * or vice versa.  (BSD-style)
@@ -613,7 +337,7 @@ SYSCALL_DEFINE2(setregid, gid_t, rgid, gid_t, egid)
 	if (rgid != (gid_t) -1) {
 		if (gid_eq(old->gid, krgid) ||
 		    gid_eq(old->egid, krgid) ||
-		    nsown_capable(CAP_SETGID))
+		    ns_capable(old->user_ns, CAP_SETGID))
 			new->gid = krgid;
 		else
 			goto error;
@@ -622,7 +346,7 @@ SYSCALL_DEFINE2(setregid, gid_t, rgid, gid_t, egid)
 		if (gid_eq(old->gid, kegid) ||
 		    gid_eq(old->egid, kegid) ||
 		    gid_eq(old->sgid, kegid) ||
-		    nsown_capable(CAP_SETGID))
+		    ns_capable(old->user_ns, CAP_SETGID))
 			new->egid = kegid;
 		else
 			goto error;
@@ -663,7 +387,7 @@ SYSCALL_DEFINE1(setgid, gid_t, gid)
 	old = current_cred();
 
 	retval = -EPERM;
-	if (nsown_capable(CAP_SETGID))
+	if (ns_capable(old->user_ns, CAP_SETGID))
 		new->gid = new->egid = new->sgid = new->fsgid = kgid;
 	else if (gid_eq(kgid, old->gid) || gid_eq(kgid, old->sgid))
 		new->egid = new->fsgid = kgid;
@@ -748,7 +472,7 @@ SYSCALL_DEFINE2(setreuid, uid_t, ruid, uid_t, euid)
 		new->uid = kruid;
 		if (!uid_eq(old->uid, kruid) &&
 		    !uid_eq(old->euid, kruid) &&
-		    !nsown_capable(CAP_SETUID))
+		    !ns_capable(old->user_ns, CAP_SETUID))
 			goto error;
 	}
 
@@ -757,7 +481,7 @@ SYSCALL_DEFINE2(setreuid, uid_t, ruid, uid_t, euid)
 		if (!uid_eq(old->uid, keuid) &&
 		    !uid_eq(old->euid, keuid) &&
 		    !uid_eq(old->suid, keuid) &&
-		    !nsown_capable(CAP_SETUID))
+		    !ns_capable(old->user_ns, CAP_SETUID))
 			goto error;
 	}
 
@@ -811,7 +535,7 @@ SYSCALL_DEFINE1(setuid, uid_t, uid)
 	old = current_cred();
 
 	retval = -EPERM;
-	if (nsown_capable(CAP_SETUID)) {
+	if (ns_capable(old->user_ns, CAP_SETUID)) {
 		new->suid = new->uid = kuid;
 		if (!uid_eq(kuid, old->uid)) {
 			retval = set_user(new);
@@ -868,7 +592,7 @@ SYSCALL_DEFINE3(setresuid, uid_t, ruid, uid_t, euid, uid_t, suid)
 	old = current_cred();
 
 	retval = -EPERM;
-	if (!nsown_capable(CAP_SETUID)) {
+	if (!ns_capable(old->user_ns, CAP_SETUID)) {
 		if (ruid != (uid_t) -1        && !uid_eq(kruid, old->uid) &&
 		    !uid_eq(kruid, old->euid) && !uid_eq(kruid, old->suid))
 			goto error;
@@ -950,7 +674,7 @@ SYSCALL_DEFINE3(setresgid, gid_t, rgid, gid_t, egid, gid_t, sgid)
 	old = current_cred();
 
 	retval = -EPERM;
-	if (!nsown_capable(CAP_SETGID)) {
+	if (!ns_capable(old->user_ns, CAP_SETGID)) {
 		if (rgid != (gid_t) -1        && !gid_eq(krgid, old->gid) &&
 		    !gid_eq(krgid, old->egid) && !gid_eq(krgid, old->sgid))
 			goto error;
@@ -1021,7 +745,7 @@ SYSCALL_DEFINE1(setfsuid, uid_t, uid)
 
 	if (uid_eq(kuid, old->uid)  || uid_eq(kuid, old->euid)  ||
 	    uid_eq(kuid, old->suid) || uid_eq(kuid, old->fsuid) ||
-	    nsown_capable(CAP_SETUID)) {
+	    ns_capable(old->user_ns, CAP_SETUID)) {
 		if (!uid_eq(kuid, old->fsuid)) {
 			new->fsuid = kuid;
 			if (security_task_fix_setuid(new, old, LSM_SETID_FS) == 0)
@@ -1060,7 +784,7 @@ SYSCALL_DEFINE1(setfsgid, gid_t, gid)
 
 	if (gid_eq(kgid, old->gid)  || gid_eq(kgid, old->egid)  ||
 	    gid_eq(kgid, old->sgid) || gid_eq(kgid, old->fsgid) ||
-	    nsown_capable(CAP_SETGID)) {
+	    ns_capable(old->user_ns, CAP_SETGID)) {
 		if (!gid_eq(kgid, old->fsgid)) {
 			new->fsgid = kgid;
 			goto change_okay;
@@ -1312,6 +1036,17 @@ out:
 	return retval;
 }
 
+static void set_special_pids(struct pid *pid)
+{
+	struct task_struct *curr = current->group_leader;
+
+	if (task_session(curr) != pid)
+		change_pid(curr, PIDTYPE_SID, pid);
+
+	if (task_pgrp(curr) != pid)
+		change_pid(curr, PIDTYPE_PGID, pid);
+}
+
 SYSCALL_DEFINE0(setsid)
 {
 	struct task_struct *group_leader = current->group_leader;
@@ -1331,7 +1066,7 @@ SYSCALL_DEFINE0(setsid)
 		goto out;
 
 	group_leader->signal->leader = 1;
-	__set_special_pids(sid);
+	set_special_pids(sid);
 
 	proc_clear_tty(group_leader);
 
@@ -1477,8 +1212,8 @@ SYSCALL_DEFINE2(sethostname, char __user *, name, int, len)
 		memcpy(u->nodename, tmp, len);
 		memset(u->nodename + len, 0, sizeof(u->nodename) - len);
 		errno = 0;
+		uts_proc_notify(UTS_PROC_HOSTNAME);
 	}
-	uts_proc_notify(UTS_PROC_HOSTNAME);
 	up_write(&uts_sem);
 	return errno;
 }
@@ -1528,8 +1263,8 @@ SYSCALL_DEFINE2(setdomainname, char __user *, name, int, len)
 		memcpy(u->domainname, tmp, len);
 		memset(u->domainname + len, 0, sizeof(u->domainname) - len);
 		errno = 0;
+		uts_proc_notify(UTS_PROC_DOMAINNAME);
 	}
-	uts_proc_notify(UTS_PROC_DOMAINNAME);
 	up_write(&uts_sem);
 	return errno;
 }
@@ -1876,84 +1611,125 @@ SYSCALL_DEFINE2(getrusage, int, who, struct rusage __user *, ru)
 	return getrusage(current, who, ru);
 }
 
+#ifdef CONFIG_COMPAT
+COMPAT_SYSCALL_DEFINE2(getrusage, int, who, struct compat_rusage __user *, ru)
+{
+	struct rusage r;
+
+	if (who != RUSAGE_SELF && who != RUSAGE_CHILDREN &&
+	    who != RUSAGE_THREAD)
+		return -EINVAL;
+
+	k_getrusage(current, who, &r);
+	return put_compat_rusage(&r, ru);
+}
+#endif
+
 SYSCALL_DEFINE1(umask, int, mask)
 {
 	mask = xchg(&current->fs->umask, mask & S_IRWXUGO);
 	return mask;
 }
 
-#ifdef CONFIG_CHECKPOINT_RESTORE
+static int prctl_set_mm_exe_file(struct mm_struct *mm, unsigned int fd)
+{
+	struct fd exe;
+	struct inode *inode;
+	int err;
+
+	exe = fdget(fd);
+	if (!exe.file)
+		return -EBADF;
+
+	inode = file_inode(exe.file);
+
+	/*
+	 * Because the original mm->exe_file points to executable file, make
+	 * sure that this one is executable as well, to avoid breaking an
+	 * overall picture.
+	 */
+	err = -EACCES;
+	if (!S_ISREG(inode->i_mode)	||
+	    exe.file->f_path.mnt->mnt_flags & MNT_NOEXEC)
+		goto exit;
+
+	err = inode_permission(inode, MAY_EXEC);
+	if (err)
+		goto exit;
+
+	down_write(&mm->mmap_sem);
+
+	/*
+	 * Forbid mm->exe_file change if old file still mapped.
+	 */
+	err = -EBUSY;
+	if (mm->exe_file) {
+		struct vm_area_struct *vma;
+
+		for (vma = mm->mmap; vma; vma = vma->vm_next)
+			if (vma->vm_file &&
+			    path_equal(&vma->vm_file->f_path,
+				       &mm->exe_file->f_path))
+				goto exit_unlock;
+	}
+
+	/*
+	 * The symlink can be changed only once, just to disallow arbitrary
+	 * transitions malicious software might bring in. This means one
+	 * could make a snapshot over all processes running and monitor
+	 * /proc/pid/exe changes to notice unusual activity if needed.
+	 */
+	err = -EPERM;
+	if (test_and_set_bit(MMF_EXE_FILE_CHANGED, &mm->flags))
+		goto exit_unlock;
+
+	err = 0;
+	set_mm_exe_file(mm, exe.file);	/* this grabs a reference to exe.file */
+exit_unlock:
+	up_write(&mm->mmap_sem);
+
+exit:
+	fdput(exe);
+	return err;
+}
+
 static int prctl_set_mm(int opt, unsigned long addr,
 			unsigned long arg4, unsigned long arg5)
 {
 	unsigned long rlim = rlimit(RLIMIT_DATA);
-	unsigned long vm_req_flags;
-	unsigned long vm_bad_flags;
-	struct vm_area_struct *vma;
-	int error = 0;
 	struct mm_struct *mm = current->mm;
+	struct vm_area_struct *vma;
+	int error;
 
-	if (arg4 | arg5)
+	if (arg5 || (arg4 && opt != PR_SET_MM_AUXV))
 		return -EINVAL;
 
 	if (!capable(CAP_SYS_RESOURCE))
 		return -EPERM;
 
-	if (addr >= TASK_SIZE)
+	if (opt == PR_SET_MM_EXE_FILE)
+		return prctl_set_mm_exe_file(mm, (unsigned int)addr);
+
+	if (addr >= TASK_SIZE || addr < mmap_min_addr)
 		return -EINVAL;
+
+	error = -EINVAL;
 
 	down_read(&mm->mmap_sem);
 	vma = find_vma(mm, addr);
 
-	if (opt != PR_SET_MM_START_BRK && opt != PR_SET_MM_BRK) {
-		/* It must be existing VMA */
-		if (!vma || vma->vm_start > addr)
-			goto out;
-	}
-
-	error = -EINVAL;
 	switch (opt) {
 	case PR_SET_MM_START_CODE:
+		mm->start_code = addr;
+		break;
 	case PR_SET_MM_END_CODE:
-		vm_req_flags = VM_READ | VM_EXEC;
-		vm_bad_flags = VM_WRITE | VM_MAYSHARE;
-
-		if ((vma->vm_flags & vm_req_flags) != vm_req_flags ||
-		    (vma->vm_flags & vm_bad_flags))
-			goto out;
-
-		if (opt == PR_SET_MM_START_CODE)
-			mm->start_code = addr;
-		else
-			mm->end_code = addr;
+		mm->end_code = addr;
 		break;
-
 	case PR_SET_MM_START_DATA:
-	case PR_SET_MM_END_DATA:
-		vm_req_flags = VM_READ | VM_WRITE;
-		vm_bad_flags = VM_EXEC | VM_MAYSHARE;
-
-		if ((vma->vm_flags & vm_req_flags) != vm_req_flags ||
-		    (vma->vm_flags & vm_bad_flags))
-			goto out;
-
-		if (opt == PR_SET_MM_START_DATA)
-			mm->start_data = addr;
-		else
-			mm->end_data = addr;
+		mm->start_data = addr;
 		break;
-
-	case PR_SET_MM_START_STACK:
-
-#ifdef CONFIG_STACK_GROWSUP
-		vm_req_flags = VM_READ | VM_WRITE | VM_GROWSUP;
-#else
-		vm_req_flags = VM_READ | VM_WRITE | VM_GROWSDOWN;
-#endif
-		if ((vma->vm_flags & vm_req_flags) != vm_req_flags)
-			goto out;
-
-		mm->start_stack = addr;
+	case PR_SET_MM_END_DATA:
+		mm->end_data = addr;
 		break;
 
 	case PR_SET_MM_START_BRK:
@@ -1980,21 +1756,81 @@ static int prctl_set_mm(int opt, unsigned long addr,
 		mm->brk = addr;
 		break;
 
+	/*
+	 * If command line arguments and environment
+	 * are placed somewhere else on stack, we can
+	 * set them up here, ARG_START/END to setup
+	 * command line argumets and ENV_START/END
+	 * for environment.
+	 */
+	case PR_SET_MM_START_STACK:
+	case PR_SET_MM_ARG_START:
+	case PR_SET_MM_ARG_END:
+	case PR_SET_MM_ENV_START:
+	case PR_SET_MM_ENV_END:
+		if (!vma) {
+			error = -EFAULT;
+			goto out;
+		}
+		if (opt == PR_SET_MM_START_STACK)
+			mm->start_stack = addr;
+		else if (opt == PR_SET_MM_ARG_START)
+			mm->arg_start = addr;
+		else if (opt == PR_SET_MM_ARG_END)
+			mm->arg_end = addr;
+		else if (opt == PR_SET_MM_ENV_START)
+			mm->env_start = addr;
+		else if (opt == PR_SET_MM_ENV_END)
+			mm->env_end = addr;
+		break;
+
+	/*
+	 * This doesn't move auxiliary vector itself
+	 * since it's pinned to mm_struct, but allow
+	 * to fill vector with new values. It's up
+	 * to a caller to provide sane values here
+	 * otherwise user space tools which use this
+	 * vector might be unhappy.
+	 */
+	case PR_SET_MM_AUXV: {
+		unsigned long user_auxv[AT_VECTOR_SIZE];
+
+		if (arg4 > sizeof(user_auxv))
+			goto out;
+		up_read(&mm->mmap_sem);
+
+		if (copy_from_user(user_auxv, (const void __user *)addr, arg4))
+			return -EFAULT;
+
+		/* Make sure the last entry is always AT_NULL */
+		user_auxv[AT_VECTOR_SIZE - 2] = 0;
+		user_auxv[AT_VECTOR_SIZE - 1] = 0;
+
+		BUILD_BUG_ON(sizeof(user_auxv) != sizeof(mm->saved_auxv));
+
+		task_lock(current);
+		memcpy(mm->saved_auxv, user_auxv, arg4);
+		task_unlock(current);
+
+		return 0;
+	}
 	default:
-		error = -EINVAL;
 		goto out;
 	}
 
 	error = 0;
-
 out:
 	up_read(&mm->mmap_sem);
-
 	return error;
 }
-#else /* CONFIG_CHECKPOINT_RESTORE */
-static int prctl_set_mm(int opt, unsigned long addr,
-			unsigned long arg4, unsigned long arg5)
+
+#ifdef CONFIG_CHECKPOINT_RESTORE
+static int prctl_get_tid_address(struct task_struct *me, int __user **tid_addr)
+{
+	return put_user(me->clear_child_tid, tid_addr);
+}
+#else
+static int prctl_get_tid_address(struct task_struct *me, int __user **tid_addr)
 {
 	return -EINVAL;
 }
@@ -2013,169 +1849,162 @@ SYSCALL_DEFINE5(prctl, int, option, unsigned long, arg2, unsigned long, arg3,
 
 	error = 0;
 	switch (option) {
-		case PR_SET_PDEATHSIG:
-			if (!valid_signal(arg2)) {
-				error = -EINVAL;
-				break;
-			}
-			me->pdeath_signal = arg2;
-			error = 0;
-			break;
-		case PR_GET_PDEATHSIG:
-			error = put_user(me->pdeath_signal, (int __user *)arg2);
-			break;
-		case PR_GET_DUMPABLE:
-			error = get_dumpable(me->mm);
-			break;
-		case PR_SET_DUMPABLE:
-			if (arg2 < 0 || arg2 > 1) {
-				error = -EINVAL;
-				break;
-			}
-			set_dumpable(me->mm, arg2);
-			error = 0;
-			break;
-
-		case PR_SET_UNALIGN:
-			error = SET_UNALIGN_CTL(me, arg2);
-			break;
-		case PR_GET_UNALIGN:
-			error = GET_UNALIGN_CTL(me, arg2);
-			break;
-		case PR_SET_FPEMU:
-			error = SET_FPEMU_CTL(me, arg2);
-			break;
-		case PR_GET_FPEMU:
-			error = GET_FPEMU_CTL(me, arg2);
-			break;
-		case PR_SET_FPEXC:
-			error = SET_FPEXC_CTL(me, arg2);
-			break;
-		case PR_GET_FPEXC:
-			error = GET_FPEXC_CTL(me, arg2);
-			break;
-		case PR_GET_TIMING:
-			error = PR_TIMING_STATISTICAL;
-			break;
-		case PR_SET_TIMING:
-			if (arg2 != PR_TIMING_STATISTICAL)
-				error = -EINVAL;
-			else
-				error = 0;
-			break;
-
-		case PR_SET_NAME:
-			comm[sizeof(me->comm)-1] = 0;
-			if (strncpy_from_user(comm, (char __user *)arg2,
-					      sizeof(me->comm) - 1) < 0)
-				return -EFAULT;
-			set_task_comm(me, comm);
-			proc_comm_connector(me);
-			return 0;
-		case PR_GET_NAME:
-			get_task_comm(comm, me);
-			if (copy_to_user((char __user *)arg2, comm,
-					 sizeof(comm)))
-				return -EFAULT;
-			return 0;
-		case PR_GET_ENDIAN:
-			error = GET_ENDIAN(me, arg2);
-			break;
-		case PR_SET_ENDIAN:
-			error = SET_ENDIAN(me, arg2);
-			break;
-
-		case PR_GET_SECCOMP:
-			error = prctl_get_seccomp();
-			break;
-		case PR_SET_SECCOMP:
-			error = prctl_set_seccomp(arg2, (char __user *)arg3);
-			break;
-		case PR_GET_TSC:
-			error = GET_TSC_CTL(arg2);
-			break;
-		case PR_SET_TSC:
-			error = SET_TSC_CTL(arg2);
-			break;
-		case PR_TASK_PERF_EVENTS_DISABLE:
-			error = perf_event_task_disable();
-			break;
-		case PR_TASK_PERF_EVENTS_ENABLE:
-			error = perf_event_task_enable();
-			break;
-		case PR_GET_TIMERSLACK:
-			error = current->timer_slack_ns;
-			break;
-		case PR_GET_EFFECTIVE_TIMERSLACK:
-			error = task_get_effective_timer_slack(current);
-			break;
-		case PR_SET_TIMERSLACK:
-			if (arg2 <= 0)
-				current->timer_slack_ns =
-					current->default_timer_slack_ns;
-			else
-				current->timer_slack_ns = arg2;
-			error = 0;
-			break;
-		case PR_MCE_KILL:
-			if (arg4 | arg5)
-				return -EINVAL;
-			switch (arg2) {
-			case PR_MCE_KILL_CLEAR:
-				if (arg3 != 0)
-					return -EINVAL;
-				current->flags &= ~PF_MCE_PROCESS;
-				break;
-			case PR_MCE_KILL_SET:
-				current->flags |= PF_MCE_PROCESS;
-				if (arg3 == PR_MCE_KILL_EARLY)
-					current->flags |= PF_MCE_EARLY;
-				else if (arg3 == PR_MCE_KILL_LATE)
-					current->flags &= ~PF_MCE_EARLY;
-				else if (arg3 == PR_MCE_KILL_DEFAULT)
-					current->flags &=
-						~(PF_MCE_EARLY|PF_MCE_PROCESS);
-				else
-					return -EINVAL;
-				break;
-			default:
-				return -EINVAL;
-			}
-			error = 0;
-			break;
-		case PR_MCE_KILL_GET:
-			if (arg2 | arg3 | arg4 | arg5)
-				return -EINVAL;
-			if (current->flags & PF_MCE_PROCESS)
-				error = (current->flags & PF_MCE_EARLY) ?
-					PR_MCE_KILL_EARLY : PR_MCE_KILL_LATE;
-			else
-				error = PR_MCE_KILL_DEFAULT;
-			break;
-		case PR_SET_MM:
-			error = prctl_set_mm(arg2, arg3, arg4, arg5);
-			break;
-		case PR_SET_CHILD_SUBREAPER:
-			me->signal->is_child_subreaper = !!arg2;
-			error = 0;
-			break;
-		case PR_GET_CHILD_SUBREAPER:
-			error = put_user(me->signal->is_child_subreaper,
-					 (int __user *) arg2);
-			break;
-		case PR_SET_NO_NEW_PRIVS:
-			if (arg2 != 1 || arg3 || arg4 || arg5)
-				return -EINVAL;
-
-			current->no_new_privs = 1;
-			break;
-		case PR_GET_NO_NEW_PRIVS:
-			if (arg2 || arg3 || arg4 || arg5)
-				return -EINVAL;
-			return current->no_new_privs ? 1 : 0;
-		default:
+	case PR_SET_PDEATHSIG:
+		if (!valid_signal(arg2)) {
 			error = -EINVAL;
 			break;
+		}
+		me->pdeath_signal = arg2;
+		break;
+	case PR_GET_PDEATHSIG:
+		error = put_user(me->pdeath_signal, (int __user *)arg2);
+		break;
+	case PR_GET_DUMPABLE:
+		error = get_dumpable(me->mm);
+		break;
+	case PR_SET_DUMPABLE:
+		if (arg2 != SUID_DUMP_DISABLE && arg2 != SUID_DUMP_USER) {
+			error = -EINVAL;
+			break;
+		}
+		set_dumpable(me->mm, arg2);
+		break;
+
+	case PR_SET_UNALIGN:
+		error = SET_UNALIGN_CTL(me, arg2);
+		break;
+	case PR_GET_UNALIGN:
+		error = GET_UNALIGN_CTL(me, arg2);
+		break;
+	case PR_SET_FPEMU:
+		error = SET_FPEMU_CTL(me, arg2);
+		break;
+	case PR_GET_FPEMU:
+		error = GET_FPEMU_CTL(me, arg2);
+		break;
+	case PR_SET_FPEXC:
+		error = SET_FPEXC_CTL(me, arg2);
+		break;
+	case PR_GET_FPEXC:
+		error = GET_FPEXC_CTL(me, arg2);
+		break;
+	case PR_GET_TIMING:
+		error = PR_TIMING_STATISTICAL;
+		break;
+	case PR_SET_TIMING:
+		if (arg2 != PR_TIMING_STATISTICAL)
+			error = -EINVAL;
+		break;
+	case PR_SET_NAME:
+		comm[sizeof(me->comm) - 1] = 0;
+		if (strncpy_from_user(comm, (char __user *)arg2,
+				      sizeof(me->comm) - 1) < 0)
+			return -EFAULT;
+		set_task_comm(me, comm);
+		proc_comm_connector(me);
+		break;
+	case PR_GET_NAME:
+		get_task_comm(comm, me);
+		if (copy_to_user((char __user *)arg2, comm, sizeof(comm)))
+			return -EFAULT;
+		break;
+	case PR_GET_ENDIAN:
+		error = GET_ENDIAN(me, arg2);
+		break;
+	case PR_SET_ENDIAN:
+		error = SET_ENDIAN(me, arg2);
+		break;
+	case PR_GET_SECCOMP:
+		error = prctl_get_seccomp();
+		break;
+	case PR_SET_SECCOMP:
+		error = prctl_set_seccomp(arg2, (char __user *)arg3);
+		break;
+	case PR_GET_TSC:
+		error = GET_TSC_CTL(arg2);
+		break;
+	case PR_SET_TSC:
+		error = SET_TSC_CTL(arg2);
+		break;
+	case PR_TASK_PERF_EVENTS_DISABLE:
+		error = perf_event_task_disable();
+		break;
+	case PR_TASK_PERF_EVENTS_ENABLE:
+		error = perf_event_task_enable();
+		break;
+	case PR_GET_TIMERSLACK:
+		error = current->timer_slack_ns;
+		break;
+	case PR_GET_EFFECTIVE_TIMERSLACK:
+		error = task_get_effective_timer_slack(current);
+		break;
+	case PR_SET_TIMERSLACK:
+		if (arg2 <= 0)
+			current->timer_slack_ns =
+					current->default_timer_slack_ns;
+		else
+			current->timer_slack_ns = arg2;
+		break;
+	case PR_MCE_KILL:
+		if (arg4 | arg5)
+			return -EINVAL;
+		switch (arg2) {
+		case PR_MCE_KILL_CLEAR:
+			if (arg3 != 0)
+				return -EINVAL;
+			current->flags &= ~PF_MCE_PROCESS;
+			break;
+		case PR_MCE_KILL_SET:
+			current->flags |= PF_MCE_PROCESS;
+			if (arg3 == PR_MCE_KILL_EARLY)
+				current->flags |= PF_MCE_EARLY;
+			else if (arg3 == PR_MCE_KILL_LATE)
+				current->flags &= ~PF_MCE_EARLY;
+			else if (arg3 == PR_MCE_KILL_DEFAULT)
+				current->flags &=
+						~(PF_MCE_EARLY|PF_MCE_PROCESS);
+			else
+				return -EINVAL;
+			break;
+		default:
+			return -EINVAL;
+		}
+		break;
+	case PR_MCE_KILL_GET:
+		if (arg2 | arg3 | arg4 | arg5)
+			return -EINVAL;
+		if (current->flags & PF_MCE_PROCESS)
+			error = (current->flags & PF_MCE_EARLY) ?
+				PR_MCE_KILL_EARLY : PR_MCE_KILL_LATE;
+		else
+			error = PR_MCE_KILL_DEFAULT;
+		break;
+	case PR_SET_MM:
+		error = prctl_set_mm(arg2, arg3, arg4, arg5);
+		break;
+	case PR_GET_TID_ADDRESS:
+		error = prctl_get_tid_address(me, (int __user **)arg2);
+		break;
+	case PR_SET_CHILD_SUBREAPER:
+		me->signal->is_child_subreaper = !!arg2;
+		break;
+	case PR_GET_CHILD_SUBREAPER:
+		error = put_user(me->signal->is_child_subreaper,
+				 (int __user *)arg2);
+		break;
+	case PR_SET_NO_NEW_PRIVS:
+		if (arg2 != 1 || arg3 || arg4 || arg5)
+			return -EINVAL;
+
+		current->no_new_privs = 1;
+		break;
+	case PR_GET_NO_NEW_PRIVS:
+		if (arg2 || arg3 || arg4 || arg5)
+			return -EINVAL;
+		return current->no_new_privs ? 1 : 0;
+	default:
+		error = -EINVAL;
+		break;
 	}
 	return error;
 }
@@ -2192,61 +2021,6 @@ SYSCALL_DEFINE3(getcpu, unsigned __user *, cpup, unsigned __user *, nodep,
 	return err ? -EFAULT : 0;
 }
 
-char poweroff_cmd[POWEROFF_CMD_PATH_LEN] = "/sbin/poweroff";
-
-static void argv_cleanup(struct subprocess_info *info)
-{
-	argv_free(info->argv);
-}
-
-/**
- * orderly_poweroff - Trigger an orderly system poweroff
- * @force: force poweroff if command execution fails
- *
- * This may be called from any context to trigger a system shutdown.
- * If the orderly shutdown fails, it will force an immediate shutdown.
- */
-int orderly_poweroff(bool force)
-{
-	int argc;
-	char **argv = argv_split(GFP_ATOMIC, poweroff_cmd, &argc);
-	static char *envp[] = {
-		"HOME=/",
-		"PATH=/sbin:/bin:/usr/sbin:/usr/bin",
-		NULL
-	};
-	int ret = -ENOMEM;
-
-	if (argv == NULL) {
-		printk(KERN_WARNING "%s failed to allocate memory for \"%s\"\n",
-		       __func__, poweroff_cmd);
-		goto out;
-	}
-
-	ret = call_usermodehelper_fns(argv[0], argv, envp, UMH_NO_WAIT,
-				      NULL, argv_cleanup, NULL);
-out:
-	if (likely(!ret))
-		return 0;
-
-	if (ret == -ENOMEM)
-		argv_free(argv);
-
-	if (force) {
-		printk(KERN_WARNING "Failed to start orderly shutdown: "
-		       "forcing the issue\n");
-
-		/* I guess this should try to kick off some daemon to
-		   sync and poweroff asap.  Or not even bother syncing
-		   if we're doing an emergency shutdown? */
-		emergency_sync();
-		kernel_power_off();
-	}
-
-	return ret;
-}
-EXPORT_SYMBOL_GPL(orderly_poweroff);
-
 /**
  * do_sysinfo - fill in sysinfo struct
  * @info: pointer to buffer to fill
@@ -2259,8 +2033,7 @@ static int do_sysinfo(struct sysinfo *info)
 
 	memset(info, 0, sizeof(struct sysinfo));
 
-	ktime_get_ts(&tp);
-	monotonic_to_bootbased(&tp);
+	get_monotonic_boottime(&tp);
 	info->uptime = tp.tv_sec + (tp.tv_nsec ? 1 : 0);
 
 	get_avenrun(info->loads, 0, SI_LOAD_SHIFT - FSHIFT);

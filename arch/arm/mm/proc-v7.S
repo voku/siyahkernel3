@@ -21,24 +21,7 @@
 
 #include "proc-macros.S"
 
-#define TTB_S		(1 << 1)
-#define TTB_RGN_NC	(0 << 3)
-#define TTB_RGN_OC_WBWA	(1 << 3)
-#define TTB_RGN_OC_WT	(2 << 3)
-#define TTB_RGN_OC_WB	(3 << 3)
-#define TTB_NOS		(1 << 5)
-#define TTB_IRGN_NC	((0 << 0) | (0 << 6))
-#define TTB_IRGN_WBWA	((0 << 0) | (1 << 6))
-#define TTB_IRGN_WT	((1 << 0) | (0 << 6))
-#define TTB_IRGN_WB	((1 << 0) | (1 << 6))
-
-/* PTWs cacheable, inner WB not shareable, outer WB not shareable */
-#define TTB_FLAGS_UP	TTB_IRGN_WB|TTB_RGN_OC_WB
-#define PMD_FLAGS_UP	PMD_SECT_WB
-
-/* PTWs cacheable, inner WBWA shareable, outer WBWA not shareable */
-#define TTB_FLAGS_SMP	TTB_IRGN_WBWA|TTB_S|TTB_NOS|TTB_RGN_OC_WBWA
-#define PMD_FLAGS_SMP	PMD_SECT_WBWA|PMD_SECT_S
+#include "proc-v7-2level.S"
 
 ENTRY(cpu_v7_proc_init)
 	mov	pc, lr
@@ -65,14 +48,16 @@ ENDPROC(cpu_v7_proc_fin)
  *      caches disabled.
  */
 	.align	5
+	.pushsection	.idmap.text, "ax"
 ENTRY(cpu_v7_reset)
 	mrc	p15, 0, r1, c1, c0, 0		@ ctrl register
 	bic	r1, r1, #0x1			@ ...............m
  THUMB(	bic	r1, r1, #1 << 30 )		@ SCTLR.TE (Thumb exceptions)
 	mcr	p15, 0, r1, c1, c0, 0		@ disable MMU
 	isb
-	mov	pc, r0
+	bx	r0
 ENDPROC(cpu_v7_reset)
+	.popsection
 
 /*
  *	cpu_v7_do_idle()
@@ -88,139 +73,24 @@ ENTRY(cpu_v7_do_idle)
 ENDPROC(cpu_v7_do_idle)
 
 ENTRY(cpu_v7_dcache_clean_area)
-#ifndef TLB_CAN_READ_FROM_L1_CACHE
+	ALT_SMP(mov	pc, lr)			@ MP extensions imply L1 PTW
+	ALT_UP(W(nop))
 	dcache_line_size r2, r3
 1:	mcr	p15, 0, r0, c7, c10, 1		@ clean D entry
 	add	r0, r0, r2
 	subs	r1, r1, r2
 	bhi	1b
 	dsb
-#endif
 	mov	pc, lr
 ENDPROC(cpu_v7_dcache_clean_area)
-
-/*
- *	cpu_v7_switch_mm(pgd_phys, tsk)
- *
- *	Set the translation table base pointer to be pgd_phys
- *
- *	- pgd_phys - physical address of new TTB
- *
- *	It is assumed that:
- *	- we are not using split page tables
- */
-ENTRY(cpu_v7_switch_mm)
-#ifdef CONFIG_MMU
-	mov	r2, #0
-	ldr	r1, [r1, #MM_CONTEXT_ID]	@ get mm->context.id
-	ALT_SMP(orr	r0, r0, #TTB_FLAGS_SMP)
-	ALT_UP(orr	r0, r0, #TTB_FLAGS_UP)
-#ifdef CONFIG_ARM_ERRATA_430973
-	mcr	p15, 0, r2, c7, c5, 6		@ flush BTAC/BTB
-#endif
-#ifdef CONFIG_ARM_ERRATA_754322
-	dsb
-#endif
-	mcr	p15, 0, r2, c13, c0, 1		@ set reserved context ID
-	isb
-1:	mcr	p15, 0, r0, c2, c0, 0		@ set TTB 0
-	isb
-#ifdef CONFIG_ARM_ERRATA_754322
-	dsb
-#endif
-	mcr	p15, 0, r1, c13, c0, 1		@ set context ID
-	isb
-#endif
-	mov	pc, lr
-ENDPROC(cpu_v7_switch_mm)
-
-/*
- *	cpu_v7_set_pte_ext(ptep, pte)
- *
- *	Set a level 2 translation table entry.
- *
- *	- ptep  - pointer to level 2 translation table entry
- *		  (hardware version is stored at +2048 bytes)
- *	- pte   - PTE value to store
- *	- ext	- value for extended PTE bits
- */
-ENTRY(cpu_v7_set_pte_ext)
-#ifdef CONFIG_MMU
-	str	r1, [r0]			@ linux version
-
-	bic	r3, r1, #0x000003f0
-	bic	r3, r3, #PTE_TYPE_MASK
-	orr	r3, r3, r2
-	orr	r3, r3, #PTE_EXT_AP0 | 2
-
-	tst	r1, #1 << 4
-	orrne	r3, r3, #PTE_EXT_TEX(1)
-
-	eor	r1, r1, #L_PTE_DIRTY
-	tst	r1, #L_PTE_RDONLY | L_PTE_DIRTY
-	orrne	r3, r3, #PTE_EXT_APX
-
-	tst	r1, #L_PTE_USER
-	orrne	r3, r3, #PTE_EXT_AP1
-#ifdef CONFIG_CPU_USE_DOMAINS
-	@ allow kernel read/write access to read-only user pages
-	tstne	r3, #PTE_EXT_APX
-	bicne	r3, r3, #PTE_EXT_APX | PTE_EXT_AP0
-#endif
-
-	tst	r1, #L_PTE_XN
-	orrne	r3, r3, #PTE_EXT_XN
-
-	tst	r1, #L_PTE_YOUNG
-	tstne	r1, #L_PTE_PRESENT
-	moveq	r3, #0
-
- ARM(	str	r3, [r0, #2048]! )
- THUMB(	add	r0, r0, #2048 )
- THUMB(	str	r3, [r0] )
-	mcr	p15, 0, r0, c7, c10, 1		@ flush_pte
-#endif
-	mov	pc, lr
-ENDPROC(cpu_v7_set_pte_ext)
 
 	string	cpu_v7_name, "ARMv7 Processor"
 	.align
 
-	/*
-	 * Memory region attributes with SCTLR.TRE=1
-	 *
-	 *   n = TEX[0],C,B
-	 *   TR = PRRR[2n+1:2n]		- memory type
-	 *   IR = NMRR[2n+1:2n]		- inner cacheable property
-	 *   OR = NMRR[2n+17:2n+16]	- outer cacheable property
-	 *
-	 *			n	TR	IR	OR
-	 *   UNCACHED		000	00
-	 *   BUFFERABLE		001	10	00	00
-	 *   WRITETHROUGH	010	10	10	10
-	 *   WRITEBACK		011	10	11	11
-	 *   reserved		110
-	 *   WRITEALLOC		111	10	01	01
-	 *   DEV_SHARED		100	01
-	 *   DEV_NONSHARED	100	01
-	 *   DEV_WC		001	10
-	 *   DEV_CACHED		011	10
-	 *
-	 * Other attributes:
-	 *
-	 *   DS0 = PRRR[16] = 0		- device shareable property
-	 *   DS1 = PRRR[17] = 1		- device shareable property
-	 *   NS0 = PRRR[18] = 0		- normal shareable property
-	 *   NS1 = PRRR[19] = 1		- normal shareable property
-	 *   NOS = PRRR[24+n] = 1	- not outer shareable
-	 */
-.equ	PRRR,	0xff0a81a8
-.equ	NMRR,	0x40e040e0
-
 /* Suspend/resume support: derived from arch/arm/mach-s5pv210/sleep.S */
 .globl	cpu_v7_suspend_size
 .equ	cpu_v7_suspend_size, 4 * 9
-#ifdef CONFIG_PM_SLEEP
+#ifdef CONFIG_ARM_CPU_SUSPEND
 ENTRY(cpu_v7_do_suspend)
 	stmfd	sp!, {r4 - r11, lr}
 	mrc	p15, 0, r4, c13, c0, 0	@ FCSE/PID
@@ -288,6 +158,7 @@ __v7_ca5mp_setup:
 __v7_ca9mp_setup:
 	mov	r10, #(1 << 0)			@ TLB ops broadcasting
 	b	1f
+__v7_ca7mp_setup:
 __v7_ca15mp_setup:
 	mov	r10, #0
 1:
@@ -299,10 +170,68 @@ __v7_ca15mp_setup:
 	orreq	r0, r0, r10			@ Enable CPU-specific SMP bits
 	mcreq	p15, 0, r0, c1, c0, 1
 #endif
+	b	__v7_setup
+
+__v7_pj4b_setup:
+#ifdef CONFIG_CPU_PJ4B
+
+/* Auxiliary Debug Modes Control 1 Register */
+#define PJ4B_STATIC_BP (1 << 2) /* Enable Static BP */
+#define PJ4B_INTER_PARITY (1 << 8) /* Disable Internal Parity Handling */
+#define PJ4B_BCK_OFF_STREX (1 << 5) /* Enable the back off of STREX instr */
+#define PJ4B_CLEAN_LINE (1 << 16) /* Disable data transfer for clean line */
+
+/* Auxiliary Debug Modes Control 2 Register */
+#define PJ4B_FAST_LDR (1 << 23) /* Disable fast LDR */
+#define PJ4B_SNOOP_DATA (1 << 25) /* Do not interleave write and snoop data */
+#define PJ4B_CWF (1 << 27) /* Disable Critical Word First feature */
+#define PJ4B_OUTSDNG_NC (1 << 29) /* Disable outstanding non cacheable rqst */
+#define PJ4B_L1_REP_RR (1 << 30) /* L1 replacement - Strict round robin */
+#define PJ4B_AUX_DBG_CTRL2 (PJ4B_SNOOP_DATA | PJ4B_CWF |\
+			    PJ4B_OUTSDNG_NC | PJ4B_L1_REP_RR)
+
+/* Auxiliary Functional Modes Control Register 0 */
+#define PJ4B_SMP_CFB (1 << 1) /* Set SMP mode. Join the coherency fabric */
+#define PJ4B_L1_PAR_CHK (1 << 2) /* Support L1 parity checking */
+#define PJ4B_BROADCAST_CACHE (1 << 8) /* Broadcast Cache and TLB maintenance */
+
+/* Auxiliary Debug Modes Control 0 Register */
+#define PJ4B_WFI_WFE (1 << 22) /* WFI/WFE - serve the DVM and back to idle */
+
+	/* Auxiliary Debug Modes Control 1 Register */
+	mrc	p15, 1,	r0, c15, c1, 1
+	orr     r0, r0, #PJ4B_CLEAN_LINE
+	orr     r0, r0, #PJ4B_BCK_OFF_STREX
+	orr     r0, r0, #PJ4B_INTER_PARITY
+	bic	r0, r0, #PJ4B_STATIC_BP
+	mcr	p15, 1,	r0, c15, c1, 1
+
+	/* Auxiliary Debug Modes Control 2 Register */
+	mrc	p15, 1,	r0, c15, c1, 2
+	bic	r0, r0, #PJ4B_FAST_LDR
+	orr	r0, r0, #PJ4B_AUX_DBG_CTRL2
+	mcr	p15, 1,	r0, c15, c1, 2
+
+	/* Auxiliary Functional Modes Control Register 0 */
+	mrc	p15, 1,	r0, c15, c2, 0
+#ifdef CONFIG_SMP
+	orr	r0, r0, #PJ4B_SMP_CFB
+#endif
+	orr	r0, r0, #PJ4B_L1_PAR_CHK
+	orr	r0, r0, #PJ4B_BROADCAST_CACHE
+	mcr	p15, 1,	r0, c15, c2, 0
+
+	/* Auxiliary Debug Modes Control 0 Register */
+	mrc	p15, 1,	r0, c15, c1, 0
+	orr	r0, r0, #PJ4B_WFI_WFE
+	mcr	p15, 1,	r0, c15, c1, 0
+
+#endif /* CONFIG_CPU_PJ4B */
+
 __v7_setup:
 	adr	r12, __v7_setup_stack		@ the local stack
 	stmia	r12, {r0-r5, r7, r9, r11, lr}
-	bl	v7_flush_dcache_all
+	bl      v7_flush_dcache_louis
 	ldmia	r12, {r0-r5, r7, r9, r11, lr}
 
 	mrc	p15, 0, r0, c0, c0, 0		@ read main ID register
@@ -318,7 +247,8 @@ __v7_setup:
 	ldr	r10, =0x00000c08		@ Cortex-A8 primary part number
 	teq	r0, r10
 	bne	2f
-#ifdef CONFIG_ARM_ERRATA_430973
+#if defined(CONFIG_ARM_ERRATA_430973) && !defined(CONFIG_ARCH_MULTIPLATFORM)
+
 	teq	r5, #0x00100000			@ only present in r1p*
 	mrceq	p15, 0, r10, c1, c0, 1		@ read aux control register
 	orreq	r10, r10, #(1 << 6)		@ set IBE to 1
@@ -381,11 +311,13 @@ __v7_setup:
 	orreq	r10, r10, #1 << 6		@ set bit #6
 	mcreq	p15, 0, r10, c15, c0, 1		@ write diagnostic register
 #endif
-#ifdef CONFIG_ARM_ERRATA_751472
-	cmp	r6, #0x30			@ present prior to r3p0
+#if defined(CONFIG_ARM_ERRATA_751472) && defined(CONFIG_SMP)
+	ALT_SMP(cmp r6, #0x30)			@ present prior to r3p0
+	ALT_UP_B(1f)
 	mrclt	p15, 0, r10, c15, c0, 1		@ read diagnostic register
 	orrlt	r10, r10, #1 << 11		@ set bit #11
 	mcrlt	p15, 0, r10, c15, c0, 1		@ write diagnostic register
+1:
 #endif
 #endif
 	b	4f
@@ -398,6 +330,17 @@ __v7_setup:
 #ifdef CONFIG_ARM_TRUSTZONE
 	stmia	r12, {r0-r3}
 	mov	r3, #0
+#endif
+/* Enable Non-cacheable streaming enhancement */
+	mrc	p15, 0, r10, c1, c0, 1		@ read aux control register
+	orr	r10, r10, #1 << 24		@ set bit #24
+#ifdef CONFIG_ARM_TRUSTZONE
+	ldr	r0, =SMC_CMD_REG
+	ldr	r1, =SMC_REG_ID_CP15(1, 0, 0, 1)
+	mov	r2, r10
+	smc	0
+#else
+	mcr	p15, 0, r10, c1, c0, 1		@ write aux control register
 #endif
 #ifdef CONFIG_ARM_ERRATA_761171
 	teq	r6, #0x0			@ present in r0p0
@@ -453,12 +396,7 @@ __v7_setup:
 	dsb
 #ifdef CONFIG_MMU
 	mcr	p15, 0, r10, c8, c7, 0		@ invalidate I + D TLBs
-	mcr	p15, 0, r10, c2, c0, 2		@ TTB control register
-	ALT_SMP(orr	r4, r4, #TTB_FLAGS_SMP)
-	ALT_UP(orr	r4, r4, #TTB_FLAGS_UP)
-	ALT_SMP(orr	r8, r8, #TTB_FLAGS_SMP)
-	ALT_UP(orr	r8, r8, #TTB_FLAGS_UP)
-	mcr	p15, 0, r8, c2, c0, 1		@ load TTB1
+	v7_ttb_setup r10, r4, r8, r5		@ TTBCR, TTBRx setup
 	ldr	r5, =PRRR			@ PRRR
 	ldr	r6, =NMRR			@ NMRR
 	mcr	p15, 0, r5, c10, c2, 0		@ write PRRR
@@ -492,23 +430,14 @@ __v7_setup:
 	mov	pc, lr				@ return to head.S:__ret
 ENDPROC(__v7_setup)
 
-	/*   AT
-	 *  TFR   EV X F   I D LR    S
-	 * .EEE ..EE PUI. .T.T 4RVI ZWRS BLDP WCAM
-	 * rxxx rrxx xxx0 0101 xxxx xxxx x111 xxxx < forced
-	 *    1    0 110       0011 1100 .111 1101 < we want
-	 */
-	.type	v7_crval, #object
-v7_crval:
-	crval	clear=0x0120c302, mmuset=0x10c03c7d, ucset=0x00c01c7c
-
+	.align	2
 __v7_setup_stack:
 	.space	4 * 11				@ 11 registers
 
 	__INITDATA
 
 	@ define struct processor (see <asm/proc-fns.h> and proc-macros.S)
-#ifdef CONFIG_PM_SLEEP
+#ifdef CONFIG_ARM_CPU_SUSPEND
 	define_processor_functions v7, dabort=v7_early_abort, pabort=v7_pabort, suspend=1
 #else
 	define_processor_functions v7, dabort=v7_early_abort, pabort=v7_pabort, suspend=0
@@ -564,13 +493,33 @@ __v7_ca9mp_proc_info:
 	.size	__v7_ca9mp_proc_info, . - __v7_ca9mp_proc_info
 
 	/*
+	 * Marvell PJ4B processor.
+	 */
+	.type   __v7_pj4b_proc_info, #object
+__v7_pj4b_proc_info:
+	.long	0x562f5840
+	.long	0xfffffff0
+	__v7_proc __v7_pj4b_setup
+	.size	__v7_pj4b_proc_info, . - __v7_pj4b_proc_info
+
+	/*
+	 * ARM Ltd. Cortex A7 processor.
+	 */
+	.type	__v7_ca7mp_proc_info, #object
+__v7_ca7mp_proc_info:
+	.long	0x410fc070
+	.long	0xff0ffff0
+	__v7_proc __v7_ca7mp_setup
+	.size	__v7_ca7mp_proc_info, . - __v7_ca7mp_proc_info
+
+	/*
 	 * ARM Ltd. Cortex A15 processor.
 	 */
 	.type	__v7_ca15mp_proc_info, #object
 __v7_ca15mp_proc_info:
 	.long	0x410fc0f0
 	.long	0xff0ffff0
-	__v7_proc __v7_ca15mp_setup, hwcaps = HWCAP_IDIV
+	__v7_proc __v7_ca15mp_setup
 	.size	__v7_ca15mp_proc_info, . - __v7_ca15mp_proc_info
 
 	/*

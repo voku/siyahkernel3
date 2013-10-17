@@ -91,7 +91,6 @@
 #include <linux/mm.h>
 #include <linux/slab.h>
 
-#include <asm/system.h>
 #include <asm/cache.h>
 #include <asm/byteorder.h>
 #include <asm/uaccess.h>
@@ -99,6 +98,7 @@
 #include <asm/irq.h>
 
 #include <linux/init.h>
+#include <linux/interrupt.h>
 #include <linux/string.h>
 
 #include <linux/if_arp.h>

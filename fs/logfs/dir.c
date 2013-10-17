@@ -71,7 +71,7 @@ static int write_dir(struct inode *dir, struct logfs_disk_dentry *dd,
 
 static int write_inode(struct inode *inode)
 {
-	return __logfs_write_inode(inode, WF_LOCK);
+	return __logfs_write_inode(inode, NULL, WF_LOCK);
 }
 
 static s64 dir_seek_data(struct inode *inode, s64 pos)
@@ -349,7 +349,7 @@ static void logfs_set_name(struct logfs_disk_dentry *dd, struct qstr *name)
 }
 
 static struct dentry *logfs_lookup(struct inode *dir, struct dentry *dentry,
-		struct nameidata *nd)
+		unsigned int flags)
 {
 	struct page *page;
 	struct logfs_disk_dentry *dd;
@@ -502,7 +502,7 @@ static int logfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 }
 
 static int logfs_create(struct inode *dir, struct dentry *dentry, umode_t mode,
-		struct nameidata *nd)
+		bool excl)
 {
 	struct inode *inode;
 

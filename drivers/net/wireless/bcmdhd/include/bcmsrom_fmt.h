@@ -454,7 +454,7 @@
 #define SROM11_MPWR_RAWTS		88
 #define SROM11_TS_SLP_OPT_CORRX		89
 #define SROM11_XTAL_FREQ		90
-#define SROM11_PHYCAL_TEMPDELTA	92
+#define SROM11_PHYCAL_TEMPDELTA		92
 #define SROM11_MPWR_1_AND_2		93
 
 /* Masks and offsets for Terrmal parameters */

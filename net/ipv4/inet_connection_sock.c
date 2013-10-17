@@ -42,7 +42,8 @@ EXPORT_SYMBOL(sysctl_local_reserved_ports);
 
 void inet_get_local_port_range(int *low, int *high)
 {
-	unsigned seq;
+	unsigned int seq;
+
 	do {
 		seq = read_seqbegin(&sysctl_local_ports.lock);
 
@@ -417,7 +418,7 @@ static inline u32 inet_synq_hash(const __be32 raddr, const __be16 rport,
 	return jhash_2words((__force u32)raddr, (__force u32)rport, rnd) & (synq_hsize - 1);
 }
 
-#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+#if IS_ENABLED(CONFIG_IPV6)
 #define AF_INET_FAMILY(fam) ((fam) == AF_INET)
 #else
 #define AF_INET_FAMILY(fam) 1

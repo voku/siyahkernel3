@@ -62,6 +62,7 @@
 
 #include <asm/mach/arch.h>
 #include <asm/mach-types.h>
+#include <asm/system_info.h>
 
 #include <video/platform_lcd.h>
 
@@ -529,7 +530,7 @@ void sii9234_power_onoff(bool on)
 		usleep_range(10000, 20000);
 		gpio_set_value(GPIO_MHL_RST, GPIO_LEVEL_HIGH);
 #ifdef CONFIG_TARGET_LOCALE_KOR
-		gpio_set_value(GPIO_HDMI_EN, GPIO_LEVEL_HIGH);
+		gpio_set_value(GPIO_HDMI_EN, GPIO_LEVEL_LOW);
 #else
 		if (system_rev < 7)
 			gpio_set_value(GPIO_HDMI_EN, GPIO_LEVEL_LOW);
@@ -2425,7 +2426,7 @@ static struct lcd_platform_data ld9040_platform_data = {
 	/* it indicates whether lcd panel is enabled from u-boot. */
 	.lcd_enabled = 1,
 	.reset_delay = 10,	/* 10ms */
-	.power_on_delay = 10,	/* 20ms */
+	.power_on_delay = 15,	/* 15ms */
 	.power_off_delay = 200,	/* 120ms */
 	.pdata = &u1_panel_data,
 };
@@ -4682,6 +4683,7 @@ static struct sec_bat_adc_table_data temper_table_ADC7[] = {
 };
 #endif
 
+#define ADC_CH_VF	2
 #define ADC_CH_TEMPERATURE_PMIC	6
 #define ADC_CH_TEMPERATURE_LCD	7
 
@@ -4728,6 +4730,10 @@ static struct sec_bat_platform_data sec_bat_pdata = {
 	.adc_sub_table		= temper_table_ADC7,
 	.adc_sub_channel	= ADC_CH_TEMPERATURE_LCD,
 	.get_lpcharging_state	= sec_bat_get_lpcharging_state,
+#if defined(CONFIG_TARGET_LOCALE_NAATT) || \
+	defined(CONFIG_TARGET_LOCALE_NAATT_TEMP)
+	.adc_vf_channel = ADC_CH_VF,
+#endif
 #if defined(CONFIG_MACH_Q1_BD)
 	.initial_check		= sec_bat_initial_check,
 #else
@@ -5099,7 +5105,7 @@ static struct sec_therm_platform_data sec_therm_pdata = {
 	.adc_channel	= 6,
 	.adc_arr_size	= ARRAY_SIZE(adc_ch6_table),
 	.adc_table	= adc_ch6_table,
-	.polling_interval = 30 * 1000, /* msecs */
+	.polling_interval = 60 * 1000, /* msecs */
 	.get_siop_level = get_exynos4210_siop_level,
 };
 
@@ -5450,7 +5456,7 @@ static u8 t8_config[] = { GEN_ACQUISITIONCONFIG_T8,
 static u8 t9_config[] = { TOUCH_MULTITOUCHSCREEN_T9,
 	131, 0, 0, 19, 11, 0, 32, MXT224_THRESHOLD_BATT, 2, 1,
 	0,
-	15,			/* MOVHYSTI */
+	7,			/* MOVHYSTI */
 	1, MXT224_MOVFILTER_BATT, MXT224_MAX_MT_FINGERS, 5, 40, 10, 31, 3,
 	223, 1, 0, 0, 0, 0, 143, 55, 143, 90, 18
 };
@@ -5524,7 +5530,7 @@ static u8 t8_config_e[] = { GEN_ACQUISITIONCONFIG_T8,
 static u8 t9_config_e[] = { TOUCH_MULTITOUCHSCREEN_T9,
 	139, 0, 0, 19, 11, 0, MXT224E_BLEN_BATT, MXT224E_THRESHOLD_BATT, 2, 1,
 	10,
-	15,			/* MOVHYSTI */
+	7,			/* MOVHYSTI */
 	1, MXT224E_MOVFILTER_BATT, MXT224_MAX_MT_FINGERS, 5, 40, 10, 31, 3,
 	223, 1, 10, 10, 10, 10, 143, 40, 143, 80,
 	18, 15, 50, 50, MXT224E_NEXTTCHDI_NORMAL
@@ -5582,7 +5588,7 @@ static u8 t48_config_chrg_e[] = { PROCG_NOISESUPPRESSION_T48,
 	0, 0, 0, 6, 6, 0, 0, 64, 4, 64,
 	10, 0, 9, 5, 0, 15, 0, 20, 0, 0,
 	0, 0, 0, 0, MXT224E_BLEN_CHRG, MXT224E_THRESHOLD_CHRG, 2,
-	15,			/* MOVHYSTI */
+	7,			/* MOVHYSTI */
 	1, 47,
 	MXT224_MAX_MT_FINGERS, 5, 40, 235, 235, 10, 10, 160, 50, 143,
 	80, 18, 10, MXT224E_NEXTTCHDI_CHRG
@@ -5608,7 +5614,7 @@ static u8 t8_config_e[] = { GEN_ACQUISITIONCONFIG_T8,
 static u8 t9_config_e[] = { TOUCH_MULTITOUCHSCREEN_T9,
 	139, 0, 0, 19, 11, 0, MXT224E_BLEN_BATT, MXT224E_THRESHOLD_BATT, 2, 1,
 	10,
-	10,			/* MOVHYSTI */
+	7,			/* MOVHYSTI */
 	1, MXT224E_MOVFILTER_BATT, MXT224_MAX_MT_FINGERS, 5, 40, 10, 31, 3,
 	223, 1, 10, 10, 10, 10, 143, 40, 143, 80,
 	18, 15, 50, 50, 0
@@ -5617,7 +5623,7 @@ static u8 t9_config_e[] = { TOUCH_MULTITOUCHSCREEN_T9,
 static u8 t9_config_e[] = { TOUCH_MULTITOUCHSCREEN_T9,
 	139, 0, 0, 19, 11, 0, MXT224E_BLEN_BATT, MXT224E_THRESHOLD_BATT, 2, 1,
 	10,
-	15,			/* MOVHYSTI */
+	7,			/* MOVHYSTI */
 	1, MXT224E_MOVFILTER_BATT, MXT224_MAX_MT_FINGERS, 5, 40, 10, 31, 3,
 	223, 1, 10, 10, 10, 10, 143, 40, 143, 80,
 	18, 15, 50, 50, MXT224E_NEXTTCHDI_NORMAL
@@ -5667,7 +5673,7 @@ static u8 t48_config_chrg_e[] = { PROCG_NOISESUPPRESSION_T48,
 	0, 0, 0, 6, 6, 0, 0, 64, 4, 64,
 	10, 0, 9, 5, 0, 15, 0, 20, 0, 0,
 	0, 0, 0, 0, MXT224E_T48_BLEN_CHRG, MXT224E_THRESHOLD_CHRG, 2,
-	10,			/* MOVHYSTI */
+	7,			/* MOVHYSTI */
 	1, 47,
 	MXT224_MAX_MT_FINGERS, 5, 40, 240, 245, 10, 10, 148, 50, 143,
 	80, 18, 10, 0
@@ -5689,7 +5695,7 @@ static u8 t48_config_chrg_e[] = { PROCG_NOISESUPPRESSION_T48,
 	0, 0, 0, 6, 6, 0, 0, 64, 4, 64,
 	10, 0, 9, 5, 0, 15, 0, 20, 0, 0,
 	0, 0, 0, 0, 0, MXT224E_THRESHOLD_CHRG, 2,
-	15,			/* MOVHYSTI */
+	7,			/* MOVHYSTI */
 	1, 47,
 	MXT224_MAX_MT_FINGERS, 5, 40, 235, 235, 10, 10, 160, 50, 143,
 	80, 18, 10, 0
@@ -7458,8 +7464,8 @@ static struct platform_device *smdkc210_devices[] __initdata = {
 /* below temperature base on the celcius degree */
 struct s5p_platform_tmu u1_tmu_data __initdata = {
 	.ts = {
-		.stop_1st_throttle  = 61,
-		.start_1st_throttle = 64,
+		.stop_1st_throttle  = 64,
+		.start_1st_throttle = 70,
 		.stop_2nd_throttle  = 80,
 		.start_2nd_throttle = 103,
 		.start_tripping     = 110,
@@ -7700,10 +7706,10 @@ static void __init exynos4_reserve_mem(void)
 
 	static const char map[] __initconst =
 		"android_pmem.0=pmem;android_pmem.1=pmem_gpu1;"
-		"s3cfb.0=fimd;exynos4-fb.0=fimd;"
-		"s3c-fimc.0=fimc0;s3c-fimc.1=fimc1;s3c-fimc.2=fimc2;"
+		"s3cfb.0=fimd;exynos4-fb.0=fimd;samsung-pd.1=fimd;"
+		"s3c-fimc.0=fimc0;s3c-fimc.1=fimc1;s3c-fimc.2=fimc2;s3c-fimc.3=fimc3;"
 		"exynos4210-fimc.0=fimc0;exynos4210-fimc.1=fimc1;"
-		"exynos4210-fimc.2=fimc2;exynos4210-fimc3=fimc3;"
+		"exynos4210-fimc.2=fimc2;exynos4210-fimc.3=fimc3;"
 #ifdef CONFIG_ION_EXYNOS
 		"ion-exynos=ion;"
 #endif

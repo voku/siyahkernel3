@@ -319,13 +319,21 @@ vr_exit_queue(struct elevator_queue *e)
 /*
  * initialize elevator private data (vr_data).
  */
-static void *vr_init_queue(struct request_queue *q)
+static int vr_init_queue(struct request_queue *q, struct elevator_type *e)
 {
 	struct vr_data *vd;
+	struct elevator_queue *eq;
 
-	vd = kmalloc_node(sizeof(*vd), GFP_KERNEL | __GFP_ZERO, q->node);
-	if (!vd)
-		return NULL;
+	eq = elevator_alloc(q, e);
+	if (!eq)
+		return -ENOMEM;
+
+	vd = kzalloc_node(sizeof(*vd), GFP_KERNEL, q->node);
+	if (!vd) {
+		kobject_put(&eq->kobj);
+		return -ENOMEM;
+	}
+	eq->elevator_data = vd;
 
 	INIT_LIST_HEAD(&vd->fifo_list[SYNC]);
 	INIT_LIST_HEAD(&vd->fifo_list[ASYNC]);
@@ -334,7 +342,11 @@ static void *vr_init_queue(struct request_queue *q)
 	vd->fifo_expire[ASYNC] = async_expire;
 	vd->fifo_batch = fifo_batch;
 	vd->rev_penalty = rev_penalty;
-	return vd;
+
+	spin_lock_irq(q->queue_lock);
+	q->elevator = eq;
+	spin_unlock_irq(q->queue_lock);
+	return 0;
 }
 
 /*

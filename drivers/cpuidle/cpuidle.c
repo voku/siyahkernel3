@@ -28,18 +28,17 @@ DEFINE_MUTEX(cpuidle_lock);
 LIST_HEAD(cpuidle_detected_devices);
 
 static int enabled_devices;
+static int off __read_mostly;
 static int initialized __read_mostly;
 
-#if defined(CONFIG_ARCH_HAS_CPU_IDLE_WAIT)
-static void cpuidle_kick_cpus(void)
+int cpuidle_disabled(void)
 {
-	cpu_idle_wait();
+	return off;
 }
-#elif defined(CONFIG_SMP)
-# error "Arch needs cpu_idle_wait() equivalent here"
-#else /* !CONFIG_ARCH_HAS_CPU_IDLE_WAIT && !CONFIG_SMP */
-static void cpuidle_kick_cpus(void) {}
-#endif
+void disable_cpuidle(void)
+{
+	off = 1;
+}
 
 static int __cpuidle_register_device(struct cpuidle_device *dev);
 
@@ -55,21 +54,15 @@ int cpuidle_idle_call(void)
 	struct cpuidle_state *target_state;
 	int next_state;
 
+	if (off)
+		return -ENODEV;
+
 	if (!initialized)
 		return -ENODEV;
 
 	/* check if the device is ready */
 	if (!dev || !dev->enabled)
 		return -EBUSY;
-
-#if 0
-	/* shows regressions, re-enable for 2.6.29 */
-	/*
-	 * run any timers that can be run now, at this point
-	 * before calculating the idle duration etc.
-	 */
-	hrtimer_peek_ahead_timers();
-#endif
 
 	/*
 	 * Call the device's prepare function before calling the
@@ -131,7 +124,7 @@ void cpuidle_uninstall_idle_handler(void)
 {
 	if (enabled_devices) {
 		initialized = 0;
-		cpuidle_kick_cpus();
+		kick_all_cpus_sync();
 	}
 }
 
@@ -318,13 +311,18 @@ static int __cpuidle_register_device(struct cpuidle_device *dev)
 
 	per_cpu(cpuidle_devices, dev->cpu) = dev;
 	list_add(&dev->device_list, &cpuidle_detected_devices);
-	if ((ret = cpuidle_add_sysfs(cpu_dev))) {
-		module_put(cpuidle_driver->owner);
-		return ret;
-	}
+	ret = cpuidle_add_sysfs(cpu_dev);
+	if (ret)
+		goto err_sysfs;
 
 	dev->registered = 1;
 	return 0;
+
+err_sysfs:
+	list_del(&dev->device_list);
+	per_cpu(cpuidle_devices, dev->cpu) = NULL;
+	module_put(cpuidle_driver->owner);
+	return ret;
 }
 
 /**
@@ -423,6 +421,9 @@ static int __init cpuidle_init(void)
 {
 	int ret;
 
+	if (cpuidle_disabled())
+		return -ENODEV;
+
 	ret = cpuidle_add_interface(cpu_subsys.dev_root);
 	if (ret)
 		return ret;
@@ -432,4 +433,5 @@ static int __init cpuidle_init(void)
 	return 0;
 }
 
+module_param(off, int, 0444);
 core_initcall(cpuidle_init);

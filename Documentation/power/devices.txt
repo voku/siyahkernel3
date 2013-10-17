@@ -148,41 +148,57 @@ sequencing in the driver model tree.
 
 /sys/devices/.../power/wakeup files
 -----------------------------------
-All devices in the driver model have two flags to control handling of wakeup
-events (hardware signals that can force the device and/or system out of a low
-power state).  These flags are initialized by bus or device driver code using
+All device objects in the driver model contain fields that control the handling
+of system wakeup events (hardware signals that can force the system out of a
+sleep state).  These fields are initialized by bus or device driver code using
 device_set_wakeup_capable() and device_set_wakeup_enable(), defined in
 include/linux/pm_wakeup.h.
 
-The "can_wakeup" flag just records whether the device (and its driver) can
+The "power.can_wakeup" flag just records whether the device (and its driver) can
 physically support wakeup events.  The device_set_wakeup_capable() routine
-affects this flag.  The "should_wakeup" flag controls whether the device should
-try to use its wakeup mechanism.  device_set_wakeup_enable() affects this flag;
-for the most part drivers should not change its value.  The initial value of
-should_wakeup is supposed to be false for the majority of devices; the major
-exceptions are power buttons, keyboards, and Ethernet adapters whose WoL
-(wake-on-LAN) feature has been set up with ethtool.  It should also default
-to true for devices that don't generate wakeup requests on their own but merely
-forward wakeup requests from one bus to another (like PCI bridges).
+affects this flag.  The "power.wakeup" field is a pointer to an object of type
+struct wakeup_source used for controlling whether or not the device should use
+its system wakeup mechanism and for notifying the PM core of system wakeup
+events signaled by the device.  This object is only present for wakeup-capable
+devices (i.e. devices whose "can_wakeup" flags are set) and is created (or
+removed) by device_set_wakeup_capable().
 
 Whether or not a device is capable of issuing wakeup events is a hardware
 matter, and the kernel is responsible for keeping track of it.  By contrast,
 whether or not a wakeup-capable device should issue wakeup events is a policy
 decision, and it is managed by user space through a sysfs attribute: the
-power/wakeup file.  User space can write the strings "enabled" or "disabled" to
-set or clear the "should_wakeup" flag, respectively.  This file is only present
-for wakeup-capable devices (i.e. devices whose "can_wakeup" flags are set)
-and is created (or removed) by device_set_wakeup_capable().  Reads from the
-file will return the corresponding string.
+"power/wakeup" file.  User space can write the strings "enabled" or "disabled"
+to it to indicate whether or not, respectively, the device is supposed to signal
+system wakeup.  This file is only present if the "power.wakeup" object exists
+for the given device and is created (or removed) along with that object, by
+device_set_wakeup_capable().  Reads from the file will return the corresponding
+string.
 
-The device_may_wakeup() routine returns true only if both flags are set.
+The "power/wakeup" file is supposed to contain the "disabled" string initially
+for the majority of devices; the major exceptions are power buttons, keyboards,
+and Ethernet adapters whose WoL (wake-on-LAN) feature has been set up with
+ethtool.  It should also default to "enabled" for devices that don't generate
+wakeup requests on their own but merely forward wakeup requests from one bus to
+another (like PCI Express ports).
+
+The device_may_wakeup() routine returns true only if the "power.wakeup" object
+exists and the corresponding "power/wakeup" file contains the string "enabled".
 This information is used by subsystems, like the PCI bus type code, to see
 whether or not to enable the devices' wakeup mechanisms.  If device wakeup
 mechanisms are enabled or disabled directly by drivers, they also should use
 device_may_wakeup() to decide what to do during a system sleep transition.
-However for runtime power management, wakeup events should be enabled whenever
-the device and driver both support them, regardless of the should_wakeup flag.
+Device drivers, however, are not supposed to call device_set_wakeup_enable()
+directly in any case.
 
+It ought to be noted that system wakeup is conceptually different from "remote
+wakeup" used by runtime power management, although it may be supported by the
+same physical mechanism.  Remote wakeup is a feature allowing devices in
+low-power states to trigger specific interrupts to signal conditions in which
+they should be put into the full-power state.  Those interrupts may or may not
+be used to signal system wakeup events, depending on the hardware design.  On
+some systems it is impossible to trigger them from system sleep states.  In any
+case, remote wakeup should always be enabled for runtime power management for
+all devices and drivers that support it.
 
 /sys/devices/.../power/control files
 ------------------------------------
@@ -252,7 +268,7 @@ situations.
 System Power Management Phases
 ------------------------------
 Suspending or resuming the system is done in several phases.  Different phases
-are used for standby or memory sleep states ("suspend-to-RAM") and the
+are used for freeze, standby, and memory sleep states ("suspend-to-RAM") and the
 hibernation state ("suspend-to-disk").  Each phase involves executing callbacks
 for every device before the next phase begins.  Not all busses or classes
 support all these callbacks and not all drivers use all the callbacks.  The
@@ -293,7 +309,8 @@ execute the corresponding method from dev->driver->pm instead if there is one.
 
 Entering System Suspend
 -----------------------
-When the system goes into the standby or memory sleep state, the phases are:
+When the system goes into the freeze, standby or memory sleep state,
+the phases are:
 
 		prepare, suspend, suspend_late, suspend_noirq.
 
@@ -306,9 +323,8 @@ When the system goes into the standby or memory sleep state, the phases are:
 
 	After the prepare callback method returns, no new children may be
 	registered below the device.  The method may also prepare the device or
-	driver in some way for the upcoming system power transition (for
-	example, by allocating additional memory required for this purpose), but
-	it should not put the device into a low-power state.
+	driver in some way for the upcoming system power transition, but it
+	should not put the device into a low-power state.
 
     2.	The suspend methods should quiesce the device to stop it from performing
 	I/O.  They also may save the device registers and put it into the
@@ -353,7 +369,7 @@ the devices that were suspended.
 
 Leaving System Suspend
 ----------------------
-When resuming from standby or memory sleep, the phases are:
+When resuming from freeze, standby or memory sleep, the phases are:
 
 		resume_noirq, resume_early, resume, complete.
 
@@ -418,8 +434,8 @@ the system log.
 
 Entering Hibernation
 --------------------
-Hibernating the system is more complicated than putting it into the standby or
-memory sleep state, because it involves creating and saving a system image.
+Hibernating the system is more complicated than putting it into the other
+sleep states, because it involves creating and saving a system image.
 Therefore there are more phases for hibernation, with a different set of
 callbacks.  These phases always run after tasks have been frozen and memory has
 been freed.
@@ -470,8 +486,8 @@ image forms an atomic snapshot of the system state.
 
 At this point the system image is saved, and the devices then need to be
 prepared for the upcoming system shutdown.  This is much like suspending them
-before putting the system into the standby or memory sleep state, and the phases
-are similar.
+before putting the system into the freeze, standby or memory sleep state,
+and the phases are similar.
 
     9.	The prepare phase is discussed above.
 
@@ -568,9 +584,10 @@ for the given device during all power transitions, instead of the respective
 subsystem-level callbacks.  Specifically, if a device's pm_domain pointer is
 not NULL, the ->suspend() callback from the object pointed to by it will be
 executed instead of its subsystem's (e.g. bus type's) ->suspend() callback and
-anlogously for all of the remaining callbacks.  In other words, power management
-domain callbacks, if defined for the given device, always take precedence over
-the callbacks provided by the device's subsystem (e.g. bus type).
+analogously for all of the remaining callbacks.  In other words, power
+management domain callbacks, if defined for the given device, always take
+precedence over the callbacks provided by the device's subsystem (e.g. bus
+type).
 
 The support for device power management domains is only relevant to platforms
 needing to use the same device driver power management callbacks in many
@@ -583,7 +600,7 @@ it into account in any way.
 Device Low Power (suspend) States
 ---------------------------------
 Device low-power states aren't standard.  One device might only handle
-"on" and "off, while another might support a dozen different versions of
+"on" and "off", while another might support a dozen different versions of
 "on" (how many engines are active?), plus a state that gets back to "on"
 faster than from a full "off".
 
@@ -648,7 +665,7 @@ state temporarily, for example so that its system wakeup capability can be
 disabled.  This all depends on the hardware and the design of the subsystem and
 device driver in question.
 
-During system-wide resume from a sleep state it's best to put devices into the
-full-power state, as explained in Documentation/power/runtime_pm.txt.  Refer to
-that document for more information regarding this particular issue as well as
+During system-wide resume from a sleep state it's easiest to put devices into
+the full-power state, as explained in Documentation/power/runtime_pm.txt.  Refer
+to that document for more information regarding this particular issue as well as
 for information on the device runtime power management framework in general.

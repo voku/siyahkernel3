@@ -243,7 +243,7 @@ static inline long atomic_long_add_unless(atomic_long_t *l, long a, long u)
 {
 	atomic_t *v = (atomic_t *)l;
 
-	return (long)atomic_add_unless(v, a, u);
+	return (long)__atomic_add_unless(v, a, u);
 }
 
 #define atomic_long_inc_not_zero(l) atomic_inc_not_zero((atomic_t *)(l))

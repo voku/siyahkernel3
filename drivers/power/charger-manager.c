@@ -566,9 +566,8 @@ static void _setup_polling(struct work_struct *work)
 	if (!delayed_work_pending(&cm_monitor_work) ||
 	    (delayed_work_pending(&cm_monitor_work) &&
 	     time_after(next_polling, _next_polling))) {
-		cancel_delayed_work(&cm_monitor_work);
 		next_polling = jiffies + polling_jiffy;
-		queue_delayed_work(cm_wq, &cm_monitor_work, polling_jiffy);
+		mod_delayed_work(cm_wq, &cm_monitor_work, polling_jiffy);
 	}
 
 out:
@@ -603,9 +602,8 @@ static void fullbatt_handler(struct charger_manager *cm)
 	if (cm_suspended)
 		cm->cancel_suspend = true;
 
-	cancel_delayed_work(&cm->fullbatt_vchk_work);
-	queue_delayed_work(cm_wq, &cm->fullbatt_vchk_work,
-			   msecs_to_jiffies(desc->fullbatt_vchkdrop_ms));
+	mod_delayed_work(cm_wq, &cm->fullbatt_vchk_work,
+			 msecs_to_jiffies(desc->fullbatt_vchkdrop_ms));
 	cm->fullbatt_vchk_jiffies_at = jiffies + msecs_to_jiffies(
 				       desc->fullbatt_vchkdrop_ms);
 

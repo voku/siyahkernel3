@@ -142,6 +142,11 @@
  */
 #define CIFS_SESS_KEY_SIZE (16)
 
+/*
+ * Size of the smb3 signing key
+ */
+#define SMB3_SIGN_KEY_SIZE (16)
+
 #define CIFS_CLIENT_CHALLENGE_SIZE (8)
 #define CIFS_SERVER_CHALLENGE_SIZE (8)
 #define CIFS_HMAC_MD5_HASH_SIZE (16)
@@ -277,7 +282,6 @@
 #define CIFS_NO_HANDLE        0xFFFF
 
 #define NO_CHANGE_64          0xFFFFFFFFFFFFFFFFULL
-#define NO_CHANGE_32          0xFFFFFFFFUL
 
 /* IPC$ in ASCII */
 #define CIFS_IPC_RESOURCE "\x49\x50\x43\x24"
@@ -532,7 +536,7 @@ typedef struct lanman_neg_rsp {
 #define READ_RAW_ENABLE 1
 #define WRITE_RAW_ENABLE 2
 #define RAW_ENABLE (READ_RAW_ENABLE | WRITE_RAW_ENABLE)
-
+#define SMB1_CLIENT_GUID_SIZE (16)
 typedef struct negotiate_rsp {
 	struct smb_hdr hdr;	/* wct = 17 */
 	__le16 DialectIndex; /* 0xFFFF = no dialect acceptable */
@@ -554,7 +558,7 @@ typedef struct negotiate_rsp {
 		/* followed by 16 bytes of server GUID */
 		/* then security blob if cap_extended_security negotiated */
 		struct {
-			unsigned char GUID[16];
+			unsigned char GUID[SMB1_CLIENT_GUID_SIZE];
 			unsigned char SecurityBlob[1];
 		} __attribute__((packed)) extended_response;
 	} __attribute__((packed)) u;
@@ -1089,9 +1093,7 @@ typedef struct smb_com_read_rsp {
 	__le16 DataLengthHigh;
 	__u64 Reserved2;
 	__u16 ByteCount;
-	__u8 Pad;		/* BB check for whether padded to DWORD
-				   boundary and optimum performance here */
-	char Data[1];
+	/* read response data immediately follows */
 } __attribute__((packed)) READ_RSP;
 
 typedef struct locking_andx_range {
@@ -1318,6 +1320,14 @@ typedef struct smb_com_ntransact_rsp {
 	/* parms and data follow */
 } __attribute__((packed)) NTRANSACT_RSP;
 
+/* See MS-SMB 2.2.7.2.1.1 */
+struct srv_copychunk {
+	__le64 SourceOffset;
+	__le64 DestinationOffset;
+	__le32 CopyLength;
+	__u32  Reserved;
+} __packed;
+
 typedef struct smb_com_transaction_ioctl_req {
 	struct smb_hdr hdr;	/* wct = 23 */
 	__u8 MaxSetupCount;
@@ -1485,11 +1495,12 @@ struct reparse_data {
 	__u32	ReparseTag;
 	__u16	ReparseDataLength;
 	__u16	Reserved;
-	__u16	AltNameOffset;
-	__u16	AltNameLen;
-	__u16	TargetNameOffset;
-	__u16	TargetNameLen;
-	char	LinkNamesBuf[1];
+	__u16	SubstituteNameOffset;
+	__u16	SubstituteNameLength;
+	__u16	PrintNameOffset;
+	__u16	PrintNameLength;
+	__u32	Flags;
+	char	PathBuffer[0];
 } __attribute__((packed));
 
 struct cifs_quota_data {
@@ -1913,6 +1924,10 @@ typedef struct whoami_rsp_data { /* Query level 0x202 */
 
 /* SETFSInfo Levels */
 #define SMB_SET_CIFS_UNIX_INFO    0x200
+/* level 0x203 is defined above in list of QFS info levels */
+/* #define SMB_REQUEST_TRANSPORT_ENCRYPTION 0x203 */
+
+/* Level 0x200 request structure follows */
 typedef struct smb_com_transaction2_setfsi_req {
 	struct smb_hdr hdr;	/* wct = 15 */
 	__le16 TotalParameterCount;
@@ -1940,12 +1955,38 @@ typedef struct smb_com_transaction2_setfsi_req {
 	__le64 ClientUnixCap;   /* Data end */
 } __attribute__((packed)) TRANSACTION2_SETFSI_REQ;
 
+/* level 0x203 request structure follows */
+typedef struct smb_com_transaction2_setfs_enc_req {
+	struct smb_hdr hdr;	/* wct = 15 */
+	__le16 TotalParameterCount;
+	__le16 TotalDataCount;
+	__le16 MaxParameterCount;
+	__le16 MaxDataCount;
+	__u8 MaxSetupCount;
+	__u8 Reserved;
+	__le16 Flags;
+	__le32 Timeout;
+	__u16 Reserved2;
+	__le16 ParameterCount;	/* 4 */
+	__le16 ParameterOffset;
+	__le16 DataCount;	/* 12 */
+	__le16 DataOffset;
+	__u8 SetupCount;	/* one */
+	__u8 Reserved3;
+	__le16 SubCommand;	/* TRANS2_SET_FS_INFORMATION */
+	__le16 ByteCount;
+	__u8 Pad;
+	__u16  Reserved4;	/* Parameters start. */
+	__le16 InformationLevel;/* Parameters end. */
+	/* NTLMSSP Blob, Data start. */
+} __attribute__((packed)) TRANSACTION2_SETFSI_ENC_REQ;
+
+/* response for setfsinfo levels 0x200 and 0x203 */
 typedef struct smb_com_transaction2_setfsi_rsp {
 	struct smb_hdr hdr;	/* wct = 10 */
 	struct trans2_resp t2;
 	__u16 ByteCount;
 } __attribute__((packed)) TRANSACTION2_SETFSI_RSP;
-
 
 typedef struct smb_com_transaction2_get_dfs_refer_req {
 	struct smb_hdr hdr;	/* wct = 15 */
@@ -2098,13 +2139,13 @@ typedef struct {
 #define CIFS_UNIX_PROXY_CAP             0x00000400 /* Proxy cap: 0xACE ioctl and
 						      QFS PROXY call */
 #ifdef CONFIG_CIFS_POSIX
-/* Can not set pathnames cap yet until we send new posix create SMB since
-   otherwise server can treat such handles opened with older ntcreatex
-   (by a new client which knows how to send posix path ops)
-   as non-posix handles (can affect write behavior with byte range locks.
-   We can add back in POSIX_PATH_OPS cap when Posix Create/Mkdir finished */
+/* presumably don't need the 0x20 POSIX_PATH_OPS_CAP since we never send
+   LockingX instead of posix locking call on unix sess (and we do not expect
+   LockingX to use different (ie Windows) semantics than posix locking on
+   the same session (if WINE needs to do this later, we can add this cap
+   back in later */
 /* #define CIFS_UNIX_CAP_MASK              0x000000fb */
-#define CIFS_UNIX_CAP_MASK              0x000000db
+#define CIFS_UNIX_CAP_MASK              0x000003db
 #else
 #define CIFS_UNIX_CAP_MASK              0x00000013
 #endif /* CONFIG_CIFS_POSIX */
@@ -2182,7 +2223,7 @@ typedef struct { /* data block encoding of response to level 263 QPathInfo */
 	__u8 DeletePending;
 	__u8 Directory;
 	__u16 Pad2;
-	__u64 IndexNumber;
+	__le64 IndexNumber;
 	__le32 EASize;
 	__le32 AccessFlags;
 	__u64 IndexNumber1;
@@ -2611,26 +2652,7 @@ typedef struct file_xattr_info {
 } __attribute__((packed)) FILE_XATTR_INFO; /* extended attribute info
 					      level 0x205 */
 
-
-/* flags for chattr command */
-#define EXT_SECURE_DELETE		0x00000001 /* EXT3_SECRM_FL */
-#define EXT_ENABLE_UNDELETE		0x00000002 /* EXT3_UNRM_FL */
-/* Reserved for compress file 0x4 */
-#define EXT_SYNCHRONOUS			0x00000008 /* EXT3_SYNC_FL */
-#define EXT_IMMUTABLE_FL		0x00000010 /* EXT3_IMMUTABLE_FL */
-#define EXT_OPEN_APPEND_ONLY		0x00000020 /* EXT3_APPEND_FL */
-#define EXT_DO_NOT_BACKUP		0x00000040 /* EXT3_NODUMP_FL */
-#define EXT_NO_UPDATE_ATIME		0x00000080 /* EXT3_NOATIME_FL */
-/* 0x100 through 0x800 reserved for compression flags and are GET-ONLY */
-#define EXT_HASH_TREE_INDEXED_DIR	0x00001000 /* GET-ONLY EXT3_INDEX_FL */
-/* 0x2000 reserved for IMAGIC_FL */
-#define EXT_JOURNAL_THIS_FILE	0x00004000 /* GET-ONLY EXT3_JOURNAL_DATA_FL */
-/* 0x8000 reserved for EXT3_NOTAIL_FL */
-#define EXT_SYNCHRONOUS_DIR		0x00010000 /* EXT3_DIRSYNC_FL */
-#define EXT_TOPDIR			0x00020000 /* EXT3_TOPDIR_FL */
-
-#define EXT_SET_MASK			0x000300FF
-#define EXT_GET_MASK			0x0003DFFF
+/* flags for lsattr and chflags commands removed arein uapi/linux/fs.h */
 
 typedef struct file_chattr_info {
 	__le64	mask; /* list of all possible attribute bits */

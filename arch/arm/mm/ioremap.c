@@ -26,6 +26,7 @@
 #include <linux/mm.h>
 #include <linux/vmalloc.h>
 #include <linux/io.h>
+#include <linux/sizes.h>
 
 #include <asm/cp15.h>
 #include <asm/cputype.h>
@@ -33,7 +34,6 @@
 #include <asm/mmu_context.h>
 #include <asm/pgalloc.h>
 #include <asm/tlbflush.h>
-#include <asm/sizes.h>
 #include <asm/system_info.h>
 
 #include <asm/mach/map.h>
@@ -53,18 +53,18 @@ int ioremap_page(unsigned long virt, unsigned long phys,
 }
 EXPORT_SYMBOL(ioremap_page);
 
-void __check_kvm_seq(struct mm_struct *mm)
+void __check_vmalloc_seq(struct mm_struct *mm)
 {
 	unsigned int seq;
 
 	do {
-		seq = init_mm.context.kvm_seq;
+		seq = init_mm.context.vmalloc_seq;
 		memcpy(pgd_offset(mm, VMALLOC_START),
 		       pgd_offset_k(VMALLOC_START),
 		       sizeof(pgd_t) * (pgd_index(VMALLOC_END) -
 					pgd_index(VMALLOC_START)));
-		mm->context.kvm_seq = seq;
-	} while (seq != init_mm.context.kvm_seq);
+		mm->context.vmalloc_seq = seq;
+	} while (seq != init_mm.context.vmalloc_seq);
 }
 
 #ifndef CONFIG_SMP
@@ -92,13 +92,13 @@ static void unmap_area_sections(unsigned long virt, unsigned long size)
 		if (!pmd_none(pmd)) {
 			/*
 			 * Clear the PMD from the page table, and
-			 * increment the kvm sequence so others
+			 * increment the vmalloc sequence so others
 			 * notice this change.
 			 *
 			 * Note: this is still racy on SMP machines.
 			 */
 			pmd_clear(pmdp);
-			init_mm.context.kvm_seq++;
+			init_mm.context.vmalloc_seq++;
 
 			/*
 			 * Free the page table, if there was one.
@@ -115,8 +115,8 @@ static void unmap_area_sections(unsigned long virt, unsigned long size)
 	 * Ensure that the active_mm is up to date - we want to
 	 * catch any use-after-iounmap cases.
 	 */
-	if (current->active_mm->context.kvm_seq != init_mm.context.kvm_seq)
-		__check_kvm_seq(current->active_mm);
+	if (current->active_mm->context.vmalloc_seq != init_mm.context.vmalloc_seq)
+		__check_vmalloc_seq(current->active_mm);
 
 	flush_tlb_kernel_range(virt, end);
 }
@@ -248,10 +248,10 @@ void __iomem * __arm_ioremap_pfn_caller(unsigned long pfn,
 	return (void __iomem *) (offset + addr);
 }
 
-void __iomem *__arm_ioremap_caller(unsigned long phys_addr, size_t size,
+void __iomem *__arm_ioremap_caller(phys_addr_t phys_addr, size_t size,
 	unsigned int mtype, void *caller)
 {
-	unsigned long last_addr;
+	phys_addr_t last_addr;
  	unsigned long offset = phys_addr & ~PAGE_MASK;
  	unsigned long pfn = __phys_to_pfn(phys_addr);
 
@@ -284,13 +284,38 @@ __arm_ioremap_pfn(unsigned long pfn, unsigned long offset, size_t size,
 }
 EXPORT_SYMBOL(__arm_ioremap_pfn);
 
+void __iomem * (*arch_ioremap_caller)(phys_addr_t, size_t,
+				      unsigned int, void *) =
+	__arm_ioremap_caller;
+
 void __iomem *
-__arm_ioremap(unsigned long phys_addr, size_t size, unsigned int mtype)
+__arm_ioremap(phys_addr_t phys_addr, size_t size, unsigned int mtype)
 {
+	return arch_ioremap_caller(phys_addr, size, mtype,
+		__builtin_return_address(0));
+}
+EXPORT_SYMBOL(__arm_ioremap);
+
+/*
+ * Remap an arbitrary physical address space into the kernel virtual
+ * address space as memory. Needed when the kernel wants to execute
+ * code in external memory. This is needed for reprogramming source
+ * clocks that would affect normal memory for example. Please see
+ * CONFIG_GENERIC_ALLOCATOR for allocating external memory.
+ */
+void __iomem *
+__arm_ioremap_exec(phys_addr_t phys_addr, size_t size, bool cached)
+{
+	unsigned int mtype;
+
+	if (cached)
+		mtype = MT_MEMORY;
+	else
+		mtype = MT_MEMORY_NONCACHED;
+
 	return __arm_ioremap_caller(phys_addr, size, mtype,
 			__builtin_return_address(0));
 }
-EXPORT_SYMBOL(__arm_ioremap);
 
 void __iounmap(volatile void __iomem *io_addr)
 {
@@ -320,4 +345,11 @@ void __iounmap(volatile void __iomem *io_addr)
 
 	vunmap(addr);
 }
-EXPORT_SYMBOL(__iounmap);
+
+void (*arch_iounmap)(volatile void __iomem *) = __iounmap;
+
+void __arm_iounmap(volatile void __iomem *io_addr)
+{
+	arch_iounmap(io_addr);
+}
+EXPORT_SYMBOL(__arm_iounmap);

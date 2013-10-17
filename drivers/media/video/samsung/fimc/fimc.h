@@ -499,6 +499,8 @@ struct fimc_control {
 	int 				suspend_framecnt;
 	enum fimc_sysmmu_flag		sysmmu_flag;
 	enum fimc_power_status		power_status;
+	struct timeval			curr_time;
+	struct timeval			before_time;
 	char 				cma_name[16];
 	bool				restart;
 #ifdef CONFIG_SLP_DMABUF

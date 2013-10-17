@@ -88,10 +88,14 @@ static int gfs2_get_name(struct dentry *parent, char *name,
 	struct inode *dir = parent->d_inode;
 	struct inode *inode = child->d_inode;
 	struct gfs2_inode *dip, *ip;
-	struct get_name_filldir gnfd;
+	struct get_name_filldir gnfd = {
+		.ctx.actor = get_name_filldir,
+		.name = name
+	};
 	struct gfs2_holder gh;
 	u64 offset = 0;
 	int error;
+	struct file_ra_state f_ra = { .start = 0 };
 
 	if (!dir)
 		return -EINVAL;
@@ -111,7 +115,7 @@ static int gfs2_get_name(struct dentry *parent, char *name,
 	if (error)
 		return error;
 
-	error = gfs2_dir_read(dir, &offset, &gnfd, get_name_filldir);
+	error = gfs2_dir_read(dir, &offset, &gnfd, get_name_filldir, &f_ra);
 
 	gfs2_glock_dq_uninit(&gh);
 

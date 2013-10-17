@@ -13,6 +13,7 @@
 #include <linux/kernel.h>
 #include <linux/string.h>
 #include <linux/platform_device.h>
+#include <linux/module.h>
 #include <mach/map.h>
 #include <asm/irq.h>
 #include <plat/devs.h>

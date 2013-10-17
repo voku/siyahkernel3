@@ -710,7 +710,7 @@ static void exynos4_handler_tmu_state(struct work_struct *work)
 			panic("Emergency!!!! tripping is not treated!\n");
 			/* clear to prevent from interfupt by peindig bit */
 			__raw_writel(INTCLEARALL,
-				info->tmu_state + EXYNOS4_TMU_INTCLEAR);
+				(void __iomem *)info->tmu_state + EXYNOS4_TMU_INTCLEAR);
 			enable_irq(info->irq);
 			mutex_unlock(&tmu_lock);
 			return;
@@ -1071,7 +1071,7 @@ static ssize_t s5p_tmu_show_curr_temp(struct device *dev,
 static DEVICE_ATTR(curr_temp, S_IRUGO, s5p_tmu_show_curr_temp, NULL);
 #endif
 
-static int __devinit s5p_tmu_probe(struct platform_device *pdev)
+static int s5p_tmu_probe(struct platform_device *pdev)
 {
 	struct s5p_tmu_info *info;
 	struct s5p_platform_tmu *pdata;
@@ -1295,7 +1295,7 @@ err_nomem:
 	return ret;
 }
 
-static int __devinit s5p_tmu_remove(struct platform_device *pdev)
+static int s5p_tmu_remove(struct platform_device *pdev)
 {
 	struct s5p_tmu_info *info = platform_get_drvdata(pdev);
 

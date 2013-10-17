@@ -17,7 +17,6 @@
 #include <linux/in.h>
 #include <linux/ip.h>
 #include <linux/netdevice.h>
-#include <linux/version.h>
 #include <linux/spinlock.h>
 #include <net/protocol.h>
 #include <net/gre.h>
@@ -35,7 +34,7 @@ int gre_add_protocol(const struct gre_protocol *proto, u8 version)
 	if (gre_proto[version])
 		goto err_out_unlock;
 
-	rcu_assign_pointer(gre_proto[version], proto);
+	RCU_INIT_POINTER(gre_proto[version], proto);
 	spin_unlock(&gre_proto_lock);
 	return 0;
 
@@ -55,7 +54,7 @@ int gre_del_protocol(const struct gre_protocol *proto, u8 version)
 	if (rcu_dereference_protected(gre_proto[version],
 			lockdep_is_held(&gre_proto_lock)) != proto)
 		goto err_out_unlock;
-	rcu_assign_pointer(gre_proto[version], NULL);
+	RCU_INIT_POINTER(gre_proto[version], NULL);
 	spin_unlock(&gre_proto_lock);
 	synchronize_rcu();
 	return 0;

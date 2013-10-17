@@ -45,7 +45,7 @@ static int samsung_pd_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int __devexit samsung_pd_remove(struct platform_device *pdev)
+static int samsung_pd_remove(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 
@@ -117,7 +117,7 @@ static struct platform_driver samsung_pd_driver = {
 		.pm		= &samsung_pd_pm_ops,
 	},
 	.probe		= samsung_pd_probe,
-	.remove		= __devexit_p(samsung_pd_remove),
+	.remove		= samsung_pd_remove,
 };
 
 static int __init samsung_pd_init(void)

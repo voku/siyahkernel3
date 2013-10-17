@@ -28,7 +28,10 @@ int blk_should_fake_timeout(struct request_queue *q)
 
 static int __init fail_io_timeout_debugfs(void)
 {
-	return init_fault_attr_dentries(&fail_io_timeout, "fail_io_timeout");
+	struct dentry *dir = fault_create_debugfs_attr("fail_io_timeout",
+						NULL, &fail_io_timeout);
+
+	return IS_ERR(dir) ? PTR_ERR(dir) : 0;
 }
 
 late_initcall(fail_io_timeout_debugfs);
@@ -79,9 +82,10 @@ void blk_delete_timer(struct request *req)
 static void blk_rq_timed_out(struct request *req)
 {
 	struct request_queue *q = req->q;
-	enum blk_eh_timer_return ret;
+	enum blk_eh_timer_return ret = BLK_EH_RESET_TIMER;
 
-	ret = q->rq_timed_out_fn(req);
+	if (q->rq_timed_out_fn)
+		ret = q->rq_timed_out_fn(req);
 	switch (ret) {
 	case BLK_EH_HANDLED:
 		__blk_complete_request(req);

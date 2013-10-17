@@ -332,9 +332,6 @@ int ndisc_mc_map(const struct in6_addr *addr, char *buf, struct net_device *dev,
 	case ARPHRD_FDDI:
 		ipv6_eth_mc_map(addr, buf);
 		return 0;
-	case ARPHRD_IEEE802_TR:
-		ipv6_tr_mc_map(addr,buf);
-		return 0;
 	case ARPHRD_ARCNET:
 		ipv6_arcnet_mc_map(addr, buf);
 		return 0;
@@ -456,7 +453,6 @@ struct sk_buff *ndisc_build_skb(struct net_device *dev,
 	struct sk_buff *skb;
 	struct icmp6hdr *hdr;
 	int len;
-	int err;
 	u8 *opt;
 
 	if (!dev->addr_len)
@@ -466,14 +462,12 @@ struct sk_buff *ndisc_build_skb(struct net_device *dev,
 	if (llinfo)
 		len += ndisc_opt_addr_space(dev);
 
-	skb = sock_alloc_send_skb(sk,
-				  (MAX_HEADER + sizeof(struct ipv6hdr) +
-				   len + LL_ALLOCATED_SPACE(dev)),
-				  1, &err);
+	skb = alloc_skb((MAX_HEADER + sizeof(struct ipv6hdr) +
+			 len + LL_ALLOCATED_SPACE(dev)), GFP_ATOMIC);
 	if (!skb) {
 		ND_PRINTK0(KERN_ERR
-			   "ICMPv6 ND: %s() failed to allocate an skb, err=%d.\n",
-			   __func__, err);
+			   "ICMPv6 ND: %s() failed to allocate an skb.\n",
+			   __func__);
 		return NULL;
 	}
 
@@ -488,7 +482,7 @@ struct sk_buff *ndisc_build_skb(struct net_device *dev,
 
 	opt = skb_transport_header(skb) + sizeof(struct icmp6hdr);
 	if (target) {
-		ipv6_addr_copy((struct in6_addr *)opt, target);
+		*(struct in6_addr *)opt = *target;
 		opt += sizeof(*target);
 	}
 
@@ -500,6 +494,11 @@ struct sk_buff *ndisc_build_skb(struct net_device *dev,
 					   IPPROTO_ICMPV6,
 					   csum_partial(hdr,
 							len, 0));
+
+	/* Manually assign socket ownership as we avoid calling
+	 * sock_alloc_send_pskb() to bypass wmem buffer limits
+	 */
+	skb_set_owner_w(skb, sk);
 
 	return skb;
 }
@@ -814,20 +813,6 @@ static void ndisc_recv_ns(struct sk_buff *skb)
 
 		if (ifp->flags & (IFA_F_TENTATIVE|IFA_F_OPTIMISTIC)) {
 			if (dad) {
-				if (dev->type == ARPHRD_IEEE802_TR) {
-					const unsigned char *sadr;
-					sadr = skb_mac_header(skb);
-					if (((sadr[8] ^ dev->dev_addr[0]) & 0x7f) == 0 &&
-					    sadr[9] == dev->dev_addr[1] &&
-					    sadr[10] == dev->dev_addr[2] &&
-					    sadr[11] == dev->dev_addr[3] &&
-					    sadr[12] == dev->dev_addr[4] &&
-					    sadr[13] == dev->dev_addr[5]) {
-						/* looped-back to us */
-						goto out;
-					}
-				}
-
 				/*
 				 * We are colliding with another node
 				 * who is doing DAD
@@ -1243,7 +1228,7 @@ static void ndisc_router_discovery(struct sk_buff *skb)
 	rt = rt6_get_dflt_router(&ipv6_hdr(skb)->saddr, skb->dev);
 
 	if (rt)
-		neigh = dst_get_neighbour(&rt->dst);
+		neigh = rt->rt6i_nexthop;
 
 	if (rt && lifetime == 0) {
 		neigh_clone(neigh);
@@ -1264,7 +1249,7 @@ static void ndisc_router_discovery(struct sk_buff *skb)
 			return;
 		}
 
-		neigh = dst_get_neighbour(&rt->dst);
+		neigh = rt->rt6i_nexthop;
 		if (neigh == NULL) {
 			ND_PRINTK0(KERN_ERR
 				   "ICMPv6 RA: %s() got default router without neighbour.\n",
@@ -1384,7 +1369,9 @@ skip_linkparms:
 		for (p = ndopts.nd_opts_pi;
 		     p;
 		     p = ndisc_next_option(p, ndopts.nd_opts_pi_end)) {
-			addrconf_prefix_rcv(skb->dev, (u8*)p, (p->nd_opt_len) << 3);
+			addrconf_prefix_rcv(skb->dev, (u8 *)p,
+					    (p->nd_opt_len) << 3,
+					    ndopts.nd_opts_src_lladdr != NULL);
 		}
 	}
 
@@ -1626,9 +1613,9 @@ void ndisc_send_redirect(struct sk_buff *skb, struct neighbour *neigh,
 	 */
 
 	addrp = (struct in6_addr *)(icmph + 1);
-	ipv6_addr_copy(addrp, target);
+	*addrp = *target;
 	addrp++;
-	ipv6_addr_copy(addrp, &ipv6_hdr(skb)->daddr);
+	*addrp = ipv6_hdr(skb)->daddr;
 
 	opt = (u8*) (addrp + 1);
 

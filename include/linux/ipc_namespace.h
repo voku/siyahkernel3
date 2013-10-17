@@ -22,8 +22,9 @@ struct ipc_ids {
 	int in_use;
 	unsigned short seq;
 	unsigned short seq_max;
-	struct rw_semaphore rw_mutex;
+	struct rw_semaphore rwsem;
 	struct idr ipcs_idr;
+	int next_id;
 };
 
 struct ipc_namespace {
@@ -67,6 +68,8 @@ struct ipc_namespace {
 
 	/* user_ns which owns the ipc ns */
 	struct user_namespace *user_ns;
+
+	unsigned int	proc_inum;
 };
 
 extern struct ipc_namespace init_ipc_ns;

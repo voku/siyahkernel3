@@ -23,7 +23,6 @@
 #include <acpi/acpi.h>
 #endif
 #include <asm/byteorder.h>
-#include <asm/system.h>
 #include <asm/io.h>
 
 /* for request_sense */
@@ -920,7 +919,7 @@ __IDE_PROC_DEVSET(_name, _min, _max, NULL, NULL)
 
 typedef struct {
 	const char	*name;
-	mode_t		mode;
+	umode_t		mode;
 	const struct file_operations *proc_fops;
 } ide_proc_entry_t;
 

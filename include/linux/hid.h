@@ -1,12 +1,8 @@
-#ifndef __HID_H
-#define __HID_H
-
 /*
  *  Copyright (c) 1999 Andreas Gal
  *  Copyright (c) 2000-2001 Vojtech Pavlik
  *  Copyright (c) 2006-2007 Jiri Kosina
  */
-
 /*
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,43 +22,9 @@
  * e-mail - mail your message to <vojtech@ucw.cz>, or by paper mail:
  * Vojtech Pavlik, Simunkova 1594, Prague 8, 182 00 Czech Republic
  */
+#ifndef __HID_H
+#define __HID_H
 
-/*
- * USB HID (Human Interface Device) interface class code
- */
-
-#define USB_INTERFACE_CLASS_HID		3
-
-/*
- * USB HID interface subclass and protocol codes
- */
-
-#define USB_INTERFACE_SUBCLASS_BOOT	1
-#define USB_INTERFACE_PROTOCOL_KEYBOARD	1
-#define USB_INTERFACE_PROTOCOL_MOUSE	2
-
-/*
- * HID class requests
- */
-
-#define HID_REQ_GET_REPORT		0x01
-#define HID_REQ_GET_IDLE		0x02
-#define HID_REQ_GET_PROTOCOL		0x03
-#define HID_REQ_SET_REPORT		0x09
-#define HID_REQ_SET_IDLE		0x0A
-#define HID_REQ_SET_PROTOCOL		0x0B
-
-/*
- * HID class descriptor types
- */
-
-#define HID_DT_HID			(USB_TYPE_CLASS | 0x01)
-#define HID_DT_REPORT			(USB_TYPE_CLASS | 0x02)
-#define HID_DT_PHYSICAL			(USB_TYPE_CLASS | 0x03)
-
-#define HID_MAX_DESCRIPTOR_SIZE		4096
-
-#ifdef __KERNEL__
 
 #include <linux/types.h>
 #include <linux/slab.h>
@@ -71,6 +33,7 @@
 #include <linux/timer.h>
 #include <linux/workqueue.h>
 #include <linux/input.h>
+#include <uapi/linux/hid.h>
 
 /*
  * We parse each description item into this structure. Short items data
@@ -414,10 +377,12 @@ struct hid_report {
 	struct hid_device *device;			/* associated device */
 };
 
+#define HID_MAX_IDS 256
+
 struct hid_report_enum {
 	unsigned numbered;
 	struct list_head report_list;
-	struct hid_report *report_id_hash[256];
+	struct hid_report *report_id_hash[HID_MAX_IDS];
 };
 
 #define HID_REPORT_TYPES 3
@@ -698,10 +663,11 @@ extern void hid_destroy_device(struct hid_device *);
 
 extern int __must_check __hid_register_driver(struct hid_driver *,
 		struct module *, const char *mod_name);
-static inline int __must_check hid_register_driver(struct hid_driver *driver)
-{
-	return __hid_register_driver(driver, THIS_MODULE, KBUILD_MODNAME);
-}
+
+/* use a define to avoid include chaining to get THIS_MODULE & friends */
+#define hid_register_driver(driver) \
+	__hid_register_driver(driver, THIS_MODULE, KBUILD_MODNAME)
+
 extern void hid_unregister_driver(struct hid_driver *);
 
 extern void hidinput_hid_event(struct hid_device *, struct hid_field *, struct hid_usage *, __s32);
@@ -716,6 +682,10 @@ void hid_output_report(struct hid_report *report, __u8 *data);
 struct hid_device *hid_allocate_device(void);
 struct hid_report *hid_register_report(struct hid_device *device, unsigned type, unsigned id);
 int hid_parse_report(struct hid_device *hid, __u8 *start, unsigned size);
+struct hid_report *hid_validate_values(struct hid_device *hid,
+				       unsigned int type, unsigned int id,
+				       unsigned int field_index,
+				       unsigned int report_counts);
 int hid_check_keys_pressed(struct hid_device *hid);
 int hid_connect(struct hid_device *hid, unsigned int connect_mask);
 void hid_disconnect(struct hid_device *hid);
@@ -918,7 +888,4 @@ do {									\
 #define hid_dbg(hid, fmt, arg...)			\
 	dev_dbg(&(hid)->dev, fmt, ##arg)
 
-#endif /* __KERNEL__ */
-
 #endif
-

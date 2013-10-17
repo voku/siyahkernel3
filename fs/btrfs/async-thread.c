@@ -64,6 +64,8 @@ struct btrfs_worker_thread {
 	int idle;
 };
 
+static int __btrfs_start_workers(struct btrfs_workers *workers);
+
 /*
  * btrfs_start_workers uses kthread_run, which can block waiting for memory
  * for a very long time.  It will actually throttle on page writeback,
@@ -88,25 +90,8 @@ static void start_new_worker_func(struct btrfs_work *work)
 {
 	struct worker_start *start;
 	start = container_of(work, struct worker_start, work);
-	btrfs_start_workers(start->queue, 1);
+	__btrfs_start_workers(start->queue);
 	kfree(start);
-}
-
-static int start_new_worker(struct btrfs_workers *queue)
-{
-	struct worker_start *start;
-	int ret;
-
-	start = kzalloc(sizeof(*start), GFP_NOFS);
-	if (!start)
-		return -ENOMEM;
-
-	start->work.func = start_new_worker_func;
-	start->queue = queue;
-	ret = btrfs_queue_worker(queue->atomic_worker_start, &start->work);
-	if (ret)
-		kfree(start);
-	return ret;
 }
 
 /*
@@ -122,7 +107,8 @@ static void check_idle_worker(struct btrfs_worker_thread *worker)
 		worker->idle = 1;
 
 		/* the list may be empty if the worker is just starting */
-		if (!list_empty(&worker->worker_list)) {
+		if (!list_empty(&worker->worker_list) &&
+		    !worker->workers->stopping) {
 			list_move(&worker->worker_list,
 				 &worker->workers->idle_list);
 		}
@@ -142,7 +128,8 @@ static void check_busy_worker(struct btrfs_worker_thread *worker)
 		spin_lock_irqsave(&worker->workers->lock, flags);
 		worker->idle = 0;
 
-		if (!list_empty(&worker->worker_list)) {
+		if (!list_empty(&worker->worker_list) &&
+		    !worker->workers->stopping) {
 			list_move_tail(&worker->worker_list,
 				      &worker->workers->worker_list);
 		}
@@ -153,11 +140,19 @@ static void check_busy_worker(struct btrfs_worker_thread *worker)
 static void check_pending_worker_creates(struct btrfs_worker_thread *worker)
 {
 	struct btrfs_workers *workers = worker->workers;
+	struct worker_start *start;
 	unsigned long flags;
 
 	rmb();
 	if (!workers->atomic_start_pending)
 		return;
+
+	start = kzalloc(sizeof(*start), GFP_NOFS);
+	if (!start)
+		return;
+
+	start->work.func = start_new_worker_func;
+	start->queue = workers;
 
 	spin_lock_irqsave(&workers->lock, flags);
 	if (!workers->atomic_start_pending)
@@ -170,18 +165,19 @@ static void check_pending_worker_creates(struct btrfs_worker_thread *worker)
 
 	workers->num_workers_starting += 1;
 	spin_unlock_irqrestore(&workers->lock, flags);
-	start_new_worker(workers);
+	btrfs_queue_worker(workers->atomic_worker_start, &start->work);
 	return;
 
 out:
+	kfree(start);
 	spin_unlock_irqrestore(&workers->lock, flags);
 }
 
-static noinline int run_ordered_completions(struct btrfs_workers *workers,
+static noinline void run_ordered_completions(struct btrfs_workers *workers,
 					    struct btrfs_work *work)
 {
 	if (!workers->ordered)
-		return 0;
+		return;
 
 	set_bit(WORK_DONE_BIT, &work->flags);
 
@@ -226,7 +222,6 @@ static noinline int run_ordered_completions(struct btrfs_workers *workers,
 	}
 
 	spin_unlock(&workers->order_lock);
-	return 0;
 }
 
 static void put_worker(struct btrfs_worker_thread *worker)
@@ -338,7 +333,7 @@ again:
 			run_ordered_completions(worker->workers, work);
 
 			check_pending_worker_creates(worker);
-
+			cond_resched();
 		}
 
 		spin_lock_irq(&worker->lock);
@@ -412,13 +407,14 @@ again:
 /*
  * this will wait for all the worker threads to shutdown
  */
-int btrfs_stop_workers(struct btrfs_workers *workers)
+void btrfs_stop_workers(struct btrfs_workers *workers)
 {
 	struct list_head *cur;
 	struct btrfs_worker_thread *worker;
 	int can_stop;
 
 	spin_lock_irq(&workers->lock);
+	workers->stopping = 1;
 	list_splice_init(&workers->idle_list, &workers->worker_list);
 	while (!list_empty(&workers->worker_list)) {
 		cur = workers->worker_list.next;
@@ -440,7 +436,6 @@ int btrfs_stop_workers(struct btrfs_workers *workers)
 		put_worker(worker);
 	}
 	spin_unlock_irq(&workers->lock);
-	return 0;
 }
 
 /*
@@ -463,62 +458,71 @@ void btrfs_init_workers(struct btrfs_workers *workers, char *name, int max,
 	workers->ordered = 0;
 	workers->atomic_start_pending = 0;
 	workers->atomic_worker_start = async_helper;
+	workers->stopping = 0;
 }
 
 /*
  * starts new worker threads.  This does not enforce the max worker
  * count in case you need to temporarily go past it.
  */
-static int __btrfs_start_workers(struct btrfs_workers *workers,
-				 int num_workers)
+static int __btrfs_start_workers(struct btrfs_workers *workers)
 {
 	struct btrfs_worker_thread *worker;
 	int ret = 0;
-	int i;
 
-	for (i = 0; i < num_workers; i++) {
-		worker = kzalloc(sizeof(*worker), GFP_NOFS);
-		if (!worker) {
-			ret = -ENOMEM;
-			goto fail;
-		}
-
-		INIT_LIST_HEAD(&worker->pending);
-		INIT_LIST_HEAD(&worker->prio_pending);
-		INIT_LIST_HEAD(&worker->worker_list);
-		spin_lock_init(&worker->lock);
-
-		atomic_set(&worker->num_pending, 0);
-		atomic_set(&worker->refs, 1);
-		worker->workers = workers;
-		worker->task = kthread_run(worker_loop, worker,
-					   "btrfs-%s-%d", workers->name,
-					   workers->num_workers + i);
-		if (IS_ERR(worker->task)) {
-			ret = PTR_ERR(worker->task);
-			kfree(worker);
-			goto fail;
-		}
-		spin_lock_irq(&workers->lock);
-		list_add_tail(&worker->worker_list, &workers->idle_list);
-		worker->idle = 1;
-		workers->num_workers++;
-		workers->num_workers_starting--;
-		WARN_ON(workers->num_workers_starting < 0);
-		spin_unlock_irq(&workers->lock);
+	worker = kzalloc(sizeof(*worker), GFP_NOFS);
+	if (!worker) {
+		ret = -ENOMEM;
+		goto fail;
 	}
+
+	INIT_LIST_HEAD(&worker->pending);
+	INIT_LIST_HEAD(&worker->prio_pending);
+	INIT_LIST_HEAD(&worker->worker_list);
+	spin_lock_init(&worker->lock);
+
+	atomic_set(&worker->num_pending, 0);
+	atomic_set(&worker->refs, 1);
+	worker->workers = workers;
+	worker->task = kthread_create(worker_loop, worker,
+				      "btrfs-%s-%d", workers->name,
+				      workers->num_workers + 1);
+	if (IS_ERR(worker->task)) {
+		ret = PTR_ERR(worker->task);
+		goto fail;
+	}
+
+	spin_lock_irq(&workers->lock);
+	if (workers->stopping) {
+		spin_unlock_irq(&workers->lock);
+		goto fail_kthread;
+	}
+	list_add_tail(&worker->worker_list, &workers->idle_list);
+	worker->idle = 1;
+	workers->num_workers++;
+	workers->num_workers_starting--;
+	WARN_ON(workers->num_workers_starting < 0);
+	spin_unlock_irq(&workers->lock);
+
+	wake_up_process(worker->task);
 	return 0;
+
+fail_kthread:
+	kthread_stop(worker->task);
 fail:
-	btrfs_stop_workers(workers);
+	kfree(worker);
+	spin_lock_irq(&workers->lock);
+	workers->num_workers_starting--;
+	spin_unlock_irq(&workers->lock);
 	return ret;
 }
 
-int btrfs_start_workers(struct btrfs_workers *workers, int num_workers)
+int btrfs_start_workers(struct btrfs_workers *workers)
 {
 	spin_lock_irq(&workers->lock);
-	workers->num_workers_starting += num_workers;
+	workers->num_workers_starting++;
 	spin_unlock_irq(&workers->lock);
-	return __btrfs_start_workers(workers, num_workers);
+	return __btrfs_start_workers(workers);
 }
 
 /*
@@ -575,9 +579,10 @@ static struct btrfs_worker_thread *find_worker(struct btrfs_workers *workers)
 	struct btrfs_worker_thread *worker;
 	unsigned long flags;
 	struct list_head *fallback;
+	int ret;
 
-again:
 	spin_lock_irqsave(&workers->lock, flags);
+again:
 	worker = next_worker(workers);
 
 	if (!worker) {
@@ -591,7 +596,10 @@ again:
 			workers->num_workers_starting++;
 			spin_unlock_irqrestore(&workers->lock, flags);
 			/* we're below the limit, start another worker */
-			__btrfs_start_workers(workers, 1);
+			ret = __btrfs_start_workers(workers);
+			spin_lock_irqsave(&workers->lock, flags);
+			if (ret)
+				goto fallback;
 			goto again;
 		}
 	}
@@ -625,14 +633,14 @@ found:
  * it was taken from.  It is intended for use with long running work functions
  * that make some progress and want to give the cpu up for others.
  */
-int btrfs_requeue_work(struct btrfs_work *work)
+void btrfs_requeue_work(struct btrfs_work *work)
 {
 	struct btrfs_worker_thread *worker = work->worker;
 	unsigned long flags;
 	int wake = 0;
 
 	if (test_and_set_bit(WORK_QUEUED_BIT, &work->flags))
-		goto out;
+		return;
 
 	spin_lock_irqsave(&worker->lock, flags);
 	if (test_bit(WORK_HIGH_PRIO_BIT, &work->flags))
@@ -659,9 +667,6 @@ int btrfs_requeue_work(struct btrfs_work *work)
 	if (wake)
 		wake_up_process(worker->task);
 	spin_unlock_irqrestore(&worker->lock, flags);
-out:
-
-	return 0;
 }
 
 void btrfs_set_work_high_prio(struct btrfs_work *work)
@@ -672,7 +677,7 @@ void btrfs_set_work_high_prio(struct btrfs_work *work)
 /*
  * places a struct btrfs_work into the pending queue of one of the kthreads
  */
-int btrfs_queue_worker(struct btrfs_workers *workers, struct btrfs_work *work)
+void btrfs_queue_worker(struct btrfs_workers *workers, struct btrfs_work *work)
 {
 	struct btrfs_worker_thread *worker;
 	unsigned long flags;
@@ -680,7 +685,7 @@ int btrfs_queue_worker(struct btrfs_workers *workers, struct btrfs_work *work)
 
 	/* don't requeue something already on a list */
 	if (test_and_set_bit(WORK_QUEUED_BIT, &work->flags))
-		goto out;
+		return;
 
 	worker = find_worker(workers);
 	if (workers->ordered) {
@@ -719,7 +724,4 @@ int btrfs_queue_worker(struct btrfs_workers *workers, struct btrfs_work *work)
 	if (wake)
 		wake_up_process(worker->task);
 	spin_unlock_irqrestore(&worker->lock, flags);
-
-out:
-	return 0;
 }

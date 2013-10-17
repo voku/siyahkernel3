@@ -1,6 +1,8 @@
 #ifndef __LINUX_GPIO_H
 #define __LINUX_GPIO_H
 
+#include <linux/errno.h>
+
 /* see Documentation/gpio.txt */
 
 /* make these flag values available regardless of GPIO kconfig options */
@@ -14,6 +16,8 @@
 #define GPIOF_OUT_INIT_LOW	(GPIOF_DIR_OUT | GPIOF_INIT_LOW)
 #define GPIOF_OUT_INIT_HIGH	(GPIOF_DIR_OUT | GPIOF_INIT_HIGH)
 
+/* Gpio pin is open drain */
+#define GPIOF_OPEN_DRAIN	(1 << 2)
 #ifdef CONFIG_GENERIC_GPIO
 #include <asm/gpio.h>
 

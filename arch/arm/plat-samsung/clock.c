@@ -28,6 +28,7 @@
 
 #include <linux/init.h>
 #include <linux/kernel.h>
+#include <linux/export.h>
 #include <linux/list.h>
 #include <linux/errno.h>
 #include <linux/err.h>

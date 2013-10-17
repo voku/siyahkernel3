@@ -23,7 +23,7 @@
 static void cpu_up_work(struct work_struct *work)
 {
 	int cpu;
-	
+
 	for_each_cpu_not(cpu, cpu_online_mask) {
 		if (cpu == 0)
 			continue;
@@ -34,7 +34,7 @@ static void cpu_up_work(struct work_struct *work)
 static void cpu_down_work(struct work_struct *work)
 {
 	int cpu;
-	
+
 	for_each_online_cpu(cpu) {
 		if (cpu == 0)
 			continue;

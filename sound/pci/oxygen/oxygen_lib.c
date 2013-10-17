@@ -22,6 +22,7 @@
 #include <linux/mutex.h>
 #include <linux/pci.h>
 #include <linux/slab.h>
+#include <linux/module.h>
 #include <sound/ac97_codec.h>
 #include <sound/asoundef.h>
 #include <sound/core.h>
@@ -655,7 +656,7 @@ int oxygen_pci_probe(struct pci_dev *pci, int index, char *id,
 	chip->model.init(chip);
 
 	err = request_irq(pci->irq, oxygen_interrupt, IRQF_SHARED,
-			  DRIVER, chip);
+			  KBUILD_MODNAME, chip);
 	if (err < 0) {
 		snd_printk(KERN_ERR "cannot grab interrupt %d\n", pci->irq);
 		goto err_card;
@@ -678,15 +679,15 @@ int oxygen_pci_probe(struct pci_dev *pci, int index, char *id,
 		goto err_card;
 
 	if (chip->model.device_config & (MIDI_OUTPUT | MIDI_INPUT)) {
-		unsigned int info_flags = MPU401_INFO_INTEGRATED;
+		unsigned int info_flags =
+				MPU401_INFO_INTEGRATED | MPU401_INFO_IRQ_HOOK;
 		if (chip->model.device_config & MIDI_OUTPUT)
 			info_flags |= MPU401_INFO_OUTPUT;
 		if (chip->model.device_config & MIDI_INPUT)
 			info_flags |= MPU401_INFO_INPUT;
 		err = snd_mpu401_uart_new(card, 0, MPU401_HW_CMIPCI,
 					  chip->addr + OXYGEN_MPU401,
-					  info_flags, 0, 0,
-					  &chip->midi);
+					  info_flags, -1, &chip->midi);
 		if (err < 0)
 			goto err_card;
 	}
@@ -721,14 +722,14 @@ EXPORT_SYMBOL(oxygen_pci_probe);
 void oxygen_pci_remove(struct pci_dev *pci)
 {
 	snd_card_free(pci_get_drvdata(pci));
-	pci_set_drvdata(pci, NULL);
 }
 EXPORT_SYMBOL(oxygen_pci_remove);
 
-#ifdef CONFIG_PM
-int oxygen_pci_suspend(struct pci_dev *pci, pm_message_t state)
+#ifdef CONFIG_PM_SLEEP
+static int oxygen_pci_suspend(struct device *dev)
 {
-	struct snd_card *card = pci_get_drvdata(pci);
+	struct pci_dev *pci = to_pci_dev(dev);
+	struct snd_card *card = dev_get_drvdata(dev);
 	struct oxygen *chip = card->private_data;
 	unsigned int i, saved_interrupt_mask;
 
@@ -755,10 +756,9 @@ int oxygen_pci_suspend(struct pci_dev *pci, pm_message_t state)
 
 	pci_disable_device(pci);
 	pci_save_state(pci);
-	pci_set_power_state(pci, pci_choose_state(pci, state));
+	pci_set_power_state(pci, PCI_D3hot);
 	return 0;
 }
-EXPORT_SYMBOL(oxygen_pci_suspend);
 
 static const u32 registers_to_restore[OXYGEN_IO_SIZE / 32] = {
 	0xffffffff, 0x00ff077f, 0x00011d08, 0x007f00ff,
@@ -786,9 +786,10 @@ static void oxygen_restore_ac97(struct oxygen *chip, unsigned int codec)
 					  chip->saved_ac97_registers[codec][i]);
 }
 
-int oxygen_pci_resume(struct pci_dev *pci)
+static int oxygen_pci_resume(struct device *dev)
 {
-	struct snd_card *card = pci_get_drvdata(pci);
+	struct pci_dev *pci = to_pci_dev(dev);
+	struct snd_card *card = dev_get_drvdata(dev);
 	struct oxygen *chip = card->private_data;
 	unsigned int i;
 
@@ -819,8 +820,10 @@ int oxygen_pci_resume(struct pci_dev *pci)
 	snd_power_change_state(card, SNDRV_CTL_POWER_D0);
 	return 0;
 }
-EXPORT_SYMBOL(oxygen_pci_resume);
-#endif /* CONFIG_PM */
+
+SIMPLE_DEV_PM_OPS(oxygen_pci_pm, oxygen_pci_suspend, oxygen_pci_resume);
+EXPORT_SYMBOL(oxygen_pci_pm);
+#endif /* CONFIG_PM_SLEEP */
 
 void oxygen_pci_shutdown(struct pci_dev *pci)
 {

@@ -59,7 +59,6 @@
 #include <asm/cacheflush.h>
 #include <asm/memory.h>
 #include <asm/pgtable.h>
-#include <asm/system.h>
 #include <asm/uaccess.h>
 
 #include "mvp.h"

@@ -70,7 +70,7 @@ static unsigned int help(struct sk_buff *skb,
 
 static void __exit nf_nat_amanda_fini(void)
 {
-	rcu_assign_pointer(nf_nat_amanda_hook, NULL);
+	RCU_INIT_POINTER(nf_nat_amanda_hook, NULL);
 	synchronize_rcu();
 }
 

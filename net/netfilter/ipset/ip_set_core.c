@@ -17,7 +17,6 @@
 #include <linux/spinlock.h>
 #include <linux/netlink.h>
 #include <linux/rculist.h>
-#include <linux/version.h>
 #include <net/netlink.h>
 
 #include <linux/netfilter.h>
@@ -1118,9 +1117,13 @@ ip_set_dump(struct sock *ctnl, struct sk_buff *skb,
 	if (unlikely(protocol_failed(attr)))
 		return -IPSET_ERR_PROTOCOL;
 
-	return netlink_dump_start(ctnl, skb, nlh,
-				  ip_set_dump_start,
-				  ip_set_dump_done, 0);
+	{
+		struct netlink_dump_control c = {
+			.dump = ip_set_dump_start,
+			.done = ip_set_dump_done,
+		};
+		return netlink_dump_start(ctnl, skb, nlh, &c);
+	}
 }
 
 /* Add, del and test */
@@ -1564,7 +1567,7 @@ static struct nfnetlink_subsystem ip_set_netlink_subsys __read_mostly = {
 static int
 ip_set_sockfn_get(struct sock *sk, int optval, void __user *user, int *len)
 {
-	unsigned *op;
+	unsigned int *op;
 	void *data;
 	int copylen = *len, ret = 0;
 
@@ -1572,7 +1575,7 @@ ip_set_sockfn_get(struct sock *sk, int optval, void __user *user, int *len)
 		return -EPERM;
 	if (optval != SO_IP_SET)
 		return -EBADF;
-	if (*len < sizeof(unsigned))
+	if (*len < sizeof(unsigned int))
 		return -EINVAL;
 
 	data = vmalloc(*len);
@@ -1582,7 +1585,7 @@ ip_set_sockfn_get(struct sock *sk, int optval, void __user *user, int *len)
 		ret = -EFAULT;
 		goto done;
 	}
-	op = (unsigned *) data;
+	op = (unsigned int *) data;
 
 	if (*op < IP_SET_OP_VERSION) {
 		/* Check the version at the beginning of operations */

@@ -20,6 +20,7 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/proc_fs.h>
+#include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/uaccess.h>
 #include <linux/platform_data/ram_console.h>
@@ -427,7 +428,8 @@ static int __init ram_console_late_init(void)
 	memcpy(ram_console_old_log,
 	       ram_console_old_log_init_buffer, ram_console_old_log_size);
 #endif
-	entry = create_proc_entry("last_kmsg", S_IFREG | S_IRUGO, NULL);
+	entry = create_proc_read_entry("last_kmsg", S_IFREG | S_IRUGO, NULL,
+					NULL, NULL);
 	if (!entry) {
 		pr_err("failed to create proc entry\n");
 		kfree(ram_console_old_log);

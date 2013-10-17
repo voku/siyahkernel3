@@ -40,6 +40,7 @@
 #include <asm/thread_notify.h>
 #include <asm/stacktrace.h>
 #include <asm/mach/time.h>
+#include <asm/tls.h>
 
 #ifdef CONFIG_CC_STACKPROTECTOR
 #include <linux/stackprotector.h>
@@ -288,16 +289,6 @@ void cpu_idle(void)
 		schedule_preempt_disabled();
 	}
 }
-
-static char reboot_mode = 'h';
-
-int __init reboot_setup(char *str)
-{
-	reboot_mode = str[0];
-	return 1;
-}
-
-__setup("reboot=", reboot_setup);
 
 /*
  * Called by kexec, immediately prior to machine_kexec().
@@ -548,23 +539,32 @@ asmlinkage void ret_from_fork(void) __asm__("ret_from_fork");
 
 int
 copy_thread(unsigned long clone_flags, unsigned long stack_start,
-	    unsigned long stk_sz, struct task_struct *p, struct pt_regs *regs)
+	    unsigned long stk_sz, struct task_struct *p)
 {
 	struct thread_info *thread = task_thread_info(p);
 	struct pt_regs *childregs = task_pt_regs(p);
 
-	*childregs = *regs;
-	childregs->ARM_r0 = 0;
-	childregs->ARM_sp = stack_start;
-
 	memset(&thread->cpu_context, 0, sizeof(struct cpu_context_save));
-	thread->cpu_context.sp = (unsigned long)childregs;
+
+	if (likely(!(p->flags & PF_KTHREAD))) {
+		*childregs = *current_pt_regs();
+		childregs->ARM_r0 = 0;
+		if (stack_start)
+			childregs->ARM_sp = stack_start;
+	} else {
+		memset(childregs, 0, sizeof(struct pt_regs));
+		thread->cpu_context.r4 = stk_sz;
+		thread->cpu_context.r5 = stack_start;
+		childregs->ARM_cpsr = SVC_MODE;
+	}
 	thread->cpu_context.pc = (unsigned long)ret_from_fork;
+	thread->cpu_context.sp = (unsigned long)childregs;
 
 	clear_ptrace_hw_breakpoint(p);
 
 	if (clone_flags & CLONE_SETTLS)
-		thread->tp_value = regs->ARM_r3;
+		thread->tp_value[0] = childregs->ARM_r3;
+	thread->tp_value[1] = get_tpuser();
 
 	thread_notify(THREAD_NOTIFY_COPY, thread);
 
@@ -594,63 +594,6 @@ int dump_fpu (struct pt_regs *regs, struct user_fp *fp)
 	return used_math != 0;
 }
 EXPORT_SYMBOL(dump_fpu);
-
-/*
- * Shuffle the argument into the correct register before calling the
- * thread function.  r4 is the thread argument, r5 is the pointer to
- * the thread function, and r6 points to the exit function.
- */
-extern void kernel_thread_helper(void);
-asm(	".pushsection .text\n"
-"	.align\n"
-"	.type	kernel_thread_helper, #function\n"
-"kernel_thread_helper:\n"
-#ifdef CONFIG_TRACE_IRQFLAGS
-"	bl	trace_hardirqs_on\n"
-#endif
-"	msr	cpsr_c, r7\n"
-"	mov	r0, r4\n"
-"	mov	lr, r6\n"
-"	mov	pc, r5\n"
-"	.size	kernel_thread_helper, . - kernel_thread_helper\n"
-"	.popsection");
-
-#ifdef CONFIG_ARM_UNWIND
-extern void kernel_thread_exit(long code);
-asm(	".pushsection .text\n"
-"	.align\n"
-"	.type	kernel_thread_exit, #function\n"
-"kernel_thread_exit:\n"
-"	.fnstart\n"
-"	.cantunwind\n"
-"	bl	do_exit\n"
-"	nop\n"
-"	.fnend\n"
-"	.size	kernel_thread_exit, . - kernel_thread_exit\n"
-"	.popsection");
-#else
-#define kernel_thread_exit	do_exit
-#endif
-
-/*
- * Create a kernel thread.
- */
-pid_t kernel_thread(int (*fn)(void *), void *arg, unsigned long flags)
-{
-	struct pt_regs regs;
-
-	memset(&regs, 0, sizeof(regs));
-
-	regs.ARM_r4 = (unsigned long)arg;
-	regs.ARM_r5 = (unsigned long)fn;
-	regs.ARM_r6 = (unsigned long)kernel_thread_exit;
-	regs.ARM_r7 = SVC_MODE | PSR_ENDSTATE | PSR_ISETSTATE;
-	regs.ARM_pc = (unsigned long)kernel_thread_helper;
-	regs.ARM_cpsr = regs.ARM_r7 | PSR_I_BIT;
-
-	return do_fork(flags|CLONE_VM|CLONE_UNTRACED, 0, &regs, 0, NULL, NULL);
-}
-EXPORT_SYMBOL(kernel_thread);
 
 unsigned long get_wchan(struct task_struct *p)
 {
@@ -685,8 +628,8 @@ unsigned long arch_randomize_brk(struct mm_struct *mm)
 #ifdef CONFIG_MMU
 /*
  * The vectors page is always readable from user space for the
- * atomic helpers and the signal restart code. Insert it into the
- * gate_vma so that it is visible through ptrace and /proc/<pid>/mem.
+ * atomic helpers. Insert it into the gate_vma so that it is visible
+ * through ptrace and /proc/<pid>/mem.
  */
 static struct vm_area_struct gate_vma = {
 	.vm_start	= 0xffff0000,
@@ -718,6 +661,41 @@ int in_gate_area_no_mm(unsigned long addr)
 
 const char *arch_vma_name(struct vm_area_struct *vma)
 {
-	return (vma == &gate_vma) ? "[vectors]" : NULL;
+	return (vma == &gate_vma) ? "[vectors]" :
+		(vma->vm_mm && vma->vm_start == vma->vm_mm->context.sigpage) ?
+		 "[sigpage]" : NULL;
+}
+
+static struct page *signal_page;
+extern struct page *get_signal_page(void);
+
+int arch_setup_additional_pages(struct linux_binprm *bprm, int uses_interp)
+{
+	struct mm_struct *mm = current->mm;
+	unsigned long addr;
+	int ret;
+
+	if (!signal_page)
+		signal_page = get_signal_page();
+	if (!signal_page)
+		return -ENOMEM;
+
+	down_write(&mm->mmap_sem);
+	addr = get_unmapped_area(NULL, 0, PAGE_SIZE, 0, 0);
+	if (IS_ERR_VALUE(addr)) {
+		ret = addr;
+		goto up_fail;
+	}
+
+	ret = install_special_mapping(mm, addr, PAGE_SIZE,
+		VM_READ | VM_EXEC | VM_MAYREAD | VM_MAYWRITE | VM_MAYEXEC,
+		&signal_page);
+
+	if (ret == 0)
+		mm->context.sigpage = addr;
+
+ up_fail:
+	up_write(&mm->mmap_sem);
+	return ret;
 }
 #endif

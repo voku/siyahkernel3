@@ -296,7 +296,7 @@ static int ida_proc_show(struct seq_file *m, void *v)
 
 static int ida_proc_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, ida_proc_show, PDE(inode)->data);
+	return single_open(file, ida_proc_show, PDE_DATA(inode));
 }
 
 static const struct file_operations ida_proc_fops = {
@@ -1193,6 +1193,7 @@ out_passthru:
 		ida_pci_info_struct pciinfo;
 
 		if (!arg) return -EINVAL;
+		memset(&pciinfo, 0, sizeof(pciinfo));
 		pciinfo.bus = host->pci_dev->bus->number;
 		pciinfo.dev_fn = host->pci_dev->devfn;
 		pciinfo.board_id = host->board_id;

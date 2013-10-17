@@ -33,6 +33,7 @@ config VIDEO_FIMG2D_DEBUG
 
 if ARCH_EXYNOS4
 source "drivers/media/video/samsung/fimg2d3x-exynos4/Kconfig"
+source "drivers/media/video/samsung/fimg2d4x-exynos4/Kconfig"
 endif
 
 

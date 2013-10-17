@@ -20,7 +20,7 @@
 #include "internal.h"
 
 static struct dentry *afs_lookup(struct inode *dir, struct dentry *dentry,
-				 struct nameidata *nd);
+				 unsigned int flags);
 static int afs_dir_open(struct inode *inode, struct file *file);
 static int afs_readdir(struct file *file, void *dirent, filldir_t filldir);
 static int afs_d_revalidate(struct dentry *dentry, unsigned int flags);
@@ -29,7 +29,7 @@ static void afs_d_release(struct dentry *dentry);
 static int afs_lookup_filldir(void *_cookie, const char *name, int nlen,
 				  loff_t fpos, u64 ino, unsigned dtype);
 static int afs_create(struct inode *dir, struct dentry *dentry, umode_t mode,
-		      struct nameidata *nd);
+		      bool excl);
 static int afs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode);
 static int afs_rmdir(struct inode *dir, struct dentry *dentry);
 static int afs_unlink(struct inode *dir, struct dentry *dentry);
@@ -516,7 +516,7 @@ out:
  * look up an entry in a directory
  */
 static struct dentry *afs_lookup(struct inode *dir, struct dentry *dentry,
-				 struct nameidata *nd)
+				 unsigned int flags)
 {
 	struct afs_vnode *vnode;
 	struct afs_fid fid;
@@ -625,9 +625,6 @@ static int afs_d_revalidate(struct dentry *dentry, unsigned int flags)
 
 	/* lock down the parent dentry so we can peer at it */
 	parent = dget_parent(dentry);
-	if (!parent->d_inode)
-		goto out_bad;
-
 	dir = AFS_FS_I(parent->d_inode);
 
 	/* validate the parent directory */
@@ -949,7 +946,7 @@ error:
  * create a regular file on an AFS filesystem
  */
 static int afs_create(struct inode *dir, struct dentry *dentry, umode_t mode,
-		      struct nameidata *nd)
+		      bool excl)
 {
 	struct afs_file_status status;
 	struct afs_callback cb;

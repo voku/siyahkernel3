@@ -33,7 +33,7 @@
 #define DEF_FREQUENCY_UP_THRESHOLD		(80)
 #define DEF_FREQUENCY_DOWN_THRESHOLD		(20)
 #define DEFAULT_FREQ_BOOST_TIME			(500000)
-#define MAX_FREQ_BOOST_TIME 			(5000000)
+#define MAX_FREQ_BOOST_TIME			(5000000)
 #define DEF_SMOOTH_UI				(0)
 
 static u64 freq_boosted_time;
@@ -445,7 +445,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 	}
 
 	/* Check for frequency increase */
-	if ((dbs_tuners_ins.smooth_ui && touch_is_pressed) || max_load > dbs_tuners_ins.up_threshold) {	
+	if ((dbs_tuners_ins.smooth_ui && touch_is_pressed) || max_load > dbs_tuners_ins.up_threshold) {
 		this_dbs_info->down_skip = 0;
 
 		/* if we are already at full speed then break out early */
@@ -673,7 +673,7 @@ static int __init cpufreq_gov_dbs_init(void)
 }
 
 static void __exit cpufreq_gov_dbs_exit(void)
-{	
+{
 	cpufreq_unregister_governor(&cpufreq_gov_conservative);
 	kfree(&dbs_tuners_ins);
 }

@@ -580,7 +580,7 @@ void mhl_hpd_handler(bool onoff)
 EXPORT_SYMBOL(mhl_hpd_handler);
 #endif
 
-static int __devinit s5p_hpd_probe(struct platform_device *pdev)
+static int s5p_hpd_probe(struct platform_device *pdev)
 {
 	struct s5p_platform_hpd *pdata;
 	int ret;
@@ -664,7 +664,7 @@ static int __devinit s5p_hpd_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int __devexit s5p_hpd_remove(struct platform_device *pdev)
+static int s5p_hpd_remove(struct platform_device *pdev)
 {
 #ifdef CONFIG_HDMI_SWITCH_HPD
 	switch_dev_unregister(&hpd_struct.hpd_switch);
@@ -696,7 +696,7 @@ static int s5p_hpd_resume(struct platform_device *dev)
 
 static struct platform_driver s5p_hpd_driver = {
 	.probe = s5p_hpd_probe,
-	.remove = __devexit_p(s5p_hpd_remove),
+	.remove = s5p_hpd_remove,
 	.suspend = s5p_hpd_suspend,
 	.resume = s5p_hpd_resume,
 	.driver = {

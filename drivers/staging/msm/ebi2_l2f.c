@@ -30,7 +30,6 @@
 #include <mach/hardware.h>
 #include <linux/io.h>
 
-#include <asm/system.h>
 #include <asm/mach-types.h>
 
 /* The following are for MSM5100 on Gator

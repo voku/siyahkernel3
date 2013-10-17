@@ -232,7 +232,6 @@ static void usb_release_dev(struct device *dev)
 	kfree(udev);
 }
 
-#ifdef	CONFIG_HOTPLUG
 static int usb_dev_uevent(struct device *dev, struct kobj_uevent_env *env)
 {
 	struct usb_device *usb_dev;
@@ -247,14 +246,6 @@ static int usb_dev_uevent(struct device *dev, struct kobj_uevent_env *env)
 
 	return 0;
 }
-
-#else
-
-static int usb_dev_uevent(struct device *dev, struct kobj_uevent_env *env)
-{
-	return -ENODEV;
-}
-#endif	/* CONFIG_HOTPLUG */
 
 #ifdef	CONFIG_PM
 
@@ -325,7 +316,8 @@ static const struct dev_pm_ops usb_device_pm_ops = {
 #endif	/* CONFIG_PM */
 
 
-static char *usb_devnode(struct device *dev, umode_t *mode)
+static char *usb_devnode(struct device *dev,
+			 umode_t *mode, kuid_t *uid, kgid_t *gid)
 {
 	struct usb_device *usb_dev;
 

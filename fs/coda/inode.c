@@ -330,3 +330,4 @@ struct file_system_type coda_fs_type = {
 	.fs_flags	= FS_BINARY_MOUNTDATA,
 };
 MODULE_ALIAS_FS("coda");
+

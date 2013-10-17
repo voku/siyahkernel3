@@ -1,5 +1,5 @@
 /*
- * BFQ-v6r2 for 3.9.0: data structures and common functions prototypes.
+ * BFQ-v6r2 for 3.10.0: data structures and common functions prototypes.
  *
  * Based on ideas and code from CFQ:
  * Copyright (C) 2003 Jens Axboe <axboe@kernel.dk>
@@ -510,6 +510,7 @@ struct bfq_group {
 /**
  * struct bfqio_cgroup - bfq cgroup data structure.
  * @css: subsystem state for bfq in the containing cgroup.
+ * @online: flag marked when the subsystem is inserted.
  * @weight: cgroup weight.
  * @ioprio: cgroup ioprio.
  * @ioprio_class: cgroup ioprio_class.
@@ -521,6 +522,7 @@ struct bfq_group {
  */
 struct bfqio_cgroup {
 	struct cgroup_subsys_state css;
+	bool online;
 
 	unsigned short weight, ioprio, ioprio_class;
 

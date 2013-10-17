@@ -13,6 +13,7 @@
 #include <linux/sort.h>
 #include <linux/err.h>
 #include <linux/static_key.h>
+#include <linux/jump_label_ratelimit.h>
 
 #ifdef HAVE_JUMP_LABEL
 
@@ -28,12 +29,6 @@ void jump_label_unlock(void)
 {
 	mutex_unlock(&jump_label_mutex);
 }
-
-bool static_key_enabled(struct static_key *key)
-{
-	return (atomic_read(&key->enabled) > 0);
-}
-EXPORT_SYMBOL_GPL(static_key_enabled);
 
 static int jump_label_cmp(const void *a, const void *b)
 {

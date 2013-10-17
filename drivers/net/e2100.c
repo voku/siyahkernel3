@@ -44,10 +44,10 @@ static const char version[] =
 #include <linux/netdevice.h>
 #include <linux/etherdevice.h>
 #include <linux/init.h>
+#include <linux/interrupt.h>
 #include <linux/delay.h>
 
 #include <asm/io.h>
-#include <asm/system.h>
 
 #include "8390.h"
 

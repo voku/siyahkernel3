@@ -52,7 +52,9 @@ extern struct blocking_notifier_head crypto_chain;
 
 #ifdef CONFIG_PROC_FS
 #ifdef CONFIG_CRYPTO_FIPS
+#ifdef CONFIG_CRYPTO_TEST
 void set_in_fips_err(void);
+#endif
 void __init crypto_init_proc(int *fips_error);
 void do_integrity_check(void);
 int testmgr_crypto_proc_init(void);

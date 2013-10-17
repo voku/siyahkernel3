@@ -1338,7 +1338,7 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
 	if (NULL == siocb->scm)
 		siocb->scm = &scm;
 
-	err = scm_send(sock, msg, siocb->scm);
+	err = scm_send(sock, msg, siocb->scm, true);
 	if (err < 0)
 		return err;
 
@@ -1373,7 +1373,7 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
 
 	NETLINK_CB(skb).pid	= nlk->pid;
 	NETLINK_CB(skb).dst_group = dst_group;
-	memcpy(NETLINK_CREDS(skb), &siocb->scm->creds, sizeof(struct ucred));
+	NETLINK_CB(skb).creds	= siocb->scm->creds;
 
 	err = -EFAULT;
 	if (memcpy_fromiovec(skb_put(skb, len), msg->msg_iov, len)) {
@@ -1498,14 +1498,15 @@ static void netlink_data_ready(struct sock *sk, int len)
  */
 
 struct sock *
-netlink_kernel_create(struct net *net, int unit, unsigned int groups,
-		      void (*input)(struct sk_buff *skb),
-		      struct mutex *cb_mutex, struct module *module)
+__netlink_kernel_create(struct net *net, int unit, struct module *module,
+			struct netlink_kernel_cfg *cfg)
 {
 	struct socket *sock;
 	struct sock *sk;
 	struct netlink_sock *nlk;
 	struct listeners *listeners = NULL;
+	struct mutex *cb_mutex = cfg ? cfg->cb_mutex : NULL;
+	unsigned int groups;
 
 	BUG_ON(!nl_table);
 
@@ -1527,16 +1528,18 @@ netlink_kernel_create(struct net *net, int unit, unsigned int groups,
 	sk = sock->sk;
 	sk_change_net(sk, net);
 
-	if (groups < 32)
+	if (!cfg || cfg->groups < 32)
 		groups = 32;
+	else
+		groups = cfg->groups;
 
 	listeners = kzalloc(sizeof(*listeners) + NLGRPSZ(groups), GFP_KERNEL);
 	if (!listeners)
 		goto out_sock_release;
 
 	sk->sk_data_ready = netlink_data_ready;
-	if (input)
-		nlk_sk(sk)->netlink_rcv = input;
+	if (cfg && cfg->input)
+		nlk_sk(sk)->netlink_rcv = cfg->input;
 
 	if (netlink_insert(sk, net, 0))
 		goto out_sock_release;
@@ -1567,8 +1570,7 @@ out_sock_release_nosk:
 	sock_release(sock);
 	return NULL;
 }
-EXPORT_SYMBOL(netlink_kernel_create);
-
+EXPORT_SYMBOL(__netlink_kernel_create);
 
 void
 netlink_kernel_release(struct sock *sk)
@@ -1660,6 +1662,24 @@ static void netlink_destroy_callback(struct netlink_callback *cb)
 	kfree(cb);
 }
 
+struct nlmsghdr *
+__nlmsg_put(struct sk_buff *skb, u32 pid, u32 seq, int type, int len, int flags)
+{
+	struct nlmsghdr *nlh;
+	int size = NLMSG_LENGTH(len);
+
+	nlh = (struct nlmsghdr*)skb_put(skb, NLMSG_ALIGN(size));
+	nlh->nlmsg_type = type;
+	nlh->nlmsg_len = size;
+	nlh->nlmsg_flags = flags;
+	nlh->nlmsg_pid = pid;
+	nlh->nlmsg_seq = seq;
+	if (!__builtin_constant_p(size) || NLMSG_ALIGN(size) - size != 0)
+		memset(NLMSG_DATA(nlh) + len, 0, NLMSG_ALIGN(size) - size);
+	return nlh;
+}
+EXPORT_SYMBOL(__nlmsg_put);
+
 /*
  * It looks a bit ugly.
  * It would be better to create kernel thread.
@@ -1686,7 +1706,7 @@ static int netlink_dump(struct sock *sk)
 
 	skb = sock_rmalloc(sk, alloc_size, 0, GFP_KERNEL);
 	if (!skb)
-		goto errout;
+		goto errout_skb;
 
 	len = cb->dump(skb, cb);
 
@@ -1703,6 +1723,8 @@ static int netlink_dump(struct sock *sk)
 	nlh = nlmsg_put_answer(skb, cb, NLMSG_DONE, sizeof(len), NLM_F_MULTI);
 	if (!nlh)
 		goto errout_skb;
+
+	nl_dump_check_consistent(cb, nlh);
 
 	memcpy(nlmsg_data(nlh), &len, sizeof(len));
 
@@ -1722,16 +1744,12 @@ static int netlink_dump(struct sock *sk)
 errout_skb:
 	mutex_unlock(nlk->cb_mutex);
 	kfree_skb(skb);
-errout:
 	return err;
 }
 
 int netlink_dump_start(struct sock *ssk, struct sk_buff *skb,
 		       const struct nlmsghdr *nlh,
-		       int (*dump)(struct sk_buff *skb,
-				   struct netlink_callback *),
-		       int (*done)(struct netlink_callback *),
-		       u16 min_dump_alloc)
+		       struct netlink_dump_control *control)
 {
 	struct netlink_callback *cb;
 	struct sock *sk;
@@ -1742,10 +1760,10 @@ int netlink_dump_start(struct sock *ssk, struct sk_buff *skb,
 	if (cb == NULL)
 		return -ENOBUFS;
 
-	cb->dump = dump;
-	cb->done = done;
+	cb->dump = control->dump;
+	cb->done = control->done;
 	cb->nlh = nlh;
-	cb->min_dump_alloc = min_dump_alloc;
+	cb->min_dump_alloc = control->min_dump_alloc;
 	atomic_inc(&skb->users);
 	cb->skb = skb;
 

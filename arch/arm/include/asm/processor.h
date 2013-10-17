@@ -88,11 +88,6 @@ unsigned long get_wchan(struct task_struct *p);
 
 void cpu_idle_wait(void);
 
-/*
- * Create a new kernel thread
- */
-extern int kernel_thread(int (*fn)(void *), void *arg, unsigned long flags);
-
 #define task_pt_regs(p) \
 	((struct pt_regs *)(THREAD_START_SP + task_stack_page(p)) - 1)
 
@@ -121,6 +116,8 @@ static inline void prefetch(const void *ptr)
 #define spin_lock_prefetch(x) do { } while (0)
 
 #endif
+
+#define HAVE_ARCH_PICK_MMAP_LAYOUT
 
 #endif
 

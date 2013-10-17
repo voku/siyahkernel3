@@ -198,7 +198,7 @@ ip6_tnl_bucket(struct ip6_tnl_net *ip6n, const struct ip6_tnl_parm *p)
 {
 	const struct in6_addr *remote = &p->raddr;
 	const struct in6_addr *local = &p->laddr;
-	unsigned h = 0;
+	unsigned int h = 0;
 	int prio = 0;
 
 	if (!ipv6_addr_any(remote) || !ipv6_addr_any(local)) {
@@ -352,7 +352,7 @@ ip6_tnl_dev_uninit(struct net_device *dev)
 	struct ip6_tnl_net *ip6n = net_generic(net, ip6_tnl_net_id);
 
 	if (dev == ip6n->fb_tnl_dev)
-		rcu_assign_pointer(ip6n->tnls_wc[0], NULL);
+		RCU_INIT_POINTER(ip6n->tnls_wc[0], NULL);
 	else
 		ip6_tnl_unlink(ip6n, t);
 	ip6_tnl_dst_reset(t);
@@ -974,8 +974,8 @@ static int ip6_tnl_xmit2(struct sk_buff *skb,
 	ipv6_change_dsfield(ipv6h, ~INET_ECN_MASK, dsfield);
 	ipv6h->hop_limit = t->parms.hop_limit;
 	ipv6h->nexthdr = proto;
-	ipv6_addr_copy(&ipv6h->saddr, &fl6->saddr);
-	ipv6_addr_copy(&ipv6h->daddr, &fl6->daddr);
+	ipv6h->saddr = fl6->saddr;
+	ipv6h->daddr = fl6->daddr;
 	nf_reset(skb);
 	pkt_len = skb->len;
 	err = ip6_local_out(skb);
@@ -1145,8 +1145,8 @@ static void ip6_tnl_link_config(struct ip6_tnl *t)
 	memcpy(dev->broadcast, &p->raddr, sizeof(struct in6_addr));
 
 	/* Set up flowi template */
-	ipv6_addr_copy(&fl6->saddr, &p->laddr);
-	ipv6_addr_copy(&fl6->daddr, &p->raddr);
+	fl6->saddr = p->laddr;
+	fl6->daddr = p->raddr;
 	fl6->flowi6_oif = p->link;
 	fl6->flowlabel = 0;
 
@@ -1202,8 +1202,8 @@ static void ip6_tnl_link_config(struct ip6_tnl *t)
 static int
 ip6_tnl_change(struct ip6_tnl *t, struct ip6_tnl_parm *p)
 {
-	ipv6_addr_copy(&t->parms.laddr, &p->laddr);
-	ipv6_addr_copy(&t->parms.raddr, &p->raddr);
+	t->parms.laddr = p->laddr;
+	t->parms.raddr = p->raddr;
 	t->parms.flags = p->flags;
 	t->parms.hop_limit = p->hop_limit;
 	t->parms.encap_limit = p->encap_limit;

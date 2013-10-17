@@ -11,6 +11,7 @@
 #include <linux/kernel.h>
 #include <linux/string.h>
 #include <linux/platform_device.h>
+#include <linux/module.h>
 #include <asm/irq.h>
 #include <mach/map.h>
 #include <plat/devs.h>

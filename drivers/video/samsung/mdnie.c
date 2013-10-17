@@ -444,7 +444,7 @@ static int mdnie_set_brightness(struct backlight_device *bd)
 
 	if ((mdnie->enable) && (mdnie->bd_enable)) {
 		ret = update_brightness(mdnie);
-		dev_dbg(&bd->dev, "brightness=%d\n", bd->props.brightness);
+		/* dev_info(&bd->dev, "brightness=%d\n", bd->props.brightness); */
 		if (ret < 0)
 			return -EINVAL;
 	}
@@ -483,7 +483,7 @@ static ssize_t mode_store(struct device *dev,
 	dev_info(dev, "%s :: value=%d\n", __func__, value);
 
 	if (value >= MODE_MAX) {
-		value = STANDARD;
+		value = DYNAMIC;
 		return -EINVAL;
 	}
 
@@ -521,11 +521,11 @@ static ssize_t scenario_store(struct device *dev,
 	dev_info(dev, "%s :: value=%d\n", __func__, value);
 
 	if (!SCENARIO_IS_VALID(value))
-		value = UI_MODE;
+		value = CAMERA_MODE;
 
 #if defined(CONFIG_FB_MDNIE_PWM)
 	if (value >= SCENARIO_MAX)
-		value = UI_MODE;
+		value = CAMERA_MODE;
 #endif
 
 	mutex_lock(&mdnie->lock);
@@ -875,12 +875,13 @@ static struct device_attribute mdnie_attributes[] = {
 void mdnie_early_suspend(struct early_suspend *h)
 {
 	struct mdnie_info *mdnie = container_of(h, struct mdnie_info, early_suspend);
-#if defined(CONFIG_FB_MDNIE_PWM)
-	struct lcd_platform_data *pd = mdnie->lcd_pd;
-#endif
+	struct lcd_platform_data *pd = NULL;
+
 	dev_info(mdnie->dev, "+%s\n", __func__);
 
 #if defined(CONFIG_FB_MDNIE_PWM)
+	pd = mdnie->lcd_pd;
+
 	mdnie->bd_enable = FALSE;
 
 	if (mdnie->enable)
@@ -904,13 +905,13 @@ void mdnie_late_resume(struct early_suspend *h)
 {
 	u32 i;
 	struct mdnie_info *mdnie = container_of(h, struct mdnie_info, early_suspend);
-#if defined(CONFIG_FB_MDNIE_PWM)
-	struct lcd_platform_data *pd = mdnie->lcd_pd;
-#endif
+	struct lcd_platform_data *pd = NULL;
 
 	dev_info(mdnie->dev, "+%s\n", __func__);
 
 #if defined(CONFIG_FB_MDNIE_PWM)
+	pd = mdnie->lcd_pd;
+
 	if (mdnie->enable)
 		mdnie_pwm_control(mdnie, 0);
 
@@ -923,7 +924,7 @@ void mdnie_late_resume(struct early_suspend *h)
 		pd->power_on(NULL, 1);
 
 	if (mdnie->enable) {
-		dev_dbg(&mdnie->bd->dev, "brightness=%d\n", mdnie->bd->props.brightness);
+		dev_info(&mdnie->bd->dev, "brightness=%d\n", mdnie->bd->props.brightness);
 		update_brightness(mdnie);
 	}
 
@@ -1003,8 +1004,8 @@ static int mdnie_probe(struct platform_device *pdev)
 		dev_err(&mdnie->bd->dev, "failed to add sysfs entries, %d\n", __LINE__);
 #endif
 
-	mdnie->scenario = UI_MODE;
-	mdnie->mode = STANDARD;
+	mdnie->scenario = CAMERA_MODE;
+	mdnie->mode = DYNAMIC;
 	mdnie->tone = TONE_NORMAL;
 	mdnie->outdoor = OUTDOOR_OFF;
 #if defined(CONFIG_FB_MDNIE_PWM)

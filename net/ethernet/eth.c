@@ -59,7 +59,6 @@
 #include <net/ip.h>
 #include <net/dsa.h>
 #include <asm/uaccess.h>
-#include <asm/system.h>
 
 __setup("ether=", netdev_boot_setup);
 
@@ -78,7 +77,7 @@ __setup("ether=", netdev_boot_setup);
  */
 int eth_header(struct sk_buff *skb, struct net_device *dev,
 	       unsigned short type,
-	       const void *daddr, const void *saddr, unsigned len)
+	       const void *daddr, const void *saddr, unsigned int len)
 {
 	struct ethhdr *eth = (struct ethhdr *)skb_push(skb, ETH_HLEN);
 
@@ -233,9 +232,8 @@ EXPORT_SYMBOL(eth_header_parse);
  * @hh: destination cache entry
  * Create an Ethernet header template from the neighbour.
  */
-int eth_header_cache(const struct neighbour *neigh, struct hh_cache *hh)
+int eth_header_cache(const struct neighbour *neigh, struct hh_cache *hh, __be16 type)
 {
-	__be16 type = hh->hh_type;
 	struct ethhdr *eth;
 	const struct net_device *dev = neigh->dev;
 

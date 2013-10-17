@@ -47,6 +47,18 @@ static ssize_t class_attr_store(struct kobject *kobj, struct attribute *attr,
 	return ret;
 }
 
+static const void *class_attr_namespace(struct kobject *kobj,
+					const struct attribute *attr)
+{
+	struct class_attribute *class_attr = to_class_attr(attr);
+	struct subsys_private *cp = to_subsys_private(kobj);
+	const void *ns = NULL;
+
+	if (class_attr->namespace)
+		ns = class_attr->namespace(cp->class, class_attr);
+	return ns;
+}
+
 static void class_release(struct kobject *kobj)
 {
 	struct subsys_private *cp = to_subsys_private(kobj);
@@ -72,8 +84,9 @@ static const struct kobj_ns_type_operations *class_child_ns_type(struct kobject 
 }
 
 static const struct sysfs_ops class_sysfs_ops = {
-	.show	= class_attr_show,
-	.store	= class_attr_store,
+	.show	   = class_attr_show,
+	.store	   = class_attr_store,
+	.namespace = class_attr_namespace,
 };
 
 static struct kobj_type class_ktype = {
@@ -122,7 +135,7 @@ static int add_class_attrs(struct class *cls)
 	int error = 0;
 
 	if (cls->class_attrs) {
-		for (i = 0; attr_name(cls->class_attrs[i]); i++) {
+		for (i = 0; cls->class_attrs[i].attr.name; i++) {
 			error = class_create_file(cls, &cls->class_attrs[i]);
 			if (error)
 				goto error;
@@ -141,7 +154,7 @@ static void remove_class_attrs(struct class *cls)
 	int i;
 
 	if (cls->class_attrs) {
-		for (i = 0; attr_name(cls->class_attrs[i]); i++)
+		for (i = 0; cls->class_attrs[i].attr.name; i++)
 			class_remove_file(cls, &cls->class_attrs[i]);
 	}
 }
@@ -407,8 +420,8 @@ EXPORT_SYMBOL_GPL(class_for_each_device);
  * code.  There's no locking restriction.
  */
 struct device *class_find_device(struct class *class, struct device *start,
-				 void *data,
-				 int (*match)(struct device *, void *))
+				 const void *data,
+				 int (*match)(struct device *, const void *))
 {
 	struct class_dev_iter iter;
 	struct device *dev;

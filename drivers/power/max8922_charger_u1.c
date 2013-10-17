@@ -154,7 +154,7 @@ static irqreturn_t max8922_chg_ing_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-static __devinit int max8922_probe(struct platform_device *pdev)
+static int max8922_probe(struct platform_device *pdev)
 {
 	struct max8922_platform_data *pdata = dev_get_platdata(&pdev->dev);
 	struct max8922_info *info;
@@ -241,7 +241,7 @@ err_kfree:
 	return ret;
 }
 
-static int __devexit max8922_remove(struct platform_device *pdev)
+static int max8922_remove(struct platform_device *pdev)
 {
 	struct max8922_info *info = platform_get_drvdata(pdev);
 
@@ -293,7 +293,7 @@ static struct platform_driver max8922_driver = {
 		   .pm = &max8922_pm_ops,
 		   },
 	.probe = max8922_probe,
-	.remove = __devexit_p(max8922_remove),
+	.remove = max8922_remove,
 };
 
 static int __init max8922_init(void)

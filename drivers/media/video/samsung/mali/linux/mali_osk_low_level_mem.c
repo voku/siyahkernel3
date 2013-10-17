@@ -99,13 +99,14 @@ static struct vm_operations_struct mali_kernel_vm_ops =
 #endif
 };
 
-static int mali_mem_shrink(struct shrinker *shrinker, struct shrink_control *sc)
+static unsigned long
+mali_mem_shrink_scan(struct shrinker *shrinker, struct shrink_control *sc)
 {
 	unsigned long flags;
 	AllocationList *item;
-	int nr = sc->nr_to_scan;
+	unsigned long freed = 0;
 
-	if (0 == nr)
+	if (0 == freed)
 	{
 		return pre_allocated_memory_size_current / PAGE_SIZE;
 	}
@@ -113,7 +114,7 @@ static int mali_mem_shrink(struct shrinker *shrinker, struct shrink_control *sc)
 	if (0 == pre_allocated_memory_size_current)
 	{
 		/* No pages availble */
-		return 0;
+		return SHRINK_STOP;
 	}
 
 	if (0 == spin_trylock_irqsave(&allocation_list_spinlock, flags))
@@ -122,7 +123,7 @@ static int mali_mem_shrink(struct shrinker *shrinker, struct shrink_control *sc)
 		return -1;
 	}
 
-	while (pre_allocated_memory && nr > 0)
+	while (pre_allocated_memory && freed > 0)
 	{
 		item = pre_allocated_memory;
 		pre_allocated_memory = item->next;
@@ -131,15 +132,22 @@ static int mali_mem_shrink(struct shrinker *shrinker, struct shrink_control *sc)
 		_mali_osk_free(item);
 
 		pre_allocated_memory_size_current -= PAGE_SIZE;
-		--nr;
+		--freed;
 	}
 	spin_unlock_irqrestore(&allocation_list_spinlock,flags);
 
+	return freed;
+}
+
+static unsigned long
+mali_mem_shrink_count(struct shrinker *shrinker, struct shrink_control *sc)
+{
 	return pre_allocated_memory_size_current / PAGE_SIZE;
 }
 
 struct shrinker mali_mem_shrinker = {
-	.shrink = mali_mem_shrink,
+	.count_objects = mali_mem_shrink_count,
+	.scan_objects = mali_mem_shrink_scan,
 	.seeks = DEFAULT_SEEKS,
 };
 

@@ -23,7 +23,7 @@ config STRICT_DEVMEM
 config FRAME_POINTER
 	bool
 	depends on !THUMB2_KERNEL
-	default n
+	default n if !ARM_UNWIND || FUNCTION_GRAPH_TRACER
 	help
 	  If you say N here, the resulting kernel will be slightly smaller and
 	  faster. However, if neither FRAME_POINTER nor ARM_UNWIND are enabled,
@@ -32,7 +32,7 @@ config FRAME_POINTER
 
 config ARM_UNWIND
 	bool "Enable stack unwinding support (EXPERIMENTAL)"
-	depends on AEABI && EXPERIMENTAL
+	depends on AEABI
 	default n
 	help
 	  This option enables stack unwinding support in the kernel
@@ -133,5 +133,14 @@ config CACHE_PERF
 	tristate "cache performance test"
 	help
 	  Measure the performance of cache maintenance operation.
+
+config PID_IN_CONTEXTIDR
+	bool "Write the current PID to the CONTEXTIDR register"
+	depends on CPU_COPY_V6
+	help
+	  Enabling this option causes the kernel to write the current PID to
+	  the PROCID field of the CONTEXTIDR register, at the expense of some
+	  additional instructions during context switch. Say Y here only if you
+	  are planning to use hardware trace tools with this kernel.
 
 endmenu

@@ -2938,8 +2938,6 @@ source "drivers/net/benet/Kconfig"
 
 endif # NETDEV_10000
 
-source "drivers/net/tokenring/Kconfig"
-
 source "drivers/net/wireless/Kconfig"
 
 source "drivers/net/wimax_cmc/Kconfig"

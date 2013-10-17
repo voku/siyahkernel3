@@ -932,7 +932,7 @@ static void pkt_iosched_process_queue(struct pktcdvd_device *pd)
 			pd->iosched.successive_reads += bio->bi_size >> 10;
 		else {
 			pd->iosched.successive_reads = 0;
-			pd->iosched.last_write = bio->bi_sector + bio_sectors(bio);
+			pd->iosched.last_write = bio_end_sector(bio);
 		}
 		if (pd->iosched.successive_reads >= HI_SPEED_SWITCH) {
 			if (pd->read_speed == pd->write_speed) {
@@ -2490,7 +2490,7 @@ static void pkt_make_request(struct request_queue *q, struct bio *bio)
 	zone = ZONE(bio->bi_sector, pd);
 	VPRINTK("pkt_make_request: start = %6llx stop = %6llx\n",
 		(unsigned long long)bio->bi_sector,
-		(unsigned long long)(bio->bi_sector + bio_sectors(bio)));
+		(unsigned long long)bio_end_sector(bio));
 
 	/* Check if we have to split the bio */
 	{
@@ -2498,7 +2498,7 @@ static void pkt_make_request(struct request_queue *q, struct bio *bio)
 		sector_t last_zone;
 		int first_sectors;
 
-		last_zone = ZONE(bio->bi_sector + bio_sectors(bio) - 1, pd);
+		last_zone = ZONE(bio_end_sector(bio) - 1, pd);
 		if (last_zone != zone) {
 			BUG_ON(last_zone != zone + pd->settings.size);
 			first_sectors = last_zone - bio->bi_sector;
@@ -2684,7 +2684,7 @@ static int pkt_seq_show(struct seq_file *m, void *p)
 
 static int pkt_seq_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, pkt_seq_show, PDE(inode)->data);
+	return single_open(file, pkt_seq_show, PDE_DATA(inode));
 }
 
 static const struct file_operations pkt_proc_fops = {

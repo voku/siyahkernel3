@@ -301,11 +301,6 @@ ipv6_masked_addr_cmp(const struct in6_addr *a1, const struct in6_addr *m,
 		  ((a1->s6_addr32[3] ^ a2->s6_addr32[3]) & m->s6_addr32[3]));
 }
 
-static inline void ipv6_addr_copy(struct in6_addr *a1, const struct in6_addr *a2)
-{
-	memcpy(a1, a2, sizeof(struct in6_addr));
-}
-
 static inline void ipv6_addr_prefix(struct in6_addr *pfx, 
 				    const struct in6_addr *addr,
 				    int plen)
@@ -342,7 +337,7 @@ static inline int ipv6_addr_equal(const struct in6_addr *a1,
 static inline int __ipv6_prefix_equal(const __be32 *a1, const __be32 *a2,
 				      unsigned int prefixlen)
 {
-	unsigned pdw, pbi;
+	unsigned int pdw, pbi;
 
 	/* check complete u32 in prefix */
 	pdw = prefixlen >> 5;
@@ -565,9 +560,9 @@ extern void			ipv6_push_frag_opts(struct sk_buff *skb,
 						    u8 *proto);
 
 extern int			ipv6_skip_exthdr(const struct sk_buff *, int start,
-					         u8 *nexthdrp);
+					         u8 *nexthdrp, __be16 *frag_offp);
 
-extern int 			ipv6_ext_hdr(u8 nexthdr);
+extern bool			ipv6_ext_hdr(u8 nexthdr);
 
 extern int ipv6_find_tlv(struct sk_buff *skb, int offset, int type);
 

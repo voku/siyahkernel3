@@ -25,7 +25,7 @@ static volatile long pmu_lock;
 
 static struct platform_device *pmu_devices[ARM_NUM_PMU_DEVICES];
 
-static int __devinit pmu_device_probe(struct platform_device *pdev)
+static int pmu_device_probe(struct platform_device *pdev)
 {
 
 	if (pdev->id < 0 || pdev->id >= ARM_NUM_PMU_DEVICES) {

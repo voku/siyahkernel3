@@ -37,7 +37,6 @@
 #include <linux/string.h>
 
 #include <asm/io.h>
-#include <asm/system.h>
 #include <asm/string.h>
 #include <asm/uaccess.h>
 

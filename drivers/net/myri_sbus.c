@@ -32,7 +32,6 @@ static char version[] =
 #include <net/sock.h>
 #include <net/ipv6.h>
 
-#include <asm/system.h>
 #include <asm/io.h>
 #include <asm/dma.h>
 #include <asm/byteorder.h>
