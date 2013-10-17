@@ -550,8 +550,6 @@ void resched_cpu(int cpu)
 
 
 #ifdef CONFIG_NO_HZ_COMMON
-
-#if 0 // moved to sched_select_non_idle_cpu
 /*
  * In the semi idle case, use the nearest busy cpu for migrating timers
  * from an idle cpu.  This is good for power-savings.
@@ -579,7 +577,7 @@ unlock:
 	rcu_read_unlock();
 	return cpu;
 }
-#endif
+
 /*
  * When add_timer_on() enqueues a timer into the timer wheel of an
  * idle CPU then this timer might expire before the next timer event
@@ -590,7 +588,7 @@ unlock:
  * account when the CPU goes back to idle and evaluates the timer
  * wheel for the next timer event.
  */
-void wake_up_idle_cpu(int cpu)
+static void wake_up_idle_cpu(int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
 
@@ -664,37 +662,6 @@ static inline bool got_nohz_idle_kick(void)
 }
 
 #endif /* CONFIG_NO_HZ_COMMON */
-
-/*
- * This routine returns the cpu which is non-idle. If the local CPU isn't idle
- * OR all cpus are idle, local cpu is returned back. If local cpu is idle, then
- * we must look for another CPU which isn't idle.
- */
-int sched_select_non_idle_cpu(void)
-{
-	struct sched_domain *sd;
-	int cpu = smp_processor_id();
-	int i;
-
-	/* If Current cpu isn't idle, don't migrate anything */
-	if (!idle_cpu(cpu))
-		return cpu;
-
-	rcu_read_lock();
-	for_each_domain(cpu, sd) {
-		for_each_cpu(i, sched_domain_span(sd)) {
-			if (i == cpu)
-				continue;
-			if (!idle_cpu(i)) {
-				cpu = i;
-				goto unlock;
-			}
-		}
-	}
-unlock:
-	rcu_read_unlock();
-	return cpu;
-}
 
 #ifdef CONFIG_NO_HZ_FULL
 bool sched_can_stop_tick(void)
@@ -6619,24 +6586,13 @@ static inline int preempt_count_equals(int preempt_offset)
 	return (nested == preempt_offset);
 }
 
-static int __might_sleep_init_called;
-int __init __might_sleep_init(void)
-{
-	__might_sleep_init_called = 1;
-	return 0;
-}
-early_initcall(__might_sleep_init);
-
 void __might_sleep(const char *file, int line, int preempt_offset)
 {
 	static unsigned long prev_jiffy;	/* ratelimiting */
 
 	rcu_sleep_check(); /* WARN_ON_ONCE() by default, no rate limit reqd. */
 	if ((preempt_count_equals(preempt_offset) && !irqs_disabled()) ||
-	    oops_in_progress)
-		return;
-	if (system_state != SYSTEM_RUNNING &&
-	    (!__might_sleep_init_called || system_state != SYSTEM_BOOTING))
+		system_state != SYSTEM_RUNNING || oops_in_progress)
 		return;
 	if (time_before(jiffies, prev_jiffy + HZ) && prev_jiffy)
 		return;
