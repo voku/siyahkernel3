@@ -82,34 +82,27 @@ static loff_t gfs2_llseek(struct file *file, loff_t offset, int whence)
 }
 
 /**
- * gfs2_readdir - Read directory entries from a directory
+ * gfs2_readdir - Iterator for a directory
  * @file: The directory to read from
- * @dirent: Buffer for dirents
- * @filldir: Function used to do the copying
+ * @ctx: What to feed directory entries to
  *
  * Returns: errno
  */
 
-static int gfs2_readdir(struct file *file, void *dirent, filldir_t filldir)
+static int gfs2_readdir(struct file *file, struct dir_context *ctx)
 {
 	struct inode *dir = file->f_mapping->host;
 	struct gfs2_inode *dip = GFS2_I(dir);
 	struct gfs2_holder d_gh;
-	u64 offset = file->f_pos;
 	int error;
 
-	gfs2_holder_init(dip->i_gl, LM_ST_SHARED, 0, &d_gh);
-	error = gfs2_glock_nq(&d_gh);
-	if (error) {
-		gfs2_holder_uninit(&d_gh);
+	error = gfs2_glock_nq_init(dip->i_gl, LM_ST_SHARED, 0, &d_gh);
+	if (error)
 		return error;
-	}
 
-	error = gfs2_dir_read(dir, &offset, dirent, filldir, &file->f_ra);
+	error = gfs2_dir_read(dir, ctx, &file->f_ra);
 
 	gfs2_glock_dq_uninit(&d_gh);
-
-	file->f_pos = offset;
 
 	return error;
 }
@@ -657,7 +650,7 @@ static int gfs2_fsync(struct file *file, loff_t start, loff_t end,
 {
 	struct address_space *mapping = file->f_mapping;
 	struct inode *inode = mapping->host;
-	int sync_state = inode->i_state & (I_DIRTY_SYNC|I_DIRTY_DATASYNC);
+	int sync_state = inode->i_state & I_DIRTY;
 	struct gfs2_inode *ip = GFS2_I(inode);
 	int ret = 0, ret1 = 0;
 
@@ -667,6 +660,8 @@ static int gfs2_fsync(struct file *file, loff_t start, loff_t end,
 			return ret1;
 	}
 
+	if (!gfs2_is_jdata(ip))
+		sync_state &= ~I_DIRTY_PAGES;
 	if (datasync)
 		sync_state &= ~I_DIRTY_SYNC;
 
@@ -1071,7 +1066,7 @@ const struct file_operations gfs2_file_fops = {
 };
 
 const struct file_operations gfs2_dir_fops = {
-	.readdir	= gfs2_readdir,
+	.iterate	= gfs2_readdir,
 	.unlocked_ioctl	= gfs2_ioctl,
 	.open		= gfs2_open,
 	.release	= gfs2_release,
@@ -1101,7 +1096,7 @@ const struct file_operations gfs2_file_fops_nolock = {
 };
 
 const struct file_operations gfs2_dir_fops_nolock = {
-	.readdir	= gfs2_readdir,
+	.iterate	= gfs2_readdir,
 	.unlocked_ioctl	= gfs2_ioctl,
 	.open		= gfs2_open,
 	.release	= gfs2_release,

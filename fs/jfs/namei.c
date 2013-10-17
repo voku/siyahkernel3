@@ -1176,7 +1176,7 @@ static int jfs_rename(struct inode *old_dir, struct dentry *old_dentry,
 				if (!S_ISDIR(old_ip->i_mode) && new_ip)
 					IWRITE_UNLOCK(new_ip);
 				jfs_error(new_ip->i_sb,
-					  "jfs_rename: new_ip->i_nlink != 0");
+					  "new_ip->i_nlink != 0\n");
 				return -EIO;
 			}
 			tblk = tid_to_tblock(tid);
@@ -1529,7 +1529,7 @@ const struct inode_operations jfs_dir_inode_operations = {
 
 const struct file_operations jfs_dir_operations = {
 	.read		= generic_read_dir,
-	.readdir	= jfs_readdir,
+	.iterate	= jfs_readdir,
 	.fsync		= jfs_fsync,
 	.unlocked_ioctl = jfs_ioctl,
 #ifdef CONFIG_COMPAT
