@@ -435,25 +435,27 @@ static void pm_suspend_marker(char *annotation)
 
 /**
  * pm_suspend - Externally visible function for suspending the system.
- *	@state:		Enumerated value of state to enter.
+ * @state: System sleep state to enter.
  *
- *	Determine whether or not value is within range, get state
- *	structure, and enter (above).
+ * Check if the value of @state represents one of the supported states,
+ * execute enter_state() and update system suspend statistics.
  */
 int pm_suspend(suspend_state_t state)
 {
-	int ret;
-	if (state > PM_SUSPEND_ON && state <= PM_SUSPEND_MAX) {
-		pm_suspend_marker("entry");
-		ret = enter_state(state);
-		if (ret) {
-			suspend_stats.fail++;
-			dpm_save_failed_errno(ret);
-		} else
-			suspend_stats.success++;
-		return ret;
+	int error;
+
+	if (state <= PM_SUSPEND_ON || state >= PM_SUSPEND_MAX)
+		return -EINVAL;
+
+	pm_suspend_marker("entry");
+	error = enter_state(state);
+	if (error) {
+		suspend_stats.fail++;
+		dpm_save_failed_errno(error);
+	} else {
+		suspend_stats.success++;
 	}
 	pm_suspend_marker("exit");
-	return -EINVAL;
+	return error;
 }
 EXPORT_SYMBOL(pm_suspend);
