@@ -137,7 +137,8 @@ EXPORT_SYMBOL(bt_sock_unregister);
 #ifdef CONFIG_ANDROID_PARANOID_NETWORK
 static inline int current_has_bt_admin(void)
 {
-	return (!current_euid() || in_egroup_p(AID_NET_BT_ADMIN));
+	return (uid_eq(current_euid(), GLOBAL_ROOT_UID) ||
+			in_egroup_p(AID_NET_BT_ADMIN));
 }
 
 static inline int current_has_bt(void)

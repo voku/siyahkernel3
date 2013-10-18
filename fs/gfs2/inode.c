@@ -313,7 +313,7 @@ struct inode *gfs2_lookupi(struct inode *dir, const struct qstr *name,
 			goto out;
 	}
 
-	inode = gfs2_dir_search(dir, name);
+	inode = gfs2_dir_search(dir, name, false);
 	if (IS_ERR(inode))
 		error = PTR_ERR(inode);
 out:
@@ -345,17 +345,6 @@ static int create_ok(struct gfs2_inode *dip, const struct qstr *name,
 	/*  Don't create entries in an unlinked directory  */
 	if (!dip->i_inode.i_nlink)
 		return -ENOENT;
-
-	error = gfs2_dir_check(&dip->i_inode, name, NULL);
-	switch (error) {
-	case -ENOENT:
-		error = 0;
-		break;
-	case 0:
-		return -EEXIST;
-	default:
-		return error;
-	}
 
 	if (dip->i_entries == (u32)-1)
 		return -EFBIG;
@@ -605,13 +594,11 @@ static int gfs2_create_inode(struct inode *dir, struct dentry *dentry,
 		}
 		gfs2_glock_dq_uninit(ghs);
 		if (IS_ERR(d))
-			return PTR_RET(d);
+			return PTR_ERR(d);
 		return error;
 	} else if (error != -ENOENT) {
 		goto fail_gunlock;
 	}
-	if (error)
-		goto fail_gunlock;
 
 	arq = error = gfs2_diradd_alloc_required(dir, name);
 	if (error < 0)
@@ -1764,6 +1751,10 @@ static ssize_t gfs2_getxattr(struct dentry *dentry, const char *name,
 	struct gfs2_inode *ip = GFS2_I(inode);
 	struct gfs2_holder gh;
 	int ret;
+
+	/* For selinux during lookup */
+	if (gfs2_glock_is_locked_by_me(ip->i_gl))
+		return generic_getxattr(dentry, name, data, size);
 
 	gfs2_holder_init(ip->i_gl, LM_ST_SHARED, LM_FLAG_ANY, &gh);
 	ret = gfs2_glock_nq(&gh);

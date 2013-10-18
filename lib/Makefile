@@ -124,9 +124,12 @@ obj-$(CONFIG_GENERIC_STRNCPY_FROM_USER) += strncpy_from_user.o
 obj-$(CONFIG_GENERIC_STRNLEN_USER) += strnlen_user.o
 
 obj-$(CONFIG_PRIO_TREE_TEST) += prio_tree_test.o
+
 obj-$(CONFIG_INTERVAL_TREE_TEST) += interval_tree_test.o
 
 interval_tree_test-objs := interval_tree_test_main.o interval_tree.o
+
+obj-$(CONFIG_GENERIC_NET_UTILS) += net_utils.o
 
 CFLAGS_snappy.o += $(call cc-disable-warning, declaration-after-statement) \
 		   -DNDEBUG=1
