@@ -25,7 +25,6 @@
 #include <linux/posix-timers.h>
 #include <linux/workqueue.h>
 #include <linux/freezer.h>
-#include <linux/export.h>
 
 /**
  * struct alarm_base - Alarm timer bases

@@ -393,7 +393,6 @@ int enter_state(suspend_state_t state)
 		freeze_begin();
 
 	printk(KERN_INFO "PM: Syncing filesystems ... ");
-	/* sys_sync(); */
 	suspend_sys_sync_queue();
 	printk("done.\n");
 
