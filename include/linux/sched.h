@@ -84,10 +84,10 @@ extern void get_avenrun(unsigned long *loads, unsigned long offset, int shift);
 
 #define FSHIFT		11		/* nr of bits of precision */
 #define FIXED_1		(1<<FSHIFT)	/* 1.0 as fixed-point */
-#define LOAD_FREQ	(5*HZ+1)	/* 5 sec intervals */
-#define EXP_1    	1884		/* 1/exp(5sec/1min) as fixed-point */
-#define EXP_5    	2014		/* 1/exp(5sec/5min) */
-#define EXP_15    	2037		/* 1/exp(5sec/15min) */
+#define LOAD_FREQ	(4*HZ+153)	/* 4.612 sec intervals (e.g.: for HZ=250 -> 4*250+153=1153 ticks, 1153/250=4.612 sec) */
+#define EXP_1    	1896		/* 1/exp(4.61sec/1min) as fixed-point */
+#define EXP_5    	2017		/* 1/exp(4.61sec/5min) */
+#define EXP_15    	2038		/* 1/exp(4.61sec/15min) */
 
 #define CALC_LOAD(load,exp,n) \
 	load *= exp; \
@@ -224,10 +224,27 @@ extern void init_idle_bootup_task(struct task_struct *idle);
 
 extern int runqueue_is_locked(int cpu);
 
+#ifdef CONFIG_SMP
+extern int sched_select_non_idle_cpu(void);
+#else
+static inline int sched_select_non_idle_cpu(void)
+{
+	return smp_processor_id();
+}
+#endif
+
 #if defined(CONFIG_SMP) && defined(CONFIG_NO_HZ_COMMON)
 extern void nohz_balance_enter_idle(int cpu);
 extern void set_cpu_sd_state_idle(void);
-extern int get_nohz_timer_target(void);
+/*
+ * In the semi idle case, use the nearest busy cpu for migrating timers
+ * from an idle cpu.  This is good for power-savings.
+ *
+ * We don't do similar optimization for completely idle system, as
+ * selecting an idle cpu will add more delays to the timers than intended
+ * (as that cpu's timer base may not be uptodate wrt jiffies etc).
+ */
+#define get_nohz_timer_target() sched_select_non_idle_cpu()
 #else
 static inline void nohz_balance_enter_idle(int cpu) { }
 static inline void set_cpu_sd_state_idle(void) { }
@@ -2651,4 +2668,13 @@ static inline unsigned long rlimit_max(unsigned int limit)
 	return task_rlimit_max(current, limit);
 }
 
+#ifdef CONFIG_CGROUP_TIMER_SLACK
+extern unsigned long task_get_effective_timer_slack(struct task_struct *tsk);
+#else
+static inline unsigned long task_get_effective_timer_slack(
+    struct task_struct *tsk)
+{
+	return tsk->timer_slack_ns;
+}
+#endif
 #endif

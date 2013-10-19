@@ -444,8 +444,8 @@ int pm_suspend(suspend_state_t state)
 {
 	int error;
 
-    if (state <= PM_SUSPEND_ON || state >= PM_SUSPEND_MAX)
-        return -EINVAL;
+	if (state <= PM_SUSPEND_ON || state >= PM_SUSPEND_MAX)
+		return -EINVAL;
 
 	pm_suspend_marker("entry");
 	error = enter_state(state);

@@ -66,7 +66,6 @@ static int try_to_freeze_tasks(bool user_only)
 			wakeup = 1;
 			break;
 		}
-
 		if (!todo || time_after(jiffies, end_time))
 			break;
 
@@ -98,16 +97,17 @@ static int try_to_freeze_tasks(bool user_only)
 		}
 		else {
 			printk("\n");
-			printk(KERN_ERR "Freezing of tasks failed after %d.%03d seconds "
-			       "(%d tasks refusing to freeze, wq_busy=%d):\n",
-		           user_only ? "user space " : "tasks ",
-			       elapsed_msecs / 1000, elapsed_msecs % 1000,
-			       todo - wq_busy, wq_busy);
+			printk(KERN_ERR "Freezing of tasks failed %s after %d.%03d seconds "
+				"(%d tasks refusing to freeze, wq_busy=%d):\n",
+				user_only ? "user space " : "tasks ",
+				elapsed_msecs / 1000, elapsed_msecs % 1000,
+				todo - wq_busy, wq_busy);
 
 			read_lock(&tasklist_lock);
 			do_each_thread(g, p) {
 				if (p != current && !freezer_should_skip(p)
-				    && freezing(p) && !frozen(p))
+					&& freezing(p) && !frozen(p) &&
+					elapsed_msecs > 1000)
 					sched_show_task(p);
 			} while_each_thread(g, p);
 			read_unlock(&tasklist_lock);
