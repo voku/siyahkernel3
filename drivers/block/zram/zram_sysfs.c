@@ -15,6 +15,7 @@
 #include <linux/device.h>
 #include <linux/genhd.h>
 #include <linux/mm.h>
+#include <linux/kernel.h>
 
 #include "zram_drv.h"
 
@@ -54,13 +55,12 @@ static ssize_t disksize_show(struct device *dev,
 static ssize_t disksize_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t len)
 {
-	int ret;
 	u64 disksize;
 	struct zram *zram = dev_to_zram(dev);
 
-	ret = kstrtoull(buf, 10, &disksize);
-	if (ret)
-		return ret;
+	disksize = memparse(buf, NULL);
+	if (!disksize)
+		return -EINVAL;
 
 	down_write(&zram->init_lock);
 	if (zram->init_done) {
@@ -68,7 +68,12 @@ static ssize_t disksize_store(struct device *dev,
 		pr_info("Cannot change disksize for initialized device\n");
 		return -EBUSY;
 	}
-
+#ifdef CONFIG_ZRAM_FOR_ANDROID
+        if (!disksize) {
+                disksize = default_disksize_perc_ram *
+                                        ((totalram_pages << PAGE_SHIFT) / 100);
+        }
+#endif
 	zram->disksize = PAGE_ALIGN(disksize);
 	set_capacity(zram->disk, zram->disksize >> SECTOR_SHIFT);
 	up_write(&zram->init_lock);
@@ -76,70 +81,12 @@ static ssize_t disksize_store(struct device *dev,
 	return len;
 }
 
-#ifdef MULTIPLE_COMPRESSORS
-static ssize_t compressor_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	char * const buf_base = buf;
-	const struct zram_compressor *p, *curr;
-	unsigned int i = 0;
-	struct zram *zram = dev_to_zram(dev);
-	curr = zram->compressor;
-	p = zram_compressors[i];
-	while (p) {
-		if (curr == p)
-			buf += sprintf(buf, "*");
-		buf += sprintf(buf, "%u - %s\n", i, p->name);
-		p = zram_compressors[++i];
-	}
-	return buf - buf_base;
-}
-
-static ssize_t compressor_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t len)
-{
-	const struct zram_compressor *p;
-	unsigned long requested;
-	unsigned int i = 0;
-	int ret;
-	struct zram *zram = dev_to_zram(dev);
-
-	if (zram->init_done) {
-		pr_info("Cannot change compressor for initialized device\n");
-		return -EBUSY;
-	}
-
-	ret = strict_strtoul(buf, 10, &requested);
-	if (ret)
-		return ret;
-
-	p = zram_compressors[i];
-	while (p && (i < requested))
-		p = zram_compressors[++i];
-
-	if (!p) {
-		pr_info("No compressor with index #%lu\n", requested);
-		return -EINVAL;
-	}
-
-	zram->compressor = p;
-	return len;
-}
-#endif /* MULTIPLE_COMPRESSORS */
-
 static ssize_t initstate_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	struct zram *zram = dev_to_zram(dev);
 
 	return sprintf(buf, "%u\n", zram->init_done);
-}
-
-static inline ssize_t initstate_store(struct device *dev,
-				      struct device_attribute *attr,
-				      const char *buf, size_t len)
-{
-	return 0;
 }
 
 static ssize_t reset_store(struct device *dev,
@@ -244,21 +191,15 @@ static ssize_t mem_used_total_show(struct device *dev,
 	u64 val = 0;
 	struct zram *zram = dev_to_zram(dev);
 
-	if (zram->init_done) {
-		val = xv_get_total_size_bytes(zram->mem_pool) +
-			((u64)(zram->stats.pages_expand) << PAGE_SHIFT);
-	}
+	if (zram->init_done)
+		val = zs_get_total_size_bytes(zram->mem_pool);
 
 	return sprintf(buf, "%llu\n", val);
 }
 
-#ifdef MULTIPLE_COMPRESSORS
-static DEVICE_ATTR(compressor, S_IRUGO | S_IWUSR,
-		compressor_show, compressor_store);
-#endif
 static DEVICE_ATTR(disksize, S_IRUGO | S_IWUSR,
 		disksize_show, disksize_store);
-static DEVICE_ATTR(initstate, S_IRUGO | S_IWUSR, initstate_show, initstate_store);
+static DEVICE_ATTR(initstate, S_IRUGO, initstate_show, NULL);
 static DEVICE_ATTR(reset, S_IWUSR, NULL, reset_store);
 static DEVICE_ATTR(num_reads, S_IRUGO, num_reads_show, NULL);
 static DEVICE_ATTR(num_writes, S_IRUGO, num_writes_show, NULL);
@@ -270,9 +211,6 @@ static DEVICE_ATTR(compr_data_size, S_IRUGO, compr_data_size_show, NULL);
 static DEVICE_ATTR(mem_used_total, S_IRUGO, mem_used_total_show, NULL);
 
 static struct attribute *zram_disk_attrs[] = {
-#ifdef MULTIPLE_COMPRESSORS
-	&dev_attr_compressor.attr,
-#endif
 	&dev_attr_disksize.attr,
 	&dev_attr_initstate.attr,
 	&dev_attr_reset.attr,
@@ -290,4 +228,3 @@ static struct attribute *zram_disk_attrs[] = {
 struct attribute_group zram_disk_attr_group = {
 	.attrs = zram_disk_attrs,
 };
-
